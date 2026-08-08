@@ -1,0 +1,4 @@
+./src/styles/ag-theme-legalmas.css
+./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css
+./src/App.css
+./src/index.css

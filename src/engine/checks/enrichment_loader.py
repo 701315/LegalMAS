@@ -110,6 +110,7 @@ def _extract_units_from_snapshot(snapshot: Any) -> list[dict]:
 
             effective = item.get("effective") or {}
             base = item.get("base") or {}
+            status = str(item.get("status") or "").strip()
 
             # Берём clause_function из effective (post-enrichment),
             # с fallback на base (pre-enrichment).
@@ -123,9 +124,18 @@ def _extract_units_from_snapshot(snapshot: Any) -> list[dict]:
                 or base.get("unit_type")
             )
 
-            # topic_tags из proposal если есть
-            llm_proposal = item.get("llm_proposal") or {}
-            topic_tags = llm_proposal.get("topic_tags") or []
+            # topic_tags: используем policy-approved effective слой.
+            #
+            # Было: topic_tags из llm_proposal (raw LLM suggestion, pre-policy).
+            # Стало: topic_tags из effective (post-policy) для applied/no_change,
+            #        из base (deterministic baseline) для skipped/failed.
+            #
+            # Это обеспечивает единый semantic source of truth:
+            # тот же слой, что использует chunk_snapshot_reader.py.
+            if status in ("applied", "no_change"):
+                topic_tags = effective.get("topic_tags") or []
+            else:
+                topic_tags = base.get("topic_tags") or []
 
             result.append({
                 "unit_id": unit_id,
@@ -133,7 +143,7 @@ def _extract_units_from_snapshot(snapshot: Any) -> list[dict]:
                 "unit_type": unit_type,
                 "topic_tags": topic_tags,
                 "applied_fields": item.get("applied_fields") or [],
-                "status": item.get("status"),
+                "status": status,
             })
         return result
 

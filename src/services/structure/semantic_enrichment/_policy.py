@@ -23,7 +23,7 @@ Tiered approach:
                               AND policy.allow_override_existing_type = True
 
 Безопасность:
-- Topic tags фильтруются через KNOWN_TOPICS taxonomy.
+- Topic tags фильтруются через EXTENDED_TOPICS taxonomy.
 - Неизвестные topics отклоняются и логируются.
 - Clause function может автоматически выводиться из unit_type
   через deterministic default mapping.
@@ -43,7 +43,7 @@ from services.structure.semantic_enrichment._types import (
     SemanticEnrichmentPolicy,
     SemanticEnrichmentStatus,
 )
-from services.structure.topic_tagger import KNOWN_TOPICS
+from services.structure.topic_tagger import EXTENDED_TOPICS
 
 _DEFAULT_TYPE_TO_FUNCTION: dict[LegalUnitType, ClauseFunction] = {
     LegalUnitType.DEFINITION: ClauseFunction.DEFINITIONS,
@@ -99,7 +99,7 @@ def _normalize_topics(
         normalized = _normalize_topic_name(raw_topic)
         if not normalized:
             continue
-        if normalized not in KNOWN_TOPICS:
+        if normalized not in EXTENDED_TOPICS:
             rejected.append(normalized)
             continue
         if normalized in seen:
@@ -191,19 +191,27 @@ _DETERMINISTIC_SOURCES = frozenset({
     "default_mapping",
 })
 
-# Типы юнитов, для которых LLM может добавить полезные topic_tags,
-# даже если structural classification уже завершена deterministically.
-# Типы НЕ в этом списке будут skip-нуты даже при пустых topics.
-_TOPIC_COMPLETION_ELIGIBLE_TYPES = frozenset({
-    LegalUnitType.OBLIGATION,
-    LegalUnitType.PAYMENT_TERM,
-    LegalUnitType.CONFIDENTIALITY,
-    LegalUnitType.INDEMNIFICATION,
-    LegalUnitType.TERMINATION_PROVISION,
-    LegalUnitType.LIABILITY_PROVISION,
-    LegalUnitType.NOTICE,
-    LegalUnitType.WARRANTY,
-    LegalUnitType.DISPUTE_RESOLUTION,
+# Типы юнитов которые НЕ eligible для topic completion.
+#
+# Denylist вместо allowlist: исключаем только структурные артефакты парсинга,
+# а не перечисляем разрешённые семантические типы.
+#
+# Логика:
+# - STRUCTURAL_ANCHOR: heading-only узел без собственного текста
+#   → нет смысла enriching topics, нет содержания для inference
+# - TECHNICAL_FRAGMENT: технический fallback fragment
+#   → не является юридической клаузой
+# - UNKNOWN: тип ещё не определён
+#   → сначала нужно определить тип, потом enriching topics
+#
+# Все остальные типы (DEFINITION, GOVERNING_LAW, JURISDICTION,
+# GENERAL_PROVISION, APPENDIX_REFERENCE и т.д.) могут получать
+# topic completion если у них пустые topics и достаточно длинный текст.
+# Это универсально для всего поддерживаемого contract registry.
+_TOPIC_COMPLETION_INELIGIBLE_TYPES = frozenset({
+    LegalUnitType.STRUCTURAL_ANCHOR,
+    LegalUnitType.TECHNICAL_FRAGMENT,
+    LegalUnitType.UNKNOWN,
 })
 
 def _is_deterministic_source(unit: LegalUnit) -> bool:
@@ -229,9 +237,16 @@ def _is_topic_completion_candidate(
     Topic completion path — это когда:
     - structural classification уже сделана deterministically;
     - но topic_tags пустые;
-    - тип юнита входит в allowlist topic-enrichable types;
+    - тип юнита НЕ входит в denylist неeligible types;
     - текст достаточно длинный для meaningful topic inference;
     - policy разрешает этот path.
+
+    Использует denylist вместо allowlist:
+    - запрещаем только структурные артефакты (STRUCTURAL_ANCHOR,
+      TECHNICAL_FRAGMENT, UNKNOWN);
+    - все остальные содержательные contract clause types могут
+      получать topic completion если topics пустые.
+    - универсально для всего supported contract registry.
 
     Возвращает True если unit должен пройти enrichment
     только ради topics, даже если type/function уже известны.
@@ -242,7 +257,8 @@ def _is_topic_completion_candidate(
     if not _is_deterministic_source(unit):
         return False
 
-    if unit.unit_type not in _TOPIC_COMPLETION_ELIGIBLE_TYPES:
+    # Denylist: только структурные артефакты не eligible
+    if unit.unit_type in _TOPIC_COMPLETION_INELIGIBLE_TYPES:
         return False
 
     if unit.topic_tags:
@@ -508,11 +524,14 @@ def apply_enrichment_policy(
         has_meaningful_suggestion = True
 
         if base_unit_type == LegalUnitType.UNKNOWN:
-            if confidence >= policy.min_confidence_fill_missing:
+            # unit_type использует отдельный, более строгий порог.
+            # unit_type — semantic identity юнита, влияет на routing
+            # в retrieval и checks pipeline. Ошибка здесь системная.
+            if confidence >= policy.min_confidence_fill_unit_type:
                 effective_unit_type = suggested_unit_type
                 applied_fields.append("unit_type")
             else:
-                notes.append("unit_type_below_fill_threshold")
+                notes.append("unit_type_below_fill_unit_type_threshold")
         elif base_unit_type != suggested_unit_type:
             if (
                 policy.allow_override_existing_type
@@ -665,12 +684,12 @@ def apply_enrichment_policy(
         diagnostics=diagnostics,
     )
 
-
 def make_policy_from_settings() -> SemanticEnrichmentPolicy:
     """
     Создаёт SemanticEnrichmentPolicy из runtime settings.
 
     Позволяет настраивать поведение enrichment без правки кода:
+    - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL_UNIT_TYPE
     - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL
     - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_TOPICS
     - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_OVERRIDE
@@ -684,6 +703,13 @@ def make_policy_from_settings() -> SemanticEnrichmentPolicy:
         from core.config import settings
 
         return SemanticEnrichmentPolicy(
+            min_confidence_fill_unit_type=float(
+                getattr(
+                    settings,
+                    "SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL_UNIT_TYPE",
+                    0.80,
+                )
+            ),
             min_confidence_fill_missing=float(
                 getattr(settings, "SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL", 0.72)
             ),
@@ -715,7 +741,11 @@ def make_policy_from_settings() -> SemanticEnrichmentPolicy:
                 getattr(settings, "SEMANTIC_ENRICHMENT_ALLOW_TOPIC_COMPLETION", True)
             ),
             min_text_chars_topic_completion=int(
-                getattr(settings, "SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS_TOPIC_COMPLETION", 80)
+                getattr(
+                    settings,
+                    "SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS_TOPIC_COMPLETION",
+                    80,
+                )
             ),
         )
     except Exception:

@@ -8,29 +8,34 @@
 // - exportMatrixToExcel (matrix mode, single только для Excel)
 // - exportMatrixSingleToPdf / exportMatrixSingleToWord (matrix Layout 1)
 // - exportSectionedToPdf / exportSectionedToWord (matrix Layout 2 & 3)
+//
+// Все тяжёлые библиотеки (xlsx, jspdf, docx) грузятся динамически,
+// только при первом вызове export-функции.
 // =============================================================
-
-import * as XLSX from "xlsx";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import { saveAs } from "file-saver";
-import {
-  Document,
-  HeadingLevel,
-  Packer,
-  PageOrientation,
-  Paragraph,
-  Table,
-  TableCell,
-  TableRow,
-  TextRun,
-  WidthType,
-} from "docx";
 
 import type {
   DDGridV1MatrixExportTable,
   DDGridV1SectionedExportTable,
 } from "./ddGridV1.exportBuilder";
+
+// -------------------------------------------------------------
+// Type-only imports (не попадают в runtime bundle)
+// -------------------------------------------------------------
+
+import type { jsPDF as JsPDFType } from "jspdf";
+import type * as XLSXType from "xlsx";
+import type {
+  Document as DocumentType,
+  HeadingLevel as HeadingLevelType,
+  Packer as PackerType,
+  PageOrientation as PageOrientationType,
+  Paragraph as ParagraphType,
+  Table as TableType,
+  TableCell as TableCellType,
+  TableRow as TableRowType,
+  TextRun as TextRunType,
+  WidthType as WidthTypeType,
+} from "docx";
 
 // -------------------------------------------------------------
 // Common types
@@ -39,6 +44,80 @@ import type {
 export interface DDGridV1ExportFileOpts {
   dealName?: string;
   runId?: string;
+}
+
+// -------------------------------------------------------------
+// Lazy module loaders (singleton cache per module)
+// -------------------------------------------------------------
+
+let _xlsxModule: typeof XLSXType | null = null;
+async function loadXLSX(): Promise<typeof XLSXType> {
+  if (!_xlsxModule) {
+    _xlsxModule = await import("xlsx");
+  }
+  return _xlsxModule;
+}
+
+let _jspdfModule: { jsPDF: typeof JsPDFType } | null = null;
+async function loadJsPDF(): Promise<{ jsPDF: typeof JsPDFType }> {
+  if (!_jspdfModule) {
+    const mod = await import("jspdf");
+    _jspdfModule = { jsPDF: mod.jsPDF };
+  }
+  return _jspdfModule;
+}
+
+let _autoTableFn: ((doc: JsPDFType, options: unknown) => void) | null = null;
+async function loadAutoTable(): Promise<
+  (doc: JsPDFType, options: unknown) => void
+> {
+  if (!_autoTableFn) {
+    const mod = await import("jspdf-autotable");
+    _autoTableFn = mod.default as (doc: JsPDFType, options: unknown) => void;
+  }
+  return _autoTableFn;
+}
+
+interface DocxModule {
+  Document: typeof DocumentType;
+  HeadingLevel: typeof HeadingLevelType;
+  Packer: typeof PackerType;
+  PageOrientation: typeof PageOrientationType;
+  Paragraph: typeof ParagraphType;
+  Table: typeof TableType;
+  TableCell: typeof TableCellType;
+  TableRow: typeof TableRowType;
+  TextRun: typeof TextRunType;
+  WidthType: typeof WidthTypeType;
+}
+
+let _docxModule: DocxModule | null = null;
+async function loadDocx(): Promise<DocxModule> {
+  if (!_docxModule) {
+    const mod = await import("docx");
+    _docxModule = {
+      Document: mod.Document,
+      HeadingLevel: mod.HeadingLevel,
+      Packer: mod.Packer,
+      PageOrientation: mod.PageOrientation,
+      Paragraph: mod.Paragraph,
+      Table: mod.Table,
+      TableCell: mod.TableCell,
+      TableRow: mod.TableRow,
+      TextRun: mod.TextRun,
+      WidthType: mod.WidthType,
+    };
+  }
+  return _docxModule;
+}
+
+let _saveAsFn: ((blob: Blob, filename: string) => void) | null = null;
+async function loadSaveAs(): Promise<(blob: Blob, filename: string) => void> {
+  if (!_saveAsFn) {
+    const mod = await import("file-saver");
+    _saveAsFn = mod.saveAs;
+  }
+  return _saveAsFn;
 }
 
 // -------------------------------------------------------------
@@ -218,7 +297,7 @@ async function fetchFontAsBase64(url: string): Promise<string> {
   return btoa(binary);
 }
 
-async function applyCyrillicFontToPdf(doc: jsPDF): Promise<boolean> {
+async function applyCyrillicFontToPdf(doc: JsPDFType): Promise<boolean> {
   try {
     if (cachedRegularFontBase64 === null) {
       cachedRegularFontBase64 = await fetchFontAsBase64(
@@ -247,11 +326,12 @@ async function applyCyrillicFontToPdf(doc: jsPDF): Promise<boolean> {
 // LIST export — flat table
 // =============================================================
 
-export function exportListToExcel(
+export async function exportListToExcel(
   headers: string[],
   rows: string[][],
   opts: DDGridV1ExportFileOpts,
-): void {
+): Promise<void> {
+  const XLSX = await loadXLSX();
   const workbook = XLSX.utils.book_new();
 
   const metadata = buildExportMetadata({
@@ -285,6 +365,9 @@ export async function exportListToPdf(
   rows: string[][],
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
+  const { jsPDF } = await loadJsPDF();
+  const autoTable = await loadAutoTable();
+
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const fontApplied = await applyCyrillicFontToPdf(doc);
   const fontName = fontApplied ? "LiberationSans" : "helvetica";
@@ -373,7 +456,23 @@ export async function exportListToWord(
   rows: string[][],
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
-  const paragraphs: Paragraph[] = [
+  const docx = await loadDocx();
+  const saveAs = await loadSaveAs();
+
+  const {
+    Document,
+    HeadingLevel,
+    Packer,
+    PageOrientation,
+    Paragraph,
+    Table,
+    TableCell,
+    TableRow,
+    TextRun,
+    WidthType,
+  } = docx;
+
+  const paragraphs: ParagraphType[] = [
     new Paragraph({
       text: "DD Grid V1 — Экспорт",
       heading: HeadingLevel.TITLE,
@@ -404,7 +503,7 @@ export async function exportListToWord(
     text: string,
     widthDxa: number,
     bold = false,
-  ): TableCell =>
+  ): TableCellType =>
     new TableCell({
       width: { size: Math.round(widthDxa), type: WidthType.DXA },
       children: [
@@ -459,10 +558,11 @@ export async function exportListToWord(
 // MATRIX export — Excel (единая таблица с merged headers)
 // =============================================================
 
-export function exportMatrixToExcel(
+export async function exportMatrixToExcel(
   table: DDGridV1MatrixExportTable,
   opts: DDGridV1ExportFileOpts,
-): void {
+): Promise<void> {
+  const XLSX = await loadXLSX();
   const workbook = XLSX.utils.book_new();
 
   const metadata = buildExportMetadata({
@@ -512,7 +612,7 @@ export function exportMatrixToExcel(
   sheetData.push(headerRow0, headerRow1, headerRow2, ...table.rows);
   const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
 
-  const merges: XLSX.Range[] = [];
+  const merges: XLSXType.Range[] = [];
   for (let i = 0; i < pinnedCount; i++) {
     merges.push({ s: { r: 0, c: i }, e: { r: 2, c: i } });
   }
@@ -558,6 +658,9 @@ export async function exportMatrixSingleToPdf(
   table: DDGridV1MatrixExportTable,
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
+  const { jsPDF } = await loadJsPDF();
+  const autoTable = await loadAutoTable();
+
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const fontApplied = await applyCyrillicFontToPdf(doc);
   const fontName = fontApplied ? "LiberationSans" : "helvetica";
@@ -670,7 +773,23 @@ export async function exportMatrixSingleToWord(
   table: DDGridV1MatrixExportTable,
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
-  const paragraphs: Paragraph[] = [
+  const docx = await loadDocx();
+  const saveAs = await loadSaveAs();
+
+  const {
+    Document,
+    HeadingLevel,
+    Packer,
+    PageOrientation,
+    Paragraph,
+    Table,
+    TableCell,
+    TableRow,
+    TextRun,
+    WidthType,
+  } = docx;
+
+  const paragraphs: ParagraphType[] = [
     new Paragraph({
       text: "DD Grid V1 — Экспорт (единая таблица)",
       heading: HeadingLevel.TITLE,
@@ -710,7 +829,7 @@ export async function exportMatrixSingleToWord(
       rowSpan?: number;
       shading?: string;
     },
-  ): TableCell => {
+  ): TableCellType => {
     return new TableCell({
       width: { size: Math.round(widthDxa), type: WidthType.DXA },
       columnSpan: cellOpts?.columnSpan,
@@ -728,7 +847,7 @@ export async function exportMatrixSingleToWord(
     });
   };
 
-  const headerRow0Cells: TableCell[] = [];
+  const headerRow0Cells: TableCellType[] = [];
   for (let i = 0; i < pinnedCount; i++) {
     headerRow0Cells.push(
       buildCell(table.pinnedHeaders[i], columnWidthsDxa[i], {
@@ -754,7 +873,7 @@ export async function exportMatrixSingleToWord(
     colIdx += cell.colSpan;
   }
 
-  const headerRow1Cells: TableCell[] = [];
+  const headerRow1Cells: TableCellType[] = [];
   colIdx = pinnedCount;
   for (const cell of table.headerRows[1]) {
     let combinedWidth = 0;
@@ -771,7 +890,7 @@ export async function exportMatrixSingleToWord(
     colIdx += cell.colSpan;
   }
 
-  const headerRow2Cells: TableCell[] = [];
+  const headerRow2Cells: TableCellType[] = [];
   colIdx = pinnedCount;
   for (const cell of table.headerRows[2]) {
     headerRow2Cells.push(
@@ -835,6 +954,9 @@ export async function exportSectionedToPdf(
     layoutSuffix: string;
   },
 ): Promise<void> {
+  const { jsPDF } = await loadJsPDF();
+  const autoTable = await loadAutoTable();
+
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const fontApplied = await applyCyrillicFontToPdf(doc);
   const fontName = fontApplied ? "LiberationSans" : "helvetica";
@@ -956,7 +1078,23 @@ export async function exportSectionedToWord(
     layoutSuffix: string;
   },
 ): Promise<void> {
-  const paragraphs: Paragraph[] = [
+  const docx = await loadDocx();
+  const saveAs = await loadSaveAs();
+
+  const {
+    Document,
+    HeadingLevel,
+    Packer,
+    PageOrientation,
+    Paragraph,
+    Table,
+    TableCell,
+    TableRow,
+    TextRun,
+    WidthType,
+  } = docx;
+
+  const paragraphs: ParagraphType[] = [
     new Paragraph({
       text: `DD Grid V1 — Экспорт (${opts.titleSuffix})`,
       heading: HeadingLevel.TITLE,
@@ -987,7 +1125,7 @@ export async function exportSectionedToWord(
     widthDxa: number,
     bold = false,
     shading?: string,
-  ): TableCell =>
+  ): TableCellType =>
     new TableCell({
       width: { size: Math.round(widthDxa), type: WidthType.DXA },
       shading: shading
@@ -1000,7 +1138,7 @@ export async function exportSectionedToWord(
       ],
     });
 
-  const sectionChildren: Array<Paragraph | Table> = [...paragraphs];
+  const sectionChildren: Array<ParagraphType | TableType> = [...paragraphs];
 
   for (const section of sectionedTable.sections) {
     sectionChildren.push(
@@ -1078,5 +1216,6 @@ export async function exportSectionedToWord(
   const blob = await Packer.toBlob(document);
   saveAs(blob, buildFilename("docx", opts));
 }
+
 
 

@@ -110,6 +110,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "indemnification_check"
   context_k: 5
   max_chunks: 10
 
@@ -154,9 +155,9 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "liability"
-    - "indemnification"
-    - "limitation_of_liability"
+    - "limitations"
+    - "remedies"
+    - "limitations"
     - "remedies"
 
   position_bias:
@@ -186,7 +187,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 400
+  llm_max_tokens: 800
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по контрактному праву.

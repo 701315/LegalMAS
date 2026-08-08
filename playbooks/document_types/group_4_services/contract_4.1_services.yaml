@@ -938,7 +938,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай идентификацию сторон с банковскими реквизитами.
         8. Верни только один JSON-объект.
@@ -1031,6 +1031,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "заказчик исполнитель в лице действующего на основании устав доверенность приказ ИНН ОГРН ОГРНИП одобрение сделки протокол"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1075,8 +1076,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 580
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора идентификацию заказчика
@@ -1331,7 +1334,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Если есть только общая формула «оказывать услуги» без конкретики — это не detailed.
         8. Верни только один JSON-объект.
@@ -1411,6 +1414,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "предмет договора оказание услуг перечень услуг объем услуг техническое задание спецификация приложение результат услуг"
+      retrieval_profile: "scope_of_work_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1455,8 +1459,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 850
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора предмет услуг,
@@ -1662,7 +1668,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай цену договора с неустойкой или компенсацией расходов.
         8. Не путай обычный порядок передачи результата после оплаты с прямым правом удержания, если удержание или непередача до оплаты не сформулированы в тексте.
@@ -1748,6 +1754,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "стоимость услуг цена вознаграждение оплата аванс НДС счет акт отчет абонентская плата почасовая ставка право удержания передача результатов после оплаты не передавать результат до полной оплаты"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1756,7 +1763,7 @@ checks_v8:
         - structural_anchor
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "неустойка"
         - "штраф"
@@ -1778,7 +1785,7 @@ checks_v8:
         - "technical_specification"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -1790,8 +1797,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 950
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цену услуг,
@@ -2027,7 +2036,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай срок договора со сроком оплаты или сроком уведомления.
         8. Верни только один JSON-объект.
@@ -2100,6 +2109,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "срок оказания услуг дата начала дата окончания период оказания этап календарный план milestone"
+      retrieval_profile: "term_and_renewal_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2140,8 +2150,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора срок оказания услуг,
@@ -2309,7 +2321,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай акт приемки услуг с актом сверки или иным документом.
         8. Верни только один JSON-объект.
@@ -2393,6 +2405,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "акт оказанных услуг отчет детализация мотивированный отказ срок рассмотрения оплата после подписания акта приемка услуг"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2401,7 +2414,7 @@ checks_v8:
         - structural_anchor
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "форс-мажор"
         - "неустойка"
@@ -2422,7 +2435,7 @@ checks_v8:
         - "technical_specification"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -2434,8 +2447,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 950
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора порядок приемки услуг,
@@ -2638,7 +2653,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай санкцию с ценой договора.
         8. Не путай страхование профессиональной ответственности с общим имущественным страхованием, если профессиональная ответственность прямо не названа.
@@ -2727,6 +2742,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "неустойка пеня штраф ответственность ограничена совокупная ответственность косвенные убытки упущенная выгода страхование ответственности страховой полис профессиональная ответственность"
+      retrieval_profile: "liability_cap_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2766,8 +2782,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1000
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора санкции для сторон,
@@ -2957,7 +2975,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай срок исправления дефектов со сроком ответа на претензию по оплате.
         8. Верни только один JSON-объект.
@@ -3035,6 +3053,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "стандарты качества гарантийный срок недостатки претензия устранение недостатков срок устранения"
+      retrieval_profile: "warranties_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3074,8 +3093,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+      llm_max_tokens: 800
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора стандарты качества,
@@ -3242,7 +3263,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай обычное прекращение срока договора с правом на односторонний отказ.
         8. Верни только один JSON-объект.
@@ -3321,6 +3342,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "расторжение односторонний отказ отказ от исполнения фактически понесенные расходы убытки взаиморасчеты возврат данных удаление данных"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3360,8 +3382,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+      llm_max_tokens: 750
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условия расторжения,
@@ -3379,10 +3403,10 @@ checks_v8:
         1. client_refusal_right — "statutory" / "modified" / "restricted" /
            "not_defined".
         2. client_refusal_cost — "actual_expenses" / "penalty" / "full_price" /
-           "not_specified" / "not_defined".
+           "not_defined" / "not_defined".
         3. provider_refusal_right — "statutory" / "modified" / "restricted" /
            "not_defined".
-        4. provider_refusal_cost — "full_damages" / "limited" / "not_specified" /
+        4. provider_refusal_cost — "full_damages" / "limited" / "not_defined" /
            "not_defined".
         5. exit_fee_present — "defined" / "not_defined".
         6. termination_settlement_defined — "defined" / "not_defined".
@@ -3400,12 +3424,12 @@ checks_v8:
             - "actual_expenses" — фактически понесенные расходы.
             - "penalty" — штраф / плата за выход.
             - "full_price" — полная цена.
-            - "not_specified" — отказ упомянут, но стоимость не раскрыта.
+            - "not_defined" — отказ упомянут, но стоимость не раскрыта.
             - "not_defined" — право / стоимость прямо не определены.
         - provider_refusal_cost:
             - "full_damages" — полное возмещение убытков.
             - "limited" — ограниченное возмещение.
-            - "not_specified" — стоимость не раскрыта.
+            - "not_defined" — стоимость не раскрыта.
             - "not_defined" — право / стоимость прямо не определены.
         - exit_fee_present / termination_settlement_defined / data_return_or_deletion_defined:
             - "defined" — условие прямо указано.
@@ -3431,7 +3455,7 @@ checks_v8:
             - "actual_expenses"
             - "penalty"
             - "full_price"
-            - "not_specified"
+            - "not_defined"
             - "not_defined"
           description: "Стоимость отказа для заказчика."
           required: true
@@ -3455,7 +3479,7 @@ checks_v8:
           allowed_values:
             - "full_damages"
             - "limited"
-            - "not_specified"
+            - "not_defined"
             - "not_defined"
           description: "Стоимость отказа для исполнителя."
           required: true
@@ -3554,7 +3578,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай форс-мажор с обычной хозяйственной трудностью.
         8. Верни только один JSON-объект.
@@ -3629,6 +3653,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "форс-мажор обстоятельства непреодолимой силы уведомление срок исполнения продлевается подтверждается ТПП"
+      retrieval_profile: "force_majeure_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3668,8 +3693,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора форс-мажорную оговорку,
@@ -3820,7 +3847,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай общую оговорку о переговорах с формальным претензионным порядком.
         8. Верни только один JSON-объект.
@@ -3890,6 +3917,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "споры претензионный порядок претензия срок ответа подсудность арбитражный суд третейский суд"
+      retrieval_profile: "dispute_resolution_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3929,8 +3957,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора претензионный порядок,
@@ -4083,7 +4113,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены" только для текстовых полей.
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай право привлекать сотрудников исполнителя с правом привлекать внешних третьих лиц.
         8. Верни только один JSON-объект.
@@ -4151,6 +4181,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "личное исполнение привлечение третьих лиц субисполнитель соисполнитель своими силами с согласия заказчика ответственность за действия третьих лиц"
+      retrieval_profile: "subcontracting_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4193,8 +4224,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 450
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условия о личном
@@ -4357,7 +4390,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай передачу материальных носителей с передачей исключительных прав.
         8. Верни только один JSON-объект.
@@ -4428,6 +4461,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "исключительные права интеллектуальная собственность авторские права передача прав лицензия право использования результаты интеллектуальной деятельности"
+      retrieval_profile: "ip_ownership_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4470,8 +4504,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условия о правах
@@ -4489,9 +4525,9 @@ checks_v8:
 
         1. ip_clause_present — "defined" / "not_defined".
         2. ip_transfer_type — "full_transfer" / "license" /
-           "retained_by_provider" / "not_specified" / "not_defined".
+           "retained_by_provider" / "not_defined" / "not_defined".
         3. ip_transfer_moment — "upon_payment" / "upon_creation" /
-           "upon_acceptance" / "not_specified" / "not_defined".
+           "upon_acceptance" / "not_defined" / "not_defined".
         4. ip_objects_listed — "defined" / "not_defined".
         5. ip_objects_description — описание объектов ИС.
         </task>
@@ -4502,13 +4538,13 @@ checks_v8:
             - "full_transfer" — полное отчуждение исключительных прав.
             - "license" — предоставление права использования.
             - "retained_by_provider" — права остаются у исполнителя.
-            - "not_specified" — IP clause есть, но тип передачи не ясен.
+            - "not_defined" — IP clause есть, но тип передачи не ясен.
             - "not_defined" — IP clause прямо не определен.
         - ip_transfer_moment:
             - "upon_payment" — после оплаты.
             - "upon_creation" — с момента создания.
             - "upon_acceptance" — после приемки.
-            - "not_specified" — момент не раскрыт при наличии IP clause.
+            - "not_defined" — момент не раскрыт при наличии IP clause.
             - "not_defined" — условие прямо не определено.
         - ip_objects_listed:
             - "defined" — объекты ИС перечислены.
@@ -4533,7 +4569,7 @@ checks_v8:
             - "full_transfer"
             - "license"
             - "retained_by_provider"
-            - "not_specified"
+            - "not_defined"
             - "not_defined"
           description: "Тип передачи прав на результаты ИС."
           required: true
@@ -4547,7 +4583,7 @@ checks_v8:
             - "upon_payment"
             - "upon_creation"
             - "upon_acceptance"
-            - "not_specified"
+            - "not_defined"
             - "not_defined"
           description: "Момент перехода прав на результаты ИС."
           required: true
@@ -4643,7 +4679,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай общую оговорку о конфиденциальности с поручением на обработку ПДн.
         8. Верни только один JSON-объект.
@@ -4719,6 +4755,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "персональные данные обработка персональных данных поручение на обработку оператор цели обработки меры защиты трансграничная передача"
+      retrieval_profile: "confidentiality_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4761,8 +4798,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условия о поручении
@@ -4927,7 +4966,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не считай обычные сроки оказания услуг эквивалентом SLA, если нет измеримой метрики обслуживания.
         8. Верни только один JSON-объект.
@@ -5044,8 +5083,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условия SLA / KPI,
@@ -5213,7 +5254,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай общую обязанность сотрудничать с конкретными обязанностями по документам, доступу и контактным лицам.
         8. Верни только один JSON-объект.
@@ -5282,6 +5323,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -5330,8 +5372,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора обязанности заказчика
@@ -5490,7 +5534,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай изменение ТЗ с обычным правом исполнителя уточнять рабочие детали без согласования.
         8. Верни только один JSON-объект.
@@ -5559,6 +5603,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -5607,8 +5652,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора процедуру изменения
@@ -5772,7 +5819,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если признак не указан прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не оценивай тяжесть риска и не используй шкалы high / medium / low.
         8. Верни только один JSON-объект.
@@ -5894,8 +5941,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 430
+      compact_output: false
+
+      llm_max_tokens: 750
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора фактические признаки,
@@ -6077,7 +6126,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не считай любую периодическую оплату абонентской — нужно прямое указание
            на независимость платежа от объёма потреблённых услуг.
@@ -6144,6 +6193,7 @@ checks_v8:
       max_tokens: 620
 
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -6159,7 +6209,7 @@ checks_v8:
         - definition
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "неустойка"
         - "форс-мажор"
@@ -6181,7 +6231,7 @@ checks_v8:
         - "price_list"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -6193,8 +6243,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условия об абонентской
@@ -6349,7 +6401,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай гонорар успеха с обычным бонусом за своевременное исполнение
            или с неустойкой в пользу исполнителя.
@@ -6414,6 +6466,7 @@ checks_v8:
       max_tokens: 650
 
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -6429,7 +6482,7 @@ checks_v8:
         - definition
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "неустойка"
         - "форс-мажор"
@@ -6451,7 +6504,7 @@ checks_v8:
         - "price_list"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -6463,8 +6516,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условие о гонораре
@@ -6620,7 +6675,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай форс-мажор с невозможностью исполнения по ст. 781 п. 3.
         8. Верни только один JSON-объект.
@@ -6685,6 +6740,7 @@ checks_v8:
       max_tokens: 650
 
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -6732,8 +6788,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условия о невозможности
@@ -6750,10 +6808,10 @@ checks_v8:
 
         1. impossibility_clause_present — "defined" / "not_defined".
         2. impossibility_cost_allocation — "actual_expenses" / "proportional" /
-           "full_price" / "no_payment" / "not_specified" / "not_defined".
+           "full_price" / "no_payment" / "not_defined" / "not_defined".
         3. client_fault_downtime_clause_present — "defined" / "not_defined".
         4. client_fault_downtime_payment — "full_price" / "partial" /
-           "not_specified" / "not_defined".
+           "not_defined" / "not_defined".
         5. risk_allocation_summary — краткое описание распределения рисков.
 
         Если данные отсутствуют:
@@ -6768,12 +6826,12 @@ checks_v8:
             - "proportional" — пропорционально оказанному объёму.
             - "full_price" — оплата в полном объёме.
             - "no_payment" — расходы не возмещаются.
-            - "not_specified" — условие упомянуто, но формула не раскрыта.
+            - "not_defined" — условие упомянуто, но формула не раскрыта.
             - "not_defined" — условие прямо не определено.
         - client_fault_downtime_payment:
             - "full_price" — полная оплата.
             - "partial" — частичная оплата.
-            - "not_specified" — простой упомянут, но размер не раскрыт.
+            - "not_defined" — простой упомянут, но размер не раскрыт.
             - "not_defined" — условие прямо не определено.
         - Если текстового значения нет — верни "Данные не определены".
         - Верни только JSON.
@@ -6798,7 +6856,7 @@ checks_v8:
             - "proportional"
             - "full_price"
             - "no_payment"
-            - "not_specified"
+            - "not_defined"
             - "not_defined"
           description: "Распределение расходов при невозможности."
           required: true
@@ -6820,7 +6878,7 @@ checks_v8:
           allowed_values:
             - "full_price"
             - "partial"
-            - "not_specified"
+            - "not_defined"
             - "not_defined"
           description: "Порядок оплаты при простое по вине заказчика."
           required: true
@@ -6904,7 +6962,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не считай договор трансграничным только из-за упоминания иностранной
            валюты — нужно прямое указание на иностранную сторону.
@@ -6969,6 +7027,7 @@ checks_v8:
       max_tokens: 620
 
     retrieval:
+      retrieval_profile: "tax_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -6984,7 +7043,7 @@ checks_v8:
         - definition
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "неустойка"
         - "форс-мажор"
@@ -7006,7 +7065,7 @@ checks_v8:
         - "price_list"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -7018,8 +7077,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора трансграничные условия:
@@ -7166,7 +7227,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай автопролонгацию с обычным правом сторон перезаключить договор.
         8. Верни только один JSON-объект.
@@ -7236,6 +7297,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "автопролонгация автоматическое продление продлевается на тот же срок уведомление о непродлении пролонгация"
+      retrieval_profile: "term_and_renewal_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -7278,8 +7340,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условие об
@@ -7422,7 +7486,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не считай общий запрет на изменение договора без письменного согласия
            ограничением именно на уступку прав.
@@ -7491,6 +7555,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "уступка прав переуступка перевод долга цессия без согласия с согласия другой стороны"
+      retrieval_profile: "assignment_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -7532,8 +7597,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 340
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ограничения на уступку
@@ -7688,7 +7755,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не считай договор потребительским только из-за того, что одна сторона —
            физическое лицо. Нужно прямое указание на личные / бытовые нужды.
@@ -7753,6 +7820,7 @@ checks_v8:
       max_tokens: 620
 
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -7800,8 +7868,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора признаки потребительского
@@ -7951,7 +8021,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не считай упоминание любого свидетельства (например, о регистрации)
            подтверждением профессиональной лицензии.
@@ -8011,6 +8081,7 @@ checks_v8:
       max_tokens: 550
 
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -8060,8 +8131,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ссылку на лицензию,
@@ -8196,7 +8269,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Не путай запрет переманивания с обычной оговоркой о конфиденциальности.
         8. Верни только один JSON-объект.
@@ -8263,6 +8336,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "запрет переманивания non-solicitation не привлекать сотрудников не нанимать работников не переманивать"
+      retrieval_profile: "non_compete_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -8304,8 +8378,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора условие о запрете

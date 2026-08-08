@@ -114,6 +114,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "license_scope_check"
   context_k: 5
   max_chunks: 10
 
@@ -168,9 +169,9 @@ retrieval:
     - "appendix_reference"
 
   preferred_clause_functions:
-    - "intellectual_property"
-    - "assignment"
-    - "change_of_control"
+    - "rights"
+    - "procedures"
+    - "procedures"
     - "limitations"
 
   position_bias:
@@ -200,7 +201,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 460
+  llm_max_tokens: 1150
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по IP, лицензированию и M&A.

@@ -25,7 +25,9 @@ import InlineAlert from "../../components/InlineAlert";
 import Button from "../../components/ui/Button";
 import type { JsonPatchOperation } from "../../types/instructions";
 
-/* ── Helpers ────────────────────────────────────────────────── */
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
 
 type OverrideKind = "doc-type" | "global";
 
@@ -50,15 +52,14 @@ function normalizeVersions(input: unknown): VersionLike[] {
 }
 
 const inputClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const selectClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
-const sectionLabel =
-  "text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]";
-
-/* ── Page ───────────────────────────────────────────────────── */
+// ─────────────────────────────────────────────────────────────
+// Page
+// ─────────────────────────────────────────────────────────────
 
 const TenantOverrideCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -76,7 +77,6 @@ const TenantOverrideCreatePage: React.FC = () => {
   const createDocTypeMut = useCreateTenantOverrideDraft();
   const createGlobalMut = useCreateTenantGlobalOverrideDraft();
 
-  /* catalogs */
   const {
     data: docTypeCatalog,
     isLoading: isDocTypeCatalogLoading,
@@ -92,12 +92,9 @@ const TenantOverrideCreatePage: React.FC = () => {
   const docTypeCatalogItems = docTypeCatalog?.items ?? [];
   const globalCatalogItems = globalCatalog?.items ?? [];
 
-  /* versions */
   const { data: docTypeVersionsData, isLoading: isDocTypeVersionsLoading } =
     useDocTypeVersions(
-      kind === "doc-type" && selectedDocTypeCode
-        ? selectedDocTypeCode
-        : null,
+      kind === "doc-type" && selectedDocTypeCode ? selectedDocTypeCode : null,
     );
 
   const { data: globalVersionsData, isLoading: isGlobalVersionsLoading } =
@@ -125,7 +122,6 @@ const TenantOverrideCreatePage: React.FC = () => {
     [globalVersions],
   );
 
-  /* auto-select first catalog item */
   useEffect(() => {
     if (kind === "doc-type") {
       if (!selectedDocTypeCode && docTypeCatalogItems.length > 0) {
@@ -133,9 +129,7 @@ const TenantOverrideCreatePage: React.FC = () => {
       }
     } else {
       if (!selectedGlobalInstructionCode && globalCatalogItems.length > 0) {
-        setSelectedGlobalInstructionCode(
-          globalCatalogItems[0].instruction_code,
-        );
+        setSelectedGlobalInstructionCode(globalCatalogItems[0].instruction_code);
       }
     }
   }, [
@@ -146,7 +140,6 @@ const TenantOverrideCreatePage: React.FC = () => {
     globalCatalogItems,
   ]);
 
-  /* auto-select first published version */
   useEffect(() => {
     if (kind === "doc-type") {
       setSelectedBaseVersionId(
@@ -163,20 +156,13 @@ const TenantOverrideCreatePage: React.FC = () => {
     }
   }, [kind, availableDocTypeBaseVersions, availableGlobalBaseVersions]);
 
-  /* derived */
-  const isSubmitting =
-    createDocTypeMut.isPending || createGlobalMut.isPending;
+  const isSubmitting = createDocTypeMut.isPending || createGlobalMut.isPending;
 
   const canSubmit =
-    !!tenantId &&
-    !!selectedBaseVersionId &&
-    patchOps.length > 0 &&
-    !isSubmitting;
+    !!tenantId && !!selectedBaseVersionId && patchOps.length > 0 && !isSubmitting;
 
   const baseVersions =
-    kind === "doc-type"
-      ? availableDocTypeBaseVersions
-      : availableGlobalBaseVersions;
+    kind === "doc-type" ? availableDocTypeBaseVersions : availableGlobalBaseVersions;
 
   const isCatalogLoading =
     kind === "doc-type" ? isDocTypeCatalogLoading : isGlobalCatalogLoading;
@@ -185,7 +171,6 @@ const TenantOverrideCreatePage: React.FC = () => {
   const hasCatalogError =
     kind === "doc-type" ? isDocTypeCatalogError : isGlobalCatalogError;
 
-  /* submit */
   const handleSubmit = async () => {
     if (!tenantId) {
       setErrorText("Не удалось определить tenant. Выйдите и войдите снова.");
@@ -246,50 +231,54 @@ const TenantOverrideCreatePage: React.FC = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-      <div className="animate-fadein space-y-6">
-        {/* Back-link */}
-        <button
-          type="button"
-          onClick={() => navigate("/tenant-admin/instructions/overrides")}
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Overrides
-        </button>
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-        {/* Header */}
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Создать Tenant Override
-            </h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Создайте draft override поверх published-версии базовой инструкции
-            </p>
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate("/tenant-admin/instructions/overrides")}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Overrides
+              </button>
+
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                Создать Tenant Override
+              </h1>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Создайте draft override поверх published-версии базовой инструкции.
+              </p>
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate("/tenant-admin/instructions/overrides")}
+              disabled={isSubmitting}
+            >
+              Отмена
+            </Button>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() =>
-              navigate("/tenant-admin/instructions/overrides")
-            }
-          >
-            Отмена
-          </Button>
         </header>
 
-        {/* Error alert */}
+        {/* ── Error ────────────────────────────────────────────── */}
         {errorText && <InlineAlert tone="error" message={errorText} />}
 
-        {/* Section: Base instruction */}
+        {/* ── Базовая инструкция ───────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-          <h2 className={sectionLabel}>Базовая инструкция</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            Базовая инструкция
+          </h2>
 
           <div className="mt-4 space-y-4">
             {/* Kind toggle */}
             <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
+              <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
                 <input
                   type="radio"
                   name="override-kind"
@@ -299,7 +288,7 @@ const TenantOverrideCreatePage: React.FC = () => {
                 />
                 Doc-Type instruction
               </label>
-              <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
+              <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
                 <input
                   type="radio"
                   name="override-kind"
@@ -323,8 +312,8 @@ const TenantOverrideCreatePage: React.FC = () => {
                 message="Не удалось загрузить каталог базовых инструкций."
               />
             ) : kind === "doc-type" ? (
-              <div>
-                <label className={`mb-1 block ${sectionLabel}`}>
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                   Тип документа
                 </label>
                 <select
@@ -334,18 +323,15 @@ const TenantOverrideCreatePage: React.FC = () => {
                   disabled={isSubmitting}
                 >
                   {docTypeCatalogItems.map((item) => (
-                    <option
-                      key={item.doc_type_code}
-                      value={item.doc_type_code}
-                    >
+                    <option key={item.doc_type_code} value={item.doc_type_code}>
                       {item.name} ({item.doc_type_code})
                     </option>
                   ))}
                 </select>
               </div>
             ) : (
-              <div>
-                <label className={`mb-1 block ${sectionLabel}`}>
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                   Global instruction
                 </label>
                 <select
@@ -370,18 +356,15 @@ const TenantOverrideCreatePage: React.FC = () => {
 
             {/* Version selector */}
             {isVersionsLoading ? (
-              <LoadingBlock
-                text="Загружаем published-версии…"
-                rows={2}
-              />
+              <LoadingBlock text="Загружаем published-версии…" rows={2} />
             ) : baseVersions.length === 0 ? (
               <EmptyState
                 title="Published-версии не найдены"
                 description="Для выбранной базовой инструкции нет published-версий, поверх которых можно создать override."
               />
             ) : (
-              <div>
-                <label className={`mb-1 block ${sectionLabel}`}>
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                   Published base version
                 </label>
                 <select
@@ -402,11 +385,13 @@ const TenantOverrideCreatePage: React.FC = () => {
           </div>
         </section>
 
-        {/* Section: Metadata */}
+        {/* ── Метаданные ───────────────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-          <h2 className={sectionLabel}>Метаданные</h2>
-          <div className="mt-4">
-            <label className={`mb-1 block ${sectionLabel}`}>
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            Метаданные
+          </h2>
+          <div className="mt-4 space-y-1.5">
+            <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
               Change summary
             </label>
             <input
@@ -420,9 +405,11 @@ const TenantOverrideCreatePage: React.FC = () => {
           </div>
         </section>
 
-        {/* Section: Patch Ops */}
+        {/* ── JSON Patch Operations ────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-          <h2 className={`mb-4 ${sectionLabel}`}>JSON Patch Operations</h2>
+          <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            JSON Patch Operations
+          </h2>
           <PatchOpsEditor
             value={patchOps}
             onChange={setPatchOps}
@@ -431,14 +418,12 @@ const TenantOverrideCreatePage: React.FC = () => {
           />
         </section>
 
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-3">
+        {/* ── Actions ──────────────────────────────────────────── */}
+        <div className="flex items-center justify-end gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-4 shadow-sm">
           <Button
             variant="secondary"
             size="sm"
-            onClick={() =>
-              navigate("/tenant-admin/instructions/overrides")
-            }
+            onClick={() => navigate("/tenant-admin/instructions/overrides")}
             disabled={isSubmitting}
           >
             Отмена

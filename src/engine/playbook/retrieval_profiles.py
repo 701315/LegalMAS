@@ -242,6 +242,465 @@ PARTY_IDENTIFICATION_PROFILE = RetrievalProfile(
     max_supporting_units=3,
 )
 
+AUTHORITY_PROFILE = RetrievalProfile(
+    profile_id="authority_check",
+    query_topic="authority",
+    required_topics=["authority"],
+    supporting_topics=[
+        "signatory",
+        "corporate_approvals",
+        "party_identification",
+        "preamble",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+CONSENT_PROFILE = RetrievalProfile(
+    profile_id="consent_check",
+    query_topic="consent",
+    required_topics=["consent"],
+    supporting_topics=[
+        "authority",
+        "corporate_approvals",
+        "assignment",
+        "change_of_control",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+REGISTRATION_PROFILE = RetrievalProfile(
+    profile_id="registration_check",
+    query_topic="registration",
+    required_topics=["registration"],
+    supporting_topics=[
+        "title_transfer",
+        "party_identification",
+        "authority",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+TERM_AND_RENEWAL_PROFILE = RetrievalProfile(
+    profile_id="term_and_renewal_check",
+    query_topic="term",
+    required_topics=["term", "renewal"],
+    supporting_topics=[
+        "notice_period",
+        "termination_notice",
+        "notices",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+CHANGE_OF_CONTROL_PROFILE = RetrievalProfile(
+    profile_id="change_of_control_check",
+    query_topic="change_of_control",
+    required_topics=["change_of_control"],
+    supporting_topics=[
+        "consent",
+        "termination",
+        "termination_rights",
+        "authority",
+        "corporate_approvals",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+RENT_PROFILE = RetrievalProfile(
+    profile_id="rent_check",
+    query_topic="rent",
+    required_topics=["rent"],
+    supporting_topics=[
+        "indexation",
+        "utilities",
+        "security_deposit",
+        "payment_terms",
+        "late_payment",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
+REPAIR_MAINTENANCE_PROFILE = RetrievalProfile(
+    profile_id="repair_maintenance_check",
+    query_topic="repair",
+    required_topics=["repair", "maintenance"],
+    supporting_topics=[
+        "utilities",
+        "insurance",
+        "return_condition",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+INTEREST_RATE_PROFILE = RetrievalProfile(
+    profile_id="interest_rate_check",
+    query_topic="interest_rate",
+    required_topics=["interest_rate", "loan_amount"],
+    supporting_topics=[
+        "repayment_schedule",
+        "payment_terms",
+        "late_payment",
+        "currency",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+EVENT_OF_DEFAULT_PROFILE = RetrievalProfile(
+    profile_id="event_of_default_check",
+    query_topic="event_of_default",
+    required_topics=["event_of_default", "cross_default", "acceleration"],
+    supporting_topics=[
+        "bankruptcy",
+        "notices",
+        "notice_period",
+    ],
+    required_unit_types=[],
+    min_citability="medium",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
+SECURITY_PROFILE = RetrievalProfile(
+    profile_id="security_check",
+    query_topic="pledge",
+    required_topics=["pledge", "guarantee", "lien"],
+    supporting_topics=[
+        "event_of_default",
+        "assignment",
+        "liability",
+    ],
+    required_unit_types=[],
+    min_citability="medium",
+    max_primary_units=10,
+    max_supporting_units=5,
+)
+
+ACCEPTANCE_PROFILE = RetrievalProfile(
+    profile_id="acceptance_check",
+    query_topic="acceptance",
+    required_topics=["acceptance"],
+    supporting_topics=[
+        "scope_of_work",
+        "technical_documentation",
+        "completion_deadline",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+LICENSE_SCOPE_PROFILE = RetrievalProfile(
+    profile_id="license_scope_check",
+    query_topic="license_scope",
+    required_topics=["license_scope", "territory", "exclusivity"],
+    supporting_topics=[
+        "sublicensing",
+        "royalty",
+        "ip_ownership",
+        "term",
+        "renewal",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
+FINANCIAL_COVENANT_PROFILE = RetrievalProfile(
+    profile_id="financial_covenant_check",
+    query_topic="financial_covenant",
+    required_topics=["financial_covenant"],
+    supporting_topics=[
+        "event_of_default",
+        "cross_default",
+        "acceleration",
+        "payment_terms",
+    ],
+    required_unit_types=[],
+    min_citability="medium",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
+INSURANCE_PROFILE = RetrievalProfile(
+    profile_id="insurance_check",
+    query_topic="insurance",
+    required_topics=["insurance"],
+    supporting_topics=[
+        "insured_event",
+        "insurance_premium",
+        "coverage_limit",
+        "liability",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+SUBLETTING_PROFILE = RetrievalProfile(
+    profile_id="subletting_check",
+    query_topic="subletting",
+    required_topics=["subletting"],
+    supporting_topics=[
+        "consent",
+        "permitted_use",
+        "assignment",
+        "rent",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+SCOPE_OF_WORK_PROFILE = RetrievalProfile(
+    profile_id="scope_of_work_check",
+    query_topic="scope_of_work",
+    required_topics=["scope_of_work"],
+    supporting_topics=[
+        "technical_documentation",
+        "design_documentation",
+        "completion_deadline",
+        "acceptance",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+COMPLETION_DEADLINE_PROFILE = RetrievalProfile(
+    profile_id="completion_deadline_check",
+    query_topic="completion_deadline",
+    required_topics=["completion_deadline"],
+    supporting_topics=[
+        "acceptance",
+        "penalty",
+        "termination",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+SUBCONTRACTING_PROFILE = RetrievalProfile(
+    profile_id="subcontracting_check",
+    query_topic="subcontracting",
+    required_topics=["subcontracting"],
+    supporting_topics=[
+        "consent",
+        "liability",
+        "scope_of_work",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+IP_OWNERSHIP_PROFILE = RetrievalProfile(
+    profile_id="ip_ownership_check",
+    query_topic="ip_ownership",
+    required_topics=["ip_ownership"],
+    supporting_topics=[
+        "ip_assignment",
+        "patent",
+        "trademark",
+        "know_how",
+        "license_scope",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
+ROYALTY_PROFILE = RetrievalProfile(
+    profile_id="royalty_check",
+    query_topic="royalty",
+    required_topics=["royalty"],
+    supporting_topics=[
+        "license_scope",
+        "term",
+        "territory",
+        "exclusivity",
+        "payment_terms",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
+SUBLICENSING_PROFILE = RetrievalProfile(
+    profile_id="sublicensing_check",
+    query_topic="sublicensing",
+    required_topics=["sublicensing"],
+    supporting_topics=[
+        "license_scope",
+        "consent",
+        "assignment",
+        "exclusivity",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+REPAYMENT_SCHEDULE_PROFILE = RetrievalProfile(
+    profile_id="repayment_schedule_check",
+    query_topic="repayment_schedule",
+    required_topics=["repayment_schedule"],
+    supporting_topics=[
+        "interest_rate",
+        "loan_amount",
+        "acceleration",
+        "late_payment",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+CREDIT_FACILITY_PROFILE = RetrievalProfile(
+    profile_id="credit_facility_check",
+    query_topic="credit_facility",
+    required_topics=["credit_facility"],
+    supporting_topics=[
+        "loan_amount",
+        "repayment_schedule",
+        "interest_rate",
+        "event_of_default",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+DISPUTE_RESOLUTION_PROFILE = RetrievalProfile(
+    profile_id="dispute_resolution_check",
+    query_topic="dispute_resolution",
+    required_topics=["dispute_resolution"],
+    supporting_topics=[
+        "arbitration",
+        "mediation",
+        "jurisdiction",
+        "notices",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+TECHNICAL_DOCUMENTATION_PROFILE = RetrievalProfile(
+    profile_id="technical_documentation_check",
+    query_topic="technical_documentation",
+    required_topics=["technical_documentation", "design_documentation"],
+    supporting_topics=[
+        "scope_of_work",
+        "acceptance",
+        "completion_deadline",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+EMPLOYMENT_SCHEDULE_PROFILE = RetrievalProfile(
+    profile_id="employment_schedule_check",
+    query_topic="working_hours",
+    required_topics=["working_hours", "leave", "probation"],
+    supporting_topics=[
+        "overtime",
+        "salary",
+        "term",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+EMPLOYMENT_BENEFITS_PROFILE = RetrievalProfile(
+    profile_id="employment_benefits_check",
+    query_topic="benefits",
+    required_topics=["benefits"],
+    supporting_topics=[
+        "salary",
+        "bonus",
+        "leave",
+        "remuneration",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+SANCTIONS_COMPLIANCE_PROFILE = RetrievalProfile(
+    profile_id="sanctions_compliance_check",
+    query_topic="sanctions",
+    required_topics=["sanctions", "aml_kyc", "export_control", "anti_corruption"],
+    supporting_topics=[
+        "counterparty",
+        "regulatory_approval",
+        "representations",
+        "confidentiality",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=10,
+    max_supporting_units=5,
+)
+
+CYBERSECURITY_PROFILE = RetrievalProfile(
+    profile_id="cybersecurity_check",
+    query_topic="cybersecurity",
+    required_topics=["cybersecurity"],
+    supporting_topics=[
+        "confidentiality",
+        "data_protection",
+        "sla",
+        "service_levels",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
 
 # Используется для lookup по profile_id из YAML playbook конфигурации.
 ALL_PROFILES: dict[str, RetrievalProfile] = {
@@ -263,6 +722,35 @@ ALL_PROFILES: dict[str, RetrievalProfile] = {
         TAX_PROFILE,
         ASSIGNMENT_PROFILE,
         PARTY_IDENTIFICATION_PROFILE,
+        AUTHORITY_PROFILE,
+        CONSENT_PROFILE,
+        REGISTRATION_PROFILE,
+        TERM_AND_RENEWAL_PROFILE,
+        CHANGE_OF_CONTROL_PROFILE,
+        RENT_PROFILE,
+        REPAIR_MAINTENANCE_PROFILE,
+        INTEREST_RATE_PROFILE,
+        EVENT_OF_DEFAULT_PROFILE,
+        SECURITY_PROFILE,
+        ACCEPTANCE_PROFILE,
+        LICENSE_SCOPE_PROFILE,
+        FINANCIAL_COVENANT_PROFILE,
+        INSURANCE_PROFILE,
+        SUBLETTING_PROFILE,
+        SCOPE_OF_WORK_PROFILE,
+        COMPLETION_DEADLINE_PROFILE,
+        SUBCONTRACTING_PROFILE,
+        IP_OWNERSHIP_PROFILE,
+        ROYALTY_PROFILE,
+        SUBLICENSING_PROFILE,
+        REPAYMENT_SCHEDULE_PROFILE,
+        CREDIT_FACILITY_PROFILE,
+        DISPUTE_RESOLUTION_PROFILE,
+        TECHNICAL_DOCUMENTATION_PROFILE,
+        EMPLOYMENT_SCHEDULE_PROFILE,
+        EMPLOYMENT_BENEFITS_PROFILE,
+        SANCTIONS_COMPLIANCE_PROFILE,
+        CYBERSECURITY_PROFILE,
     ]
 }
 

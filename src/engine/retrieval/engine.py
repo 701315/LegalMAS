@@ -131,6 +131,38 @@ def _resolve_profile_topics(retrieval_profile_id: str | None) -> frozenset[str]:
         return frozenset()
 
 
+def _resolve_profile_supporting_topics(
+    retrieval_profile_id: str | None,
+) -> frozenset[str]:
+    """
+    Загрузить supporting_topics из retrieval profile — один раз до цикла по чанкам.
+
+    Supporting topics дают более слабый boost чем required topics,
+    но помогают поднимать контекстно-релевантные chunks.
+    """
+    if not retrieval_profile_id:
+        return frozenset()
+
+    try:
+        from engine.playbook.retrieval_profiles import get_profile as _get_profile
+
+        profile = _get_profile(retrieval_profile_id)
+        if profile is None:
+            return frozenset()
+
+        supporting = profile.supporting_topics
+        if not supporting:
+            return frozenset()
+
+        return frozenset(
+            t.lower().strip()
+            for t in supporting
+            if isinstance(t, str) and t.strip()
+        )
+    except Exception:
+        return frozenset()
+
+
 class RetrievalEngine:
     """
     Движок гибридного поиска по чанкам.
@@ -514,8 +546,12 @@ class RetrievalEngine:
             except (TypeError, ValueError):
                 position_range = None
 
-        # Загружаем required_topics из retrieval profile один раз до цикла.
+        # Загружаем required_topics и supporting_topics из retrieval profile
+        # один раз до цикла. Supporting topics дают более слабый boost.
         profile_required_topics: frozenset[str] = _resolve_profile_topics(
+            self.retrieval_profile_id
+        )
+        profile_supporting_topics: frozenset[str] = _resolve_profile_supporting_topics(
             self.retrieval_profile_id
         )
 
@@ -611,20 +647,32 @@ class RetrievalEngine:
 
             # Profile-aware topic_tags boost.
             # Если у chunk есть topic_tags (из legal units enrichment)
-            # и они совпадают с required_topics профиля —
+            # и они совпадают с required_topics или supporting_topics профиля —
             # boost применяется как дополнительный retrieval signal.
+            # Required topics дают сильный boost.
+            # Supporting topics дают более слабый boost.
             # Работает только при наличии enrichment, поэтому не является
             # fallback или heuristic, а честным semantic signal.
-            if profile_required_topics:
+            if profile_required_topics or profile_supporting_topics:
                 chunk_topic_tags = meta.get("topic_tags") or []
                 chunk_topics_lower = frozenset(
                     str(t).strip().lower() for t in chunk_topic_tags if t
                 )
-                if profile_required_topics & chunk_topics_lower:
-                    topic_match_boost = float(
-                        getattr(settings, "RUNNER_METADATA_TOPIC_MATCH_BOOST", 0.6)
-                    )
-                    scores[idx] += topic_match_boost
+                if chunk_topics_lower:
+                    if profile_required_topics & chunk_topics_lower:
+                        topic_match_boost = float(
+                            getattr(settings, "RUNNER_METADATA_TOPIC_MATCH_BOOST", 0.6)
+                        )
+                        scores[idx] += topic_match_boost
+                    elif profile_supporting_topics & chunk_topics_lower:
+                        topic_supporting_boost = float(
+                            getattr(
+                                settings,
+                                "RUNNER_METADATA_TOPIC_SUPPORTING_BOOST",
+                                0.3,
+                            )
+                        )
+                        scores[idx] += topic_supporting_boost
 
             citability_band = str(
                 meta.get("citability_band")

@@ -1,7 +1,4 @@
 // src/components/instructions/PatchOpsEditor.tsx
-// Редактор JSON Patch operations (RFC 6902).
-// V1.5: textarea с JSON (raw).
-// V2: визуальный построитель operations.
 
 import React, { useCallback, useEffect, useState } from "react";
 import type { JsonPatchOperation } from "../../types/instructions";
@@ -15,7 +12,7 @@ interface PatchOpsEditorProps {
 }
 
 const textareaClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60 resize-y";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60 resize-y";
 
 const PatchOpsEditor: React.FC<PatchOpsEditorProps> = ({
   value,
@@ -28,7 +25,6 @@ const PatchOpsEditor: React.FC<PatchOpsEditorProps> = ({
   );
   const [parseError, setParseError] = useState<string | null>(null);
 
-  // Синхронизируем raw если value изменился снаружи
   useEffect(() => {
     setRaw(JSON.stringify(value, null, 2));
   }, [value]);

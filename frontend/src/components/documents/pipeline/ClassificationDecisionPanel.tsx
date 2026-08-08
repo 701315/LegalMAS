@@ -53,15 +53,15 @@ function ConfidenceZoneBadge({ zone }: { zone: string | null | undefined }) {
   const config: Record<string, { label: string; cls: string }> = {
     confident: {
       label: "Уверенная",
-      cls: "border-green-300/40 bg-green-50 text-green-700",
+      cls: "status-border-success status-bg-success status-text-success",
     },
     low: {
       label: "Низкая",
-      cls: "border-yellow-300/40 bg-yellow-50 text-yellow-700",
+      cls: "status-border-warning status-bg-warning status-text-warning",
     },
     unknown: {
       label: "Неопределённая",
-      cls: "border-red-300/40 bg-red-50 text-red-700",
+      cls: "status-border-error status-bg-error status-text-error",
     },
   };
   const c = config[zone];
@@ -113,7 +113,7 @@ function CandidateRow({
     <div
       className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
         isWinner
-          ? "border-green-300/40 bg-green-50/50"
+          ? "status-border-success status-bg-success"
           : "border-[var(--border-subtle)] bg-[var(--bg-card)]"
       }`}
     >
@@ -125,14 +125,14 @@ function CandidateRow({
           <span
             className={`text-xs font-semibold ${
               isWinner
-                ? "text-green-700"
+                ? "status-text-success"
                 : "text-[var(--text-primary)]"
             }`}
           >
             {typeLabel}
           </span>
           {isWinner && (
-            <span className="rounded-full border border-green-300/40 bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+            <span className="status-border-success status-bg-success status-text-success rounded-full border px-1.5 py-0.5 text-[10px] font-medium">
               Выбран
             </span>
           )}
@@ -195,17 +195,17 @@ function DecisionContent({ data }: { data: ClassificationDecisionDTO }) {
       {/* Flags */}
       <div className="flex flex-wrap gap-1.5">
         {data.requires_manual_review && (
-          <span className="rounded-full border border-yellow-300/40 bg-yellow-50 px-2 py-0.5 text-[10px] font-medium text-yellow-700">
+          <span className="status-border-warning status-bg-warning status-text-warning rounded-full border px-2 py-0.5 text-[10px] font-medium">
             Требует ручной проверки
           </span>
         )}
         {data.l4_triggered && (
-          <span className="rounded-full border border-blue-300/40 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+          <span className="rounded-full border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-blue-strong)]">
             L4 LLM triggered
           </span>
         )}
         {data.unknown_corridor_applied && (
-          <span className="rounded-full border border-red-300/40 bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-700">
+          <span className="status-border-error status-bg-error status-text-error rounded-full border px-2 py-0.5 text-[10px] font-medium">
             Unknown corridor
           </span>
         )}

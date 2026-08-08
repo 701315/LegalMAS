@@ -130,7 +130,11 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
 
   if (!canEditPlaybook) {
     return (
-      <div className={mode === "page" ? "min-h-screen bg-[var(--bg-base)] px-4" : "h-full"}>
+      <div
+        className={
+          mode === "page" ? "min-h-screen bg-[var(--bg-base)] px-4" : "h-full"
+        }
+      >
         <div
           className={
             mode === "page"
@@ -197,8 +201,8 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
           </header>
         )}
 
-        <InlineAlert tone="error" message={errorText} />
-        <InlineAlert tone="success" message={infoText} />
+        {errorText && <InlineAlert tone="error" message={errorText} />}
+        {!errorText && infoText && <InlineAlert tone="success" message={infoText} />}
 
         <section
           className={[
@@ -252,18 +256,6 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
                 ].join(" ")}
                 spellCheck={false}
               />
-            )}
-
-            {errorText && (
-              <p className="text-sm text-[color:rgb(120,35,46)]">
-                {errorText}
-              </p>
-            )}
-
-            {infoText && !errorText && (
-              <p className="text-sm text-[var(--text-secondary)]">
-                {infoText}
-              </p>
             )}
 
             <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-[var(--border-soft)] pt-3">

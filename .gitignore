@@ -70,3 +70,4 @@ celerybeat-schedule
 
 # Stray files
 =
+frontend/audit-output/

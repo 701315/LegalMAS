@@ -1,29 +1,27 @@
 // =============================================================
 // src/pages/tabs/audit/ClassificationAuditView.tsx
 // Экран "Аудит классификации документов" внутри вкладки Audit.
-// Только таблица + раскрытие дополнительной информации под строкой.
+// Layout: master (таблица) + detail (side panel справа), как в Документах.
 // =============================================================
 
 import React from "react";
 import {
   Loader2,
-  ChevronDown,
-  ChevronRight,
   ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { useClassificationInvestigation } from "../../../api/audit";
 import { cn } from "../../../utils";
 import type { ClassificationInvestigationRow } from "../../../types";
 import Button from "../../../components/ui/Button";
-import ClassificationInvestigationDetailRow from "./ClassificationInvestigationDetailRow";
+import ClassificationInvestigationDrawer from "./ClassificationInvestigationDrawer";
 
 interface ClassificationAuditViewProps {
   dealId: string;
 }
 
 const INVESTIGATION_PER_PAGE = 20;
-const TABLE_COLUMNS = 9;
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("ru-RU", {
@@ -47,27 +45,31 @@ function ConfidenceZoneBadge({ zone }: { zone: string | null }) {
   if (!zone) {
     return <span className="text-xs text-[var(--text-muted)]">—</span>;
   }
+
   const config: Record<string, { label: string; cls: string }> = {
     confident: {
       label: "Уверенная",
-      cls: "bg-green-50 text-green-700 border-green-300/40",
+      cls: "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
     },
     low: {
       label: "Низкая",
-      cls: "bg-yellow-50 text-yellow-700 border-yellow-300/40",
+      cls: "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
     },
     unknown: {
       label: "Неопр.",
-      cls: "bg-red-50 text-red-700 border-red-300/40",
+      cls: "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
     },
   };
+
   const c = config[zone];
+
   return (
     <span
-      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+      className={cn(
+        "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium",
         c?.cls ??
-        "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]"
-      }`}
+          "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
+      )}
     >
       {c?.label ?? zone}
     </span>
@@ -97,9 +99,9 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
   dealId,
 }) => {
   const [page, setPage] = React.useState(1);
-  const [expandedDocumentId, setExpandedDocumentId] = React.useState<string | null>(
-    null,
-  );
+  const [selectedDocumentId, setSelectedDocumentId] = React.useState<
+    string | null
+  >(null);
 
   const { data, isLoading, isFetching, isError, error } =
     useClassificationInvestigation(dealId, {
@@ -120,24 +122,45 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
     return `Показаны ${from}–${to} из ${data.total}`;
   }, [data, items.length]);
 
+  const selectedRow = React.useMemo(
+    () =>
+      selectedDocumentId
+        ? items.find((row) => row.document_id === selectedDocumentId) ?? null
+        : null,
+    [items, selectedDocumentId],
+  );
+
+  // Если раскрытый документ пропал с текущей страницы — снимаем selection
   React.useEffect(() => {
-    if (!expandedDocumentId || items.length === 0) {
+    if (!selectedDocumentId || items.length === 0) {
       return;
     }
-
-    const stillExistsOnPage = items.some(
-      (item) => item.document_id === expandedDocumentId,
+    const stillExists = items.some(
+      (item) => item.document_id === selectedDocumentId,
     );
-
-    if (!stillExistsOnPage) {
-      setExpandedDocumentId(null);
+    if (!stillExists) {
+      setSelectedDocumentId(null);
     }
-  }, [items, expandedDocumentId]);
+  }, [items, selectedDocumentId]);
 
   const toggleRow = React.useCallback((documentId: string) => {
-    setExpandedDocumentId((current) =>
+    setSelectedDocumentId((current) =>
       current === documentId ? null : documentId,
     );
+  }, []);
+
+  const handleRowKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLTableRowElement>, documentId: string) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggleRow(documentId);
+      }
+    },
+    [toggleRow],
+  );
+
+  const handleCloseDrawer = React.useCallback(() => {
+    setSelectedDocumentId(null);
   }, []);
 
   if (isError) {
@@ -157,131 +180,143 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
     );
   }
 
+  const isDrawerOpen = selectedDocumentId !== null;
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
-        <div>
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Логи классификации документов проекта
-          </h3>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Нажмите на строку документа, чтобы раскрыть полный путь классификации
-            по этапам, кандидатов, voting и raw explainability payload.
-          </p>
-        </div>
+    <div
+      className={cn(
+        "grid min-h-0 flex-1 gap-4",
+        isDrawerOpen
+          ? "lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]"
+          : "grid-cols-1",
+      )}
+    >
+      {/* ── Основная секция: таблица ─────────────────────────── */}
+      <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        {/* Header */}
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+              Логи классификации документов проекта
+            </h3>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Нажмите на строку документа, чтобы открыть панель с полным путём
+              классификации, кандидатами, voting и raw explainability payload.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-3">
-          {isFetching && !isLoading ? (
-            <span className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
-              <Loader2 size={14} className="animate-spin" />
-              Обновляем…
+          <div className="flex items-center gap-3">
+            {isFetching && !isLoading ? (
+              <span className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <Loader2 size={14} className="animate-spin" />
+                Обновляем…
+              </span>
+            ) : null}
+
+            <span className="text-xs text-[var(--text-muted)]">
+              {pageDescription}
             </span>
-          ) : null}
-
-          <span className="text-xs text-[var(--text-muted)]">{pageDescription}</span>
+          </div>
         </div>
-      </div>
 
-      {isLoading ? (
-        <div className="flex min-h-[320px] items-center justify-center">
-          <Loader2 className="mr-3 animate-spin text-[var(--accent)]" size={20} />
-          <span className="text-sm text-[var(--text-muted)]">
-            Загружаем аудит классификации…
-          </span>
-        </div>
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] border-collapse">
-              <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
-                <tr>
-                  <th
-                    scope="col"
-                    className="w-10 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  />
-                  <th
-                    scope="col"
-                    className="w-72 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  >
-                    Документ
-                  </th>
-                  <th
-                    scope="col"
-                    className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  >
-                    Тип
-                  </th>
-                  <th
-                    scope="col"
-                    className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  >
-                    Уровень
-                  </th>
-                  <th
-                    scope="col"
-                    className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  >
-                    Confidence
-                  </th>
-                  <th
-                    scope="col"
-                    className="w-32 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  >
-                    Зона
-                  </th>
-                  <th
-                    scope="col"
-                    className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  >
-                    Решение
-                  </th>
-                  <th
-                    scope="col"
-                    className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  >
-                    Сигналы
-                  </th>
-                  <th
-                    scope="col"
-                    className="w-44 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  >
-                    Сегментация
-                  </th>
-                  <th
-                    scope="col"
-                    className="w-44 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                  >
-                    Обновлено
-                  </th>
-                </tr>
-              </thead>
+        {isLoading ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <Loader2
+              className="mr-3 animate-spin text-[var(--accent-primary)]"
+              size={20}
+            />
+            <span className="text-sm text-[var(--text-muted)]">
+              Загружаем аудит классификации…
+            </span>
+          </div>
+        ) : (
+          <>
+            {/* Scrollable table area */}
+            <div className="min-h-0 flex-1 overflow-auto">
+              <table className="w-full min-w-[1120px] border-collapse">
+                <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="w-72 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                    >
+                      Документ
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                    >
+                      Тип
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                    >
+                      Уровень
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                    >
+                      Confidence
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-32 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                    >
+                      Зона
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                    >
+                      Решение
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                    >
+                      Сигналы
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-44 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                    >
+                      Сегментация
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-44 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                    >
+                      Обновлено
+                    </th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {items.map((row) => {
-                  const badges = getRowBadges(row);
-                  const isExpanded = expandedDocumentId === row.document_id;
+                <tbody>
+                  {items.map((row) => {
+                    const badges = getRowBadges(row);
+                    const isSelected =
+                      selectedDocumentId === row.document_id;
 
-                  return (
-                    <React.Fragment key={row.document_id}>
+                    return (
                       <tr
+                        key={row.document_id}
                         className={cn(
-                          "cursor-pointer border-b border-[var(--border)] align-top transition-colors hover:bg-[var(--bg-elevated-soft)]",
-                          row.classification_requires_review &&
-                            "bg-[color:color-mix(in_srgb,var(--color-warning,#f59e0b)_4%,transparent)]",
-                          isExpanded &&
-                            "bg-[color:color-mix(in_srgb,var(--accent-primary)_8%,transparent)]",
+                          "cursor-pointer border-b border-[var(--border)] align-top transition-colors",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-inset",
+                          isSelected
+                            ? "bg-[var(--bg-elevated-soft)] shadow-[inset_3px_0_0_var(--accent-primary)]"
+                            : "hover:bg-[var(--bg-elevated-soft)]",
                         )}
                         onClick={() => toggleRow(row.document_id)}
-                        aria-expanded={isExpanded}
+                        onKeyDown={(event) =>
+                          handleRowKeyDown(event, row.document_id)
+                        }
+                        aria-selected={isSelected}
+                        role="button"
+                        tabIndex={0}
                       >
-                        <td className="px-3 py-3 text-[var(--text-muted)]">
-                          {isExpanded ? (
-                            <ChevronDown size={16} />
-                          ) : (
-                            <ChevronRight size={16} />
-                          )}
-                        </td>
-
                         <td className="px-3 py-3">
                           <div className="min-w-0">
                             <p
@@ -339,25 +374,30 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
                               ))}
                             </div>
                           ) : (
-                            <span className="text-xs text-[var(--text-muted)]">—</span>
+                            <span className="text-xs text-[var(--text-muted)]">
+                              —
+                            </span>
                           )}
                         </td>
 
                         <td className="px-3 py-3 text-[11px] text-[var(--text-secondary)]">
                           <div className="space-y-1">
                             <p>
-                              Сегментов: {row.segment_summary?.segment_count ?? "—"}
+                              Сегментов:{" "}
+                              {row.segment_summary?.segment_count ?? "—"}
                             </p>
                             <p>
                               Primary:{" "}
-                              {row.segment_summary?.primary_segment_label ?? "—"}
+                              {row.segment_summary?.primary_segment_label ??
+                                "—"}
                             </p>
                             <p>
                               Segment classification:{" "}
-                              {row.segment_summary?.has_segment_classification ==
-                              null
+                              {row.segment_summary
+                                ?.has_segment_classification == null
                                 ? "—"
-                                : row.segment_summary.has_segment_classification
+                                : row.segment_summary
+                                    .has_segment_classification
                                   ? "Да"
                                   : "Нет"}
                             </p>
@@ -368,66 +408,68 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
                           {formatDateTime(row.updated_at)}
                         </td>
                       </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-                      {isExpanded ? (
-                        <tr className="border-b border-[var(--border)] bg-[var(--bg-base)]">
-                          <td colSpan={TABLE_COLUMNS + 1} className="px-4 py-4">
-                            <ClassificationInvestigationDetailRow
-                              documentId={row.document_id}
-                            />
-                          </td>
-                        </tr>
-                      ) : null}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {items.length === 0 && (
-            <div className="py-10 text-center">
-              <p className="mb-1 text-sm text-[var(--text-secondary)]">
-                Данные по классификации не найдены
-              </p>
-              <p className="text-xs text-[var(--text-muted)]">
-                Для этого проекта ещё нет документов или explainability-данные пока
-                не собраны.
-              </p>
+              {items.length === 0 && (
+                <div className="py-10 text-center">
+                  <p className="mb-1 text-sm text-[var(--text-secondary)]">
+                    Данные по классификации не найдены
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Для этого проекта ещё нет документов или
+                    explainability-данные пока не собраны.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
 
-          {totalPages > 1 && (
-            <div className="flex flex-wrap items-center justify-center gap-3 border-t border-[var(--border)] px-4 py-4">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                disabled={page <= 1}
-                leftIcon={<ChevronLeft size={14} />}
-              >
-                Назад
-              </Button>
+            {/* Pagination footer */}
+            {totalPages > 1 && (
+              <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-[var(--border)] px-4 py-4">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={page <= 1}
+                  leftIcon={<ChevronLeft size={14} />}
+                >
+                  Назад
+                </Button>
 
-              <span className="text-xs text-[var(--text-muted)]">
-                Страница {page} из {totalPages}
-              </span>
+                <span className="text-xs text-[var(--text-muted)]">
+                  Страница {page} из {totalPages}
+                </span>
 
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={page >= totalPages}
-                rightIcon={<ChevronRight size={14} />}
-              >
-                Вперёд
-              </Button>
-            </div>
-          )}
-        </>
-      )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    setPage((prev) => Math.min(totalPages, prev + 1))
+                  }
+                  disabled={page >= totalPages}
+                  rightIcon={<ChevronRight size={14} />}
+                >
+                  Вперёд
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* ── Side panel: explainability drawer ────────────────── */}
+      {isDrawerOpen && selectedDocumentId ? (
+        <ClassificationInvestigationDrawer
+          documentId={selectedDocumentId}
+          filename={selectedRow?.filename ?? null}
+          onClose={handleCloseDrawer}
+        />
+      ) : null}
     </div>
   );
 };

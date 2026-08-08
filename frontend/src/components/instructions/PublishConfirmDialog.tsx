@@ -39,9 +39,9 @@ const PublishConfirmDialog: React.FC<PublishConfirmDialogProps> = ({
         </div>
 
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]">
             <AlertTriangle
-              className="h-4 w-4 text-[color:var(--color-warning-text,#92400e)]"
+              className="h-4 w-4 text-[var(--color-warning-text)]"
               aria-hidden="true"
             />
           </div>
@@ -99,6 +99,5 @@ const PublishConfirmDialog: React.FC<PublishConfirmDialogProps> = ({
 };
 
 export default PublishConfirmDialog;
-
 
 

@@ -1,17 +1,5 @@
 // =============================================================
 // src/pages/tabs/ReportTab.tsx
-// Вкладка «Отчёт»:
-// - запуск экспорта (Excel/Word)
-// - отслеживание статуса
-// - скачивание готового файла
-// - отображение backend error_message для failed export
-// - приведено к единому стилю Overview / PageSection
-// - кнопки переведены на общий ui/Button
-//
-// Архитектурный принцип:
-// - ReportTab не ищет "последний run" самостоятельно;
-// - текущий run передаётся сверху через runId;
-// - состояние run читается строго через useRun(runId).
 // =============================================================
 
 import React, { useMemo, useState } from "react";
@@ -41,7 +29,6 @@ function formatFileSizeKb(bytes?: number | null): string | null {
   if (typeof bytes !== "number" || Number.isNaN(bytes) || bytes <= 0) {
     return null;
   }
-
   return `${Math.round(bytes / 1024)} КБ`;
 }
 
@@ -208,7 +195,6 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
   const handleDownload = () => {
     if (!exportData || exportData.status !== "completed") return;
     if (!exportData.download_url) return;
-
     window.open(exportData.download_url, "_blank", "noopener,noreferrer");
   };
 
@@ -227,8 +213,8 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
           <p className="max-w-md text-[12px] leading-5 text-[var(--text-secondary)]">
             Экспорт доступен только для последнего run со статусом{" "}
             <span className="font-medium">completed</span> или{" "}
-            <span className="font-medium">completed_with_errors</span>. Запустите
-            анализ и дождитесь его завершения.
+            <span className="font-medium">completed_with_errors</span>.
+            Запустите анализ и дождитесь его завершения.
           </p>
         </div>
       </div>
@@ -242,13 +228,20 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
         subtitle="Выберите формат и запустите генерацию. Отчёт будет сформирован по последнему завершённому анализу."
       >
         <div className="space-y-4">
-          {lastError ? <InlineAlert tone="error" message={lastError} /> : null}
+          {lastError ? (
+            <InlineAlert tone="error" message={lastError} />
+          ) : null}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <ExportCard
               title="DD Grid"
               description="Полная таблица результатов проверок с цветовым кодированием severity."
-              icon={<FileSpreadsheet size={22} className="text-emerald-500" />}
+              icon={
+                <FileSpreadsheet
+                  size={22}
+                  className="text-[var(--color-success)]"
+                />
+              }
               format="Excel (.xlsx)"
               onGenerate={() => handleGenerate("grid_xlsx")}
               isGenerating={isGenerating}
@@ -257,7 +250,12 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
             <ExportCard
               title="Deal Summary"
               description="KPI, Top Risks, разбивка по типам документов и список запросов."
-              icon={<FileSpreadsheet size={22} className="text-sky-500" />}
+              icon={
+                <FileSpreadsheet
+                  size={22}
+                  className="text-[var(--color-blue)]"
+                />
+              }
               format="Excel (.xlsx)"
               onGenerate={() => handleGenerate("deal_summary_xlsx")}
               isGenerating={isGenerating}
@@ -266,7 +264,12 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
             <ExportCard
               title="Отчёт DD"
               description="Executive Summary, критические находки, качество анализа, запросы."
-              icon={<FileText size={22} className="text-indigo-500" />}
+              icon={
+                <FileText
+                  size={22}
+                  className="text-[var(--color-purple)]"
+                />
+              }
               format="Word (.docx)"
               onGenerate={() => handleGenerate("report_docx")}
               isGenerating={isGenerating}
@@ -289,7 +292,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
           }
         >
           {statusErrorMessage ? (
-            <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <div className="flex items-start gap-3 rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-[var(--color-error-text)]">
               <AlertCircle size={20} className="mt-0.5 shrink-0" />
               <div className="space-y-1">
                 <div className="text-sm font-medium">
@@ -301,21 +304,21 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
           ) : !exportData ||
             exportData.status === "processing" ||
             exportData.status === "pending" ? (
-            <div className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3 text-[var(--accent)]">
+            <div className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3 text-[var(--accent-primary)]">
               <Loader2 className="animate-spin" size={18} />
               <span className="text-xs">
                 Генерируем файл… Обычно это занимает 10–30 секунд.
               </span>
             </div>
           ) : exportData.status === "completed" ? (
-            <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <div className="flex flex-wrap items-center gap-3 text-emerald-700">
+            <div className="space-y-3 rounded-xl border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-4 py-3">
+              <div className="flex flex-wrap items-center gap-3 text-[var(--color-success-text)]">
                 <CheckCircle size={20} />
                 <span className="text-sm font-medium">
                   {exportTitle || "Файл"} готов к скачиванию
                 </span>
                 {completedFileSizeLabel && (
-                  <span className="text-[11px] text-emerald-900/70">
+                  <span className="text-[11px] text-[var(--color-success-text)] opacity-70">
                     ({completedFileSizeLabel})
                   </span>
                 )}
@@ -334,7 +337,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
             </div>
           ) : exportData.status === "failed" ? (
             <div className="space-y-3">
-              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+              <div className="flex items-start gap-3 rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-[var(--color-error-text)]">
                 <AlertCircle size={20} className="mt-0.5 shrink-0" />
                 <div className="space-y-1">
                   <div className="text-sm font-medium">
@@ -342,7 +345,9 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
                       ? `${exportTitle}: ошибка генерации`
                       : "Ошибка генерации экспорта"}
                   </div>
-                  <div className="text-xs leading-5">{exportFailedMessage}</div>
+                  <div className="text-xs leading-5">
+                    {exportFailedMessage}
+                  </div>
                 </div>
               </div>
 
@@ -352,7 +357,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
               </p>
             </div>
           ) : (
-            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-700">
+            <div className="flex items-start gap-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-[var(--color-warning-text)]">
               <AlertCircle size={20} className="mt-0.5 shrink-0" />
               <div className="space-y-1">
                 <div className="text-sm font-medium">

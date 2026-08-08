@@ -1,6 +1,7 @@
 type: contract_5.1_loan
 name: "Договор займа"
-
+version: 6.0
+parent: class_5_financial_security
 description: |
   Реальный договор, по которому одна сторона (займодавец) передает или обязуется
   передать в собственность другой стороне (заемщику) деньги или вещи, определенные
@@ -9,10 +10,6 @@ description: |
   На практике ключевыми рисками являются доказанность фактической передачи предмета займа,
   споры о процентах и порядке их начисления, безденежность, валютные ограничения,
   целевой характер займа, досрочный возврат и санкции за просрочку.
-
-version: 4.0
-parent: class_5_financial_security
-
 metadata:
   category: contract
   subcategory: financial_security
@@ -35,7 +32,6 @@ metadata:
     - "договор займа вещей, определенных родовыми признаками"
     - "заем учредителя"
     - "договор конвертируемого займа"
-
     - "loan agreement"
     - "convertible loan agreement"
     - "shareholder loan agreement"
@@ -49,474 +45,357 @@ metadata:
     - "IOU"
     - "note purchase agreement"
     - "facility agreement"
-
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
-
 classification_runtime_v1:
-
   scoring:
-    accept_threshold: 0.8
+    accept_threshold: 0.80
     strong_signal_threshold: 0.88
     ambiguity_margin: 0.18
     input_quality_weight: 1.0
-
   rules:
-
     filename_patterns:
-      # Русский — явные договоры займа / расписки
-
       - pattern: "(?i)договор[_\\s-]*за[её]ма"
         kind: specific_subject
         weight: 1.0
-        # Базовое: договор займа
-
       - pattern: "(?i)договор[_\\s-]*денежн[огоой][_\\s-]*за[её]ма"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)договор[_\\s-]*процентн[огоой][_\\s-]*за[её]ма"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)договор[_\\s-]*беспроцентн[огоой][_\\s-]*за[её]ма"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)договор[_\\s-]*целев[огоой][_\\s-]*за[её]ма"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*между[_\\s-]*юридическ[имиими][_\\s-]*лиц[аеи]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*между[_\\s-]*физическ[имиими][_\\s-]*лиц[аеи]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*между[_\\s-]*ИП"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*в[_\\s-]*иностранн[ойой][_\\s-]*валют[ееи]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*вещ[ейй][_\\s-]*определенн[ыхые][_\\s-]*родовым[иими][_\\s-]*признакам[иами]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*конвертируем[огоой][_\\s-]*за[её]ма"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)за[её]м[_\\s-]*учредител[яей]"
         kind: specific_subject
         weight: 0.95
-        # Заём учредителя
-
       - pattern: "(?i)расписк[аы][_\\s-]*о[_\\s-]*за[её]ме"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)долгова[яэй][_\\s-]*расписк[аы]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)расписк[аы].*получен[ияи][_\\s-]*денежн[ыхые][_\\s-]*средств"
         kind: specific_subject
-        weight: 0.9
-
-      # Краткие русские маркеры с уточнением договора/расписки
-
+        weight: 0.90
       - pattern: "(?i)договор[_\\s-]*за[её]м[ауы]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)за[её]м[ауы][_\\s-]*договор"
         kind: specific_subject
-        weight: 0.9
-
+        weight: 0.90
       - pattern: "(?i)договор[_\\s-]*займ[ауы]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)расписк[аы]"
         kind: specific_subject
         weight: 0.85
-        # Почти всегда долговая расписка, но оставляем немного ниже максимумов
-
-      # Английский — loan agreements / notes / facility
-
       - pattern: "(?i)loan[_\\s-]*agreement"
         kind: specific_subject
         weight: 1.0
-
       - pattern: "(?i)convertible[_\\s-]*loan[_\\s-]*agreement"
         kind: specific_subject
         weight: 1.0
-
       - pattern: "(?i)shareholder[_\\s-]*loan[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)subordinated[_\\s-]*loan[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)intercompany[_\\s-]*loan[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)bridge[_\\s-]*loan[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)mezzanine[_\\s-]*loan[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)demand[_\\s-]*loan[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)promissory[_\\s-]*note"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)loan[_\\s-]*note[_\\s-]*instrument"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)note[_\\s-]*purchase[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)facility[_\\s-]*agreement"
         kind: specific_subject
-        weight: 0.9
-        # В банковской практике — кредитная/займовая линия
-
+        weight: 0.90
       - pattern: "(?i)\\bIOU\\b"
         kind: specific_subject
-        weight: 0.9
-
-      # Общие loan/credit/cash — generic/context, чтобы не перехватывать всё подряд
-
+        weight: 0.90
       - pattern: "(?i)loan"
         kind: generic_form
-        weight: 0.6
-        # Голое 'loan' без agreement/contract – поддерживающий сигнал
-
+        weight: 0.60
       - pattern: "(?i)credit[_\\s-]*facility"
         kind: generic_form
-        weight: 0.6
-
+        weight: 0.60
       - pattern: "(?i)за[её]м"
         kind: generic_form
-        weight: 0.6
-        # Просто 'заём' в имени файла без слова 'договор/расписка' – требует поддержки L2/L3
-
+        weight: 0.60
       - pattern: "(?i)займ"
         kind: generic_form
-        weight: 0.6
-
+        weight: 0.60
     folder_patterns:
       - pattern: "(?i)за[её]м[ыы]?"
         kind: specific_subject
-        weight: 0.8
-        # Папка "займы/займ"
-
+        weight: 0.80
       - pattern: "(?i)займ"
         kind: specific_subject
-        weight: 0.8
-
+        weight: 0.80
       - pattern: "(?i)loan[s]?"
         kind: specific_subject
-        weight: 0.8
-
+        weight: 0.80
       - pattern: "(?i)intercompany[_\\s-]*loans?"
         kind: specific_subject
-        weight: 0.8
-
+        weight: 0.80
       - pattern: "(?i)shareholder[_\\s-]*loans?"
         kind: specific_subject
-        weight: 0.8
-
+        weight: 0.80
       - pattern: "(?i)debt"
         kind: context
-        weight: 0.4
-        # Общий долг, может содержать и облигации/кредиты
-
+        weight: 0.40
       - pattern: "(?i)financing"
         kind: context
-        weight: 0.4
-
+        weight: 0.40
     keywords:
-
       high:
         - pattern: "(?i)займодавец"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Займодавец как сторона по ст. 807 ГК РФ"
-
         - pattern: "(?i)заемщик"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Заемщик как сторона по договору займа"
-
         - pattern: "(?i)договор\\s+займ[ауы]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Общее название договора займа"
-
         - pattern: "(?i)договор\\s+денежн[огоой]\\s+займ[ауы]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Договор денежного займа"
-
         - pattern: "(?i)договор\\s+процентн[огоой]\\s+займ[ауы]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Договор процентного займа"
-
         - pattern: "(?i)договор\\s+беспроцентн[огоой]\\s+займ[ауы]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Беспроцентный договор займа"
-
         - pattern: "(?i)договор\\s+целев[огоой]\\s+займ[ауы]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Целевой заём с указанием цели использования"
-
         - pattern: "(?i)договор\\s+займ[ауы]\\s+между\\s+юридическ[имиими]\\s+лиц[ами]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Заем между юридическими лицами"
-
         - pattern: "(?i)договор\\s+займ[ауы]\\s+между\\s+физическ[имиими]\\s+лиц[ами]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Заем между физическими лицами"
-
         - pattern: "(?i)договор\\s+займ[ауы]\\s+между\\s+ип\\b"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Заем с участием индивидуальных предпринимателей"
-
         - pattern: "(?i)договор\\s+займ[ауы]\\s+в\\s+иностранн[ойой]\\s+валют[еуы]"
           weight: 0.95
           distinctiveness: high
           context: header
-          description: "Заем в иностранной валюте (валютные ограничения ст. 140, 141, 317 ГК РФ)"
-
+          description: "Заем в иностранной валюте"
         - pattern: "(?i)договор\\s+займ[ауы]\\s+вещей,?\\s+определенн[ыхые]\\s+родов[ымиые]\\s+признак[ами]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Заем вещей, определённых родовыми признаками"
-
         - pattern: "(?i)расписк[аыу]\\s+о\\s+займ[ееу]"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Расписка о получении суммы займа"
-
         - pattern: "(?i)расписк[аыу]\\b"
-          weight: 0.8
+          weight: 0.80
           distinctiveness: medium
           context: any
-          description: "Долговая расписка, часто подтверждающая передачу суммы займа"
-
+          description: "Долговая расписка"
         - pattern: "(?i)сумм[аыу]\\s+займ[ауы]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Сумма займа как предмет обязательства"
-
         - pattern: "(?i)возврат\\s+сумм[ыы]\\s+займ[ауы]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Обязанность возврата суммы займа"
-
         - pattern: "(?i)процент[ыо]\\s+по\\s+займ[уые]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Проценты по договору займа"
-
       medium:
         - pattern: "(?i)целев[оа]й\\s+за[её]м"
-          weight: 0.7
+          weight: 0.70
           distinctiveness: medium
           context: any
           description: "Упоминание целевого займа в теле документа"
-
         - pattern: "(?i)беспроцентн[ыо]й\\s+за[её]м"
-          weight: 0.7
+          weight: 0.70
           distinctiveness: medium
           context: any
           description: "Беспроцентный заём без явного заголовка"
-
         - pattern: "(?i)процентн[а-яё]+\\s+ставк[аа]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Процентная ставка по сумме займа"
-
         - pattern: "(?i)досрочн[ыо]й\\s+возврат"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Досрочный возврат суммы займа"
-
         - pattern: "(?i)\\bнеустойк[ааы]\\b"
-          weight: 0.5
+          weight: 0.50
           distinctiveness: low
           context: any
           description: "Неустойка за просрочку исполнения обязательств по займу"
-
         - pattern: "(?i)график\\s+погашени[яя]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "График погашения займа"
-
         - pattern: "(?i)\\bтранш\\b"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Предоставление займа траншами"
-
         - pattern: "(?i)валютн[а-яё]+\\s+оговорк[аа]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Валютная оговорка в договоре займа"
-
         - pattern: "(?i)безденежност[ьи]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Оспаривание действительности займа по мотиву безденежности"
-
       low:
         - pattern: "(?i)за[её]мн[ыо]е\\s+средств[аа]"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Упоминание заемных средств"
-
         - pattern: "(?i)долгов[оа]е\\s+обязательств[оо]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Общая ссылка на долговые обязательства"
-
         - pattern: "(?i)\\bпен[яи]\\b"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Пеня за просрочку платежей по займу"
-
         - pattern: "(?i)\\bштраф\\b"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Штрафные санкции за нарушение условий займа"
-
         - pattern: "(?i)остат[оа]к\\s+задолженност[ии]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Остаток задолженности по сумме займа"
-
         - pattern: "(?i)материальн[а-яё]+\\s+выгод[аа]"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Материальная выгода от пользования заемными средствами"
-
     exclusions:
       - pattern: "(?i)кредитн[ыо]й\\s+договор"
         severity: hard
         weight: -1.0
-        description: "Кредитный договор с участием банка/кредитной организации, отдельный тип по Главе 42 ГК РФ"
-
+        description: "Кредитный договор с участием банка/кредитной организации"
       - pattern: "(?i)договор\\s+ссуд[ыа]"
         severity: hard
         weight: -1.0
-        description: "Ссуда предполагает безвозмездное пользование вещью, а не возврат однородных вещей как при займе"
-
+        description: "Ссуда предполагает безвозмездное пользование вещью"
       - pattern: "(?i)товарн[ыо]й\\s+кредит"
         severity: hard
         weight: -1.0
-        description: "Товарный кредит — отдельный договор по ст. 822 ГК РФ, хотя и близок к займу [web:84]"
-
+        description: "Товарный кредит — отдельный договор по ст. 822 ГК РФ"
       - pattern: "(?i)коммерческ[иоя]+\\s+кредит"
         severity: hard
         weight: -1.0
-        description: "Коммерческий кредит как акцессорное обязательство к основному договору (поставка/подряд и т.п.) [web:81]"
-
-      # ── Soft exclusions
-
+        description: "Коммерческий кредит как акцессорное обязательство"
       - pattern: "(?i)кредитн[ыо]е\\s+соглашени[ея]"
         severity: soft
-        weight: -0.3
-        description: "Кредитное соглашение может относиться к банковскому кредиту, а не к займу"
-
+        weight: -0.30
+        description: "Кредитное соглашение может относиться к банковскому кредиту"
       - pattern: "(?i)линия\\s+кредит[аа]"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Кредитная линия как банковский продукт"
-
       - pattern: "(?i)овердрафт"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Овердрафт — особый банковский кредитный режим"
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
 # ════════════════════════════════════════════════════════════════════════════
-
 trigger_definitions:
-
   interest_bearing_loan:
     any_keywords:
       - "(?i)\\bпроцент[ыаов]?\\b"
       - "(?i)процентн[а-яё]+\\s+ставк[аа]"
       - "(?i)%\\s*годовых"
       - "(?i)вознаграждени[ея]\\s+за\\s+пользовани[ея]\\s+за[йеё]м[оа]м"
-
   interest_free_loan:
     any_keywords:
       - "(?i)беспроцентн[ыо]й"
       - "(?i)без\\s+начислени[яя]\\s+процент[оа]в"
       - "(?i)процент[ыа]\\s+не\\s+начисляютс[яьа]"
-
   target_loan:
     any_keywords:
       - "(?i)целев[оа]й\\s+за[её]м"
@@ -524,7 +403,6 @@ trigger_definitions:
       - "(?i)на\\s+приобретени[ея]"
       - "(?i)на\\s+оплат[уу]"
       - "(?i)на\\s+финансировани[ея]"
-
   cash_transfer:
     any_keywords:
       - "(?i)\\bналичн[ыо]ми\\b"
@@ -532,7 +410,6 @@ trigger_definitions:
       - "(?i)передан[ыо]?\\s+при\\s+подписани[ии]"
       - "(?i)наличн[ыо]й\\s+расч[её]т"
       - "(?i)\\bрасписк[ааы]\\b"
-
   bank_transfer:
     any_keywords:
       - "(?i)безналичн[ыо]й"
@@ -540,7 +417,6 @@ trigger_definitions:
       - "(?i)платежн[оеая]\\s+поручени[ея]"
       - "(?i)на\\s+расч[её]тн[ыо]й\\s+сч[её]т"
       - "(?i)банковск[иоя]+\\s+перевод"
-
   foreign_currency_reference:
     any_keywords:
       - "(?i)\\bдоллар\\b"
@@ -550,7 +426,6 @@ trigger_definitions:
       - "(?i)иностранн[а-яё]+\\s+валют[аа]"
       - "(?i)курс\\s+цб\\s*рф"
       - "(?i)валютн[а-яё]+\\s+оговорк[аа]"
-
   commercial_parties:
     any_keywords:
       - "(?i)\\bооо\\b"
@@ -561,14 +436,12 @@ trigger_definitions:
       - "(?i)индивидуальн[ыо]й\\s+предпринимател[ья]"
       - "(?i)\\bогрн\\b"
       - "(?i)\\bинн\\b"
-
   individual_parties:
     any_keywords:
       - "(?i)\\bгражданин\\b"
       - "(?i)физическ[оеая]\\s+лиц[оо]"
       - "(?i)\\bпаспорт\\b"
       - "(?i)дата\\s+рождения"
-
   installment_repayment:
     any_keywords:
       - "(?i)график\\s+погашени[яя]"
@@ -576,7 +449,6 @@ trigger_definitions:
       - "(?i)\\bтранш\\b"
       - "(?i)\\bчастями\\b"
       - "(?i)поэтапн[ыо]й\\s+возврат"
-
   secured_loan:
     any_keywords:
       - "(?i)\\bзалог\\b"
@@ -585,7 +457,6 @@ trigger_definitions:
       - "(?i)\\bипотек[ааи]\\b"
       - "(?i)\\bзадат[оа]к\\b"
       - "(?i)\\bгаранти[яи]\\b"
-
   related_parties:
     any_keywords:
       - "(?i)аффилирован"
@@ -593,14 +464,12 @@ trigger_definitions:
       - "(?i)участник\\s+обществ[аа]"
       - "(?i)\\bдиректор\\b"
       - "(?i)контролирующ[еёа-я]+\\s+лиц[оо]"
-
   consumer_like_borrower:
     any_keywords:
       - "(?i)за[её]мщик\\s*[-—]\\s*физическ[оеая]\\s+лиц[оо]"
       - "(?i)\\bгражданин\\b"
       - "(?i)личн[ыо]е\\s+нужд[ыа]"
       - "(?i)не\\s+связанн[ыо]е\\s+с\\s+предпринимательск[оа]й\\s+деятельност[ьюи]"
-
   convertible_loan:
     any_keywords:
       - "(?i)конвертируем[ыо]й\\s+за[её]м"
@@ -609,7 +478,6 @@ trigger_definitions:
       - "(?i)\\bconvertible\\s+loan\\b"
       - "(?i)опцион\\s+на\\s+дол[юьи]"
       - "(?i)в\\s+сч[её]т\\s+оплат[ыы]\\s+дол[ии]"
-
   novation_or_set_off:
     any_keywords:
       - "(?i)\\bноваци[яи]\\b"
@@ -617,14 +485,12 @@ trigger_definitions:
       - "(?i)прекращени[ея]\\s+обязательств[аа]"
       - "(?i)зач[её]т\\s+встречн[ыо]х\\s+требовани[йя]"
       - "(?i)замен[аа]\\s+обязательств[аа]"
-
   loan_forgiveness:
     any_keywords:
       - "(?i)прощени[ея]\\s+долг[аа]"
       - "(?i)освобождени[ея]\\s+от\\s+обязательств[аа]"
       - "(?i)отказ\\s+от\\s+требовани[яя]"
       - "(?i)\\bдарени[ея]\\b"
-
   fungible_goods_loan:
     any_keywords:
       - "(?i)вещ[ии],?\\s+определенн[ыо]е\\s+родов[ыо]ми\\s+признак[аа]ми"
@@ -634,14 +500,12 @@ trigger_definitions:
       - "(?i)\\bзерн[оо]\\b"
       - "(?i)\\bтоплив[оо]\\b"
       - "(?i)\\bматериал[ыо]\\b"
-
   promissory_note:
     any_keywords:
       - "(?i)\\bвексел[ья]\\b"
       - "(?i)прост[оа]й\\s+вексел[ья]"
       - "(?i)переводн[оа]й\\s+вексел[ья]"
       - "(?i)вексельн[оа]е\\s+обязательств[оо]"
-
   multiple_tranches:
     any_keywords:
       - "(?i)\\bтранш\\b"
@@ -649,251 +513,330 @@ trigger_definitions:
       - "(?i)поэтапн[оа]е\\s+предоставлени[ея]"
       - "(?i)лимит\\s+за[йеё]м[аа]"
       - "(?i)в\\s+пределах\\s+лимит[аа]"
-
   on_demand_loan:
     any_keywords:
       - "(?i)по\\s+требовани[юя]"
       - "(?i)до\\s+востребовани[яя]"
       - "(?i)в\\s+течени[еи]\\s+30\\s+дней"
       - "(?i)после\\s+предъявлени[яя]\\s+требовани[яя]"
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
 # ════════════════════════════════════════════════════════════════════════════
-
 shared_patterns:
-
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
   percentage_pattern: "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
   deadline_pattern: "(?i)(?:в течение|не позднее)\\s+\\d+\\s+(?:календарн|рабоч|банковск|дн|дня|дней)"
   currency_pattern: "(?i)\\b(?:руб|рублей|₽|usd|eur|доллар(?:ов)?|евро)\\b"
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "foreign_currency_loan_restriction"
-    name: "Валютные ограничения для займа между резидентами"
-    description: "При наличии валютной конструкции необходимо проверить соблюдение правил валютного регулирования"
-    legal_base: "ст. 140, 317 ГК РФ, ФЗ № 173-ФЗ"
-    required_triggers: ["foreign_currency_reference"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "доллар"
-        - "евро"
-        - "usd"
-        - "eur"
-        - "иностранная валюта"
-        - "курс цб рф"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "валюта займа"
-        - "курс цб"
-        - "резидент"
-        - "валютное регулирование"
-      rerank: true
-
-  - id: "no_transfer_evidence_red_flag"
-    name: "Отсутствуют явные признаки передачи суммы займа"
-    description: "Для договора займа критично наличие доказательств передачи денег/вещей; иначе возникает риск спора о безденежности"
-    legal_base: "ст. 808, 812 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "переданы"
-        - "получены"
-        - "расписка"
-        - "платежное поручение"
-        - "зачислены на счет"
-        - "акт передачи"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "передача денег"
-        - "расписка"
-        - "платежное поручение"
-        - "получил"
-      rerank: true
-
-  - id: "commercial_loan_interest_silence"
-    name: "Коммерческий заем без ясного урегулирования процентов"
-    description: "Для займов между коммерческими субъектами отсутствие ясной оговорки о процентности/беспроцентности создает существенный спорный риск"
-    legal_base: "ст. 809 ГК РФ"
-    required_triggers: ["commercial_parties"]
-    severity: "high"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "беспроцентный"
-        - "проценты"
-        - "процентная ставка"
-        - "% годовых"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "проценты"
-        - "беспроцентный"
-        - "коммерческие организации"
-      rerank: true
-
-  - id: "loan_amount_missing"
-    name: "Не выявлена ясная сумма займа"
-    description: "Отсутствие четко определенной суммы или количества вещей делает конструкцию займа дефектной"
-    legal_base: "ст. 807, 808 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "сумма займа"
-        - "в размере"
-        - "рублей"
-        - "евро"
-        - "долларов"
-        - "количество"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "сумма займа"
-        - "в размере"
-        - "рублей"
-      rerank: true
-
-  - id: "related_party_loan_bankruptcy_risk"
-    name: "Заём между аффилированными лицами — риск субординации"
-    description: |
-      Заём между аффилированными/взаимозависимыми лицами может быть 
-      переквалифицирован в корпоративное финансирование и субординирован 
-      в банкротстве заёмщика (Обзор ВС РФ от 29.01.2020).
-    legal_base: "Обзор ВС РФ от 29.01.2020, ст. 2 ФЗ-127"
-    required_triggers: ["related_parties"]
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "аффилирован"
-        - "взаимозависим"
-        - "участник общества"
-        - "директор"
-        - "контролирующее лицо"
-        - "бенефициар"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "аффилированность"
-        - "взаимозависимость"
-        - "корпоративное финансирование"
-      rerank: true
-
-  - id: "loan_forgiveness_tax_risk"
-    name: "Прощение долга — налоговые и банкротные риски"
-    description: |
-      Прощение долга влечёт налоговые последствия для заёмщика (доход) 
-      и риск оспаривания в банкротстве займодавца как безвозмездной сделки.
-    legal_base: "ст. 415 ГК РФ, ст. 250 НК РФ, ст. 61.2 ФЗ-127"
-    required_triggers: ["loan_forgiveness"]
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "прощение долга"
-        - "освобождение от обязательства"
-        - "отказ от требования"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "прощение долга"
-        - "налоговые последствия"
-        - "безвозмездная сделка"
-      rerank: true
-
-  - id: "interest_free_commercial_loan_tax_risk"
-    name: "Беспроцентный заём между юрлицами — налоговые риски"
-    description: |
-      Беспроцентный заём между коммерческими организациями создаёт риск 
-      доначисления налога на прибыль по ст. 269 НК РФ (внереализационный доход) 
-      и признания сделки нерыночной.
-    legal_base: "ст. 269 НК РФ, ст. 105.3 НК РФ"
-    required_triggers: ["interest_free_loan", "commercial_parties"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "беспроцентный"
-        - "без начисления процентов"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "беспроцентный заём"
-        - "налоговые риски"
-        - "внереализационный доход"
-      rerank: true
-
-  - id: "fungible_goods_loan_quality_risk"
-    name: "Заём вещей: риск спора о качестве и количестве"
-    description: |
-      При займе вещей, определённых родовыми признаками, критично 
-      зафиксировать качество, количество и способ определения возвращаемых вещей.
-    legal_base: "ст. 807 ГК РФ"
-    required_triggers: ["fungible_goods_loan"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "вещи, определенные родовыми признаками"
-        - "того же рода и качества"
-        - "товарный заем"
-      keyword_mode: "any"
-      negative_keywords:
-        - "качество"
-        - "ГОСТ"
-        - "спецификация"
-        - "акт приёма-передачи"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "качество"
-        - "количество"
-        - "спецификация"
-      rerank: true
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
-
 checks_v8:
-
-  - id: loan_subject_extraction
-    name: "Базовое извлечение параметров займа"
-    description: "Извлекает сумму, валюту, срок, процентность, стороны, порядок передачи и возврата займа"
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 1: Стороны договора — займодавец и заёмщик
+# ──────────────────────────────────────────────────────────────────────────
+  - id: loan_parties_identification
+    name: "Стороны договора: идентификация займодавца и заёмщика"
+    description: >
+      Фактографическая проверка идентификации сторон договора займа —
+      займодавца и заёмщика, их реквизитов, подписантов и оснований полномочий.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "займодавец"
+        - "заемщик"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+        - "ИНН"
+        - "ОГРН"
+        - "паспорт"
+        - "гражданин"
+        - "юридическое лицо"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(займодавец|заемщик).*именуем"
+        - "(?i)действующ[а-я]+\\s+на\\s+основании"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор займа (§ 1 Главы 42 ГК РФ, ст. 807).
+        Проверяется только один вопрос: идентификация сторон — займодавца
+        и заёмщика, их реквизиты, подписанты и основания полномочий.
+        Нормативный ориентир:
+        - ст. 807 ГК РФ — стороны договора займа
+        - ст. 182–185 ГК РФ — полномочия представителя
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наименование/ФИО и реквизиты Займодавца.
+        2. Тип Займодавца (юрлицо / ИП / физлицо).
+        3. Кто подписывает от Займодавца и на каком основании.
+        4. Наименование/ФИО и реквизиты Заёмщика.
+        5. Тип Заёмщика.
+        6. Кто подписывает от Заёмщика и на каком основании.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined" / "Данные не определены".
+        3. Не используй "None", "null", "not_defined" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "ООО «ФинансГрупп» (ИНН 7700000001, ОГРН 1027700000001), именуемое
+        «Займодавец», в лице Генерального директора Иванова И.И., действующего
+        на основании Устава, и гражданин Петров П.П., паспорт 45 00 № 123456,
+        именуемый «Заёмщик»."
+        Ответ:
+        {
+          "lender_details_status": "defined",
+          "lender_details_value": "ООО «ФинансГрупп», ИНН 7700000001, ОГРН 1027700000001",
+          "lender_type": "legal_entity",
+          "lender_signatory": "Генеральный директор Иванов И.И.",
+          "lender_signatory_basis": "charter",
+          "borrower_details_status": "defined",
+          "borrower_details_value": "Петров П.П., паспорт 45 00 № 123456",
+          "borrower_type": "individual",
+          "borrower_signatory": "Петров П.П.",
+          "borrower_signatory_basis": "personal",
+          "evidence": [
+            {
+              "clause_ref": "преамбула",
+              "quote": "ООО «ФинансГрупп» (ИНН 7700000001, ОГРН 1027700000001), именуемое «Займодавец», в лице Генерального директора Иванова И.И., действующего на основании Устава."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Настоящий договор займа заключён между сторонами."
+        Ответ:
+        {
+          "lender_details_status": "not_defined",
+          "lender_details_value": "Данные не определены",
+          "lender_type": "not_defined",
+          "lender_signatory": "Данные не определены",
+          "lender_signatory_basis": "not_defined",
+          "borrower_details_status": "not_defined",
+          "borrower_details_value": "Данные не определены",
+          "borrower_type": "not_defined",
+          "borrower_signatory": "Данные не определены",
+          "borrower_signatory_basis": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с идентификацией Займодавца.
+        2. Найди прямую цитату с идентификацией Заёмщика.
+        3. Найди прямую цитату о подписантах и основаниях полномочий.
+        4. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "lender_details_status": "<defined / not_defined>",
+          "lender_details_value": "<реквизиты или 'Данные не определены'>",
+          "lender_type": "<legal_entity / ip / individual / not_defined>",
+          "lender_signatory": "<ФИО и должность или 'Данные не определены'>",
+          "lender_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
+          "borrower_details_status": "<defined / not_defined>",
+          "borrower_details_value": "<реквизиты или 'Данные не определены'>",
+          "borrower_type": "<legal_entity / ip / individual / not_defined>",
+          "borrower_signatory": "<ФИО и должность или 'Данные не определены'>",
+          "borrower_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 700
+      retrieval:
+        retrieval_profile: "party_identification_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "займодавец заемщик именуем в лице действующего на основании ИНН ОГРН паспорт гражданин юридическое лицо реквизиты сторон"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - boilerplate
+        negative_keywords:
+          - "сумма займа"
+          - "проценты"
+          - "срок возврата"
+          - "неустойка"
+          - "обеспечение"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.0, 0.20]
+          boost: 0.40
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "boilerplate"
+          confidence_bonus_on_match: 0.08
+          confidence_penalty_on_excluded_segment: 0.15
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 1300
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора займа сведения
+          о займодавце и заёмщике: реквизиты, тип стороны, подписанта
+          и основание полномочий.
+          Не анализируй сумму займа, проценты, срок возврата или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. lender_details_status — "defined" или "not_defined".
+          2. lender_details_value — наименование/ФИО и реквизиты займодавца.
+          3. lender_type — legal_entity / ip / individual / not_defined.
+          4. lender_signatory — подписант займодавца.
+          5. lender_signatory_basis — charter / poa / order / personal / other / not_defined.
+          6. borrower_details_status — "defined" или "not_defined".
+          7. borrower_details_value — наименование/ФИО и реквизиты заёмщика.
+          8. borrower_type — legal_entity / ip / individual / not_defined.
+          9. borrower_signatory — подписант заёмщика.
+          10. borrower_signatory_basis — charter / poa / order / personal / other / not_defined.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Для физлица, подписывающего лично, используй basis = "personal".
+          - Не смешивай займодавца и заёмщика.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "lender_details_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус идентификации займодавца."
+            required: true
+          - name: "lender_details_value"
+            type: "string"
+            presentation: "fact"
+            label: "Займодавец"
+            description: "Наименование/ФИО и реквизиты займодавца."
+            required: true
+            display_in_grid: true
+            display_priority: 1
+          - name: "lender_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["legal_entity", "ip", "individual", "not_defined"]
+            description: "Тип займодавца."
+            required: false
+          - name: "lender_signatory"
+            type: "string"
+            presentation: "fact"
+            label: "Подписант займодавца"
+            description: "Подписант от займодавца."
+            required: false
+            display_in_grid: false
+          - name: "lender_signatory_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
+            description: "Основание полномочий подписанта займодавца."
+            required: false
+          - name: "borrower_details_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус идентификации заёмщика."
+            required: true
+          - name: "borrower_details_value"
+            type: "string"
+            presentation: "fact"
+            label: "Заёмщик"
+            description: "Наименование/ФИО и реквизиты заёмщика."
+            required: true
+            display_in_grid: true
+            display_priority: 2
+          - name: "borrower_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["legal_entity", "ip", "individual", "not_defined"]
+            description: "Тип заёмщика."
+            required: false
+          - name: "borrower_signatory"
+            type: "string"
+            presentation: "fact"
+            label: "Подписант заёмщика"
+            description: "Подписант от заёмщика."
+            required: false
+            display_in_grid: false
+          - name: "borrower_signatory_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
+            description: "Основание полномочий подписанта заёмщика."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 2: Базовое извлечение параметров займа
+# ──────────────────────────────────────────────────────────────────────────
+  - id: loan_subject_extraction
+    name: "Предмет займа: сумма, валюта, срок, процентность, способ передачи и возврата"
+    description: >
+      Фактографическая проверка ключевых параметров займа: предмет (деньги/вещи),
+      сумма/количество, валюта, процентность, ставка, срок возврата,
+      способ передачи и возврата.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -905,103 +848,315 @@ checks_v8:
         - "срок возврата"
         - "беспроцентный"
         - "переданы"
+        - "обязуется возвратить"
+        - "возвратить сумму займа"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)(займодавец|заемщик|договор\\s+займа)"
         - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)\\b"
         - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
+        - "(?i)сумм[ауы]\\s+за[её]ма"
+        - "(?i)обязуетс[яь]\\s+возврат"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор займа.
-        Извлеки ключевые параметры договора строго по тексту.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор займа (§ 1 Главы 42 ГК РФ, ст. 807–810).
+        Проверяется только один вопрос: предмет займа, сумма/количество,
+        валюта, процентность, срок возврата, способ передачи и возврата.
+        Нормативный ориентир:
+        - ст. 807 ГК РФ — предмет договора займа
+        - ст. 809 ГК РФ — проценты по договору займа
+        - ст. 810 ГК РФ — обязанность возврата
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Предмет займа (деньги / вещи / смешанный).
+        2. Сумму займа или количество вещей.
+        3. Валюту обязательства.
+        4. Процентность (процентный / беспроцентный).
+        5. Процентную ставку.
+        6. Срок возврата.
+        7. Способ передачи займа.
+        8. Способ возврата займа.
+        9. Прямую обязанность заёмщика возвратить предмет займа.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Не используй "None", "null", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Займодавец передаёт Заёмщику денежные средства в размере 5 000 000 рублей.
+        Заём является процентным, ставка — 12% годовых. Срок возврата — не позднее
+        31.12.2026. Средства перечислены на расчётный счёт Заёмщика. Возврат —
+        безналичным переводом. Заёмщик обязуется возвратить сумму займа."
+        Ответ:
         {
-          "lender": "<займодавец или not_found>",
-          "borrower": "<заемщик или not_found>",
-          "loan_kind": "<money / fungible_goods / mixed / unclear / not_found>",
-          "loan_amount": "<сумма/количество или not_found>",
-          "currency": "<RUB / USD / EUR / other / not_found>",
-          "interest_status": "<interest_bearing / interest_free / unclear / not_found>",
-          "interest_rate": "<ставка или not_found>",
-          "repayment_term": "<срок возврата или on_demand / not_found>",
-          "transfer_method": "<cash / bank_transfer / mixed / unclear / not_found>",
-          "repayment_method": "<cash / bank_transfer / mixed / unclear / not_found>"
+          "loan_kind": "money",
+          "loan_amount_status": "defined",
+          "loan_amount_value": "5 000 000 рублей",
+          "currency": "RUB",
+          "interest_status": "interest_bearing",
+          "interest_rate": "12% годовых",
+          "repayment_term_status": "defined",
+          "repayment_term_value": "не позднее 31.12.2026",
+          "transfer_method": "bank_transfer",
+          "repayment_method": "bank_transfer",
+          "repayment_obligation_status": "defined",
+          "repayment_obligation_details": "Заёмщик обязуется возвратить сумму займа",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.1",
+              "quote": "Займодавец передаёт Заёмщику денежные средства в размере 5 000 000 рублей."
+            }
+          ]
         }
 
-        Используй только данные из текста.
-        Если сведений нет — пиши "not_found".
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Стороны заключили настоящий договор займа."
+        Ответ:
+        {
+          "loan_kind": "not_defined",
+          "loan_amount_status": "not_defined",
+          "loan_amount_value": "Данные не определены",
+          "currency": "not_defined",
+          "interest_status": "not_defined",
+          "interest_rate": "Данные не определены",
+          "repayment_term_status": "not_defined",
+          "repayment_term_value": "Данные не определены",
+          "transfer_method": "not_defined",
+          "repayment_method": "not_defined",
+          "repayment_obligation_status": "not_defined",
+          "repayment_obligation_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о предмете займа.
+        2. Найди прямую цитату о сумме/количестве.
+        3. Найди прямую цитату о процентности и ставке.
+        4. Найди прямую цитату о сроке возврата.
+        5. Найди прямую цитату об обязанности возврата.
+        6. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "loan_kind": "<money / fungible_goods / mixed / not_defined>",
+          "loan_amount_status": "<defined / not_defined>",
+          "loan_amount_value": "<сумма/количество или 'Данные не определены'>",
+          "currency": "<RUB / USD / EUR / other / not_defined>",
+          "interest_status": "<interest_bearing / interest_free / not_defined>",
+          "interest_rate": "<ставка или 'Данные не определены'>",
+          "repayment_term_status": "<defined / not_defined>",
+          "repayment_term_value": "<срок или 'Данные не определены'>",
+          "transfer_method": "<cash / bank_transfer / mixed / not_defined>",
+          "repayment_method": "<cash / bank_transfer / mixed / not_defined>",
+          "repayment_obligation_status": "<defined / not_defined>",
+          "repayment_obligation_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
-      max_tokens: 700
-    retrieval:
-      context_k: 6
-      max_chunks: 10
-      boost_keywords:
-        - "сумма займа"
-        - "проценты"
-        - "срок возврата"
-        - "расписка"
-        - "платежное поручение"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 50
-      max_snippet_length: 700
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "lender"
-          type: "string"
-          keyword_hints: ["займодавец"]
-          description: "Займодавец"
-        - name: "borrower"
-          type: "string"
-          keyword_hints: ["заемщик"]
-          description: "Заемщик"
-        - name: "loan_kind"
-          type: "string"
-          allowed_values: ["money", "fungible_goods", "mixed", "unclear", "not_found"]
-          description: "Предмет займа"
-        - name: "loan_amount"
-          type: "string"
-          keyword_hints: ["сумма займа", "в размере", "количество"]
-          description: "Сумма или количество предмета займа"
-        - name: "currency"
-          type: "string"
-          allowed_values: ["RUB", "USD", "EUR", "other", "not_found"]
-          description: "Валюта займа"
-        - name: "interest_status"
-          type: "string"
-          allowed_values: ["interest_bearing", "interest_free", "unclear", "not_found"]
-          description: "Процентность займа"
-        - name: "interest_rate"
-          type: "string"
-          regex_patterns:
-            - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-          description: "Процентная ставка"
-        - name: "repayment_term"
-          type: "string"
-          keyword_hints: ["срок возврата", "по требованию", "не позднее"]
-          description: "Срок возврата"
-        - name: "transfer_method"
-          type: "string"
-          allowed_values: ["cash", "bank_transfer", "mixed", "unclear", "not_found"]
-          description: "Способ передачи займа"
-        - name: "repayment_method"
-          type: "string"
-          allowed_values: ["cash", "bank_transfer", "mixed", "unclear", "not_found"]
-          description: "Способ возврата займа"
-      store_payload: true
-
+      max_tokens: 750
+      retrieval:
+        retrieval_profile: "interest_rate_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "сумма займа проценты срок возврата беспроцентный переданы расписка платежное поручение обязуется возвратить возврат займа валюта ставка"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - definitions
+        negative_keywords:
+          - "неустойка"
+          - "обеспечение"
+          - "залог"
+          - "поручительство"
+          - "аффилированность"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.0, 0.45]
+          boost: 0.20
+          scope: segment
+        context_k: 6
+        max_chunks: 10
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "definitions"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 50
+        max_snippet_length: 700
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 1400
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора займа ключевые
+          параметры: предмет, сумма, валюта, процентность, ставка, срок возврата,
+          способ передачи и возврата, обязанность возврата.
+          Не анализируй обеспечение, аффилированность или банкротство.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. loan_kind — money / fungible_goods / mixed / not_defined.
+          2. loan_amount_status — "defined" или "not_defined".
+          3. loan_amount_value — сумма или количество.
+          4. currency — RUB / USD / EUR / other / not_defined.
+          5. interest_status — interest_bearing / interest_free / not_defined.
+          6. interest_rate — ставка.
+          7. repayment_term_status — "defined" или "not_defined".
+          8. repayment_term_value — срок возврата.
+          9. transfer_method — cash / bank_transfer / mixed / not_defined.
+          10. repayment_method — cash / bank_transfer / mixed / not_defined.
+          11. repayment_obligation_status — "defined" или "not_defined".
+          12. repayment_obligation_details — формулировка обязанности возврата.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - loan_kind: "money" — денежный заём; "fungible_goods" — заём вещей;
+            "mixed" — смешанный; "not_defined" — не определён.
+          - interest_status: "interest_bearing" — прямо указаны проценты или ставка;
+            "interest_free" — прямо указано «беспроцентный»;
+            "not_defined" — не указано.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "loan_kind"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["money", "fungible_goods", "mixed", "not_defined"]
+            description: "Предмет займа."
+            required: true
+          - name: "loan_amount_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения суммы/количества займа."
+            required: true
+          - name: "loan_amount_value"
+            type: "string"
+            presentation: "fact"
+            label: "Сумма займа"
+            description: "Сумма или количество предмета займа."
+            required: true
+            display_in_grid: true
+            display_priority: 1
+          - name: "currency"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["RUB", "USD", "EUR", "other", "not_defined"]
+            description: "Валюта займа."
+            required: false
+          - name: "interest_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["interest_bearing", "interest_free", "not_defined"]
+            description: "Процентность займа."
+            required: true
+          - name: "interest_rate"
+            type: "string"
+            presentation: "fact"
+            label: "Процентная ставка"
+            description: "Процентная ставка по займу."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "repayment_term_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения срока возврата."
+            required: true
+          - name: "repayment_term_value"
+            type: "string"
+            presentation: "fact"
+            label: "Срок возврата"
+            description: "Срок возврата займа."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+          - name: "transfer_method"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["cash", "bank_transfer", "mixed", "not_defined"]
+            description: "Способ передачи займа."
+            required: false
+          - name: "repayment_method"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["cash", "bank_transfer", "mixed", "not_defined"]
+            description: "Способ возврата займа."
+            required: false
+          - name: "repayment_obligation_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус обязанности возврата."
+            required: true
+          - name: "repayment_obligation_details"
+            type: "string"
+            presentation: "fact"
+            label: "Обязанность возврата"
+            description: "Формулировка обязанности заёмщика возвратить заём."
+            required: false
+            display_in_grid: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 3: Подтверждение фактической передачи займа
+# ──────────────────────────────────────────────────────────────────────────
   - id: transfer_evidence_check
-    name: "Подтверждение фактической передачи суммы займа"
-    description: "Проверяет наличие доказательств передачи займа: расписка, акт, платежное поручение, указание на передачу при подписании"
+    name: "Подтверждение фактической передачи суммы займа (ст. 808, 812 ГК РФ)"
+    description: >
+      Фактографическая проверка наличия доказательств передачи займа:
+      расписка, акт, платёжное поручение, указание на передачу при подписании.
+      Отсутствие доказательств создаёт риск спора о безденежности.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1020,58 +1175,223 @@ checks_v8:
         - "(?i)платежн(ое|ого)\\s+поручени"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор займа.
-        Проверь, содержит ли документ достаточные признаки фактической передачи суммы займа.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор займа (§ 1 Главы 42 ГК РФ, ст. 808, 812).
+        Проверяется только один вопрос: наличие доказательств фактической
+        передачи суммы займа и риск безденежности.
+        Нормативный ориентир:
+        - ст. 808 ГК РФ — форма договора займа
+        - ст. 812 ГК РФ — безденежность
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли подтверждение передачи займа (расписка, акт, платёжное поручение).
+        2. Тип подтверждения.
+        3. Указание на передачу при подписании договора.
+        4. Риск безденежности при наличной передаче.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если подтверждение не найдено — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Денежные средства в размере 3 000 000 рублей переданы Заёмщику
+        при подписании настоящего договора, что подтверждается распиской
+        Заёмщика (Приложение № 1)."
+        Ответ:
         {
-          "transfer_evidence_status": "<strong / medium / weak / not_found>",
-          "transfer_evidence_type": ["<расписка>", "<платежное поручение>", "<указание в договоре>", "<акт>", "<иное>"],
-          "cash_transfer_risk": "<high / medium / low / not_found>",
-          "transfer_snippet": "<цитата или not_found>"
+          "transfer_evidence_status": "defined",
+          "transfer_evidence_details": "расписка Заёмщика (Приложение № 1)",
+          "transfer_evidence_type": "receipt",
+          "transfer_at_signing_status": "defined",
+          "cash_transfer_risk": "high",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "Денежные средства в размере 3 000 000 рублей переданы Заёмщику при подписании настоящего договора, что подтверждается распиской Заёмщика (Приложение № 1)."
+            }
+          ]
         }
 
-        - "strong" — есть конкретный документ/прямое подтверждение передачи
-        - "medium" — есть формула в договоре, но без внешнего подтверждения
-        - "weak" — есть лишь косвенные указания
-        - "not_found" — подтверждение не найдено
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Займодавец предоставляет Заёмщику заём."
+        Ответ:
+        {
+          "transfer_evidence_status": "not_defined",
+          "transfer_evidence_details": "Данные не определены",
+          "transfer_evidence_type": "not_defined",
+          "transfer_at_signing_status": "not_defined",
+          "cash_transfer_risk": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о передаче средств.
+        2. Найди прямую цитату о подтверждающем документе.
+        3. Найди прямую цитату о передаче при подписании.
+        4. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "transfer_evidence_status": "<defined / not_defined>",
+          "transfer_evidence_details": "<текст или 'Данные не определены'>",
+          "transfer_evidence_type": "<receipt / payment_order / act / contract_clause / not_defined>",
+          "transfer_at_signing_status": "<defined / not_defined>",
+          "cash_transfer_risk": "<high / medium / low / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 420
-    retrieval:
-      context_k: 5
-      max_chunks: 8
-      boost_keywords:
-        - "расписка"
-        - "платежное поручение"
-        - "переданы"
-        - "получены"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "transfer_evidence_status"
-          type: "string"
-          allowed_values: ["strong", "medium", "weak", "not_found"]
-          description: "Сила подтверждения передачи займа"
-        - name: "cash_transfer_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск безденежности при наличной передаче"
-      store_payload: true
-
+      max_tokens: 500
+      retrieval:
+        retrieval_profile: "payment_terms_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "расписка платежное поручение переданы получены зачислены на счет акт передачи передача при подписании подтверждение передачи займа"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - procedures
+        negative_keywords:
+          - "проценты"
+          - "неустойка"
+          - "обеспечение"
+          - "залог"
+          - "аффилированность"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.05, 0.50]
+          boost: 0.20
+          scope: segment
+        context_k: 5
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "procedures"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 600
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора займа сведения
+          о подтверждении фактической передачи суммы займа.
+          Не анализируй проценты, срок возврата или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. transfer_evidence_status — "defined" если подтверждение передачи
+             прямо указано, иначе "not_defined".
+          2. transfer_evidence_details — формулировка о подтверждении.
+          3. transfer_evidence_type — receipt / payment_order / act / contract_clause / not_defined.
+          4. transfer_at_signing_status — "defined" если передача при подписании
+             прямо указана, иначе "not_defined".
+          5. cash_transfer_risk — high / medium / low / not_defined.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - transfer_evidence_type:
+            "receipt" — расписка;
+            "payment_order" — платёжное поручение;
+            "act" — акт передачи;
+            "contract_clause" — указание в самом договоре;
+            "not_defined" — не определено.
+          - cash_transfer_risk: "high" — наличная передача без внешнего документа;
+            "medium" — наличная передача с распиской;
+            "low" — безналичная передача;
+            "not_defined" — способ не определён.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "transfer_evidence_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус подтверждения передачи займа."
+            required: true
+          - name: "transfer_evidence_details"
+            type: "string"
+            presentation: "fact"
+            label: "Подтверждение передачи"
+            description: "Формулировка о подтверждении передачи займа."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "transfer_evidence_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["receipt", "payment_order", "act", "contract_clause", "not_defined"]
+            description: "Тип подтверждения передачи."
+            required: false
+          - name: "transfer_at_signing_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания на передачу при подписании."
+            required: false
+          - name: "cash_transfer_risk"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["high", "medium", "low", "not_defined"]
+            description: "Риск безденежности при наличной передаче."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 4: Проценты по займу
+# ──────────────────────────────────────────────────────────────────────────
   - id: interest_terms_check
-    name: "Проценты по займу и методика их расчета"
-    description: "Проверяет наличие процентной ставки, беспроцентности и понятной базы начисления процентов"
+    name: "Проценты по займу: ставка, база начисления, периодичность (ст. 809 ГК РФ)"
+    description: >
+      Фактографическая проверка условий о процентах: процентность/беспроцентность,
+      ставка, база начисления, периодичность уплаты, ясность оговорки.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1082,6 +1402,7 @@ checks_v8:
         - "беспроцентный"
         - "на остаток задолженности"
         - "на фактический остаток"
+        - "без начисления процентов"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
@@ -1089,65 +1410,223 @@ checks_v8:
         - "(?i)остат(ок|ка)\\s+задолженн"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор займа.
-        Проверь условия о процентах и методике их расчета.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор займа (§ 1 Главы 42 ГК РФ, ст. 809).
+        Проверяется только один вопрос: условия о процентах и методике их расчёта.
+        Нормативный ориентир:
+        - ст. 809 ГК РФ — проценты по договору займа
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Процентность займа (процентный / беспроцентный).
+        2. Процентную ставку.
+        3. Базу начисления процентов.
+        4. Периодичность уплаты процентов.
+        5. Ясность процентной оговорки.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Заём является процентным. Ставка — 10% годовых на фактический остаток
+        задолженности. Проценты уплачиваются ежемесячно, не позднее 5-го числа."
+        Ответ:
         {
-          "interest_status": "<interest_bearing / interest_free / unclear / not_found>",
-          "interest_rate": "<ставка или not_found>",
-          "calculation_base": "<principal / outstanding_balance / unclear / not_found>",
-          "payment_frequency": "<monthly / at_maturity / other / not_found>",
-          "interest_clause_clarity": "<clear / unclear / not_found>"
+          "interest_status": "interest_bearing",
+          "interest_rate": "10% годовых",
+          "calculation_base": "outstanding_balance",
+          "payment_frequency": "monthly",
+          "interest_clause_clarity": "clear",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "Заём является процентным. Ставка — 10% годовых на фактический остаток задолженности."
+            }
+          ]
         }
 
-        Используй только текст документа.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Заём является беспроцентным."
+        Ответ:
+        {
+          "interest_status": "interest_free",
+          "interest_rate": "Данные не определены",
+          "calculation_base": "not_defined",
+          "payment_frequency": "not_defined",
+          "interest_clause_clarity": "clear",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "Заём является беспроцентным."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о процентности.
+        2. Найди прямую цитату о ставке.
+        3. Найди прямую цитату о базе начисления.
+        4. Найди прямую цитату о периодичности.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "interest_status": "<interest_bearing / interest_free / not_defined>",
+          "interest_rate": "<ставка или 'Данные не определены'>",
+          "calculation_base": "<principal / outstanding_balance / not_defined>",
+          "payment_frequency": "<monthly / at_maturity / other / not_defined>",
+          "interest_clause_clarity": "<clear / unclear / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 420
-    retrieval:
-      context_k: 5
-      max_chunks: 8
-      boost_keywords:
-        - "проценты"
-        - "процентная ставка"
-        - "остаток задолженности"
-        - "беспроцентный"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "interest_status"
-          type: "string"
-          allowed_values: ["interest_bearing", "interest_free", "unclear", "not_found"]
-          description: "Статус процентности займа"
-        - name: "interest_rate"
-          type: "string"
-          regex_patterns:
-            - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-          description: "Процентная ставка"
-        - name: "calculation_base"
-          type: "string"
-          allowed_values: ["principal", "outstanding_balance", "unclear", "not_found"]
-          description: "База начисления процентов"
-        - name: "payment_frequency"
-          type: "string"
-          allowed_values: ["monthly", "at_maturity", "other", "not_found"]
-          description: "Периодичность уплаты процентов"
-      store_payload: true
-
+      max_tokens: 500
+      retrieval:
+        retrieval_profile: "interest_rate_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "проценты процентная ставка % годовых беспроцентный на остаток задолженности на фактический остаток без начисления процентов периодичность уплаты"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - definitions
+        negative_keywords:
+          - "неустойка"
+          - "штраф"
+          - "обеспечение"
+          - "залог"
+          - "аффилированность"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.10, 0.55]
+          boost: 0.18
+          scope: segment
+        context_k: 5
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "definitions"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 600
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора займа условия
+          о процентах: процентность, ставка, база начисления, периодичность.
+          Не анализируй неустойку, обеспечение или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. interest_status — interest_bearing / interest_free / not_defined.
+          2. interest_rate — ставка.
+          3. calculation_base — principal / outstanding_balance / not_defined.
+          4. payment_frequency — monthly / at_maturity / other / not_defined.
+          5. interest_clause_clarity — clear / unclear / not_defined.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - interest_status: "interest_bearing" — прямо указаны проценты;
+            "interest_free" — прямо указано «беспроцентный»;
+            "not_defined" — не указано.
+          - calculation_base: "principal" — на сумму займа;
+            "outstanding_balance" — на остаток задолженности;
+            "not_defined" — не определено.
+          - Не выводи процентность из нормы ст. 809 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "interest_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["interest_bearing", "interest_free", "not_defined"]
+            description: "Процентность займа."
+            required: true
+          - name: "interest_rate"
+            type: "string"
+            presentation: "fact"
+            label: "Процентная ставка"
+            description: "Процентная ставка по займу."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "calculation_base"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["principal", "outstanding_balance", "not_defined"]
+            description: "База начисления процентов."
+            required: false
+          - name: "payment_frequency"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["monthly", "at_maturity", "other", "not_defined"]
+            description: "Периодичность уплаты процентов."
+            required: false
+          - name: "interest_clause_clarity"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["clear", "unclear", "not_defined"]
+            description: "Ясность процентной оговорки."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 5: Возврат займа, график, досрочное взыскание
+# ──────────────────────────────────────────────────────────────────────────
   - id: repayment_and_acceleration_check
-    name: "Возврат займа, график погашения и досрочное взыскание"
-    description: "Проверяет срок возврата, график платежей, право досрочного возврата и акцелерацию"
+    name: "Возврат займа: срок, график, досрочный возврат и акцелерация (ст. 810, 811 ГК РФ)"
+    description: >
+      Фактографическая проверка срока возврата, структуры погашения,
+      права заёмщика на досрочный возврат, права займодавца на акцелерацию
+      и неустойки за просрочку.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1158,71 +1637,269 @@ checks_v8:
         - "потребовать досрочного возврата"
         - "по требованию"
         - "в случае просрочки"
+        - "не позднее"
+        - "неустойка"
+        - "пеня"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)досрочн(ый|ого)\\s+возврат"
         - "(?i)потребовать\\s+досрочного\\s+возврата"
         - "(?i)график\\s+погашен"
+        - "(?i)срок\\s+возврат"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор займа.
-        Проверь порядок возврата займа.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор займа (§ 1 Главы 42 ГК РФ, ст. 810, 811, 813, 814).
+        Проверяется только один вопрос: порядок возврата займа, досрочный возврат,
+        акцелерация и неустойка за просрочку.
+        Нормативный ориентир:
+        - ст. 810 ГК РФ — обязанность возврата
+        - ст. 811 ГК РФ — последствия нарушения
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Структуру возврата (единовременно / в рассрочку / по требованию).
+        2. Право заёмщика на досрочный возврат.
+        3. Право займодавца требовать досрочного возврата (акцелерация).
+        4. Наличие неустойки за просрочку.
+        5. Подтверждение возврата (расписка, акт, отметка).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Заём возвращается ежемесячными платежами по графику (Приложение № 2).
+        Заёмщик вправе вернуть заём досрочно без согласия Займодавца.
+        При просрочке более 10 дней Займодавец вправе потребовать досрочного
+        возврата всей суммы. За просрочку — пеня 0,1% в день.
+        Возврат подтверждается распиской Займодавца."
+        Ответ:
         {
-          "repayment_structure": "<single_payment / installments / on_demand / unclear / not_found>",
-          "early_repayment_by_borrower": "<allowed / restricted / not_found>",
-          "acceleration_right_for_lender": "<present / not_found>",
-          "late_payment_penalty_present": "<yes / no / not_found>"
+          "repayment_structure": "installments",
+          "early_repayment_by_borrower": "allowed",
+          "acceleration_right_status": "defined",
+          "acceleration_right_details": "при просрочке более 10 дней",
+          "late_payment_penalty_status": "defined",
+          "late_payment_penalty_details": "пеня 0,1% в день",
+          "repayment_confirmation_status": "defined",
+          "repayment_confirmation_details": "расписка Займодавца",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.1",
+              "quote": "Заём возвращается ежемесячными платежами по графику (Приложение № 2)."
+            }
+          ]
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Заём подлежит возврату."
+        Ответ:
+        {
+          "repayment_structure": "not_defined",
+          "early_repayment_by_borrower": "not_defined",
+          "acceleration_right_status": "not_defined",
+          "acceleration_right_details": "Данные не определены",
+          "late_payment_penalty_status": "not_defined",
+          "late_payment_penalty_details": "Данные не определены",
+          "repayment_confirmation_status": "not_defined",
+          "repayment_confirmation_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о структуре возврата.
+        2. Найди прямую цитату о досрочном возврате заёмщиком.
+        3. Найди прямую цитату об акцелерации.
+        4. Найди прямую цитату о неустойке.
+        5. Найди прямую цитату о подтверждении возврата.
+        6. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "repayment_structure": "<single_payment / installments / on_demand / not_defined>",
+          "early_repayment_by_borrower": "<allowed / restricted / not_defined>",
+          "acceleration_right_status": "<defined / not_defined>",
+          "acceleration_right_details": "<текст или 'Данные не определены'>",
+          "late_payment_penalty_status": "<defined / not_defined>",
+          "late_payment_penalty_details": "<текст или 'Данные не определены'>",
+          "repayment_confirmation_status": "<defined / not_defined>",
+          "repayment_confirmation_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 380
-    retrieval:
-      context_k: 5
-      max_chunks: 8
-      boost_keywords:
-        - "срок возврата"
-        - "досрочный возврат"
-        - "график погашения"
-        - "неустойка"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "repayment_structure"
-          type: "string"
-          allowed_values: ["single_payment", "installments", "on_demand", "unclear", "not_found"]
-          description: "Структура возврата займа"
-        - name: "early_repayment_by_borrower"
-          type: "string"
-          allowed_values: ["allowed", "restricted", "not_found"]
-          description: "Право заемщика на досрочный возврат"
-        - name: "acceleration_right_for_lender"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Право займодавца требовать досрочного возврата"
-        - name: "late_payment_penalty_present"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие неустойки за просрочку"
-      store_payload: true
-
+      max_tokens: 550
+      retrieval:
+        retrieval_profile: "repayment_schedule_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "срок возврата график погашения досрочный возврат потребовать досрочного возврата по требованию не позднее неустойка пеня просрочка подтверждение возврата расписка"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - remedies
+        negative_keywords:
+          - "проценты"
+          - "обеспечение"
+          - "залог"
+          - "аффилированность"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.20, 0.70]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "remedies"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 800
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора займа условия
+          возврата: структура, досрочный возврат, акцелерация, неустойка,
+          подтверждение возврата.
+          Не анализируй проценты, обеспечение или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. repayment_structure — single_payment / installments / on_demand / not_defined.
+          2. early_repayment_by_borrower — allowed / restricted / not_defined.
+          3. acceleration_right_status — "defined" или "not_defined".
+          4. acceleration_right_details — условия акцелерации.
+          5. late_payment_penalty_status — "defined" или "not_defined".
+          6. late_payment_penalty_details — формулировка неустойки.
+          7. repayment_confirmation_status — "defined" или "not_defined".
+          8. repayment_confirmation_details — способ подтверждения возврата.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - repayment_structure: "single_payment" — единовременно;
+            "installments" — в рассрочку / по графику;
+            "on_demand" — по требованию / до востребования;
+            "not_defined" — не определено.
+          - early_repayment_by_borrower: "allowed" — прямо разрешено;
+            "restricted" — требуется согласие или есть ограничения;
+            "not_defined" — не указано.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "repayment_structure"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["single_payment", "installments", "on_demand", "not_defined"]
+            description: "Структура возврата займа."
+            required: true
+          - name: "early_repayment_by_borrower"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["allowed", "restricted", "not_defined"]
+            description: "Право заёмщика на досрочный возврат."
+            required: false
+          - name: "acceleration_right_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус права займодавца на акцелерацию."
+            required: false
+          - name: "acceleration_right_details"
+            type: "string"
+            presentation: "fact"
+            label: "Акцелерация"
+            description: "Условия досрочного взыскания займодавцем."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "late_payment_penalty_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус неустойки за просрочку."
+            required: false
+          - name: "late_payment_penalty_details"
+            type: "string"
+            presentation: "fact"
+            label: "Неустойка за просрочку"
+            description: "Формулировка неустойки за просрочку возврата."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "repayment_confirmation_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус подтверждения возврата."
+            required: false
+          - name: "repayment_confirmation_details"
+            type: "string"
+            presentation: "fact"
+            label: "Подтверждение возврата"
+            description: "Способ подтверждения погашения займа."
+            required: false
+            display_in_grid: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 6: Целевой заём
+# ──────────────────────────────────────────────────────────────────────────
   - id: target_loan_control_check
-    name: "Целевой заем: цель, контроль и последствия нарушения"
-    description: "Проверяет наличие целевого характера займа, права контроля и последствий нецелевого использования"
+    name: "Целевой заём: цель, контроль и последствия нарушения (ст. 814 ГК РФ)"
+    description: >
+      Фактографическая проверка целевого характера займа: цель использования,
+      право контроля займодавца, отчётность и последствия нецелевого использования.
     triggers:
       any: ["target_loan"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1233,6 +1910,7 @@ checks_v8:
         - "подтверждающие документы"
         - "нецелевое использование"
         - "досрочный возврат"
+        - "проверять использование"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)целев(ой|ого)\\s+за[её]м"
@@ -1240,63 +1918,213 @@ checks_v8:
         - "(?i)подтверждающ(ие|их)\\s+документ"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор целевого займа.
-        Проверь, раскрыты ли цель займа, контроль и последствия нецелевого использования.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор целевого займа (§ 1 Главы 42 ГК РФ, ст. 814).
+        Проверяется только один вопрос: цель займа, контроль и последствия
+        нецелевого использования.
+        Нормативный ориентир:
+        - ст. 814 ГК РФ — целевой заём
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Определена ли цель займа.
+        2. Есть ли право контроля займодавца.
+        3. Требуются ли подтверждающие документы / отчёты.
+        4. Последствия нецелевого использования.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Заём предоставляется на приобретение оборудования. Заёмщик обязан
+        предоставлять подтверждающие документы. При нецелевом использовании
+        Займодавец вправе потребовать досрочного возврата."
+        Ответ:
         {
-          "purpose_defined": "<yes / no>",
-          "lender_control_right": "<present / not_found>",
-          "documentary_reporting_required": "<yes / no / not_found>",
-          "misuse_consequences": "<acceleration / other / not_found>"
+          "purpose_defined_status": "defined",
+          "purpose_defined_details": "на приобретение оборудования",
+          "lender_control_right_status": "defined",
+          "documentary_reporting_status": "defined",
+          "misuse_consequences": "acceleration",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.2",
+              "quote": "Заём предоставляется на приобретение оборудования."
+            }
+          ]
         }
 
-        Используй только текст документа.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Займодавец передаёт Заёмщику денежные средства."
+        Ответ:
+        {
+          "purpose_defined_status": "not_defined",
+          "purpose_defined_details": "Данные не определены",
+          "lender_control_right_status": "not_defined",
+          "documentary_reporting_status": "not_defined",
+          "misuse_consequences": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о цели займа.
+        2. Найди прямую цитату о праве контроля.
+        3. Найди прямую цитату об отчётности.
+        4. Найди прямую цитату о последствиях нецелевого использования.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "purpose_defined_status": "<defined / not_defined>",
+          "purpose_defined_details": "<текст или 'Данные не определены'>",
+          "lender_control_right_status": "<defined / not_defined>",
+          "documentary_reporting_status": "<defined / not_defined>",
+          "misuse_consequences": "<acceleration / other / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 320
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "целевой заем"
-        - "целевое использование"
-        - "нецелевое использование"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "purpose_defined"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Определена ли цель займа"
-        - name: "lender_control_right"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли право контроля займодавца"
-        - name: "documentary_reporting_required"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Требуются ли подтверждающие документы"
-        - name: "misuse_consequences"
-          type: "string"
-          allowed_values: ["acceleration", "other", "not_found"]
-          description: "Последствия нецелевого использования"
-      store_payload: true
-
+      max_tokens: 450
+      retrieval:
+        retrieval_profile: "credit_facility_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "целевой заем целевое использование предоставление отчетов подтверждающие документы нецелевое использование досрочный возврат проверять использование"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - remedies
+        negative_keywords:
+          - "проценты"
+          - "неустойка"
+          - "обеспечение"
+          - "аффилированность"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.10, 0.60]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "remedies"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 550
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора целевого займа
+          цель, право контроля, отчётность и последствия нецелевого использования.
+          Не анализируй проценты, обеспечение или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. purpose_defined_status — "defined" или "not_defined".
+          2. purpose_defined_details — цель займа.
+          3. lender_control_right_status — "defined" или "not_defined".
+          4. documentary_reporting_status — "defined" или "not_defined".
+          5. misuse_consequences — acceleration / other / not_defined.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - misuse_consequences: "acceleration" — досрочный возврат;
+            "other" — иные последствия; "not_defined" — не указаны.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "purpose_defined_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения цели займа."
+            required: true
+          - name: "purpose_defined_details"
+            type: "string"
+            presentation: "fact"
+            label: "Цель займа"
+            description: "Цель использования заёмных средств."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "lender_control_right_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус права контроля займодавца."
+            required: false
+          - name: "documentary_reporting_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус требования подтверждающих документов."
+            required: false
+          - name: "misuse_consequences"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["acceleration", "other", "not_defined"]
+            description: "Последствия нецелевого использования."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 7: Валютная оговорка
+# ──────────────────────────────────────────────────────────────────────────
   - id: foreign_currency_terms_check
-    name: "Валютная оговорка и распределение валютных рисков"
-    description: "Проверяет валюту обязательства, курс пересчета и порядок возврата при валютной конструкции займа"
+    name: "Валютная оговорка: курс, дата пересчёта, распределение рисков (ст. 140, 317 ГК РФ)"
+    description: >
+      Фактографическая проверка валютной конструкции займа: тип конструкции,
+      источник курса, дата пересчёта, ясность оговорки.
     triggers:
       any: ["foreign_currency_reference"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1308,6 +2136,7 @@ checks_v8:
         - "usd"
         - "eur"
         - "на дату платежа"
+        - "иностранная валюта"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)курс\\s+цб\\s*рф"
@@ -1315,63 +2144,201 @@ checks_v8:
         - "(?i)usd|eur|доллар|евро"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор займа с валютным элементом.
-        Проверь, как урегулированы валютные риски.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор займа с валютным элементом (ст. 140, 317 ГК РФ, ФЗ-173).
+        Проверяется только один вопрос: валютная конструкция, курс пересчёта,
+        дата пересчёта и распределение валютных рисков.
+        Нормативный ориентир:
+        - ст. 140 ГК РФ — валюта
+        - ст. 317 ГК РФ — валютная оговорка
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Тип валютной конструкции.
+        2. Источник курса пересчёта.
+        3. Дату пересчёта.
+        4. Ясность валютной оговорки.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Сумма займа составляет эквивалент 100 000 долларов США по курсу ЦБ РФ
+        на дату платежа. Возврат осуществляется в рублях по курсу ЦБ РФ
+        на дату возврата."
+        Ответ:
         {
-          "currency_reference_type": "<foreign_currency_obligation / rub_equivalent / unclear / not_found>",
-          "conversion_rate_source": "<cb_rate / contract_rate / other / not_found>",
-          "conversion_date": "<payment_date / transfer_date / other / not_found>",
-          "currency_risk_clause_clarity": "<clear / unclear / not_found>"
+          "currency_reference_type": "rub_equivalent",
+          "conversion_rate_source": "cb_rate",
+          "conversion_date": "payment_date",
+          "currency_risk_clause_clarity": "clear",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.3",
+              "quote": "Сумма займа составляет эквивалент 100 000 долларов США по курсу ЦБ РФ на дату платежа."
+            }
+          ]
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Заём предоставляется в рублях."
+        Ответ:
+        {
+          "currency_reference_type": "not_defined",
+          "conversion_rate_source": "not_defined",
+          "conversion_date": "not_defined",
+          "currency_risk_clause_clarity": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о валютной конструкции.
+        2. Найди прямую цитату об источнике курса.
+        3. Найди прямую цитату о дате пересчёта.
+        4. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "currency_reference_type": "<foreign_currency_obligation / rub_equivalent / not_defined>",
+          "conversion_rate_source": "<cb_rate / contract_rate / other / not_defined>",
+          "conversion_date": "<payment_date / transfer_date / other / not_defined>",
+          "currency_risk_clause_clarity": "<clear / unclear / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 360
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "курс цб рф"
-        - "валютная оговорка"
-        - "на дату платежа"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 520
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "currency_reference_type"
-          type: "string"
-          allowed_values: ["foreign_currency_obligation", "rub_equivalent", "unclear", "not_found"]
-          description: "Тип валютной конструкции"
-        - name: "conversion_rate_source"
-          type: "string"
-          allowed_values: ["cb_rate", "contract_rate", "other", "not_found"]
-          description: "Источник курса пересчета"
-        - name: "conversion_date"
-          type: "string"
-          allowed_values: ["payment_date", "transfer_date", "other", "not_found"]
-          description: "Дата пересчета"
-        - name: "currency_risk_clause_clarity"
-          type: "string"
-          allowed_values: ["clear", "unclear", "not_found"]
-          description: "Понятность валютной оговорки"
-      store_payload: true
-
+      max_tokens: 450
+      retrieval:
+        retrieval_profile: "payment_terms_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "курс цб рф валютная оговорка на дату платежа доллар евро usd eur иностранная валюта пересчёт валютный риск"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - definitions
+        negative_keywords:
+          - "проценты"
+          - "неустойка"
+          - "обеспечение"
+          - "аффилированность"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.05, 0.50]
+          boost: 0.18
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "definitions"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 520
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 550
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора займа с валютным
+          элементом тип конструкции, источник курса, дату пересчёта и ясность.
+          Не анализируй проценты, обеспечение или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. currency_reference_type — foreign_currency_obligation / rub_equivalent / not_defined.
+          2. conversion_rate_source — cb_rate / contract_rate / other / not_defined.
+          3. conversion_date — payment_date / transfer_date / other / not_defined.
+          4. currency_risk_clause_clarity — clear / unclear / not_defined.
+          Если данные отсутствуют: указывай "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - currency_reference_type:
+            "foreign_currency_obligation" — обязательство в иностранной валюте;
+            "rub_equivalent" — рублёвый эквивалент валютной суммы;
+            "not_defined" — не определено.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "currency_reference_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["foreign_currency_obligation", "rub_equivalent", "not_defined"]
+            description: "Тип валютной конструкции."
+            required: true
+          - name: "conversion_rate_source"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["cb_rate", "contract_rate", "other", "not_defined"]
+            description: "Источник курса пересчёта."
+            required: false
+          - name: "conversion_date"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["payment_date", "transfer_date", "other", "not_defined"]
+            description: "Дата пересчёта."
+            required: false
+          - name: "currency_risk_clause_clarity"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["clear", "unclear", "not_defined"]
+            description: "Ясность валютной оговорки."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 8: Аффилированность сторон
+# ──────────────────────────────────────────────────────────────────────────
   - id: related_party_loan_check
-    name: "Заём между аффилированными лицами: риски и раскрытие"
-    description: "Проверяет наличие признаков аффилированности и раскрытие связанности сторон"
+    name: "Заём между аффилированными лицами: раскрытие и рыночность (Обзор ВС РФ 29.01.2020)"
+    description: >
+      Фактографическая проверка признаков аффилированности сторон,
+      раскрытия связанности, заверения о рыночности условий.
     triggers:
       any: ["related_parties", "commercial_parties"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1383,73 +2350,207 @@ checks_v8:
         - "контролирующее лицо"
         - "бенефициар"
         - "одна группа лиц"
+        - "рыночные условия"
+        - "не являются аффилированными"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)аффилирован|взаимозависим"
         - "(?i)контролирующ(ее|его)\\s+лиц"
         - "(?i)участник.*общества"
+        - "(?i)рыночн(ые|ым)\\s+услови"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор займа.
-        Проверь наличие признаков аффилированности между сторонами.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор займа на предмет аффилированности сторон
+        (Обзор ВС РФ от 29.01.2020, ст. 19 ФЗ-127).
+        Проверяется только один вопрос: признаки аффилированности,
+        раскрытие связанности и заверение о рыночности.
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Признаки аффилированности:
-        - общий участник/акционер
-        - общий директор/руководитель
-        - одна группа лиц
-        - контролирующее/подконтрольное лицо
-        - материнская/дочерняя компания
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Признаки аффилированности.
+        2. Тип аффилированности.
+        3. Раскрытие связанности сторон.
+        4. Заверение о рыночности условий.
 
-        Ответь в JSON:
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Стороны подтверждают, что являются аффилированными лицами:
+        Займодавец является участником Заёмщика с долей 100%.
+        Стороны заверяют, что условия займа соответствуют рыночным."
+        Ответ:
         {
-          "affiliation_indicators_present": "<yes / no / unclear>",
-          "affiliation_type": "<common_shareholder / common_director / group_of_companies / parent_subsidiary / other / not_found>",
-          "affiliation_disclosed": "<yes / no / not_applicable>",
-          "subordination_risk_level": "<critical / high / medium / low>",
-          "market_terms_confirmation": "<present / absent / not_found>"
+          "affiliation_indicators_status": "defined",
+          "affiliation_type": "common_shareholder",
+          "affiliation_disclosed_status": "defined",
+          "market_terms_warranty_status": "defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.1",
+              "quote": "Стороны подтверждают, что являются аффилированными лицами: Займодавец является участником Заёмщика с долей 100%."
+            }
+          ]
         }
-      prompt_file: null
+
+        Пример 2:
+        Фрагмент:
+        "Займодавец передаёт Заёмщику денежные средства."
+        Ответ:
+        {
+          "affiliation_indicators_status": "not_defined",
+          "affiliation_type": "not_defined",
+          "affiliation_disclosed_status": "not_defined",
+          "market_terms_warranty_status": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о признаках аффилированности.
+        2. Найди прямую цитату о раскрытии связанности.
+        3. Найди прямую цитату о рыночности условий.
+        4. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "affiliation_indicators_status": "<defined / not_defined>",
+          "affiliation_type": "<common_shareholder / common_director / group_of_companies / parent_subsidiary / other / not_defined>",
+          "affiliation_disclosed_status": "<defined / not_defined>",
+          "market_terms_warranty_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 400
-    retrieval:
-      context_k: 5
-      max_chunks: 8
-      boost_keywords:
-        - "аффилированность"
-        - "взаимозависимость"
-        - "участник"
-        - "директор"
-        - "группа лиц"
-      rerank: true
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "affiliation_indicators_present"
-          type: "string"
-          allowed_values: ["yes", "no", "unclear"]
-          description: "Наличие признаков аффилированности"
-        - name: "subordination_risk_level"
-          type: "string"
-          allowed_values: ["critical", "high", "medium", "low"]
-          description: "Риск субординации в банкротстве"
-        - name: "market_terms_confirmation"
-          type: "string"
-          allowed_values: ["present", "absent", "not_found"]
-          description: "Подтверждение рыночности условий"
-      store_payload: true
-
+      max_tokens: 500
+      retrieval:
+        retrieval_profile: "event_of_default_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "аффилированность взаимозависимость участник общества директор контролирующее лицо бенефициар группа лиц рыночные условия не являются аффилированными"
+        preferred_unit_types:
+          - warranty
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - obligations
+        negative_keywords:
+          - "проценты"
+          - "неустойка"
+          - "срок возврата"
+          - "обеспечение"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.30, 0.85]
+          boost: 0.12
+          scope: segment
+        context_k: 5
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "obligations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 600
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора займа признаки
+          аффилированности, раскрытие связанности и заверение о рыночности.
+          Не анализируй проценты, срок возврата или обеспечение.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. affiliation_indicators_status — "defined" или "not_defined".
+          2. affiliation_type — common_shareholder / common_director / group_of_companies / parent_subsidiary / other / not_defined.
+          3. affiliation_disclosed_status — "defined" или "not_defined".
+          4. market_terms_warranty_status — "defined" или "not_defined".
+          Если данные отсутствуют: указывай "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи аффилированность из контекста, если она прямо не указана.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "affiliation_indicators_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус наличия признаков аффилированности."
+            required: true
+          - name: "affiliation_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["common_shareholder", "common_director", "group_of_companies", "parent_subsidiary", "other", "not_defined"]
+            description: "Тип аффилированности."
+            required: false
+          - name: "affiliation_disclosed_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус раскрытия связанности сторон."
+            required: false
+          - name: "market_terms_warranty_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус заверения о рыночности условий."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 9: Риск оспаривания в банкротстве
+# ──────────────────────────────────────────────────────────────────────────
   - id: bankruptcy_claw_back_risk_check
-    name: "Риск оспаривания займа в банкротстве"
-    description: "Проверяет наличие признаков, повышающих риск оспаривания сделки в банкротстве"
+    name: "Риск оспаривания займа в банкротстве (ст. 61.2, 61.3 ФЗ-127)"
+    description: >
+      Фактографическая проверка наличия заверений об отсутствии признаков
+      банкротства, рыночности условий и деловой цели сделки.
     triggers:
       any: ["related_parties", "interest_free_loan", "commercial_parties"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1460,71 +2561,193 @@ checks_v8:
         - "эквивалентность"
         - "безвозмездн"
         - "заинтересованное лицо"
+        - "признаки неплатежеспособности"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)банкротств|несостоятельност"
         - "(?i)рыночн(ые|ых)\\s+услови"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор займа на предмет 
-        рисков оспаривания в банкротстве (ст. 61.2, 61.3 ФЗ-127).
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор займа на предмет рисков оспаривания
+        в банкротстве (ст. 61.2, 61.3 ФЗ-127).
+        Проверяется только один вопрос: заверения об отсутствии банкротства,
+        рыночности условий и деловой цели.
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Факторы риска:
-        - аффилированность сторон
-        - беспроцентность или нерыночная ставка
-        - отсутствие экономической цели
-        - отсутствие обеспечения при значительной сумме
-        - признаки неплатёжеспособности на момент сделки
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Заверение об отсутствии признаков банкротства.
+        2. Заверение о рыночности условий.
+        3. Указание на деловую цель сделки.
 
-        Ответь в JSON:
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Заёмщик заверяет, что на дату заключения договора не имеет признаков
+        неплатёжеспособности. Условия займа соответствуют рыночным.
+        Заём предоставляется для финансирования текущей деятельности."
+        Ответ:
         {
-          "claw_back_risk_factors": ["<фактор 1>", "<фактор 2>"],
-          "market_terms_warranty": "<present / absent>",
-          "no_insolvency_warranty": "<present / absent>",
-          "economic_purpose_clear": "<yes / no / unclear>",
-          "overall_claw_back_risk": "<critical / high / medium / low>"
+          "no_insolvency_warranty_status": "defined",
+          "market_terms_warranty_status": "defined",
+          "economic_purpose_status": "defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 9.1",
+              "quote": "Заёмщик заверяет, что на дату заключения договора не имеет признаков неплатёжеспособности."
+            }
+          ]
         }
-      prompt_file: null
+
+        Пример 2:
+        Фрагмент:
+        "Займодавец передаёт Заёмщику денежные средства."
+        Ответ:
+        {
+          "no_insolvency_warranty_status": "not_defined",
+          "market_terms_warranty_status": "not_defined",
+          "economic_purpose_status": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об отсутствии признаков банкротства.
+        2. Найди прямую цитату о рыночности условий.
+        3. Найди прямую цитату о деловой цели.
+        4. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "no_insolvency_warranty_status": "<defined / not_defined>",
+          "market_terms_warranty_status": "<defined / not_defined>",
+          "economic_purpose_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 400
-    retrieval:
-      context_k: 5
-      max_chunks: 8
-      boost_keywords:
-        - "банкротство"
-        - "рыночные условия"
-        - "эквивалентность"
-        - "аффилированность"
-      rerank: true
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "market_terms_warranty"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Заверение о рыночности условий"
-        - name: "no_insolvency_warranty"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Заверение об отсутствии признаков банкротства"
-        - name: "overall_claw_back_risk"
-          type: "string"
-          allowed_values: ["critical", "high", "medium", "low"]
-          description: "Общий риск оспаривания"
-      store_payload: true
-
+      max_tokens: 450
+      retrieval:
+        retrieval_profile: "event_of_default_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "банкротство несостоятельность рыночные условия эквивалентность безвозмездн заинтересованное лицо признаки неплатежеспособности деловая цель"
+        preferred_unit_types:
+          - warranty
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - obligations
+        negative_keywords:
+          - "проценты"
+          - "неустойка"
+          - "срок возврата"
+          - "обеспечение"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.40, 0.90]
+          boost: 0.12
+          scope: segment
+        context_k: 5
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "obligations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 500
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора займа заверения
+          об отсутствии банкротства, рыночности условий и деловой цели.
+          Не анализируй проценты, срок возврата или обеспечение.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. no_insolvency_warranty_status — "defined" или "not_defined".
+          2. market_terms_warranty_status — "defined" или "not_defined".
+          3. economic_purpose_status — "defined" или "not_defined".
+          Если данные отсутствуют: указывай "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи заверения из закона.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "no_insolvency_warranty_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус заверения об отсутствии признаков банкротства."
+            required: true
+          - name: "market_terms_warranty_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус заверения о рыночности условий."
+            required: false
+          - name: "economic_purpose_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания на деловую цель сделки."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 10: Конвертируемый заём
+# ──────────────────────────────────────────────────────────────────────────
   - id: convertible_loan_check
-    name: "Конвертируемый заём: условия конвертации"
-    description: "Проверяет условия конвертации займа в долю участия"
+    name: "Конвертируемый заём: условия конвертации в долю"
+    description: >
+      Фактографическая проверка условий конвертации займа в долю участия:
+      событие конвертации, формула, кэп/дисконт, корпоративные действия.
     triggers:
       any: ["convertible_loan"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1541,64 +2764,198 @@ checks_v8:
         - "(?i)конвертац(ия|ии)\\s+в\\s+дол"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий конвертируемый заём.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется конвертируемый заём.
+        Проверяется только один вопрос: условия конвертации займа в долю.
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Проверь:
-        1. Событие конвертации (maturity, следующий раунд, по требованию)
-        2. Формула определения доли
-        3. Дисконт или кэп оценки
-        4. Корпоративные действия для конвертации
-        5. Защита от размытия
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Событие конвертации.
+        2. Ясность формулы определения доли.
+        3. Наличие кэпа оценки или дисконта.
+        4. Описание корпоративных действий.
 
-        Ответь в JSON:
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Заём конвертируется в долю 10% уставного капитала по итогам следующего
+        раунда финансирования. Оценка компании — не более 50 000 000 рублей (кэп).
+        Конвертация оформляется решением об увеличении уставного капитала."
+        Ответ:
         {
-          "conversion_trigger": "<maturity / next_round / at_will / other / not_found>",
-          "conversion_formula_clear": "<yes / no / not_found>",
-          "valuation_cap_or_discount": "<present / absent / not_found>",
-          "corporate_actions_described": "<yes / no / not_found>",
-          "anti_dilution_protection": "<present / absent / not_found>"
+          "conversion_trigger": "next_round",
+          "conversion_formula_status": "defined",
+          "valuation_cap_or_discount_status": "defined",
+          "corporate_actions_status": "defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.1",
+              "quote": "Заём конвертируется в долю 10% уставного капитала по итогам следующего раунда финансирования."
+            }
+          ]
         }
-      prompt_file: null
+
+        Пример 2:
+        Фрагмент:
+        "Займодавец передаёт Заёмщику денежные средства."
+        Ответ:
+        {
+          "conversion_trigger": "not_defined",
+          "conversion_formula_status": "not_defined",
+          "valuation_cap_or_discount_status": "not_defined",
+          "corporate_actions_status": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о событии конвертации.
+        2. Найди прямую цитату о формуле.
+        3. Найди прямую цитату о кэпе/дисконте.
+        4. Найди прямую цитату о корпоративных действиях.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "conversion_trigger": "<maturity / next_round / at_will / other / not_defined>",
+          "conversion_formula_status": "<defined / not_defined>",
+          "valuation_cap_or_discount_status": "<defined / not_defined>",
+          "corporate_actions_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 380
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "конвертация"
-        - "доля"
-        - "оценка"
-        - "увеличение уставного капитала"
-      rerank: true
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "conversion_trigger"
-          type: "string"
-          allowed_values: ["maturity", "next_round", "at_will", "other", "not_found"]
-          description: "Событие конвертации"
-        - name: "conversion_formula_clear"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Ясность формулы конвертации"
-        - name: "valuation_cap_or_discount"
-          type: "string"
-          allowed_values: ["present", "absent", "not_found"]
-          description: "Наличие кэпа оценки или дисконта"
-      store_payload: true
-
+      max_tokens: 450
+      retrieval:
+        retrieval_profile: "credit_facility_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "конвертируемый заем конвертация в долю право конвертации опцион увеличение уставного капитала оценка кэп дисконт"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - procedures
+        negative_keywords:
+          - "проценты"
+          - "неустойка"
+          - "обеспечение"
+          - "аффилированность"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.20, 0.70]
+          boost: 0.12
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "procedures"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 550
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста конвертируемого займа
+          условия конвертации: событие, формула, кэп/дисконт, корпоративные действия.
+          Не анализируй проценты, обеспечение или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. conversion_trigger — maturity / next_round / at_will / other / not_defined.
+          2. conversion_formula_status — "defined" или "not_defined".
+          3. valuation_cap_or_discount_status — "defined" или "not_defined".
+          4. corporate_actions_status — "defined" или "not_defined".
+          Если данные отсутствуют: указывай "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - conversion_trigger: "maturity" — по истечении срока;
+            "next_round" — при следующем раунде;
+            "at_will" — по требованию;
+            "other" — иное; "not_defined" — не определено.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "conversion_trigger"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["maturity", "next_round", "at_will", "other", "not_defined"]
+            description: "Событие конвертации."
+            required: true
+          - name: "conversion_formula_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения формулы конвертации."
+            required: false
+          - name: "valuation_cap_or_discount_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус наличия кэпа оценки или дисконта."
+            required: false
+          - name: "corporate_actions_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус описания корпоративных действий."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 11: Траншевый заём
+# ──────────────────────────────────────────────────────────────────────────
   - id: multiple_tranches_check
-    name: "Траншевый заём: порядок выдачи и учёта"
-    description: "Проверяет условия поэтапного предоставления займа"
+    name: "Траншевый заём: лимит, порядок выдачи, револьверность"
+    description: >
+      Фактографическая проверка условий поэтапного предоставления займа:
+      общий лимит, порядок запроса транша, револьверность.
     triggers:
       any: ["multiple_tranches", "installment_repayment"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1608,6 +2965,7 @@ checks_v8:
         - "лимит займа"
         - "частями"
         - "заявка на транш"
+        - "возобновляемый"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)транш"
@@ -1615,315 +2973,199 @@ checks_v8:
         - "(?i)поэтапн(ое|ого)\\s+предоставлен"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий траншевый заём.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется траншевый заём.
+        Проверяется только один вопрос: условия поэтапного предоставления займа.
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Проверь:
-        1. Общий лимит займа
-        2. Порядок запроса транша
-        3. Условия предоставления (CP)
-        4. Учёт выданных/возвращённых сумм
-        5. Возможность повторного использования (револьверность)
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Общий лимит займа.
+        2. Порядок запроса транша.
+        3. Револьверность (возможность повторного использования).
 
-        Ответь в JSON:
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Общий лимит займа — 100 000 000 рублей. Заёмщик направляет заявку
+        на транш не менее чем за 5 рабочих дней. Заём является возобновляемым:
+        возвращённые суммы могут быть повторно выбраны в пределах лимита."
+        Ответ:
         {
-          "total_limit": "<сумма или not_found>",
-          "tranche_request_procedure": "<present / not_found>",
-          "conditions_precedent": "<present / not_found>",
-          "accounting_mechanism": "<present / not_found>",
-          "revolving": "<yes / no / not_found>"
+          "total_limit_status": "defined",
+          "total_limit_value": "100 000 000 рублей",
+          "tranche_request_procedure_status": "defined",
+          "revolving": "yes",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "Общий лимит займа — 100 000 000 рублей."
+            }
+          ]
         }
-      prompt_file: null
+
+        Пример 2:
+        Фрагмент:
+        "Займодавец передаёт Заёмщику денежные средства."
+        Ответ:
+        {
+          "total_limit_status": "not_defined",
+          "total_limit_value": "Данные не определены",
+          "tranche_request_procedure_status": "not_defined",
+          "revolving": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о лимите.
+        2. Найди прямую цитату о порядке запроса транша.
+        3. Найди прямую цитату о револьверности.
+        4. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "total_limit_status": "<defined / not_defined>",
+          "total_limit_value": "<сумма или 'Данные не определены'>",
+          "tranche_request_procedure_status": "<defined / not_defined>",
+          "revolving": "<yes / no / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 350
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "транш"
-        - "лимит"
-        - "заявка"
-        - "возобновляемый"
-      rerank: true
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "total_limit"
-          type: "string"
-          description: "Общий лимит займа"
-        - name: "tranche_request_procedure"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Порядок запроса транша"
-        - name: "revolving"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Револьверность"
-      store_payload: true
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "loan_amount_required"
-    name: "Сумма займа / количество вещей"
-    description: "Проверяет наличие суммы денежного займа либо количества вещей, определенных родовыми признаками"
-    legal_base: "ст. 807 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "сумма займа"
-        - "в размере"
-        - "количество"
-        - "денежные средства"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)сумм[ауы]\\s+за[её]ма"
-        - "(?i)в\\s+размере\\s+\\d"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)\\b"
-
-  - id: "repayment_obligation_required"
-    name: "Обязанность заемщика возвратить предмет займа"
-    description: "Проверяет наличие прямой обязанности заемщика возвратить сумму займа или вещи того же рода и качества"
-    legal_base: "ст. 807, 810 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "обязуется возвратить"
-        - "возвратить сумму займа"
-        - "вернуть займ"
-        - "возврат займа"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)обязуетс[яь]\\s+возврат"
-        - "(?i)возврат\\s+сумм[ыы]\\s+за[её]ма"
-
-  - id: "transfer_confirmation_required"
-    name: "Подтверждение передачи предмета займа"
-    description: "Проверяет наличие формулировок или документов, подтверждающих фактическую передачу займа"
-    legal_base: "ст. 808, 812 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "переданы"
-        - "получены"
-        - "расписка"
-        - "платежное поручение"
-        - "акт передачи"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(передан|получен).{0,30}(денежн|сумм|за[её]м)"
-        - "(?i)расписк|платежн(ое|ого)\\s+поручени"
-
-  - id: "interest_terms_required_for_commercial_parties"
-    name: "Проценты или беспроцентность: обязательная ясность для коммерческих сторон"
-    description: "Проверяет урегулирование процентности займа при участии коммерческих субъектов"
-    legal_base: "ст. 809 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["commercial_parties"]
-    rules:
-      keywords:
-        - "проценты"
-        - "процентная ставка"
-        - "беспроцентный"
-        - "% годовых"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)процентн(ая|ой)\\s+ставк"
-        - "(?i)беспроцентн"
-        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-
-  - id: "repayment_term_check"
-    name: "Срок возврата займа"
-    description: "Проверяет наличие срока возврата либо конструкции возврата по требованию"
-    legal_base: "ст. 810 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "срок возврата"
-        - "не позднее"
-        - "по требованию"
-        - "в течение"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)срок\\s+возврат"
-        - "(?i)по\\s+требован"
-        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+"
-
-  - id: "late_payment_penalty"
-    name: "Неустойка/проценты за просрочку возврата"
-    description: "Проверяет наличие санкций за просрочку возврата займа"
-    legal_base: "ст. 330, 395, 811 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "неустойка"
-        - "пеня"
-        - "штраф"
-        - "за каждый день просрочки"
-        - "проценты за пользование чужими денежными средствами"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)неустойк|пен[яеи]|штраф"
-        - "(?i)кажд(ый|ого)\\s+день\\s+просрочк"
-
-  - id: "acceleration_clause"
-    name: "Право займодавца требовать досрочного возврата"
-    description: "Проверяет наличие права займодавца требовать досрочного возврата при нарушениях"
-    legal_base: "ст. 811, 813, 814 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "потребовать досрочного возврата"
-        - "всей суммы займа"
-        - "при просрочке"
-        - "при утрате обеспечения"
-        - "при нецелевом использовании"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)потребовать\\s+досрочного\\s+возврата"
-        - "(?i)всей\\s+сумм[ыы]\\s+за[её]ма"
-
-  - id: "early_repayment_right"
-    name: "Право заемщика на досрочный возврат"
-    description: "Проверяет условия досрочного возврата займа заемщиком"
-    legal_base: "ст. 810 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "досрочный возврат"
-        - "вернуть досрочно"
-        - "без согласия займодавца"
-        - "с согласия займодавца"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)досрочн(ый|ого)\\s+возврат"
-        - "(?i)без\\s+согласия\\s+займодавц"
-
-  - id: "target_loan_controls"
-    name: "Целевой заем: контроль использования"
-    description: "Проверяет наличие цели займа, контроля и последствий нарушения"
-    legal_base: "ст. 814 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["target_loan"]
-    rules:
-      keywords:
-        - "целевой заем"
-        - "целевое использование"
-        - "проверять использование"
-        - "подтверждающие документы"
-        - "нецелевое использование"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)целев(ой|ого)\\s+за[её]м"
-        - "(?i)нецелев(ое|ого)\\s+использован"
-
-  - id: "foreign_currency_risk_allocation"
-    name: "Валютный заем: курс и порядок пересчета"
-    description: "Проверяет наличие курса пересчета и распределения валютных рисков"
-    legal_base: "ст. 140, 317 ГК РФ, ФЗ № 173-ФЗ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["foreign_currency_reference"]
-    rules:
-      keywords:
-        - "курс цб рф"
-        - "на дату платежа"
-        - "валютная оговорка"
-        - "доллар"
-        - "евро"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)курс\\s+цб\\s*рф"
-        - "(?i)на\\s+дату\\s+платежа"
-        - "(?i)доллар|евро|usd|eur"
-
-  - id: "repayment_confirmation"
-    name: "Подтверждение возврата займа"
-    description: "Проверяет наличие механизма подтверждения погашения долга"
-    legal_base: "ст. 408, 810 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "расписка в получении"
-        - "подтверждение возврата"
-        - "акт приема-передачи"
-        - "отметка о погашении"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)подтверждени[ея]\\s+возврат"
-        - "(?i)отметк[аи]\\s+о\\s+погашен"
-        - "(?i)расписк[аи].{0,30}получени"
-
-  - id: "tax_consequences_disclosure"
-    name: "Налоговые последствия беспроцентного/льготного займа"
-    description: "Проверяет раскрытие налоговых последствий, включая материальную выгоду, если это уместно"
-    legal_base: "НК РФ ст. 212, 224"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["interest_free_loan", "related_parties", "individual_parties"]
-    rules:
-      keywords:
-        - "материальная выгода"
-        - "ндфл"
-        - "налоговые последствия"
-        - "экономия на процентах"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)материальн(ая|ой)\\s+выгод"
-        - "(?i)экономи[яи]\\s+на\\s+процент"
-
-  - id: "secured_loan_terms"
-    name: "Обеспечение займа: залог/поручительство/иное"
-    description: "Проверяет наличие и описание обеспечения исполнения обязательства по займу"
-    legal_base: "ГК РФ (общие положения об обеспечении)"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+      max_tokens: 400
+      retrieval:
+        retrieval_profile: "credit_facility_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "транш поэтапное предоставление лимит займа частями заявка на транш возобновляемый револьверный"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - procedures
+        negative_keywords:
+          - "проценты"
+          - "неустойка"
+          - "обеспечение"
+          - "аффилированность"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.10, 0.60]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "procedures"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 500
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста траншевого займа
+          лимит, порядок запроса транша и револьверность.
+          Не анализируй проценты, обеспечение или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. total_limit_status — "defined" или "not_defined".
+          2. total_limit_value — общий лимит займа.
+          3. tranche_request_procedure_status — "defined" или "not_defined".
+          4. revolving — yes / no / not_defined.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - revolving: "yes" — прямо указана револьверность;
+            "no" — прямо указано отсутствие; "not_defined" — не указано.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "total_limit_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения общего лимита."
+            required: true
+          - name: "total_limit_value"
+            type: "string"
+            presentation: "fact"
+            label: "Лимит займа"
+            description: "Общий лимит займа."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "tranche_request_procedure_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус порядка запроса транша."
+            required: false
+          - name: "revolving"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Револьверность займа."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 12: Обеспечение займа (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: secured_loan_terms
+    name: "Обеспечение займа: залог, поручительство, иное"
+    description: >
+      Проверяет наличие и описание обеспечения исполнения обязательства по займу.
     triggers:
       any: ["secured_loan"]
+    ui_mode: "clause_presence"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
     rules:
       keywords:
         - "залог"
@@ -1935,58 +3177,159 @@ doc_type_checks:
       keyword_mode: "any"
       regex_patterns:
         - "(?i)залог|поручительств|ипотек"
-
-  - id: "related_party_disclosure"
-    name: "Раскрытие аффилированности сторон"
-    description: "Проверяет раскрытие информации о связанности займодавца и заёмщика"
-    legal_base: "Обзор ВС РФ от 29.01.2020, ст. 19 ФЗ-127"
-    severity: "critical"
+    retrieval:
+      retrieval_profile: "security_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "залог поручительство обеспечение ипотека залогодатель поручитель"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "obligations"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "secured_loan_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие обеспечения займа."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Обеспечение займа"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 13: Налоговые последствия (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: tax_consequences_disclosure
+    name: "Налоговые последствия займа: материальная выгода, НДФЛ"
+    description: >
+      Проверяет раскрытие налоговых последствий, включая материальную выгоду.
+    triggers:
+      any: ["interest_free_loan", "related_parties", "individual_parties"]
+    ui_mode: "clause_presence"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers:
-      any: ["related_parties"]
     rules:
       keywords:
-        - "аффилирован"
-        - "взаимозависим"
-        - "связанные лица"
-        - "группа лиц"
-        - "не являются аффилированными"
+        - "материальная выгода"
+        - "ндфл"
+        - "налоговые последствия"
+        - "экономия на процентах"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)аффилирован|взаимозависим"
-        - "(?i)не\\s+являются\\s+аффилированн"
-
-  - id: "market_terms_warranty"
-    name: "Заверение о рыночности условий займа"
-    description: "Проверяет наличие заверения о соответствии условий рыночным"
-    legal_base: "ст. 105.3 НК РФ, ст. 61.2 ФЗ-127"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["related_parties", "commercial_parties"]
-    rules:
-      keywords:
-        - "рыночные условия"
-        - "эквивалентность"
-        - "соответствует рыночным"
-        - "arm's length"
-        - "независимые стороны"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)рыночн(ые|ым)\\s+услови"
-        - "(?i)эквивалентност"
-
-  - id: "novation_set_off_terms"
-    name: "Новация / зачёт: порядок прекращения обязательства"
-    description: "Проверяет условия новации или зачёта при наличии таких конструкций"
-    legal_base: "ст. 410, 414 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+        - "(?i)материальн(ая|ой)\\s+выгод"
+        - "(?i)экономи[яи]\\s+на\\s+процент"
+    retrieval:
+      retrieval_profile: "compliance_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "материальная выгода НДФЛ налоговые последствия экономия на процентах"
+      preferred_unit_types:
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.50, 0.95]
+        boost: 0.10
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "boilerplate"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "tax_disclosure_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие раскрытия налоговых последствий."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Налоговые последствия"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 14: Новация / зачёт (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: novation_set_off_terms
+    name: "Новация / зачёт: порядок прекращения обязательства (ст. 410, 414 ГК РФ)"
+    description: >
+      Проверяет условия новации или зачёта при наличии таких конструкций.
     triggers:
       any: ["novation_or_set_off"]
+    ui_mode: "clause_presence"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
     rules:
       keywords:
         - "новация"
@@ -1998,16 +3341,78 @@ doc_type_checks:
       regex_patterns:
         - "(?i)новаци[яи]"
         - "(?i)зачет\\s+встречн"
-
-  - id: "loan_forgiveness_terms"
-    name: "Прощение долга: условия и последствия"
-    description: "Проверяет условия прощения долга и раскрытие последствий"
-    legal_base: "ст. 415 ГК РФ, ст. 250 НК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    retrieval:
+      retrieval_profile: "termination_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "новация зачет прекращение обязательства замена обязательства встречные требования"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.90]
+        boost: 0.10
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "procedures"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "novation_setoff_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условий новации или зачёта."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Новация / зачёт"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 15: Прощение долга (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: loan_forgiveness_terms
+    name: "Прощение долга: условия и последствия (ст. 415 ГК РФ)"
+    description: >
+      Проверяет условия прощения долга и раскрытие последствий.
     triggers:
       any: ["loan_forgiveness"]
+    ui_mode: "clause_presence"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
     rules:
       keywords:
         - "прощение долга"
@@ -2018,37 +3423,78 @@ doc_type_checks:
       regex_patterns:
         - "(?i)прощени[ея]\\s+долг"
         - "(?i)освобожден(ие|ия)\\s+от\\s+обязательств"
-
-  - id: "convertible_loan_terms"
-    name: "Конвертируемый заём: условия конвертации"
-    description: "Проверяет наличие условий конвертации займа в долю участия"
-    legal_base: "ГК РФ, корпоративная практика"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["convertible_loan"]
-    rules:
-      keywords:
-        - "конвертируемый заем"
-        - "конвертация"
-        - "доля в уставном капитале"
-        - "увеличение уставного капитала"
-        - "опцион"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)конвертируем(ый|ого)"
-        - "(?i)конвертац(ия|ии)"
-
-  - id: "fungible_goods_specification"
-    name: "Заём вещей: спецификация качества и количества"
-    description: "Проверяет определённость предмета займа вещей"
-    legal_base: "ст. 807 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    retrieval:
+      retrieval_profile: "termination_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "прощение долга освобождение от обязательства отказ от требования налоговые последствия"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.90]
+        boost: 0.10
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "procedures"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "forgiveness_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условий прощения долга."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Прощение долга"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 16: Заём вещей — спецификация (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: fungible_goods_specification
+    name: "Заём вещей: спецификация качества и количества (ст. 807 ГК РФ)"
+    description: >
+      Проверяет определённость предмета займа вещей, определённых родовыми признаками.
     triggers:
       any: ["fungible_goods_loan"]
+    ui_mode: "clause_presence"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
     rules:
       keywords:
         - "вещи, определенные родовыми признаками"
@@ -2060,16 +3506,80 @@ doc_type_checks:
       regex_patterns:
         - "(?i)того\\s+же\\s+рода\\s+и\\s+качества"
         - "(?i)ГОСТ|спецификаци"
-
-  - id: "on_demand_notice_period"
-    name: "Заём до востребования: срок возврата после требования"
-    description: "Проверяет наличие срока для возврата после предъявления требования"
-    legal_base: "ст. 810 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    retrieval:
+      retrieval_profile: "scope_of_work_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "вещи определенные родовыми признаками качество ГОСТ спецификация того же рода и качества"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.50]
+        boost: 0.15
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "definitions"
+          - "obligations"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "fungible_goods_spec_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие спецификации вещей."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Спецификация вещей"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 17: Заём до востребования (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: on_demand_notice_period
+    name: "Заём до востребования: срок возврата после требования (ст. 810 ГК РФ)"
+    description: >
+      Проверяет наличие срока для возврата после предъявления требования.
     triggers:
       any: ["on_demand_loan"]
+    ui_mode: "clause_presence"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
     rules:
       keywords:
         - "по требованию"
@@ -2080,16 +3590,78 @@ doc_type_checks:
       regex_patterns:
         - "(?i)в\\s+течение\\s+\\d+\\s+дн"
         - "(?i)после\\s+предъявлен"
-
-  - id: "representations_and_warranties"
-    name: "Заверения сторон"
-    description: "Проверяет наличие заверений о правоспособности, отсутствии споров и банкротства"
-    legal_base: "ст. 431.2 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    retrieval:
+      retrieval_profile: "repayment_schedule_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "по требованию до востребования в течение 30 дней после предъявления требования"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.60]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "obligations"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "on_demand_notice_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие срока возврата после требования."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Срок после требования"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 18: Заверения сторон (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: representations_and_warranties
+    name: "Заверения сторон (ст. 431.2 ГК РФ)"
+    description: >
+      Проверяет наличие заверений о правоспособности, отсутствии споров и банкротства.
     triggers:
       any: ["commercial_parties"]
+    ui_mode: "clause_presence"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
     rules:
       keywords:
         - "заверения"
@@ -2100,15 +3672,77 @@ doc_type_checks:
       keyword_mode: "any"
       regex_patterns:
         - "(?i)(займодавец|заемщик).*(заверяет|гарантирует)"
-
-  - id: "governing_law_and_disputes"
+    retrieval:
+      retrieval_profile: "party_identification_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "заверения гарантии заверяет гарантирует правоспособность отсутствие споров банкротство"
+      preferred_unit_types:
+        - warranty
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.85]
+        boost: 0.10
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "representations"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "reps_warranties_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие заверений сторон."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Заверения сторон"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 19: Применимое право и споры (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: governing_law_and_disputes
     name: "Применимое право и разрешение споров"
-    description: "Проверяет наличие арбитражной оговорки"
-    legal_base: "ГК РФ, АПК РФ"
+    description: >
+      Проверяет наличие арбитражной оговорки и применимого права.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "применимое право"
@@ -2118,16 +3752,72 @@ doc_type_checks:
       keyword_mode: "any"
       regex_patterns:
         - "(?i)арбитражн(ый|ого)\\s+суд"
-
+    retrieval:
+      retrieval_profile: "dispute_resolution_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "применимое право арбитражный суд разрешение споров подсудность"
+      preferred_unit_types:
+        - dispute_resolution
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.65, 1.0]
+        boost: 0.15
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "boilerplate"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "governing_law_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие арбитражной оговорки."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Применимое право и споры"
+    store_payload: false
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
-
 dd_request_templates:
-
+  loan_parties_identification:
+    text: >
+      Просим подтвердить по {doc_names}: реквизиты займодавца и заёмщика,
+      полномочия подписантов, тип каждой стороны.
+    addressee: "Обе стороны"
   loan_subject_extraction:
     text: >
       Просим предоставить по {doc_names}: полные параметры займа —
@@ -2135,266 +3825,107 @@ dd_request_templates:
       процентная ставка или указание на беспроцентность,
       способ передачи и возврата денежных средств.
     addressee: "Обе стороны"
-
-  loan_amount_required:
-    text: >
-      Просим уточнить по {doc_names} сумму займа (или количество вещей),
-      валюту обязательства и итоговую формулировку предмета займа.
-    addressee: "Займодавец"
-
-  repayment_obligation_required:
-    text: >
-      Просим уточнить в {doc_names} прямую обязанность заемщика возвратить
-      сумму займа (или вещи того же рода и качества), а также момент исполнения обязательства.
-    addressee: "Юридический советник"
-
   transfer_evidence_check:
     text: >
       Просим предоставить по {doc_names} доказательства фактической передачи займа:
       расписку заемщика, платежные поручения, банковские выписки, акт передачи
       либо иную документацию, подтверждающую передачу денежных средств.
     addressee: "Займодавец"
-
-  transfer_confirmation_required:
-    text: >
-      Просим включить/уточнить в {doc_names} положение о фактической передаче суммы займа
-      и способе подтверждения такой передачи (расписка, платежное поручение, акт).
-    addressee: "Юридический советник"
-
-  no_transfer_evidence_red_flag:
-    text: >
-      В {doc_names} не выявлено достаточных признаков подтверждения передачи суммы займа.
-      Просим срочно предоставить расписку, платежные документы или иные доказательства,
-      иначе сохраняется высокий риск спора о безденежности по ст. 812 ГК РФ.
-    addressee: "Займодавец / Юридический советник"
-
   interest_terms_check:
     text: >
       Просим уточнить по {doc_names}: является ли заем процентным или беспроцентным,
       какова ставка, база начисления процентов, периодичность уплаты,
       а также привести пример расчета процентов.
     addressee: "Обе стороны"
-
-  interest_terms_required_for_commercial_parties:
-    text: >
-      Для {doc_names} с участием коммерческих субъектов просим прямо урегулировать:
-      является ли заем процентным или беспроцентным, какова ставка и порядок начисления процентов.
-    addressee: "Юридический советник"
-
-  commercial_loan_interest_silence:
-    text: >
-      В {doc_names} выявлен риск отсутствия ясной оговорки о процентах при коммерческом займе.
-      Просим срочно внести в договор прямое условие о процентности либо беспроцентности займа.
-    addressee: "Юридический советник"
-
   repayment_and_acceleration_check:
     text: >
       Просим уточнить в {doc_names}: срок и структуру возврата займа,
       наличие графика погашения, право заемщика на досрочный возврат,
       а также право займодавца требовать досрочного возврата при нарушениях.
     addressee: "Обе стороны"
-
-  repayment_term_check:
-    text: >
-      Просим уточнить по {doc_names}: конкретную дату возврата займа
-      либо порядок возврата по требованию, включая срок исполнения после получения требования.
-    addressee: "Обе стороны"
-
-  late_payment_penalty:
-    text: >
-      Просим уточнить в {doc_names}: какая ответственность применяется
-      при просрочке возврата займа и процентов — неустойка, пеня, штраф,
-      проценты по ст. 395 ГК РФ или иная санкция.
-    addressee: "Юридический советник"
-
-  acceleration_clause:
-    text: >
-      Просим уточнить по {doc_names}: при каких нарушениях займодавец вправе
-      потребовать досрочного возврата всей суммы займа, процентов и санкций.
-    addressee: "Юридический советник"
-
-  early_repayment_right:
-    text: >
-      Просим уточнить в {doc_names}, вправе ли заемщик вернуть заем досрочно,
-      требуется ли согласие займодавца и применяются ли штрафные последствия.
-    addressee: "Обе стороны"
-
   target_loan_control_check:
     text: >
       По {doc_names} (целевой заем) просим предоставить:
       точную цель использования средств, перечень подтверждающих документов,
       порядок контроля целевого использования и последствия нарушения цели.
     addressee: "Заемщик / Займодавец"
-
-  target_loan_controls:
-    text: >
-      Просим включить/уточнить в {doc_names} положения о целевом использовании займа:
-      цель, формы контроля, отчетность заемщика и право займодавца на досрочное взыскание
-      при нецелевом использовании.
-    addressee: "Юридический советник"
-
   foreign_currency_terms_check:
     text: >
       По {doc_names} с валютным элементом просим предоставить:
       валюту обязательства, источник курса пересчета, дату пересчета,
       механизм возврата и распределение валютных рисков между сторонами.
     addressee: "Обе стороны / Юридический советник"
-
-  foreign_currency_risk_allocation:
-    text: >
-      Просим уточнить в {doc_names}: курс пересчета, дату определения курса,
-      используется ли курс ЦБ РФ, а также кто несет валютный риск при колебаниях курса.
-    addressee: "Юридический советник"
-
-  foreign_currency_loan_restriction:
-    text: >
-      Внимание: в {doc_names} выявлен валютный элемент займа.
-      Просим предоставить правовое заключение о допустимости валютной конструкции,
-      статусе сторон как резидентов/нерезидентов и соблюдении требований ФЗ-173.
-    addressee: "Юридический советник"
-
-  repayment_confirmation:
-    text: >
-      Просим уточнить по {doc_names}: каким документом подтверждается возврат займа
-      (расписка займодавца, акт, банковская выписка, отметка о погашении),
-      и когда заемщик считается полностью исполнившим обязательство.
-    addressee: "Обе стороны"
-
-  tax_consequences_disclosure:
-    text: >
-      Просим предоставить по {doc_names} пояснение о налоговых последствиях займа,
-      включая возможную материальную выгоду, НДФЛ и иные налоговые эффекты
-      для заемщика и займодавца.
-    addressee: "Налоговый консультант / Юридический советник"
-
-  secured_loan_terms:
-    text: >
-      По {doc_names} просим предоставить документы по обеспечению займа:
-      договор залога/ипотеки, поручительство, описание обеспеченного обязательства,
-      порядок обращения взыскания и основания утраты обеспечения.
-    addressee: "Займодавец / Юридический советник"
-
-  loan_amount_missing:
-    text: >
-      В {doc_names} не выявлена достаточная и однозначная сумма займа.
-      Просим срочно уточнить сумму, валюту и точную формулировку предмета займа.
-    addressee: "Займодавец / Юридический советник"
-
   related_party_loan_check:
     text: >
       Просим предоставить по {doc_names}: раскрытие информации об аффилированности
       сторон, заверения о рыночности условий займа, экономическое обоснование сделки
       и документы, подтверждающие деловую цель.
     addressee: "Обе стороны / Юридический советник"
-
-  related_party_disclosure:
-    text: >
-      Просим уточнить в {doc_names}: являются ли стороны аффилированными/взаимозависимыми,
-      и если да — раскрыть характер связи и подтвердить рыночность условий.
-    addressee: "Обе стороны"
-
-  related_party_loan_bankruptcy_risk:
-    text: >
-      В {doc_names} выявлены признаки аффилированности сторон. Просим предоставить:
-      заверения о рыночности условий, отсутствии признаков неплатёжеспособности заёмщика,
-      деловую цель займа и правовую позицию по риску субординации.
-    addressee: "Юридический советник"
-
   bankruptcy_claw_back_risk_check:
     text: >
       Просим предоставить по {doc_names}: заверения об отсутствии признаков банкротства,
       подтверждение рыночности условий, деловую цель сделки и оценку рисков
       оспаривания по ст. 61.2, 61.3 ФЗ-127.
     addressee: "Юридический советник"
-
-  market_terms_warranty:
-    text: >
-      Просим включить/уточнить в {doc_names} заверение о том, что условия займа
-      соответствуют рыночным и могли бы быть согласованы независимыми сторонами.
-    addressee: "Юридический советник"
-
   convertible_loan_check:
     text: >
       По {doc_names} (конвертируемый заём) просим предоставить: событие конвертации,
       формулу определения доли, кэп оценки или дисконт, порядок корпоративных действий
       и защиту от размытия.
     addressee: "Юридический советник"
-
-  convertible_loan_terms:
-    text: >
-      Просим уточнить в {doc_names}: условия и порядок конвертации займа в долю,
-      включая оценку компании, размер приобретаемой доли и корпоративные решения.
-    addressee: "Обе стороны"
-
   multiple_tranches_check:
     text: >
       По {doc_names} (траншевый заём) просим предоставить: общий лимит,
       порядок запроса транша, условия предоставления (CP), механизм учёта
       и возможность повторного использования.
     addressee: "Займодавец"
-
+  secured_loan_terms:
+    text: >
+      По {doc_names} просим предоставить документы по обеспечению займа:
+      договор залога/ипотеки, поручительство, описание обеспеченного обязательства,
+      порядок обращения взыскания и основания утраты обеспечения.
+    addressee: "Займодавец / Юридический советник"
+  tax_consequences_disclosure:
+    text: >
+      Просим предоставить по {doc_names} пояснение о налоговых последствиях займа,
+      включая возможную материальную выгоду, НДФЛ и иные налоговые эффекты
+      для заемщика и займодавца.
+    addressee: "Налоговый консультант / Юридический советник"
   novation_set_off_terms:
     text: >
       Просим уточнить по {doc_names}: условия новации или зачёта,
       какие обязательства прекращаются, какие возникают, и правовые последствия.
     addressee: "Юридический советник"
-
   loan_forgiveness_terms:
     text: >
       Просим предоставить по {doc_names}: условия прощения долга, налоговые последствия
       для заёмщика (внереализационный доход), риски оспаривания в банкротстве займодавца.
     addressee: "Налоговый консультант / Юридический советник"
-
-  loan_forgiveness_tax_risk:
-    text: >
-      В {doc_names} выявлено прощение долга. Просим предоставить: расчёт налоговых
-      последствий, заверения об отсутствии признаков банкротства займодавца,
-      деловую цель сделки.
-    addressee: "Налоговый консультант / Юридический советник"
-
-  interest_free_commercial_loan_tax_risk:
-    text: >
-      В {doc_names} выявлен беспроцентный заём между юрлицами. Просим предоставить:
-      налоговое заключение о рисках доначисления по ст. 269 НК РФ,
-      обоснование деловой цели, позицию по трансфертному ценообразованию.
-    addressee: "Налоговый консультант"
-
   fungible_goods_specification:
     text: >
       По {doc_names} (заём вещей) просим предоставить: спецификацию качества (ГОСТ, ТУ),
       точное количество, порядок определения качества возвращаемых вещей,
       акт приёма-передачи.
     addressee: "Обе стороны"
-
-  fungible_goods_loan_quality_risk:
-    text: >
-      В {doc_names} выявлен заём вещей без достаточной спецификации.
-      Просим уточнить качество, количество и способ определения соответствия
-      возвращаемых вещей.
-    addressee: "Юридический советник"
-
   on_demand_notice_period:
     text: >
       Просим уточнить в {doc_names}: срок возврата займа после предъявления требования,
       форму требования и момент, с которого начинает течь срок.
     addressee: "Обе стороны"
-
   representations_and_warranties:
     text: >
       Просим включить/уточнить в {doc_names}: заверения сторон о правоспособности,
       отсутствии судебных споров, отсутствии признаков банкротства.
     addressee: "Юридический советник"
-
   governing_law_and_disputes:
     text: >
       Просим уточнить в {doc_names}: применимое право и компетентный суд
       для разрешения споров.
     addressee: "Юридический советник"
-
-  # Generic fallback
   _default:
     text: >
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
-    
+
+

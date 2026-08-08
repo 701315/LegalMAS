@@ -99,6 +99,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "dispute_resolution_check"
   context_k: 5
   max_chunks: 8
 
@@ -174,7 +175,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 440
+  llm_max_tokens: 1050
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по договорным спорам.

@@ -1,0 +1,11 @@
+./src/pages/tabs/RealEstateTab.tsx:734:          "mt-1 text-2xl font-semibold tabular-nums",
+./src/pages/tabs/CounterpartiesTab.tsx:715:          "mt-1 text-2xl font-semibold tabular-nums",
+./src/marketing/components/demo/DemoFormSection.tsx:25:        <h2 className="font-serif text-2xl tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/demo/DemoHeroSection.tsx:12:      <h1 className="mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[#1A1917] sm:text-6xl lg:text-[4.5rem]">
+./src/marketing/components/demo/DemoAudienceSection.tsx:10:        <h2 className="font-serif text-3xl tracking-[-0.03em] text-[#1A1917] lg:text-4xl">
+./src/marketing/components/about/AboutProcessSection.tsx:48:                <h3 className="font-serif text-2xl italic mb-4 tracking-tight text-white/90">
+./src/marketing/components/about/AboutPhilosophySection.tsx:15:                <h3 className="section-title text-3xl mt-4">Часть ежедневного процесса</h3>
+./src/marketing/components/about/AboutPhilosophySection.tsx:36:                <h3 className="section-title text-3xl mt-4">Структурированная основа</h3>
+./src/marketing/components/about/AboutPrinciplesSection.tsx:16:          <h2 className="section-title text-3xl mb-16 italic">Принципы создания</h2>
+./src/marketing/components/home/ContactModal.tsx:54:            <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:135:                      <h3 className="text-xl font-serif text-white lg:text-3xl transition-all duration-300 tracking-tight leading-tight">

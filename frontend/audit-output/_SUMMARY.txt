@@ -1,0 +1,885 @@
+
+════ 00_all_files.txt  (всего строк: 329) ════
+./src/stores/uiStore.ts
+./src/utils/apiErrors.ts
+./src/utils/index.ts
+./src/utils/languageDiscovery.ts
+./src/utils/compositionHelpers.ts
+./src/utils/viewerLocation.ts
+./src/utils/statusConfig.ts
+./src/styles/ag-theme-legalmas.css
+./src/components/DealCard.tsx
+./src/components/qc/QualityFlagsLegend.tsx
+./src/components/qc/QualityFlagRenderer.tsx
+./src/components/qc/BulkQCBar.tsx
+./src/components/qc/QCCellRenderer.tsx
+./src/components/ConfirmDialog.tsx
+./src/components/viewer/DocumentViewerModal.tsx
+./src/components/ui/ConfirmDialog.tsx
+./src/components/ui/Field.tsx
+./src/components/ui/ClassificationBadge.tsx
+./src/components/ui/Drawer.tsx
+./src/components/ui/LoadingBlock.tsx
+./src/components/ui/Button.tsx
+./src/components/ui/PageSection.tsx
+./src/components/ui/EmptyState.tsx
+./src/components/ui/QcStatusBadge.tsx
+./src/components/ui/SeverityBadge.tsx
+./src/components/ui/TriggerList.tsx
+./src/components/ui/Tabs.tsx
+./src/components/routing/ScrollToAnchor.tsx
+./src/components/grid/gridTypes.ts
+./src/components/ImportWizard.tsx
+./src/components/auth/ProjectRouteGuard.tsx
+./src/components/settings/ProjectMembersPanel.tsx
+./src/components/admin/TenantsTable.tsx
+./src/components/admin/ExternalToolsBar.tsx
+./src/components/admin/AlertsPanel.tsx
+./src/components/documents/DocumentChunksModal.tsx
+./src/components/documents/ReviewCheckCard.tsx
+./src/components/documents/pipeline/ProcessingTracePanel.tsx
+./src/components/documents/pipeline/PipelineStagePreviewPane.tsx
+./src/components/documents/pipeline/LayoutStageViewer.tsx
+... (обрезано, показаны первые 40 из 329)
+
+════ 00_shell_components.txt  (всего строк: 0) ════
+(пусто)
+
+════ 00_style_files.txt  (всего строк: 4) ════
+./src/styles/ag-theme-legalmas.css
+./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css
+./src/App.css
+./src/index.css
+
+════ 01_font_family.txt  (всего строк: 5) ════
+./src/styles/ag-theme-legalmas.css:65:  --ag-font-family: var(--font-body);
+./src/pages/PlaybooksRegistryPage.tsx:251:    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #111; }
+./src/pages/PlaybooksRegistryPage.tsx:260:    .code { font-family: Consolas, monospace; color: #333; }
+./src/index.css:309:  font-family: var(--font-body);
+./src/index.css:585:    font-family: var(--font-display);
+
+════ 01_font_weight_distribution.txt  (всего строк: 848) ════
+      1 773:font-weight: 500
+      1 750:font-weight: 500
+      1 714:font-weight: 500
+      1 699:font-weight: 500
+      1 675:font-weight: 500
+      1 650:font-weight: 500
+      1 636:font-weight: 500
+      1 606:font-weight: 500
+      1 576:font-weight: 500
+      1 556:font-weight: 500
+      1 523:font-weight: 500
+      1 136:font-weight: 600
+      7 135:font-semibold
+      7 109:font-semibold
+      6 116:font-semibold
+      5 64:font-medium
+      5 106:font-semibold
+      4 58:font-semibold
+      4 50:font-medium
+      4 491:font-semibold
+      4 222:font-semibold
+      4 202:font-semibold
+      4 164:font-semibold
+      4 138:font-semibold
+      4 114:font-semibold
+      3 94:font-semibold
+      3 88:font-semibold
+      3 86:font-medium
+      3 85:font-semibold
+      3 75:font-semibold
+      3 70:font-medium
+      3 651:font-semibold
+      3 64:font-semibold
+      3 60:font-semibold
+      3 52:font-semibold
+      3 50:font-semibold
+      3 402:font-semibold
+      3 390:font-semibold
+      3 363:font-semibold
+      3 314:font-medium
+... (обрезано, показаны первые 40 из 848)
+
+════ 01_hardcoded_font_size.txt  (всего строк: 18) ════
+./src/styles/ag-theme-legalmas.css:66:  --ag-font-size: 12px;
+./src/styles/ag-theme-legalmas.css:67:  --ag-header-font-size: 11px;
+./src/styles/ag-theme-legalmas.css:135:  font-size: 11px;
+./src/styles/ag-theme-legalmas.css:287:    --ag-font-size: 12px;
+./src/styles/ag-theme-legalmas.css:288:    --ag-header-font-size: 12px;
+./src/pages/PlaybooksRegistryPage.tsx:251:    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #111; }
+./src/pages/PlaybooksRegistryPage.tsx:252:    h1 { font-size: 18pt; margin-bottom: 6pt; }
+./src/pages/PlaybooksRegistryPage.tsx:253:    h2 { font-size: 14pt; margin-top: 24pt; margin-bottom: 6pt; border-bottom: 1px solid #999; padding-bottom: 4pt; }
+./src/pages/PlaybooksRegistryPage.tsx:254:    h3 { font-size: 12pt; margin-top: 12pt; margin-bottom: 4pt; }
+./src/pages/PlaybooksRegistryPage.tsx:255:    .meta { color: #555; font-size: 10pt; margin-bottom: 8pt; }
+./src/pages/PlaybooksRegistryPage.tsx:257:    table { border-collapse: collapse; width: 100%; margin-top: 6pt; font-size: 10pt; }
+./src/index.css:522:    font-size: 0.875rem;
+./src/index.css:555:    font-size: 0.875rem;
+./src/index.css:575:    font-size: 0.6875rem;
+./src/index.css:594:    font-size: 1.05rem;
+./src/index.css:605:    font-size: 0.75rem;
+./src/index.css:749:  font-size: 0.875rem;
+./src/index.css:772:  font-size: 0.875rem;
+
+════ 01_hardcoded_line_height.txt  (всего строк: 4) ════
+./src/index.css:524:    line-height: 1;
+./src/index.css:557:    line-height: 1;
+./src/index.css:587:    line-height: 1.05;
+./src/index.css:595:    line-height: 1.75;
+
+════ 01_large_text_classes.txt  (всего строк: 11) ════
+./src/pages/tabs/RealEstateTab.tsx:734:          "mt-1 text-2xl font-semibold tabular-nums",
+./src/pages/tabs/CounterpartiesTab.tsx:715:          "mt-1 text-2xl font-semibold tabular-nums",
+./src/marketing/components/demo/DemoFormSection.tsx:25:        <h2 className="font-serif text-2xl tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/demo/DemoHeroSection.tsx:12:      <h1 className="mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[#1A1917] sm:text-6xl lg:text-[4.5rem]">
+./src/marketing/components/demo/DemoAudienceSection.tsx:10:        <h2 className="font-serif text-3xl tracking-[-0.03em] text-[#1A1917] lg:text-4xl">
+./src/marketing/components/about/AboutProcessSection.tsx:48:                <h3 className="font-serif text-2xl italic mb-4 tracking-tight text-white/90">
+./src/marketing/components/about/AboutPhilosophySection.tsx:15:                <h3 className="section-title text-3xl mt-4">Часть ежедневного процесса</h3>
+./src/marketing/components/about/AboutPhilosophySection.tsx:36:                <h3 className="section-title text-3xl mt-4">Структурированная основа</h3>
+./src/marketing/components/about/AboutPrinciplesSection.tsx:16:          <h2 className="section-title text-3xl mb-16 italic">Принципы создания</h2>
+./src/marketing/components/home/ContactModal.tsx:54:            <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:135:                      <h3 className="text-xl font-serif text-white lg:text-3xl transition-all duration-300 tracking-tight leading-tight">
+
+════ 01_serif_usage.txt  (всего строк: 93) ════
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:40:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {WORKFLOW_CONTENT.title}
+./src/marketing/components/platform/PlatformStandardsSection.tsx:53:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]">
+./src/marketing/components/platform/PlatformStandardsSection.tsx:59:                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#FAF8F5]/90"
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:34:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/platform/PlatformMethodologySection.tsx:40:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/platform/PlatformMethodologySection.tsx:46:                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#1A1917]"
+./src/marketing/components/platform/PlatformCTASection.tsx:41:        <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">          {CTA_CONTENT.title}
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:170:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {TECHNICAL_CONTENT.title}
+./src/marketing/components/platform/PlatformFindingsSection.tsx:40:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">                {FINDINGS_CONTENT.title}
+./src/marketing/components/platform/PlatformHeroSection.tsx:56:              className="mt-5 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]"
+./src/marketing/components/shared/MarketingEditorialShell.tsx:34:                className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]"
+./src/marketing/components/security/SecurityFAQSection.tsx:171:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/security/SecurityCTASection.tsx:36:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/security/SecurityCapabilitiesSection.tsx:59:          <h3 className="mt-4 font-serif text-[clamp(1.5rem,3vw,2rem)] leading-[1.15] tracking-[-0.02em] text-[var(--text-primary)]">
+./src/marketing/components/security/SecurityDeploymentSection.tsx:55:      <h3 className="mt-5 font-serif text-[1.375rem] leading-[1.2] tracking-[-0.02em] text-[var(--text-primary)]">
+./src/marketing/components/security/SecurityHeroSection.tsx:86:              className="mt-5 font-serif text-[clamp(2.5rem,5vw,4rem)] leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)]"
+./src/marketing/components/security/SecurityHeroSection.tsx:283:              className="font-serif text-[2rem] italic leading-[1.15] text-[rgba(250,248,245,1)] lg:text-[2.25rem]"
+./src/marketing/components/demo/DemoFormSection.tsx:25:        <h2 className="font-serif text-2xl tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/demo/DemoFormSection.tsx:76:        <h3 className="font-serif text-xl tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/components/demo/DemoHeroSection.tsx:12:      <h1 className="mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[#1A1917] sm:text-6xl lg:text-[4.5rem]">
+./src/marketing/components/demo/DemoAudienceSection.tsx:10:        <h2 className="font-serif text-3xl tracking-[-0.03em] text-[#1A1917] lg:text-4xl">
+./src/marketing/components/about/AboutHeroSection.tsx:62:            className="mt-8 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)] max-w-5xl"
+./src/marketing/components/about/AboutProcessSection.tsx:48:                <h3 className="font-serif text-2xl italic mb-4 tracking-tight text-white/90">
+./src/marketing/components/about/AboutCTASection.tsx:33:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/about/AboutTeamSection.tsx:39:              <h2 className="font-serif text-[2.5rem] leading-tight tracking-tight text-[var(--text-primary)]">
+./src/marketing/components/about/AboutTeamSection.tsx:69:                    <h3 className="mt-8 font-serif text-[1.75rem] leading-none tracking-tight text-[var(--text-primary)]">
+./src/marketing/components/about/AboutPrinciplesSection.tsx:22:                <h4 className="font-serif text-xl italic mb-3 tracking-tight">{p.title}</h4>
+./src/marketing/components/home/ContactModal.tsx:54:            <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:81:            className="mt-6 font-serif text-[#1A1917]"
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:135:                      <h3 className="text-xl font-serif text-white lg:text-3xl transition-all duration-300 tracking-tight leading-tight">
+./src/marketing/components/home/PremiumHeroSection.tsx:57:            <h1 className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.05] tracking-[-0.03em] text-white">
+./src/marketing/components/home/FounderSection.tsx:46:                <div className="text-[1.125rem] font-serif italic text-[#1A1917]">
+./src/marketing/components/home/FounderSection.tsx:67:                  className="font-serif leading-[1.2] tracking-tight text-[#1A1917]"
+./src/marketing/components/home/FounderSection.tsx:77:                  <p className="text-[1.125rem] leading-[1.7] text-[#1A1917] max-w-2xl italic font-serif opacity-80">
+./src/marketing/pages/solutions/CompliancePage.tsx:74:                  className="mt-12 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]"
+./src/marketing/pages/solutions/CompliancePage.tsx:102:                <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light"><strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Policy Control</strong>Автоматически применяйте внутренние стандарты, исключая вариативность трактовок и пропуски условий.</p></Reveal>
+./src/marketing/pages/solutions/CompliancePage.tsx:106:                <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light"><strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Real-time Insights</strong>Моментально выявляйте аномалии, нетипичные риски и отклонения еще на этапе подготовки.</p></Reveal>
+./src/marketing/pages/solutions/CompliancePage.tsx:110:                <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light"><strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Audit Readiness</strong>Формируйте прозрачную историю комплаенс-проверок с полной прослеживаемостью вывода.</p></Reveal>
+./src/marketing/pages/solutions/CompliancePage.tsx:127:                <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/CompliancePage.tsx:141:                      <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+... (обрезано, показаны первые 40 из 93)
+
+════ 02_css_var_usage_frequency.txt  (всего строк: 4275) ════
+      7 89:var(--text-muted)
+      7 53:var(--bg-card)
+      7 132:var(--text-muted)
+      6 77:var(--text-muted)
+      6 139:var(--text-muted)
+      6 129:var(--text-primary)
+      6 119:var(--text-muted)
+      6 116:var(--text-primary)
+      6 112:var(--text-muted)
+      6 106:var(--text-muted)
+      5 86:var(--text-primary)
+      5 84:var(--text-muted)
+      5 62:var(--text-muted)
+      5 53:var(--border)
+      5 52:var(--text-muted)
+      5 402:var(--text-muted)
+      5 36:var(--accent-primary)
+      5 35:var(--text-muted)
+      5 301:var(--text-muted)
+      5 223:var(--accent-primary)
+      5 222:var(--text-muted)
+      5 217:var(--text-secondary)
+      5 213:var(--accent-primary)
+      5 207:var(--bg-card)
+      5 175:var(--text-muted)
+      5 157:var(--border-subtle)
+      5 135:var(--text-primary)
+      5 114:var(--text-primary)
+      4 93:var(--text-muted)
+      4 88:var(--text-muted)
+      4 86:var(--accent-primary)
+      4 85:var(--text-primary)
+      4 85:var(--bg-card)
+      4 82:var(--text-secondary)
+      4 79:var(--bg-elevated-soft)
+      4 77:var(--bg-card)
+      4 77:var(--accent-primary)
+      4 69:var(--bg-elevated-soft)
+      4 62:var(--border-subtle)
+      4 55:var(--border)
+... (обрезано, показаны первые 40 из 4275)
+
+════ 02_dark_mode_traces.txt  (всего строк: 24) ════
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:289:      ? "border-emerald-500/40 bg-emerald-100 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:291:        ? "border-amber-500/40 bg-amber-100 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:293:          ? "border-red-500/40 bg-red-100 text-red-900 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:295:            ? "border-gray-300 bg-gray-100 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:296:            : "border-gray-400 bg-gray-50 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+./src/pages/tabs/dd-grid-v1/DDGridV1InstructionDrawer.tsx:134:                <span className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100">
+./src/pages/tabs/dd-grid-v1/DDGridV1InstructionDrawer.tsx:138:                <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100">
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:345:    <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportLayoutPicker.tsx:238:                    <div className="mt-1.5 flex items-start gap-1 rounded border border-amber-400 bg-amber-50 px-1.5 py-1 text-[10px] text-amber-900 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-200">
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:1014:            : "text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:196:      return "text-emerald-700 dark:text-emerald-300";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:198:      return "text-amber-700 dark:text-amber-300";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:200:      return "text-gray-500 dark:text-gray-400";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:203:      return "text-gray-400 dark:text-gray-500";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:909:              ? "border-emerald-500/40 bg-emerald-100 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:911:                ? "border-red-500/40 bg-red-100 text-red-900 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:913:                  ? "border-amber-500/40 bg-amber-100 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:914:                  : "border-gray-400 bg-gray-50 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:947:              ? "text-emerald-700 dark:text-emerald-300"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:949:                ? "text-amber-700 dark:text-amber-300"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:950:                : "text-red-700 dark:text-red-300";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:982:                  className="inline-flex items-center rounded border border-amber-400 bg-amber-100 px-1 py-0 text-[10px] font-medium text-amber-900 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-200"
+./src/marketing/hooks/useMediaQuery.ts:19: *   const isDark   = useMediaQuery("(prefers-color-scheme: dark)");
+./src/index.css:261:  --color-dark:        var(--text-primary);
+
+════ 02_duplicate_color_tokens.txt  (всего строк: 58) ════
+59:  --bg-base:          #FAF8F5;   /* page background */
+60:  --bg-surface:       #F3F0EB;   /* section panels, sidebar */
+61:  --bg-secondary:     #F3F0EB;   /* alias for bg-surface (legacy usage) */
+62:  --bg-card:          #FFFFFF;   /* cards, modals, drawers */
+63:  --bg-card-hover:    #FDFCFA;   /* card hover state */
+64:  --bg-elevated-soft: #F3F0EB;   /* sticky headers, inset panels */
+65:  --bg-subtle:        #EDEAE4;   /* code preview, inset debug zones */
+66:  --bg-inverse:       #111827;   /* dark preview surfaces (pipeline/chunks) */
+67:  --bg-input:         #FFFFFF;   /* form inputs */
+79:  --border-color:  #E8E4DD;                  /* hex alias used in marketing layer */
+87:  --accent-primary: #C86B52;
+88:  --accent-hover:   #B55D46;
+90:  --accent-subtle:  #F5EBE7;
+97:  --text-primary:   #1A1917;
+98:  --text-secondary: #78756F;
+99:  --text-muted:     #A8A29E;
+100:  --text-faint:     #D6D0C7;
+101:  --text-inverse:   #FAF8F5;
+102:  --text-tertiary:  #C4BFB8;   /* previously missing, used in TriggerList */
+150:  --color-success:           #059669;
+151:  --color-success-text:      #065F46;
+152:  --color-success-bg:        #ECFDF5;   /* was: transparent — FIXED */
+154:  --color-success-subtle:    #ECFDF5;
+155:  --color-success-highlight: #ECFDF5;
+158:  --color-warning:           #D97706;
+159:  --color-warning-text:      #92400E;
+160:  --color-warning-bg:        #FFFBEB;
+162:  --color-warning-subtle:    #FFFBEB;
+163:  --color-warning-highlight: #FFFBEB;
+166:  --color-error:             #DC2626;   /* was: #be123c — FIXED to match --danger */
+167:  --color-error-text:        #991B1B;
+168:  --color-error-bg:          #FEF2F2;
+170:  --color-error-subtle:      #FEF2F2;
+171:  --color-error-highlight:   #FEF2F2;
+172:  --color-error-soft-bg:     #FEF2F2;
+174:  --color-error-strong:      #991B1B;
+175:  --color-error-hover:       #991B1B;
+178:  --color-danger:            #DC2626;
+187:  --color-orange:           #C2410C;
+188:  --color-orange-highlight: #FFF7ED;
+... (обрезано, показаны первые 40 из 58)
+
+════ 02_gradients.txt  (всего строк: 20) ════
+./src/marketing/components/platform/PlatformStandardsSection.tsx:33:            background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)'
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:148:                "linear-gradient(180deg, rgba(200,107,82,0.06) 0%, rgba(200,107,82,0) 100%)",
+./src/marketing/components/platform/PlatformHeroSection.tsx:29:            background: 'linear-gradient(90deg, #FAF8F5 0%, rgba(250,248,245,0.95) 20%, rgba(250,248,245,0.3) 60%, transparent 100%)'
+./src/marketing/components/security/SecurityHeroSection.tsx:32:            'radial-gradient(circle, rgba(200,107,82,0.06) 0%, rgba(200,107,82,0.02) 40%, transparent 70%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:41:            'radial-gradient(circle, rgba(120,117,111,0.06) 0%, rgba(120,117,111,0.02) 40%, transparent 70%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:50:            linear-gradient(rgba(26,25,23,0.03) 1px, transparent 1px),
+./src/marketing/components/security/SecurityHeroSection.tsx:51:            linear-gradient(90deg, rgba(26,25,23,0.03) 1px, transparent 1px)
+./src/marketing/components/security/SecurityHeroSection.tsx:61:            'radial-gradient(ellipse at center, transparent 40%, rgba(120,117,111,0.08) 100%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:202:                'linear-gradient(135deg, rgba(26,25,23,0.78) 0%, rgba(26,25,23,0.88) 100%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:245:            'linear-gradient(180deg, transparent 0%, rgba(200,107,82,0.8) 20%, rgba(200,107,82,0.8) 80%, transparent 100%)',
+./src/marketing/components/about/AboutHeroSection.tsx:25:            'radial-gradient(circle, rgba(200,107,82,0.04) 0%, rgba(200,107,82,0.01) 40%, transparent 70%)',
+./src/marketing/components/about/AboutHeroSection.tsx:36:            linear-gradient(rgba(26,25,23,0.03) 1px, transparent 1px),
+./src/marketing/components/about/AboutHeroSection.tsx:37:            linear-gradient(90deg, rgba(26,25,23,0.03) 1px, transparent 1px)
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:46:            "radial-gradient(ellipse 60% 55% at 50% 50%, rgba(200,107,82,0.08) 0%, transparent 70%)",
+./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css:6:  background: linear-gradient(
+./src/marketing/components/home/PremiumHeroSection.tsx:46:          background: "linear-gradient(135deg, rgba(26, 25, 23, 0.85) 0%, rgba(26, 25, 23, 0.7) 100%)",
+./src/marketing/pages/solutions/CompliancePage.tsx:41:                background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.95) 25%, rgba(26,25,23,0.4) 60%, transparent 100%)'
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:71:              "linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.96) 28%, rgba(26,25,23,0.58) 62%, transparent 100%)",
+./src/index.css:427:  background: linear-gradient(
+./src/index.css:614:    background: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+
+════ 02_hardcoded_hex.txt  (всего строк: 551) ════
+./src/components/settings/ProjectMembersPanel.tsx:67:  "rounded-2xl border border-[var(--color-error,#ef4444)] bg-[color:color-mix(in_srgb,var(--color-error,#ef4444)_8%,var(--bg-card))] px-4 py-3";
+./src/components/documents/pipeline/LayoutStageViewer.tsx:176:          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse,#111827)] shadow-sm">
+./src/components/documents/pipeline/LayoutStageViewer.tsx:183:            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-5 text-[var(--text-inverse,#f9fafb)]">
+./src/components/documents/pipeline/StructureStageViewer.tsx:468:          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success,#22c55e)]"
+./src/components/documents/pipeline/StructureStageViewer.tsx:473:          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary,#3b82f6)]"
+./src/components/documents/pipeline/StructureStageViewer.tsx:812:      <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-[#050816] p-3">
+./src/components/documents/pipeline/StructureStageViewer.tsx:813:        <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1228:              <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1229:                <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1241:              className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3"
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1244:                className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb] [&_mark[data-snapshot-chunk='true']]:rounded [&_mark[data-snapshot-chunk='true']]:bg-[var(--color-warning)]/25 [&_mark[data-snapshot-chunk='true']]:px-1"
+./src/components/instructions/PublishConfirmDialog.tsx:42:          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)]">
+./src/components/instructions/PublishConfirmDialog.tsx:44:              className="h-4 w-4 text-[color:var(--color-warning-text,#92400e)]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:45:      <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] px-3 py-2">
+./src/components/instructions/ConcurrencyStatusBar.tsx:48:            className="h-3.5 w-3.5 shrink-0 text-[color:var(--color-warning-text,#92400e)]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:51:          <span className="text-[11px] text-[color:var(--color-warning-text,#92400e)]">
+./src/components/instructions/ConcurrencyStatusBar.tsx:73:      <div className="flex items-center justify-between gap-3 rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-3 py-2">
+./src/components/instructions/ConcurrencyStatusBar.tsx:76:            className="h-3.5 w-3.5 shrink-0 text-[#b91c1c]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:79:          <span className="text-[11px] text-[#b91c1c]">
+./src/components/instructions/ConcurrencyStatusBar.tsx:102:      <div className="flex items-center gap-2 rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-3 py-2">
+./src/components/instructions/ConcurrencyStatusBar.tsx:104:          className="h-3.5 w-3.5 shrink-0 text-[#b91c1c]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:107:        <span className="text-[11px] text-[#b91c1c]">
+./src/components/instructions/VersionStatusBadge.tsx:19:      "border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] text-[color:var(--color-warning-text,#92400e)]",
+./src/components/instructions/ValidationResultPanel.tsx:98:          : "border-[#dc2626]/30 bg-[#fef2f2]",
+./src/components/instructions/ValidationResultPanel.tsx:111:              className="h-4 w-4 shrink-0 text-[#b91c1c]"
+./src/components/instructions/ValidationResultPanel.tsx:120:                : "text-[#b91c1c]",
+./src/components/instructions/ValidationResultPanel.tsx:137:          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b91c1c]">
+./src/components/instructions/ValidationResultPanel.tsx:144:                className="flex items-start gap-1.5 text-[11px] text-[#b91c1c]"
+./src/components/instructions/ValidationResultPanel.tsx:157:          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--color-warning-text,#92400e)]">
+./src/components/instructions/ValidationResultPanel.tsx:164:                className="flex items-start gap-1.5 text-[11px] text-[color:var(--color-warning-text,#92400e)]"
+./src/components/instructions/OverrideStatusBadge.tsx:16:      "border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] text-[color:var(--color-warning-text,#92400e)]",
+./src/components/instructions/OverrideStatusBadge.tsx:57:            "border-[#dc2626]/30 bg-[#fef2f2] text-[#b91c1c]",
+./src/components/instructions/DraftEditForm.tsx:236:          <div className="rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-4 py-3">
+./src/components/instructions/DraftEditForm.tsx:237:            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b91c1c]">
+./src/components/instructions/DraftEditForm.tsx:240:            <div className="space-y-1 text-[11px] text-[#b91c1c]">
+./src/components/instructions/DraftEditForm.tsx:262:            <p className="mt-2 text-[11px] text-[#b91c1c]">
+./src/components/instructions/StaleWarningBanner.tsx:22:    <div className="flex items-start justify-between gap-3 rounded-xl border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] px-4 py-3">
+./src/components/instructions/StaleWarningBanner.tsx:25:          className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--color-warning-text,#92400e)]"
+./src/components/instructions/StaleWarningBanner.tsx:29:          <div className="text-xs font-semibold text-[color:var(--color-warning-text,#92400e)]">
+./src/components/instructions/StaleWarningBanner.tsx:32:          <p className="mt-0.5 text-[11px] text-[color:var(--color-warning-text,#92400e)]">
+... (обрезано, показаны первые 40 из 551)
+
+════ 02_hardcoded_rgb.txt  (всего строк: 67) ════
+./src/components/qc/BulkQCBar.tsx:78:    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-soft)] bg-[color:color-mix(in_srgb,var(--bg-card)_92%,black)] px-4 py-2 text-xs text-[var(--text-secondary)] shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur">
+./src/marketing/components/platform/PlatformStandardsSection.tsx:33:            background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)'
+./src/marketing/components/platform/primitives/PathCrumb.tsx:31:  const rootColor = variant === "dark" ? "rgba(250, 248, 245, 0.45)" : "#A8A29E";
+./src/marketing/components/platform/primitives/PathCrumb.tsx:32:  const slashColor = variant === "dark" ? "rgba(250, 248, 245, 0.28)" : "#D6D0C7";
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:112:              boxShadow: "0 1px 2px rgba(26,25,23,0.02)",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:139:            border: "1px solid rgba(200,107,82,0.35)",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:140:            boxShadow: "0 6px 20px rgba(200,107,82,0.12)",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:148:                "linear-gradient(180deg, rgba(200,107,82,0.06) 0%, rgba(200,107,82,0) 100%)",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:179:              boxShadow: "0 2px 6px rgba(26,25,23,0.04)",
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:84:                        ? "0 4px 16px rgba(200,107,82,0.08)"
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:85:                        : "0 1px 2px rgba(26,25,23,0.03)",
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:80:                    boxShadow: "0 1px 2px rgba(26,25,23,0.03)",
+./src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:92:                  ? "0 4px 16px rgba(200,107,82,0.08)"
+./src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:93:                  : "0 1px 2px rgba(26,25,23,0.03)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:72:            stroke="rgba(250, 248, 245, 0.14)"
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:96:            stroke="rgba(250, 248, 245, 0.14)"
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:134:              borderColor: "rgba(250, 248, 245, 0.14)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:135:              background: "rgba(250, 248, 245, 0.02)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:140:              style={{ color: "rgba(250, 248, 245, 0.45)" }}
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:167:            border: "1px solid rgba(200, 107, 82, 0.55)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:168:            background: "rgba(200, 107, 82, 0.08)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:170:            boxShadow: "0 8px 24px rgba(200, 107, 82, 0.12)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:210:              borderColor: "rgba(250, 248, 245, 0.14)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:211:              background: "rgba(250, 248, 245, 0.02)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:216:              style={{ color: "rgba(250, 248, 245, 0.45)" }}
+./src/marketing/components/platform/PlatformHeroSection.tsx:29:            background: 'linear-gradient(90deg, #FAF8F5 0%, rgba(250,248,245,0.95) 20%, rgba(250,248,245,0.3) 60%, transparent 100%)'
+./src/marketing/components/shared/MobileMenu.tsx:91:                          ? "rgba(0,0,0,0.04)"
+./src/marketing/components/shared/MobileMenu.tsx:113:                        ? "rgba(0,0,0,0.04)"
+./src/marketing/components/shared/MobileMenu.tsx:164:                                            ? "rgba(200, 107, 82, 0.08)"
+./src/marketing/components/shared/SiteHeader.tsx:27:const MOBILE_BG = "rgba(250, 248, 245, 0.98)";
+./src/marketing/components/shared/SiteHeader.tsx:29:const MOBILE_SHADOW = "0 1px 0 rgba(0, 0, 0, 0.04)";
+./src/marketing/components/shared/SiteHeader.tsx:101:    ? "rgba(255, 255, 255, 0.7)"
+./src/marketing/components/shared/SiteHeader.tsx:106:      ? "rgba(26, 25, 23, 0.85)"
+./src/marketing/components/shared/SiteHeader.tsx:108:    : "rgba(250, 248, 245, 0.95)";
+./src/marketing/components/shared/SiteHeader.tsx:121:      ? "0 4px 20px rgba(0,0,0,0.06)"
+./src/marketing/components/shared/SiteHeader.tsx:247:                        className="absolute left-0 top-full mt-5 w-[1140px] rounded-2xl bg-white shadow-[0_40px_80px_rgba(0,0,0,0.15)] p-12 border border-gray-100 overflow-hidden"
+./src/marketing/components/security/SecurityHeroSection.tsx:32:            'radial-gradient(circle, rgba(200,107,82,0.06) 0%, rgba(200,107,82,0.02) 40%, transparent 70%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:41:            'radial-gradient(circle, rgba(120,117,111,0.06) 0%, rgba(120,117,111,0.02) 40%, transparent 70%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:50:            linear-gradient(rgba(26,25,23,0.03) 1px, transparent 1px),
+./src/marketing/components/security/SecurityHeroSection.tsx:51:            linear-gradient(90deg, rgba(26,25,23,0.03) 1px, transparent 1px)
+... (обрезано, показаны первые 40 из 67)
+
+════ 02_tailwind_arbitrary_colors.txt  (всего строк: 412) ════
+./src/components/documents/pipeline/StructureStageViewer.tsx:812:      <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-[#050816] p-3">
+./src/components/documents/pipeline/StructureStageViewer.tsx:813:        <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1228:              <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1229:                <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1241:              className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3"
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1244:                className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb] [&_mark[data-snapshot-chunk='true']]:rounded [&_mark[data-snapshot-chunk='true']]:bg-[var(--color-warning)]/25 [&_mark[data-snapshot-chunk='true']]:px-1"
+./src/components/instructions/ConcurrencyStatusBar.tsx:73:      <div className="flex items-center justify-between gap-3 rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-3 py-2">
+./src/components/instructions/ConcurrencyStatusBar.tsx:76:            className="h-3.5 w-3.5 shrink-0 text-[#b91c1c]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:79:          <span className="text-[11px] text-[#b91c1c]">
+./src/components/instructions/ConcurrencyStatusBar.tsx:102:      <div className="flex items-center gap-2 rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-3 py-2">
+./src/components/instructions/ConcurrencyStatusBar.tsx:104:          className="h-3.5 w-3.5 shrink-0 text-[#b91c1c]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:107:        <span className="text-[11px] text-[#b91c1c]">
+./src/components/instructions/ValidationResultPanel.tsx:98:          : "border-[#dc2626]/30 bg-[#fef2f2]",
+./src/components/instructions/ValidationResultPanel.tsx:111:              className="h-4 w-4 shrink-0 text-[#b91c1c]"
+./src/components/instructions/ValidationResultPanel.tsx:120:                : "text-[#b91c1c]",
+./src/components/instructions/ValidationResultPanel.tsx:137:          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b91c1c]">
+./src/components/instructions/ValidationResultPanel.tsx:144:                className="flex items-start gap-1.5 text-[11px] text-[#b91c1c]"
+./src/components/instructions/OverrideStatusBadge.tsx:57:            "border-[#dc2626]/30 bg-[#fef2f2] text-[#b91c1c]",
+./src/components/instructions/DraftEditForm.tsx:236:          <div className="rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-4 py-3">
+./src/components/instructions/DraftEditForm.tsx:237:            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b91c1c]">
+./src/components/instructions/DraftEditForm.tsx:240:            <div className="space-y-1 text-[11px] text-[#b91c1c]">
+./src/components/instructions/DraftEditForm.tsx:262:            <p className="mt-2 text-[11px] text-[#b91c1c]">
+./src/pages/deal-instructions/DealOverrideDetailPage.tsx:307:                      : "border-[#dc2626]/30 bg-[#fef2f2]",
+./src/pages/deal-instructions/DealOverrideDetailPage.tsx:315:                        : "text-[#b91c1c]",
+./src/pages/deal-instructions/DealOverrideDetailPage.tsx:325:                        <li key={i} className="text-[11px] text-[#b91c1c]">
+./src/pages/deal-instructions/DealOverrideDetailPage.tsx:366:              <p className="text-[11px] text-[#b91c1c]">
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:40:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {WORKFLOW_CONTENT.title}
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:58:                  className="text-[1rem] leading-[1.75] text-[#78756F]"
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:68:            <div className="border-l border-[#E8E4DD] pl-6">
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:69:              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A8A29E]">
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:76:                    className="flex items-start gap-3 text-[#78756F]"
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:79:                      className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[#C86B52]"
+./src/marketing/components/platform/PlatformStandardsSection.tsx:17:      className="relative overflow-hidden bg-[#1A1917]"
+./src/marketing/components/platform/PlatformStandardsSection.tsx:53:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]">
+./src/marketing/components/platform/PlatformStandardsSection.tsx:59:                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#FAF8F5]/90"
+./src/marketing/components/platform/PlatformStandardsSection.tsx:70:                    className="text-[1.0625rem] leading-[1.75] text-[#A8A29E]"
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:34:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:42:                    className="text-[1rem] leading-[1.75] text-[#78756F]"
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:49:              <div className="mt-10 border-l border-[#E8E4DD] pl-6">
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:50:                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A8A29E]">
+... (обрезано, показаны первые 40 из 412)
+
+════ 03_hardcoded_px_spacing.txt  (всего строк: 2) ════
+./src/styles/ag-theme-legalmas.css:72:  --ag-cell-horizontal-padding: 12px;
+./src/styles/ag-theme-legalmas.css:143:  gap: 6px;
+
+════ 03_spacing_class_frequency.txt  (всего строк: 4738) ════
+      5 309:px-3
+      4 84:gap-2
+      4 63:py-2
+      4 31:px-8
+      4 31:px-6
+      4 301:py-0
+      4 24:px-8
+      4 24:px-6
+      4 243:mt-1
+      4 217:mt-1
+      4 162:py-3
+      3 98:px-6
+      3 97:px-4
+      3 89:gap-2
+      3 85:mt-0
+      3 857:py-3
+      3 82:mt-3
+      3 80:gap-3
+      3 79:py-0
+      3 79:px-2
+      3 70:mt-0
+      3 63:px-3
+      3 58:gap-2
+      3 53:gap-3
+      3 52:mt-0
+      3 40:mt-4
+      3 39:mt-6
+      3 392:gap-3
+      3 34:gap-16
+      3 349:px-3
+      3 336:py-2
+      3 336:px-3
+      3 313:px-3
+      3 309:py-3
+      3 301:px-2
+      3 297:py-2
+      3 297:px-3
+      3 286:gap-2
+      3 267:px-3
+      3 237:mt-1
+... (обрезано, показаны первые 40 из 4738)
+
+════ 03_tailwind_arbitrary_spacing.txt  (всего строк: 12) ════
+./src/components/documents/pipeline/DocumentPipelinePanel.tsx:143:          <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0 text-[var(--color-error)]" />
+./src/components/deals/RunLaunchDrawer.tsx:180:                  className="mt-[2px]"
+./src/components/deals/RunLaunchDrawer.tsx:312:                className="mt-[2px]"
+./src/pages/tabs/RealEstateTab.tsx:862:                      <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-error)]" />
+./src/pages/tabs/RealEstateTab.tsx:1495:              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warning)]" />
+./src/pages/tabs/RealEstateTab.tsx:1542:              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]" />
+./src/pages/tabs/CounterpartiesTab.tsx:843:                      <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-error)]" />
+./src/pages/tabs/CounterpartiesTab.tsx:1326:              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warning)]" />
+./src/pages/tabs/overview/LaunchFormPanel.tsx:477:                          className="mt-[2px]"
+./src/pages/tabs/overview/LaunchFormPanel.tsx:546:                      className="mt-[2px]"
+./src/pages/tabs/overview/LaunchFormPanel.tsx:576:                  className="mt-[2px]"
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:786:                <div className="flex shrink-0 items-center gap-2 pt-[22px]">
+
+════ 04_box_shadow_usage.txt  (всего строк: 16) ════
+./src/styles/ag-theme-legalmas.css:191:  box-shadow: inset 3px 0 0 var(--accent-primary);
+./src/styles/ag-theme-legalmas.css:205:  box-shadow: inset -1px 0 0 var(--border-subtle);
+./src/styles/ag-theme-legalmas.css:225:  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent-primary) 18%, transparent);
+./src/styles/ag-theme-legalmas.css:235:  box-shadow: 0 12px 30px color-mix(in oklab, black 10%, transparent);
+./src/components/ui/Button.tsx:96:          "transition-[background-color,border-color,color,box-shadow,transform] duration-150",
+./src/components/ui/Tabs.tsx:293:        "transition-[background-color,color,box-shadow] duration-150",
+./src/index.css:450:    box-shadow 0.15s ease,
+./src/index.css:466:  box-shadow: 0 0 0 3px var(--accent-muted);
+./src/index.css:480:  box-shadow: var(--shadow-sm);
+./src/index.css:487:    box-shadow 0.18s ease,
+./src/index.css:494:  box-shadow: var(--shadow-md);
+./src/index.css:534:      box-shadow 200ms ease,
+./src/index.css:546:    box-shadow: 0 0 0 3px var(--cta-ring);
+./src/index.css:618:    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+./src/index.css:729:    box-shadow: inset 0 1px 2px rgba(200, 107, 82, 0.08);
+./src/index.css:734:      box-shadow 0.15s ease;
+
+════ 04_colored_left_border_pattern.txt  (всего строк: 5) ════
+./src/styles/ag-theme-legalmas.css:324:  border-left: 3px solid var(--accent-primary) !important;
+./src/index.css:713:    border-left: 3px solid var(--app-active-indicator);
+./src/marketing/components/security/SecurityFAQSection.tsx:192:            <div className="border-l-2 border-[#D6D0C7] pl-5 py-2">
+./src/marketing/components/security/SecurityCapabilitiesSection.tsx:109:    editorial: 'border-l-2 border-[var(--color-border)] pl-6 lg:pl-8',
+./src/marketing/components/about/AboutPrinciplesSection.tsx:21:              <div className="border-l-2 border-[var(--color-border)] pl-6">
+
+════ 04_hardcoded_radius.txt  (всего строк: 12) ════
+./src/styles/ag-theme-legalmas.css:118:  border-radius: 0 0 var(--grid-shell-radius) var(--grid-shell-radius);
+./src/styles/ag-theme-legalmas.css:217:  border-radius: 0.625rem;
+./src/styles/ag-theme-legalmas.css:233:  border-radius: 0.875rem;
+./src/styles/ag-theme-legalmas.css:266:  border-radius: 999px;
+./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css:108:  border-radius: 50%;
+./src/index.css:376:  border-radius: 4px;
+./src/index.css:435:  border-radius: 6px;
+./src/index.css:528:    border-radius: 9999px;
+./src/index.css:561:    border-radius: 9999px;
+./src/index.css:610:    border-radius: 9999px;
+./src/index.css:666:    border-radius: 0 2px 2px 0;
+./src/index.css:688:    border-radius: 2px 2px 0 0;
+
+════ 04_rounded_class_frequency.txt  (всего строк: 932) ════
+      5 79:rounded-full
+      5 157:rounded-2xl
+      4 80:rounded-xl
+      4 62:rounded-full
+      4 45:rounded-full
+      4 301:rounded-full
+      4 106:rounded-2xl
+      3 98:rounded-2xl
+      3 85:rounded-2xl
+      3 63:rounded-lg
+      3 50:rounded-2xl
+      3 44:rounded-2xl
+      3 34:rounded-xl
+      3 34:rounded-2xl
+      3 33:rounded-lg
+      3 304:rounded-xl
+      3 277:rounded-2xl
+      3 236:rounded-xl
+      3 217:rounded-2xl
+      3 207:rounded-2xl
+      3 155:rounded-2xl
+      3 154:rounded-xl
+      3 146:rounded-2xl
+      3 115:rounded-xl
+      3 113:rounded-full
+      3 110:rounded-xl
+      3 103:rounded-2xl
+      2 9:rounded-full
+      2 95:rounded-xl
+      2 94:rounded-full
+      2 88:rounded-full
+      2 886:rounded-2xl
+      2 867:rounded-2xl
+      2 841:rounded-2xl
+      2 83:rounded-2xl
+      2 829:rounded-2xl
+      2 81:rounded-xl
+      2 808:rounded-lg
+      2 77:rounded-full
+      2 77:rounded-2xl
+... (обрезано, показаны первые 40 из 932)
+
+════ 05_active_state_usage.txt  (всего строк: 857) ════
+./src/utils/index.ts:9: *   className={cn("base", isActive && "active")}
+./src/styles/ag-theme-legalmas.css:44:  --ag-selected-row-background-color: color-mix(
+./src/styles/ag-theme-legalmas.css:173:.ag-theme-legalmas .ag-row-selected::before {
+./src/styles/ag-theme-legalmas.css:174:  background-color: var(--ag-selected-row-background-color);
+./src/styles/ag-theme-legalmas.css:177:.ag-theme-legalmas .ag-row-hover.ag-row-selected::before {
+./src/styles/ag-theme-legalmas.css:185:.ag-theme-legalmas .ag-row-selected,
+./src/styles/ag-theme-legalmas.css:186:.ag-theme-legalmas .ag-row-selected .ag-cell {
+./src/styles/ag-theme-legalmas.css:187:  background-color: var(--ag-selected-row-background-color);
+./src/styles/ag-theme-legalmas.css:190:.ag-theme-legalmas .ag-row-selected .ag-cell:first-child {
+./src/styles/ag-theme-legalmas.css:250:.ag-theme-legalmas .ag-range-selected,
+./src/styles/ag-theme-legalmas.css:251:.ag-theme-legalmas .ag-cell-range-selected {
+./src/styles/ag-theme-legalmas.css:322:.ag-theme-legalmas .ag-row.ag-row-active-v1 {
+./src/styles/ag-theme-legalmas.css:327:.ag-theme-legalmas .ag-row.ag-row-active-v1:hover {
+./src/components/DealCard.tsx:57:  const interactiveProps = onClick
+./src/components/DealCard.tsx:73:      {...interactiveProps}
+./src/components/qc/BulkQCBar.tsx:10:  selectedCount: number;
+./src/components/qc/BulkQCBar.tsx:42:  selectedCount,
+./src/components/qc/BulkQCBar.tsx:52:  const disabled = selectedCount === 0;
+./src/components/qc/BulkQCBar.tsx:86:            {selectedCount}
+./src/components/ConfirmDialog.tsx:42:      (document.activeElement as HTMLElement | null) ?? null;
+./src/components/ConfirmDialog.tsx:73:      const active = document.activeElement as HTMLElement | null;
+./src/components/ConfirmDialog.tsx:76:        if (active === first || !dialogRef.current.contains(active)) {
+./src/components/ConfirmDialog.tsx:80:      } else if (active === last) {
+./src/components/viewer/DocumentViewerModal.tsx:143:      const activeOverlay = container.querySelector<HTMLDivElement>(
+./src/components/viewer/DocumentViewerModal.tsx:144:        '[data-active-overlay="true"]',
+./src/components/viewer/DocumentViewerModal.tsx:147:      if (activeOverlay) {
+./src/components/viewer/DocumentViewerModal.tsx:149:        const overlayRect = activeOverlay.getBoundingClientRect();
+./src/components/viewer/DocumentViewerModal.tsx:180:  let activeChunkIndex = -1;
+./src/components/viewer/DocumentViewerModal.tsx:188:        activeChunkIndex = idx;
+./src/components/viewer/DocumentViewerModal.tsx:193:      activeChunkIndex < 0 &&
+./src/components/viewer/DocumentViewerModal.tsx:198:      activeChunkIndex = chunkIndex;
+./src/components/viewer/DocumentViewerModal.tsx:201:    if (activeChunkIndex < 0 && clauseUid) {
+./src/components/viewer/DocumentViewerModal.tsx:206:        activeChunkIndex = idx;
+./src/components/viewer/DocumentViewerModal.tsx:356:                          activeChunkIndex >= 0 &&
+./src/components/viewer/DocumentViewerModal.tsx:357:                          ov.chunkIndex === activeChunkIndex;
+./src/components/viewer/DocumentViewerModal.tsx:369:                            data-active-overlay={isActive ? "true" : undefined}
+./src/components/ui/Drawer.tsx:39:      document.activeElement as HTMLElement | null;
+./src/components/ui/Drawer.tsx:82:      const active = document.activeElement as HTMLElement | null;
+./src/components/ui/Drawer.tsx:85:        if (active === first || !panelRef.current.contains(active)) {
+./src/components/ui/Drawer.tsx:89:      } else if (active === last) {
+... (обрезано, показаны первые 40 из 857)
+
+════ 05_badge_chip_files.txt  (всего строк: 21) ════
+./src/utils/compositionHelpers.ts
+./src/components/qc/QCCellRenderer.tsx
+./src/components/ui/ClassificationBadge.tsx
+./src/components/documents/DocumentDetails.tsx
+./src/components/documents/DocumentDetails/sections/ReviewSection.tsx
+./src/pages/DealPage.tsx
+./src/pages/AdminMonitoringPage.tsx
+./src/pages/TenantAdminPage.tsx
+./src/pages/tabs/audit/ClassificationAuditView.tsx
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx
+./src/pages/tabs/dd-grid-v1/ddGridV1.drawer.ts
+./src/pages/tabs/dd-grid-v1/ddGridV1.exportBuilder.ts
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx
+./src/marketing/components/demo/DemoHeroSection.tsx
+./src/marketing/content/landingContent.ts
+./src/constants/index.ts
+./src/viewAdapters/requestPresentation.ts
+./src/types/requestPriority.ts
+./src/types/dealReview.ts
+./src/index.css
+
+════ 05_btn_class_variants.txt  (всего строк: 6) ════
+      2 48:className="mt-10"><button
+      2 48:className="cta-primary">Запросить демонстрацию</button
+      2 136:className="mt-10"><button
+      2 136:className="cta-primary">Запросить демонстрацию</button
+      1 268:className="mt-10"><button
+      1 268:className="cta-primary">Запросить демонстрацию <ArrowRight className="h-3.5 w-3.5" /></button
+
+════ 05_button_related_files.txt  (всего строк: 133) ════
+./src/components/DealCard.tsx
+./src/components/qc/BulkQCBar.tsx
+./src/components/qc/QCCellRenderer.tsx
+./src/components/ConfirmDialog.tsx
+./src/components/viewer/DocumentViewerModal.tsx
+./src/components/ui/ConfirmDialog.tsx
+./src/components/ui/Drawer.tsx
+./src/components/ui/Button.tsx
+./src/components/ui/Tabs.tsx
+./src/components/ImportWizard.tsx
+./src/components/auth/ProjectRouteGuard.tsx
+./src/components/settings/ProjectMembersPanel.tsx
+./src/components/admin/TenantsTable.tsx
+./src/components/admin/ExternalToolsBar.tsx
+./src/components/admin/AlertsPanel.tsx
+./src/components/documents/DocumentChunksModal.tsx
+./src/components/documents/ReviewCheckCard.tsx
+./src/components/documents/pipeline/ProcessingTracePanel.tsx
+./src/components/documents/pipeline/PipelineStagePreviewPane.tsx
+./src/components/documents/pipeline/LayoutStageViewer.tsx
+./src/components/documents/pipeline/StructureStageViewer.tsx
+./src/components/documents/pipeline/PipelineStageRow.tsx
+./src/components/documents/pipeline/ChunksStageViewer.tsx
+./src/components/documents/pipeline/PipelineStageModal.tsx
+./src/components/documents/pipeline/ClassificationDecisionPanel.tsx
+./src/components/documents/DocumentTree.tsx
+./src/components/documents/DocumentDetails.tsx
+./src/components/documents/LayoutDebugModal.tsx
+./src/components/documents/DocumentDetails/sections/HeaderSection.tsx
+./src/components/documents/DocumentDetails/sections/StructuredDataSection.tsx
+./src/components/documents/DocumentDetails/PdfPreviewModal.tsx
+./src/components/deals/RunLaunchDrawer.tsx
+./src/components/instructions/PublishConfirmDialog.tsx
+./src/components/instructions/GlobalInstructionEditor.tsx
+./src/components/instructions/ConcurrencyStatusBar.tsx
+./src/components/instructions/ImportYamlDialog.tsx
+./src/components/instructions/DraftEditForm.tsx
+./src/components/instructions/StaleWarningBanner.tsx
+./src/components/playbook/ProjectPlaybookPanel.tsx
+./src/components/playbook/DealPlaybookSelectorPanel.tsx
+... (обрезано, показаны первые 40 из 133)
+
+════ 05_icon_in_circle_pattern.txt  (всего строк: 180) ════
+./src/components/DealCard.tsx:93:        <span className="shrink-0 rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2.5 py-1 font-mono text-[11px] text-[var(--text-muted)]">
+./src/components/DealCard.tsx:109:          <span className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
+./src/components/DealCard.tsx:113:          <span className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2.5 py-1 text-[11px] text-[var(--text-muted)]">
+./src/components/viewer/DocumentViewerModal.tsx:269:            className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-3 py-1 text-[11px] text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/components/viewer/DocumentViewerModal.tsx:282:              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+./src/components/viewer/DocumentViewerModal.tsx:294:              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+./src/components/ui/LoadingBlock.tsx:45:            className="h-4 rounded-full animate-pulse bg-[var(--bg-elevated-soft)]"
+./src/components/ui/Tabs.tsx:309:          className="pointer-events-none absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[var(--accent-primary)]"
+./src/components/ImportWizard.tsx:131:        <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+./src/components/auth/ProjectRouteGuard.tsx:79:        <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]">
+./src/components/settings/ProjectMembersPanel.tsx:214:            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--bg-elevated-soft)]">
+./src/components/settings/ProjectMembersPanel.tsx:276:              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--bg-elevated-soft)]">
+./src/components/settings/ProjectMembersPanel.tsx:337:                        <span className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
+./src/components/settings/ProjectMembersPanel.tsx:344:                        <span className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
+./src/components/admin/TenantsTable.tsx:301:                      <span className="rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+./src/components/admin/AlertsPanel.tsx:114:              <span className="rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+./src/components/documents/ReviewCheckCard.tsx:64:              <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-gold-hover)]">
+./src/components/documents/ReviewCheckCard.tsx:76:                <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+./src/components/documents/ReviewCheckCard.tsx:112:                <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+./src/components/documents/ReviewCheckCard.tsx:118:                <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+./src/components/documents/pipeline/ProcessingTracePanel.tsx:48:      className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${colors[status] ?? "bg-gray-300"}`}
+./src/components/documents/pipeline/ProcessingTracePanel.tsx:105:              <span className="rounded-full border border-yellow-300/30 bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700">
+./src/components/documents/pipeline/ProcessingTracePanel.tsx:245:      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-elevated-soft)]">
+./src/components/documents/pipeline/ProcessingTracePanel.tsx:247:          className="h-full rounded-full bg-green-500 transition-all"
+./src/components/documents/pipeline/LayoutStageViewer.tsx:21:    <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-1 text-[11px] leading-none text-[var(--text-secondary)]">
+./src/components/documents/pipeline/LayoutStageViewer.tsx:79:          className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-1"
+./src/components/documents/pipeline/StructureStageViewer.tsx:468:          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success,#22c55e)]"
+./src/components/documents/pipeline/StructureStageViewer.tsx:473:          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary,#3b82f6)]"
+./src/components/documents/pipeline/StructureStageViewer.tsx:539:            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-success)_40%,transparent)] bg-[var(--color-success-highlight)] px-2 py-0.5 text-xs text-[var(--color-success)]">
+./src/components/documents/pipeline/StructureStageViewer.tsx:543:            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-warning)_35%,transparent)] bg-[var(--color-warning-highlight)] px-2 py-0.5 text-xs text-[var(--color-warning)]">
+./src/components/documents/pipeline/StructureStageViewer.tsx:549:            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
+./src/components/documents/pipeline/StructureStageViewer.tsx:663:              className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)]"
+./src/components/documents/pipeline/StructureStageViewer.tsx:731:            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-success)_40%,transparent)] bg-[var(--color-success-highlight)] px-2 py-0.5 text-xs text-[var(--color-success)]">
+./src/components/documents/pipeline/StructureStageViewer.tsx:735:            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-warning)_35%,transparent)] bg-[var(--color-warning-highlight)] px-2 py-0.5 text-xs text-[var(--color-warning)]">
+./src/components/documents/pipeline/StructureStageViewer.tsx:741:            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
+./src/components/documents/pipeline/StructureStageViewer.tsx:769:              className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)]"
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1003:                          <div className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-[10px] leading-none text-[var(--text-muted)]">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1198:            <div className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-1">
+./src/components/documents/pipeline/ClassificationDecisionPanel.tsx:135:            <span className="rounded-full border border-green-300/40 bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+./src/components/documents/pipeline/ClassificationDecisionPanel.tsx:198:          <span className="rounded-full border border-yellow-300/40 bg-yellow-50 px-2 py-0.5 text-[10px] font-medium text-yellow-700">
+... (обрезано, показаны первые 40 из 180)
+
+════ 06_scroll_model.txt  (всего строк: 125) ════
+./src/components/ui/Drawer.tsx:159:          <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+./src/components/settings/ProjectMembersPanel.tsx:302:            <div className="overflow-x-auto">
+./src/components/admin/TenantsTable.tsx:208:      <div className="overflow-x-auto">
+./src/components/documents/DocumentChunksModal.tsx:146:            <div className="h-[70vh] overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]">
+./src/components/documents/pipeline/LayoutStageViewer.tsx:126:          className="min-h-0 flex-1 overflow-y-auto"
+./src/components/documents/DocumentTree.tsx:95:      <div className="flex-1 overflow-y-auto px-1.5 py-2">
+./src/components/documents/DocumentDetails.tsx:386:      <div className="h-full space-y-5 overflow-y-auto bg-[var(--bg-elevated-soft)] p-5">
+./src/components/documents/DocumentDetails/sections/ReviewSection.tsx:100:      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+./src/components/documents/DocumentDetails/sections/StructuredDataSection.tsx:265:      <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+./src/components/instructions/GlobalInstructionEditor.tsx:363:          <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-base)] p-2">
+./src/components/instructions/ImportYamlDialog.tsx:229:        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:569:        <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:656:            <ul className="max-h-80 space-y-1 overflow-y-auto">
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:766:              <ul className="max-h-80 space-y-1 overflow-y-auto">
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:849:              <div className="max-h-80 space-y-3 overflow-y-auto text-xs text-[var(--text-primary)]">
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:866:                    <pre className="mt-1 overflow-x-auto rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-2 text-[11px] text-[var(--text-secondary)]">
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:882:                    <pre className="mt-1 overflow-x-auto rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-2 text-[11px] text-[var(--text-secondary)]">
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:897:              <div className="max-h-80 space-y-3 overflow-y-auto text-xs text-[var(--text-primary)]">
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:970:                <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:1016:        <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+./src/components/requests/ReviewRequestSidePanel.tsx:136:      <div className="flex-1 space-y-5 overflow-y-auto px-4 py-3">
+./src/components/requests/shared/RequestStructuredValuesList.tsx:12:   * Максимальная высота списка в пикселях (для overflow-y-auto).
+./src/components/requests/shared/RequestStructuredValuesList.tsx:44:      className="overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-2"
+./src/components/requests/shared/RequestDocumentsList.tsx:50:          "space-y-1 overflow-y-auto",
+./src/components/requests/RequestSidePanel.tsx:136:      <div className="flex-1 space-y-5 overflow-y-auto px-4 py-3">
+./src/components/requests/RequestSidePanel.tsx:232:            <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-xl bg-[var(--bg-elevated-soft)] p-2">
+./src/components/upload/PreparedFilesTable.tsx:93:        <div className="overflow-x-auto">
+./src/components/upload/ProjectUploadPanel.tsx:376:            <div className="overflow-x-auto">
+./src/components/upload/ProjectUploadPanel.tsx:418:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/components/evidence/EvidencePanel.tsx:257:        <div className="col-span-1 space-y-4 overflow-y-auto border-r border-[var(--border-subtle)] pr-4">
+./src/components/layout/AppShell.tsx:230:        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
+./src/components/model-config/ModelConfigManagerPanel.tsx:1089:            <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto">
+./src/pages/DealPage.tsx:293:            className="flex h-full flex-col overflow-y-auto px-3 py-4"
+./src/pages/DealPage.tsx:408:                  className="flex overflow-x-auto border-t border-[var(--border)] pt-3"
+./src/pages/AdminTenantProjectsPage.tsx:152:      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+./src/pages/AdminTenantProjectsPage.tsx:168:      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+./src/pages/AdminTenantProjectsPage.tsx:191:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+./src/pages/AdminTenantNewPage.tsx:81:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/NewProjectPage.tsx:115:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/DealListPage.tsx:82:    <div className="h-full overflow-y-auto overscroll-contain">
+... (обрезано, показаны первые 40 из 125)
+
+════ 06_sticky_fixed_usage.txt  (всего строк: 47) ════
+./src/components/qc/BulkQCBar.tsx:78:    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-soft)] bg-[color:color-mix(in_srgb,var(--bg-card)_92%,black)] px-4 py-2 text-xs text-[var(--text-secondary)] shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur">
+./src/components/ConfirmDialog.tsx:99:    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+./src/components/viewer/DocumentViewerModal.tsx:238:      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/65"
+./src/components/ui/ConfirmDialog.tsx:88:      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-[2px]"
+./src/components/ui/Drawer.tsx:110:    <div className="fixed inset-0 z-40 flex bg-black/45 backdrop-blur-[2px]">
+./src/components/documents/DocumentChunksModal.tsx:82:      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+./src/components/documents/pipeline/PipelineStageModal.tsx:236:      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
+./src/components/documents/LayoutDebugModal.tsx:497:      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+./src/components/documents/LayoutDebugModal.tsx:573:                <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
+./src/components/documents/LayoutDebugModal.tsx:589:                      <div className="sticky top-0 z-[1] inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-1 text-xs text-[var(--text-muted)]">
+./src/components/documents/LayoutDebugModal.tsx:619:                <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
+./src/components/documents/LayoutDebugModal.tsx:635:                      <div className="sticky top-0 z-[1] inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-1 text-xs text-[var(--text-muted)]">
+./src/components/documents/DocumentDetails/PdfPreviewModal.tsx:40:      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-[2px] p-4"
+./src/components/instructions/PublishConfirmDialog.tsx:30:      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-[2px]"
+./src/components/instructions/ImportYamlDialog.tsx:194:      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
+./src/components/requests/ReviewRequestsTable.tsx:101:          <table className="w-full table-fixed border-collapse">
+./src/components/evidence/MagicZoom.tsx:203:      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 py-8"
+./src/components/evidence/EvidencePanel.tsx:194:    <div className="fixed inset-y-0 right-0 z-40 flex w-full max-w-3xl translate-x-0 transform flex-col border-l border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl transition-transform duration-200 ease-out">
+./src/components/layout/AppShell.tsx:387:          className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 backdrop-blur-[2px]"
+./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:408:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
+./src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx:387:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
+./src/pages/AdminPage.tsx:777:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
+./src/pages/instructions/GlobalInstructionsPage.tsx:455:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
+./src/pages/instructions/DocTypeInstructionsPage.tsx:469:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
+./src/pages/AdminPlaybookLinesPage.tsx:702:                <table className="w-full table-fixed border-collapse text-[11px]">
+./src/pages/TenantAdminPage.tsx:690:    <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+./src/pages/TenantAdminPage.tsx:1978:                    <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+./src/pages/TenantAdminPage.tsx:2020:                <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+./src/pages/tabs/DocumentsTab.tsx:583:                          <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+./src/pages/tabs/AuditTab.tsx:11:// - Шапка таблицы sticky внутри viewport.
+./src/pages/tabs/AuditTab.tsx:251:                        <table className="w-full table-fixed border-collapse">
+./src/pages/tabs/AuditTab.tsx:252:                          <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+./src/pages/tabs/RealEstateTab.tsx:885:    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6">
+./src/pages/tabs/RealEstateTab.tsx:1219:      <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+./src/pages/tabs/audit/ClassificationInvestigationDetailRow.tsx:89:    <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-[var(--border)] bg-[var(--bg-card)]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[var(--bg-card)]/80">
+./src/pages/tabs/CounterpartiesTab.tsx:866:    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6">
+./src/pages/tabs/CounterpartiesTab.tsx:1154:      <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+./src/pages/tabs/overview/AnalysisActionsPanel.tsx:92:      className="self-start rounded-2xl bg-[var(--bg-card)] xl:sticky xl:top-0"
+./src/marketing/components/platform/PlatformMethodologySection.tsx:15: *   • Убран sticky у схемы, выравнивание по центру
+./src/marketing/components/shared/MobileMenu.tsx:59:        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+... (обрезано, показаны первые 40 из 47)
+
+════ 07_clickable_divs_suspect.txt  (всего строк: 0) ════
+(пусто)
+
+════ 07_focus_states.txt  (всего строк: 94) ════
+./src/styles/ag-theme-legalmas.css:222:.ag-theme-legalmas .ag-text-field-input:focus,
+./src/styles/ag-theme-legalmas.css:223:.ag-theme-legalmas .ag-input-field-input:focus,
+./src/styles/ag-theme-legalmas.css:224:.ag-theme-legalmas .ag-picker-field-wrapper:focus-within {
+./src/styles/ag-theme-legalmas.css:307:.ag-theme-legalmas .ag-cell-focus:focus {
+./src/components/DealCard.tsx:77:          ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
+./src/components/viewer/DocumentViewerModal.tsx:269:            className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-3 py-1 text-[11px] text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/components/viewer/DocumentViewerModal.tsx:282:              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+./src/components/viewer/DocumentViewerModal.tsx:294:              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+./src/components/ui/Button.tsx:99:          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]",
+./src/components/ui/Tabs.tsx:294:        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]",
+./src/components/requests/ReviewRequestSidePanel.tsx:129:          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+./src/components/requests/RequestSidePanel.tsx:129:          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+./src/components/layout/AppShell.tsx:29:  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 " +
+./src/components/layout/AppShell.tsx:30:  "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]";
+./src/components/layout/AppShell.tsx:270:                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+./src/components/layout/AppShell.tsx:297:                          className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/AdminTenantNewPage.tsx:89:            className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/DealListPage.tsx:174:                  className="block rounded-[24px] text-inherit no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
+./src/pages/AdminTenantDetailPage.tsx:273:            className="mb-3 inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] rounded-lg px-1 py-0.5"
+./src/pages/AdminTenantDetailPage.tsx:295:              className="hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
+./src/pages/AdminTenantDetailPage.tsx:377:                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] focus-visible:outline-none"
+./src/pages/AdminTenantDetailPage.tsx:513:                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] focus-visible:outline-none"
+./src/pages/playbooks/PlaybookStudioPage.tsx:412:                className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] opacity-0 transition-all hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error-text)] group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:opacity-100"
+./src/pages/playbooks/PlaybookStudioPage.tsx:770:                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/playbooks/PlaybookStudioPage.tsx:850:                              "w-full rounded-xl border px-3 py-2.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+./src/pages/playbooks/PlaybookStudioPage.tsx:1075:                        className="flex items-center gap-1 text-[10px] text-[var(--accent-primary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
+./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:77:      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:84:        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:106:      className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:207:        className="group flex w-full items-start gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:341:                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:395:                className="font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
+./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:173:                  className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx:53:      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx:60:        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx:79:    className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)]"
+./src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx:154:                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+./src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx:213:                className="font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
+./src/pages/tenant-instructions/TenantInstructionsPage.tsx:32:      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35",
+./src/pages/tenant-instructions/TenantInstructionsPage.tsx:33:      "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)]",
+... (обрезано, показаны первые 40 из 94)
+
+════ 07_images_missing_alt.txt  (всего строк: 0) ════
+(пусто)

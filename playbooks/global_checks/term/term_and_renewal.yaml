@@ -102,6 +102,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "term_and_renewal_check"
   context_k: 5
   max_chunks: 10
   
@@ -142,7 +143,7 @@ retrieval:
 
   preferred_unit_types:
     - "general_provision"
-    - "term_and_termination"
+    - "termination_provision"
 
   excluded_unit_types:
     - "technical_fragment"
@@ -150,8 +151,8 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "term"
-    - "termination"
+    - "boilerplate"
+    - "procedures"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -174,16 +175,17 @@ enrichment_hints:
     - "invoice"
     - "act"
   preferred_clause_functions:
-    - "term"
-    - "termination"
-    - "general_provisions"
+    - "boilerplate"
+    - "procedures"
+    - "boilerplate"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 1250
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам.

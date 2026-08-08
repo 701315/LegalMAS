@@ -1,6 +1,4 @@
 // src/components/instructions/ImportYamlDialog.tsx
-// Универсальная модалка импорта YAML-файла как нового draft.
-// Работает для двух режимов: global instruction и doc-type instruction.
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, FileUp, X } from "lucide-react";
@@ -16,20 +14,15 @@ import InlineAlert from "../InlineAlert";
 export type ImportYamlKind = "global" | "doc-type";
 
 export interface ImportYamlSubmitPayload {
-  /** Извлечённый из YAML код: `id` для global, `type` для doc-type */
   code: string;
-  /** Полное содержимое YAML файла как строка */
   sourceYaml: string;
-  /** Опционально — извлечённое `name` из YAML, если есть */
   name: string | null;
 }
 
 interface ImportYamlDialogProps {
   open: boolean;
   kind: ImportYamlKind;
-  /** Индикатор что запрос отправляется */
   isSubmitting?: boolean;
-  /** Ошибка от backend после submit */
   submitError?: string | null;
   onCancel: () => void;
   onSubmit: (payload: ImportYamlSubmitPayload) => void;
@@ -44,11 +37,6 @@ interface ParsedInfo {
   name: string | null;
 }
 
-/**
- * Парсит YAML и извлекает обязательный код + опциональное имя.
- * Для global: обязательное поле `id`.
- * Для doc-type: обязательное поле `type`.
- */
 function parseYamlAndExtract(
   text: string,
   kind: ImportYamlKind,
@@ -112,7 +100,6 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Сброс состояния при закрытии
   useEffect(() => {
     if (!open) {
       setFileName(null);
@@ -122,7 +109,6 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
     }
   }, [open]);
 
-  // Валидация при каждом изменении content
   useEffect(() => {
     if (!content.trim()) {
       setParseError(null);
@@ -219,7 +205,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
             onClick={onCancel}
             aria-label="Закрыть"
             disabled={isSubmitting}
-            className="shrink-0 rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] disabled:opacity-40"
+            className="shrink-0 rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:opacity-40"
           >
             <X className="h-4 w-4" />
           </button>
@@ -265,7 +251,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
                       type="button"
                       onClick={handleClearFile}
                       disabled={isSubmitting}
-                      className="ml-auto text-[11px] text-[var(--text-muted)] transition-colors hover:text-rose-500 disabled:opacity-40"
+                      className="ml-auto text-[11px] text-[var(--text-muted)] transition-colors hover:text-[var(--color-error-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:opacity-40"
                     >
                       Очистить
                     </button>
@@ -294,13 +280,13 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
                     ? "id: my_new_check\nname: Моя новая проверка\ngroup: ...\n..."
                     : "type: contract_9.2_franchise\nparent: class_9_franchising\nname: ...\n..."
                 }
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] p-3 font-mono text-[11px] leading-relaxed text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] p-3 font-mono text-[11px] leading-relaxed text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
 
             {/* Parse feedback */}
             {parseError && (
-              <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+              <div className="flex items-start gap-2 rounded-lg border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-3 text-xs text-[var(--color-error-text)]">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{parseError}</span>
               </div>
@@ -367,6 +353,5 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
 };
 
 export default ImportYamlDialog;
-
 
 

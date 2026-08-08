@@ -130,6 +130,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "warranties_check"
   context_k: 5
   max_chunks: 10
 
@@ -178,7 +179,7 @@ retrieval:
 
   preferred_clause_functions:
     - "representations"
-    - "general_provisions"
+    - "boilerplate"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -207,7 +208,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 1150
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A.

@@ -428,10 +428,32 @@ class ExtractionLLMDetector:
             return ExtractionLLMExtractionResult(fields={}, telemetry=None)
 
         # ------------------------------------------------------------------
-        # 1. БЮДЖЕТ: читаем лимиты из settings один раз
+        # 1. БЮДЖЕТ: читаем лимиты из settings один раз.
+        #
+        # ВАЖНО: для расчёта доступного места под контекст используем
+        # реальный extraction output budget (_max_out), а НЕ detection budget
+        # (LLM_MAX_TOKENS). Эти два значения независимы:
+        # - LLM_MAX_TOKENS — дефолт для detection-фазы (обычно 256)
+        # - LLM_EXTRACTION_MAX_TOKENS / extraction.llm_max_tokens — для extraction
+        #
+        # Если использовать LLM_MAX_TOKENS здесь, контекст будет обрезан
+        # под неверный бюджет: runtime зарезервирует 256 токенов,
+        # а реальный вызов попросит 500-1100+, что приводит к скрытому
+        # clamp effective_max_tokens и обрезанию JSON-ответа.
         # ------------------------------------------------------------------
+
+        # Определяем extraction output budget до расчёта контекста.
+        # Порядок приоритетов:
+        #   1) явный llm_max_tokens из YAML (per-check override)
+        #   2) LLM_EXTRACTION_MAX_TOKENS из settings (platform default)
+        _extraction_max_tokens_for_budget: int = (
+            int(extraction_cfg.llm_max_tokens)
+            if extraction_cfg.llm_max_tokens is not None
+            else int(getattr(settings, "LLM_EXTRACTION_MAX_TOKENS", 900))
+        )
+
         _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
-        _max_out = int(getattr(settings, "LLM_MAX_TOKENS", 512))
+        _max_out = _extraction_max_tokens_for_budget  # extraction budget, не detection
         _safety = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512))
 
         if _limit > 0:
@@ -488,14 +510,15 @@ class ExtractionLLMDetector:
             words = text.split()
             if len(words) > max_context_words:
                 text = " ".join(words[:max_context_words])
-                logger.debug(
-                    "ExtractionLLMDetector: context truncated to fit token budget",
+                logger.warning(
+                    "ExtractionLLMDetector: контекст обрезан под extraction budget",
                     check_id=getattr(check, "id", None),
                     original_words=len(words),
                     truncated_words=max_context_words,
                     skeleton_tokens=skeleton_tokens,
                     available_for_context=available_for_context,
                     context_limit=_limit,
+                    extraction_max_tokens=_extraction_max_tokens_for_budget,
                 )
 
         # ------------------------------------------------------------------
@@ -511,10 +534,35 @@ class ExtractionLLMDetector:
         prompt = self._build_prompt(check, extraction_cfg, text)
         grammar_path = getattr(settings, "LLM_EXTRACTION_JSON_GRAMMAR_PATH", None)
 
-        extraction_max_tokens = getattr(extraction_cfg, "llm_max_tokens", None)
-        if extraction_max_tokens is None:
-            extraction_max_tokens = int(
-                getattr(settings, "LLM_EXTRACTION_MAX_TOKENS", 512)
+        # Используем уже вычисленный бюджет — он определён выше
+        # и уже использован при расчёте доступного места под контекст.
+        # Повторное вычисление не нужно: берём ту же переменную.
+        extraction_max_tokens = _extraction_max_tokens_for_budget
+
+        # ------------------------------------------------------------------
+        # PREFLIGHT: проверяем достаточность extraction budget.
+        #
+        # Эвристика: каждое поле V1.3 contract требует ~90 токенов
+        # (value + confidence + location + JSON-обвязка).
+        # Если budget меньше — JSON почти гарантированно обрежется.
+        # Это не блокирует выполнение — только предупреждение.
+        # Исправление: поднять llm_max_tokens в YAML чека или
+        # LLM_EXTRACTION_MAX_TOKENS в .env.
+        # ------------------------------------------------------------------
+        _fields_count = len(getattr(extraction_cfg, "fields", None) or [])
+        _tokens_per_field_heuristic = 90
+        _recommended_min = _fields_count * _tokens_per_field_heuristic
+        if _fields_count > 0 and extraction_max_tokens < _recommended_min:
+            logger.warning(
+                "ExtractionLLMDetector: extraction budget вероятно занижен — "
+                "возможно обрезание JSON-ответа. "
+                "Исправление: поднять llm_max_tokens в YAML чека "
+                "или LLM_EXTRACTION_MAX_TOKENS в .env.",
+                check_id=getattr(check, "id", None),
+                fields_count=_fields_count,
+                extraction_max_tokens=extraction_max_tokens,
+                recommended_min_tokens=_recommended_min,
+                deficit=_recommended_min - extraction_max_tokens,
             )
 
         llm_started_at = time.time()
@@ -561,7 +609,12 @@ class ExtractionLLMDetector:
             return ExtractionLLMExtractionResult(fields={}, telemetry=telemetry)
 
         # 6) парсим JSON в "сырую" структуру
-        raw_fields = self._parse_response(response.text)
+        raw_fields = self._parse_response(
+            response.text,
+            check_id=getattr(check, "id", None),
+            schema_fields_count=_fields_count,
+            configured_max_tokens=extraction_max_tokens,
+        )
         if not raw_fields:
             telemetry = build_llm_telemetry_from_response(
                 response,
@@ -680,14 +733,32 @@ class ExtractionLLMDetector:
             },
         )
 
-        # Generic compactness footer is playbook-driven via ExtractionConfig.compact_output.
+        # Generic compact footer управляется tri-state политикой compact_output.
         #
-        # True  -> append compactness instruction (good for summary-style checks).
-        # False -> do not append footer (good for inventory/register-style checks
-        #          where long multi-line outputs are expected and explicitly requested
-        #          by the YAML prompt contract).
-        compact_output = getattr(extraction_cfg, "compact_output", True)
-        if not compact_output:
+        # Логика авто-режима (None):
+        # - Custom llm_prompt_extraction задан → footer НЕ добавляем.
+        #   Custom prompt сам определяет стиль и краткость вывода.
+        #   Добавление footer поверх создаёт конфликт инструкций.
+        # - Custom prompt отсутствует (fallback template) → footer добавляем.
+        #   Fallback template не задаёт стиль, footer помогает модели.
+        #
+        # Явный True → footer добавляем принудительно.
+        # Явный False → footer не добавляем принудительно.
+        _compact_setting = getattr(extraction_cfg, "compact_output", None)
+
+        if _compact_setting is False:
+            # Явный opt-out — footer не добавляем
+            return prompt
+
+        if _compact_setting is True:
+            # Явный opt-in — footer добавляем принудительно
+            _add_footer = True
+        else:
+            # Авто-режим (None или любое другое значение):
+            # footer добавляем только если нет custom extraction prompt
+            _add_footer = not has_custom_prompt
+
+        if not _add_footer:
             return prompt
 
         _COMPACTNESS_FOOTER = (
@@ -893,7 +964,13 @@ class ExtractionLLMDetector:
     # RESPONSE PARSING
     # -------------------------------------------------------------------------
 
-    def _parse_response(self, text: str) -> dict[str, dict[str, Any]]:
+    def _parse_response(
+        self,
+        text: str,
+        check_id: str | None = None,
+        schema_fields_count: int = 0,
+        configured_max_tokens: int | None = None,
+    ) -> dict[str, dict[str, Any]]:
         """
         Распарсить JSON-ответ LLM.
 
@@ -926,11 +1003,16 @@ class ExtractionLLMDetector:
                 salvaged = _salvage_partial_json(text)
                 if salvaged:
                     recovered_count = len(salvaged.get("fields", {}))
+                    lost_count = max(0, schema_fields_count - recovered_count)
                     logger.warning(
-                        "ExtractionLLMDetector: JSON truncated, "
-                        "partial salvage recovered %d field(s). "
-                        "Consider increasing llm_max_tokens for this check.",
+                        "ExtractionLLMDetector: JSON обрезан — partial salvage "
+                        "восстановил %d из %d полей схемы, потеряно %d. "
+                        "Исправление: поднять llm_max_tokens в YAML чека.",
                         recovered_count,
+                        schema_fields_count,
+                        lost_count,
+                        check_id=check_id,
+                        configured_max_tokens=configured_max_tokens,
                         raw_preview=text[:300],
                     )
                     data = salvaged

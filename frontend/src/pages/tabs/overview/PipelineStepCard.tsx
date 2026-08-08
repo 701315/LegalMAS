@@ -156,13 +156,13 @@ export const PipelineStepCard: React.FC<{
   const durationStr = formatDuration(step.duration_seconds);
 
   const borderClass = isRunning
-    ? "border-[var(--accent-primary)] bg-[color:color-mix(in_srgb,var(--accent-primary)_4%,var(--bg-card))]"
+    ? "border-[var(--accent-primary)] bg-[var(--accent-subtle)]"
     : isPending
       ? "border-[var(--border-subtle)] bg-[var(--bg-card)] opacity-60"
       : step.status === "failed"
-        ? "border-[var(--color-error)] bg-[color:color-mix(in_srgb,var(--color-error)_4%,var(--bg-card))]"
+        ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]"
         : step.status === "completed_with_errors"
-          ? "border-[var(--color-warning)] bg-[var(--bg-card)]"
+          ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]"
           : "border-[var(--border)] bg-[var(--bg-card)]";
 
   return (
@@ -201,7 +201,7 @@ export const PipelineStepCard: React.FC<{
             <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
               {step.documents_completed} из {step.documents_total}{" "}
               {step.documents_failed > 0 && (
-                <span className="text-[var(--color-error)]">
+                <span className="text-[var(--color-error-text)]">
                   · ошибок: {step.documents_failed}
                 </span>
               )}
@@ -217,7 +217,7 @@ export const PipelineStepCard: React.FC<{
 
           {/* Error message */}
           {step.error_message && step.status === "failed" && (
-            <p className="mt-1 text-[11px] text-[var(--color-error)]">
+            <p className="mt-1 text-[11px] text-[var(--color-error-text)]">
               {step.error_message}
             </p>
           )}
@@ -251,7 +251,7 @@ export const PipelineStepCard: React.FC<{
                       : substep.status === "completed"
                         ? "text-[var(--text-muted)]"
                         : substep.status === "failed"
-                          ? "text-[var(--color-error)]"
+                          ? "text-[var(--color-error-text)]"
                           : "text-[var(--text-muted)]"
                   }`}
                 >

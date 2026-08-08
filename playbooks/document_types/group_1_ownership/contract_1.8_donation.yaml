@@ -802,7 +802,7 @@ checks_v8:
         [ПРАВИЛА]
         1. Только текст документа.
         2. Если данные не указаны прямо — "not_defined" или "Данные не определены".
-        3. Не используй "None", "null", "not_specified", пустые строки.
+        3. Не используй "None", "null", "not_defined", пустые строки.
         4. В evidence — только цитаты из документа.
         5. Верни только один JSON-объект.
 
@@ -896,6 +896,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 620
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -953,8 +954,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 550
+      compact_output: false
+
+      llm_max_tokens: 1550
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения
@@ -1248,6 +1251,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "definitions_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1303,8 +1307,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 950
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения
@@ -1529,6 +1535,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1586,8 +1593,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Найди прямые признаки встречного предоставления
@@ -1760,6 +1769,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "definitions_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1815,8 +1825,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения признаки
@@ -2021,6 +2033,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2076,8 +2089,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 450
+      compact_output: false
+
+      llm_max_tokens: 850
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения условия
@@ -2298,6 +2313,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "termination_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2356,8 +2372,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 430
+      compact_output: false
+
+      llm_max_tokens: 550
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения условия
@@ -2616,8 +2634,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 850
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения заверения
@@ -2841,6 +2861,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "consent_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2898,8 +2919,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 430
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения данные
@@ -3107,6 +3130,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3162,8 +3186,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 470
+      compact_output: false
+
+      llm_max_tokens: 800
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора пожертвования
@@ -3407,6 +3433,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "кадастровый номер ЕГРН Росреестр государственная регистрация перехода права дарения обременение право пользования зарегистрированные лица жилое помещение передаточный акт выписка из ЕГРН право собственности основание права проживающие лица снят с регистрационного учёта госпошлина ст. 558 ГК РФ"
+      retrieval_profile: "registration_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3457,8 +3484,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 530
+      compact_output: false
+
+      llm_max_tokens: 1250
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения недвижимого
@@ -3709,6 +3738,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "tax_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3763,8 +3793,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 550
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения налоговые
@@ -3973,6 +4005,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "доля в уставном капитале доля в ООО нотариальное удостоверение нотариус ЕГРЮЛ преимущественное право устав общества запрет дарения согласие участников размер доли номинальная стоимость ст. 21 ФЗ-14 уставные ограничения"
+      retrieval_profile: "registration_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4024,8 +4057,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1050
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения доли

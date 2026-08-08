@@ -91,9 +91,9 @@ export const DDGridV1ExportButtons: React.FC<DDGridV1ExportButtonsProps> = ({
   const handleExcel = () => {
     if (isEmpty) return;
     if (mode === "matrix" && matrixTable) {
-      exportMatrixToExcel(matrixTable, opts);
+      void exportMatrixToExcel(matrixTable, opts);
     } else if (listTable) {
-      exportListToExcel(listTable.headers, listTable.rows, opts);
+      void exportListToExcel(listTable.headers, listTable.rows, opts);
     }
   };
 

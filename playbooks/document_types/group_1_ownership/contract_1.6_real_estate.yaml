@@ -780,7 +780,7 @@ checks_v8:
         [ПРАВИЛА]
         1. Только текст документа.
         2. Если данные не указаны прямо — "not_defined" или "Данные не определены".
-        3. Не используй "None", "null", "not_specified", пустые строки.
+        3. Не используй "None", "null", "not_defined", пустые строки.
         4. В evidence — только цитаты из документа.
         5. Верни только один JSON-объект.
 
@@ -866,6 +866,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -928,8 +929,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи недвижимости
@@ -1197,6 +1200,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1259,8 +1263,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1450
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи недвижимости
@@ -1516,6 +1522,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1579,8 +1586,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+      llm_max_tokens: 900
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора купли-продажи недвижимости заверения
@@ -1855,8 +1864,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+      llm_max_tokens: 1000
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора купли-продажи недвижимости раскрытия
@@ -2059,6 +2070,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "event_of_default_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2116,8 +2128,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора купли-продажи недвижимости заверения
@@ -2331,6 +2345,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2389,8 +2404,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора купли-продажи недвижимости цену,
@@ -2635,6 +2652,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "security_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2693,8 +2711,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора купли-продажи недвижимости сведения
@@ -2889,6 +2909,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 620
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2950,8 +2971,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора купли-продажи недвижимости условия
@@ -3235,6 +3258,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "расторжение отказ от договора возврат денежных средств неустойка штраф уступка переуступка перевод долга без согласия с согласия другой стороны одностороннее расторжение последствия расторжения"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - termination_provision
         - liability_provision
@@ -3288,8 +3312,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 800
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора купли-продажи недвижимости основания
@@ -3542,8 +3568,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора купли-продажи недвижимости сведения
@@ -3639,12 +3667,8 @@ checks_v8:
       keyword_mode: "any"
       regex_patterns:
         - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
-    llm:
-      prompt_template: ""
-      context_k: 3
-      temperature: 0.0
-      max_tokens: 64
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3815,6 +3839,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "consent_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3872,8 +3897,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+      llm_max_tokens: 1000
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи ипотечной недвижимости
@@ -4086,6 +4113,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4145,8 +4173,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+      llm_max_tokens: 1000
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи здания
@@ -4284,11 +4314,34 @@ checks_v8:
         - "(?i)кадастровый\\s+номер"
         - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
     llm:
-      prompt_template: ""
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — юрист, анализирующий договор купли-продажи недвижимости.
+        Проверяется перечень всех объектов недвижимости, передаваемых по сделке.
+
+        [ЗАДАЧА]
+        Определи, содержит ли договор полный индивидуализированный перечень
+        всех объектов недвижимости, передаваемых по сделке,
+        включая приложения и реестры.
+
+        [ПРАВИЛА]
+        1. Используй только текст договора.
+        2. Учитывай основной текст и приложения.
+        3. Не анализируй риски.
+        4. Если перечень отсутствует — верни "not_defined".
+        5. Верни только один JSON-объект.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "asset_schedule_status": "<defined / not_defined>",
+          "asset_schedule_details": "<структурированный список или 'Данные не определены'>"
+        }
       context_k: 10
       temperature: 0.0
       max_tokens: 1200
     retrieval:
+      retrieval_profile: "definitions_check"
       corpus_scope: "document"
       levels:
         - "section"

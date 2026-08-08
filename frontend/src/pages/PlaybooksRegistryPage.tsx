@@ -130,14 +130,14 @@ const SearchInput: React.FC<SearchInputProps> = ({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       autoComplete="off"
-      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-primary)]"
+      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
     />
     {value.length > 0 && (
       <button
         type="button"
         onClick={() => onChange("")}
         aria-label="Очистить"
-        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)]"
+        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -175,7 +175,6 @@ function buildCsvExport(
 ): string {
   const rows: string[] = [];
 
-  // Header
   rows.push(
     [
       "Playbook code",
@@ -203,22 +202,11 @@ function buildCsvExport(
     if (items.length === 0) {
       rows.push(
         [
-          line.code,
-          line.title,
-          line.description ?? "",
-          line.deal_type ?? "",
-          line.jurisdiction ?? "",
-          line.language ?? "",
-          line.risk_profile ?? "",
-          publishedVersion?.name ?? "",
-          publishedVersion?.semver ?? "",
-          "",
-          "",
-          "",
-          "",
-        ]
-          .map(escapeCsvValue)
-          .join(";"),
+          line.code, line.title, line.description ?? "", line.deal_type ?? "",
+          line.jurisdiction ?? "", line.language ?? "", line.risk_profile ?? "",
+          publishedVersion?.name ?? "", publishedVersion?.semver ?? "",
+          "", "", "", "",
+        ].map(escapeCsvValue).join(";"),
       );
       continue;
     }
@@ -227,27 +215,16 @@ function buildCsvExport(
       const check = checksMap.get(item.instruction_code);
       rows.push(
         [
-          line.code,
-          line.title,
-          line.description ?? "",
-          line.deal_type ?? "",
-          line.jurisdiction ?? "",
-          line.language ?? "",
-          line.risk_profile ?? "",
-          publishedVersion?.name ?? "",
-          publishedVersion?.semver ?? "",
-          item.instruction_code,
-          check?.name ?? "",
-          check?.group ?? "",
+          line.code, line.title, line.description ?? "", line.deal_type ?? "",
+          line.jurisdiction ?? "", line.language ?? "", line.risk_profile ?? "",
+          publishedVersion?.name ?? "", publishedVersion?.semver ?? "",
+          item.instruction_code, check?.name ?? "", check?.group ?? "",
           check?.severity ?? "",
-        ]
-          .map(escapeCsvValue)
-          .join(";"),
+        ].map(escapeCsvValue).join(";"),
       );
     }
   }
 
-  // BOM для корректного открытия в Excel
   return "\uFEFF" + rows.join("\n");
 }
 
@@ -259,10 +236,6 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/**
- * Генерирует .doc-файл через HTML wrapper.
- * Word открывает такой файл корректно, форматирование сохраняется.
- */
 function buildWordExport(
   entries: RegistryEntry[],
   checksMap: Map<string, GlobalCheckInfo>,
@@ -275,16 +248,16 @@ function buildWordExport(
   );
   parts.push(`<head><meta charset="UTF-8" /><title>Реестр playbook</title>`);
   parts.push(`<style>
-    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #111; }
+    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: rgb(26 25 23); }
     h1 { font-size: 18pt; margin-bottom: 6pt; }
-    h2 { font-size: 14pt; margin-top: 24pt; margin-bottom: 6pt; border-bottom: 1px solid #999; padding-bottom: 4pt; }
+    h2 { font-size: 14pt; margin-top: 24pt; margin-bottom: 6pt; border-bottom: 1px solid rgb(232 228 221); padding-bottom: 4pt; }
     h3 { font-size: 12pt; margin-top: 12pt; margin-bottom: 4pt; }
-    .meta { color: #555; font-size: 10pt; margin-bottom: 8pt; }
+    .meta { color: rgb(120 117 111); font-size: 10pt; margin-bottom: 8pt; }
     .desc { margin-bottom: 8pt; }
     table { border-collapse: collapse; width: 100%; margin-top: 6pt; font-size: 10pt; }
-    th, td { border: 1px solid #bbb; padding: 4pt 6pt; text-align: left; vertical-align: top; }
-    th { background: #f0f0f0; font-weight: bold; }
-    .code { font-family: Consolas, monospace; color: #333; }
+    th, td { border: 1px solid rgb(232 228 221); padding: 4pt 6pt; text-align: left; vertical-align: top; }
+    th { background: rgb(243 240 235); font-weight: bold; }
+    .code { font-family: Consolas, monospace; color: rgb(120 117 111); }
   </style></head><body>`);
 
   parts.push(`<h1>Реестр стандартных playbook</h1>`);
@@ -298,18 +271,16 @@ function buildWordExport(
 
     const metaParts: string[] = [];
     metaParts.push(`Код: <span class="code">${escapeHtml(line.code)}</span>`);
-    if (publishedVersion?.semver) {
+    if (publishedVersion?.semver)
       metaParts.push(`Версия: v${escapeHtml(publishedVersion.semver)}`);
-    }
     if (line.deal_type) metaParts.push(`Тип: ${escapeHtml(line.deal_type)}`);
     if (line.jurisdiction)
       metaParts.push(`Юрисдикция: ${escapeHtml(line.jurisdiction)}`);
     if (line.language) metaParts.push(`Язык: ${escapeHtml(line.language)}`);
     parts.push(`<p class="meta">${metaParts.join(" · ")}</p>`);
 
-    if (line.description) {
+    if (line.description)
       parts.push(`<p class="desc">${escapeHtml(line.description)}</p>`);
-    }
 
     const items = detail?.items ?? [];
     if (items.length === 0) {
@@ -325,13 +296,7 @@ function buildWordExport(
     items.forEach((item, idx) => {
       const check = checksMap.get(item.instruction_code);
       parts.push(
-        `<tr>
-          <td>${idx + 1}</td>
-          <td class="code">${escapeHtml(item.instruction_code)}</td>
-          <td>${escapeHtml(check?.name ?? "")}</td>
-          <td>${escapeHtml(check?.group ?? "")}</td>
-          <td>${escapeHtml(check?.severity ?? "")}</td>
-        </tr>`,
+        `<tr><td>${idx + 1}</td><td class="code">${escapeHtml(item.instruction_code)}</td><td>${escapeHtml(check?.name ?? "")}</td><td>${escapeHtml(check?.group ?? "")}</td><td>${escapeHtml(check?.severity ?? "")}</td></tr>`,
       );
     });
     parts.push(`</tbody></table>`);
@@ -355,7 +320,6 @@ const PlaybooksRegistryPage: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
-  // ── Loading ─────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -371,7 +335,6 @@ const PlaybooksRegistryPage: React.FC = () => {
       const versions = versionsRes.data || [];
       setChecks(checksRes.data || []);
 
-      // Собираем entries: для каждой line ищем published version + detail
       const detailPromises: Promise<RegistryEntry | null>[] = lines.map(
         async (line): Promise<RegistryEntry | null> => {
           const lineVersions = versions.filter(
@@ -380,29 +343,25 @@ const PlaybooksRegistryPage: React.FC = () => {
           const published =
             lineVersions.find((v) => v.status === "published") ?? null;
 
-          // Показываем только опубликованные — те что пользователи могут применять.
-          // Если нет published — line не попадает в реестр.
           if (!published) return null;
 
           try {
             const detailRes = await client.get<PlaybookLineDetail>(
               `/api/v1/playbooks/lines/${line.id}`,
             );
-            const entry: RegistryEntry = {
+            return {
               line,
               detail: detailRes.data,
               publishedVersion: published,
               allVersions: lineVersions,
             };
-            return entry;
           } catch {
-            const entry: RegistryEntry = {
+            return {
               line,
               detail: null,
               publishedVersion: published,
               allVersions: lineVersions,
             };
-            return entry;
           }
         },
       );
@@ -411,10 +370,7 @@ const PlaybooksRegistryPage: React.FC = () => {
       const filtered: RegistryEntry[] = results.filter(
         (r): r is RegistryEntry => r !== null,
       );
-
-      // Сортируем по title
       filtered.sort((a, b) => a.line.title.localeCompare(b.line.title, "ru"));
-
       setEntries(filtered);
       setIsLoading(false);
     } catch (err) {
@@ -428,7 +384,6 @@ const PlaybooksRegistryPage: React.FC = () => {
     void loadAll();
   }, [loadAll]);
 
-  // ── Derived ─────────────────────────────────────────────
   const checksMap = useMemo(() => {
     const map = new Map<string, GlobalCheckInfo>();
     for (const c of checks) map.set(c.id, c);
@@ -455,7 +410,6 @@ const PlaybooksRegistryPage: React.FC = () => {
     [entries, selectedId],
   );
 
-  // Автовыбор первого при загрузке
   useEffect(() => {
     if (!selectedId && filteredEntries.length > 0) {
       setSelectedId(filteredEntries[0].line.id);
@@ -469,102 +423,95 @@ const PlaybooksRegistryPage: React.FC = () => {
     }
   }, [filteredEntries, selectedId]);
 
-  // ── Export handlers ─────────────────────────────────────
   const handleExportExcel = useCallback(() => {
     const csv = buildCsvExport(entries, checksMap);
     const stamp = new Date().toISOString().slice(0, 10);
-    downloadFile(
-      csv,
-      `playbooks-registry-${stamp}.csv`,
-      "text/csv;charset=utf-8",
-    );
+    downloadFile(csv, `playbooks-registry-${stamp}.csv`, "text/csv;charset=utf-8");
   }, [entries, checksMap]);
 
   const handleExportWord = useCallback(() => {
     const html = buildWordExport(entries, checksMap);
     const stamp = new Date().toISOString().slice(0, 10);
-    downloadFile(
-      html,
-      `playbooks-registry-${stamp}.doc`,
-      "application/msword",
-    );
+    downloadFile(html, `playbooks-registry-${stamp}.doc`, "application/msword");
   }, [entries, checksMap]);
 
   const canExport = entries.length > 0;
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-      <div className="animate-fadein space-y-6">
-        {/* ── Back-link ────────────────────────────────────── */}
-        <button
-          type="button"
-          onClick={() => navigate("/admin/instructions")}
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Инструкции
-        </button>
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-        {/* ── Header ───────────────────────────────────────── */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <header>
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Реестр стандартных playbook
-            </h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Опубликованные playbook, доступные пользователям в проектах.
-              Только просмотр и экспорт.
-            </p>
-          </header>
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate("/admin/instructions")}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Инструкции
+              </button>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleExportExcel}
-              disabled={!canExport}
-              leftIcon={<FileSpreadsheet className="h-3.5 w-3.5" />}
-            >
-              Excel
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleExportWord}
-              disabled={!canExport}
-              leftIcon={<FileText className="h-3.5 w-3.5" />}
-            >
-              Word
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void loadAll()}
-              aria-label="Обновить"
-              leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
-            />
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                Реестр стандартных playbook
+              </h1>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Опубликованные playbook, доступные пользователям в проектах.
+                Только просмотр и экспорт.
+              </p>
+
+              {!isLoading && !error && entries.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
+                  <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
+                    Playbook: {entries.length}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleExportExcel}
+                disabled={!canExport}
+                leftIcon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+              >
+                Excel
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleExportWord}
+                disabled={!canExport}
+                leftIcon={<FileText className="h-3.5 w-3.5" />}
+              >
+                Word
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void loadAll()}
+                aria-label="Обновить реестр"
+                leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+              >
+                Обновить
+              </Button>
+            </div>
           </div>
-        </div>
+        </header>
 
-        {/* ── Inline stats ─────────────────────────────────── */}
-        {!isLoading && !error && entries.length > 0 && (
-          <p className="text-sm text-[var(--text-muted)]">
-            Всего playbook:{" "}
-            <span className="font-semibold text-[var(--text-primary)]">
-              {entries.length}
-            </span>
-          </p>
-        )}
-
-        {/* ── Alerts ───────────────────────────────────────── */}
+        {/* ── Alerts ───────────────────────────────────────────── */}
         {error && <InlineAlert tone="error" message={error} />}
 
-        {/* ── Loading ──────────────────────────────────────── */}
+        {/* ── Loading ──────────────────────────────────────────── */}
         {isLoading && (
           <LoadingBlock text="Загружаем реестр playbook…" rows={6} />
         )}
 
-        {/* ── Empty ────────────────────────────────────────── */}
+        {/* ── Empty ────────────────────────────────────────────── */}
         {!isLoading && !error && entries.length === 0 && (
           <EmptyState
             title="Реестр пуст"
@@ -581,10 +528,9 @@ const PlaybooksRegistryPage: React.FC = () => {
           />
         )}
 
-        {/* ── Main grid ────────────────────────────────────── */}
+        {/* ── Main grid ────────────────────────────────────────── */}
         {!isLoading && !error && entries.length > 0 && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(300px,1fr)_2fr]">
-            {/* Список */}
             <SectionCard
               title="Playbook"
               rightSlot={
@@ -606,7 +552,7 @@ const PlaybooksRegistryPage: React.FC = () => {
                   Ничего не найдено.
                 </p>
               ) : (
-                <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto">
+                <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto overscroll-contain">
                   {filteredEntries.map((entry) => {
                     const { line, publishedVersion } = entry;
                     const isSelected = selectedId === line.id;
@@ -617,6 +563,7 @@ const PlaybooksRegistryPage: React.FC = () => {
                           onClick={() => setSelectedId(line.id)}
                           className={[
                             "w-full rounded-xl border px-3 py-2.5 text-left text-xs transition-colors",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
                             isSelected
                               ? "border-[var(--accent-primary)] bg-[var(--accent-muted)]"
                               : "border-[var(--border-soft)] hover:border-[var(--border-strong)]",
@@ -656,7 +603,6 @@ const PlaybooksRegistryPage: React.FC = () => {
               )}
             </SectionCard>
 
-            {/* Детали */}
             <SectionCard title="Детали playbook">
               {!selectedEntry ? (
                 <EmptyState
@@ -699,7 +645,6 @@ const PlaybookDetailView: React.FC<PlaybookDetailViewProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -707,10 +652,7 @@ const PlaybookDetailView: React.FC<PlaybookDetailViewProps> = ({
               {line.title}
             </h3>
             {publishedVersion && (
-              <VersionStatusBadge
-                status={publishedVersion.status}
-                size="xs"
-              />
+              <VersionStatusBadge status={publishedVersion.status} size="xs" />
             )}
           </div>
           <div className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
@@ -719,14 +661,12 @@ const PlaybookDetailView: React.FC<PlaybookDetailViewProps> = ({
         </div>
       </div>
 
-      {/* Description */}
       {line.description && (
         <p className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3 text-xs leading-relaxed text-[var(--text-secondary)]">
           {line.description}
         </p>
       )}
 
-      {/* Metadata grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetaCell
           label="Версия"
@@ -738,7 +678,6 @@ const PlaybookDetailView: React.FC<PlaybookDetailViewProps> = ({
         <MetaCell label="Язык" value={line.language ?? "—"} />
       </div>
 
-      {/* Состав */}
       <div className="space-y-3">
         <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
           Состав playbook

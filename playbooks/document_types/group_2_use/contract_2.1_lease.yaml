@@ -686,7 +686,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -826,8 +826,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды предмет аренды,
@@ -1019,7 +1021,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если данные не указаны прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -1106,6 +1108,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1163,8 +1166,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды идентифицирующие
@@ -1362,7 +1367,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -1480,6 +1485,7 @@ checks_v8:
         preferred_range: [0.15, 0.55]
         boost: 0.18
         scope: segment
+      retrieval_profile: "rent_check"
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -1505,8 +1511,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1200
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды структуру арендной
@@ -1697,7 +1705,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -1783,6 +1791,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "акт приёма-передачи техническое состояние исправное состояние пригодно для использования недостатки дефекты соответствие назначению качество объекта передача объекта рекламация"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1834,8 +1843,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды условия передачи
@@ -2013,7 +2024,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -2127,6 +2138,7 @@ checks_v8:
         preferred_range: [0.25, 0.65]
         boost: 0.15
         scope: segment
+      retrieval_profile: "repair_maintenance_check"
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -2152,8 +2164,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1200
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды распределение
@@ -2337,7 +2351,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -2426,6 +2440,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "улучшения неотделимые улучшения отделимые улучшения перепланировка переоборудование субаренда перенаем с письменного согласия компенсация стоимости улучшений"
+      retrieval_profile: "subletting_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2476,8 +2491,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1200
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды режим улучшений,
@@ -2666,7 +2683,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -2754,6 +2771,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "односторонний отказ досрочное расторжение уведомление за возврат имущества возврат объекта обеспечительный платёж удержание депозита возврат депозита акт возврата"
+      retrieval_profile: "termination_check"      
       preferred_unit_types:
         - termination_provision
         - obligation
@@ -2807,8 +2825,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды основания досрочного
@@ -2987,7 +3007,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -3074,6 +3094,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "преимущественное право продление пролонгация автоматическое продление возобновление на тех же условиях уведомление о продлении отказ от продления на новый срок ст. 621"
+      retrieval_profile: "term_and_renewal_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3127,8 +3148,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды условия
@@ -3306,7 +3329,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -3380,6 +3403,7 @@ checks_v8:
       max_tokens: 650
 
     retrieval:
+      retrieval_profile: "notice_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3438,8 +3462,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 900
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды условия
@@ -3604,7 +3630,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Не подставляй нормы закона вместо текста договора.
         3. Если данные не указаны прямо — возвращай "not_defined" / "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -3703,6 +3729,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "арендодатель арендатор именуем в лице действующего на основании ИНН ОГРН крупная сделка сделка с заинтересованностью одобрение решение единственного участника реквизиты"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3752,8 +3779,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 580
+      compact_output: false
+
+      llm_max_tokens: 1450
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды сведения
@@ -3973,7 +4002,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -4065,6 +4094,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "принадлежит на праве собственности правоустанавливающие документы выписка из ЕГРН свободно от обременений не заложено не арестовано права третьих лиц право сдачи в аренду свидетельство о праве"
+      retrieval_profile: "title_transfer_check"
       preferred_unit_types:
         - warranty
         - obligation
@@ -4116,8 +4146,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды подтверждение
@@ -4375,6 +4407,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "страхование страховой полис выгодоприобретатель страховая сумма имущественное страхование страхование ответственности страховой случай"
+      retrieval_profile: "insurance_check"
       preferred_unit_types: 
         - obligation
         - general_provision
@@ -4421,8 +4454,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 900
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды условия
@@ -4644,6 +4679,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "неустойка штраф пени ответственность ограничение ответственности возмещение убытков ущерб третьим лицам"
+      retrieval_profile: "liability_cap_check"
       preferred_unit_types:
         - liability_provision
         - obligation
@@ -4695,8 +4731,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды неустойки,
@@ -4936,6 +4974,7 @@ checks_v8:
         preferred_range: [0.65, 1.0]
         boost: 0.15
         scope: segment
+      retrieval_profile: "registration_check"
       context_k: 5
       max_chunks: 7
       rerank: true
@@ -4961,8 +5000,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды условия

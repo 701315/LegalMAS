@@ -732,7 +732,7 @@ checks_v8:
         3. Не оценивай, хороший договор или плохой.
         4. Если данные не указаны прямо — возвращай "not_defined" или строго
            "Данные не определены".
-        5. Не используй "None", "null", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только цитаты из договора.
         7. Не цитируй закон в evidence.
         8. Верни только один JSON-объект.
@@ -812,6 +812,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -868,8 +869,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+
+
+      llm_max_tokens: 1000
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки данные о сторонах договора контрактации и полномочиях их подписантов.
@@ -1061,7 +1068,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — "not_defined".
         4. При отсутствии текстового значения — строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
         7. Верни только один JSON-объект.
 
@@ -1157,6 +1164,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1221,8 +1229,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+
+
+      llm_max_tokens: 1500
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
@@ -1444,7 +1458,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста.
         3. Если условие не указано прямо — "not_defined".
         4. При отсутствии текстового значения — строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
         7. Верни только один JSON-объект.
 
@@ -1542,6 +1556,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1608,8 +1623,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+
+
+      llm_max_tokens: 1550
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
@@ -1837,7 +1858,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста.
         3. Если условие не указано прямо — "not_defined".
         4. При отсутствии текстового значения — строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
         7. Верни только один JSON-объект.
 
@@ -1933,6 +1954,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "warranties_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2000,8 +2022,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+
+
+      llm_max_tokens: 1500
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
@@ -2207,7 +2235,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста.
         3. Если условие не указано прямо — "not_defined".
         4. При отсутствии текстового значения — строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
         7. Верни только один JSON-объект.
 
@@ -2346,8 +2374,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+
+      llm_max_tokens: 1000
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
@@ -2530,7 +2564,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста.
         3. Если условие не указано прямо — "not_defined".
         4. При отсутствии текстового значения — строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
         7. ВАЖНО: если в договоре написано "независимо от вины производителя" —
            это нарушение ст. 538 ГК РФ. Зафиксируй в violation_of_art_538.
@@ -2695,8 +2729,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+
+
+      llm_max_tokens: 1400
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
@@ -2898,7 +2938,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — "not_defined".
         3. При отсутствии текстового значения — строго "Данные не определены".
-        4. Не используй "None", "null", "not_specified", пустые строки.
+        4. Не используй "None", "null", "not_defined", пустые строки.
         5. В evidence — только текст договора.
         6. Верни только один JSON-объект.
 
@@ -3035,8 +3075,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+
+
+      llm_max_tokens: 800
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
@@ -3181,7 +3227,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — "not_defined".
         3. При отсутствии текстового значения — строго "Данные не определены".
-        4. Не используй "None", "null", "not_specified", пустые строки.
+        4. Не используй "None", "null", "not_defined", пустые строки.
         5. В evidence — только текст договора.
         6. Верни только один JSON-объект.
 
@@ -3288,6 +3334,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "force_majeure_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3347,8 +3394,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+
+
+      llm_max_tokens: 1100
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
@@ -3592,6 +3645,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "insurance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3650,8 +3704,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+
+
+      llm_max_tokens: 950
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
@@ -3884,8 +3944,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+
+
+      llm_max_tokens: 650
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
@@ -4055,6 +4121,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4113,8 +4180,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+
+
+      llm_max_tokens: 650
+
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации

@@ -841,7 +841,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. Для физлица, ИП или самозанятого, подписывающего договор лично,
            используй basis = "personal".
         7. Не выводи корпоративные выводы по умолчанию, если одобрение
@@ -940,6 +940,7 @@ checks_v8:
       max_tokens: 760
 
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -994,8 +995,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -1241,7 +1244,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. design_docs_referenced = "yes" только если проектная / рабочая
            документация прямо указана как приложение, часть договора
            или отдельный комплект документов.
@@ -1343,6 +1346,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "объект капитального строительства проектная документация рабочая документация наименование объекта адрес объекта кадастровый номер техническое задание разрешение на строительство экспертиза"
+      retrieval_profile: "technical_documentation_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1390,8 +1394,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1050
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -1417,7 +1423,7 @@ checks_v8:
            иначе "not_defined".
         6. cadastral_number_value — кадастровый номер.
         7. design_docs_referenced — "yes" / "partial" / "no" / "not_defined".
-        8. design_docs_approval — "approved" / "not_specified" / "not_defined".
+        8. design_docs_approval — "approved" / "not_defined" / "not_defined".
         9. expertise_passed — "yes" / "no" / "not_mentioned" / "not_defined".
         10. construction_permit_mentioned — "yes" / "no" / "not_defined".
 
@@ -1437,7 +1443,7 @@ checks_v8:
             - "not_defined" — если это прямо не установлено.
         - design_docs_approval:
             - "approved" — если прямо указано, что документация утверждена.
-            - "not_specified" — если документация упомянута, но её утверждение
+            - "not_defined" — если документация упомянута, но её утверждение
               прямо не раскрыто.
             - "not_defined" — если по тексту это нельзя установить.
         - expertise_passed:
@@ -1509,7 +1515,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           label: "Утверждение ПД"
-          allowed_values: ["approved", "not_specified", "not_defined"]
+          allowed_values: ["approved", "not_defined", "not_defined"]
           description: "Есть ли прямое указание на утверждение проектной документации."
           required: true
           display_in_grid: true
@@ -1604,7 +1610,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. deadlines_specific = "yes" только если сроки определены
            конкретными датами или однозначными событиями.
         7. deadlines_specific = "vague" только если сроки описаны общо,
@@ -1700,6 +1706,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "срок начала работ срок окончания работ календарный план график производства работ не позднее этапы строительства неустойка за просрочку пеня за каждый день задержки"
+      retrieval_profile: "completion_deadline_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1744,8 +1751,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1000
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -1955,12 +1964,12 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. estimate_type = "firm" только если договор прямо указывает
            на твёрдую смету / твёрдую цену.
         7. estimate_type = "approximate" только если договор прямо указывает
            на приблизительную смету / приблизительную цену.
-        8. estimate_type = "not_specified" только если цена / смета есть,
+        8. estimate_type = "not_defined" только если цена / смета есть,
            но тип прямо не назван.
         9. change_order_procedure = "described" только если порядок оформления
            изменений или дополнительных работ описан содержательно.
@@ -2060,6 +2069,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "смета твердая смета приблизительная смета сметная стоимость дополнительные работы изменение проектной документации дополнительное соглашение авансовый платеж предоплата КС-2 КС-3 индексация цены корректировка стоимости"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
         - payment_term
         - obligation
@@ -2069,7 +2079,7 @@ checks_v8:
         - structural_anchor
         - technical_fragment
       preferred_clause_functions:
-        - payment
+        - obligations
         - obligations
       negative_keywords:
         - "гарантийный срок"
@@ -2094,7 +2104,7 @@ checks_v8:
       excluded_segment_types:
         - "technical_specification"
       preferred_clause_functions:
-        - "payment"
+        - "obligations"
         - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.14
@@ -2107,8 +2117,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 620
+      compact_output: false
+
+      llm_max_tokens: 1150
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -2125,7 +2137,7 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. estimate_type — "firm" / "approximate" / "not_specified" /
+        1. estimate_type — "firm" / "approximate" / "not_defined" /
            "not_defined".
         2. contract_price_status — "defined" если цена договора прямо указана,
            иначе "not_defined".
@@ -2154,7 +2166,7 @@ checks_v8:
             - "firm" — если прямо указана твёрдая смета или твёрдая цена.
             - "approximate" — если прямо указана приблизительная смета
               или приблизительная цена.
-            - "not_specified" — если смета / цена есть, но тип не назван.
+            - "not_defined" — если смета / цена есть, но тип не назван.
             - "not_defined" — если по тексту это не установлено.
         - contract_price_status:
             - "defined" — если цена договора прямо указана.
@@ -2199,7 +2211,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           label: "Тип сметы"
-          allowed_values: ["firm", "approximate", "not_specified", "not_defined"]
+          allowed_values: ["firm", "approximate", "not_defined", "not_defined"]
           description: "Тип сметы или цены по договору."
           required: true
           display_in_grid: true
@@ -2365,7 +2377,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. site_provision_obligation = "yes" только если обязанность
            предоставить участок, площадку или доступ прямо закреплена.
         7. permits_and_source_docs_obligation = "yes" только если Заказчик
@@ -2452,6 +2464,7 @@ checks_v8:
       max_tokens: 760
 
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2501,8 +2514,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -2689,7 +2704,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. supervision_right_present = "yes" только если технический надзор
            или строительный контроль прямо закреплены.
         7. supervision_right_present = "partial" только если Заказчику
@@ -2773,6 +2788,7 @@ checks_v8:
       max_tokens: 720
 
     retrieval:
+      retrieval_profile: "technical_documentation_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2822,8 +2838,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -3008,7 +3026,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. warranty_period_general_status = "defined" только если гарантийный
            срок на объект прямо указан.
         7. warranty_period_engineering_status = "defined" только если отдельно
@@ -3112,6 +3130,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "гарантийный срок скрытые недостатки гарантийные обязательства ответственность за дефекты устранение недостатков 5 лет гарантийный депозит удержание гарантийной суммы"
+      retrieval_profile: "warranties_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3155,8 +3174,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -3357,7 +3378,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. insurance_present = "yes" только если договор прямо предусматривает
            страхование как обязательство или условие.
         7. insurance_present = "partial" только если застрахованы не все,
@@ -3443,6 +3464,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "страхование строительных рисков страхование гражданской ответственности страхование объекта строительства полис страхования страхование от несчастных случаев риск случайной гибели переход рисков до подписания акта после приемки объекта"
+      retrieval_profile: "insurance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3486,8 +3508,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -3505,7 +3529,7 @@ checks_v8:
 
         1. insurance_present — "yes" / "partial" / "no" / "not_defined".
         2. insurance_responsible_party — "contractor" / "customer" / "both" /
-           "not_specified" / "not_defined".
+           "not_defined" / "not_defined".
         3. insurance_scope — "object_only" / "liability_only" / "accidents_only" /
            "mixed" / "not_defined".
         4. risk_bearer_before_acceptance — "contractor" / "customer" /
@@ -3529,7 +3553,7 @@ checks_v8:
             - "contractor" — если страхует Подрядчик.
             - "customer" — если страхует Заказчик.
             - "both" — если страхование распределено между сторонами.
-            - "not_specified" — если страхование упомянуто, но сторона не определена.
+            - "not_defined" — если страхование упомянуто, но сторона не определена.
             - "not_defined" — если по тексту это не установлено.
         - insurance_scope:
             - "object_only" — если страхуется только объект строительства.
@@ -3563,7 +3587,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           label: "Кто страхует"
-          allowed_values: ["contractor", "customer", "both", "not_specified", "not_defined"]
+          allowed_values: ["contractor", "customer", "both", "not_defined", "not_defined"]
           description: "Какая сторона обязана обеспечить страхование."
           required: true
           display_in_grid: true
@@ -3672,7 +3696,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. ks2_used = "yes" только если КС-2 прямо указана в тексте.
         7. ks3_used = "yes" только если КС-3 прямо указана в тексте.
         8. auto_acceptance = "yes" только если договор прямо устанавливает,
@@ -3755,6 +3779,7 @@ checks_v8:
       max_tokens: 720
 
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3806,8 +3831,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+      llm_max_tokens: 800
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -3989,7 +4016,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. materials_provider определяй только по прямому тексту о том,
            кто предоставляет материалы.
         7. equipment_provider определяй только по прямому тексту о том,
@@ -4065,6 +4092,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4115,8 +4143,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 400
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -4133,9 +4163,9 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. materials_provider — "contractor" / "customer" / "mixed" /
-           "not_specified" / "not_defined".
+           "not_defined" / "not_defined".
         2. equipment_provider — "contractor" / "customer" / "mixed" /
-           "not_specified" / "not_defined".
+           "not_defined" / "not_defined".
         3. materials_quality_risk_bearer — "contractor" / "customer" /
            "provider_side" / "shared" / "not_defined".
         4. incoming_quality_control_defined — "yes" / "no" / "not_defined".
@@ -4152,13 +4182,13 @@ checks_v8:
             - "contractor" — если материалы предоставляет Подрядчик.
             - "customer" — если материалы предоставляет Заказчик.
             - "mixed" — если обеспечение материалами распределено.
-            - "not_specified" — если материалы упомянуты, но сторона не определена.
+            - "not_defined" — если материалы упомянуты, но сторона не определена.
             - "not_defined" — если по тексту это не установлено.
         - equipment_provider:
             - "contractor" — если оборудование предоставляет Подрядчик.
             - "customer" — если оборудование предоставляет Заказчик.
             - "mixed" — если обеспечение оборудованием распределено.
-            - "not_specified" — если оборудование упомянуто, но сторона не определена.
+            - "not_defined" — если оборудование упомянуто, но сторона не определена.
             - "not_defined" — если по тексту это не установлено.
         - materials_quality_risk_bearer:
             - "contractor" — если риск качества прямо возложен на Подрядчика.
@@ -4180,7 +4210,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           label: "Материалы"
-          allowed_values: ["contractor", "customer", "mixed", "not_specified", "not_defined"]
+          allowed_values: ["contractor", "customer", "mixed", "not_defined", "not_defined"]
           description: "Какая сторона обеспечивает строительство материалами."
           required: true
           display_in_grid: true
@@ -4189,7 +4219,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           label: "Оборудование"
-          allowed_values: ["contractor", "customer", "mixed", "not_specified", "not_defined"]
+          allowed_values: ["contractor", "customer", "mixed", "not_defined", "not_defined"]
           description: "Какая сторона обеспечивает строительство оборудованием."
           required: true
           display_in_grid: true
@@ -4285,7 +4315,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. subcontracting_mode = "allowed" только если субподряд прямо
            допускается без дополнительных ограничений.
         7. subcontracting_mode = "allowed_with_consent" только если требуется
@@ -4367,6 +4397,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "субподрядчик право привлекать субподрядчиков согласование субподрядчиков генподрядчик отвечает перечень субподрядчиков"
+      retrieval_profile: "subcontracting_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4410,8 +4441,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -4577,7 +4610,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. force_majeure_definition_present = "yes" только если договор
            прямо содержит определение форс-мажора или перечень соответствующих событий.
         7. notification_duty_present = "yes" только если обязанность уведомления
@@ -4673,6 +4706,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "форс-мажор обстоятельства непреодолимой силы продление сроков при форс-мажоре уведомление о форс-мажоре справка ТПП погодные условия дополнительные расходы"
+      retrieval_profile: "force_majeure_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4718,8 +4752,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 750
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -4906,7 +4942,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. commissioning_permit_mentioned = "yes" только если разрешение
            на ввод прямо упомянуто.
         7. responsible_party_for_commissioning определяй только по прямому
@@ -4981,6 +5017,7 @@ checks_v8:
       max_tokens: 680
 
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -5032,8 +5069,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -5196,7 +5235,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. hidden_works_certification_present = "yes" только если договор
            прямо предусматривает освидетельствование скрытых работ.
         7. certification_before_covering = "yes" только если договор прямо
@@ -5271,6 +5310,7 @@ checks_v8:
       max_tokens: 660
 
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -5321,8 +5361,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -5488,7 +5530,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. waste_management_defined = "yes" только если договор прямо
            регулирует обращение с отходами.
         7. waste_responsibility определяй только по прямому тексту
@@ -5613,8 +5655,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -5631,7 +5675,7 @@ checks_v8:
 
         1. waste_management_defined — "yes" / "no" / "not_defined".
         2. waste_responsibility — "contractor" / "customer" /
-           "not_specified" / "not_defined".
+           "not_defined" / "not_defined".
         3. site_restoration_obligation — "yes" / "no" / "not_defined".
         4. environmental_permits_referenced — "yes" / "no" / "not_defined".
         5. environmental_details — формулировка об экологических обязательствах.
@@ -5651,7 +5695,7 @@ checks_v8:
         - waste_responsibility:
             - "contractor" — если ответственность за отходы возложена на Подрядчика.
             - "customer" — если ответственность возложена на Заказчика.
-            - "not_specified" — если отходы упомянуты, но сторона не определена.
+            - "not_defined" — если отходы упомянуты, но сторона не определена.
             - "not_defined" — если по тексту это не установлено.
         - site_restoration_obligation:
             - "yes" — если прямо предусмотрены восстановление территории,
@@ -5680,7 +5724,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           label: "Кто отвечает за отходы"
-          allowed_values: ["contractor", "customer", "not_specified", "not_defined"]
+          allowed_values: ["contractor", "customer", "not_defined", "not_defined"]
           description: "Какая сторона отвечает за вывоз / утилизацию отходов."
           required: true
           display_in_grid: true
@@ -5780,7 +5824,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. executive_docs_transfer = "yes" только если исполнительная
            документация прямо подлежит передаче Заказчику.
         7. ip_rights_on_docs = "transferred" только если права на документацию
@@ -5862,6 +5906,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "исполнительная документация as-built фактическое исполнение исключительные права передача документации BIM модель информационная модель авторские права"
+      retrieval_profile: "ip_ownership_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -5908,8 +5953,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -5926,7 +5973,7 @@ checks_v8:
 
         1. executive_docs_transfer — "yes" / "no" / "not_defined".
         2. ip_rights_on_docs — "transferred" / "retained_by_contractor" /
-           "not_specified" / "not_defined".
+           "not_defined" / "not_defined".
         3. bim_model_transfer — "yes" / "no" / "not_applicable" / "not_defined".
         4. docs_format_specified — "yes" / "no" / "not_defined".
         5. ip_docs_details — формулировка о документации и правах на неё.
@@ -5945,7 +5992,7 @@ checks_v8:
         - ip_rights_on_docs:
             - "transferred" — если права на документацию / модель переходят Заказчику.
             - "retained_by_contractor" — если права сохраняются за Подрядчиком.
-            - "not_specified" — если документация передаётся, но права прямо не урегулированы.
+            - "not_defined" — если документация передаётся, но права прямо не урегулированы.
             - "not_defined" — если по тексту это не установлено.
         - bim_model_transfer:
             - "yes" — если BIM / информационная модель подлежит передаче.
@@ -5973,7 +6020,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           label: "Права на документацию"
-          allowed_values: ["transferred", "retained_by_contractor", "not_specified", "not_defined"]
+          allowed_values: ["transferred", "retained_by_contractor", "not_defined", "not_defined"]
           description: "Как урегулированы права на документацию."
           required: true
           display_in_grid: true
@@ -6070,7 +6117,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. sro_membership_mentioned = "yes" только если членство в СРО
            прямо упомянуто.
         7. sro_proof_document_referenced = "yes" только если прямо указана
@@ -6138,6 +6185,7 @@ checks_v8:
       max_tokens: 620
 
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -6189,8 +6237,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 340
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -6335,7 +6385,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. pretrial_claim_required = "yes" только если договор прямо
            устанавливает обязательный претензионный или досудебный порядок.
         7. joint_inspection_required = "yes" только если прямо предусмотрено
@@ -6416,8 +6466,9 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "досудебный порядок претензионный порядок строительно-техническая экспертиза совместное обследование независимая экспертиза расходы на экспертизу"
+      retrieval_profile: "dispute_resolution_check"
       preferred_unit_types:
-        - boilerplate
+        - general_provision
         - obligation
         - general_provision
       excluded_unit_types:
@@ -6462,8 +6513,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда
@@ -6625,7 +6678,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай "Данные не определены".
-        5. Не используй "None", "null", "not_found" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. safety_obligations_defined = "yes" только если договор прямо
            закрепляет обязанности по охране труда или безопасности.
         7. responsible_party_for_safety определяй только по прямому тексту
@@ -6750,8 +6803,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора строительного подряда

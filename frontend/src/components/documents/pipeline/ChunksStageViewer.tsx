@@ -390,9 +390,9 @@ function Pill({
 }) {
   const toneClass =
     tone === "accent"
-      ? "border-[color:color-mix(in_oklab,var(--color-primary)_25%,transparent)] bg-[var(--color-primary-highlight)] text-[var(--color-primary)]"
+      ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--accent-primary)]"
       : tone === "warning"
-        ? "border-[color:color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[var(--color-warning-highlight)] text-[var(--color-warning)]"
+        ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]"
         : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
 
   return (
@@ -416,7 +416,7 @@ function SmallNote({
 }) {
   const toneClass =
     tone === "warning"
-      ? "border-[color:color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[var(--color-warning-highlight)] text-[var(--color-warning)]"
+      ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]"
       : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]";
 
   return (
@@ -495,8 +495,9 @@ function LayerTabs({
             onClick={() => onChange(layer)}
             className={cn(
               "rounded-full border px-3 py-1.5 text-xs transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
               active
-                ? "border-[color:color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[var(--color-primary-highlight)] text-[var(--color-primary)]"
+                ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--accent-primary)]"
                 : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
               disabled && "cursor-not-allowed opacity-50",
             )}
@@ -645,7 +646,6 @@ export const ChunksStageViewer: React.FC<Props> = ({
         : canonicalDefaultLayer;
     }
 
-    // Friendly mode: primary evidence = legal_unit
     if (layerBuckets.legal_unit.length > 0) return "legal_unit";
     if (layerBuckets.subclause.length > 0) return "subclause";
     return "section";
@@ -804,7 +804,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
   if (isMissing) {
     return (
-      <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-error)_40%,transparent)] bg-[var(--color-error-highlight)] p-4 text-sm text-[var(--color-error)]">
+      <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-4 text-sm text-[var(--color-error-text)]">
         CHUNKS-артефакт ожидается, но недоступен или повреждён. Проверь
         состояние пайплайна для стадии CHUNKS.
       </div>
@@ -819,15 +819,11 @@ export const ChunksStageViewer: React.FC<Props> = ({
     );
   }
 
-  /* ================================================================
-   * Source pane mode
-   * ================================================================ */
-
   if (isSourcePaneMode) {
     return (
       <div className="flex h-full min-h-0 flex-col gap-3">
         {traceLabel && (
-          <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[var(--color-primary-highlight)] px-3 py-2 text-xs text-[var(--color-primary)]">
+          <div className="rounded-2xl border border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] px-3 py-2 text-xs text-[var(--accent-primary)]">
             {traceLabel}
           </div>
         )}
@@ -877,9 +873,10 @@ export const ChunksStageViewer: React.FC<Props> = ({
                           onClick={() => setSelectedIndex(segment.chunk.index)}
                           className={cn(
                             "inline whitespace-pre-wrap break-words rounded-md px-1 py-0.5 text-left transition-colors",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]",
                             isSelected
                               ? "bg-[var(--color-warning)]/20 ring-1 ring-[var(--color-warning)] text-[var(--text-primary)]"
-                              : "bg-[var(--color-warning-highlight)] hover:bg-[var(--color-warning-highlight)]/80",
+                              : "bg-[var(--color-warning-bg)] hover:opacity-90",
                           )}
                           title={
                             getChunkUid(segment.chunk) ||
@@ -910,20 +907,14 @@ export const ChunksStageViewer: React.FC<Props> = ({
     );
   }
 
-  /* ================================================================
-   * Normal mode
-   * ================================================================ */
-
   const listMeta = getListPanelMeta(isCanonical);
   const detailMeta = getDetailPanelMeta(isCanonical);
 
-  /** Evidence count: prefer legal_unit, fallback subclause */
   const evidenceCount =
     layerBuckets.legal_unit.length || layerBuckets.subclause.length;
 
   return (
     <div className="grid h-full min-h-0 auto-rows-fr grid-cols-1 gap-4 overflow-hidden xl:grid-cols-3 xl:grid-rows-1">
-      {/* ──────────────────── Левая панель ──────────────────── */}
       <InfoPanel title={listMeta.title} description={listMeta.description}>
         <div className="flex h-full min-h-0 flex-col">
           <div className="mb-3 space-y-2">
@@ -982,6 +973,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                       onClick={() => setSelectedIndex(item.chunk.index)}
                       className={cn(
                         "w-full px-3 py-2.5 text-left transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
                         isSelected
                           ? "bg-[var(--bg-elevated-soft)] shadow-[inset_3px_0_0_var(--accent-primary)]"
                           : "bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]",
@@ -1018,7 +1010,6 @@ export const ChunksStageViewer: React.FC<Props> = ({
         </div>
       </InfoPanel>
 
-      {/* ──────────────────── Средняя панель ──────────────────── */}
       <InfoPanel title={detailMeta.title} description={detailMeta.description}>
         <div className="flex h-full min-h-0 flex-col">
           <div className="min-h-0 flex-1 overflow-auto">
@@ -1037,7 +1028,9 @@ export const ChunksStageViewer: React.FC<Props> = ({
                     {selectedChunk.role && (
                       <Pill
                         tone={
-                          selectedChunk.role === "evidence" ? "accent" : "neutral"
+                          selectedChunk.role === "evidence"
+                            ? "accent"
+                            : "neutral"
                         }
                       >
                         role: {selectedChunk.role}
@@ -1184,7 +1177,6 @@ export const ChunksStageViewer: React.FC<Props> = ({
         </div>
       </InfoPanel>
 
-      {/* ──────────────────── Правая панель ──────────────────── */}
       <InfoPanel
         title={jsonMode === "chunk" ? "JSON chunk'а" : "JSON snapshot"}
         description={
@@ -1201,6 +1193,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                 onClick={() => setJsonMode("chunk")}
                 className={cn(
                   "rounded-full px-2.5 py-1 text-xs leading-none transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]",
                   jsonMode === "chunk"
                     ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
@@ -1213,6 +1206,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                 onClick={() => setJsonMode("snapshot")}
                 className={cn(
                   "rounded-full px-2.5 py-1 text-xs leading-none transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]",
                   jsonMode === "snapshot"
                     ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
@@ -1225,8 +1219,8 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
           {jsonMode === "chunk" ? (
             selectedChunk ? (
-              <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3">
-                <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
+              <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse)] p-3">
+                <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[var(--text-inverse)]">
                   {chunkJson(selectedChunk)}
                 </pre>
               </div>
@@ -1238,10 +1232,10 @@ export const ChunksStageViewer: React.FC<Props> = ({
           ) : (
             <div
               ref={snapshotRef}
-              className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3"
+              className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse)] p-3"
             >
               <pre
-                className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb] [&_mark[data-snapshot-chunk='true']]:rounded [&_mark[data-snapshot-chunk='true']]:bg-[var(--color-warning)]/25 [&_mark[data-snapshot-chunk='true']]:px-1"
+                className="whitespace-pre-wrap break-words text-xs leading-5 text-[var(--text-inverse)] [&_mark[data-snapshot-chunk='true']]:rounded [&_mark[data-snapshot-chunk='true']]:bg-[var(--color-warning)]/25 [&_mark[data-snapshot-chunk='true']]:px-1"
                 dangerouslySetInnerHTML={highlightedSnapshot}
               />
             </div>
@@ -1253,4 +1247,5 @@ export const ChunksStageViewer: React.FC<Props> = ({
 };
 
 export default ChunksStageViewer;
+
 

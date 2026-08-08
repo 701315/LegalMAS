@@ -767,6 +767,90 @@ def run_single_check(
                     )
 
                     exec_result = outcome["exec_result"]
+
+                    # ── LLM Usage Ledger: checks ──────────────────────────────
+                    if exec_result is not None:
+                        try:
+                            from services.llm_usage_recorder import (
+                                LLMUsageRecorder,
+                                STAGE_CHECKS_DETECTION_LLM,
+                                STAGE_CHECKS_EXTRACTION_LLM,
+                            )
+
+                            _check_raw = exec_result.get("raw") or {}
+                            _effective_tenant = (
+                                uuid.UUID(tenant_id)
+                                if tenant_id
+                                else run_snap.tenant_id
+                            )
+
+                            # Detection LLM
+                            _det_method = exec_result.get("detector_method")
+                            _det_error = _check_raw.get("llm_error_type")
+                            if (
+                                _det_method in {"llm", "hybrid"}
+                                or bool(_det_error)
+                            ) and _effective_tenant is not None:
+                                await LLMUsageRecorder.record_event_isolated(
+                                    tenant_id=_effective_tenant,
+                                    deal_id=deal_uuid,
+                                    run_id=run_uuid,
+                                    document_id=doc_uuid,
+                                    stage=STAGE_CHECKS_DETECTION_LLM,
+                                    check_id=check_id,
+                                    provider=str(
+                                        _check_raw.get("provider") or "ollama"
+                                    ),
+                                    model=str(_check_raw.get("model") or ""),
+                                    prompt_tokens=_check_raw.get(
+                                        "prompt_tokens"
+                                    ),
+                                    completion_tokens=_check_raw.get(
+                                        "completion_tokens"
+                                    ),
+                                    duration_ms=_check_raw.get("duration_ms"),
+                                    llm_attempts=_check_raw.get("llm_attempts"),
+                                    parse_success=_check_raw.get("parse_success"),
+                                    error_type=_det_error,
+                                )
+
+                            # Extraction LLM
+                            _extr = _check_raw.get("extraction_telemetry") or {}
+                            if (
+                                _extr.get("extraction_llm_invoked")
+                                and _effective_tenant is not None
+                            ):
+                                await LLMUsageRecorder.record_event_isolated(
+                                    tenant_id=_effective_tenant,
+                                    deal_id=deal_uuid,
+                                    run_id=run_uuid,
+                                    document_id=doc_uuid,
+                                    stage=STAGE_CHECKS_EXTRACTION_LLM,
+                                    check_id=check_id,
+                                    provider=str(
+                                        _extr.get("provider") or "ollama"
+                                    ),
+                                    model=str(_extr.get("model") or ""),
+                                    prompt_tokens=_extr.get("prompt_tokens"),
+                                    completion_tokens=_extr.get(
+                                        "completion_tokens"
+                                    ),
+                                    duration_ms=_extr.get("duration_ms"),
+                                    llm_attempts=_extr.get("llm_attempts"),
+                                    parse_success=_extr.get("parse_success"),
+                                    error_type=_extr.get("error_type"),
+                                )
+                        except Exception:
+                            logger.warning(
+                                "run_single_check: failed to record LLM usage"
+                                " (non-fatal)",
+                                run_id=run_id,
+                                deal_id=deal_id,
+                                doc_id=doc_id,
+                                check_id=check_id,
+                            )
+                    # ── конец LLM Usage Ledger ────────────────────────────────
+
                     duration = time.time() - started_at
 
                     if exec_result is None:

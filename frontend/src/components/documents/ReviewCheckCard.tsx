@@ -50,7 +50,7 @@ export const ReviewCheckCard: React.FC<Props> = ({
     <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm transition-shadow hover:shadow-md">
       <button
         type="button"
-        className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--bg-elevated-soft)]"
+        className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
         onClick={() => setExpanded((value) => !value)}
         aria-expanded={expanded}
       >
@@ -61,7 +61,7 @@ export const ReviewCheckCard: React.FC<Props> = ({
             </div>
 
             {check.result === "unclear" && (
-              <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-gold-hover)]">
+              <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-gold-text)]">
                 Unclear
               </span>
             )}

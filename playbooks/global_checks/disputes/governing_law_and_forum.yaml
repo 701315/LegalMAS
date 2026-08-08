@@ -114,6 +114,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "governing_law_check"
   context_k: 5
   max_chunks: 8
 
@@ -188,7 +189,11 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 500
+  # 8 полей × ~90 токенов (value+confidence+location+JSON overhead) ≈ 720.
+  # С запасом 25% = 900. Берём 1100 с дополнительным запасом под длинный reason.
+  llm_max_tokens: 1100
+  # compact_output не задаём явно — авто-режим (None) корректно
+  # определит что custom prompt уже управляет стилем вывода.
   llm_prompt_extraction: |
     <role>
     Ты — юрист по международным контрактам и разрешению споров.

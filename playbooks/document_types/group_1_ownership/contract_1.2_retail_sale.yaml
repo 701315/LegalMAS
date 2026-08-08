@@ -634,6 +634,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 560
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -687,8 +688,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 900
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста публичной оферты сведения только о продавце.
@@ -893,6 +896,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -936,8 +940,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 450
+      compact_output: false
+
+      llm_max_tokens: 800
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения о правовом статусе Покупателя, возрастных ограничениях и данных, которые он должен предоставить.
@@ -1120,6 +1126,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 460
     retrieval:
+      retrieval_profile: "definitions_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1169,8 +1176,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 240
+      compact_output: false
+
+      llm_max_tokens: 300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста публичной оферты сведения только о предмете оферты и описании товара.
@@ -1328,6 +1337,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 520
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1379,8 +1389,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 260
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения только о цене товара и способах оплаты.
@@ -1558,6 +1570,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 520
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1610,8 +1623,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 260
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения только о предоплате, возврате предоплаты и последствиях просрочки оплаты.
@@ -1792,6 +1807,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 500
     retrieval:
+      retrieval_profile: "termination_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1843,8 +1859,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 240
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения только о моменте заключения договора и порядке отмены заказа до передачи товара.
@@ -2029,6 +2047,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 540
     retrieval:
+      retrieval_profile: "completion_deadline_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2080,8 +2099,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 280
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения только о сроке доставки, стоимости доставки, способе передачи и удержании расходов на обратную доставку.
@@ -2232,7 +2253,7 @@ checks_v8:
         3. Не оценивай документ.
         4. Если условие не указано прямо — возвращай "not_defined".
         5. Если текстового значения нет — возвращай строго "Данные не определены".
-        6. Не используй "None", "null", "not_specified", пустые строки.
+        6. Не используй "None", "null", "not_defined", пустые строки.
         7. В evidence включай только текст документа.
         8. Верни только один JSON-объект.
 
@@ -2315,6 +2336,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "termination_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2375,8 +2397,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 550
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста публичной оферты условия о праве потребителя на возврат и обмен товара надлежащего качества.
@@ -2646,6 +2670,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2700,8 +2725,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 580
+      compact_output: false
+
+      llm_max_tokens: 850
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — найти в тексте оферты конкретные формулировки, которые ущемляют права потребителя.
@@ -2860,7 +2887,7 @@ checks_v8:
         3. Не оценивай документ.
         4. Если условие не указано прямо — возвращай "not_defined".
         5. Если текстового значения нет — возвращай строго "Данные не определены".
-        6. Не используй "None", "null", "not_specified", пустые строки.
+        6. Не используй "None", "null", "not_defined", пустые строки.
         7. В evidence включай только текст документа.
         8. Верни только один JSON-объект.
 
@@ -2929,6 +2956,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "warranties_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2987,8 +3015,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения о гарантийном сроке и правах покупателя при обнаружении недостатков товара.
@@ -3126,7 +3156,7 @@ checks_v8:
         3. Не оценивай документ.
         4. Если условие не указано прямо — возвращай "not_defined".
         5. Если текстового значения нет — возвращай строго "Данные не определены".
-        6. Не используй "None", "null", "not_specified", пустые строки.
+        6. Не используй "None", "null", "not_defined", пустые строки.
         7. В evidence включай только текст документа.
         8. Верни только один JSON-объект.
 
@@ -3194,6 +3224,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "confidentiality_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3246,8 +3277,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения о механизме согласия на обработку персональных данных, целях обработки и порядке отзыва согласия.
@@ -3388,7 +3421,7 @@ checks_v8:
         3. Не оценивай документ.
         4. Если условие не указано прямо — возвращай "not_defined".
         5. Если текстового значения нет — возвращай строго "Данные не определены".
-        6. Не используй "None", "null", "not_specified", пустые строки.
+        6. Не используй "None", "null", "not_defined", пустые строки.
         7. В evidence включай только текст документа.
         8. Верни только один JSON-объект.
 
@@ -3458,6 +3491,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "termination_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3516,8 +3550,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 800
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения только о специальном режиме дистанционной продажи по ст. 26.1 ЗоЗПП.
@@ -3715,6 +3751,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "warranties_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3770,8 +3807,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения о специальном режиме возврата технически сложных товаров (ТСТ).
@@ -3953,6 +3992,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4009,8 +4049,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста оферты маркетплейса сведения о раскрытии данных продавца, роли маркетплейса и распределении ответственности.

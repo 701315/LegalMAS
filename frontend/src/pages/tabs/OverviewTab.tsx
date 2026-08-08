@@ -323,22 +323,28 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
           />
         </div>
 
-        <div className="shrink-0">
-          <ProjectDomainsOverviewPanel
-            runId={currentRunId ?? null}
-            deal={effectiveDeal}
-            activeDomain={activeDomain}
-            onDomainSelect={setActiveDomain}
-          />
-        </div>
+        {/* Связка "Состояние направлений" + "Детали результатов анализа"
+            — визуально единый блок. Убран gap между ними, чтобы активная
+            карточка сверху "врастала" в панель деталей снизу на xl+.
+            Общий gap с DealInfoCard остаётся 16px. */}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0">
+            <ProjectDomainsOverviewPanel
+              runId={currentRunId ?? null}
+              deal={effectiveDeal}
+              activeDomain={activeDomain}
+              onDomainSelect={setActiveDomain}
+            />
+          </div>
 
-        <div className="min-h-0 flex-1">
-          <ProjectDomainDetailsPanel
-            activeDomain={activeDomain}
-            onDomainChange={setActiveDomain}
-            runId={currentRunId ?? null}
-            deal={effectiveDeal}
-          />
+          <div className="min-h-0 flex-1">
+            <ProjectDomainDetailsPanel
+              activeDomain={activeDomain}
+              onDomainChange={setActiveDomain}
+              runId={currentRunId ?? null}
+              deal={effectiveDeal}
+            />
+          </div>
         </div>
       </div>
 
@@ -351,11 +357,24 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
           showReclassBanner={showReclassBanner}
         />
 
+        {/* Декоративная иллюстрация под панелью действий (только на xl+) */}
+        <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+          <img
+            src="/overviewpicture.png"
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+            className="pointer-events-none block w-full h-auto select-none opacity-90"
+          />
+        </div>
+
         {overlayWidth !== null && (
           <LaunchWideOverlay
             open={isLaunchPanelOpen}
             overlayWidth={overlayWidth}
             deal={effectiveDeal}
+            hasCurrentRun={!!currentRun}
             documentsCount={documentsCount}
             checksMode={checksMode}
             onChecksModeChange={setChecksMode}

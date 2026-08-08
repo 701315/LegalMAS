@@ -110,6 +110,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "force_majeure_check"
   context_k: 5
   max_chunks: 10
 
@@ -152,7 +153,7 @@ retrieval:
 
   preferred_unit_types:
     - "general_provision"
-    - "condition"
+    - "general_provision"
 
   excluded_unit_types:
     - "technical_fragment"
@@ -160,9 +161,9 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "force_majeure"
-    - "termination"
-    - "general_provisions"
+    - "limitations"
+    - "procedures"
+    - "boilerplate"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -186,16 +187,17 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "force_majeure"
-    - "termination"
-    - "general_provisions"
+    - "limitations"
+    - "procedures"
+    - "boilerplate"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 1250
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по контрактам.

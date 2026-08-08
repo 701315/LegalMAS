@@ -1,0 +1,551 @@
+./src/components/settings/ProjectMembersPanel.tsx:67:  "rounded-2xl border border-[var(--color-error,#ef4444)] bg-[color:color-mix(in_srgb,var(--color-error,#ef4444)_8%,var(--bg-card))] px-4 py-3";
+./src/components/documents/pipeline/LayoutStageViewer.tsx:176:          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse,#111827)] shadow-sm">
+./src/components/documents/pipeline/LayoutStageViewer.tsx:183:            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-5 text-[var(--text-inverse,#f9fafb)]">
+./src/components/documents/pipeline/StructureStageViewer.tsx:468:          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success,#22c55e)]"
+./src/components/documents/pipeline/StructureStageViewer.tsx:473:          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary,#3b82f6)]"
+./src/components/documents/pipeline/StructureStageViewer.tsx:812:      <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-[#050816] p-3">
+./src/components/documents/pipeline/StructureStageViewer.tsx:813:        <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1228:              <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1229:                <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1241:              className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3"
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1244:                className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb] [&_mark[data-snapshot-chunk='true']]:rounded [&_mark[data-snapshot-chunk='true']]:bg-[var(--color-warning)]/25 [&_mark[data-snapshot-chunk='true']]:px-1"
+./src/components/instructions/PublishConfirmDialog.tsx:42:          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)]">
+./src/components/instructions/PublishConfirmDialog.tsx:44:              className="h-4 w-4 text-[color:var(--color-warning-text,#92400e)]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:45:      <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] px-3 py-2">
+./src/components/instructions/ConcurrencyStatusBar.tsx:48:            className="h-3.5 w-3.5 shrink-0 text-[color:var(--color-warning-text,#92400e)]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:51:          <span className="text-[11px] text-[color:var(--color-warning-text,#92400e)]">
+./src/components/instructions/ConcurrencyStatusBar.tsx:73:      <div className="flex items-center justify-between gap-3 rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-3 py-2">
+./src/components/instructions/ConcurrencyStatusBar.tsx:76:            className="h-3.5 w-3.5 shrink-0 text-[#b91c1c]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:79:          <span className="text-[11px] text-[#b91c1c]">
+./src/components/instructions/ConcurrencyStatusBar.tsx:102:      <div className="flex items-center gap-2 rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-3 py-2">
+./src/components/instructions/ConcurrencyStatusBar.tsx:104:          className="h-3.5 w-3.5 shrink-0 text-[#b91c1c]"
+./src/components/instructions/ConcurrencyStatusBar.tsx:107:        <span className="text-[11px] text-[#b91c1c]">
+./src/components/instructions/VersionStatusBadge.tsx:19:      "border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] text-[color:var(--color-warning-text,#92400e)]",
+./src/components/instructions/ValidationResultPanel.tsx:98:          : "border-[#dc2626]/30 bg-[#fef2f2]",
+./src/components/instructions/ValidationResultPanel.tsx:111:              className="h-4 w-4 shrink-0 text-[#b91c1c]"
+./src/components/instructions/ValidationResultPanel.tsx:120:                : "text-[#b91c1c]",
+./src/components/instructions/ValidationResultPanel.tsx:137:          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b91c1c]">
+./src/components/instructions/ValidationResultPanel.tsx:144:                className="flex items-start gap-1.5 text-[11px] text-[#b91c1c]"
+./src/components/instructions/ValidationResultPanel.tsx:157:          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--color-warning-text,#92400e)]">
+./src/components/instructions/ValidationResultPanel.tsx:164:                className="flex items-start gap-1.5 text-[11px] text-[color:var(--color-warning-text,#92400e)]"
+./src/components/instructions/OverrideStatusBadge.tsx:16:      "border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] text-[color:var(--color-warning-text,#92400e)]",
+./src/components/instructions/OverrideStatusBadge.tsx:57:            "border-[#dc2626]/30 bg-[#fef2f2] text-[#b91c1c]",
+./src/components/instructions/DraftEditForm.tsx:236:          <div className="rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-4 py-3">
+./src/components/instructions/DraftEditForm.tsx:237:            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b91c1c]">
+./src/components/instructions/DraftEditForm.tsx:240:            <div className="space-y-1 text-[11px] text-[#b91c1c]">
+./src/components/instructions/DraftEditForm.tsx:262:            <p className="mt-2 text-[11px] text-[#b91c1c]">
+./src/components/instructions/StaleWarningBanner.tsx:22:    <div className="flex items-start justify-between gap-3 rounded-xl border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] px-4 py-3">
+./src/components/instructions/StaleWarningBanner.tsx:25:          className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--color-warning-text,#92400e)]"
+./src/components/instructions/StaleWarningBanner.tsx:29:          <div className="text-xs font-semibold text-[color:var(--color-warning-text,#92400e)]">
+./src/components/instructions/StaleWarningBanner.tsx:32:          <p className="mt-0.5 text-[11px] text-[color:var(--color-warning-text,#92400e)]">
+./src/components/instructions/StaleWarningBanner.tsx:38:            <p className="mt-1 text-[11px] text-[color:var(--color-warning-text,#92400e)]">
+./src/components/instructions/StaleWarningBanner.tsx:44:            <p className="mt-1 text-[11px] text-[color:var(--color-warning-text,#92400e)]">
+./src/pages/deal-instructions/DealOverrideDetailPage.tsx:307:                      : "border-[#dc2626]/30 bg-[#fef2f2]",
+./src/pages/deal-instructions/DealOverrideDetailPage.tsx:315:                        : "text-[#b91c1c]",
+./src/pages/deal-instructions/DealOverrideDetailPage.tsx:325:                        <li key={i} className="text-[11px] text-[#b91c1c]">
+./src/pages/deal-instructions/DealOverrideDetailPage.tsx:366:              <p className="text-[11px] text-[#b91c1c]">
+./src/pages/deal-instructions/DealOverridesPage.tsx:115:          <div className="rounded-xl border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] px-4 py-2.5">
+./src/pages/deal-instructions/DealOverridesPage.tsx:116:            <span className="text-[11px] text-[color:var(--color-warning-text,#92400e)]">
+./src/pages/PlaybooksRegistryPage.tsx:251:    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #111; }
+./src/pages/PlaybooksRegistryPage.tsx:253:    h2 { font-size: 14pt; margin-top: 24pt; margin-bottom: 6pt; border-bottom: 1px solid #999; padding-bottom: 4pt; }
+./src/pages/PlaybooksRegistryPage.tsx:255:    .meta { color: #555; font-size: 10pt; margin-bottom: 8pt; }
+./src/pages/PlaybooksRegistryPage.tsx:258:    th, td { border: 1px solid #bbb; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+./src/pages/PlaybooksRegistryPage.tsx:259:    th { background: #f0f0f0; font-weight: bold; }
+./src/pages/PlaybooksRegistryPage.tsx:260:    .code { font-family: Consolas, monospace; color: #333; }
+./src/pages/tabs/AuditTab.tsx:39:  "bg-[color:color-mix(in_srgb,var(--color-blue,#3b82f6)_6%,transparent)]";
+./src/pages/tabs/audit/ClassificationAuditView.tsx:270:                            "bg-[color:color-mix(in_srgb,var(--color-warning,#f59e0b)_4%,transparent)]",
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:22: * Фон off-white (#F3F0EB) — ритмичное чередование с hero (белым).
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:29:      style={{ background: "#F3F0EB" }}
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:40:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {WORKFLOW_CONTENT.title}
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:58:                  className="text-[1rem] leading-[1.75] text-[#78756F]"
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:68:            <div className="border-l border-[#E8E4DD] pl-6">
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:69:              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A8A29E]">
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:76:                    className="flex items-start gap-3 text-[#78756F]"
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:79:                      className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[#C86B52]"
+./src/marketing/components/platform/PlatformStandardsSection.tsx:9: *   • Фон секции: Глубокий черный (#1A1917).
+./src/marketing/components/platform/PlatformStandardsSection.tsx:17:      className="relative overflow-hidden bg-[#1A1917]"
+./src/marketing/components/platform/PlatformStandardsSection.tsx:33:            background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)'
+./src/marketing/components/platform/PlatformStandardsSection.tsx:53:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]">
+./src/marketing/components/platform/PlatformStandardsSection.tsx:59:                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#FAF8F5]/90"
+./src/marketing/components/platform/PlatformStandardsSection.tsx:70:                    className="text-[1.0625rem] leading-[1.75] text-[#A8A29E]"
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:20:      style={{ background: "#FAF8F5" }}
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:34:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:42:                    className="text-[1rem] leading-[1.75] text-[#78756F]"
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:49:              <div className="mt-10 border-l border-[#E8E4DD] pl-6">
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:50:                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A8A29E]">
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:57:                      className="flex items-start gap-3 text-[#78756F]"
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:60:                        className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[#C86B52]"
+./src/marketing/components/platform/primitives/PathCrumb.tsx:31:  const rootColor = variant === "dark" ? "rgba(250, 248, 245, 0.45)" : "#A8A29E";
+./src/marketing/components/platform/primitives/PathCrumb.tsx:32:  const slashColor = variant === "dark" ? "rgba(250, 248, 245, 0.28)" : "#D6D0C7";
+./src/marketing/components/platform/primitives/PathCrumb.tsx:33:  const leafColor = variant === "dark" ? "#FAF8F5" : "#1A1917";
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:18: *   • Input: приглушённый бордер #EBE8E1, светло-серый фон
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:20: *   • Output: более чёткий бордер #DFDAD0, лёгкий тонированный фон
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:61:            stroke="#DFDAD0"
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:81:            stroke="#C8C1B4"
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:110:              border: "1px solid #EBE8E1",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:111:              background: "#FAF8F5",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:117:              style={{ color: "#B8B2AA" }}
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:123:              style={{ color: "#78756F" }}
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:154:              style={{ color: "#C86B52" }}
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:158:            <div className="mt-0.5 text-[0.9375rem] font-semibold leading-tight text-[#1A1917]">
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:178:              border: "1px solid #D6D0C7",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:184:              style={{ color: "#8A857D" }}
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:190:              style={{ color: "#1A1917" }}
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:82:                      border: `1px solid ${isAccent ? "#C86B52" : "#E8E4DD"}`,
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:91:                      style={{ color: isAccent ? "#C86B52" : "#A8A29E" }}
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:97:                      style={{ color: isAccent ? "#B55D46" : "#1A1917" }}
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:102:                      <div className="mt-1.5 text-[0.75rem] leading-[1.4] text-[#78756F]">
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:131:                      className="text-[#D6D0C7]"
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:168:          className="mt-6 flex items-center gap-2 text-[0.75rem] text-[#A8A29E]"
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:171:            className="inline-block h-px w-6 bg-[#D6D0C7]"
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:199:                  border: `1px solid ${isAccent ? "#C86B52" : "#E8E4DD"}`,
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:205:                    style={{ color: isAccent ? "#C86B52" : "#A8A29E" }}
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:212:                  style={{ color: isAccent ? "#B55D46" : "#1A1917" }}
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:217:                  <div className="mt-1 text-[0.75rem] leading-[1.4] text-[#78756F]">
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:225:                  className="ml-6 h-3 w-px bg-[#D6D0C7]"
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:234:        <div className="mt-3 text-[0.75rem] leading-[1.5] text-[#A8A29E]">
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:79:                    borderColor: isAccent ? "#C86B52" : "#E8E4DD",
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:85:                    style={{ color: isAccent ? "#B55D46" : "#1A1917" }}
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:92:                <div className="mt-2.5 text-[10px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:119:                    className="text-[#D6D0C7]"
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:165:                  borderColor: isAccent ? "#C86B52" : "#E8E4DD",
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:168:                <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:173:                  style={{ color: isAccent ? "#B55D46" : "#1A1917" }}
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:181:                  className="ml-6 h-3 w-px bg-[#D6D0C7]"
+./src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:90:                border: `1px solid ${accent ? "#C86B52" : "#E8E4DD"}`,
+./src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:101:                    style={{ color: accent ? "#B55D46" : "#1A1917" }}
+./src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:107:                      className="mt-1 text-[0.8125rem] leading-[1.5] text-[#78756F]"
+./src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:114:                <div className="shrink-0 text-[10px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
+./src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:132:                className="mx-auto w-px bg-[#D6D0C7]"
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:21: *   • Текст в off-white (#FAF8F5) с разной прозрачностью для иерархии
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:146:              style={{ color: "#FAF8F5" }}
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:175:            style={{ color: "#E89A82" }}
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:181:            style={{ color: "#FAF8F5" }}
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:222:              style={{ color: "#FAF8F5" }}
+./src/marketing/components/platform/PlatformMethodologySection.tsx:20: *   • Фон белый (#FAF8F5)
+./src/marketing/components/platform/PlatformMethodologySection.tsx:27:      style={{ background: "#FAF8F5" }}
+./src/marketing/components/platform/PlatformMethodologySection.tsx:40:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/platform/PlatformMethodologySection.tsx:46:                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#1A1917]"
+./src/marketing/components/platform/PlatformMethodologySection.tsx:56:                    className="text-[1.0625rem] leading-[1.75] text-[#78756F]"
+./src/marketing/components/platform/PlatformCTASection.tsx:14:• Белый фон (#FAF8F5), крупные вертикальные отступы
+./src/marketing/components/platform/PlatformCTASection.tsx:24:style={{ background: "#FAF8F5" }}
+./src/marketing/components/platform/PlatformCTASection.tsx:37:<div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/components/platform/PlatformCTASection.tsx:41:        <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">          {CTA_CONTENT.title}
+./src/marketing/components/platform/PlatformCTASection.tsx:49:              className="text-[1.0625rem] leading-[1.75] text-[#78756F]"
+./src/marketing/components/platform/PlatformCTASection.tsx:69:        <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:21: *   • Off-white фон (#F3F0EB) — контраст с CTA (белый) сверху
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:49:    <div className="border-b border-[#E8E4DD] last:border-b-0">
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:65:            style={{ color: "#A8A29E" }}
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:73:            style={{ color: open ? "#1A1917" : "#1A1917" }}
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:95:              stroke="#78756F"
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:104:              stroke="#78756F"
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:131:                  className="flex items-start gap-3 text-[#78756F]"
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:134:                    className="mt-2 flex h-1 w-1 shrink-0 rounded-full bg-[#C86B52]"
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:158:      style={{ background: "#F3F0EB" }}
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:170:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {TECHNICAL_CONTENT.title}
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:173:            <p className="mt-5 text-[1rem] leading-[1.75] text-[#78756F]">
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:186:            <div className="h-px w-full bg-[#E8E4DD]" aria-hidden="true" />
+./src/marketing/components/platform/PlatformFindingsSection.tsx:16: *   • Фон off-white (#F3F0EB) — ритмичное чередование после тёмной Standards
+./src/marketing/components/platform/PlatformFindingsSection.tsx:27:      style={{ background: "#F3F0EB" }}
+./src/marketing/components/platform/PlatformFindingsSection.tsx:40:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">                {FINDINGS_CONTENT.title}
+./src/marketing/components/platform/PlatformFindingsSection.tsx:47:                    className="text-[1rem] leading-[1.75] text-[#78756F]"
+./src/marketing/components/platform/PlatformHeroSection.tsx:12:      className="relative flex min-h-[85dvh] items-center overflow-hidden bg-[#FAF8F5]"
+./src/marketing/components/platform/PlatformHeroSection.tsx:29:            background: 'linear-gradient(90deg, #FAF8F5 0%, rgba(250,248,245,0.95) 20%, rgba(250,248,245,0.3) 60%, transparent 100%)'
+./src/marketing/components/platform/PlatformHeroSection.tsx:56:              className="mt-5 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]"
+./src/marketing/components/platform/PlatformHeroSection.tsx:69:                <p key={i} className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/components/platform/PlatformHeroSection.tsx:82:            <div className="h-px w-full bg-[#E8E4DD]" />
+./src/marketing/components/shared/MobileMenu.tsx:69:        className="fixed inset-y-0 right-0 z-50 flex w-[320px] max-w-[85vw] flex-col bg-[#FAF8F5] shadow-2xl transition-transform duration-300 ease-out"
+./src/marketing/components/shared/MobileMenu.tsx:89:                        color: isActive ? "#1A1917" : "#78756F",
+./src/marketing/components/shared/MobileMenu.tsx:111:                      color: isOnSolutions ? "#1A1917" : "#78756F",
+./src/marketing/components/shared/MobileMenu.tsx:124:                        color: "#A8A29E",
+./src/marketing/components/shared/MobileMenu.tsx:144:                        <div className="mt-1 mb-2 ml-3 border-l border-[#E8E4DD] pl-3">
+./src/marketing/components/shared/MobileMenu.tsx:147:                              <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#A8A29E]">
+./src/marketing/components/shared/MobileMenu.tsx:161:                                            ? "#1A1917"
+./src/marketing/components/shared/MobileMenu.tsx:162:                                            : "#78756F",
+./src/marketing/components/shared/MobileMenu.tsx:189:          className="shrink-0 border-t border-[#E8E4DD] p-4 space-y-2"
+./src/marketing/components/shared/MobileMenu.tsx:201:            className="flex w-full items-center justify-center rounded-full border border-[#E8E4DD] bg-white px-5 py-3.5 text-[0.9375rem] font-medium text-[#1A1917] transition-colors hover:border-[#D6D0C7]"
+./src/marketing/components/shared/SiteHeader.tsx:28:const MOBILE_FG = "#1A1917";
+./src/marketing/components/shared/SiteHeader.tsx:99:  const desktopColorPrimary = isDarkDesktop ? "#FFFFFF" : "#1A1917";
+./src/marketing/components/shared/SiteHeader.tsx:102:    : "#78756F";
+./src/marketing/components/shared/SiteHeader.tsx:263:                                      <p className="text-[15px] font-semibold text-[#1A1917] group-hover:text-[#C86B52] transition-colors">
+./src/marketing/components/shared/SiteFooter.tsx:8:    className="border-t border-[#E8E4DD] bg-[#F3F0EB]"
+./src/marketing/components/shared/SiteFooter.tsx:17:          <p className="text-[0.9375rem] leading-7 text-[#78756F]">
+./src/marketing/components/shared/SiteFooter.tsx:27:                className="block text-[0.9375rem] text-[#78756F] transition-colors hover:text-[#1A1917]"
+./src/marketing/components/shared/SiteFooter.tsx:39:            className="text-[#1A1917] transition-opacity hover:opacity-40"
+./src/marketing/components/shared/SiteFooter.tsx:46:      <div className="mt-10 flex flex-col gap-4 border-t border-[#E8E4DD] pt-6 sm:flex-row sm:items-center sm:justify-between">
+./src/marketing/components/shared/SiteFooter.tsx:47:        <p className="text-xs text-[#A8A29E]">
+./src/marketing/components/shared/MarketingPageFooter.tsx:8:    className="border-t border-[#E8E4DD] bg-[#F3F0EB]"
+./src/marketing/components/shared/MarketingPageFooter.tsx:17:          <p className="text-[0.9375rem] leading-7 text-[#78756F]">
+./src/marketing/components/shared/MarketingPageFooter.tsx:24:            <p className="text-[0.9375rem] font-medium text-[#1A1917]">
+./src/marketing/components/shared/MarketingPageFooter.tsx:31:                className="block text-[0.9375rem] text-[#78756F] transition-colors hover:text-[#1A1917]"
+./src/marketing/components/shared/MarketingPageFooter.tsx:43:            className="text-[#1A1917] transition-opacity hover:opacity-40"
+./src/marketing/components/shared/MarketingPageFooter.tsx:50:      <div className="mt-10 flex flex-col gap-4 border-t border-[#E8E4DD] pt-6 sm:flex-row sm:items-center sm:justify-between">
+./src/marketing/components/shared/MarketingPageFooter.tsx:51:        <p className="text-xs text-[#A8A29E]">
+./src/marketing/components/shared/MarketingPageHeader.tsx:18:    <header className="border-b border-white/[0.06] bg-[#1A1917]/95 backdrop-blur-xl">
+./src/marketing/components/shared/MarketingPageHeader.tsx:28:            className="inline-flex items-center gap-2 text-[0.9375rem] font-medium text-[#A8A29E] transition-colors hover:text-[#FAF8F5]"
+./src/marketing/components/shared/MarketingEditorialShell.tsx:20:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">
+./src/marketing/components/shared/MarketingEditorialShell.tsx:24:        <section className="border-b border-[#E8E4DD]">
+./src/marketing/components/shared/MarketingEditorialShell.tsx:34:                className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]"
+./src/marketing/components/shared/MarketingEditorialShell.tsx:39:              <p className="mt-6 max-w-3xl text-[1.0625rem] leading-[1.7] text-[#78756F]">
+./src/marketing/components/security/SecurityFAQSection.tsx:21: *   • Off-white фон (#F3F0EB)
+./src/marketing/components/security/SecurityFAQSection.tsx:43:    <div className="border-b border-[#E8E4DD] last:border-b-0">
+./src/marketing/components/security/SecurityFAQSection.tsx:57:            style={{ color: '#A8A29E' }}
+./src/marketing/components/security/SecurityFAQSection.tsx:65:            style={{ color: '#1A1917' }}
+./src/marketing/components/security/SecurityFAQSection.tsx:87:              stroke="#78756F"
+./src/marketing/components/security/SecurityFAQSection.tsx:96:              stroke="#78756F"
+./src/marketing/components/security/SecurityFAQSection.tsx:121:              <p className="text-[0.9375rem] leading-[1.75] text-[#78756F]">
+./src/marketing/components/security/SecurityFAQSection.tsx:128:                  <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#A8A29E]">
+./src/marketing/components/security/SecurityFAQSection.tsx:131:                  <span className="text-[#D6D0C7]">·</span>
+./src/marketing/components/security/SecurityFAQSection.tsx:134:                      {i > 0 && <span className="text-[#D6D0C7]">·</span>}
+./src/marketing/components/security/SecurityFAQSection.tsx:135:                      <span className="text-[0.8125rem] font-medium text-[#78756F]">
+./src/marketing/components/security/SecurityFAQSection.tsx:158:      style={{ background: '#F3F0EB' }}
+./src/marketing/components/security/SecurityFAQSection.tsx:171:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/security/SecurityFAQSection.tsx:180:            <p className="mt-5 text-[1rem] leading-[1.75] text-[#78756F]">
+./src/marketing/components/security/SecurityFAQSection.tsx:192:            <div className="border-l-2 border-[#D6D0C7] pl-5 py-2">
+./src/marketing/components/security/SecurityFAQSection.tsx:193:              <p className="text-[0.8125rem] leading-[1.7] text-[#A8A29E]">
+./src/marketing/components/security/SecurityFAQSection.tsx:204:            <div className="h-px w-full bg-[#E8E4DD]" aria-hidden="true" />
+./src/marketing/components/security/SecurityCTASection.tsx:20:      style={{ background: '#FAF8F5' }}
+./src/marketing/components/security/SecurityCTASection.tsx:33:            <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/components/security/SecurityCTASection.tsx:36:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/security/SecurityCTASection.tsx:50:                  className="text-[1.0625rem] leading-[1.75] text-[#78756F]"
+./src/marketing/components/security/SecurityCTASection.tsx:70:            <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
+./src/marketing/components/demo/DemoWhatYouSeeSection.tsx:17:          <div key={item.title} className="rounded-xl border border-[#E8E4DD] bg-white p-7">
+./src/marketing/components/demo/DemoWhatYouSeeSection.tsx:18:            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#E8E4DD] bg-[#F3F0EB]">
+./src/marketing/components/demo/DemoWhatYouSeeSection.tsx:19:              <item.icon className="h-5 w-5 text-[#78756F]" />
+./src/marketing/components/demo/DemoWhatYouSeeSection.tsx:21:            <h3 className="mt-6 text-xl font-semibold tracking-tight text-[#1A1917]">{item.title}</h3>
+./src/marketing/components/demo/DemoWhatYouSeeSection.tsx:22:            <p className="mt-3 text-sm leading-7 text-[#78756F]">{item.description}</p>
+./src/marketing/components/demo/DemoFormSection.tsx:24:      <div className="rounded-2xl border border-[#E8E4DD] bg-white p-7 lg:p-9">
+./src/marketing/components/demo/DemoFormSection.tsx:25:        <h2 className="font-serif text-2xl tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/demo/DemoFormSection.tsx:28:        <p className="mt-3 text-sm leading-7 text-[#78756F]">{demoContent.form.subtitle}</p>
+./src/marketing/components/demo/DemoFormSection.tsx:32:            <label className="mb-1.5 block text-xs font-medium text-[#78756F]">
+./src/marketing/components/demo/DemoFormSection.tsx:41:            <label className="mb-1.5 block text-xs font-medium text-[#78756F]">
+./src/marketing/components/demo/DemoFormSection.tsx:50:            <label className="mb-1.5 block text-xs font-medium text-[#78756F]">
+./src/marketing/components/demo/DemoFormSection.tsx:59:            <label className="mb-1.5 block text-xs font-medium text-[#78756F]">
+./src/marketing/components/demo/DemoFormSection.tsx:67:          <p className="text-xs text-[#A8A29E]">{demoContent.form.note}</p>
+./src/marketing/components/demo/DemoFormSection.tsx:75:      <aside className="rounded-2xl border border-[#E8E4DD] bg-[#F3F0EB] p-7">
+./src/marketing/components/demo/DemoFormSection.tsx:76:        <h3 className="font-serif text-xl tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/components/demo/DemoFormSection.tsx:81:            <li key={item} className="flex items-start gap-2.5 text-sm leading-6 text-[#78756F]">
+./src/marketing/components/demo/DemoFormSection.tsx:82:              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#A8A29E]" />
+./src/marketing/components/demo/DemoFormSection.tsx:87:        <p className="mt-8 text-xs text-[#A8A29E]">{demoContent.aside.time}</p>
+./src/marketing/components/demo/DemoHeroSection.tsx:8:    <section className="border-b border-[#E8E4DD] pb-14 pt-12 lg:pb-20 lg:pt-16">
+./src/marketing/components/demo/DemoHeroSection.tsx:12:      <h1 className="mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[#1A1917] sm:text-6xl lg:text-[4.5rem]">
+./src/marketing/components/demo/DemoHeroSection.tsx:15:      <p className="mt-6 max-w-2xl text-base leading-8 text-[#78756F]">
+./src/marketing/components/demo/DemoFaqSection.tsx:8:    <div className="border-b border-[#E8E4DD]">
+./src/marketing/components/demo/DemoFaqSection.tsx:14:        <span className="text-[0.9375rem] font-medium leading-6 text-[#1A1917]">{question}</span>
+./src/marketing/components/demo/DemoFaqSection.tsx:16:          className="mt-0.5 shrink-0 text-[#A8A29E] transition-transform duration-300"
+./src/marketing/components/demo/DemoFaqSection.tsx:28:        <p className="pb-5 text-[0.9375rem] leading-7 text-[#78756F]">{answer}</p>
+./src/marketing/components/demo/DemoFaqSection.tsx:42:      <div className="mt-8 rounded-xl border border-[#E8E4DD] bg-white px-6 py-2">
+./src/marketing/components/demo/DemoAudienceSection.tsx:9:      <div className="rounded-2xl border border-[#E8E4DD] bg-[#F3F0EB] p-7 lg:p-9">
+./src/marketing/components/demo/DemoAudienceSection.tsx:10:        <h2 className="font-serif text-3xl tracking-[-0.03em] text-[#1A1917] lg:text-4xl">
+./src/marketing/components/demo/DemoAudienceSection.tsx:15:            <div key={item.title} className="rounded-xl border border-[#E8E4DD] bg-white p-6">
+./src/marketing/components/demo/DemoAudienceSection.tsx:16:              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#E8E4DD] bg-[#FAF8F5]">
+./src/marketing/components/demo/DemoAudienceSection.tsx:17:                <item.icon className="h-5 w-5 text-[#78756F]" />
+./src/marketing/components/demo/DemoAudienceSection.tsx:19:              <h3 className="mt-5 text-base font-semibold text-[#1A1917]">{item.title}</h3>
+./src/marketing/components/demo/DemoAudienceSection.tsx:20:              <p className="mt-2 text-sm leading-7 text-[#78756F]">{item.description}</p>
+./src/marketing/components/about/AboutCTASection.tsx:17:      style={{ background: '#FAF8F5' }}
+./src/marketing/components/about/AboutCTASection.tsx:30:            <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/components/about/AboutCTASection.tsx:33:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/about/AboutCTASection.tsx:39:              <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/components/about/AboutCTASection.tsx:44:              <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/components/about/AboutCTASection.tsx:63:            <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
+./src/marketing/components/home/ContactModal.tsx:35:      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1A1917]/60 px-4 backdrop-blur-sm"
+./src/marketing/components/home/ContactModal.tsx:38:      <div className="relative w-full max-w-5xl overflow-hidden rounded-2xl border border-[#E8E4DD] bg-[#FAF8F5]">
+./src/marketing/components/home/ContactModal.tsx:42:          className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E4DD] bg-white text-[#78756F] transition-colors hover:text-[#1A1917]"
+./src/marketing/components/home/ContactModal.tsx:49:          <div className="border-b border-[#E8E4DD] bg-[#F3F0EB] p-8 lg:border-b-0 lg:border-r lg:p-10">
+./src/marketing/components/home/ContactModal.tsx:50:            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
+./src/marketing/components/home/ContactModal.tsx:54:            <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/home/ContactModal.tsx:58:            <p className="mt-4 max-w-md text-sm leading-7 text-[#78756F] lg:text-base">
+./src/marketing/components/home/ContactModal.tsx:63:            <div className="mt-7 rounded-xl border border-[#E8E4DD] bg-white p-5">
+./src/marketing/components/home/ContactModal.tsx:64:              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
+./src/marketing/components/home/ContactModal.tsx:72:                    className="rounded-lg border border-[#E8E4DD] bg-[#FAF8F5] px-4 py-3.5"
+./src/marketing/components/home/ContactModal.tsx:75:                      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1A1917] text-[11px] font-medium text-white">
+./src/marketing/components/home/ContactModal.tsx:78:                      <p className="text-sm leading-6 text-[#78756F]">{item}</p>
+./src/marketing/components/home/ContactModal.tsx:89:              <div className="inline-flex items-center gap-2 text-sm text-[#78756F]">
+./src/marketing/components/home/ContactModal.tsx:96:                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-[#A8A29E]">
+./src/marketing/components/home/ContactModal.tsx:110:                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-[#A8A29E]">
+./src/marketing/components/home/ContactModal.tsx:123:                <div className="rounded-lg border border-[#C86B52]/20 bg-[#F5EBE7] px-4 py-3 text-xs leading-relaxed text-[#C86B52]">
+./src/marketing/components/home/ContactModal.tsx:140:                    className="inline-flex items-center justify-center rounded-full border border-[#E8E4DD] bg-white px-5 py-3 text-sm text-[#78756F] transition-colors hover:text-[#1A1917]"
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:36:      className="relative flex items-center justify-center border-t border-[#E8E4DD] bg-[#F3F0EB]"
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:61:            <circle cx="260" cy="210" r="6" fill="#C86B52" opacity="1" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:62:            <circle cx="140" cy="130" r="4" fill="#C86B52" opacity="0.9" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:63:            <circle cx="380" cy="130" r="4" fill="#C86B52" opacity="0.9" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:64:            <circle cx="100" cy="290" r="3.5" fill="#C86B52" opacity="0.8" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:65:            <circle cx="420" cy="290" r="3.5" fill="#C86B52" opacity="0.8" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:66:            <circle cx="200" cy="340" r="3.5" fill="#C86B52" opacity="0.75" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:67:            <circle cx="320" cy="340" r="3.5" fill="#C86B52" opacity="0.75" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:68:            <line x1="260" y1="210" x2="140" y2="130" stroke="#C86B52" strokeWidth="1" opacity="0.85" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:69:            <line x1="260" y1="210" x2="380" y2="130" stroke="#C86B52" strokeWidth="1" opacity="0.85" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:70:            <line x1="260" y1="210" x2="100" y2="290" stroke="#C86B52" strokeWidth="0.9" opacity="0.75" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:71:            <line x1="260" y1="210" x2="420" y2="290" stroke="#C86B52" strokeWidth="0.9" opacity="0.75" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:72:            <line x1="260" y1="210" x2="200" y2="340" stroke="#C86B52" strokeWidth="0.8" opacity="0.7" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:73:            <line x1="260" y1="210" x2="320" y2="340" stroke="#C86B52" strokeWidth="0.8" opacity="0.7" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:74:            <line x1="140" y1="130" x2="380" y2="130" stroke="#C86B52" strokeWidth="0.5" opacity="0.5" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:75:            <line x1="100" y1="290" x2="420" y2="290" stroke="#C86B52" strokeWidth="0.5" opacity="0.5" />
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:81:            className="mt-6 font-serif text-[#1A1917]"
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:96:            className="mt-5 text-[1.0625rem] leading-[1.7] text-[#78756F]"
+./src/marketing/components/home/KnowledgeGrowthSection/index.tsx:42:      className="relative flex min-h-screen items-center bg-[#FAF8F5] py-20 lg:py-28 scroll-mt-0"
+./src/marketing/components/home/KnowledgeGrowthSection/index.tsx:73:            <h2 className="section-title !mt-2 text-[#1A1917]">
+./src/marketing/components/home/KnowledgeGrowthSection/index.tsx:76:              <em className="not-italic text-[#C86B52]">знание.</em>
+./src/marketing/components/home/KnowledgeGrowthSection/index.tsx:80:              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
+./src/marketing/components/home/KnowledgeGrowthSection/index.tsx:86:              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
+./src/marketing/components/home/KnowledgeGrowthSection/index.tsx:93:              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
+./src/marketing/components/home/ConceptTagsSection.tsx:9:    <span className="mx-3 inline-flex items-center whitespace-nowrap rounded-full border border-[#E8E4DD] bg-white px-6 py-3 text-[0.9375rem] font-medium tracking-tight text-[#78756F] transition-all duration-300 hover:border-[#D6D0C7] hover:text-[#1A1917]">
+./src/marketing/components/home/ConceptTagsSection.tsx:19:    <section className="overflow-hidden border-b border-[#E8E4DD] bg-[#FAF8F5] py-20 lg:py-28">
+./src/marketing/components/home/ConceptTagsSection.tsx:22:        <h2 className="section-title !mt-2 max-w-3xl whitespace-pre-line text-balance text-[#1A1917]">{title}</h2>
+./src/marketing/components/home/ConceptTagsSection.tsx:23:        <p className="section-desc text-center text-[#78756F]">{description}</p>
+./src/marketing/components/home/ConceptTagsSection.tsx:26:        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#FAF8F5] to-transparent sm:w-48" />
+./src/marketing/components/home/ConceptTagsSection.tsx:27:        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#FAF8F5] to-transparent sm:w-48" />
+./src/marketing/components/home/SecurityFoundationSection/index.tsx:53:      className="relative flex min-h-screen items-center bg-[#FAF8F5] py-20 lg:py-28 border-y border-[#E8E4DD] scroll-mt-0"
+./src/marketing/components/home/SecurityFoundationSection/index.tsx:67:                  <div className="mb-5 text-[#C86B52] transition-transform duration-500 group-hover:-translate-y-1">
+./src/marketing/components/home/SecurityFoundationSection/index.tsx:70:                  <h3 className="text-[1.125rem] font-medium text-[#1A1917] tracking-tight mb-2">
+./src/marketing/components/home/SecurityFoundationSection/index.tsx:73:                  <p className="text-[0.9375rem] leading-relaxed text-[#78756F] max-w-[280px]">
+./src/marketing/components/home/SecurityFoundationSection/index.tsx:85:            <h2 className="section-title !mt-2 text-[#1A1917]">
+./src/marketing/components/home/SecurityFoundationSection/index.tsx:90:              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
+./src/marketing/components/home/SecurityFoundationSection/index.tsx:93:              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:157:              <span className="eyebrow !text-[#C86B52]">Сценарий использования</span>
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:197:                              <p className="text-[15px] font-semibold text-[#1A1917] group-hover/item:text-[#C86B52] transition-colors">
+./src/marketing/components/home/PremiumHeroSection.tsx:25:      className="relative flex min-h-screen overflow-hidden bg-[#1A1917]"
+./src/marketing/components/home/PremiumHeroSection.tsx:60:              <span className="text-[#E8B4A0]">
+./src/marketing/components/home/PremiumHeroSection.tsx:70:                <circle cx="260" cy="210" r="5.5" fill="#C86B52" />
+./src/marketing/components/home/PremiumHeroSection.tsx:71:                <circle cx="140" cy="130" r="3.5" fill="#C86B52" opacity="0.85" />
+./src/marketing/components/home/PremiumHeroSection.tsx:72:                <circle cx="380" cy="130" r="3.5" fill="#C86B52" opacity="0.85" />
+./src/marketing/components/home/PremiumHeroSection.tsx:73:                <circle cx="100" cy="290" r="3" fill="#C86B52" opacity="0.7" />
+./src/marketing/components/home/PremiumHeroSection.tsx:74:                <circle cx="420" cy="290" r="3" fill="#C86B52" opacity="0.7" />
+./src/marketing/components/home/PremiumHeroSection.tsx:75:                <circle cx="200" cy="340" r="3" fill="#C86B52" opacity="0.65" />
+./src/marketing/components/home/PremiumHeroSection.tsx:76:                <circle cx="320" cy="340" r="3" fill="#C86B52" opacity="0.65" />
+./src/marketing/components/home/PremiumHeroSection.tsx:77:                <line x1="260" y1="210" x2="140" y2="130" stroke="#C86B52" strokeWidth="0.8" opacity="0.75" />
+./src/marketing/components/home/PremiumHeroSection.tsx:78:                <line x1="260" y1="210" x2="380" y2="130" stroke="#C86B52" strokeWidth="0.8" opacity="0.75" />
+./src/marketing/components/home/PremiumHeroSection.tsx:79:                <line x1="260" y1="210" x2="100" y2="290" stroke="#C86B52" strokeWidth="0.7" opacity="0.65" />
+./src/marketing/components/home/PremiumHeroSection.tsx:80:                <line x1="260" y1="210" x2="420" y2="290" stroke="#C86B52" strokeWidth="0.7" opacity="0.65" />
+./src/marketing/components/home/PremiumHeroSection.tsx:81:                <line x1="260" y1="210" x2="200" y2="340" stroke="#C86B52" strokeWidth="0.6" opacity="0.6" />
+./src/marketing/components/home/PremiumHeroSection.tsx:82:                <line x1="260" y1="210" x2="320" y2="340" stroke="#C86B52" strokeWidth="0.6" opacity="0.6" />
+./src/marketing/components/home/PremiumHeroSection.tsx:83:                <line x1="140" y1="130" x2="380" y2="130" stroke="#C86B52" strokeWidth="0.4" opacity="0.4" />
+./src/marketing/components/home/PremiumHeroSection.tsx:84:                <line x1="100" y1="290" x2="420" y2="290" stroke="#C86B52" strokeWidth="0.4" opacity="0.4" />
+./src/marketing/components/home/PremiumHeroSection.tsx:89:            <div className="max-w-md text-[1.0625rem] leading-[1.7] text-[#D6D0C7]">
+./src/marketing/components/home/FounderSection.tsx:19:      className="relative bg-[#FAF8F5] py-24 lg:py-36 border-y border-[#E8E4DD]"
+./src/marketing/components/home/FounderSection.tsx:36:              <div className="aspect-[4/5] w-full overflow-hidden rounded-[2.5rem] border border-[#E8E4DD] bg-[#F3F0EB] shadow-sm transition-all duration-1000">
+./src/marketing/components/home/FounderSection.tsx:46:                <div className="text-[1.125rem] font-serif italic text-[#1A1917]">
+./src/marketing/components/home/FounderSection.tsx:49:                <div className="mt-1 text-[0.8125rem] uppercase tracking-widest text-[#C86B52] font-bold">
+./src/marketing/components/home/FounderSection.tsx:62:            <div className="relative border-l border-[#C86B52]/20 pl-8 lg:pl-16">
+./src/marketing/components/home/FounderSection.tsx:67:                  className="font-serif leading-[1.2] tracking-tight text-[#1A1917]"
+./src/marketing/components/home/FounderSection.tsx:74:                  <p className="text-[1.125rem] leading-[1.7] text-[#78756F] max-w-2xl font-light">
+./src/marketing/components/home/FounderSection.tsx:77:                  <p className="text-[1.125rem] leading-[1.7] text-[#1A1917] max-w-2xl italic font-serif opacity-80">
+./src/marketing/components/home/FounderSection.tsx:84:                <Link to="/about" className="cta-link group inline-flex items-center gap-2 text-[0.9375rem] font-semibold text-[#1A1917]">
+./src/marketing/components/home/FaqSection.tsx:9:    <div className="border-b border-[#E8E4DD] last:border-b-0">
+./src/marketing/components/home/FaqSection.tsx:13:        className="flex w-full items-start justify-between gap-4 py-5 text-left transition-colors hover:bg-[#FAF8F5]"
+./src/marketing/components/home/FaqSection.tsx:15:        <span className="text-[0.9375rem] font-medium leading-relaxed text-[#1A1917]">
+./src/marketing/components/home/FaqSection.tsx:19:          className="mt-1 shrink-0 text-[#A8A29E] transition-transform duration-300"
+./src/marketing/components/home/FaqSection.tsx:39:        <p className="pb-6 pr-8 text-[0.9375rem] leading-relaxed text-[#78756F]">
+./src/marketing/components/home/FaqSection.tsx:51:    <section className="bg-[#F3F0EB] py-20 lg:py-28" data-header-theme="light">
+./src/marketing/components/home/FaqSection.tsx:60:            <h2 className="section-title text-[#1A1917]">
+./src/marketing/pages/DemoPage.tsx:13:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">
+./src/marketing/pages/solutions/CompliancePage.tsx:20:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917] selection:bg-[var(--color-accent)] selection:text-white">
+./src/marketing/pages/solutions/CompliancePage.tsx:26:          className="relative flex min-h-[85dvh] items-center overflow-hidden bg-[#1A1917]"
+./src/marketing/pages/solutions/CompliancePage.tsx:41:                background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.95) 25%, rgba(26,25,23,0.4) 60%, transparent 100%)'
+./src/marketing/pages/solutions/CompliancePage.tsx:74:                  className="mt-12 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]"
+./src/marketing/pages/solutions/CompliancePage.tsx:97:        <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/CompliancePage.tsx:99:            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#E8E4DD]/60">
+./src/marketing/pages/solutions/CompliancePage.tsx:101:                <Reveal><div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40"><ShieldCheck className="h-12 w-12 text-[var(--color-accent)] opacity-30" /></div>
+./src/marketing/pages/solutions/CompliancePage.tsx:102:                <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light"><strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Policy Control</strong>Автоматически применяйте внутренние стандарты, исключая вариативность трактовок и пропуски условий.</p></Reveal>
+./src/marketing/pages/solutions/CompliancePage.tsx:105:                <Reveal delay={0.1}><div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40"><Zap className="h-12 w-12 text-[var(--color-accent)] opacity-30" /></div>
+./src/marketing/pages/solutions/CompliancePage.tsx:106:                <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light"><strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Real-time Insights</strong>Моментально выявляйте аномалии, нетипичные риски и отклонения еще на этапе подготовки.</p></Reveal>
+./src/marketing/pages/solutions/CompliancePage.tsx:109:                <Reveal delay={0.2}><div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40"><History className="h-12 w-12 text-[var(--color-accent)] opacity-30" /></div>
+./src/marketing/pages/solutions/CompliancePage.tsx:110:                <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light"><strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Audit Readiness</strong>Формируйте прозрачную историю комплаенс-проверок с полной прослеживаемостью вывода.</p></Reveal>
+./src/marketing/pages/solutions/CompliancePage.tsx:117:        <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/CompliancePage.tsx:124:                <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/CompliancePage.tsx:127:                <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/CompliancePage.tsx:137:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-10 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/CompliancePage.tsx:141:                      <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CompliancePage.tsx:150:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Анализ структуры владения и выявление аффилированности с государственными структурами</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:154:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Флаггирование офшорных юрисдикций и нетипичных платежных реквизитов</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:158:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Проверка наличия антикоррупционных оговорок и условий о конфликте интересов</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:167:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-10 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/CompliancePage.tsx:171:                      <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CompliancePage.tsx:180:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Выявление нетипичных платежных условий: расчёты через третьих лиц, нестандартные счета</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:184:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Флаггирование навязанных субподрядчиков и необоснованных консультационных соглашений</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:188:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Контроль соответствия условий сделки внутренним пороговым значениям и политикам</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:197:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-10 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/CompliancePage.tsx:201:                      <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CompliancePage.tsx:210:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Сопоставление каждого договора с внутренними плейбуками и типовыми формами</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:214:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Выявление пропущенных обязательных условий, оговорок и положений</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:218:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Классификация документов по типам, риск-категориям и юрисдикциям</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:227:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-10 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/CompliancePage.tsx:231:                      <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CompliancePage.tsx:240:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Каждое заключение сопровождается ссылкой на конкретный абзац первоисточника</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:244:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Полная история проверок: что загружено, какие правила применены</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:248:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">Экспортируемые отчёты для внутреннего аудита и регуляторных проверок</span>
+./src/marketing/pages/solutions/CompliancePage.tsx:259:        <section className="relative bg-[#FAF8F5] py-28 lg:py-40 border-t border-[#E8E4DD]" data-header-theme="light">
+./src/marketing/pages/solutions/CompliancePage.tsx:262:                <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/pages/solutions/CompliancePage.tsx:263:                <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">Steloom не заменяет юридическую экспертизу <br /> <span className="italic font-light opacity-60 text-[var(--color-accent)]">и не выдает непрозрачные ответы</span></h2>
+./src/marketing/pages/solutions/CompliancePage.tsx:264:                <div className="mt-7 space-y-5 text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/CompliancePage.tsx:269:                <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">Обычно мы отвечаем в течение одного рабочего дня.</p>
+./src/marketing/pages/solutions/LawFirmsPage.tsx:23:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917] selection:bg-[var(--color-accent)] selection:text-white">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:45:    <section data-header-theme="light" className="bg-[#FAF8F5]">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:71:              className="mt-16 relative overflow-hidden rounded-none border border-[#E8E4DD] bg-white shadow-sm"
+./src/marketing/pages/solutions/LawFirmsPage.tsx:130:    <section data-header-theme="light" className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:138:              <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:149:                  <div className="h-48 w-full overflow-hidden border border-[#E8E4DD]/40 bg-[var(--bg-surface)]">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:157:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:160:                    <p className="mt-3 text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:173:                  <div className="h-48 w-full overflow-hidden border border-[#E8E4DD]/40 bg-[var(--bg-surface)]">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:181:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:184:                    <p className="mt-3 text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:227:      <div className="absolute inset-0 bg-[#111111]/78" />
+./src/marketing/pages/solutions/LawFirmsPage.tsx:308:    <section data-header-theme="light" className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:314:          <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:317:          <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] tracking-[-0.02em] text-[#1A1917] mb-16 max-w-none">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:323:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-10 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:326:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:335:                          <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:356:      className="bg-[#FAF8F5] py-28 lg:py-40 border-t border-[#E8E4DD]"
+./src/marketing/pages/solutions/LawFirmsPage.tsx:367:            <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/pages/solutions/LawFirmsPage.tsx:368:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:374:            <div className="mt-7 space-y-5 text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:389:            <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:29:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917] selection:bg-[var(--color-accent)] selection:text-white">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:35:        <section className="relative overflow-hidden bg-[#FAF8F5]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:55:              className="mt-8 relative overflow-hidden rounded-none border border-[#E8E4DD] bg-white shadow-sm"
+./src/marketing/pages/solutions/InternalAuditPage.tsx:85:              className="mt-20 lg:mt-32 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917] max-w-6xl"
+./src/marketing/pages/solutions/InternalAuditPage.tsx:100:        <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:105:            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#E8E4DD]/60">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:110:                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:113:                  <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:114:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Единый чек-лист</strong>
+./src/marketing/pages/solutions/InternalAuditPage.tsx:126:                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:129:                  <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:130:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Аудиторский след</strong>
+./src/marketing/pages/solutions/InternalAuditPage.tsx:142:                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:145:                  <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:146:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Сравнение периодов</strong>
+./src/marketing/pages/solutions/InternalAuditPage.tsx:159:        <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:167:                <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:170:                <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:182:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-8 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:186:                      <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:195:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:201:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:207:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:218:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-8 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:222:                      <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:231:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:237:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:243:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:254:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-8 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:258:                      <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:267:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:273:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:279:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:290:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-8 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:294:                      <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:303:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:309:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:315:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:332:          style={{ background: '#FAF8F5' }}
+./src/marketing/pages/solutions/InternalAuditPage.tsx:344:                <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/pages/solutions/InternalAuditPage.tsx:347:                <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:354:                  <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:359:                  <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:379:                <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:17:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917] selection:bg-[var(--color-accent)] selection:text-white">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:22:        <section className="relative overflow-hidden bg-[#FAF8F5]">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:55:              className="mt-16 relative overflow-hidden rounded-none border border-[#E8E4DD] bg-white shadow-sm"
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:66:              className="mt-20 lg:mt-32 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917] max-w-6xl"
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:80:        <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:85:            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#E8E4DD]/60">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:90:                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:93:                  <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:94:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Объемы и формат</strong>
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:104:                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:107:                  <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:108:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Акценты и направления</strong>
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:118:                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:121:                  <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:122:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Систематизация данных</strong>
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:135:          style={{ background: '#FAF8F5' }}
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:148:                <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:151:                <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:156:                {/* Абзацы — Паттерн: 1.0625rem / 1.75 / #78756F */}
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:158:                  <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:162:                  <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:27:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917] selection:bg-[var(--color-accent)] selection:text-white">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:55:      className="relative flex min-h-[68dvh] items-center overflow-hidden bg-[#1A1917]"
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:71:              "linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.96) 28%, rgba(26,25,23,0.58) 62%, transparent 100%)",
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:97:              className="mt-10 font-serif text-[clamp(2rem,4vw,3.05rem)] leading-[1.08] tracking-[-0.03em] text-[#FAF8F5]"
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:139:    <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:147:              <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:150:              <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:159:              <div className="space-y-6 text-[1rem] leading-[1.8] text-[#78756F] font-light">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:205:    <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:214:                <div className="flex h-full flex-col overflow-hidden border border-[#E8E4DD]/50 bg-[var(--bg-surface)]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:215:                  <div className="relative aspect-[4/3] overflow-hidden bg-[#EFEAE2]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:221:                    <div className="absolute inset-0 bg-gradient-to-t from-[#1A1917]/12 via-transparent to-transparent" />
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:225:                    <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:228:                    <p className="mt-4 text-[0.9375rem] leading-[1.7] text-[#78756F] font-light">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:301:    <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50" data-header-theme="light">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:308:            <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:311:            <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:323:              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-10 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:327:                    <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:338:                        <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:367:    <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:375:              <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:378:              <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:381:              <p className="mt-5 text-[0.95rem] leading-[1.75] text-[#78756F] font-light max-w-md">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:392:                    <div className="flex items-start gap-3 border-t border-[#E8E4DD]/60 pt-5">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:398:                      <p className="text-[0.9375rem] leading-[1.7] text-[#78756F] font-light">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:416:      className="relative bg-[#FAF8F5] py-28 lg:py-40 border-t border-[#E8E4DD]"
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:428:            <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:430:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:437:            <div className="mt-7 space-y-5 text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:457:            <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:25:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917] selection:bg-[var(--color-accent)] selection:text-white">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:48:    <section data-header-theme="light" className="bg-[#FAF8F5]">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:64:                className="overflow-hidden rounded-none border border-[#E8E4DD] bg-white shadow-sm"
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:115:    <section data-header-theme="light" className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:123:              <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:134:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:137:                    <p className="mt-3 text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:186:    <section data-header-theme="light" className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:194:              <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:204:                  <div className="h-48 w-full overflow-hidden border border-[#E8E4DD]/40 bg-[var(--bg-surface)]">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:212:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:215:                    <p className="mt-3 text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:228:                  <div className="h-48 w-full overflow-hidden border border-[#E8E4DD]/40 bg-[var(--bg-surface)]">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:236:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:239:                    <p className="mt-3 text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:282:      <div className="absolute inset-0 bg-[#111111]/78" />
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:363:    <section data-header-theme="light" className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:369:          <p className="text-[0.8125rem] uppercase tracking-[0.12em] text-[#A8A29E] font-medium mb-4">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:372:          <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] tracking-[-0.02em] text-[#1A1917] mb-16 max-w-none">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:379:                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-10 border-t border-[#E8E4DD]/60">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:382:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:391:                          <span className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:412:      className="bg-[#FAF8F5] py-28 lg:py-40 border-t border-[#E8E4DD]"
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:423:            <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:424:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:430:            <div className="mt-7 space-y-5 text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:447:            <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:17:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917] selection:bg-[var(--color-accent)] selection:text-white">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:22:        <section className="relative overflow-hidden bg-[#FAF8F5]">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:68:                  className="relative overflow-hidden rounded-none border border-[#E8E4DD] bg-white shadow-sm"
+./src/marketing/pages/solutions/ContractReviewPage.tsx:81:              className="mt-20 lg:mt-32 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917] max-w-6xl"
+./src/marketing/pages/solutions/ContractReviewPage.tsx:95:        <section className="bg-[#FAF8F5] border-t border-[#E8E4DD]/50">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:100:            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#E8E4DD]/60">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:104:                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:107:                  <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:108:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Единый стандарт</strong>
+./src/marketing/pages/solutions/ContractReviewPage.tsx:118:                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:121:                  <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:122:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Выявление аномалий</strong>
+./src/marketing/pages/solutions/ContractReviewPage.tsx:132:                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[#E8E4DD]/40">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:135:                  <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:136:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Связанность данных</strong>
+./src/marketing/pages/solutions/ContractReviewPage.tsx:149:          style={{ background: '#FAF8F5' }}
+./src/marketing/pages/solutions/ContractReviewPage.tsx:161:                <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
+./src/marketing/pages/solutions/ContractReviewPage.tsx:162:                <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:167:                  <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:171:                  <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:187:                <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
+./src/marketing/pages/HomePage.tsx:19:      <main className="text-[#1A1917]"> {/* Фиксируем основной цвет для всего контента */}
+./src/marketing/pages/HomePage.tsx:23:        <div className="bg-[#FAF8F5] text-[#1A1917]">
+./src/marketing/pages/CapabilitiesPage.tsx:40:    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">

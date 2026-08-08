@@ -113,6 +113,7 @@ evidence:
   max_snippet_length: 700
 
 retrieval:
+  retrieval_profile: "warranties_check"
   context_k: 5
   max_chunks: 10
 
@@ -170,7 +171,7 @@ retrieval:
 
   preferred_clause_functions:
     - "representations"
-    - "indemnification"
+    - "remedies"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -194,16 +195,17 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "representations_warranties"
-    - "liability"
-    - "intellectual_property"
+    - "representations"
+    - "limitations"
+    - "rights"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 460
+  llm_max_tokens: 1250
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A.

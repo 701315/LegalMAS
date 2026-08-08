@@ -81,7 +81,7 @@ const Field: React.FC<FieldProps> = ({
         <span>{label}</span>
         {required && (
           <span
-            className="ml-1 text-[var(--color-error)]"
+            className="ml-1 text-[var(--color-error-text)]"
             aria-hidden="true"
           >
             *
@@ -95,7 +95,7 @@ const Field: React.FC<FieldProps> = ({
         <p
           id={errorId}
           className={cn(
-            "text-[11px] leading-5 text-[var(--color-error)]",
+            "text-[11px] leading-5 text-[var(--color-error-text)]",
             hintClassName,
           )}
         >

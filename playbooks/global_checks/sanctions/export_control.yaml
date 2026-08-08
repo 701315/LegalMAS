@@ -119,6 +119,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "sanctions_compliance_check"
   context_k: 5
   max_chunks: 10
   
@@ -169,7 +170,7 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "compliance"
+    - "obligations"
     - "obligations"
     - "representations"
 
@@ -194,16 +195,17 @@ enrichment_hints:
     - "invoice"
     - "act"
   preferred_clause_functions:
-    - "representations_warranties"
-    - "general_provisions"
-    - "compliance"
+    - "representations"
+    - "boilerplate"
+    - "obligations"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 1050
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по экспортному контролю.

@@ -1,9 +1,12 @@
-// =============================================================
 // src/components/InlineAlert.tsx
-// Унифицированный inline-alert для product UI.
-// =============================================================
 
 import React from "react";
+import {
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+} from "lucide-react";
 
 type InlineAlertTone = "success" | "error" | "info" | "warning";
 
@@ -12,15 +15,40 @@ interface InlineAlertProps {
   message: string | null;
 }
 
-const toneClasses: Record<InlineAlertTone, string> = {
-  success:
-    "border-[rgba(67,122,34,0.18)] bg-[rgba(67,122,34,0.08)] text-[rgb(47,93,24)]",
-  error:
-    "border-[rgba(161,53,68,0.22)] bg-[rgba(161,53,68,0.08)] text-[rgb(120,35,46)]",
-  info:
-    "border-[rgba(1,105,111,0.18)] bg-[var(--accent-muted)] text-[var(--accent-primary)]",
-  warning:
-    "border-[rgba(150,66,25,0.18)] bg-[rgba(150,66,25,0.08)] text-[rgb(122,59,27)]",
+interface ToneConfig {
+  containerClass: string;
+  icon: React.ReactNode;
+}
+
+const TONE_CONFIG: Record<InlineAlertTone, ToneConfig> = {
+  success: {
+    containerClass:
+      "border-[var(--color-success-border)] " +
+      "bg-[var(--color-success-bg)] " +
+      "text-[var(--color-success-text)]",
+    icon: <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />,
+  },
+  error: {
+    containerClass:
+      "border-[var(--color-error-border)] " +
+      "bg-[var(--color-error-bg)] " +
+      "text-[var(--color-error-text)]",
+    icon: <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />,
+  },
+  warning: {
+    containerClass:
+      "border-[var(--color-warning-border)] " +
+      "bg-[var(--color-warning-bg)] " +
+      "text-[var(--color-warning-text)]",
+    icon: <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />,
+  },
+  info: {
+    containerClass:
+      "border-[color:color-mix(in_oklab,var(--accent-primary)_20%,transparent)] " +
+      "bg-[var(--accent-muted)] " +
+      "text-[var(--accent-primary)]",
+    icon: <Info className="h-4 w-4 shrink-0" aria-hidden="true" />,
+  },
 };
 
 const InlineAlert: React.FC<InlineAlertProps> = ({ tone, message }) => {
@@ -34,11 +62,12 @@ const InlineAlert: React.FC<InlineAlertProps> = ({ tone, message }) => {
         <div
           role={tone === "error" ? "alert" : "status"}
           className={[
-            "rounded-[18px] border px-4 py-3 text-sm shadow-sm",
-            toneClasses[tone],
+            "flex items-start gap-3 rounded-[var(--radius-lg)] border px-4 py-3 text-sm shadow-sm",
+            TONE_CONFIG[tone].containerClass,
           ].join(" ")}
         >
-          {message}
+          <span className="mt-0.5">{TONE_CONFIG[tone].icon}</span>
+          <span className="leading-relaxed">{message}</span>
         </div>
       ) : (
         <div className="sr-only" role="status" />
@@ -48,7 +77,5 @@ const InlineAlert: React.FC<InlineAlertProps> = ({ tone, message }) => {
 };
 
 export default InlineAlert;
-
-
 
 

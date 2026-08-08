@@ -179,28 +179,28 @@ function getReviewStatusIcon(tone: ReviewStatusTone): React.ReactNode {
 
   switch (tone) {
     case "success":
-      return <CheckCircle2 className={`${iconClass} text-emerald-600`} aria-hidden />;
+      return <CheckCircle2 className={`${iconClass} text-[var(--color-success)]`} aria-hidden />;
     case "warning":
-      return <XCircle className={`${iconClass} text-amber-600`} aria-hidden />;
+      return <XCircle className={`${iconClass} text-[var(--color-warning)]`} aria-hidden />;
     case "muted":
-      return <MinusCircle className={`${iconClass} text-gray-500`} aria-hidden />;
+      return <MinusCircle className={`${iconClass} text-[var(--text-muted)]`} aria-hidden />;
     case "unknown":
     default:
-      return <HelpCircle className={`${iconClass} text-gray-400`} aria-hidden />;
+      return <HelpCircle className={`${iconClass} text-[var(--text-faint)]`} aria-hidden />;
   }
 }
 
 function getReviewStatusTextToneClass(tone: ReviewStatusTone): string {
   switch (tone) {
     case "success":
-      return "text-emerald-700 dark:text-emerald-300";
+      return "status-text-success";
     case "warning":
-      return "text-amber-700 dark:text-amber-300";
+      return "status-text-warning";
     case "muted":
-      return "text-gray-500 dark:text-gray-400";
+      return "text-[var(--text-muted)]";
     case "unknown":
     default:
-      return "text-gray-400 dark:text-gray-500";
+      return "text-[var(--text-faint)]";
   }
 }
 
@@ -906,12 +906,12 @@ const openDrawerForRow = useCallback(
 
           const toneClass =
             row.qcStatusTone === "success"
-              ? "border-emerald-500/40 bg-emerald-100 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100"
+              ? "status-border-success status-bg-success status-text-success"
               : row.qcStatusTone === "error"
-                ? "border-red-500/40 bg-red-100 text-red-900 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-100"
+                ? "status-border-error status-bg-error status-text-error"
                 : row.qcStatusTone === "warning"
-                  ? "border-amber-500/40 bg-amber-100 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100"
-                  : "border-gray-400 bg-gray-50 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+                  ? "status-border-warning status-bg-warning status-text-warning"
+                  : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
 
           return (
             <div className="flex h-full items-center">
@@ -944,10 +944,10 @@ const openDrawerForRow = useCallback(
           }
           const toneClass =
             row.confidenceTier === "high"
-              ? "text-emerald-700 dark:text-emerald-300"
+              ? "status-text-success"
               : row.confidenceTier === "medium"
-                ? "text-amber-700 dark:text-amber-300"
-                : "text-red-700 dark:text-red-300";
+                ? "status-text-warning"
+                : "status-text-error";
           return (
             <span className={`text-xs font-medium ${toneClass}`}>
               {row.confidenceFormatted}
@@ -979,7 +979,7 @@ const openDrawerForRow = useCallback(
               {row.qualityFlags.map((flag) => (
                 <span
                   key={flag.key}
-                  className="inline-flex items-center rounded border border-amber-400 bg-amber-100 px-1 py-0 text-[10px] font-medium text-amber-900 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-200"
+                  className="status-border-warning status-bg-warning status-text-warning inline-flex items-center rounded border px-1 py-0 text-[10px] font-medium"
                   title={flag.key}
                 >
                   {flag.label}

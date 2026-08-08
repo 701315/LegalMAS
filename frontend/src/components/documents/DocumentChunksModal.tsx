@@ -1,11 +1,6 @@
 // =============================================================
 // src/components/documents/DocumentChunksModal.tsx
 // Модалка для просмотра документа в виде чанков (Markdown).
-//
-// Для непрофессионального пользователя:
-// - показывает специальный файл, где документ разбит на чанки,
-//   так как его «видит» система чанкинга;
-// - помогает глазами проверить границы чанков и структуру.
 // =============================================================
 
 import React, { useEffect, useState } from "react";
@@ -128,12 +123,12 @@ export const DocumentChunksModal: React.FC<Props> = ({
           )}
 
           {loadError && !isLoading && (
-            <div className="flex h-[70vh] flex-col items-center justify-center rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-4 text-center">
+            <div className="flex h-[70vh] flex-col items-center justify-center rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 text-center">
               <AlertTriangle
                 size={18}
-                className="mb-1 text-[var(--color-error)]"
+                className="mb-1 text-[var(--color-error-text)]"
               />
-              <p className="text-xs font-medium text-[var(--color-error-strong)]">
+              <p className="text-xs font-medium text-[var(--color-error-text)]">
                 Ошибка при загрузке файла чанков
               </p>
               <p className="mt-1 break-words text-[11px] text-[var(--text-muted)]">
@@ -176,3 +171,5 @@ export const DocumentChunksModal: React.FC<Props> = ({
 };
 
 export default DocumentChunksModal;
+
+

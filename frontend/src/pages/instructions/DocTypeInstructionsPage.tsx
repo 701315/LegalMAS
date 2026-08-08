@@ -83,6 +83,8 @@ const SearchInput: React.FC<SearchInputProps> = ({
         "outline-none transition-colors",
         "placeholder:text-[var(--text-muted)]",
         "focus:border-[var(--accent-primary)]",
+        "focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35",
+        "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
       ].join(" ")}
     />
     {value.length > 0 && (
@@ -90,7 +92,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
         type="button"
         onClick={() => onChange("")}
         aria-label="Очистить поиск"
-        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)]"
+        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -120,7 +122,7 @@ const DocTypeCatalogItemCard: React.FC<DocTypeCatalogItemCardProps> = ({
     <button
       type="button"
       onClick={onClick}
-      className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md"
+      className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -153,7 +155,7 @@ const DocTypeCatalogItemCard: React.FC<DocTypeCatalogItemCardProps> = ({
           <div className="flex items-center gap-1">
             {hasPublished ? (
               <CheckCircle
-                className="h-3.5 w-3.5 text-[color:var(--color-success-text)]"
+                className="h-3.5 w-3.5 text-[var(--color-success)]"
                 aria-hidden="true"
               />
             ) : (
@@ -169,12 +171,12 @@ const DocTypeCatalogItemCard: React.FC<DocTypeCatalogItemCardProps> = ({
             <div className="flex items-center gap-1">
               {draftIsInvalid ? (
                 <AlertTriangle
-                  className="h-3.5 w-3.5 text-[color:var(--color-warning-text,#92400e)]"
+                  className="h-3.5 w-3.5 text-[var(--color-warning-text)]"
                   aria-hidden="true"
                 />
               ) : (
                 <Circle
-                  className="h-3.5 w-3.5 text-[color:var(--color-warning-text,#92400e)]"
+                  className="h-3.5 w-3.5 text-[var(--color-warning-text)]"
                   aria-hidden="true"
                 />
               )}
@@ -212,16 +214,16 @@ const GroupSection: React.FC<GroupSectionProps> = ({
   const groupId = `group-${groupKeyOf(parent)}`;
 
   return (
-    <section className="space-y-3">
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={!isCollapsed}
         aria-controls={groupId}
-        className="group flex w-full items-center gap-2 border-b border-[var(--border-soft)] pb-2 text-left transition-colors hover:border-[var(--border)]"
+        className="group flex w-full items-start gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
       >
         <span
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors group-hover:bg-[var(--bg-elevated-soft)] group-hover:text-[var(--text-primary)]"
+          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors group-hover:bg-[var(--bg-elevated-soft)] group-hover:text-[var(--text-primary)]"
           aria-hidden="true"
         >
           {isCollapsed ? (
@@ -231,16 +233,28 @@ const GroupSection: React.FC<GroupSectionProps> = ({
           )}
         </span>
 
-        <h2 className="flex-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition-colors group-hover:text-[var(--text-primary)]">
-          {displayName}
-          <span className="ml-1.5 normal-case tracking-normal text-[var(--text-faint)]">
-            · {items.length}
-          </span>
-        </h2>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition-colors group-hover:text-[var(--text-primary)]">
+              {displayName}
+            </h2>
+            <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+              {items.length}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">
+            {isCollapsed
+              ? "Раздел свёрнут"
+              : "Выберите тип документа для просмотра версий и управления черновиками."}
+          </p>
+        </div>
       </button>
 
       {!isCollapsed && (
-        <div id={groupId} className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <div
+          id={groupId}
+          className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-2"
+        >
           {items.map((item) => (
             <DocTypeCatalogItemCard
               key={item.doc_type_code}
@@ -266,7 +280,6 @@ const DocTypeInstructionsPage: React.FC = () => {
     () => new Set(),
   );
 
-  // ── Import YAML dialog ─────────────────────────────────────
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const createDraft = useCreateInstructionDraft();
@@ -400,62 +413,62 @@ const DocTypeInstructionsPage: React.FC = () => {
     currentGroupKeys.every((key) => collapsedGroups.has(key));
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-      <div className="animate-fadein space-y-6">
-        <button
-          type="button"
-          onClick={() => navigate("/admin/instructions")}
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Инструкции
-        </button>
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <header>
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Инструкции по типам документов
-            </h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Выберите тип документа для управления версиями инструкции.
-            </p>
-          </header>
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate("/admin/instructions")}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Инструкции
+              </button>
 
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleImportOpen}
-            leftIcon={<Plus className="h-3.5 w-3.5" />}
-          >
-            Добавить инструкцию
-          </Button>
-        </div>
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                Инструкции по типам документов
+              </h1>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Выберите тип документа для управления версиями инструкции.
+              </p>
 
-        {!isLoading && !isError && totalCount > 0 && (
-          <p className="text-sm text-[var(--text-muted)]">
-            Всего:{" "}
-            <span className="font-semibold text-[var(--text-primary)]">
-              {totalCount}
-            </span>
-            <span className="mx-1.5">·</span>
-            Published:{" "}
-            <span className="font-semibold text-[color:var(--color-success-text)]">
-              {publishedCount}
-            </span>
-            <span className="mx-1.5">·</span>
-            С черновиком:{" "}
-            <span className="font-semibold text-[var(--text-primary)]">
-              {draftCount}
-            </span>
-          </p>
-        )}
+              {!isLoading && !isError && totalCount > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
+                  <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
+                    Всего: {totalCount}
+                  </span>
+                  <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-1 text-[var(--color-success-text)]">
+                    Published: {publishedCount}
+                  </span>
+                  <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
+                    С черновиком: {draftCount}
+                  </span>
+                </div>
+              )}
+            </div>
 
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleImportOpen}
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
+            >
+              Добавить инструкцию
+            </Button>
+          </div>
+        </header>
+
+        {/* ── Sticky toolbar ──────────────────────────────────── */}
         {!isLoading && !isError && totalCount > 0 && (
           <div
             className={[
-              "sticky -top-6 z-10 -mx-6 md:-top-8 md:-mx-8",
+              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
               "border-b border-[var(--border-soft)] bg-[var(--bg-surface)]/95",
-              "px-6 py-3 backdrop-blur-sm md:px-8",
+              "px-4 py-3 backdrop-blur-sm md:px-5",
             ].join(" ")}
           >
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -474,7 +487,7 @@ const DocTypeInstructionsPage: React.FC = () => {
               </div>
 
               {hasMultipleGroups && (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center">
                   <Button
                     type="button"
                     size="sm"
@@ -543,7 +556,7 @@ const DocTypeInstructionsPage: React.FC = () => {
           )}
 
         {!isLoading && !isError && filteredItems.length > 0 && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {groupedItems.map(([parent, groupItems]) => {
               const key = groupKeyOf(parent);
 
@@ -562,7 +575,6 @@ const DocTypeInstructionsPage: React.FC = () => {
         )}
       </div>
 
-      {/* ── Import YAML dialog ──────────────────────────────── */}
       <ImportYamlDialog
         open={isImportOpen}
         kind="doc-type"
@@ -576,4 +588,5 @@ const DocTypeInstructionsPage: React.FC = () => {
 };
 
 export default DocTypeInstructionsPage;
+
 

@@ -20,9 +20,7 @@ export const TriggerList: React.FC<Props> = ({
 }) => {
   if (!triggers || triggers.length === 0) {
     return (
-      <span className="text-xs italic text-[var(--text-tertiary,#9ca3af)]">
-        —
-      </span>
+      <span className="text-xs italic text-[var(--text-tertiary)]">—</span>
     );
   }
 
@@ -42,23 +40,22 @@ export const TriggerList: React.FC<Props> = ({
           className={cn(
             "inline-flex max-w-full items-center rounded-full border px-2 py-0.5",
             "text-[11px] font-medium leading-none",
-            "border-[var(--color-blue,#1d4ed8)]/15 bg-[var(--color-blue-highlight,#eff6ff)] text-[var(--color-blue,#1d4ed8)]",
+            "border-[color:color-mix(in_oklab,var(--color-blue)_15%,transparent)]",
+            "bg-[var(--color-blue-highlight)]",
+            "text-[var(--color-blue)]",
           )}
         >
           <span className="truncate">{trigger}</span>
         </span>
       ))}
 
-      {hidden > 0 ? (
-        <span className="text-xs text-[var(--text-tertiary,#9ca3af)]">
-          +{hidden}
-        </span>
-      ) : null}
+      {hidden > 0 && (
+        <span className="text-xs text-[var(--text-tertiary)]">+{hidden}</span>
+      )}
     </div>
   );
 };
 
 export default TriggerList;
-
 
 

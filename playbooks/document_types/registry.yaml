@@ -212,6 +212,20 @@ document_types:
     category: "contract"
     group: "group_9_special"
 
+  - type: "contract_9.3_prenuptial_agreement"
+    name: "Брачный договор (брачный контракт)"
+    category: "contract"
+    group: "group_9_special"
+
+  - type: "contract_9.4_alimony_agreement"
+    name: "Алиментное соглашение (соглашение об уплате алиментов)"
+    category: "contract"
+    group: "group_9_special"
+
+  - type: "contract_9.5_founders_agreement"
+    name: "Договор об учреждении общества (Учредительный договор)"
+    category: "contract"
+    group: "group_9_special"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # DOCUMENT TYPE GROUPS

@@ -1,0 +1,6 @@
+      2 48:className="mt-10"><button
+      2 48:className="cta-primary">Запросить демонстрацию</button
+      2 136:className="mt-10"><button
+      2 136:className="cta-primary">Запросить демонстрацию</button
+      1 268:className="mt-10"><button
+      1 268:className="cta-primary">Запросить демонстрацию <ArrowRight className="h-3.5 w-3.5" /></button

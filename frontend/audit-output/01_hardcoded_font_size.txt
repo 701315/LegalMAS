@@ -1,0 +1,18 @@
+./src/styles/ag-theme-legalmas.css:66:  --ag-font-size: 12px;
+./src/styles/ag-theme-legalmas.css:67:  --ag-header-font-size: 11px;
+./src/styles/ag-theme-legalmas.css:135:  font-size: 11px;
+./src/styles/ag-theme-legalmas.css:287:    --ag-font-size: 12px;
+./src/styles/ag-theme-legalmas.css:288:    --ag-header-font-size: 12px;
+./src/pages/PlaybooksRegistryPage.tsx:251:    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #111; }
+./src/pages/PlaybooksRegistryPage.tsx:252:    h1 { font-size: 18pt; margin-bottom: 6pt; }
+./src/pages/PlaybooksRegistryPage.tsx:253:    h2 { font-size: 14pt; margin-top: 24pt; margin-bottom: 6pt; border-bottom: 1px solid #999; padding-bottom: 4pt; }
+./src/pages/PlaybooksRegistryPage.tsx:254:    h3 { font-size: 12pt; margin-top: 12pt; margin-bottom: 4pt; }
+./src/pages/PlaybooksRegistryPage.tsx:255:    .meta { color: #555; font-size: 10pt; margin-bottom: 8pt; }
+./src/pages/PlaybooksRegistryPage.tsx:257:    table { border-collapse: collapse; width: 100%; margin-top: 6pt; font-size: 10pt; }
+./src/index.css:522:    font-size: 0.875rem;
+./src/index.css:555:    font-size: 0.875rem;
+./src/index.css:575:    font-size: 0.6875rem;
+./src/index.css:594:    font-size: 1.05rem;
+./src/index.css:605:    font-size: 0.75rem;
+./src/index.css:749:  font-size: 0.875rem;
+./src/index.css:772:  font-size: 0.875rem;

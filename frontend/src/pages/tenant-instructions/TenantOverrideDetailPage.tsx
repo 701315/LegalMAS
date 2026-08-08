@@ -23,29 +23,27 @@ import type {
   JsonPatchOperation,
 } from "../../types/instructions";
 
-/* ── Helpers ────────────────────────────────────────────────── */
-
-const sectionLabel =
-  "text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]";
-
-const metaLabelCls =
-  "text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]";
-
-/* ── Meta field ─────────────────────────────────────────────── */
+// ─────────────────────────────────────────────────────────────
+// MetaItem
+// ─────────────────────────────────────────────────────────────
 
 const MetaItem: React.FC<{ label: string; value: string }> = ({
   label,
   value,
 }) => (
-  <div>
-    <p className={metaLabelCls}>{label}</p>
-    <p className="mt-0.5 break-all font-mono text-[10px] text-[var(--text-primary)]">
+  <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2.5">
+    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+      {label}
+    </p>
+    <p className="mt-0.5 break-all font-mono text-[11px] text-[var(--text-primary)]">
       {value}
     </p>
   </div>
 );
 
-/* ── Page ───────────────────────────────────────────────────── */
+// ─────────────────────────────────────────────────────────────
+// Page
+// ─────────────────────────────────────────────────────────────
 
 const TenantOverrideDetailPage: React.FC = () => {
   const { overrideId } = useParams<{ overrideId: string }>();
@@ -71,8 +69,7 @@ const TenantOverrideDetailPage: React.FC = () => {
 
   const patchOps: JsonPatchOperation[] = override?.patch_ops ?? [];
 
-  const canActivate =
-    override?.status === "draft" && !override?.is_stale;
+  const canActivate = override?.status === "draft" && !override?.is_stale;
   const canArchive =
     override?.status === "draft" || override?.status === "active";
 
@@ -117,31 +114,35 @@ const TenantOverrideDetailPage: React.FC = () => {
     }
   };
 
-  /* ── Loading ── */
+  // ── Loading ─────────────────────────────────────────────────
+
   if (isLoading) {
     return (
-      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-        <LoadingBlock text="Загружаем override…" rows={4} />
+      <div className="h-full overflow-y-auto overscroll-contain">
+        <div className="animate-fadein p-4 md:p-5">
+          <LoadingBlock text="Загружаем override…" rows={4} />
+        </div>
       </div>
     );
   }
 
-  /* ── Error / not found ── */
+  // ── Error / not found ───────────────────────────────────────
+
   if (isError || (!isLoading && !override)) {
     return (
-      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-        <div className="animate-fadein space-y-4">
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
-            Override не найден или нет доступа.
-          </div>
+      <div className="h-full overflow-y-auto overscroll-contain">
+        <div className="animate-fadein space-y-4 p-4 md:p-5">
+          <InlineAlert
+            tone="error"
+            message="Override не найден или нет доступа."
+          />
           <Button
             variant="secondary"
             size="sm"
-            onClick={() =>
-              navigate("/tenant-admin/instructions/overrides")
-            }
+            onClick={() => navigate("/tenant-admin/instructions/overrides")}
+            leftIcon={<ArrowLeft className="h-3.5 w-3.5" />}
           >
-            ← К списку overrides
+            К списку overrides
           </Button>
         </div>
       </div>
@@ -157,67 +158,66 @@ const TenantOverrideDetailPage: React.FC = () => {
 
   return (
     <>
-      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-        <div className="animate-fadein space-y-6">
-          {/* Back-link */}
-          <button
-            type="button"
-            onClick={() =>
-              navigate("/tenant-admin/instructions/overrides")
-            }
-            className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Overrides
-          </button>
+      <div className="h-full overflow-y-auto overscroll-contain">
+        <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-          {/* Header */}
-          <header className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Tenant Override
-              </h1>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">
-                {override.change_summary ?? override.id}
-              </p>
+          {/* ── Шапка ───────────────────────────────────────────── */}
+          <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/tenant-admin/instructions/overrides")
+                  }
+                  className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Overrides
+                </button>
+
+                <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                  Tenant Override
+                </h1>
+                {override.change_summary && (
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                    {override.change_summary}
+                  </p>
+                )}
+              </div>
+
+              <OverrideStatusBadge
+                status={override.status}
+                isStale={override.is_stale}
+                size="sm"
+              />
             </div>
-            <OverrideStatusBadge
-              status={override.status}
-              isStale={override.is_stale}
-              size="sm"
-            />
           </header>
 
-          {/* Alerts */}
-          {actionError && (
-            <InlineAlert tone="error" message={actionError} />
-          )}
-          {actionSuccess && (
-            <InlineAlert tone="success" message={actionSuccess} />
-          )}
+          {/* ── Alerts ──────────────────────────────────────────── */}
+          {actionError && <InlineAlert tone="error" message={actionError} />}
+          {actionSuccess && <InlineAlert tone="success" message={actionSuccess} />}
 
-          {/* Stale warning */}
+          {/* ── Stale warning ────────────────────────────────────── */}
           {override.is_stale && <StaleWarningBanner scope="tenant" />}
 
-          {/* Meta */}
+          {/* ── Детали ──────────────────────────────────────────── */}
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-            <h2 className={sectionLabel}>Детали</h2>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              Детали
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <MetaItem label="Override ID" value={override.id} />
               <MetaItem
                 label="Base Version"
-                value={
-                  baseVersionId
-                    ? `${baseVersionId.slice(0, 8)}…`
-                    : "—"
-                }
+                value={baseVersionId ? `${baseVersionId.slice(0, 8)}…` : "—"}
               />
               <MetaItem
                 label="Base Hash"
                 value={`${override.base_content_hash.slice(0, 12)}…`}
               />
             </div>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <MetaItem
                 label="Scope"
                 value={
@@ -233,45 +233,47 @@ const TenantOverrideDetailPage: React.FC = () => {
             </div>
           </section>
 
-          {/* Patch ops — read only */}
+          {/* ── Patch Operations ─────────────────────────────────── */}
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-            <h2 className={`mb-4 ${sectionLabel}`}>
+            <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
               Patch Operations
             </h2>
             <PatchOpsEditor
               value={patchOps}
               onChange={() => {
-                /* read-only — изменение через создание нового draft */
+                /* read-only */
               }}
               disabled={true}
               label="Текущие patch operations (RFC 6902)"
             />
-            <p className="mt-3 text-[11px] text-[var(--text-muted)]">
+            <p className="mt-3 text-xs text-[var(--text-muted)]">
               Для изменения patch operations создайте новый override draft
               с обновлёнными операциями.
             </p>
           </section>
 
-          {/* Validation */}
+          {/* ── Валидация ────────────────────────────────────────── */}
           {override.status === "draft" && (
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-              <h2 className={`mb-4 ${sectionLabel}`}>Валидация</h2>
+              <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                Валидация
+              </h2>
               <div className="space-y-3">
                 {validationResult && (
                   <div
                     className={[
                       "rounded-xl border p-4",
                       validationResult.is_valid
-                        ? "border-emerald-200 bg-emerald-50"
-                        : "border-rose-200 bg-rose-50",
+                        ? "border-[var(--color-success-border)] bg-[var(--color-success-bg)]"
+                        : "border-[var(--color-error-border)] bg-[var(--color-error-bg)]",
                     ].join(" ")}
                   >
                     <p
                       className={[
                         "text-xs font-semibold",
                         validationResult.is_valid
-                          ? "text-emerald-700"
-                          : "text-rose-700",
+                          ? "text-[var(--color-success-text)]"
+                          : "text-[var(--color-error-text)]",
                       ].join(" ")}
                     >
                       {validationResult.is_valid
@@ -283,7 +285,7 @@ const TenantOverrideDetailPage: React.FC = () => {
                         {validationResult.errors.map((e, i) => (
                           <li
                             key={i}
-                            className="text-[11px] text-rose-700"
+                            className="text-[11px] text-[var(--color-error-text)]"
                           >
                             • {e}
                           </li>
@@ -310,9 +312,11 @@ const TenantOverrideDetailPage: React.FC = () => {
             </section>
           )}
 
-          {/* Actions */}
+          {/* ── Действия ─────────────────────────────────────────── */}
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-            <h2 className={`mb-4 ${sectionLabel}`}>Действия</h2>
+            <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              Действия
+            </h2>
             <div className="flex flex-wrap items-center gap-3">
               {canActivate && (
                 <Button
@@ -327,7 +331,7 @@ const TenantOverrideDetailPage: React.FC = () => {
               )}
 
               {override.is_stale && override.status === "draft" && (
-                <p className="text-[11px] text-rose-600">
+                <p className="text-[11px] text-[var(--color-error-text)]">
                   Нельзя активировать stale override — создайте новый.
                 </p>
               )}
@@ -337,9 +341,7 @@ const TenantOverrideDetailPage: React.FC = () => {
                   variant="danger"
                   size="sm"
                   onClick={() => setShowArchiveDialog(true)}
-                  disabled={
-                    archiveMut.isPending || activateMut.isPending
-                  }
+                  disabled={archiveMut.isPending || activateMut.isPending}
                 >
                   Архивировать
                 </Button>
@@ -352,6 +354,7 @@ const TenantOverrideDetailPage: React.FC = () => {
               )}
             </div>
           </section>
+
         </div>
       </div>
 

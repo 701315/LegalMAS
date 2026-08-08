@@ -772,6 +772,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -828,8 +829,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены реквизиты обеих сторон,
@@ -1050,6 +1053,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "согласие супруга нотариальное согласие не состоит в браке брачный договор личная собственность приобретено до брака материнский капитал маткапитал выделение долей ст. 35 СК РФ ФЗ-256"
+      retrieval_profile: "consent_check"
       preferred_unit_types:
         - warranty
         - obligation
@@ -1098,8 +1102,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 400
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены сведения о согласии супруга
@@ -1339,6 +1345,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1401,8 +1408,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 2250
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены описание обоих обмениваемых товаров,
@@ -1717,6 +1726,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1775,8 +1785,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены сроки и место передачи товаров,
@@ -2049,8 +2061,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены условия доставки товаров
@@ -2244,6 +2258,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "security_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2300,8 +2315,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены механизм обеспечения
@@ -2497,6 +2514,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2554,8 +2572,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 800
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены момент перехода права
@@ -2747,6 +2767,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 480
     retrieval:
+      retrieval_profile: "warranties_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2803,8 +2824,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 430
+      compact_output: false
+
+      llm_max_tokens: 850
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора мены данные о гарантиях
@@ -3011,6 +3034,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 440
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3066,8 +3090,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 400
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора мены данные о порядке
@@ -3268,6 +3294,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 580
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3323,8 +3350,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+      llm_max_tokens: 1150
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены заверения об отсутствии
@@ -3549,6 +3578,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 500
     retrieval:
+      retrieval_profile: "tax_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3604,8 +3634,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 750
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены налоговые оговорки:
@@ -3655,7 +3687,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           label: "Режим НДС"
-          allowed_values: ["both_charge", "exempt", "not_specified", "not_defined"]
+          allowed_values: ["both_charge", "exempt", "not_defined", "not_defined"]
           description: "Порядок начисления НДС."
           required: false
           display_in_grid: true
@@ -3857,8 +3889,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены обоснование деловой цели,
@@ -4045,6 +4079,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4102,8 +4137,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены условия о последствиях неисполнения:
@@ -4350,8 +4387,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+      llm_max_tokens: 900
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены основания и последствия
@@ -4533,6 +4572,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 500
     retrieval:
+      retrieval_profile: "assignment_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4584,8 +4624,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены ограничения уступки прав
@@ -4779,6 +4821,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4838,8 +4881,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+      llm_max_tokens: 1200
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены недвижимости специальные условия:
@@ -5158,8 +5203,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+      llm_max_tokens: 1250
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора мены транспортных средств специальные
@@ -5462,8 +5509,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 470
+      compact_output: false
+
+      llm_max_tokens: 850
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста внешнеторгового бартерного договора

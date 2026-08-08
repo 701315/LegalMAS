@@ -16,12 +16,12 @@ const STATUS_CONFIG: Record<
   draft: {
     label: "Draft",
     className:
-      "border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] text-[color:var(--color-warning-text,#92400e)]",
+      "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
   },
   published: {
     label: "Published",
     className:
-      "border-[color:var(--color-success-border)] bg-[color:var(--color-success-bg)] text-[color:var(--color-success-text)]",
+      "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
   },
   archived: {
     label: "Archived",

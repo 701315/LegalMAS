@@ -1,6 +1,5 @@
 // =============================================================
 // src/components/qc/QualityFlagRenderer.tsx
-// Компактный рендерер флагов качества.
 // =============================================================
 
 import React from "react";
@@ -51,7 +50,7 @@ export const QualityFlagRenderer: React.FC<QualityFlagRendererProps> = ({
     <div className="flex items-center gap-1.5">
       {hasStructureDegraded && (
         <FlagDot
-          className="bg-[var(--color-orange)]"
+          className="bg-[var(--color-warning)]"
           title="Нарушена структура документа"
         />
       )}

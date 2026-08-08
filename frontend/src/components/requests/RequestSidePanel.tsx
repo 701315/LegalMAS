@@ -126,7 +126,7 @@ export const RequestSidePanel: React.FC<Props> = ({
           type="button"
           onClick={onClose}
           aria-label="Закрыть панель запроса"
-          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
         >
           ✕
         </button>
@@ -142,7 +142,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               setPriority(e.target.value as DDRequest["priority"])
             }
             disabled={!canEdit}
-            className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {PRIORITY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -158,7 +158,7 @@ export const RequestSidePanel: React.FC<Props> = ({
             value={status}
             onChange={(e) => setStatus(e.target.value as DDRequest["status"])}
             disabled={!canEdit}
-            className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -203,7 +203,7 @@ export const RequestSidePanel: React.FC<Props> = ({
             onChange={(e) => setText(e.target.value)}
             rows={8}
             disabled={!canEdit}
-            className="mt-1 w-full resize-y rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm leading-6 text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-1 w-full resize-y rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm leading-6 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           />
         </Field>
 
@@ -233,7 +233,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               {viewModel.evidenceRefs.map((ref, i) => (
                 <div
                   key={ref ?? i}
-                  className="rounded-lg bg-[var(--bg-card)]/90 p-2 text-xs leading-relaxed text-[var(--text-secondary)]"
+                  className="rounded-lg bg-[var(--bg-card)] p-2 text-xs leading-relaxed text-[var(--text-secondary)]"
                 >
                   {ref}
                 </div>
@@ -358,4 +358,5 @@ function Field({
 }
 
 export default RequestSidePanel;
+
 

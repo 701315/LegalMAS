@@ -336,6 +336,15 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
         _extraction: ExtractionConfig | None = None
         if cfg.extraction:
             _extraction_payload = dict(cfg.extraction)
+            # Нормализуем compact_output в tri-state.
+            # В старых compiled_checks может лежать compact_output=True (bool).
+            # Если там явный True/False — оставляем как есть.
+            # Если поля нет (KeyError → default True из old schema) — ставим None.
+            # Это позволяет авто-режиму корректно работать без
+            # массового переписывания compiled_checks в БД.
+            if "compact_output" not in _extraction_payload:
+                _extraction_payload["compact_output"] = None  # авто-режим
+            # Если есть — оставляем оригинальное значение (True/False/None)
             if _parsed_dd_grid_columns is not None:
                 # Inject validated DDGridColumnSpec list into extraction payload.
                 # Overrides any dd_grid_columns already present in extraction dict.

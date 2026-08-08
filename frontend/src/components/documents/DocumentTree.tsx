@@ -288,7 +288,7 @@ const NodeView: React.FC<NodeViewProps> = ({
 
                 {needsReview && (
                   <span
-                    className="ml-1 shrink-0 rounded-full border border-[var(--color-gold)]/20 bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-hover)]"
+                    className="ml-1 shrink-0 rounded-full border border-[var(--color-gold)]/20 bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-text)]"
                     title="Классификатор не уверен, требуется ручной просмотр"
                   >
                     нужна проверка
@@ -301,7 +301,7 @@ const NodeView: React.FC<NodeViewProps> = ({
                     config?.color === "success"
                       ? "text-[var(--color-success)]"
                       : config?.color === "warning"
-                        ? "text-[var(--color-gold-hover)]"
+                        ? "text-[var(--color-gold-text)]"
                         : config?.color === "error"
                           ? "text-[var(--color-error)]"
                           : "text-[var(--text-faint)]",
@@ -318,7 +318,7 @@ const NodeView: React.FC<NodeViewProps> = ({
                       e.stopPropagation();
                       onDeleteDoc(doc);
                     }}
-                    className="ml-1 shrink-0 rounded p-0.5 text-[var(--color-error)] transition-colors hover:bg-[var(--color-error-highlight)] hover:text-[var(--color-error-hover)]"
+                    className="ml-1 shrink-0 rounded p-0.5 text-[var(--color-error)] transition-colors hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error-text)]"
                     title="Удалить документ"
                     aria-label={`Удалить документ ${doc.filename}`}
                   >
@@ -400,6 +400,5 @@ function countDocs(node: TreeNode): number {
 }
 
 export default DocumentTree;
-
 
 

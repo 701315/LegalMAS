@@ -1,11 +1,29 @@
 // =============================================================
 // src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx
 // Переключаемая панель деталей по направлению.
+//
+// Documents (xl+): 4-колоночный layout, каждая колонка = 1/4 ширины,
+//                  одинаковая высота, внутренний скролл.
+// Documents (< xl): fallback 2-колоночный layout (legacy).
+// Counterparties / RealEstate: одна колонка, как раньше.
+//
+// Header:
+//   - Breadcrumb: ● {ActiveDomainName} › Детали результатов анализа
+//   - Accent dot цвета activeDomain (пока — единый accent color)
+//   - На xl+: убраны top-rounded корнеры + top-border,
+//     потому что панель "врастает" сверху в активную карточку
+//     из ProjectDomainsOverviewPanel.
 // =============================================================
 
 import React from "react";
+import { ChevronRight } from "lucide-react";
 import type { Deal } from "../../../types";
-import { DocumentsPipelinePanel } from "./DocumentsPipelinePanel";
+import DocumentsPipelinePanel from "./DocumentsPipelinePanel";
+import { LLMUsageWidget } from "./LLMUsageWidget";
+import { DocumentsOverviewWidget } from "./DocumentsOverviewWidget";
+import { AnalysisResultsWidget } from "./AnalysisResultsWidget";
+import { useDealLLMUsage } from "../../../api/deals";
+import { useDocuments } from "../../../api/documents";
 import { DEMO_AGGREGATES } from "../CounterpartiesTab";
 import { DEMO_OBJECTS } from "../RealEstateTab";
 
@@ -19,12 +37,47 @@ interface ProjectDomainDetailsPanelProps {
 }
 
 // ---------------------------------------------------------------------------
-// Counterparties summary (берём данные из DEMO_AGGREGATES)
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getDomainLabel(domain: DomainKey): string {
+  switch (domain) {
+    case "documents":
+      return "Документы";
+    case "counterparties":
+      return "Контрагенты";
+    case "real_estate":
+      return "Имущество";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Column shell (общий стиль для 4-колоночного layout)
+// ---------------------------------------------------------------------------
+
+interface ColumnShellProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+const ColumnShell: React.FC<ColumnShellProps> = ({ title, children }) => (
+  <div className="flex min-h-0 min-w-0 flex-col">
+    <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+      {title}
+    </p>
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+      {children}
+    </div>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Counterparties summary
 // ---------------------------------------------------------------------------
 
 const CounterpartiesSummary: React.FC = () => {
   const critical = DEMO_AGGREGATES.filter(
-    (item) => item.reviewStatus === "critical"
+    (item) => item.reviewStatus === "critical",
   );
   const sanctions = DEMO_AGGREGATES.filter((item) => item.sanctionsFlag);
   const bankruptcy = DEMO_AGGREGATES.filter((item) => item.bankruptcyFlag);
@@ -48,19 +101,19 @@ const CounterpartiesSummary: React.FC = () => {
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
           <p className="text-[10px] text-[var(--text-muted)]">Critical</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {critical.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
           <p className="text-[10px] text-[var(--text-muted)]">Санкции</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {sanctions.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
           <p className="text-[10px] text-[var(--text-muted)]">Банкротство</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning-text)]">
             {bankruptcy.length}
           </p>
         </div>
@@ -72,8 +125,13 @@ const CounterpartiesSummary: React.FC = () => {
         </p>
         <div className="space-y-1.5">
           {topCountries.map(([country, count]) => (
-            <div key={country} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-[var(--text-primary)]">{country}</span>
+            <div
+              key={country}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className="text-xs text-[var(--text-primary)]">
+                {country}
+              </span>
               <span className="text-[11px] tabular-nums text-[var(--text-muted)]">
                 {count}
               </span>
@@ -90,7 +148,7 @@ const CounterpartiesSummary: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// Real estate summary (берём данные из DEMO_OBJECTS)
+// Real estate summary
 // ---------------------------------------------------------------------------
 
 const RealEstateSummary: React.FC = () => {
@@ -98,7 +156,7 @@ const RealEstateSummary: React.FC = () => {
   const ownershipReview = DEMO_OBJECTS.filter(
     (item) =>
       item.ownership_status === "review" ||
-      item.ownership_status === "not_confirmed"
+      item.ownership_status === "not_confirmed",
   );
   const highRisk = DEMO_OBJECTS.filter((item) => item.risk === "high");
 
@@ -120,20 +178,24 @@ const RealEstateSummary: React.FC = () => {
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">С обременением</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error)]">
+          <p className="text-[10px] text-[var(--text-muted)]">
+            С обременением
+          </p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {encumbered.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">Ownership review</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning)]">
+          <p className="text-[10px] text-[var(--text-muted)]">
+            Ownership review
+          </p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning-text)]">
             {ownershipReview.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
           <p className="text-[10px] text-[var(--text-muted)]">Высокий риск</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {highRisk.length}
           </p>
         </div>
@@ -145,8 +207,13 @@ const RealEstateSummary: React.FC = () => {
         </p>
         <div className="space-y-1.5">
           {topRegions.map(([region, count]) => (
-            <div key={region} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-[var(--text-primary)]">{region}</span>
+            <div
+              key={region}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className="text-xs text-[var(--text-primary)]">
+                {region}
+              </span>
               <span className="text-[11px] tabular-nums text-[var(--text-muted)]">
                 {count}
               </span>
@@ -163,45 +230,174 @@ const RealEstateSummary: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
+// DocumentsContent — 4-колоночный layout на xl+, fallback на меньших
+// ---------------------------------------------------------------------------
+
+const DocumentsContent: React.FC<{
+  runId: string | null;
+  dealId: string;
+  isRunActive: boolean;
+}> = ({ runId, dealId, isRunActive }) => {
+  const {
+    data: llmUsage,
+    isLoading: llmLoading,
+    isError: llmError,
+  } = useDealLLMUsage(dealId, {
+    refetchInterval: isRunActive ? 30_000 : false,
+  });
+
+  const {
+    data: documentsPage,
+    isLoading: documentsLoading,
+    isError: documentsError,
+  } = useDocuments(dealId, 1);
+
+  const documents = documentsPage?.items;
+
+  return (
+    <>
+      {/* ── xl+ : 4 колонки, одинаковая высота, скролл внутри каждой ── */}
+      <div className="hidden h-full min-h-0 grid-cols-4 gap-4 xl:grid">
+        <ColumnShell title="Пайплайн анализа">
+          <DocumentsPipelinePanel runId={runId} />
+        </ColumnShell>
+
+        <ColumnShell title="Обзор документов">
+          <DocumentsOverviewWidget
+            documents={documents}
+            isLoading={documentsLoading}
+            isError={documentsError}
+          />
+        </ColumnShell>
+
+        <ColumnShell title="Итог анализа">
+          <AnalysisResultsWidget dealId={dealId} runId={runId} />
+        </ColumnShell>
+
+        <ColumnShell title="Использование LLM">
+          <LLMUsageWidget
+            data={llmUsage}
+            isLoading={llmLoading}
+            isError={llmError}
+          />
+        </ColumnShell>
+      </div>
+
+      {/* ── < xl : fallback — двухколоночный layout с новыми виджетами ── */}
+      <div className="grid min-h-0 grid-cols-1 gap-4 xl:hidden lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="min-w-0">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+            Пайплайн анализа
+          </p>
+          <DocumentsPipelinePanel runId={runId} />
+        </div>
+
+        <div className="min-w-0 space-y-4">
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+              Обзор документов
+            </p>
+            <DocumentsOverviewWidget
+              documents={documents}
+              isLoading={documentsLoading}
+              isError={documentsError}
+            />
+          </div>
+
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+              Итог анализа
+            </p>
+            <AnalysisResultsWidget dealId={dealId} runId={runId} />
+          </div>
+
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+              Использование LLM
+            </p>
+            <LLMUsageWidget
+              data={llmUsage}
+              isLoading={llmLoading}
+              isError={llmError}
+            />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 export const ProjectDomainDetailsPanel: React.FC<
   ProjectDomainDetailsPanelProps
-> = ({ activeDomain, onDomainChange: _onDomainChange, runId }) => {
-  const domainTitle =
-    activeDomain === "documents"
-      ? "Документы"
-      : activeDomain === "counterparties"
-        ? "Контрагенты"
-        : "Имущество";
+> = ({ activeDomain, onDomainChange: _onDomainChange, runId, deal }) => {
+  const domainLabel = getDomainLabel(activeDomain);
+  const isRunActive = !!runId;
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-      {/* Header */}
+    <section
+      className={[
+        "flex h-full min-h-0 flex-col overflow-hidden",
+        // Base border + rounded на всех размерах
+        "rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm",
+        // На xl+ убираем top-скругления и top-border —
+        // панель "врастает" сверху в активную карточку из
+        // ProjectDomainsOverviewPanel.
+        "xl:rounded-t-none xl:border-t-0",
+      ].join(" ")}
+    >
+      {/* Header с breadcrumb */}
       <div className="shrink-0 px-5">
         <div className="py-3">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Детали направления
-          </h2>
-          <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-            {domainTitle}
-          </p>
+          {/* Breadcrumb: ● Домен › Детали результатов анализа */}
+          <div className="flex items-center gap-1.5">
+            {/* Accent dot — маркер связи с активной карточкой сверху */}
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]"
+              aria-hidden
+            />
+            <span className="text-xs font-semibold text-[var(--accent-primary)]">
+              {domainLabel}
+            </span>
+            <ChevronRight
+              className="h-3 w-3 shrink-0 text-[var(--text-muted)]"
+              aria-hidden
+            />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+              Детали результатов анализа
+            </h2>
+          </div>
         </div>
         <div className="border-t border-[var(--border-subtle)]" />
       </div>
 
-      {/* Scrollable content */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+      {/* Content */}
+      <div className="min-h-0 flex-1 overflow-hidden px-5 py-4">
         {activeDomain === "documents" && (
-          <DocumentsPipelinePanel runId={runId} />
+          <DocumentsContent
+            runId={runId}
+            dealId={deal.id}
+            isRunActive={isRunActive}
+          />
         )}
-        {activeDomain === "counterparties" && <CounterpartiesSummary />}
-        {activeDomain === "real_estate" && <RealEstateSummary />}
+        {activeDomain === "counterparties" && (
+          <div className="h-full overflow-y-auto overscroll-contain">
+            <CounterpartiesSummary />
+          </div>
+        )}
+        {activeDomain === "real_estate" && (
+          <div className="h-full overflow-y-auto overscroll-contain">
+            <RealEstateSummary />
+          </div>
+        )}
       </div>
     </section>
   );
 };
 
 export default ProjectDomainDetailsPanel;
+
 

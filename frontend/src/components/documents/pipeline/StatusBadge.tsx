@@ -1,6 +1,4 @@
-// =============================================================
 // src/components/documents/pipeline/StatusBadge.tsx
-// =============================================================
 
 import React from "react";
 import { twMerge } from "tailwind-merge";
@@ -26,25 +24,25 @@ const STATUS_CONFIG: Record<PipelineStageStatus, StatusConfig> = {
     label: "Готово",
     title: "Артефакт стадии готов к просмотру",
     className:
-      "border-[color:color-mix(in_oklab,var(--color-success)_35%,transparent)] " +
-      "bg-[var(--color-success-highlight)] " +
-      "text-[var(--color-success)]",
+      "border-[var(--color-success-border)] " +
+      "bg-[var(--color-success-bg)] " +
+      "text-[var(--color-success-text)]",
   },
   pending: {
     label: "Ожидается",
     title: "Стадия ещё не завершена или артефакт пока не подготовлен",
     className:
-      "border-[color:color-mix(in_oklab,var(--color-warning)_35%,transparent)] " +
-      "bg-[var(--color-warning-highlight)] " +
-      "text-[var(--color-warning)]",
+      "border-[var(--color-warning-border)] " +
+      "bg-[var(--color-warning-bg)] " +
+      "text-[var(--color-warning-text)]",
   },
   missing: {
     label: "Недоступно",
     title: "Артефакт стадии не найден",
     className:
-      "border-[color:color-mix(in_oklab,var(--color-error)_40%,transparent)] " +
-      "bg-[var(--color-error-highlight)] " +
-      "text-[var(--color-error)]",
+      "border-[var(--color-error-border)] " +
+      "bg-[var(--color-error-bg)] " +
+      "text-[var(--color-error-text)]",
   },
 };
 
@@ -66,4 +64,5 @@ export const StatusBadge: React.FC<Props> = ({ status, className }) => {
 };
 
 export default StatusBadge;
+
 

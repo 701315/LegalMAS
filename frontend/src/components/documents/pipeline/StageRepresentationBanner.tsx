@@ -1,6 +1,4 @@
-// =============================================================
 // src/components/documents/pipeline/StageRepresentationBanner.tsx
-// =============================================================
 
 import React from "react";
 import { Braces, Sparkles, Database, FileText } from "lucide-react";
@@ -31,11 +29,11 @@ function MetaPill({
 }) {
   const toneClasses =
     tone === "accent"
-      ? "border-[color:color-mix(in_oklab,var(--color-primary)_25%,transparent)] bg-[var(--color-primary-highlight)] text-[var(--color-primary)]"
+      ? "border-[var(--accent-primary)]/25 bg-[var(--accent-subtle)] text-[var(--accent-primary)]"
       : tone === "warning"
-        ? "border-[color:color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[var(--color-warning-highlight)] text-[var(--color-warning)]"
+        ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]"
         : tone === "success"
-          ? "border-[color:color-mix(in_oklab,var(--color-success)_28%,transparent)] bg-[var(--color-success-highlight)] text-[var(--color-success)]"
+          ? "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]"
           : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
 
   return (
@@ -151,6 +149,5 @@ export const StageRepresentationBanner: React.FC<Props> = ({
 };
 
 export default StageRepresentationBanner;
-
 
 

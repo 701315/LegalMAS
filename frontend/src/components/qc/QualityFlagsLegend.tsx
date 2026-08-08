@@ -1,6 +1,5 @@
 // =============================================================
 // src/components/qc/QualityFlagsLegend.tsx
-// Легенда для значков флагов качества.
 // =============================================================
 
 import React from "react";
@@ -17,7 +16,7 @@ export const QualityFlagsLegend: React.FC = () => {
       </span>
 
       <span className="inline-flex items-center gap-1.5">
-        <Dot className="bg-[var(--color-orange)]" />
+        <Dot className="bg-[var(--color-warning)]" />
         <span>Структура документа нарушена</span>
       </span>
 
@@ -35,3 +34,5 @@ export const QualityFlagsLegend: React.FC = () => {
 };
 
 export default QualityFlagsLegend;
+
+

@@ -792,7 +792,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Не оценивай, хороший договор или плохой.
         4. Если данные не указаны прямо — "not_defined" или "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только цитаты из документа.
         7. Верни только один JSON-объект.
 
@@ -873,6 +873,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -930,8 +931,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -1112,7 +1117,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста.
         3. Если условие не указано прямо — "not_defined".
         4. При отсутствии текстового значения — строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
         7. Верни только один JSON-объект.
 
@@ -1204,6 +1209,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1267,8 +1273,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 540
+      compact_output: false
+
+
+      llm_max_tokens: 1300
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -1456,7 +1466,7 @@ checks_v8:
         1. Только текст документа.
         2. Если условие не указано прямо — "not_defined".
         3. При отсутствии текстового значения — строго "Данные не определены".
-        4. Не используй "None", "null", "not_specified", пустые строки.
+        4. Не используй "None", "null", "not_defined", пустые строки.
         5. В evidence — только текст договора.
         6. Верни только один JSON-объект.
 
@@ -1538,6 +1548,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1601,8 +1612,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 1200
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -1920,8 +1935,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 1200
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -2171,6 +2190,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 560
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2229,8 +2249,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+
+      llm_max_tokens: 1000
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -2516,8 +2540,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -2708,6 +2736,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 560
     retrieval:
+      retrieval_profile: "warranties_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2766,8 +2795,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+      llm_max_tokens: 950
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -2944,6 +2977,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 560
     retrieval:
+      retrieval_profile: "termination_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3004,8 +3038,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 950
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -3180,6 +3218,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 520
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3237,8 +3276,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+      llm_max_tokens: 900
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -3477,8 +3520,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 950
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -3713,8 +3760,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+
+      llm_max_tokens: 850
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -3990,8 +4041,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения

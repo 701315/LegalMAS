@@ -98,6 +98,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "liability_cap_check"
   context_k: 5
   max_chunks: 10
 
@@ -143,8 +144,8 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "liability"
-    - "limitation_of_liability"
+    - "limitations"
+    - "limitations"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -173,7 +174,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 380
+  llm_max_tokens: 700
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим контрактам.

@@ -61,16 +61,12 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   }, [location]);
 
   // Автоскролл к началу страницы при её смене.
-  // Если у нас есть layout и активный фрагмент — скроллим к нему,
-  // иначе просто скроллим в самый верх, чтобы верх страницы был виден.
   React.useEffect(() => {
     if (!open || !containerRef.current) return;
 
-    // Небольшая задержка — ждём рендер новой страницы PDF
     const timeoutId = window.setTimeout(() => {
       const container = containerRef.current;
       if (!container) return;
-
       container.scrollTop = 0;
     }, 100);
 
@@ -95,12 +91,14 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
   React.useEffect(() => {
     if (!open) return;
+
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
       }
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
@@ -137,26 +135,22 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     }
 
     // После рендера страницы — если есть активный фрагмент с bbox,
-    // скроллим контейнер так, чтобы фрагмент был виден с небольшим
-    // offset сверху (для визуального контекста).
+    // скроллим контейнер так, чтобы фрагмент был виден с небольшим offset сверху.
     window.setTimeout(() => {
       const container = containerRef.current;
       if (!container) return;
 
-      // Ищем активный overlay на текущей странице
       const activeOverlay = container.querySelector<HTMLDivElement>(
         '[data-active-overlay="true"]',
       );
 
       if (activeOverlay) {
-        // Скроллим так, чтобы активный элемент был в верхней трети экрана
         const containerRect = container.getBoundingClientRect();
         const overlayRect = activeOverlay.getBoundingClientRect();
         const offsetFromTop = overlayRect.top - containerRect.top;
-        const desiredOffset = containerRect.height * 0.15; // 15% от высоты сверху
+        const desiredOffset = containerRect.height * 0.15;
         container.scrollTop += offsetFromTop - desiredOffset;
       } else {
-        // Если активного фрагмента нет — просто в самый верх страницы
         container.scrollTop = 0;
       }
     }, 150);
@@ -257,10 +251,10 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
               className={
                 "max-w-[360px] truncate " +
                 (hasErrorTitle
-                  ? "font-medium text-[color:rgb(161,53,68)]"
+                  ? "font-medium text-[var(--color-error-text)]"
                   : isLoadingTitle
-                  ? "font-medium text-[var(--text-secondary)]"
-                  : "font-medium text-[var(--text-primary)]")
+                    ? "font-medium text-[var(--text-secondary)]"
+                    : "font-medium text-[var(--text-primary)]")
               }
             >
               {headerTitle}
@@ -272,7 +266,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
           </div>
           <button
             type="button"
-            className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-3 py-1 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
+            className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-3 py-1 text-[11px] text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             onClick={onClose}
           >
             Закрыть
@@ -285,7 +279,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
             <span>Навигация:</span>
             <button
               type="button"
-              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 hover:bg-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-40"
               onClick={handlePrevPage}
               disabled={pageNumber <= 1}
             >
@@ -297,7 +291,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
             </span>
             <button
               type="button"
-              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 hover:bg-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-40"
               onClick={handleNextPage}
               disabled={!numPages || pageNumber >= numPages}
             >
@@ -315,7 +309,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
           className="flex flex-1 justify-center overflow-auto bg-[var(--bg-base)] p-3"
         >
           {!fileUrl ? (
-            <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[color:rgb(161,53,68)]">
+            <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--color-error-text)]">
               Не удалось получить ссылку на PDF.
             </div>
           ) : (
@@ -329,7 +323,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                   </div>
                 }
                 error={
-                  <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[color:rgb(161,53,68)]">
+                  <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--color-error-text)]">
                     Не удалось загрузить PDF.
                   </div>
                 }
@@ -365,8 +359,8 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                         const bgClass = isActive
                           ? "bg-[var(--accent-primary)]/18 ring-2 ring-[var(--accent-primary)]/80"
                           : isEven
-                          ? "bg-white/55"
-                          : "bg-black/8";
+                            ? "bg-white/55"
+                            : "bg-black/8";
 
                         return (
                           <div
@@ -396,4 +390,5 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 };
 
 export default DocumentViewerModal;
+
 

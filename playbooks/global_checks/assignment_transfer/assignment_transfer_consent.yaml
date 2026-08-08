@@ -72,6 +72,7 @@ evidence:
   max_snippet_length: 500
 
 retrieval:
+  retrieval_profile: "consent_check"
   context_k: 6
   max_chunks: 12
 
@@ -147,7 +148,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 320
+  llm_max_tokens: 900
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам.

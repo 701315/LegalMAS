@@ -90,6 +90,7 @@ evidence:
   max_snippet_length: 500
 
 retrieval:
+  retrieval_profile: "change_of_control_check"
   context_k: 6
   max_chunks: 10
 
@@ -170,7 +171,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 400
+  llm_max_tokens: 800
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и коммерческим договорам.

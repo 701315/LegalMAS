@@ -1,19 +1,16 @@
 // src/pages/instructions/PlaybookVersionDetailPage.tsx
 // Detail страница версии global playbook.
 // Read-only — global playbook versions управляются через playbook domain.
-// Показывает метаданные версии и навигацию.
 
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 
 import {
   useGlobalPlaybooks,
   useGlobalPlaybookVersions,
 } from "../../hooks/instructions/useInstructionVersions";
-import InstructionPageHeader from "../../components/instructions/InstructionPageHeader";
 import VersionStatusBadge from "../../components/instructions/VersionStatusBadge";
-import PageSection from "../../components/ui/PageSection";
 import LoadingBlock from "../../components/ui/LoadingBlock";
 import EmptyState from "../../components/ui/EmptyState";
 import InlineAlert from "../../components/InlineAlert";
@@ -41,20 +38,24 @@ const PlaybookVersionDetailPage: React.FC = () => {
 
   const isLoading = isPlaybooksLoading || isVersionsLoading;
 
+  // ── Loading ─────────────────────────────────────────────────
+
   if (isLoading) {
     return (
-      <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-4xl">
+      <div className="h-full overflow-y-auto overscroll-contain">
+        <div className="animate-fadein p-4 md:p-5">
           <LoadingBlock text="Загружаем версию playbook..." rows={4} />
         </div>
       </div>
     );
   }
 
+  // ── Error ───────────────────────────────────────────────────
+
   if (isError || (!isLoading && !version)) {
     return (
-      <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-4xl space-y-3">
+      <div className="h-full overflow-y-auto overscroll-contain">
+        <div className="animate-fadein space-y-3 p-4 md:p-5">
           <InlineAlert
             tone="error"
             message="Версия не найдена или не удалось загрузить данные."
@@ -63,18 +64,21 @@ const PlaybookVersionDetailPage: React.FC = () => {
             variant="secondary"
             size="sm"
             onClick={() => navigate(-1)}
+            leftIcon={<ArrowLeft className="h-3.5 w-3.5" />}
           >
-            ← Назад
+            Назад
           </Button>
         </div>
       </div>
     );
   }
 
+  // ── Not found ───────────────────────────────────────────────
+
   if (!version) {
     return (
-      <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-4xl">
+      <div className="h-full overflow-y-auto overscroll-contain">
+        <div className="animate-fadein p-4 md:p-5">
           <EmptyState
             title="Версия не найдена"
             description="Проверьте корректность ссылки."
@@ -84,87 +88,108 @@ const PlaybookVersionDetailPage: React.FC = () => {
     );
   }
 
+  // ── Main ────────────────────────────────────────────────────
+
   return (
-    <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-      <div className="mx-auto max-w-4xl space-y-4">
-        {/* Header */}
-        <InstructionPageHeader
-          breadcrumbs={[
-            { label: "Admin", to: "/admin" },
-            { label: "Инструкции", to: "/admin/instructions" },
-            {
-              label: "Global Playbooks",
-              to: "/admin/instructions/global-playbooks",
-            },
-            {
-              label: playbook?.title ?? playbookId ?? "...",
-              to: `/admin/instructions/global-playbooks/${playbookId}`,
-            },
-            { label: version.name },
-          ]}
-          title={version.name}
-          subtitle={`Playbook: ${playbook?.title ?? playbookId}`}
-          rightSlot={
-            <div className="flex items-center gap-2">
-              <VersionStatusBadge status={version.status} size="sm" />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void refetch()}
-                aria-label="Обновить"
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
+
+        {/* ── Шапка ─────────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    `/admin/instructions/global-playbooks/${playbookId}`,
+                  )
+                }
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               >
-                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-              </Button>
-            </div>
-          }
-        />
+                <ArrowLeft className="h-3.5 w-3.5" />
+                {playbook?.title ?? "Global Playbooks"}
+              </button>
 
-        {/* Version meta */}
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[11px] sm:grid-cols-3">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Playbook ID
-            </div>
-            <div className="mt-0.5 font-mono text-[10px] text-[var(--text-primary)]">
-              {version.playbook_id}
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Version ID
-            </div>
-            <div className="mt-0.5 font-mono text-[10px] text-[var(--text-primary)]">
-              {version.id}
-            </div>
-          </div>
-          {version.semver && (
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                Semver
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                  {version.name}
+                </h1>
+                <VersionStatusBadge status={version.status} size="sm" />
               </div>
-              <div className="mt-0.5 font-mono font-semibold text-[var(--text-primary)]">
-                v{version.semver}
-              </div>
-            </div>
-          )}
-        </div>
 
-        {/* Info panel */}
-        <PageSection title="Информация">
+              {playbook?.title && (
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  Playbook: {playbook.title}
+                </p>
+              )}
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void refetch()}
+              aria-label="Обновить данные версии"
+              leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+            >
+              Обновить
+            </Button>
+          </div>
+        </header>
+
+        {/* ── Метаданные версии ──────────────────────────────────── */}
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+          <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            Метаданные
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Playbook ID
+              </div>
+              <div className="mt-1 break-all font-mono text-[10px] text-[var(--text-primary)]">
+                {version.playbook_id}
+              </div>
+            </div>
+            <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Version ID
+              </div>
+              <div className="mt-1 break-all font-mono text-[10px] text-[var(--text-primary)]">
+                {version.id}
+              </div>
+            </div>
+            {version.semver && (
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2.5">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  Semver
+                </div>
+                <div className="mt-1 font-mono font-semibold text-[var(--text-primary)]">
+                  v{version.semver}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── Информация ─────────────────────────────────────────── */}
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+          <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            Информация
+          </h2>
+
           <div className="space-y-3">
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-4 py-3">
-              <p className="text-[11px] text-[var(--text-secondary)]">
+            <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+              <p className="text-xs text-[var(--text-secondary)]">
                 Global playbook версии управляются через playbook domain и не
                 редактируются напрямую в этом разделе. Для управления
                 содержимым playbook используйте раздел{" "}
                 <button
                   type="button"
                   onClick={() =>
-                    navigate(
-                      `/projects/${playbookId}/playbooks/admin`,
-                    )
+                    navigate(`/projects/${playbookId}/playbooks/admin`)
                   }
-                  className="text-[var(--accent-primary)] hover:underline"
+                  className="text-[var(--accent-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
                 >
                   Admin Playbook Lines
                 </button>
@@ -172,13 +197,12 @@ const PlaybookVersionDetailPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Other versions */}
             {versions && versions.length > 1 && (
               <div>
                 <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
                   Другие версии этого playbook
                 </div>
-                <ul className="space-y-1">
+                <ul className="space-y-1.5">
                   {versions
                     .filter((v) => v.id !== versionId)
                     .map((v) => (
@@ -190,7 +214,7 @@ const PlaybookVersionDetailPage: React.FC = () => {
                               `/admin/instructions/global-playbooks/${playbookId}/versions/${v.id}`,
                             )
                           }
-                          className="flex w-full items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-xs transition-colors hover:bg-[var(--bg-elevated-soft)]"
+                          className="flex w-full items-center justify-between rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2.5 text-xs transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
                         >
                           <span className="font-medium text-[var(--text-primary)]">
                             {v.name}
@@ -203,7 +227,8 @@ const PlaybookVersionDetailPage: React.FC = () => {
               </div>
             )}
           </div>
-        </PageSection>
+        </section>
+
       </div>
     </div>
   );

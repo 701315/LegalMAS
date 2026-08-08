@@ -1,6 +1,5 @@
 // =============================================================
 // StructuredDataSection.tsx
-// Секция "Структурированные данные" внутри DocumentDetails.
 // =============================================================
 
 import React from "react";
@@ -188,7 +187,8 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-[var(--color-blue-soft-border)] bg-[var(--color-blue-soft-bg)] px-3 py-2.5">
+      {/* Composition banner */}
+      <div className="rounded-2xl border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] px-3 py-2.5">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-medium text-[var(--text-primary)]">
             Состав файла
@@ -207,7 +207,7 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
             <span className="text-xs text-[var(--text-primary)]">
               Основной сегмент:
             </span>
-            <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-medium text-[var(--text-primary)] shadow-sm">
+            <span className="inline-flex items-center rounded-full bg-[var(--bg-card)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-primary)] shadow-sm">
               {primarySegmentLabel}
             </span>
           </div>

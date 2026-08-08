@@ -1,0 +1,4 @@
+./src/index.css:524:    line-height: 1;
+./src/index.css:557:    line-height: 1;
+./src/index.css:587:    line-height: 1.05;
+./src/index.css:595:    line-height: 1.75;

@@ -13,7 +13,9 @@ import InlineAlert from "../../components/InlineAlert";
 import Button from "../../components/ui/Button";
 import type { InstructionOverrideItem } from "../../types/instructions";
 
-/* ── Override card ─────────────────────────────────────────── */
+// ─────────────────────────────────────────────────────────────
+// OverrideCard
+// ─────────────────────────────────────────────────────────────
 
 const OverrideCard: React.FC<{
   override: InstructionOverrideItem;
@@ -36,7 +38,7 @@ const OverrideCard: React.FC<{
     <button
       type="button"
       onClick={onClick}
-      className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md"
+      className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -80,16 +82,16 @@ const OverrideCard: React.FC<{
   );
 };
 
-/* ── Page ───────────────────────────────────────────────────── */
+// ─────────────────────────────────────────────────────────────
+// TenantOverridesPage
+// ─────────────────────────────────────────────────────────────
 
 const TenantOverridesPage: React.FC = () => {
   const navigate = useNavigate();
   const { tenantId: authTenantId } = useAuth();
   const tenantId = authTenantId ?? "";
 
-  const { data, isLoading, isError } = useTenantOverrides(
-    tenantId || null,
-  );
+  const { data, isLoading, isError } = useTenantOverrides(tenantId || null);
 
   const overrides = data?.items ?? [];
   const activeCount = overrides.filter((o) => o.status === "active").length;
@@ -97,73 +99,70 @@ const TenantOverridesPage: React.FC = () => {
   const staleCount = overrides.filter((o) => o.is_stale).length;
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-      <div className="animate-fadein space-y-6">
-        {/* Back-link */}
-        <button
-          type="button"
-          onClick={() => navigate("/tenant-admin/instructions")}
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Инструкции
-        </button>
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-        {/* Header */}
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Instruction Overrides
-            </h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Переопределения инструкций на уровне tenant. Применяются поверх
-              базовых published-версий.
-            </p>
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate("/tenant-admin/instructions")}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Инструкции
+              </button>
+
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                Instruction Overrides
+              </h1>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Переопределения инструкций на уровне tenant. Применяются поверх
+                базовых published-версий.
+              </p>
+
+              {!isLoading && !isError && overrides.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
+                  <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
+                    Всего: {overrides.length}
+                  </span>
+                  {activeCount > 0 && (
+                    <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-1 text-[var(--color-success-text)]">
+                      Active: {activeCount}
+                    </span>
+                  )}
+                  {draftCount > 0 && (
+                    <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
+                      Draft: {draftCount}
+                    </span>
+                  )}
+                  {staleCount > 0 && (
+                    <span className="rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-1 text-[var(--color-warning-text)]">
+                      Stale: {staleCount}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() =>
+                navigate("/tenant-admin/instructions/overrides/new")
+              }
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
+            >
+              Новый override
+            </Button>
           </div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() =>
-              navigate("/tenant-admin/instructions/overrides/new")
-            }
-            leftIcon={<Plus className="h-3.5 w-3.5" />}
-          >
-            Новый override
-          </Button>
         </header>
 
-        {/* Inline stats */}
-        {!isLoading && !isError && overrides.length > 0 && (
-          <p className="text-sm text-[var(--text-muted)]">
-            Всего:{" "}
-            <span className="font-semibold text-[var(--text-primary)]">
-              {overrides.length}
-            </span>
-            <span className="mx-1.5">·</span>
-            Active:{" "}
-            <span className="font-semibold text-[var(--text-primary)]">
-              {activeCount}
-            </span>
-            <span className="mx-1.5">·</span>
-            Draft:{" "}
-            <span className="font-semibold text-[var(--text-primary)]">
-              {draftCount}
-            </span>
-            {staleCount > 0 && (
-              <>
-                <span className="mx-1.5">·</span>
-                Stale:{" "}
-                <span className="font-semibold text-rose-600">
-                  {staleCount}
-                </span>
-              </>
-            )}
-          </p>
-        )}
-
-        {/* Stale warning */}
+        {/* ── Stale warning ────────────────────────────────────── */}
         {staleCount > 0 && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+          <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-5 py-4 text-sm text-[var(--color-warning-text)]">
             {staleCount}{" "}
             {staleCount === 1 ? "override устарел" : "overrides устарели"} —
             базовая версия инструкции была обновлена. Создайте новые overrides
@@ -171,9 +170,10 @@ const TenantOverridesPage: React.FC = () => {
           </div>
         )}
 
-        {/* Content */}
+        {/* ── Loading ──────────────────────────────────────────── */}
         {isLoading && <LoadingBlock text="Загружаем overrides…" rows={4} />}
 
+        {/* ── Error ────────────────────────────────────────────── */}
         {isError && (
           <InlineAlert
             tone="error"
@@ -181,6 +181,7 @@ const TenantOverridesPage: React.FC = () => {
           />
         )}
 
+        {/* ── Empty ────────────────────────────────────────────── */}
         {!isLoading && !isError && overrides.length === 0 && (
           <EmptyState
             title="Overrides не созданы"
@@ -199,6 +200,7 @@ const TenantOverridesPage: React.FC = () => {
           />
         )}
 
+        {/* ── Список ───────────────────────────────────────────── */}
         {!isLoading && !isError && overrides.length > 0 && (
           <div className="space-y-3">
             {overrides.map((override) => (
@@ -214,11 +216,13 @@ const TenantOverridesPage: React.FC = () => {
             ))}
           </div>
         )}
+
       </div>
     </div>
   );
 };
 
 export default TenantOverridesPage;
+
 
 

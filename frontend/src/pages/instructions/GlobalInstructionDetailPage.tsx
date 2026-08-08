@@ -155,7 +155,7 @@ const InstructionInfoCard: React.FC<InstructionInfoCardProps> = ({
             className={[
               "mt-0.5 text-sm font-semibold",
               hasPublished
-                ? "text-[color:var(--color-success-text)]"
+                ? "text-[var(--color-success-text)]"
                 : "text-[var(--text-muted)]",
             ].join(" ")}
           >
@@ -260,7 +260,7 @@ const SelectedVersionCard: React.FC<SelectedVersionCardProps> = ({
             <button
               type="button"
               onClick={() => onNavigateToParent(version.parent_version_id!)}
-              className="mt-1 break-all font-mono text-[11px] text-[var(--accent-primary)] hover:underline"
+              className="mt-1 break-all font-mono text-[11px] text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
             >
               {version.parent_version_id}
             </button>
@@ -326,6 +326,7 @@ const VersionSidebarItem: React.FC<VersionSidebarItemProps> = ({
       aria-current={isSelected ? "true" : undefined}
       className={[
         "group w-full rounded-xl border px-3 py-2.5 text-left transition-all",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
         isSelected
           ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] shadow-sm"
           : "border-[var(--border-soft)] bg-[var(--bg-card)] hover:border-[var(--border-strong)]",
@@ -521,9 +522,6 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
           change_summary: `Клон версии ${version?.name ?? versionId}`,
         },
       });
-      // Передаём новый id наверх — родитель сразу обновит URL.
-      // invalidateQueries уже вызван в хуке useCloneGlobalInstructionDraft,
-      // поэтому список версий обновится параллельно с навигацией.
       onDraftCreated(newDraft.id);
     } catch {
       setActionError("Не удалось создать черновик. Попробуйте ещё раз.");
@@ -555,8 +553,6 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
     }
   };
 
-  // ── Loading / Error ────────────────────────────────────────
-
   if (isLoading) {
     return (
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
@@ -579,8 +575,9 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             onClick={() =>
               navigate(`/admin/instructions/global-checks/${instructionCode}`)
             }
+            leftIcon={<ArrowLeft className="h-3.5 w-3.5" />}
           >
-            ← К списку версий
+            К списку версий
           </Button>
         </div>
       </section>
@@ -590,8 +587,6 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
   const alerts = actionError ? (
     <InlineAlert tone="error" message={actionError} />
   ) : null;
-
-  // ── Published / Archived ───────────────────────────────────
 
   if (isPublished || isArchived) {
     return (
@@ -612,18 +607,10 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                 </p>
               </div>
               {hasAnyDraft ? (
-                // Если draft уже есть — показываем явную ссылку на него
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => {
-                    // hasAnyDraft гарантирует, что draft есть в списке версий.
-                    // Родитель знает о drafts через versions — выбираем первый.
-                    // Используем onDraftCreated как "navigate to draft" callback.
-                    // Реальный id придёт из родителя через props если нужно,
-                    // но достаточно сигнала — родитель сам выберет draft.
-                    onDraftCreated("__navigate_to_draft__");
-                  }}
+                  onClick={() => onDraftCreated("__navigate_to_draft__")}
                   leftIcon={<Eye className="h-3.5 w-3.5" />}
                   className="shrink-0"
                 >
@@ -677,8 +664,6 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       </div>
     );
   }
-
-  // ── Draft: editable ────────────────────────────────────────
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
@@ -807,29 +792,20 @@ const GlobalInstructionDetailPage: React.FC = () => {
   const [selectedVersionDetail, setSelectedVersionDetail] =
     useState<GlobalInstructionVersionDetailItem | null>(null);
 
-  // Ref для хранения "pending" версии после clone — чтобы не откатить
-  // навигацию пока список версий ещё не обновился после invalidateQueries.
   const pendingVersionIdRef = useRef<string | null>(null);
 
-  // Автовыбор дефолтной версии
   useEffect(() => {
     if (versions.length === 0) return;
-
-    // Если есть pending после clone — не трогаем URL
     if (pendingVersionIdRef.current) return;
-
     const paramIsValid =
       versionParam && versions.some((v) => v.id === versionParam);
     if (paramIsValid) return;
-
     const defaultId = pickDefaultVersionId(versions);
     if (defaultId) {
       setSearchParams({ version: defaultId }, { replace: true });
     }
   }, [versions, versionParam, setSearchParams]);
 
-  // Когда список версий обновился и теперь содержит pending draft —
-  // сбрасываем ref (URL уже установлен верно)
   useEffect(() => {
     if (!pendingVersionIdRef.current) return;
     const pendingId = pendingVersionIdRef.current;
@@ -840,14 +816,12 @@ const GlobalInstructionDetailPage: React.FC = () => {
   }, [versions]);
 
   const selectedVersionId: string | null = (() => {
-    // Если есть pending — используем его пока список не обновился
     if (pendingVersionIdRef.current) return pendingVersionIdRef.current;
     if (versionParam && versions.some((v) => v.id === versionParam))
       return versionParam;
     return pickDefaultVersionId(versions);
   })();
 
-  // Сброс detail при смене выбранной версии
   useEffect(() => {
     if (
       selectedVersionDetail &&
@@ -865,18 +839,14 @@ const GlobalInstructionDetailPage: React.FC = () => {
     setSearchParams({ version: parentVersionId }, { replace: false });
   };
 
-  // Вызывается из VersionEditorPane после успешного clone
   const handleDraftCreated = (newDraftId: string) => {
     if (newDraftId === "__navigate_to_draft__") {
-      // "Открыть черновик" — находим первый draft в списке
       const firstDraft = versions.find((v) => v.version_status === "draft");
       if (firstDraft) {
         setSearchParams({ version: firstDraft.id }, { replace: false });
       }
       return;
     }
-    // Сохраняем pending ref ДО setSearchParams, чтобы autoselect effect
-    // не успел откатить URL на старую версию
     pendingVersionIdRef.current = newDraftId;
     setSearchParams({ version: newDraftId }, { replace: false });
   };
@@ -910,111 +880,117 @@ const GlobalInstructionDetailPage: React.FC = () => {
     catalogItem?.name ?? instructionCode ?? "Global Instruction";
 
   return (
-    <div className="h-full overflow-hidden px-6 py-6 md:px-8 md:py-8">
-      <div className="flex h-full min-h-0 flex-col gap-6">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 md:px-5 md:py-5">
 
-        {/* ── Back-link ──────────────────────────────────────── */}
-        <button
-          type="button"
-          onClick={() => navigate("/admin/instructions/global-checks")}
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Global Instructions
-        </button>
+      {/* ── Шапка ─────────────────────────────────────────────── */}
+      <header className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/instructions/global-checks")}
+              className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Global Instructions
+            </button>
 
-        {/* ── Header ─────────────────────────────────────────── */}
-        <header className="shrink-0">
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-            {displayName}
-          </h1>
-        </header>
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              {displayName}
+            </h1>
 
-        {/* ── Top-level alerts ───────────────────────────────── */}
-        {createDraftError && (
-          <div className="shrink-0">
-            <InlineAlert tone="error" message={createDraftError} />
+            {instructionCode && (
+              <p className="mt-2 font-mono text-sm text-[var(--text-secondary)]">
+                {instructionCode}
+              </p>
+            )}
           </div>
-        )}
+        </div>
+      </header>
 
-        {/* ── Empty state ────────────────────────────────────── */}
-        {!isVersionsLoading && !isVersionsError && versions.length === 0 && (
-          <EmptyState
-            title="Версий нет"
-            description="Для этой инструкции ещё не создано ни одной версии."
-            action={
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void handleCreateFirstDraft()}
-                isLoading={createDraft.isPending}
-                disabled={createDraft.isPending}
-                leftIcon={<Plus className="h-3.5 w-3.5" />}
-              >
-                Создать первый черновик
-              </Button>
-            }
-          />
-        )}
+      {/* ── Top-level alerts ──────────────────────────────────── */}
+      {createDraftError && (
+        <div className="shrink-0">
+          <InlineAlert tone="error" message={createDraftError} />
+        </div>
+      )}
 
-        {/* ── Основной layout: sidebar 1/3 + editor 2/3 ─────── */}
-        {(isVersionsLoading || versions.length > 0) && (
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-3">
+      {/* ── Empty state ───────────────────────────────────────── */}
+      {!isVersionsLoading && !isVersionsError && versions.length === 0 && (
+        <EmptyState
+          title="Версий нет"
+          description="Для этой инструкции ещё не создано ни одной версии."
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleCreateFirstDraft()}
+              isLoading={createDraft.isPending}
+              disabled={createDraft.isPending}
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
+            >
+              Создать первый черновик
+            </Button>
+          }
+        />
+      )}
 
-            {/* Sidebar */}
-            <div className="flex min-h-0 flex-col gap-4 overflow-y-auto xl:col-span-1">
-              <InstructionInfoCard
-                instructionCode={instructionCode ?? ""}
-                name={displayName}
-                group={catalogItem?.group ?? null}
-                totalVersions={totalVersions}
-                hasPublished={hasPublished}
-                draftCount={draftCount}
+      {/* ── Основной layout ───────────────────────────────────── */}
+      {(isVersionsLoading || versions.length > 0) && (
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-3">
+
+          {/* Sidebar */}
+          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain xl:col-span-1">
+            <InstructionInfoCard
+              instructionCode={instructionCode ?? ""}
+              name={displayName}
+              group={catalogItem?.group ?? null}
+              totalVersions={totalVersions}
+              hasPublished={hasPublished}
+              draftCount={draftCount}
+            />
+
+            {selectedVersionId && (
+              <SelectedVersionCard
+                version={selectedVersionDetail}
+                onNavigateToParent={handleNavigateToParent}
               />
+            )}
 
-              {selectedVersionId && (
-                <SelectedVersionCard
-                  version={selectedVersionDetail}
-                  onNavigateToParent={handleNavigateToParent}
-                />
-              )}
-
-              <VersionsSidebar
-                versions={versions}
-                selectedVersionId={selectedVersionId}
-                onSelectVersion={handleSelectVersion}
-                isLoading={isVersionsLoading}
-                isError={isVersionsError}
-              />
-            </div>
-
-            {/* Editor pane */}
-            <div className="flex min-h-0 min-w-0 flex-col xl:col-span-2">
-              {selectedVersionId && instructionCode ? (
-                <VersionEditorPane
-                  key={selectedVersionId}
-                  instructionCode={instructionCode}
-                  versionId={selectedVersionId}
-                  hasAnyDraft={hasAnyDraft}
-                  onVersionLoaded={setSelectedVersionDetail}
-                  onDraftCreated={handleDraftCreated}
-                />
-              ) : (
-                <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
-                  <p className="text-sm text-[var(--text-muted)]">
-                    Выберите версию из списка слева.
-                  </p>
-                </section>
-              )}
-            </div>
+            <VersionsSidebar
+              versions={versions}
+              selectedVersionId={selectedVersionId}
+              onSelectVersion={handleSelectVersion}
+              isLoading={isVersionsLoading}
+              isError={isVersionsError}
+            />
           </div>
-        )}
-      </div>
+
+          {/* Editor pane */}
+          <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto overscroll-contain xl:col-span-2">
+            {selectedVersionId && instructionCode ? (
+              <VersionEditorPane
+                key={selectedVersionId}
+                instructionCode={instructionCode}
+                versionId={selectedVersionId}
+                hasAnyDraft={hasAnyDraft}
+                onVersionLoaded={setSelectedVersionDetail}
+                onDraftCreated={handleDraftCreated}
+              />
+            ) : (
+              <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
+                <p className="text-sm text-[var(--text-muted)]">
+                  Выберите версию из списка слева.
+                </p>
+              </section>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default GlobalInstructionDetailPage;
-
 
 

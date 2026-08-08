@@ -115,7 +115,7 @@ const DocTypeInfoCard: React.FC<DocTypeInfoCardProps> = ({
             className={[
               "mt-0.5 text-sm font-semibold",
               hasPublished
-                ? "text-[color:var(--color-success-text)]"
+                ? "text-[var(--color-success-text)]"
                 : "text-[var(--text-muted)]",
             ].join(" ")}
           >
@@ -221,7 +221,7 @@ const SelectedVersionCard: React.FC<SelectedVersionCardProps> = ({
             <button
               type="button"
               onClick={() => onNavigateToParent(version.parent_version_id!)}
-              className="mt-1 break-all font-mono text-[11px] text-[var(--accent-primary)] hover:underline"
+              className="mt-1 break-all font-mono text-[11px] text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
             >
               {version.parent_version_id}
             </button>
@@ -287,6 +287,7 @@ const VersionSidebarItem: React.FC<VersionSidebarItemProps> = ({
       aria-current={isSelected ? "true" : undefined}
       className={[
         "group w-full rounded-xl border px-3 py-2.5 text-left transition-all",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
         isSelected
           ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] shadow-sm"
           : "border-[var(--border-soft)] bg-[var(--bg-card)] hover:border-[var(--border-strong)]",
@@ -513,8 +514,6 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
     }
   };
 
-  // ── Loading / Error ────────────────────────────────────────
-
   if (isLoading) {
     return (
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
@@ -537,8 +536,9 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             onClick={() =>
               navigate(`/admin/instructions/doc-types/${docType}`)
             }
+            leftIcon={<ArrowLeft className="h-3.5 w-3.5" />}
           >
-            ← К типу документа
+            К типу документа
           </Button>
         </div>
       </section>
@@ -548,8 +548,6 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
   const alerts = actionError ? (
     <InlineAlert tone="error" message={actionError} />
   ) : null;
-
-  // ── Published / Archived ───────────────────────────────────
 
   if (isPublished || isArchived) {
     return (
@@ -627,8 +625,6 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       </div>
     );
   }
-
-  // ── Draft: editable ────────────────────────────────────────
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
@@ -757,22 +753,18 @@ const DocTypeDetailPage: React.FC = () => {
 
   const pendingVersionIdRef = useRef<string | null>(null);
 
-  // Автовыбор дефолтной версии
   useEffect(() => {
     if (versions.length === 0) return;
     if (pendingVersionIdRef.current) return;
-
     const paramIsValid =
       versionParam && versions.some((v) => v.id === versionParam);
     if (paramIsValid) return;
-
     const defaultId = pickDefaultVersionId(versions);
     if (defaultId) {
       setSearchParams({ version: defaultId }, { replace: true });
     }
   }, [versions, versionParam, setSearchParams]);
 
-  // Сброс pending ref когда новая версия появилась в списке
   useEffect(() => {
     if (!pendingVersionIdRef.current) return;
     const pendingId = pendingVersionIdRef.current;
@@ -789,7 +781,6 @@ const DocTypeDetailPage: React.FC = () => {
     return pickDefaultVersionId(versions);
   })();
 
-  // Сброс detail при смене версии
   useEffect(() => {
     if (
       selectedVersionDetail &&
@@ -829,110 +820,111 @@ const DocTypeDetailPage: React.FC = () => {
   const totalVersions = versions.length;
   const hasAnyDraft = draftCount > 0;
 
-  const displayName =
-    catalogItem?.name ?? docType ?? "Doc-Type";
+  const displayName = catalogItem?.name ?? docType ?? "Doc-Type";
 
   return (
-    <div className="h-full overflow-hidden px-6 py-6 md:px-8 md:py-8">
-      <div className="flex h-full min-h-0 flex-col gap-6">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 md:px-5 md:py-5">
 
-        {/* ── Back-link ──────────────────────────────────────── */}
-        <button
-          type="button"
-          onClick={() => navigate("/admin/instructions/doc-types")}
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Инструкции по типам документов
-        </button>
+      {/* ── Шапка ─────────────────────────────────────────────── */}
+      <header className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/instructions/doc-types")}
+              className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Инструкции по типам документов
+            </button>
 
-        {/* ── Header ─────────────────────────────────────────── */}
-        <header className="shrink-0">
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-            {displayName}
-          </h1>
-          {docType && displayName !== docType && (
-            <p className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
-              {docType}
-            </p>
-          )}
-        </header>
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              {displayName}
+            </h1>
 
-        {/* ── Empty state ────────────────────────────────────── */}
-        {!isVersionsLoading && !isVersionsError && versions.length === 0 && (
-          <EmptyState
-            title="Версий нет"
-            description="Для этого типа документа ещё не создано ни одной версии."
-            action={
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Plus className="h-3.5 w-3.5" />}
-                onClick={() =>
-                  navigate(
-                    `/admin/instructions/doc-types/${docType}/versions/new`,
-                  )
-                }
-              >
-                Создать первый draft
-              </Button>
-            }
-          />
-        )}
-
-        {/* ── Основной layout: sidebar 1/3 + editor 2/3 ─────── */}
-        {(isVersionsLoading || versions.length > 0) && (
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-3">
-
-            {/* Sidebar */}
-            <div className="flex min-h-0 flex-col gap-4 overflow-y-auto xl:col-span-1">
-              <DocTypeInfoCard
-                docTypeCode={docType ?? ""}
-                name={displayName}
-                totalVersions={totalVersions}
-                hasPublished={hasPublished}
-                draftCount={draftCount}
-              />
-
-              {selectedVersionId && (
-                <SelectedVersionCard
-                  version={selectedVersionDetail}
-                  docType={docType ?? ""}
-                  onNavigateToParent={handleNavigateToParent}
-                />
-              )}
-
-              <VersionsSidebar
-                versions={versions}
-                selectedVersionId={selectedVersionId}
-                onSelectVersion={handleSelectVersion}
-                isLoading={isVersionsLoading}
-                isError={isVersionsError}
-              />
-            </div>
-
-            {/* Editor pane */}
-            <div className="flex min-h-0 min-w-0 flex-col xl:col-span-2">
-              {selectedVersionId && docType ? (
-                <VersionEditorPane
-                  key={selectedVersionId}
-                  docType={docType}
-                  versionId={selectedVersionId}
-                  hasAnyDraft={hasAnyDraft}
-                  onVersionLoaded={setSelectedVersionDetail}
-                  onDraftCreated={handleDraftCreated}
-                />
-              ) : (
-                <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
-                  <p className="text-sm text-[var(--text-muted)]">
-                    Выберите версию из списка слева.
-                  </p>
-                </section>
-              )}
-            </div>
+            {docType && (
+              <p className="mt-2 font-mono text-sm text-[var(--text-secondary)]">
+                {docType}
+              </p>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </header>
+
+      {/* ── Empty state ───────────────────────────────────────── */}
+      {!isVersionsLoading && !isVersionsError && versions.length === 0 && (
+        <EmptyState
+          title="Версий нет"
+          description="Для этого типа документа ещё не создано ни одной версии."
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
+              onClick={() =>
+                navigate(
+                  `/admin/instructions/doc-types/${docType}/versions/new`,
+                )
+              }
+            >
+              Создать первый draft
+            </Button>
+          }
+        />
+      )}
+
+      {/* ── Основной layout ───────────────────────────────────── */}
+      {(isVersionsLoading || versions.length > 0) && (
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-3">
+
+          {/* Sidebar */}
+          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain xl:col-span-1">
+            <DocTypeInfoCard
+              docTypeCode={docType ?? ""}
+              name={displayName}
+              totalVersions={totalVersions}
+              hasPublished={hasPublished}
+              draftCount={draftCount}
+            />
+
+            {selectedVersionId && (
+              <SelectedVersionCard
+                version={selectedVersionDetail}
+                docType={docType ?? ""}
+                onNavigateToParent={handleNavigateToParent}
+              />
+            )}
+
+            <VersionsSidebar
+              versions={versions}
+              selectedVersionId={selectedVersionId}
+              onSelectVersion={handleSelectVersion}
+              isLoading={isVersionsLoading}
+              isError={isVersionsError}
+            />
+          </div>
+
+          {/* Editor pane */}
+          <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto overscroll-contain xl:col-span-2">
+            {selectedVersionId && docType ? (
+              <VersionEditorPane
+                key={selectedVersionId}
+                docType={docType}
+                versionId={selectedVersionId}
+                hasAnyDraft={hasAnyDraft}
+                onVersionLoaded={setSelectedVersionDetail}
+                onDraftCreated={handleDraftCreated}
+              />
+            ) : (
+              <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
+                <p className="text-sm text-[var(--text-muted)]">
+                  Выберите версию из списка слева.
+                </p>
+              </section>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

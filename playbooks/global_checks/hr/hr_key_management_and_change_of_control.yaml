@@ -125,6 +125,7 @@ evidence:
   max_snippet_length: 700
 
 retrieval:
+  retrieval_profile: "change_of_control_check"
   context_k: 5
   max_chunks: 10
 
@@ -174,7 +175,7 @@ retrieval:
 
   preferred_clause_functions:
     - "limitations"
-    - "termination"
+    - "procedures"
     - "obligations"
     - "procedures"
 
@@ -206,7 +207,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 460
+  llm_max_tokens: 1150
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по трудовому праву и M&A.

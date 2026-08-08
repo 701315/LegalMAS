@@ -1,0 +1,12 @@
+./src/components/documents/pipeline/DocumentPipelinePanel.tsx:143:          <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0 text-[var(--color-error)]" />
+./src/components/deals/RunLaunchDrawer.tsx:180:                  className="mt-[2px]"
+./src/components/deals/RunLaunchDrawer.tsx:312:                className="mt-[2px]"
+./src/pages/tabs/RealEstateTab.tsx:862:                      <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-error)]" />
+./src/pages/tabs/RealEstateTab.tsx:1495:              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warning)]" />
+./src/pages/tabs/RealEstateTab.tsx:1542:              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]" />
+./src/pages/tabs/CounterpartiesTab.tsx:843:                      <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-error)]" />
+./src/pages/tabs/CounterpartiesTab.tsx:1326:              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warning)]" />
+./src/pages/tabs/overview/LaunchFormPanel.tsx:477:                          className="mt-[2px]"
+./src/pages/tabs/overview/LaunchFormPanel.tsx:546:                      className="mt-[2px]"
+./src/pages/tabs/overview/LaunchFormPanel.tsx:576:                  className="mt-[2px]"
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:786:                <div className="flex shrink-0 items-center gap-2 pt-[22px]">

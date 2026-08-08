@@ -110,7 +110,7 @@ def build_semantic_enrichment_prompt_context(
     - не меняет prompt template;
     - только убирает повторную CPU-работу.
     """
-    allowed_unit_types = _enum_values(LegalUnitType)
+    allowed_unit_types = LegalUnitType.llm_eligible_values()
     allowed_clause_functions = _enum_values(ClauseFunction)
     clause_function_ontology = build_clause_function_ontology_payload()
     allowed_topics = sorted(KNOWN_TOPICS)
@@ -228,7 +228,7 @@ def build_semantic_enrichment_prompt(
             uid_to_title=prompt_context.uid_to_title,
         )
     else:
-        allowed_unit_types_json = _json_dump(_enum_values(LegalUnitType))
+        allowed_unit_types_json = _json_dump(LegalUnitType.llm_eligible_values())
         allowed_clause_functions_json = _json_dump(_enum_values(ClauseFunction))
         clause_function_ontology_json = _json_dump(
             build_clause_function_ontology_payload()

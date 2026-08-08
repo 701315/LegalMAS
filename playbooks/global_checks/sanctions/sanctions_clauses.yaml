@@ -125,6 +125,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "sanctions_compliance_check"
   context_k: 5
   max_chunks: 10
   
@@ -174,9 +175,9 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "compliance"
+    - "obligations"
     - "representations"
-    - "termination"
+    - "procedures"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -200,16 +201,17 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "representations_warranties"
-    - "general_provisions"
-    - "termination"
+    - "representations"
+    - "boilerplate"
+    - "procedures"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 460
+  llm_max_tokens: 1150
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по международным санкциям.

@@ -816,7 +816,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Не оценивай, хороший договор или плохой.
         4. Если данные не указаны прямо — возвращай "Данные не определены" или "not_defined" строго по схеме.
-        5. Не используй "None", "null", "not_specified" или пустые строки.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только цитаты из договора.
         7. Не цитируй закон в evidence.
         8. Верни только один JSON-объект.
@@ -913,6 +913,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "цедент цессионарий новый кредитор первоначальный кредитор должник ИНН ОГРН именуемый в лице действующего на основании устава доверенности реквизиты подписант"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -967,8 +968,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии сведения
@@ -1170,7 +1173,7 @@ checks_v8:
         3. Не оценивай договор.
         4. Если условие не указано прямо — возвращай "not_defined".
         5. Если текстового значения нет — возвращай строго "Данные не определены".
-        6. Не используй "None", "null", "not_specified", пустые строки.
+        6. Не используй "None", "null", "not_defined", пустые строки.
         7. В evidence включай только текст договора.
         8. Верни только один JSON-объект.
 
@@ -1253,6 +1256,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1314,8 +1318,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 540
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии сведения
@@ -1495,7 +1501,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -1584,6 +1590,7 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      retrieval_profile: "warranties_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1645,8 +1652,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии гарантии Цедента
@@ -1834,7 +1843,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -1921,6 +1930,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "уведомление должника письменное уведомление уведомить должника в течение заказное письмо цедент обязуется уведомить цессионарий уведомляет момент уведомления подтверждение получения форма уведомления приложение"
+      retrieval_profile: "notice_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1974,8 +1984,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии процедуру уведомления Должника:
@@ -2145,7 +2157,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -2235,6 +2247,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "security_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2293,8 +2306,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 540
+      compact_output: false
+
+      llm_max_tokens: 1400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии условия
@@ -2486,7 +2501,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -2566,6 +2581,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "возражения должника зачёт встречных требований встречное требование право должника на зачёт отсутствие встречных требований должник не имеет возражений акт сверки компенсация потерь цессионария скрытые встречные требования"
+      retrieval_profile: "assignment_check"
       preferred_unit_types:
         - warranty
         - obligation
@@ -2618,8 +2634,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 900
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии условия,
@@ -2774,7 +2792,7 @@ checks_v8:
         3. Не считай, что делькредере есть "по умолчанию" — только если прямо указано.
         4. Если условие не указано прямо — возвращай "not_defined".
         5. Если текстового значения нет — возвращай строго "Данные не определены".
-        6. Не используй "None", "null", "not_specified", пустые строки.
+        6. Не используй "None", "null", "not_defined", пустые строки.
         7. В evidence включай только текст договора.
         8. Верни только один JSON-объект.
 
@@ -2861,6 +2879,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "делькредере цедент отвечает за исполнение должником гарантия платежеспособности должника цедент принимает на себя риск неплатежа ответственность за неисполнение требования цедент выступает поручителем гарантия возврата уплаченного возместить цессионарию"
+      retrieval_profile: "assignment_check"
       preferred_unit_types:
         - liability_provision
         - obligation
@@ -2915,8 +2934,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1000
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии условия
@@ -3080,7 +3101,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -3178,6 +3199,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "будущие требования права которые возникнут критерии определения будущих требований период возникновения определение будущего должника основание будущих требований механизм фиксации реестр требований ст. 388.2 ГК РФ"
+      retrieval_profile: "assignment_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3229,8 +3251,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии условия
@@ -3414,7 +3438,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -3502,6 +3526,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "assignment_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3560,8 +3585,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1200
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии условия
@@ -3791,6 +3818,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 450
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3845,8 +3873,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии сведения
@@ -4028,6 +4058,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 450
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4084,8 +4115,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии условия
@@ -4228,7 +4261,7 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
+        5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence включай только текст договора.
         7. Верни только один JSON-объект.
 
@@ -4328,6 +4361,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "цена уступки стоимость уступки уплачивает цеденту срок оплаты не позднее в течение банковский перевод после подписания рассрочка цена договора уступки возмездно безвозмездно дисконт премия номинал долга последствия неоплаты"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
         - payment_term
         - obligation
@@ -4385,8 +4419,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии цену уступки,
@@ -4649,6 +4685,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "расторжение отказ от договора обратная уступка возврат права требования возврат цены уступки неустойка штраф пеня расторжение договора уступки последствия расторжения"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - termination_provision
         - liability_provision
@@ -4702,8 +4739,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 900
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цессии условия

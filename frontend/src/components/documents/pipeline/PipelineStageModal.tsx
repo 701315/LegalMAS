@@ -26,16 +26,7 @@ interface Props {
   onClose: () => void;
 }
 
-// ── Какие kinds поддерживают friendly-режим ─────────────────────────
-//
-// structure — friendly = enriched text из CHUNKS
-// chunks    — friendly = RAG-visible corpus (retrieval truth)
 const FRIENDLY_SUPPORTED_KINDS: PipelineStageKind[] = ["structure", "chunks"];
-
-// ── Какие kinds открываются в friendly по умолчанию ─────────────────
-//
-// CHUNKS: продуктовая логика — показать пользователю базу RAG-анализа.
-// По умолчанию friendly, потому что это retrieval truth.
 const FRIENDLY_DEFAULT_KINDS: PipelineStageKind[] = ["chunks"];
 
 function supportsFriendlyMode(stage: PipelineStageViewDTO): boolean {
@@ -43,12 +34,10 @@ function supportsFriendlyMode(stage: PipelineStageViewDTO): boolean {
 }
 
 function getDefaultViewMode(stage: PipelineStageViewDTO): StageViewMode {
-  // Если backend уже явно прислал view_mode — уважаем его.
   const backendMode = stage.representation?.view_mode;
   if (backendMode === "friendly" || backendMode === "canonical") {
     return backendMode;
   }
-  // Иначе — по продуктовой логике.
   if (FRIENDLY_DEFAULT_KINDS.includes(stage.kind)) {
     return "friendly";
   }
@@ -71,8 +60,6 @@ function getErrorMessage(err: unknown): string {
   return "Не удалось переключить режим отображения стадии";
 }
 
-// ── Подписи кнопки toggle для разных kinds ──────────────────────────
-
 function getToggleLabels(kind: PipelineStageKind): {
   toFriendly: string;
   toCanonical: string;
@@ -90,7 +77,6 @@ function getToggleLabels(kind: PipelineStageKind): {
     };
   }
 
-  // Default (structure и другие)
   return {
     toFriendly: "Friendly формат",
     toCanonical: "Canonical формат",
@@ -121,7 +107,6 @@ export const PipelineStageModal: React.FC<Props> = ({
     setCurrentStage(stage ?? null);
     setCurrentStages(stages);
     setError(null);
-    // Используем smart default вместо hardcoded "canonical"
     setViewMode(stage ? getDefaultViewMode(stage) : "canonical");
   }, [stage, stages]);
 
@@ -316,7 +301,7 @@ export const PipelineStageModal: React.FC<Props> = ({
         />
 
         {error && (
-          <div className="mx-5 mt-4 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-4 py-3 text-sm text-[var(--color-error-strong)]">
+          <div className="mx-5 mt-4 rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error-text)]">
             {error}
           </div>
         )}
@@ -349,6 +334,5 @@ export const PipelineStageModal: React.FC<Props> = ({
 };
 
 export default PipelineStageModal;
-
 
 

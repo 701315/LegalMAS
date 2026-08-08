@@ -99,6 +99,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "warranties_check"
   context_k: 5
   max_chunks: 10
 
@@ -140,7 +141,7 @@ retrieval:
   preferred_unit_types:
     - "definition"
     - "general_provision"
-    - "condition"
+    - "general_provision"
 
   excluded_unit_types:
     - "technical_fragment"
@@ -149,8 +150,8 @@ retrieval:
 
   preferred_clause_functions:
     - "definitions"
-    - "termination"
-    - "conditions_precedent"
+    - "procedures"
+    - "boilerplate"
     - "representations"
 
   position_bias:
@@ -175,16 +176,17 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "termination"
-    - "representations_warranties"
-    - "change_of_control"
+    - "procedures"
+    - "representations"
+    - "procedures"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 1050
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A.

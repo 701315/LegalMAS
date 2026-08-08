@@ -20,11 +20,11 @@ const variantClasses: Record<ButtonVariant, string> = {
   primary:
     "border border-transparent bg-[var(--accent-primary)] text-white shadow-sm ring-1 ring-black/5 hover:bg-[var(--accent-hover)] hover:shadow-md active:bg-[var(--accent-hover)]",
   secondary:
-    "border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm hover:border-[var(--border-strong,var(--border))] hover:bg-[var(--bg-card-hover,var(--bg-card))]",
+    "border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)]",
   ghost:
     "border border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
   danger:
-    "border border-transparent bg-[var(--danger,var(--accent-primary))] text-white shadow-sm ring-1 ring-black/5 hover:brightness-95 active:brightness-90",
+    "border border-transparent bg-[var(--color-danger)] text-white shadow-sm ring-1 ring-black/5 hover:brightness-95 active:brightness-90",
   outline:
     "border border-[color:color-mix(in_srgb,var(--accent-primary)_28%,transparent)] bg-transparent text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]",
 };
@@ -151,3 +151,5 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export default Button;
+
+

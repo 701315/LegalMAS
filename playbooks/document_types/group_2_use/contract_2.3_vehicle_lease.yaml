@@ -772,7 +772,7 @@ checks_v8:
         [ПРАВИЛА]
         1. Используй только текст документа.
         2. Если данные не указаны прямо — возвращай "not_defined" / "Данные не определены".
-        3. Не используй "None", "null", "not_found" или пустые строки.
+        3. Не используй "None", "null", "not_defined" или пустые строки.
         4. В evidence включай только текст договора.
         5. Верни только один JSON-объект.
 
@@ -862,6 +862,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "арендодатель арендатор фрахтовщик фрахтователь в лице действующего на основании ИНН ОГРН ОГРНИП реквизиты паспорт"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -912,8 +913,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+
+      llm_max_tokens: 1250
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС сведения
@@ -1109,7 +1114,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -1244,8 +1249,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС вид аренды,
@@ -1424,7 +1433,7 @@ checks_v8:
         [ПРАВИЛА]
         1. Используй только текст документа.
         2. Если данные не указаны прямо — возвращай "not_defined" / "Данные не определены".
-        3. Не используй "None", "null", "not_found" или пустые строки.
+        3. Не используй "None", "null", "not_defined" или пустые строки.
         4. В evidence включай только текст договора.
         5. Верни только один JSON-объект.
 
@@ -1503,6 +1512,7 @@ checks_v8:
       max_tokens: 650
 
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1559,8 +1569,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС
@@ -1726,7 +1740,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -1820,6 +1834,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "акт приёма-передачи техническое состояние пробег фотофиксация существующие повреждения комплект документов ключи уровень топлива"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1869,8 +1884,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+
+      llm_max_tokens: 1300
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС порядок
@@ -2048,7 +2067,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -2134,6 +2153,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "принадлежит на праве собственности исправное техническое состояние не в залоге не под арестом свободно от обременений действующий техосмотр диагностическая карта"
+      retrieval_profile: "title_transfer_check"
       preferred_unit_types:
         - warranty
         - obligation
@@ -2185,8 +2205,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 450
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС подтверждение
@@ -2427,6 +2451,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "ОСАГО КАСКО страховой полис страхование гражданской ответственности выгодоприобретатель страховой случай расходы на страхование"
+      retrieval_profile: "insurance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2476,8 +2501,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+
+      llm_max_tokens: 900
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС условия
@@ -2689,6 +2718,7 @@ checks_v8:
       max_tokens: 650
 
     retrieval:
+      retrieval_profile: "notice_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2744,8 +2774,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+
+      llm_max_tokens: 900
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС порядок
@@ -2968,6 +3002,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "ответственность за вред третьим лицам источник повышенной опасности несёт арендатор несёт арендодатель экипаж действия экипажа текущий и капитальный ремонт содержание ТС"
+      retrieval_profile: "liability_cap_check"
       preferred_unit_types:
         - liability_provision
         - obligation
@@ -3019,8 +3054,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+      llm_max_tokens: 1000
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС распределение
@@ -3267,6 +3306,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "возврат ТС акт возврата нормальный износ штраф за невозврат уровень топлива место возврата досрочное расторжение отказ от договора уведомление о расторжении"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - termination_provision
         - obligation
@@ -3318,8 +3358,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 1300
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС порядок
@@ -3500,7 +3544,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -3581,6 +3625,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3638,8 +3683,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС механизм
@@ -3812,7 +3861,7 @@ checks_v8:
         1. Используй только текст документа.
         2. Если условие не указано прямо — возвращай "not_defined".
         3. Если текстового значения нет — возвращай "Данные не определены".
-        4. Не используй "None", "null", "not_found" или пустые строки.
+        4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
 
@@ -3956,8 +4005,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 1300
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС ограничения
@@ -4222,6 +4275,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "rent_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4277,8 +4331,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС депозит,

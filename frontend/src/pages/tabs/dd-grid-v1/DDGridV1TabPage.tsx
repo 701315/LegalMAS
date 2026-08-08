@@ -293,43 +293,31 @@ const StatusStateCard: React.FC<StatusStateCardProps> = ({
   description,
   tone = "default",
 }) => {
-  const contentClassName =
-    tone === "error"
-      ? "rounded-xl border border-[var(--color-error)]/20 bg-[var(--color-error)]/10 px-4 py-3 text-sm text-[var(--color-error)]"
-      : "text-sm text-[var(--text-muted)]";
+  if (tone === "error") {
+    return (
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        <div className="px-6 py-10">
+          <div className="rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error-text)]">
+            <div>{title}</div>
+            {description ? <p className="mt-0">{description}</p> : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
       <div className="px-6 py-10">
-        <div
-          className={
-            tone === "error"
-              ? contentClassName
-              : "flex min-h-[280px] flex-col items-center justify-center text-center"
-          }
-        >
-          <div className={contentClassName}>
-            <div
-              className={
-                tone === "error"
-                  ? undefined
-                  : "text-base font-semibold text-[var(--text-primary)]"
-              }
-            >
-              {title}
-            </div>
-            {description ? (
-              <p
-                className={
-                  tone === "error"
-                    ? "mt-0"
-                    : "mt-2 max-w-md text-sm text-[var(--text-muted)]"
-                }
-              >
-                {description}
-              </p>
-            ) : null}
+        <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
+          <div className="text-base font-semibold text-[var(--text-primary)]">
+            {title}
           </div>
+          {description ? (
+            <p className="mt-2 max-w-md text-sm text-[var(--text-muted)]">
+              {description}
+            </p>
+          ) : null}
         </div>
       </div>
     </section>
@@ -342,7 +330,7 @@ const RunMetaWarning: React.FC<RunMetaWarningProps> = ({ visible }) => {
   }
 
   return (
-    <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+    <div className="flex items-start gap-2 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning-text)]">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
       <span>
         Не удалось загрузить метаданные запуска анализа. DD Grid показан без
@@ -454,9 +442,14 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   // checksScope из store — используется для фильтрации в list mode
   const checksScope = useDDGridV1UIStore((state) => state.checksScope);
 
-  const [showPassInList, setShowPassInList] = React.useState<boolean>(true);
+  // showPassInList из store — persistent между сессиями,
+  // позволяет управлять фильтром извне (например, из Overview widgets)
+  const showPassInList = useDDGridV1UIStore((state) => state.showPassInList);
+  const setShowPassInList = useDDGridV1UIStore(
+    (state) => state.setShowPassInList,
+  );
 
-    // Inline layout picker для matrix PDF/Word.
+  // Inline layout picker для matrix PDF/Word.
   // null — picker скрыт; "pdf" / "docx" — picker показан для этого формата.
   const [layoutPickerFormat, setLayoutPickerFormat] = React.useState<
     "pdf" | "docx" | null
@@ -573,8 +566,12 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   );
 
   const handleCloseViewer = React.useCallback(() => {
+    // Освобождаем blob URL чтобы не было memory leak
+    if (viewerState?.pdfUrl && viewerState.pdfUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(viewerState.pdfUrl);
+    }
     setViewerState(null);
-  }, []);
+  }, [viewerState]);
 
   const didInitGridModeResetRef = React.useRef(false);
 
@@ -654,27 +651,23 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [dealId, runId, v1Model],
   );
 
-
-
   const openViewerAt: OpenViewerAtFn = React.useCallback(async (loc) => {
     try {
       setViewerError(null);
       setIsViewerLoading(true);
 
-      // Централизованный client автоматически подставит
-      // Authorization: Bearer <jwt> из localStorage через interceptor.
-      const pdfUrlResponse = await client.get<string>(
-        `/api/v1/documents/${loc.documentId}/converted-pdf-url`,
-        { responseType: "text" },
+      // Получаем PDF через streaming endpoint — backend читает из приватного
+      // MinIO и отдаёт браузеру напрямую. Никаких presigned URL.
+      const pdfResponse = await client.get(
+        `/api/v1/documents/${loc.documentId}/converted-pdf-content`,
+        { responseType: "blob" },
       );
 
-      const pdfUrl = pdfUrlResponse.data;
-      if (!pdfUrl || typeof pdfUrl !== "string") {
-        throw new Error("Не удалось получить ссылку на PDF документа");
-      }
+      const pdfBlob = pdfResponse.data as Blob;
+      const pdfUrl = URL.createObjectURL(pdfBlob);
 
-      // layout и chunks запрашиваем параллельно, но каждый в try/catch:
-      // если endpoint вернул ошибку — viewer просто откроется без layout hints.
+      // layout и chunks запрашиваем параллельно, каждый в try/catch:
+      // если endpoint вернул ошибку — viewer откроется без overlay hints.
       const [layoutJson, chunksJson] = await Promise.all([
         client
           .get<unknown>(`/api/v1/documents/${loc.documentId}/layout-for-viewer`)
@@ -694,7 +687,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       });
     } catch (error: unknown) {
       setViewerError(
-        `Ошибка при запросе данных для просмотра документа: ${getErrorMessage(error)}`,
+        `Ошибка при загрузке документа: ${getErrorMessage(error)}`,
       );
     } finally {
       setIsViewerLoading(false);
@@ -744,7 +737,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
         {/* Toolbar — shrink-0 */}
         <div className="shrink-0">
-          <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-5">
+          <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-3">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">
                 {matrixSectionTitle}
@@ -773,7 +766,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
             </div>
           </div>
 
-          <div className="px-6 pt-3">
+          <div className="px-5 pb-3">
             {/* Настройки отображения + кнопка "Экспорт данных" в правом углу */}
             <div className="mb-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -788,7 +781,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                         type="button"
                         size="sm"
                         variant={!showPassInList ? "outline" : "secondary"}
-                        onClick={() => setShowPassInList((prev) => !prev)}
+                        onClick={() => setShowPassInList(!showPassInList)}
                         title={
                           showPassInList
                             ? "Скрыть pass результаты"
@@ -952,7 +945,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                                 );
                               }
                             }}
-                            className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-[var(--border)] text-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-[var(--border)] text-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
                           />
                           <div className="min-w-0">
                             <div className="font-medium text-[var(--text-primary)]">
@@ -975,7 +968,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                           DD_GRID_V1_EXTRA_COLUMNS.map((c) => c.id),
                         )
                       }
-                      className="text-[10px] font-medium text-[var(--accent-primary)] hover:underline"
+                      className="text-[10px] font-medium text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
                     >
                       Выбрать все
                     </button>
@@ -983,7 +976,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                     <button
                       type="button"
                       onClick={() => setDraftExtraColumnIds([])}
-                      className="text-[10px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline"
+                      className="text-[10px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
                     >
                       Снять все
                     </button>
@@ -1019,7 +1012,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
         </div>
 
         {/* Grid viewport — flex-1, AG Grid scroll inside */}
-        <div className="min-h-0 flex-1 overflow-hidden px-6 py-5 relative">
+        <div className="min-h-0 flex-1 overflow-hidden px-5 py-5 relative">
           {gridMode === "matrix" ? (
             <DDGridV1TypedGroups
               runId={runId}
@@ -1062,3 +1055,5 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 };
 
 export default DDGridV1TabPage;
+
+

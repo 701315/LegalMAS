@@ -1,6 +1,5 @@
 // =============================================================
 // ReviewSection.tsx
-// Секция "Результаты проверки" внутри DocumentDetails.
 // =============================================================
 
 import React, { useMemo } from "react";
@@ -76,22 +75,22 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
         {reviewData.totalCritical > 0 && (
-          <span className="inline-flex items-center rounded-full bg-[var(--badge-error-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--badge-error-fg)]">
+          <span className="inline-flex items-center rounded-full border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-error-text)]">
             Critical: {reviewData.totalCritical}
           </span>
         )}
         {reviewData.totalHigh > 0 && (
-          <span className="inline-flex items-center rounded-full bg-[var(--badge-warning-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--badge-warning-fg)]">
+          <span className="inline-flex items-center rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-warning-text)]">
             High: {reviewData.totalHigh}
           </span>
         )}
         {reviewData.totalUnclear > 0 && (
-          <span className="inline-flex items-center rounded-full bg-[var(--badge-info-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--badge-info-fg)]">
+          <span className="inline-flex items-center rounded-full border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-blue)]">
             Unclear: {reviewData.totalUnclear}
           </span>
         )}
         {reviewData.totalFail > 0 && (
-          <span className="inline-flex items-center rounded-full bg-[var(--badge-neutral-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-primary)]">
+          <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-primary)]">
             Fail: {reviewData.totalFail}
           </span>
         )}
@@ -113,4 +112,5 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({
     </div>
   );
 };
+
 

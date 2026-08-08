@@ -23,6 +23,7 @@ from .result import CheckResult
 from .run import Job, Run
 from .instruction_override import InstructionOverride
 from .run_check_plan_item import RunCheckPlanItem
+from .llm_usage import LLMUsageEvent
 
 __all__ = [
     "AuditLog",
@@ -55,4 +56,5 @@ __all__ = [
     "Run",
     "InstructionOverride",
     "RunCheckPlanItem",
+    "LLMUsageEvent",
 ]

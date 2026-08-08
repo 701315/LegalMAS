@@ -58,9 +58,9 @@ const InlineBanner: React.FC<{
 }> = ({ tone, title, description, onDismiss }) => {
   const toneClassName =
     tone === "error"
-      ? "border-[var(--color-error-border)] bg-[var(--color-error-subtle)] text-[var(--color-error)]"
+      ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]"
       : tone === "warning"
-        ? "border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] text-[var(--color-warning)]"
+        ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]"
         : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
 
   return (
@@ -433,7 +433,7 @@ export const RequestsTab: React.FC<Props> = ({
 
           {!isReviewMode && !canManageRequests && (
             <div className="border-b border-[var(--border-subtle)] py-3">
-              <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-4 py-3 text-[var(--color-warning)]">
+              <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-[var(--color-warning-text)]">
                 <p className="text-sm font-medium">Режим только для просмотра</p>
                 <p className="mt-1 text-sm leading-6">
                   Экспорт доступен, но создание, редактирование и удаление запросов
@@ -560,3 +560,5 @@ export const RequestsTab: React.FC<Props> = ({
 };
 
 export default RequestsTab;
+
+

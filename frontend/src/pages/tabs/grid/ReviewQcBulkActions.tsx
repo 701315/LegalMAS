@@ -1,4 +1,3 @@
-// =============================================================
 // src/pages/tabs/grid/ReviewQcBulkActions.tsx
 // Inline toolbar с QC-действиями для выбранных строк review matrix.
 //
@@ -150,7 +149,7 @@ const ReviewQcBulkActions: React.FC<ReviewQcBulkActionsProps> = ({
       </div>
 
       {errorText ? (
-        <div className="mt-3 rounded-lg border border-[var(--color-error)]/30 bg-[var(--color-error)]/10 px-3 py-2 text-xs text-[var(--color-error)]">
+        <div className="mt-3 rounded-lg border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
           {errorText}
         </div>
       ) : null}
@@ -159,6 +158,5 @@ const ReviewQcBulkActions: React.FC<ReviewQcBulkActionsProps> = ({
 };
 
 export default ReviewQcBulkActions;
-
 
 

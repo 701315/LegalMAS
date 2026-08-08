@@ -1,0 +1,2976 @@
+type: contract_9.4_alimony_agreement
+name: "Алиментное соглашение (соглашение об уплате алиментов)"
+version: 6.0
+parent: class_9_special_imperative
+description: |
+  Соглашение между лицом, обязанным уплачивать алименты (плательщиком), и лицом, имеющим
+  право на их получение (получателем), или его законным представителем. Определяет размер,
+  условия, порядок и сроки выплаты средств на содержание. Заключается в отношении:
+  несовершеннолетних детей, нетрудоспособных совершеннолетних детей, супруга (бывшего супруга),
+  родителей, других членов семьи.
+  Требует обязательного нотариального удостоверения (ст. 100 СК РФ). Имеет силу исполнительного
+  листа — при неисполнении может быть предъявлено в службу судебных приставов для принудительного
+  взыскания без обращения в суд. Размер алиментов на несовершеннолетних детей не может быть
+  ниже минимума, установленного ст. 81 СК РФ. Для алиментов в твёрдой денежной сумме
+  обязательна индексация (ст. 105 СК РФ).
+  Регулируется Главой 16 Семейного кодекса РФ (ст. 99–105).
+metadata:
+  category: contract
+  subcategory: family_law
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "Семейный кодекс РФ (Глава 16, ст. 99–105)"
+  doc_types_supported:
+    - "соглашение об уплате алиментов"
+    - "соглашение об уплате алиментов на несовершеннолетнего ребёнка"
+    - "соглашение об уплате алиментов на нетрудоспособного совершеннолетнего ребёнка"
+    - "соглашение об уплате алиментов на супруга (бывшего супруга)"
+    - "соглашение об уплате алиментов на родителей"
+    - "соглашение об уплате алиментов на иного члена семьи"
+    - "соглашение об алиментах на ребенка"
+    - "соглашение об алиментах на супруга"
+    - "соглашение об индексации алиментов"
+    - "медиативное соглашение по алиментам"
+    - "child support agreement"
+    - "alimony agreement"
+    - "maintenance agreement"
+    - "family support agreement"
+    - "agreement for maintenance of dependants"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.9
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
+  rules:
+    filename_patterns:
+      - pattern: "(?i)алиментн[оеаяый][_\\s-]*(соглашени[еия]|договор)"
+        kind: specific_subject
+        weight: 1.0
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент"
+        kind: specific_subject
+        weight: 1.0
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*алимент[ахы]"
+        kind: specific_subject
+        weight: 0.98
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*несовершеннолетн[егоую][_\\s-]*ребенк[аа]"
+        kind: specific_subject
+        weight: 0.98
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*нетрудоспособн[огоую][_\\s-]*совершеннолетн[егоую][_\\s-]*ребенк[аа]"
+        kind: specific_subject
+        weight: 0.98
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*супруг[ауы]"
+        kind: specific_subject
+        weight: 0.95
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*родител[яея]"
+        kind: specific_subject
+        weight: 0.95
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*ин[оеы][_\\s-]*член[аы][_\\s-]*семь[иьи]"
+        kind: specific_subject
+        weight: 0.95
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*алимент[ахы][_\\s-]*на[_\\s-]*ребенк[аа]"
+        kind: specific_subject
+        weight: 0.95
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*алимент[ахы][_\\s-]*на[_\\s-]*супруг[ауы]"
+        kind: specific_subject
+        weight: 0.95
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*индексац[иии][_\\s-]*алимент"
+        kind: specific_subject
+        weight: 0.9
+      - pattern: "(?i)медиативн[оеое][_\\s-]*соглашени[еия][_\\s-]*по[_\\s-]*алимент[амы]"
+        kind: specific_subject
+        weight: 0.9
+      - pattern: "(?i)алимент[ыы][_\\s-]*(соглашени[еия]|договор)"
+        kind: specific_subject
+        weight: 0.98
+      - pattern: "(?i)алимент"
+        kind: generic_form
+        weight: 0.6
+      - pattern: "(?i)child[_\\s-]*support[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+      - pattern: "(?i)alimony[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+      - pattern: "(?i)maintenance[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+      - pattern: "(?i)family[_\\s-]*support[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+      - pattern: "(?i)agreement[_\\s-]*for[_\\s-]*maintenance[_\\s-]*of[_\\s-]*dependants?"
+        kind: specific_subject
+        weight: 0.95
+      - pattern: "(?i)child[\\s_.-]?support"
+        kind: generic_form
+        weight: 0.7
+      - pattern: "(?i)alimony"
+        kind: generic_form
+        weight: 0.7
+      - pattern: "(?i)maintenance"
+        kind: generic_form
+        weight: 0.55
+
+    folder_patterns:
+      - pattern: "(?i)алимент"
+        kind: specific_subject
+        weight: 0.8
+      - pattern: "(?i)семейн[оеая][_\\s-]*право?"
+        kind: specific_subject
+        weight: 0.75
+      - pattern: "(?i)family[_\\s-]*law"
+        kind: specific_subject
+        weight: 0.75
+      - pattern: "(?i)child[_\\s-]*support"
+        kind: specific_subject
+        weight: 0.8
+      - pattern: "(?i)maintenance"
+        kind: context
+        weight: 0.4
+
+    keywords:
+      high:
+        - pattern: "(?i)алиментн[оеая]\\s+соглашен[иеия]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название алиментного соглашения"
+        - pattern: "(?i)соглашен[иея]\\s+об\\s+уплат[еы]\\s+алимент[ов]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Общее наименование соглашения об уплате алиментов"
+        - pattern: "(?i)дополнительн[оеая]\\s+соглашен[иеия]\\s+к\\s+алиментн[омуому]\\s+соглашен[июию]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Дополнительное соглашение к алиментному соглашению"
+        - pattern: "(?i)соглашен[иея]\\s+об\\s+уплат[еы]\\s+алимент[ов]\\s+на\\s+несовершеннолетн[егоую]\\s+ребенк[аоу]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Алименты на несовершеннолетнего ребёнка"
+        - pattern: "(?i)соглашен[иея]\\s+об\\s+уплат[еы]\\s+алимент[ов]\\s+на\\s+нетрудоспособн[огоую]\\s+совершеннолетн[егоую]\\s+ребенк[аоу]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Алименты на нетрудоспособного совершеннолетнего ребёнка"
+        - pattern: "(?i)соглашен[иея]\\s+об\\s+уплат[еы]\\s+алимент[ов]\\s+на\\s+супруг[аоу]\\s*\\(бывш[егоую]\\s+супруг[аоу]\\)"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Алименты на супруга или бывшего супруга"
+        - pattern: "(?i)соглашен[иея]\\s+об\\s+уплат[еы]\\s+алимент[ов]\\s+на\\s+родител[еяй]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Алименты на родителей"
+        - pattern: "(?i)соглашен[иея]\\s+об\\s+уплат[еы]\\s+алимент[ов]\\s+на\\s+ин[огоые]\\s+член[аов]\\s+семь[ии]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Алименты на иных членов семьи"
+        - pattern: "(?i)плательщик\\s+алимент[ов]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Плательщик алиментов как сторона соглашения"
+        - pattern: "(?i)получател[ьяеи]\\s+алимент[ов]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Получатель алиментов как сторона соглашения"
+        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]\\s+соглашен[иеия]\\s+об\\s+уплат[еы]\\s+алимент[оо]в"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Нотариальное удостоверение алиментного соглашения — ст. 100 СК РФ"
+        - pattern: "(?i)исполнительн[ыйое]\\s+лист"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Исполнительная сила алиментного соглашения"
+        - pattern: "(?i)сил[ауы]\\s+исполнительн[огоого]\\s+лист[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Приравнивание соглашения к исполнительному листу"
+        - pattern: "(?i)ст\\.?\\s*100\\s+ск\\s+рф"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Статья 100 СК РФ об алиментном соглашении"
+
+      medium:
+        - pattern: "(?i)размер\\s+алимент[оо]в"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Размер алиментов по соглашению"
+        - pattern: "(?i)тв[её]рд[а-яё]+\\s+денежн[а-яё]+\\s+сумм[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Алименты в твёрдой денежной сумме"
+        - pattern: "(?i)дол[яьи]\\s+от\\s+заработк[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Алименты в доле от заработка/дохода"
+        - pattern: "(?i)индексаци[яяи]\\s+алимент[оо]в"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Индексация алиментов"
+        - pattern: "(?i)несовершеннолетн[иие]+\\s+реб[её]нок"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Несовершеннолетний ребёнок как получатель алиментов"
+        - pattern: "(?i)содержани[ея]\\s+реб[её]нк[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Содержание ребёнка за счёт алиментов"
+        - pattern: "(?i)прожиточн[ыо]й\\s+минимум"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Прожиточный минимум как ориентир для размера алиментов"
+        - pattern: "(?i)ст\\.\\s*81\\s*СК\\s*РФ"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Статья 81 СК РФ о долевом размере алиментов"
+        - pattern: "(?i)ст\\.\\s*103\\s*СК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Статья 103 СК РФ о последствиях неисполнения соглашения"
+        - pattern: "(?i)ст\\.\\s*104\\s*СК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Статья 104 СК РФ о способах исполнения алиментных обязательств"
+        - pattern: "(?i)ст\\.\\s*105\\s*СК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Статья 105 СК РФ об индексации алиментов"
+        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Обязательное нотариальное удостоверение алиментного соглашения"
+
+      low:
+        - pattern: "(?i)поряд[оа]к\\s+выплат[ыы]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Порядок выплат алиментов"
+        - pattern: "(?i)срок\\s+действи[яя]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Срок действия алиментного соглашения"
+        - pattern: "(?i)\\bнеустойк[ааы]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Неустойка за просрочку уплаты алиментов"
+        - pattern: "(?i)судебн[ыо]е\\s+пристав[ыа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Участие службы судебных приставов"
+        - pattern: "(?i)принудительн[оа]е\\s+взыскани[ея]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Принудительное взыскание алиментов"
+        - pattern: "(?i)задолженност[ьи]\\s+по\\s+алиментам"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Задолженность по алиментам"
+        - pattern: "(?i)дополнительн[ыо]е\\s+расход[ыо]\\s+на\\s+реб[её]нк[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Дополнительные расходы на ребёнка (лечение, обучение и т.п.)"
+
+    exclusions:
+      - pattern: "(?i)судебн[оа]е\\s+решени[ея]\\s+о\\s+взыскани[ии]\\s+алимент[оо]в"
+        severity: hard
+        weight: -1.0
+        description: "Судебное решение о взыскании алиментов — иной тип документа"
+      - pattern: "(?i)судебн[ыо]й\\s+приказ\\s+о\\s+взыскани[ии]\\s+алимент[оо]в"
+        severity: hard
+        weight: -1.0
+        description: "Судебный приказ о взыскании алиментов"
+      - pattern: "(?i)решени[ея]\\s+суд[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Общее судебное решение, отличное от нотариального соглашения"
+      - pattern: "(?i)определени[ея]\\s+суд[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Судебное определение, а не соглашение сторон"
+      - pattern: "(?i)брачн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Брачный договор — иной семейно-правовой договор"
+      - pattern: "(?i)брачн[ыо]й\\s+контракт"
+        severity: hard
+        weight: -1.0
+        description: "Брачный контракт, а не алиментное соглашение"
+      - pattern: "(?i)соглашени[ея]\\s+о\\s+раздел[ее]\\s+имуществ[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Соглашение о разделе имущества супругов"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+  child_maintenance:
+    any_keywords:
+      - "(?i)несовершеннолетн[иие]+\\s+реб[её]нок"
+      - "(?i)алимент[ыа]\\s+на\\s+реб[её]нк[аа]"
+      - "(?i)содержани[ея]\\s+реб[её]нк[аа]"
+      - "(?i)до\\s+достижени[яя]\\s+совершеннолетия"
+      - "(?i)до\\s+18\\s+лет"
+      - "(?i)до\\s+достижени[яя]\\s+18\\s+лет"
+      - "(?i)ст\\.\\s*81\\s*СК\\s*РФ"
+
+  adult_child_maintenance:
+    any_keywords:
+      - "(?i)нетрудоспособн[ыо]й\\s+совершеннолетн[иие]+\\s+реб[её]нок"
+      - "(?i)совершеннолетн[иие]+\\s+нетрудоспособн[ыо]й"
+      - "(?i)реб[её]нок-?инвалид"
+      - "(?i)инвалидност[ьи]\\s+реб[её]нк[аа]"
+      - "(?i)ст\\.\\s*85\\s*СК\\s*РФ"
+
+  spouse_maintenance:
+    any_keywords:
+      - "(?i)содержани[ея]\\s+супруг[ааи]"
+      - "(?i)алименты?\\s+на\\s+супруг[ааи]"
+      - "(?i)бывш[иаяее]+\\s+супруг[ааи]"
+      - "(?i)нетрудоспособн[ыо]й\\s+супруг"
+      - "(?i)нуждающ[иаяй]+ся\\s+супруг"
+      - "(?i)беременност[ьи]"
+      - "(?i)отпуск\\s+по\\s+уходу\\s+за\\s+реб[её]нк[оо]м"
+      - "(?i)ст\\.\\s*89\\s*СК\\s*РФ"
+      - "(?i)ст\\.\\s*90\\s*СК\\s*РФ"
+
+  parent_maintenance:
+    any_keywords:
+      - "(?i)содержани[ея]\\s+родител[ее]й"
+      - "(?i)содержани[ея]\\s+отц[аа]"
+      - "(?i)содержани[ея]\\s+матер[ии]"
+      - "(?i)алименты?\\s+на\\s+родител[ее]й"
+      - "(?i)нетрудоспособн[ыо]е\\s+родител[ии]"
+      - "(?i)нуждающ[иие]+ся\\s+родител[ии]"
+      - "(?i)ст\\.\\s*87\\s*СК\\s*РФ"
+
+  other_family_maintenance:
+    any_keywords:
+      - "(?i)ин[ыа]е\\s+член[ыа]\\s+семь[ии]"
+      - "(?i)брать[яиё]\\s+и\\s+с[её]стр[ыа]"
+      - "(?i)дедушк[ии]\\s+и\\s+бабушк[ии]"
+      - "(?i)\\bвнук[ииов]?\\b"
+      - "(?i)\\bвоспитател[ииов]?\\b"
+      - "(?i)пасынк[ииов]?\\s+и\\s+падчериц[ыа]"
+      - "(?i)Глав[аа]\\s+15\\s*СК\\s*РФ"
+
+  fixed_amount_alimony:
+    any_keywords:
+      - "(?i)тв[её]рд[а-яё]+\\s+денежн[а-яё]+\\s+сумм[аа]"
+      - "(?i)фиксированн[а-яё]+\\s+сумм[аа]"
+      - "(?i)ежемесячно\\s+в\\s+размере"
+      - "(?i)в\\s+сумм[ее]"
+      - "(?i)рубл[ее]й\\s+ежемесячно"
+
+  proportional_alimony:
+    any_keywords:
+      - "(?i)дол[яьи]\\s+от\\s+заработк[аа]"
+      - "(?i)дол[яьи]\\s+от\\s+доход[аа]"
+      - "(?i)1/4\\s+заработк[аа]"
+      - "(?i)одн[аа]\\s+четверт[аяую]"
+      - "(?i)1/3\\s+заработк[аа]"
+      - "(?i)одн[аа]\\s+треть[яю]"
+      - "(?i)1/2\\s+заработк[аа]"
+      - "(?i)половин[аа]\\s+заработк[аа]"
+      - "(?i)процент\\s+от\\s+доход[аа]"
+
+  property_transfer_alimony:
+    any_keywords:
+      - "(?i)предоставлени[ея]\\s+имуществ[аа]"
+      - "(?i)передач[аа]\\s+имуществ[аа]"
+      - "(?i)единовременн[а-яё]+\\s+выплат[аа]"
+      - "(?i)ин[ыа]м\\s+способом"
+      - "(?i)ст\\.\\s*104\\s*СК\\s*РФ"
+
+  enforcement_context:
+    any_keywords:
+      - "(?i)исполнительн[ыо]й\\s+лист"
+      - "(?i)служб[аа]\\s+судебн[ыо]х\\s+пристав[оо]в"
+      - "(?i)принудительн[оа]е\\s+взыскани[ея]"
+      - "(?i)исполнительн[оа]е\\s+производств[оо]"
+      - "(?i)\\bФЗ-229\\b"
+
+  substantial_change_context:
+    any_keywords:
+      - "(?i)существенн[оа]е\\s+изменени[ея]"
+      - "(?i)изменени[ея]\\s+материальн[оа]го\\s+положени[яя]"
+      - "(?i)потер[яя]\\s+работ[ыы]"
+      - "(?i)снижени[ея]\\s+доход[оо]в"
+      - "(?i)рождени[ея]\\s+друг[оа]го\\s+реб[её]нк[аа]"
+      - "(?i)инвалидност[ьи]\\s+плательщик[аа]"
+      - "(?i)ст\\.\\s*101\\s*СК\\s*РФ"
+
+  multiple_children:
+    any_keywords:
+      - "(?i)двое\\s+дет[ее]й"
+      - "(?i)трое\\s+дет[ее]й"
+      - "(?i)на\\s+каждого\\s+реб[её]нк[аа]"
+      - "(?i)1/3\\s+на\\s+двоих"
+      - "(?i)1/2\\s+на\\s+троих"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  fraction_pattern: "(?i)\\b(1/[234]|одн[а-яё]+\\s+(четверт|трет|половин))"
+  passport_data: "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
+  article_sk_ref: "(?i)ст\\.?\\s*\\d+\\s*СК\\s*РФ"
+
+compliance_rules: []
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 1: Стороны, выгодоприобретатель и основание обязанности
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: parties_and_beneficiary_check
+    name: "Стороны соглашения, выгодоприобретатель и основание алиментной обязанности"
+    description: >
+      Фактографическая проверка идентификации плательщика, получателя (или его
+      законного представителя), лица, на содержание которого уплачиваются алименты,
+      и основания алиментной обязанности (родительство, брак, семейные отношения).
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "плательщик"
+        - "получатель"
+        - "законный представитель"
+        - "родитель"
+        - "опекун"
+        - "попечитель"
+        - "ребёнок"
+        - "ребенок"
+        - "супруг"
+        - "супруга"
+        - "на содержание"
+        - "паспорт"
+        - "дата рождения"
+        - "свидетельство о рождении"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(плательщик|получатель)\\s+алимент"
+        - "(?i)на\\s+содержание\\s+(несовершеннолетн|ребёнк|ребенк|супруг)"
+        - "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
+        - "(?i)законн(ый|ого|ым)\\s+представител"
+        - "(?i)свидетельств(о|а)\\s+о\\s+рождении"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется соглашение об уплате алиментов (Глава 16 СК РФ, ст. 99).
+        Проверяется только один вопрос: идентификация сторон соглашения,
+        выгодоприобретателя и основания алиментной обязанности.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте соглашения.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. ФИО и данные плательщика алиментов.
+        2. Роль плательщика (родитель / супруг / совершеннолетний ребёнок / иное).
+        3. ФИО получателя или его законного представителя.
+        4. Роль получателя/представителя.
+        5. ФИО лица, на содержание которого уплачиваются алименты (выгодоприобретатель).
+        6. Категория выгодоприобретателя.
+        7. Дата рождения выгодоприобретателя.
+        8. Основание алиментной обязанности (родительство / брак / семейные отношения).
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст соглашения.
+        6. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — стороны определены:
+        Фрагмент:
+        "Иванов Иван Иванович, паспорт серия 45 00 № 123456, именуемый «Плательщик»,
+        обязуется уплачивать алименты на содержание несовершеннолетнего сына —
+        Иванова Петра Ивановича, 15.03.2015 года рождения, в пользу Ивановой Марии
+        Сергеевны (мать, законный представитель), действующей на основании
+        свидетельства о рождении серия II-АА № 654321."
+        Ответ:
+        {
+          "payer_name_status": "defined",
+          "payer_name_value": "Иванов Иван Иванович, паспорт серия 45 00 № 123456",
+          "payer_role": "parent",
+          "recipient_name_status": "defined",
+          "recipient_name_value": "Иванова Мария Сергеевна (мать, законный представитель)",
+          "recipient_role": "parent_representative",
+          "beneficiary_name_status": "defined",
+          "beneficiary_name_value": "Иванов Пётр Иванович, 15.03.2015 г.р.",
+          "beneficiary_type": "minor_child",
+          "basis_of_obligation": "parentage",
+          "evidence": [
+            {
+              "clause_ref": "преамбула",
+              "quote": "Иванов Иван Иванович, паспорт серия 45 00 № 123456, именуемый «Плательщик», обязуется уплачивать алименты на содержание несовершеннолетнего сына — Иванова Петра Ивановича..."
+            }
+          ]
+        }
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Стороны заключили настоящее соглашение."
+        Ответ:
+        {
+          "payer_name_status": "not_defined",
+          "payer_name_value": "Данные не определены",
+          "payer_role": "not_defined",
+          "recipient_name_status": "not_defined",
+          "recipient_name_value": "Данные не определены",
+          "recipient_role": "not_defined",
+          "beneficiary_name_status": "not_defined",
+          "beneficiary_name_value": "Данные не определены",
+          "beneficiary_type": "not_defined",
+          "basis_of_obligation": "not_defined",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с ФИО плательщика.
+        2. Найди прямую цитату с ФИО получателя/представителя.
+        3. Найди прямую цитату с ФИО выгодоприобретателя и датой рождения.
+        4. Определи основание обязанности по тексту.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "payer_name_status": "<defined / not_defined>",
+          "payer_name_value": "<ФИО и данные или 'Данные не определены'>",
+          "payer_role": "<parent / spouse / adult_child / other / not_defined>",
+          "recipient_name_status": "<defined / not_defined>",
+          "recipient_name_value": "<ФИО или 'Данные не определены'>",
+          "recipient_role": "<parent_representative / spouse / parent / guardian / other / not_defined>",
+          "beneficiary_name_status": "<defined / not_defined>",
+          "beneficiary_name_value": "<ФИО и дата рождения или 'Данные не определены'>",
+          "beneficiary_type": "<minor_child / adult_disabled_child / spouse / ex_spouse / parent / other / not_defined>",
+          "basis_of_obligation": "<parentage / marriage / family_relationship / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      retrieval_profile: "party_identification_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "плательщик получатель законный представитель родитель опекун попечитель ребёнок супруг на содержание основание обязанности паспорт дата рождения свидетельство о рождении плательщик алиментов получатель алиментов"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - definitions
+      negative_keywords:
+        - "размер алиментов"
+        - "порядок выплаты"
+        - "индексация"
+        - "неустойка"
+        - "прекращение"
+        - "изменение соглашения"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.35
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "representations"
+        - "definitions"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.15
+
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1400
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
+        алиментов данные о плательщике, получателе, выгодоприобретателе и основании
+        алиментной обязанности.
+        Не анализируй размер алиментов, порядок выплаты, индексацию или прекращение.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. payer_name_status — "defined" или "not_defined".
+        2. payer_name_value — ФИО и данные плательщика.
+        3. payer_role — parent / spouse / adult_child / other / not_defined.
+        4. recipient_name_status — "defined" или "not_defined".
+        5. recipient_name_value — ФИО получателя или его представителя.
+        6. recipient_role — parent_representative / spouse / parent / guardian / other / not_defined.
+        7. beneficiary_name_status — "defined" или "not_defined".
+        8. beneficiary_name_value — ФИО и дата рождения выгодоприобретателя.
+        9. beneficiary_type — minor_child / adult_disabled_child / spouse / ex_spouse / parent / other / not_defined.
+        10. basis_of_obligation — parentage / marriage / family_relationship / not_defined.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст соглашения.
+        - basis_of_obligation: "parentage" — если основание — родительство;
+          "marriage" — если основание — брак или бывший брак;
+          "family_relationship" — если основание — иные семейные отношения;
+          "not_defined" — если основание прямо не указано.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "payer_name_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации плательщика."
+          required: true
+        - name: "payer_name_value"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Плательщик"
+          description: "ФИО и данные плательщика алиментов."
+          required: true
+        - name: "payer_role"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["parent", "spouse", "adult_child", "other", "not_defined"]
+          description: "Роль плательщика в алиментном обязательстве."
+          required: false
+        - name: "recipient_name_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации получателя/представителя."
+          required: true
+        - name: "recipient_name_value"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Получатель / представитель"
+          description: "ФИО получателя или его законного представителя."
+          required: true
+        - name: "recipient_role"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["parent_representative", "spouse", "parent", "guardian", "other", "not_defined"]
+          description: "Роль получателя/представителя."
+          required: false
+        - name: "beneficiary_name_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации выгодоприобретателя."
+          required: true
+        - name: "beneficiary_name_value"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Выгодоприобретатель"
+          description: "ФИО и дата рождения лица, на содержание которого уплачиваются алименты."
+          required: true
+        - name: "beneficiary_type"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["minor_child", "adult_disabled_child", "spouse", "ex_spouse", "parent", "other", "not_defined"]
+          description: "Категория выгодоприобретателя."
+          required: true
+        - name: "basis_of_obligation"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["parentage", "marriage", "family_relationship", "not_defined"]
+          description: "Основание алиментной обязанности."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 2: Нотариальная форма и исполнительная сила
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: notarial_form_executive_force_check
+    name: "Нотариальная форма и сила исполнительного листа (ст. 100 СК РФ)"
+    description: >
+      Фактографическая проверка наличия нотариального удостоверения соглашения
+      и указания на силу исполнительного листа. Без нотариальной формы
+      соглашение ничтожно.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "нотариальное удостоверение"
+        - "нотариус"
+        - "удостоверено нотариусом"
+        - "реестр нотариальных действий"
+        - "исполнительный лист"
+        - "силу исполнительного листа"
+        - "исполнительный документ"
+        - "служба судебных приставов"
+        - "принудительное взыскание"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)удостоверен(о|а)\\s+нотариусом"
+        - "(?i)нотариальн(ое|ого|ым)\\s+удостоверен"
+        - "(?i)сил(у|а|ой)\\s+исполнительного\\s+листа"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется соглашение об уплате алиментов (ст. 100 СК РФ).
+        Проверяется только один вопрос: нотариальная форма и исполнительная сила.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте соглашения.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Статус нотариального удостоверения (удостоверено / упомянуто / нет).
+        2. ФИО нотариуса.
+        3. Номер в реестре нотариальных действий.
+        4. Упоминание силы исполнительного листа.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст соглашения.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — удостоверено:
+        Фрагмент:
+        "Настоящее соглашение удостоверено нотариусом г. Москвы Петровой А.Б.,
+        реестр № 77-АА-123456. Нотариально удостоверенное соглашение об уплате
+        алиментов имеет силу исполнительного листа."
+        Ответ:
+        {
+          "notarial_status": "certified",
+          "notary_name_status": "defined",
+          "notary_name_value": "нотариус г. Москвы Петрова А.Б.",
+          "registry_number_status": "defined",
+          "registry_number_value": "реестр № 77-АА-123456",
+          "executive_force_status": "defined",
+          "executive_force_details": "имеет силу исполнительного листа",
+          "evidence": [
+            {
+              "clause_ref": "удостоверительная надпись",
+              "quote": "Настоящее соглашение удостоверено нотариусом г. Москвы Петровой А.Б., реестр № 77-АА-123456."
+            }
+          ]
+        }
+        Пример 2 — не удостоверено:
+        Фрагмент:
+        "Стороны подписали настоящее соглашение."
+        Ответ:
+        {
+          "notarial_status": "not_defined",
+          "notary_name_status": "not_defined",
+          "notary_name_value": "Данные не определены",
+          "registry_number_status": "not_defined",
+          "registry_number_value": "Данные не определены",
+          "executive_force_status": "not_defined",
+          "executive_force_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату удостоверительной надписи нотариуса.
+        2. Найди прямую цитату с ФИО нотариуса и номером реестра.
+        3. Найди прямую цитату об исполнительной силе.
+        4. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "notarial_status": "<certified / mentioned / not_defined>",
+          "notary_name_status": "<defined / not_defined>",
+          "notary_name_value": "<ФИО нотариуса или 'Данные не определены'>",
+          "registry_number_status": "<defined / not_defined>",
+          "registry_number_value": "<номер или 'Данные не определены'>",
+          "executive_force_status": "<defined / not_defined>",
+          "executive_force_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 450
+
+    retrieval:
+      retrieval_profile: "registration_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "нотариальное удостоверение нотариус удостоверено нотариусом реестр нотариальных действий исполнительный лист силу исполнительного листа исполнительный документ служба судебных приставов принудительное взыскание ст. 100 СК РФ"
+      preferred_unit_types:
+        - general_provision
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - definitions
+      negative_keywords:
+        - "размер алиментов"
+        - "порядок выплаты"
+        - "индексация"
+        - "неустойка"
+        - "прекращение"
+        - "изменение соглашения"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.80, 1.0]
+        boost: 0.25
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "boilerplate"
+        - "definitions"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.15
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 700
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
+        алиментов данные о нотариальном удостоверении и исполнительной силе.
+        Не анализируй размер алиментов, порядок выплаты или прекращение.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. notarial_status — certified / mentioned / not_defined.
+        2. notary_name_status — "defined" или "not_defined".
+        3. notary_name_value — ФИО нотариуса.
+        4. registry_number_status — "defined" или "not_defined".
+        5. registry_number_value — номер в реестре.
+        6. executive_force_status — "defined" или "not_defined".
+        7. executive_force_details — формулировка об исполнительной силе.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст соглашения.
+        - notarial_status: "certified" — есть удостоверительная надпись нотариуса;
+          "mentioned" — упоминается необходимость удостоверения, но надписи нет;
+          "not_defined" — нотариальное удостоверение не упомянуто.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "notarial_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["certified", "mentioned", "not_defined"]
+          description: "Статус нотариального удостоверения."
+          required: true
+        - name: "notary_name_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания ФИО нотариуса."
+          required: false
+        - name: "notary_name_value"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Нотариус"
+          description: "ФИО нотариуса, удостоверившего соглашение."
+          required: false
+        - name: "registry_number_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус номера в реестре."
+          required: false
+        - name: "registry_number_value"
+          type: "string"
+          presentation: "fact"
+          label: "Номер в реестре"
+          description: "Номер в реестре нотариальных действий."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "executive_force_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания на исполнительную силу."
+          required: false
+        - name: "executive_force_details"
+          type: "string"
+          presentation: "fact"
+          label: "Исполнительная сила"
+          description: "Формулировка о силе исполнительного листа."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 3: Размер алиментов и соответствие минимуму
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: amount_minimum_compliance_check
+    name: "Размер алиментов и соответствие минимуму (ст. 81, 103, 104 СК РФ)"
+    description: >
+      Фактографическая проверка размера алиментов, способа определения
+      (доля / твёрдая сумма / смешанный / предоставление имущества)
+      и соответствия минимальному размеру для несовершеннолетних детей.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "размер алиментов"
+        - "в размере"
+        - "1/4 заработка"
+        - "одна четвертая"
+        - "1/3 заработка"
+        - "одна третья"
+        - "1/2 заработка"
+        - "половина заработка"
+        - "твёрдая денежная сумма"
+        - "твердая денежная сумма"
+        - "ежемесячно"
+        - "рублей"
+        - "прожиточный минимум"
+        - "процент от дохода"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b(1/[234]|одн[а-яё]+\\s+(четверт|трет|половин))"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+        - "(?i)в\\s+размере\\s+\\d+"
+        - "(?i)прожиточн(ый|ого)\\s+минимум"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется соглашение об уплате алиментов (ст. 81, 103, 104 СК РФ).
+        Проверяется только один вопрос: размер алиментов и способ его определения.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте соглашения.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Способ определения размера (доля / твёрдая сумма / смешанный / имущество).
+        2. Конкретный размер (сумма или доля).
+        3. Периодичность выплаты.
+        4. Число детей (если алименты на детей).
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст соглашения.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — доля:
+        Фрагмент:
+        "Плательщик обязуется уплачивать алименты в размере 1/4 (одной четвертой)
+        заработка и иного дохода ежемесячно, не позднее 10-го числа следующего месяца."
+        Ответ:
+        {
+          "amount_type": "proportional",
+          "amount_value_status": "defined",
+          "amount_value_details": "1/4 (одна четвертая) заработка и иного дохода",
+          "payment_frequency_status": "defined",
+          "payment_frequency_details": "ежемесячно, не позднее 10-го числа следующего месяца",
+          "number_of_children_status": "not_defined",
+          "number_of_children_value": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "Плательщик обязуется уплачивать алименты в размере 1/4 (одной четвертой) заработка и иного дохода ежемесячно."
+            }
+          ]
+        }
+        Пример 2 — твёрдая сумма:
+        Фрагмент:
+        "Алименты уплачиваются в твёрдой денежной сумме 25 000 рублей ежемесячно."
+        Ответ:
+        {
+          "amount_type": "fixed",
+          "amount_value_status": "defined",
+          "amount_value_details": "25 000 рублей ежемесячно",
+          "payment_frequency_status": "defined",
+          "payment_frequency_details": "ежемесячно",
+          "number_of_children_status": "not_defined",
+          "number_of_children_value": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "Алименты уплачиваются в твёрдой денежной сумме 25 000 рублей ежемесячно."
+            }
+          ]
+        }
+        Пример 3 — данные отсутствуют:
+        Фрагмент:
+        "Плательщик обязуется уплачивать алименты."
+        Ответ:
+        {
+          "amount_type": "not_defined",
+          "amount_value_status": "not_defined",
+          "amount_value_details": "Данные не определены",
+          "payment_frequency_status": "not_defined",
+          "payment_frequency_details": "Данные не определены",
+          "number_of_children_status": "not_defined",
+          "number_of_children_value": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с размером алиментов.
+        2. Определи способ определения размера.
+        3. Найди прямую цитату с периодичностью.
+        4. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "amount_type": "<proportional / fixed / mixed / property_transfer / not_defined>",
+          "amount_value_status": "<defined / not_defined>",
+          "amount_value_details": "<размер или 'Данные не определены'>",
+          "payment_frequency_status": "<defined / not_defined>",
+          "payment_frequency_details": "<периодичность или 'Данные не определены'>",
+          "number_of_children_status": "<defined / not_defined>",
+          "number_of_children_value": "<число или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      retrieval_profile: "payment_terms_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "размер алиментов в размере 1/4 1/3 1/2 твёрдая денежная сумма твердая денежная сумма ежемесячно рублей прожиточный минимум процент от дохода доля от заработка способ определения размера ст. 81 СК ст. 103 СК ст. 104 СК"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "нотариус"
+        - "удостоверение"
+        - "индексация"
+        - "неустойка"
+        - "прекращение"
+        - "изменение соглашения"
+        - "дополнительные расходы"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.10, 0.55]
+        boost: 0.20
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "definitions"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 800
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
+        алиментов размер алиментов, способ определения и периодичность выплаты.
+        Не анализируй нотариальную форму, индексацию, неустойку или прекращение.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. amount_type — proportional / fixed / mixed / property_transfer / not_defined.
+        2. amount_value_status — "defined" или "not_defined".
+        3. amount_value_details — конкретный размер.
+        4. payment_frequency_status — "defined" или "not_defined".
+        5. payment_frequency_details — периодичность выплаты.
+        6. number_of_children_status — "defined" или "not_defined".
+        7. number_of_children_value — число детей.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст соглашения.
+        - amount_type: "доля от заработка/дохода" = "proportional";
+          "твёрдая денежная сумма" = "fixed";
+          комбинация = "mixed";
+          "предоставление имущества" = "property_transfer";
+          не указан = "not_defined".
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "amount_type"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["proportional", "fixed", "mixed", "property_transfer", "not_defined"]
+          description: "Способ определения размера алиментов."
+          required: true
+        - name: "amount_value_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения конкретного размера."
+          required: true
+        - name: "amount_value_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Размер алиментов"
+          description: "Конкретный размер алиментов."
+          required: true
+        - name: "payment_frequency_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения периодичности."
+          required: false
+        - name: "payment_frequency_details"
+          type: "string"
+          presentation: "fact"
+          label: "Периодичность выплаты"
+          description: "Периодичность выплаты алиментов."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "number_of_children_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания числа детей."
+          required: false
+        - name: "number_of_children_value"
+          type: "string"
+          presentation: "fact"
+          label: "Число детей"
+          description: "Число детей, на которых уплачиваются алименты."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 4: Порядок, сроки, способ выплаты и подтверждение оплаты
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: payment_procedure_check
+    name: "Порядок, сроки, способ выплаты и подтверждение оплаты (ст. 104 СК РФ)"
+    description: >
+      Фактографическая проверка конкретного порядка выплаты алиментов:
+      дата платежа, способ перечисления, реквизиты и подтверждение оплаты.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "порядок выплаты"
+        - "ежемесячно"
+        - "не позднее"
+        - "до числа"
+        - "перечисление на счёт"
+        - "перечисление на счет"
+        - "банковский счёт"
+        - "банковский счет"
+        - "наличными"
+        - "под расписку"
+        - "реквизиты"
+        - "подтверждение оплаты"
+        - "платёжное поручение"
+        - "платежное поручение"
+        - "расписка"
+        - "копия квитанции"
+        - "банковская выписка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+позднее\\s+\\d+[-]?(го)?\\s+(числа|дня)"
+        - "(?i)(перечисл|на\\s+банковский\\s+сч)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется соглашение об уплате алиментов (ст. 104 СК РФ).
+        Проверяется только один вопрос: порядок, сроки, способ выплаты
+        и подтверждение оплаты.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте соглашения.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Конкретная дата ежемесячного платежа.
+        2. Способ перечисления (банковский перевод / наличные / почтовый перевод).
+        3. Реквизиты счёта получателя.
+        4. Порядок подтверждения оплаты.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст соглашения.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Алименты перечисляются на банковский счёт получателя № 40817810000000000000
+        в ПАО Сбербанк не позднее 10-го числа каждого месяца. Подтверждением оплаты
+        является платёжное поручение с отметкой банка."
+        Ответ:
+        {
+          "payment_deadline_status": "defined",
+          "payment_deadline_details": "не позднее 10-го числа каждого месяца",
+          "payment_method_status": "defined",
+          "payment_method_code": "bank_transfer",
+          "payment_method_details": "перечисление на банковский счёт № 40817810000000000000 в ПАО Сбербанк",
+          "payment_confirmation_status": "defined",
+          "payment_confirmation_details": "платёжное поручение с отметкой банка",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "Алименты перечисляются на банковский счёт получателя № 40817810000000000000 в ПАО Сбербанк не позднее 10-го числа каждого месяца."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Плательщик уплачивает алименты."
+        Ответ:
+        {
+          "payment_deadline_status": "not_defined",
+          "payment_deadline_details": "Данные не определены",
+          "payment_method_status": "not_defined",
+          "payment_method_code": "not_defined",
+          "payment_method_details": "Данные не определены",
+          "payment_confirmation_status": "not_defined",
+          "payment_confirmation_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с датой платежа.
+        2. Найди прямую цитату со способом перечисления.
+        3. Найди прямую цитату с реквизитами.
+        4. Найди прямую цитату о подтверждении оплаты.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "payment_deadline_status": "<defined / not_defined>",
+          "payment_deadline_details": "<срок или 'Данные не определены'>",
+          "payment_method_status": "<defined / not_defined>",
+          "payment_method_code": "<bank_transfer / cash / postal / other / not_defined>",
+          "payment_method_details": "<текст или 'Данные не определены'>",
+          "payment_confirmation_status": "<defined / not_defined>",
+          "payment_confirmation_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+
+    retrieval:
+      retrieval_profile: "payment_terms_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "порядок выплаты ежемесячно не позднее до числа перечисление на счёт банковский счёт наличными под расписку реквизиты подтверждение оплаты платёжное поручение расписка копия квитанции банковская выписка"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "размер алиментов"
+        - "индексация"
+        - "неустойка"
+        - "прекращение"
+        - "изменение соглашения"
+        - "дополнительные расходы"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.60]
+        boost: 0.15
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 700
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
+        алиментов порядок, сроки, способ выплаты и подтверждение оплаты.
+        Не анализируй размер алиментов, индексацию или прекращение.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. payment_deadline_status — "defined" или "not_defined".
+        2. payment_deadline_details — конкретная дата платежа.
+        3. payment_method_status — "defined" или "not_defined".
+        4. payment_method_code — bank_transfer / cash / postal / other / not_defined.
+        5. payment_method_details — способ перечисления и реквизиты.
+        6. payment_confirmation_status — "defined" или "not_defined".
+        7. payment_confirmation_details — порядок подтверждения оплаты.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст соглашения.
+        - payment_method_code: "перечисление на счёт" = "bank_transfer";
+          "наличными" = "cash"; "почтовый перевод" = "postal";
+          иной способ = "other"; не указан = "not_defined".
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "payment_deadline_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения даты платежа."
+          required: true
+        - name: "payment_deadline_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Дата платежа"
+          description: "Конкретная дата ежемесячного платежа."
+          required: true
+        - name: "payment_method_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус способа перечисления."
+          required: false
+        - name: "payment_method_code"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["bank_transfer", "cash", "postal", "other", "not_defined"]
+          description: "Способ перечисления."
+          required: false
+        - name: "payment_method_details"
+          type: "string"
+          presentation: "fact"
+          label: "Способ выплаты"
+          description: "Способ перечисления и реквизиты."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "payment_confirmation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка подтверждения оплаты."
+          required: false
+        - name: "payment_confirmation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Подтверждение оплаты"
+          description: "Порядок подтверждения оплаты."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Индексация алиментов
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: indexation_check
+    name: "Индексация алиментов в твёрдой сумме (ст. 105 СК РФ)"
+    description: >
+      Фактографическая проверка наличия механизма индексации для алиментов,
+      установленных в твёрдой денежной сумме. По умолчанию — пропорционально
+      росту прожиточного минимума.
+    triggers:
+      any: ["fixed_amount_alimony"]
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "индексация"
+        - "индексация алиментов"
+        - "прожиточный минимум"
+        - "рост потребительских цен"
+        - "ИПЦ"
+        - "пропорционально росту"
+        - "пересчёт суммы"
+        - "ст. 105 СК РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)индексаци(я|ю|и)\\s+(размера\\s+)?алимент"
+        - "(?i)пропорционально\\s+(росту\\s+)?(величин(ы|е)|размер(у|а))\\s+прожиточн"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется соглашение об уплате алиментов (ст. 105 СК РФ).
+        Проверяется только один вопрос: механизм индексации алиментов.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте соглашения.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Наличие механизма индексации.
+        2. Основание индексации (прожиточный минимум / ИПЦ / фиксированный %).
+        3. Периодичность индексации.
+        4. Кто производит индексацию.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст соглашения.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Размер алиментов подлежит индексации пропорционально росту величины
+        прожиточного минимума для детей в субъекте РФ по месту жительства
+        получателя. Индексация производится ежеквартально."
+        Ответ:
+        {
+          "indexation_status": "concrete",
+          "indexation_basis": "subsistence_minimum",
+          "indexation_frequency_status": "defined",
+          "indexation_frequency_details": "ежеквартально",
+          "indexation_performer_status": "not_defined",
+          "indexation_performer_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.3",
+              "quote": "Размер алиментов подлежит индексации пропорционально росту величины прожиточного минимума для детей в субъекте РФ по месту жительства получателя."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Алименты уплачиваются в размере 20 000 рублей ежемесячно."
+        Ответ:
+        {
+          "indexation_status": "not_defined",
+          "indexation_basis": "not_defined",
+          "indexation_frequency_status": "not_defined",
+          "indexation_frequency_details": "Данные не определены",
+          "indexation_performer_status": "not_defined",
+          "indexation_performer_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об индексации.
+        2. Найди прямую цитату об основании индексации.
+        3. Найди прямую цитату о периодичности.
+        4. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "indexation_status": "<concrete / default_reference / not_defined>",
+          "indexation_basis": "<subsistence_minimum / CPI / fixed_percentage / other / not_defined>",
+          "indexation_frequency_status": "<defined / not_defined>",
+          "indexation_frequency_details": "<периодичность или 'Данные не определены'>",
+          "indexation_performer_status": "<defined / not_defined>",
+          "indexation_performer_details": "<кто индексирует или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 450
+
+    retrieval:
+      retrieval_profile: "payment_terms_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "индексация индексация алиментов прожиточный минимум рост потребительских цен ИПЦ пропорционально росту пересчёт суммы ст. 105 СК РФ периодичность индексации"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "размер алиментов"
+        - "порядок выплаты"
+        - "неустойка"
+        - "прекращение"
+        - "изменение соглашения"
+        - "дополнительные расходы"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.65]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 700
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
+        алиментов механизм индексации.
+        Не анализируй размер алиментов, порядок выплаты или прекращение.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. indexation_status — concrete / default_reference / not_defined.
+        2. indexation_basis — subsistence_minimum / CPI / fixed_percentage / other / not_defined.
+        3. indexation_frequency_status — "defined" или "not_defined".
+        4. indexation_frequency_details — периодичность индексации.
+        5. indexation_performer_status — "defined" или "not_defined".
+        6. indexation_performer_details — кто производит индексацию.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст соглашения.
+        - indexation_status: "concrete" — указан конкретный порядок индексации;
+          "default_reference" — ссылка на ст. 105 СК РФ;
+          "not_defined" — индексация не упомянута.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "indexation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["concrete", "default_reference", "not_defined"]
+          description: "Статус механизма индексации."
+          required: true
+        - name: "indexation_basis"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["subsistence_minimum", "CPI", "fixed_percentage", "other", "not_defined"]
+          description: "Основание индексации."
+          required: false
+        - name: "indexation_frequency_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус периодичности индексации."
+          required: false
+        - name: "indexation_frequency_details"
+          type: "string"
+          presentation: "fact"
+          label: "Периодичность индексации"
+          description: "Периодичность индексации алиментов."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "indexation_performer_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания на лицо, производящее индексацию."
+          required: false
+        - name: "indexation_performer_details"
+          type: "string"
+          presentation: "fact"
+          label: "Кто индексирует"
+          description: "Кто производит индексацию (работодатель/приставы/иное)."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 6: Корректировка при изменении обстоятельств
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: adjustment_mechanism_check
+    name: "Механизм корректировки при изменении обстоятельств (ст. 101 СК РФ)"
+    description: >
+      Фактографическая проверка наличия права на пересмотр размера алиментов
+      при существенном изменении материального или семейного положения сторон.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "существенное изменение"
+        - "изменение материального положения"
+        - "изменение семейного положения"
+        - "потеря работы"
+        - "снижение доходов"
+        - "рождение другого ребёнка"
+        - "пересмотр размера"
+        - "корректировка"
+        - "право на изменение"
+        - "досудебный порядок"
+        - "ст. 101 СК РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)существенн(ое|ого)\\s+изменени(е|я)\\s+(материальн|семейн)"
+        - "(?i)пересмотр\\s+размера\\s+алимент"
+        - "(?i)снижени(е|я)\\s+доход(ов|а)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется соглашение об уплате алиментов (ст. 101 СК РФ).
+        Проверяется только один вопрос: механизм корректировки при изменении
+        материального или семейного положения сторон.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте соглашения.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Наличие механизма корректировки.
+        2. Перечень оснований для пересмотра.
+        3. Порядок пересмотра (переговоры / суд / оба).
+        4. Наличие досудебного порядка обсуждения.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст соглашения.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "При существенном изменении материального или семейного положения сторон
+        (потеря работы, снижение доходов более чем на 50%, рождение другого ребёнка)
+        размер алиментов может быть пересмотрен по соглашению сторон.
+        При недостижении согласия спор передаётся в суд."
+        Ответ:
+        {
+          "adjustment_clause_status": "defined",
+          "adjustment_grounds_status": "defined",
+          "adjustment_grounds_details": "потеря работы, снижение доходов более чем на 50%, рождение другого ребёнка",
+          "adjustment_procedure": "both",
+          "pre_trial_procedure_status": "defined",
+          "pre_trial_procedure_details": "пересмотр по соглашению сторон; при недостижении согласия — суд",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.1",
+              "quote": "При существенном изменении материального или семейного положения сторон... размер алиментов может быть пересмотрен по соглашению сторон."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Плательщик обязуется уплачивать алименты."
+        Ответ:
+        {
+          "adjustment_clause_status": "not_defined",
+          "adjustment_grounds_status": "not_defined",
+          "adjustment_grounds_details": "Данные не определены",
+          "adjustment_procedure": "not_defined",
+          "pre_trial_procedure_status": "not_defined",
+          "pre_trial_procedure_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о механизме корректировки.
+        2. Найди прямую цитату с перечнем оснований.
+        3. Найди прямую цитату о порядке пересмотра.
+        4. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "adjustment_clause_status": "<defined / not_defined>",
+          "adjustment_grounds_status": "<defined / not_defined>",
+          "adjustment_grounds_details": "<перечень или 'Данные не определены'>",
+          "adjustment_procedure": "<negotiation / court / both / not_defined>",
+          "pre_trial_procedure_status": "<defined / not_defined>",
+          "pre_trial_procedure_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+
+    retrieval:
+      retrieval_profile: "termination_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "существенное изменение изменение материального положения изменение семейного положения потеря работы снижение доходов рождение другого ребёнка пересмотр размера корректировка право на изменение досудебный порядок ст. 101 СК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "размер алиментов"
+        - "порядок выплаты"
+        - "индексация"
+        - "неустойка"
+        - "прекращение обязательств"
+        - "дополнительные расходы"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 700
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
+        алиментов механизм корректировки при изменении обстоятельств.
+        Не анализируй размер алиментов, порядок выплаты или прекращение.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. adjustment_clause_status — "defined" или "not_defined".
+        2. adjustment_grounds_status — "defined" или "not_defined".
+        3. adjustment_grounds_details — перечень оснований для пересмотра.
+        4. adjustment_procedure — negotiation / court / both / not_defined.
+        5. pre_trial_procedure_status — "defined" или "not_defined".
+        6. pre_trial_procedure_details — досудебный порядок обсуждения.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст соглашения.
+        - adjustment_procedure: "negotiation" — пересмотр по соглашению сторон;
+          "court" — только через суд; "both" — оба порядка;
+          "not_defined" — порядок не указан.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "adjustment_clause_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус механизма корректировки."
+          required: true
+        - name: "adjustment_grounds_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечня оснований для пересмотра."
+          required: false
+        - name: "adjustment_grounds_details"
+          type: "string"
+          presentation: "fact"
+          label: "Основания пересмотра"
+          description: "Перечень оснований для пересмотра размера алиментов."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "adjustment_procedure"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["negotiation", "court", "both", "not_defined"]
+          description: "Порядок пересмотра."
+          required: false
+        - name: "pre_trial_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус досудебного порядка."
+          required: false
+        - name: "pre_trial_procedure_details"
+          type: "string"
+          presentation: "fact"
+          label: "Досудебный порядок"
+          description: "Досудебный порядок обсуждения изменения размера."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 7: Неустойка, зачёт расходов и переплата
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: penalty_and_offset_check
+    name: "Неустойка за просрочку, зачёт дополнительных расходов и переплата"
+    description: >
+      Фактографическая проверка неустойки за просрочку уплаты алиментов (ст. 115 СК РФ),
+      зачёта дополнительных расходов на ребёнка (ст. 86, 104 СК РФ) и зачёта переплаты.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "неустойка"
+        - "пеня"
+        - "за просрочку"
+        - "за каждый день просрочки"
+        - "0,1%"
+        - "ст. 115 СК РФ"
+        - "убытки сверх неустойки"
+        - "дополнительные расходы"
+        - "зачёт расходов"
+        - "зачет расходов"
+        - "лечение ребёнка"
+        - "образование ребёнка"
+        - "в счёт алиментов"
+        - "в счет алиментов"
+        - "зачёт переплаты"
+        - "зачет переплаты"
+        - "авансовый платёж"
+        - "в счёт будущих платежей"
+        - "переплата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк(а|у|и)\\s+(за\\s+)?просрочк"
+        - "(?i)\\d[,.]\\d+\\s*%\\s*(за\\s+)?(каждый\\s+)?день"
+        - "(?i)зач(ёт|ет)\\s+(произведённых\\s+)?расход"
+        - "(?i)переплат(а|ы|у)\\s*(зачитывается|подлежит\\s+зачёт)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется соглашение об уплате алиментов (ст. 115, 86, 104 СК РФ).
+        Проверяется только один вопрос: неустойка за просрочку, зачёт
+        дополнительных расходов и переплата.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте соглашения.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Наличие неустойки за просрочку и её размер.
+        2. Тип неустойки (за день / за месяц / фиксированная).
+        3. Право на взыскание убытков сверх неустойки.
+        4. Наличие условия о зачёте дополнительных расходов.
+        5. Перечень категорий расходов, подлежащих зачёту.
+        6. Наличие условия о зачёте переплаты.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст соглашения.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "За просрочку уплаты алиментов Плательщик уплачивает неустойку в размере
+        0,1% от неуплаченной суммы за каждый день просрочки. Плательщик вправе
+        производить дополнительные расходы на лечение и образование ребёнка
+        с зачётом в счёт алиментов по согласованию с получателем."
+        Ответ:
+        {
+          "penalty_clause_status": "defined",
+          "penalty_rate_status": "defined",
+          "penalty_rate_details": "0,1% от неуплаченной суммы за каждый день просрочки",
+          "penalty_type": "per_day",
+          "additional_damages_status": "not_defined",
+          "offset_clause_status": "defined",
+          "offset_categories_status": "defined",
+          "offset_categories_details": "лечение и образование ребёнка",
+          "overpayment_credit_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.1",
+              "quote": "За просрочку уплаты алиментов Плательщик уплачивает неустойку в размере 0,1% от неуплаченной суммы за каждый день просрочки."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Плательщик обязуется уплачивать алименты своевременно."
+        Ответ:
+        {
+          "penalty_clause_status": "not_defined",
+          "penalty_rate_status": "not_defined",
+          "penalty_rate_details": "Данные не определены",
+          "penalty_type": "not_defined",
+          "additional_damages_status": "not_defined",
+          "offset_clause_status": "not_defined",
+          "offset_categories_status": "not_defined",
+          "offset_categories_details": "Данные не определены",
+          "overpayment_credit_status": "not_defined",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о неустойке.
+        2. Найди прямую цитату о зачёте расходов.
+        3. Найди прямую цитату о зачёте переплаты.
+        4. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "penalty_clause_status": "<defined / not_defined>",
+          "penalty_rate_status": "<defined / not_defined>",
+          "penalty_rate_details": "<размер или 'Данные не определены'>",
+          "penalty_type": "<per_day / per_month / fixed / other / not_defined>",
+          "additional_damages_status": "<defined / not_defined>",
+          "offset_clause_status": "<defined / not_defined>",
+          "offset_categories_status": "<defined / not_defined>",
+          "offset_categories_details": "<перечень или 'Данные не определены'>",
+          "overpayment_credit_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      retrieval_profile: "liability_cap_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "неустойка пеня за просрочку за каждый день просрочки 0,1% ст. 115 СК РФ убытки сверх неустойки дополнительные расходы зачёт расходов зачет расходов лечение образование отдых в счёт алиментов зачёт переплаты авансовый платёж в счёт будущих платежей переплата"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - obligations
+      negative_keywords:
+        - "размер алиментов"
+        - "порядок выплаты"
+        - "индексация"
+        - "прекращение"
+        - "изменение соглашения"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "remedies"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 550
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 800
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
+        алиментов неустойку за просрочку, зачёт дополнительных расходов и переплату.
+        Не анализируй размер алиментов, порядок выплаты или прекращение.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. penalty_clause_status — "defined" или "not_defined".
+        2. penalty_rate_status — "defined" или "not_defined".
+        3. penalty_rate_details — размер неустойки.
+        4. penalty_type — per_day / per_month / fixed / other / not_defined.
+        5. additional_damages_status — "defined" или "not_defined".
+        6. offset_clause_status — "defined" или "not_defined".
+        7. offset_categories_status — "defined" или "not_defined".
+        8. offset_categories_details — перечень категорий расходов.
+        9. overpayment_credit_status — "defined" или "not_defined".
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст соглашения.
+        - penalty_type: "за каждый день" = "per_day";
+          "за каждый месяц" = "per_month";
+          "фиксированная сумма" = "fixed";
+          иной тип = "other"; не указан = "not_defined".
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "penalty_clause_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус неустойки за просрочку."
+          required: true
+        - name: "penalty_rate_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус размера неустойки."
+          required: false
+        - name: "penalty_rate_details"
+          type: "string"
+          presentation: "fact"
+          label: "Размер неустойки"
+          description: "Размер неустойки за просрочку."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "penalty_type"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["per_day", "per_month", "fixed", "other", "not_defined"]
+          description: "Тип неустойки."
+          required: false
+        - name: "additional_damages_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус права на убытки сверх неустойки."
+          required: false
+        - name: "offset_clause_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия о зачёте расходов."
+          required: false
+        - name: "offset_categories_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечня категорий расходов."
+          required: false
+        - name: "offset_categories_details"
+          type: "string"
+          presentation: "fact"
+          label: "Категории расходов для зачёта"
+          description: "Перечень категорий расходов, подлежащих зачёту."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "overpayment_credit_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия о зачёте переплаты."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 8: Условия прекращения и порядок изменения соглашения
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: termination_and_amendment_check
+    name: "Условия прекращения обязательств и порядок изменения соглашения"
+    description: >
+      Фактографическая проверка условий прекращения алиментных обязательств
+      (ст. 120 СК РФ), срока действия соглашения и порядка внесения изменений
+      и расторжения (ст. 101 СК РФ).
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "прекращение обязательств"
+        - "прекращение выплаты"
+        - "достижение совершеннолетия"
+        - "достижение 18 лет"
+        - "смерть плательщика"
+        - "смерть получателя"
+        - "усыновление"
+        - "восстановление трудоспособности"
+        - "вступление в новый брак"
+        - "эмансипация"
+        - "ст. 120 СК РФ"
+        - "изменение соглашения"
+        - "расторжение соглашения"
+        - "по взаимному согласию"
+        - "в нотариальной форме"
+        - "односторонний отказ не допускается"
+        - "через суд"
+        - "письменное уведомление"
+        - "срок действия"
+        - "действует до"
+        - "до достижения"
+        - "до совершеннолетия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)прекращ(ение|ается)\\s+(обязательств|выплат|действи)"
+        - "(?i)до\\s+достижени(я|е).*?(18|совершеннолети)"
+        - "(?i)в\\s+случае\\s+смерти\\s+(плательщик|получател)"
+        - "(?i)изменени(е|я)\\s+(и\\s+)?расторжени"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется соглашение об уплате алиментов (ст. 101, 120 СК РФ).
+        Проверяется только один вопрос: условия прекращения обязательств
+        и порядок изменения соглашения.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте соглашения.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Перечень оснований прекращения обязательств.
+        2. Конкретная дата или событие окончания.
+        3. Условие о смерти плательщика/получателя.
+        4. Порядок внесения изменений (нотариальная форма).
+        5. Невозможность одностороннего отказа.
+        6. Порядок судебного изменения.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст соглашения.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Обязательства прекращаются: при достижении ребёнком 18 лет;
+        при усыновлении ребёнка; при смерти плательщика или получателя.
+        Изменение и расторжение соглашения производится по взаимному согласию
+        сторон в нотариальной форме. Односторонний отказ не допускается."
+        Ответ:
+        {
+          "termination_events_status": "defined",
+          "termination_events_details": "достижение ребёнком 18 лет; усыновление ребёнка; смерть плательщика или получателя",
+          "end_date_or_event_status": "defined",
+          "end_date_or_event_details": "достижение ребёнком 18 лет",
+          "death_clause_status": "defined",
+          "amendment_procedure_status": "defined",
+          "amendment_procedure_details": "по взаимному согласию сторон в нотариальной форме",
+          "unilateral_refusal_status": "defined",
+          "unilateral_refusal_details": "односторонний отказ не допускается",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.1",
+              "quote": "Обязательства прекращаются: при достижении ребёнком 18 лет; при усыновлении ребёнка; при смерти плательщика или получателя."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Плательщик обязуется уплачивать алименты."
+        Ответ:
+        {
+          "termination_events_status": "not_defined",
+          "termination_events_details": "Данные не определены",
+          "end_date_or_event_status": "not_defined",
+          "end_date_or_event_details": "Данные не определены",
+          "death_clause_status": "not_defined",
+          "amendment_procedure_status": "not_defined",
+          "amendment_procedure_details": "Данные не определены",
+          "unilateral_refusal_status": "not_defined",
+          "unilateral_refusal_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с перечнем оснований прекращения.
+        2. Найди прямую цитату о смерти плательщика/получателя.
+        3. Найди прямую цитату о порядке изменения.
+        4. Найди прямую цитату об одностороннем отказе.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "termination_events_status": "<defined / not_defined>",
+          "termination_events_details": "<перечень или 'Данные не определены'>",
+          "end_date_or_event_status": "<defined / not_defined>",
+          "end_date_or_event_details": "<дата/событие или 'Данные не определены'>",
+          "death_clause_status": "<defined / not_defined>",
+          "amendment_procedure_status": "<defined / not_defined>",
+          "amendment_procedure_details": "<текст или 'Данные не определены'>",
+          "unilateral_refusal_status": "<defined / not_defined>",
+          "unilateral_refusal_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      retrieval_profile: "termination_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "прекращение обязательств прекращение выплаты достижение совершеннолетия достижение 18 лет смерть плательщика смерть получателя усыновление восстановление трудоспособности вступление в новый брак эмансипация ст. 120 СК РФ изменение соглашения расторжение соглашения по взаимному согласию в нотариальной форме односторонний отказ не допускается через суд срок действия действует до"
+      preferred_unit_types:
+        - termination_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "размер алиментов"
+        - "порядок выплаты"
+        - "индексация"
+        - "неустойка"
+        - "дополнительные расходы"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 1.0]
+        boost: 0.15
+        scope: segment
+      context_k: 5
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "remedies"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 550
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 800
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
+        алиментов условия прекращения обязательств и порядок изменения соглашения.
+        Не анализируй размер алиментов, порядок выплаты или индексацию.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. termination_events_status — "defined" или "not_defined".
+        2. termination_events_details — перечень оснований прекращения.
+        3. end_date_or_event_status — "defined" или "not_defined".
+        4. end_date_or_event_details — конкретная дата или событие окончания.
+        5. death_clause_status — "defined" или "not_defined".
+        6. amendment_procedure_status — "defined" или "not_defined".
+        7. amendment_procedure_details — порядок внесения изменений.
+        8. unilateral_refusal_status — "defined" или "not_defined".
+        9. unilateral_refusal_details — условие об одностороннем отказе.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст соглашения.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "termination_events_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечня оснований прекращения."
+          required: true
+        - name: "termination_events_details"
+          type: "string"
+          presentation: "fact"
+          label: "Основания прекращения"
+          description: "Перечень оснований прекращения обязательств."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "end_date_or_event_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус конечной даты/события."
+          required: false
+        - name: "end_date_or_event_details"
+          type: "string"
+          presentation: "fact"
+          label: "Дата/событие окончания"
+          description: "Конкретная дата или событие окончания обязательств."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "death_clause_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия о смерти плательщика/получателя."
+          required: false
+        - name: "amendment_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка внесения изменений."
+          required: false
+        - name: "amendment_procedure_details"
+          type: "string"
+          presentation: "fact"
+          label: "Порядок изменения"
+          description: "Порядок внесения изменений и расторжения."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "unilateral_refusal_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия об одностороннем отказе."
+          required: false
+        - name: "unilateral_refusal_details"
+          type: "string"
+          presentation: "fact"
+          label: "Односторонний отказ"
+          description: "Условие о невозможности одностороннего отказа."
+          required: false
+          display_in_grid: true
+          display_priority: 4
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 9: Споры, конфиденциальность и целевое использование
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: dispute_confidentiality_targeted_use_check
+    name: "Порядок разрешения споров, конфиденциальность и целевое использование"
+    description: >
+      Фактографическая проверка порядка разрешения споров (досудебный порядок,
+      подсудность), условий конфиденциальности и обязанности получателя
+      предоставлять отчёт о целевом использовании алиментов.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "досудебный порядок"
+        - "путём переговоров"
+        - "путем переговоров"
+        - "подсудность"
+        - "по месту жительства"
+        - "конфиденциальность"
+        - "неразглашение"
+        - "не подлежат разглашению"
+        - "не раскрывать третьим лицам"
+        - "целевое использование"
+        - "отчёт об использовании"
+        - "отчет об использовании"
+        - "по требованию плательщика"
+        - "расходование средств на нужды ребёнка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)спор(ы|ов)\\s+(разрешаются|подлежат)"
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+подлеж(ат|ит)\\s+разглашени"
+        - "(?i)целев(ое|ого)\\s+использован"
+        - "(?i)отч(ёт|ет)\\s+(об\\s+)?использовани"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется соглашение об уплате алиментов.
+        Проверяется только один вопрос: порядок разрешения споров,
+        конфиденциальность и целевое использование алиментов.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте соглашения.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Порядок разрешения споров (переговоры / суд).
+        2. Подсудность.
+        3. Условие о конфиденциальности.
+        4. Обязанность получателя предоставлять отчёт о целевом использовании.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст соглашения.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Все споры разрешаются путём переговоров. При недостижении согласия —
+        в суде по месту жительства получателя. Условия соглашения конфиденциальны.
+        Получатель обязуется по требованию плательщика предоставлять отчёт
+        о целевом использовании алиментов на нужды ребёнка."
+        Ответ:
+        {
+          "dispute_resolution_status": "defined",
+          "dispute_resolution_details": "путём переговоров; при недостижении согласия — в суде по месту жительства получателя",
+          "jurisdiction_status": "defined",
+          "jurisdiction_details": "суд по месту жительства получателя",
+          "confidentiality_status": "defined",
+          "confidentiality_details": "условия соглашения конфиденциальны",
+          "targeted_use_reporting_status": "defined",
+          "targeted_use_reporting_details": "по требованию плательщика предоставлять отчёт о целевом использовании алиментов на нужды ребёнка",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "Все споры разрешаются путём переговоров. При недостижении согласия — в суде по месту жительства получателя."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Плательщик обязуется уплачивать алименты."
+        Ответ:
+        {
+          "dispute_resolution_status": "not_defined",
+          "dispute_resolution_details": "Данные не определены",
+          "jurisdiction_status": "not_defined",
+          "jurisdiction_details": "Данные не определены",
+          "confidentiality_status": "not_defined",
+          "confidentiality_details": "Данные не определены",
+          "targeted_use_reporting_status": "not_defined",
+          "targeted_use_reporting_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о порядке разрешения споров.
+        2. Найди прямую цитату о подсудности.
+        3. Найди прямую цитату о конфиденциальности.
+        4. Найди прямую цитату о целевом использовании.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "dispute_resolution_status": "<defined / not_defined>",
+          "dispute_resolution_details": "<текст или 'Данные не определены'>",
+          "jurisdiction_status": "<defined / not_defined>",
+          "jurisdiction_details": "<текст или 'Данные не определены'>",
+          "confidentiality_status": "<defined / not_defined>",
+          "confidentiality_details": "<текст или 'Данные не определены'>",
+          "targeted_use_reporting_status": "<defined / not_defined>",
+          "targeted_use_reporting_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+
+    retrieval:
+      retrieval_profile: "dispute_resolution_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "разрешение споров досудебный порядок путём переговоров подсудность по месту жительства конфиденциальность неразглашение не подлежат разглашению не раскрывать третьим лицам целевое использование отчёт об использовании по требованию плательщика расходование средств на нужды ребёнка"
+      preferred_unit_types:
+        - general_provision
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - procedures
+      negative_keywords:
+        - "размер алиментов"
+        - "порядок выплаты"
+        - "индексация"
+        - "неустойка"
+        - "прекращение"
+        - "изменение соглашения"
+        - "дополнительные расходы"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.65, 1.0]
+        boost: 0.18
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "boilerplate"
+        - "procedures"
+      confidence_bonus_on_match: 0.06
+      confidence_penalty_on_excluded_segment: 0.08
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 550
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 700
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
+        алиментов порядок разрешения споров, конфиденциальность и целевое использование.
+        Не анализируй размер алиментов, порядок выплаты или прекращение.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. dispute_resolution_status — "defined" или "not_defined".
+        2. dispute_resolution_details — порядок разрешения споров.
+        3. jurisdiction_status — "defined" или "not_defined".
+        4. jurisdiction_details — подсудность.
+        5. confidentiality_status — "defined" или "not_defined".
+        6. confidentiality_details — условие о конфиденциальности.
+        7. targeted_use_reporting_status — "defined" или "not_defined".
+        8. targeted_use_reporting_details — обязанность отчёта о целевом использовании.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст соглашения.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "dispute_resolution_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка разрешения споров."
+          required: true
+        - name: "dispute_resolution_details"
+          type: "string"
+          presentation: "fact"
+          label: "Разрешение споров"
+          description: "Порядок разрешения споров."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "jurisdiction_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус подсудности."
+          required: false
+        - name: "jurisdiction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Подсудность"
+          description: "Подсудность споров."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "confidentiality_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия о конфиденциальности."
+          required: false
+        - name: "confidentiality_details"
+          type: "string"
+          presentation: "fact"
+          label: "Конфиденциальность"
+          description: "Условие о конфиденциальности условий соглашения."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "targeted_use_reporting_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус обязанности отчёта о целевом использовании."
+          required: false
+        - name: "targeted_use_reporting_details"
+          type: "string"
+          presentation: "fact"
+          label: "Целевое использование"
+          description: "Обязанность получателя предоставлять отчёт о целевом использовании."
+          required: false
+          display_in_grid: true
+          display_priority: 4
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+  parties_and_beneficiary_check:
+    text: >
+      Просим предоставить по {doc_names}: (а) полные данные плательщика (ФИО, паспорт,
+      адрес, место работы); (б) полные данные получателя или законного представителя;
+      (в) данные лица, на содержание которого уплачиваются алименты (ФИО, дата рождения,
+      свидетельство о рождении/паспорт); (г) основание алиментной обязанности.
+    addressee: "Обе стороны / Нотариус"
+
+  notarial_form_executive_force_check:
+    text: >
+      Просим подтвердить по {doc_names}: (а) факт нотариального удостоверения
+      (ст. 100 СК РФ); (б) ФИО нотариуса; (в) номер в реестре; (г) упоминание
+      исполнительной силы соглашения. Без нотариальной формы соглашение ничтожно.
+    addressee: "Нотариус / Обе стороны"
+
+  amount_minimum_compliance_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) конкретный размер алиментов (сумма/доля);
+      (б) способ определения (твёрдая сумма / доля от заработка / смешанный);
+      (в) для алиментов на детей — подтверждение соответствия минимуму ст. 81 СК РФ
+      (1/4 на одного, 1/3 на двоих, 1/2 на троих и более); (г) число детей.
+    addressee: "Плательщик / Нотариус"
+
+  payment_procedure_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) конкретную дату ежемесячного платежа;
+      (б) способ перечисления (банковский перевод / наличные / почтовый перевод);
+      (в) реквизиты счёта получателя; (г) порядок подтверждения оплаты
+      (платёжное поручение, расписка).
+    addressee: "Обе стороны"
+
+  indexation_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) порядок индексации алиментов в твёрдой сумме
+      (ст. 105 СК РФ); (б) привязка к прожиточному минимуму или иная формула;
+      (в) периодичность пересчёта; (г) кто производит индексацию (работодатель/приставы).
+    addressee: "Юридический советник / Нотариус"
+
+  adjustment_mechanism_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) основания для пересмотра размера
+      (потеря работы, снижение доходов, рождение другого ребёнка); (б) досудебный
+      порядок обсуждения; (в) порядок судебного пересмотра (ст. 101 СК РФ).
+    addressee: "Юридический советник"
+
+  penalty_and_offset_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) размер неустойки за просрочку (по ст. 115
+      СК РФ — 0,1% в день, но стороны могут установить иной размер); (б) порядок
+      расчёта; (в) право на взыскание убытков сверх неустойки; (г) перечень
+      дополнительных расходов, подлежащих зачёту (лечение, образование, отдых);
+      (д) условия зачёта переплаты.
+    addressee: "Юридический советник"
+
+  termination_and_amendment_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) полный перечень оснований прекращения
+      (совершеннолетие, эмансипация, усыновление, смерть, восстановление
+      трудоспособности и т.д.); (б) конкретную дату или событие окончания;
+      (в) порядок внесения изменений (нотариальная форма, ст. 101 СК РФ);
+      (г) невозможность одностороннего отказа.
+    addressee: "Юридический советник"
+
+  dispute_confidentiality_targeted_use_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) досудебный порядок урегулирования споров;
+      (б) подсудность; (в) условия конфиденциальности финансовых условий;
+      (г) обязанность получателя предоставлять отчёт о целевом использовании
+      алиментов по требованию плательщика (ст. 60 СК РФ).
+    addressee: "Юридический советник"
+
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"
+
+

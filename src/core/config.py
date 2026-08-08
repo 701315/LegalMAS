@@ -99,9 +99,16 @@ class Settings(BaseSettings):
     LOG_FILE_BACKUP_COUNT: int = 10
     LLM_EXTRACTION_JSON_GRAMMAR_PATH: str | None = None
 
-    # Default max_tokens for extraction LLM calls.
+    # Дефолтный output budget для extraction LLM вызовов.
     # Может быть переопределён per-check через ExtractionConfig.llm_max_tokens.
-    LLM_EXTRACTION_MAX_TOKENS: int = 512
+    #
+    # История изменений:
+    # - 512 (устаревший): недостаточно для extraction V1.3 contract,
+    #   который требует value+confidence+location для каждого поля.
+    #   Даже простой check с 5-7 полями получал truncated JSON.
+    # - 900 (текущий): безопасный baseline для большинства checks.
+    #   Checks с 8+ полями обязаны задавать llm_max_tokens явно в YAML.
+    LLM_EXTRACTION_MAX_TOKENS: int = 900
 
     # --- Classification explainability / observability ---
     CLASSIFICATION_DECISION_TRACE_SCHEMA_VERSION: int = 1
@@ -401,6 +408,10 @@ class Settings(BaseSettings):
 
     # --- Semantic Enrichment (Phase 12) ---
     SEMANTIC_ENRICHMENT_ENABLED: bool = True   # чтобы отключить для тестов надо сменить на False.
+    # Отдельный порог для unit_type — строже чем для clause_function.
+    # unit_type является semantic identity юнита и влияет на routing
+    # в retrieval и checks pipeline. Ошибка системная, поэтому 0.80.
+    SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL_UNIT_TYPE: float = 0.80
     SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL: float = 0.72
     SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_TOPICS: float = 0.72
     SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_OVERRIDE: float = 0.92
@@ -538,6 +549,7 @@ class Settings(BaseSettings):
 
     RUNNER_METADATA_PREAMBLE_BOOST: float = 1.0
     RUNNER_METADATA_TOPIC_MATCH_BOOST: float = 0.6
+    RUNNER_METADATA_TOPIC_SUPPORTING_BOOST: float = 0.3
 
     CHECK_RUNNER_MODE: str = "global_and_doc_type"
     RUNNER_EMBEDDINGS_ENABLED: bool = True

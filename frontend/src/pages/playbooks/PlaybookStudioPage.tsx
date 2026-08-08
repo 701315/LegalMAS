@@ -140,13 +140,13 @@ function buildLineItemsPayload(
 // ─────────────────────────────────────────────────────────────
 
 const inputClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const textareaClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const selectClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 // ─────────────────────────────────────────────────────────────
 // SectionCard
@@ -379,7 +379,7 @@ const TemplateItemsTable: React.FC<TemplateItemsTableProps> = ({
               key={`${index}-${item.instruction_code}`}
               className="group grid grid-cols-[2rem_1fr_auto] items-center gap-2 px-3 py-2 transition-colors hover:bg-[var(--bg-elevated-soft)]"
             >
-              <span className="text-[10px] font-mono text-[var(--text-muted)]">
+              <span className="font-mono text-[10px] text-[var(--text-muted)]">
                 {index + 1}
               </span>
               <div className="min-w-0">
@@ -409,7 +409,7 @@ const TemplateItemsTable: React.FC<TemplateItemsTableProps> = ({
                 type="button"
                 onClick={() => onRemove(index)}
                 disabled={disabled}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] opacity-0 transition-all hover:bg-rose-50 hover:text-rose-500 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] opacity-0 transition-all hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error-text)] group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:opacity-100"
                 aria-label={`Удалить ${item.instruction_code}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -635,10 +635,6 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
     );
   };
 
-  /**
-   * Сохраняет template на сервер (create или update).
-   * Возвращает playbook_id для последующего создания version.
-   */
   const saveTemplateFirst = async (): Promise<string | null> => {
     const normalizedTitle = templateTitle.trim();
     const itemsPayload = buildLineItemsPayload(templateItems);
@@ -696,9 +692,6 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
     return selectedPlaybookId;
   };
 
-  /**
-   * Единая функция: сохраняет template → создаёт version → опционально публикует.
-   */
   const handleCreateVersion = async (andPublish: boolean) => {
     resetMessages();
 
@@ -710,14 +703,11 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
     andPublish ? setIsPublishingVersion(true) : setIsCreatingVersion(true);
 
     try {
-      // Шаг 1: сохраняем template
       const playbookId = await saveTemplateFirst();
       if (!playbookId) {
-        // saveTemplateFirst уже установил errorText
         return;
       }
 
-      // Шаг 2: создаём draft version
       const res = await client.post<PlaybookVersionCreateResponse>(
         "/api/v1/playbooks",
         {
@@ -737,7 +727,6 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
       const newVersionId = res.data.id;
 
       if (andPublish) {
-        // Шаг 3: публикуем
         try {
           await client.post(`/api/v1/playbooks/${newVersionId}/publish`);
           setSuccessText("Шаблон сохранён. Версия playbook создана и опубликована.");
@@ -768,45 +757,50 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
   const isBusy = isCreatingVersion || isPublishingVersion;
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-      <div className="animate-fadein space-y-6">
-        {/* ── Back-link ────────────────────────────────────── */}
-        <button
-          type="button"
-          onClick={() => navigate(scopeConfig.backPath)}
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          {scopeConfig.backLabel}
-        </button>
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-        {/* ── Header ───────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-4">
-          <header>
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              {scopeConfig.title}
-            </h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              {scopeConfig.subtitle}
-            </p>
-          </header>
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate(scopeConfig.backPath)}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                {scopeConfig.backLabel}
+              </button>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void handleRefresh()}
-            aria-label="Обновить"
-            leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
-          />
-        </div>
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                {scopeConfig.title}
+              </h1>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                {scopeConfig.subtitle}
+              </p>
+            </div>
 
-        {/* ── Alerts ───────────────────────────────────────── */}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleRefresh()}
+              aria-label="Обновить данные"
+              leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+            >
+              Обновить
+            </Button>
+          </div>
+        </header>
+
+        {/* ── Alerts ───────────────────────────────────────────── */}
         {errorText && <InlineAlert tone="error" message={errorText} />}
         {successText && <InlineAlert tone="success" message={successText} />}
 
-        {/* ── Main 3-column grid ───────────────────────────── */}
+        {/* ── Main 3-column grid ───────────────────────────────── */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          {/* ── Левая: Шаблоны ────────────────────────────── */}
+
+          {/* ── Левая: Шаблоны ──────────────────────────────────── */}
           <div className="xl:col-span-3">
             <SectionCard
               title="Шаблоны"
@@ -853,7 +847,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                             onClick={() => handleSelectExistingTemplate(playbook.id)}
                             disabled={isBusy}
                             className={[
-                              "w-full rounded-xl border px-3 py-2.5 text-left text-xs transition-colors",
+                              "w-full rounded-xl border px-3 py-2.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
                               isSelected
                                 ? "border-[var(--accent-primary)] bg-[var(--accent-muted)]"
                                 : "border-[var(--border-soft)] hover:border-[var(--border-strong)]",
@@ -892,7 +886,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
             </SectionCard>
           </div>
 
-          {/* ── Центральная: Редактор шаблона ─────────────── */}
+          {/* ── Центральная: Редактор шаблона ───────────────────── */}
           <div className="xl:col-span-5">
             <SectionCard
               title={isNewTemplateMode ? "Новый шаблон" : "Редактор шаблона"}
@@ -976,7 +970,6 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                     </div>
                   </div>
 
-                  {/* Picker */}
                   <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-4">
                     <InstructionPicker
                       globalChecks={globalChecks}
@@ -986,7 +979,6 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                     />
                   </div>
 
-                  {/* Таблица состава */}
                   <div>
                     <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                       Состав шаблона
@@ -1006,7 +998,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
             </SectionCard>
           </div>
 
-          {/* ── Правая: Версия playbook ────────────────────── */}
+          {/* ── Правая: Версия playbook ──────────────────────────── */}
           <div className="xl:col-span-4">
             <SectionCard
               title="Версия playbook"
@@ -1019,7 +1011,6 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                 />
               ) : (
                 <div className="space-y-4">
-                  {/* Template context */}
                   {selectedPlaybook && !isNewTemplateMode && (
                     <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-3">
                       <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
@@ -1081,7 +1072,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                       <button
                         type="button"
                         onClick={() => navigate(scopeConfig.modelConfigsPath)}
-                        className="flex items-center gap-1 text-[10px] text-[var(--accent-primary)] transition-colors hover:text-[var(--text-primary)]"
+                        className="flex items-center gap-1 text-[10px] text-[var(--accent-primary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
                       >
                         <Settings className="h-3 w-3" />
                         Настроить
@@ -1119,7 +1110,6 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                     )}
                   </div>
 
-                  {/* Две кнопки */}
                   <div className="flex flex-col gap-2 border-t border-[var(--border-soft)] pt-3 sm:flex-row sm:items-center sm:justify-end">
                     <Button
                       variant="secondary"
@@ -1141,7 +1131,6 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                     </Button>
                   </div>
 
-                  {/* Список существующих версий */}
                   {visibleVersions.length > 0 && (
                     <div className="border-t border-[var(--border-soft)] pt-3">
                       <div className="mb-2 flex items-center gap-1.5">
@@ -1189,6 +1178,5 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
 };
 
 export default PlaybookStudioPage;
-
 
 

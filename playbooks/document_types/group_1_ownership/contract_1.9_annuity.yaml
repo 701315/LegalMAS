@@ -735,7 +735,7 @@ checks_v8:
         [ПРАВИЛА]
         1. Только текст документа.
         2. Если данные не указаны прямо — "not_defined" или "Данные не определены".
-        3. Не используй "None", "null", "not_specified", пустые строки.
+        3. Не используй "None", "null", "not_defined", пустые строки.
         4. В evidence — только цитаты из документа.
         5. Верни только один JSON-объект.
 
@@ -821,6 +821,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -877,8 +878,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты данные о сторонах:
@@ -1136,6 +1139,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "definitions_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1194,8 +1198,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 540
+      compact_output: false
+
+      llm_max_tokens: 1200
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты вид ренты,
@@ -1404,7 +1410,7 @@ checks_v8:
         Ответ:
         {
           "notarization_status": "not_defined",
-          "notarization_level": "not_found",
+          "notarization_level": "not_defined",
           "notary_details_status": "not_defined",
           "notary_details_value": "Данные не определены",
           "notary_date_status": "not_defined",
@@ -1440,6 +1446,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1492,8 +1499,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 430
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты сведения
@@ -1510,7 +1519,7 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. notarization_status — "defined" если нотариальная форма прямо подтверждена, иначе "not_defined".
-        2. notarization_level — "clearly_notarial" / "mentioned" / "not_found".
+        2. notarization_level — "clearly_notarial" / "mentioned" / "not_defined".
         3. notary_details_status — "defined" если данные нотариуса указаны, иначе "not_defined".
         4. notary_details_value — ФИО нотариуса и/или нотариальный округ.
         5. notary_date_status — "defined" если дата удостоверения указана, иначе "not_defined".
@@ -1543,7 +1552,7 @@ checks_v8:
         - name: "notarization_level"
           type: "string"
           presentation: "signal"
-          allowed_values: ["clearly_notarial", "mentioned", "not_found"]
+          allowed_values: ["clearly_notarial", "mentioned", "not_defined"]
           description: "Уровень подтверждения нотариального удостоверения."
           required: false
         - name: "notary_details_status"
@@ -1703,6 +1712,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 500
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1760,8 +1770,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 380
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты описание имущества,
@@ -1943,6 +1955,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "залог в силу закона обременение рентой обеспечение выплаты ренты поручительство банковская гарантия страхование ответственности регистрация обременения ст. 587 ГК РФ"
+      retrieval_profile: "security_check"
       preferred_unit_types:
         - liability_provision
         - obligation
@@ -1995,8 +2008,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 390
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты сведения о залоге
@@ -2198,6 +2213,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2253,8 +2269,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1050
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты размер ренты,
@@ -2520,6 +2538,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2578,8 +2597,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1350
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора пожизненного содержания
@@ -2814,6 +2835,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 500
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2871,8 +2893,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 390
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты условия о выкупе:
@@ -3056,6 +3080,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 500
     retrieval:
+      retrieval_profile: "termination_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3113,8 +3138,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 450
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты основания расторжения,
@@ -3286,6 +3313,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "риск случайной гибели риск повреждения страхование имущества страхование ответственности выгодоприобретатель не освобождает от выплаты гибель имущества обязанность выплачивать ренту"
+      retrieval_profile: "insurance_check"
       preferred_unit_types:
         - liability_provision
         - obligation
@@ -3336,8 +3364,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 370
+      compact_output: false
+
+      llm_max_tokens: 800
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты условия
@@ -3511,6 +3541,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 350
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3563,8 +3594,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 260
+      compact_output: false
+
+      llm_max_tokens: 300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты условие
@@ -3801,8 +3834,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 950
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты заверения
@@ -4028,6 +4063,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "consent_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4084,8 +4120,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 850
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ДПСИ ограничения
@@ -4314,6 +4352,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "definitions_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4370,8 +4409,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 490
+      compact_output: false
+
+      llm_max_tokens: 950
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ренты характер передачи

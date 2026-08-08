@@ -1,0 +1,67 @@
+./src/components/qc/BulkQCBar.tsx:78:    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-soft)] bg-[color:color-mix(in_srgb,var(--bg-card)_92%,black)] px-4 py-2 text-xs text-[var(--text-secondary)] shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur">
+./src/marketing/components/platform/PlatformStandardsSection.tsx:33:            background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)'
+./src/marketing/components/platform/primitives/PathCrumb.tsx:31:  const rootColor = variant === "dark" ? "rgba(250, 248, 245, 0.45)" : "#A8A29E";
+./src/marketing/components/platform/primitives/PathCrumb.tsx:32:  const slashColor = variant === "dark" ? "rgba(250, 248, 245, 0.28)" : "#D6D0C7";
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:112:              boxShadow: "0 1px 2px rgba(26,25,23,0.02)",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:139:            border: "1px solid rgba(200,107,82,0.35)",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:140:            boxShadow: "0 6px 20px rgba(200,107,82,0.12)",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:148:                "linear-gradient(180deg, rgba(200,107,82,0.06) 0%, rgba(200,107,82,0) 100%)",
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:179:              boxShadow: "0 2px 6px rgba(26,25,23,0.04)",
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:84:                        ? "0 4px 16px rgba(200,107,82,0.08)"
+./src/marketing/components/platform/diagrams/FindingsDiagram.tsx:85:                        : "0 1px 2px rgba(26,25,23,0.03)",
+./src/marketing/components/platform/diagrams/FlowSchema.tsx:80:                    boxShadow: "0 1px 2px rgba(26,25,23,0.03)",
+./src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:92:                  ? "0 4px 16px rgba(200,107,82,0.08)"
+./src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:93:                  : "0 1px 2px rgba(26,25,23,0.03)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:72:            stroke="rgba(250, 248, 245, 0.14)"
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:96:            stroke="rgba(250, 248, 245, 0.14)"
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:134:              borderColor: "rgba(250, 248, 245, 0.14)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:135:              background: "rgba(250, 248, 245, 0.02)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:140:              style={{ color: "rgba(250, 248, 245, 0.45)" }}
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:167:            border: "1px solid rgba(200, 107, 82, 0.55)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:168:            background: "rgba(200, 107, 82, 0.08)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:170:            boxShadow: "0 8px 24px rgba(200, 107, 82, 0.12)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:210:              borderColor: "rgba(250, 248, 245, 0.14)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:211:              background: "rgba(250, 248, 245, 0.02)",
+./src/marketing/components/platform/diagrams/StandardsDiagram.tsx:216:              style={{ color: "rgba(250, 248, 245, 0.45)" }}
+./src/marketing/components/platform/PlatformHeroSection.tsx:29:            background: 'linear-gradient(90deg, #FAF8F5 0%, rgba(250,248,245,0.95) 20%, rgba(250,248,245,0.3) 60%, transparent 100%)'
+./src/marketing/components/shared/MobileMenu.tsx:91:                          ? "rgba(0,0,0,0.04)"
+./src/marketing/components/shared/MobileMenu.tsx:113:                        ? "rgba(0,0,0,0.04)"
+./src/marketing/components/shared/MobileMenu.tsx:164:                                            ? "rgba(200, 107, 82, 0.08)"
+./src/marketing/components/shared/SiteHeader.tsx:27:const MOBILE_BG = "rgba(250, 248, 245, 0.98)";
+./src/marketing/components/shared/SiteHeader.tsx:29:const MOBILE_SHADOW = "0 1px 0 rgba(0, 0, 0, 0.04)";
+./src/marketing/components/shared/SiteHeader.tsx:101:    ? "rgba(255, 255, 255, 0.7)"
+./src/marketing/components/shared/SiteHeader.tsx:106:      ? "rgba(26, 25, 23, 0.85)"
+./src/marketing/components/shared/SiteHeader.tsx:108:    : "rgba(250, 248, 245, 0.95)";
+./src/marketing/components/shared/SiteHeader.tsx:121:      ? "0 4px 20px rgba(0,0,0,0.06)"
+./src/marketing/components/shared/SiteHeader.tsx:247:                        className="absolute left-0 top-full mt-5 w-[1140px] rounded-2xl bg-white shadow-[0_40px_80px_rgba(0,0,0,0.15)] p-12 border border-gray-100 overflow-hidden"
+./src/marketing/components/security/SecurityHeroSection.tsx:32:            'radial-gradient(circle, rgba(200,107,82,0.06) 0%, rgba(200,107,82,0.02) 40%, transparent 70%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:41:            'radial-gradient(circle, rgba(120,117,111,0.06) 0%, rgba(120,117,111,0.02) 40%, transparent 70%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:50:            linear-gradient(rgba(26,25,23,0.03) 1px, transparent 1px),
+./src/marketing/components/security/SecurityHeroSection.tsx:51:            linear-gradient(90deg, rgba(26,25,23,0.03) 1px, transparent 1px)
+./src/marketing/components/security/SecurityHeroSection.tsx:61:            'radial-gradient(ellipse at center, transparent 40%, rgba(120,117,111,0.08) 100%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:176:          '0 20px 60px -20px rgba(26,25,23,0.25), 0 8px 20px -12px rgba(26,25,23,0.15)',
+./src/marketing/components/security/SecurityHeroSection.tsx:202:                'linear-gradient(135deg, rgba(26,25,23,0.78) 0%, rgba(26,25,23,0.88) 100%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:245:            'linear-gradient(180deg, transparent 0%, rgba(200,107,82,0.8) 20%, rgba(200,107,82,0.8) 80%, transparent 100%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:250:        className="mb-8 pl-7 text-[0.8125rem] uppercase tracking-[0.24em] text-[rgba(250,248,245,0.75)]"
+./src/marketing/components/security/SecurityHeroSection.tsx:255:          textShadow: '0 2px 12px rgba(0,0,0,0.5)',
+./src/marketing/components/security/SecurityHeroSection.tsx:275:              className="w-8 text-[0.9375rem] font-medium tabular-nums text-[rgba(200,107,82,1)]"
+./src/marketing/components/security/SecurityHeroSection.tsx:277:                textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+./src/marketing/components/security/SecurityHeroSection.tsx:283:              className="font-serif text-[2rem] italic leading-[1.15] text-[rgba(250,248,245,1)] lg:text-[2.25rem]"
+./src/marketing/components/security/SecurityHeroSection.tsx:285:                textShadow: '0 2px 16px rgba(0,0,0,0.7)',
+./src/marketing/components/about/AboutHeroSection.tsx:25:            'radial-gradient(circle, rgba(200,107,82,0.04) 0%, rgba(200,107,82,0.01) 40%, transparent 70%)',
+./src/marketing/components/about/AboutHeroSection.tsx:36:            linear-gradient(rgba(26,25,23,0.03) 1px, transparent 1px),
+./src/marketing/components/about/AboutHeroSection.tsx:37:            linear-gradient(90deg, rgba(26,25,23,0.03) 1px, transparent 1px)
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:46:            "radial-gradient(ellipse 60% 55% at 50% 50%, rgba(200,107,82,0.08) 0%, transparent 70%)",
+./src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:125:          text-shadow: 0 0 8px rgba(200, 107, 82, 0.45);
+./src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:126:          color: rgb(200, 107, 82) !important;
+./src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:137:      return "rgba(200, 107, 82, 0.85)"; // terracotta
+./src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:139:      return "rgba(26, 25, 23, 0.55)"; // warm dark
+./src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:141:      return "rgba(168, 162, 158, 0.5)"; // warm gray
+./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css:7:      rgba(26, 25, 23, 0.85),  /* Тёплый тёмный вместо холодного slate */
+./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css:8:      rgba(26, 25, 23, 0.95)
+./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css:109:  background-color: rgba(255, 255, 255, 0.25);
+./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css:117:  background-color: rgba(255, 255, 255, 1);
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:181:                className="absolute bottom-full left-0 mb-6 w-full max-w-[840px] rounded-2xl bg-white shadow-[0_30px_70px_rgba(0,0,0,0.4)] p-10 lg:p-12 z-50 border border-white/10"
+./src/marketing/components/home/PremiumHeroSection.tsx:46:          background: "linear-gradient(135deg, rgba(26, 25, 23, 0.85) 0%, rgba(26, 25, 23, 0.7) 100%)",
+./src/marketing/pages/solutions/CompliancePage.tsx:41:                background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.95) 25%, rgba(26,25,23,0.4) 60%, transparent 100%)'
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:71:              "linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.96) 28%, rgba(26,25,23,0.58) 62%, transparent 100%)",

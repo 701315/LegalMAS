@@ -115,6 +115,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "sanctions_compliance_check"
   context_k: 5
   max_chunks: 10
 
@@ -164,9 +165,9 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "compliance"
     - "obligations"
-    - "termination"
+    - "obligations"
+    - "procedures"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -191,16 +192,17 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "data_protection"
-    - "representations_warranties"
-    - "general_provisions"
+    - "obligations"
+    - "representations"
+    - "boilerplate"
   confidence_bonus_on_match: 0.08
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 1050
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по AML/KYC и финансовому комплаенсу.

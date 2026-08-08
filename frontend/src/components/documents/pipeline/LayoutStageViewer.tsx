@@ -88,6 +88,7 @@ export const LayoutStageViewer: React.FC<Props> = ({ stage }) => {
             onClick={() => setTab("view")}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]",
               tab === "view"
                 ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
                 : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
@@ -107,6 +108,7 @@ export const LayoutStageViewer: React.FC<Props> = ({ stage }) => {
             onClick={() => setTab("json")}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]",
               tab === "json"
                 ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
                 : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
@@ -173,14 +175,14 @@ export const LayoutStageViewer: React.FC<Props> = ({ stage }) => {
           aria-labelledby={jsonTabId}
           className="min-h-0 flex-1 overflow-hidden"
         >
-          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse,#111827)] shadow-sm">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse)] shadow-sm">
             <div className="border-b border-white/10 px-4 py-2">
               <p className="text-[11px] font-medium uppercase tracking-wide text-white/60">
                 Raw payload
               </p>
             </div>
 
-            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-5 text-[var(--text-inverse,#f9fafb)]">
+            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-5 text-[var(--text-inverse)]">
               {jsonText}
             </pre>
           </div>
@@ -191,6 +193,4 @@ export const LayoutStageViewer: React.FC<Props> = ({ stage }) => {
 };
 
 export default LayoutStageViewer;
-
-
 

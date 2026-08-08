@@ -1,7 +1,4 @@
-// =============================================================
 // src/pages/tabs/overview/DocumentsPipelinePanel.tsx
-// Панель pipeline progress для вкладки Документы.
-// =============================================================
 
 import React from "react";
 import { useRunProgress } from "../../../api/runs";
@@ -101,9 +98,9 @@ export const DocumentsPipelinePanel: React.FC<{
   })();
 
   const statusColor = (() => {
-    if (data.run_status === "completed") return "text-[var(--color-success)]";
-    if (data.run_status === "completed_with_errors") return "text-[var(--color-warning)]";
-    if (data.run_status === "failed") return "text-[var(--color-error)]";
+    if (data.run_status === "completed") return "text-[var(--color-success-text)]";
+    if (data.run_status === "completed_with_errors") return "text-[var(--color-warning-text)]";
+    if (data.run_status === "failed") return "text-[var(--color-error-text)]";
     if (data.run_status === "running") return "text-[var(--accent-primary)]";
     return "text-[var(--text-muted)]";
   })();
@@ -137,8 +134,8 @@ export const DocumentsPipelinePanel: React.FC<{
 
       {/* Stale warning */}
       {data.is_stale && (
-        <div className="rounded-xl border border-[var(--color-warning)] bg-[color:color-mix(in_srgb,var(--color-warning)_8%,var(--bg-card))] px-3 py-2">
-          <p className="text-[11px] font-medium text-[var(--color-warning)]">
+        <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2">
+          <p className="text-[11px] font-medium text-[var(--color-warning-text)]">
             ⚠ Нет активности более {data.stale_threshold_minutes} минут
           </p>
           <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
@@ -157,7 +154,7 @@ export const DocumentsPipelinePanel: React.FC<{
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2">
           <p className="text-[11px] text-[var(--text-muted)]">
             {data.documents_failed > 0 && (
-              <span className="text-[var(--color-error)]">
+              <span className="text-[var(--color-error-text)]">
                 Ошибок: {data.documents_failed}
               </span>
             )}
@@ -165,7 +162,7 @@ export const DocumentsPipelinePanel: React.FC<{
               <span> · </span>
             )}
             {data.documents_quarantine > 0 && (
-              <span className="text-[var(--color-warning)]">
+              <span className="text-[var(--color-warning-text)]">
                 Карантин: {data.documents_quarantine}
               </span>
             )}

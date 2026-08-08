@@ -250,6 +250,8 @@ async def _classify_document_async(
     run_uuid = uuid.UUID(run_id_str) if run_id_str else None
 
     playbook = None
+    playbook_id_value = None
+    playbook_id_str = None
     classification_result: dict[str, Any] | None = None
     classification_requires_review: bool | None = None
 
@@ -265,6 +267,12 @@ async def _classify_document_async(
                 doc = await doc_repo.get_by_id(doc_uuid)
                 if not doc:
                     raise PermanentError(f"Document {document_id} not found")
+
+                # Снимаем scalar snapshot сразу после загрузки ORM-объекта.
+                doc_id_value = doc.id
+                doc_id_str = str(doc.id)
+                deal_id_value = doc.deal_id
+                deal_id_str = str(doc.deal_id) if doc.deal_id else None
 
                 if doc.status in (
                     DocumentStatus.CLASSIFIED.value,
@@ -301,20 +309,22 @@ async def _classify_document_async(
                         "committed": False,
                     }
 
-                version = await ver_repo.get_latest(doc.id)
+                version = await ver_repo.get_latest(doc_id_value)
                 if not version:
                     raise PermanentError(f"No version found for document {document_id}")
 
+                version_id_str = str(version.id)
+
                 classifier = _get_classifier(uow)
-                classification_result = await classifier.classify_document(str(doc.id))
+                classification_result = await classifier.classify_document(doc_id_str)
 
                 _details = classification_result.get("details") or {}
                 decided_by = _extract_decided_by(_details)
 
                 logger.info(
                     "worker_classification_done",
-                    doc_id=str(doc.id),
-                    deal_id=str(doc.deal_id) if doc.deal_id else None,
+                    doc_id=doc_id_str,
+                    deal_id=deal_id_str,
                     final_type=classification_result.get("final_type"),
                     final_confidence=classification_result.get("final_confidence"),
                     decided_by=decided_by,
@@ -362,10 +372,12 @@ async def _classify_document_async(
                 # На document-level pipeline не ломается из-за Document.status = CLASSIFIED,
                 # но обнуление level концептуально неверно и убирается для консистентности.
 
-                playbook = await playbook_repo.get_for_deal(doc.deal_id)
+                playbook = await playbook_repo.get_for_deal(deal_id_value)
+                playbook_id_value = playbook.id if playbook else None
+                playbook_id_str = str(playbook_id_value) if playbook_id_value else None
 
                 await doc_repo.update_classification(
-                    doc_id=doc.id,
+                    doc_id=doc_id_value,
                     doc_type=final_type,
                     classification_confidence=final_conf,
                     classification_level=level,
@@ -374,7 +386,7 @@ async def _classify_document_async(
                     classification_requires_review=classification_requires_review,
                     language=language,
                     jurisdiction=jurisdiction,
-                    playbook_version_id=playbook.id if playbook else None,
+                    playbook_version_id=playbook_id_value,
                 )
 
                 try:
@@ -386,7 +398,7 @@ async def _classify_document_async(
                     logger.exception("classify_document: failed to update classification metrics")
 
                 updated_doc = await doc_repo.update_status(
-                    doc.id,
+                    doc_id_value,
                     DocumentStatus.CLASSIFIED.value,
                     processing_error_details=None,
                 )
@@ -398,18 +410,59 @@ async def _classify_document_async(
                 try:
                     resolved_tenant_id = await resolve_artifact_tenant_id(
                         session=uow.session,
-                        deal_id=doc.deal_id,
+                        deal_id=deal_id_value,
                     )
+
+                    # ── LLM Usage Ledger: L4 classification ───────────────────
+                    try:
+                        _l4_details = (
+                            (classification_result.get("details") or {})
+                            .get("L4") or {}
+                        )
+                        _l4_raw = _l4_details.get("raw") or {}
+                        _l4_level = classification_result.get("level")
+
+                        if _l4_level == "L4" or _l4_raw.get("method") == "llm":
+                            from services.llm_usage_recorder import (
+                                LLMUsageRecorder,
+                                STAGE_CLASSIFICATION_L4,
+                            )
+
+                            await LLMUsageRecorder.record_event_isolated(
+                                tenant_id=resolved_tenant_id,
+                                deal_id=deal_id_value,
+                                run_id=run_uuid,
+                                document_id=doc_id_value,
+                                stage=STAGE_CLASSIFICATION_L4,
+                                provider=str(
+                                    _l4_raw.get("provider") or "ollama"
+                                ),
+                                model=str(_l4_raw.get("model") or ""),
+                                prompt_tokens=_l4_raw.get("prompt_tokens"),
+                                completion_tokens=_l4_raw.get(
+                                    "completion_tokens"
+                                ),
+                                llm_attempts=_l4_raw.get("llm_attempts"),
+                                parse_success=_l4_raw.get("parse_success"),
+                                error_type=_l4_raw.get("error_type"),
+                            )
+                    except Exception:
+                        logger.warning(
+                            "classifier: failed to record L4 LLM usage (non-fatal)",
+                            document_id=document_id,
+                            run_id=run_id_str,
+                        )
+                    # ── конец LLM Usage Ledger ────────────────────────────────
 
                     await audit_repo.log(
                         tenant_id=resolved_tenant_id,
-                        deal_id=doc.deal_id,
+                        deal_id=deal_id_value,
                         action="CLASSIFY_COMPLETED",
                         actor="system",
                         actor_role="worker",
                         details={
-                            "document_id": str(doc.id),
-                            "document_version_id": str(version.id),
+                            "document_id": doc_id_str,
+                            "document_version_id": version_id_str,
                             "doc_type": final_type,
                             "classification_outcome": "typed" if final_type else "unknown",
                             "classification_confidence": final_conf,
@@ -418,14 +471,14 @@ async def _classify_document_async(
                             "language": language,
                             "jurisdiction": jurisdiction,
                             "applicable_triggers": applicable_triggers,
-                            "playbook_version_id": str(playbook.id) if playbook else None,
+                            "playbook_version_id": playbook_id_str,
                             "run_id": str(run_uuid) if run_uuid else None,
                         },
                     )
                 except Exception:
                     logger.warning(
                         "Classifier: failed to write audit log for CLASSIFY_COMPLETED",
-                        document_id=str(doc.id),
+                        document_id=doc_id_str,
                     )
 
         except PermanentError as e:
@@ -480,7 +533,7 @@ async def _classify_document_async(
                 ["requires_manual_review"] if classification_requires_review else []
             ),
             artifact_refs={
-                "playbook_version_id": str(playbook.id) if playbook else None,
+                "playbook_version_id": playbook_id_str,
             },
             decision_details={
                 "decided_by": decided_by,

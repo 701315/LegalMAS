@@ -34,14 +34,18 @@ function cx(...classes: Array<string | false | null | undefined>): string {
 function isStructurePreview(
   preview: PipelineStageViewDTO["preview"],
 ): preview is StructurePreviewDTO {
-  return Boolean(preview && (preview as StructurePreviewDTO).type === "structure");
+  return Boolean(
+    preview && (preview as StructurePreviewDTO).type === "structure",
+  );
 }
 
 function isCanonicalStructureView(stage: PipelineStageViewDTO): boolean {
   return stage.representation?.is_canonical ?? true;
 }
 
-function formatPageRange(section: StructureSectionPreviewDTO): string | null {
+function formatPageRange(
+  section: StructureSectionPreviewDTO,
+): string | null {
   const from =
     typeof section.page_from === "number"
       ? section.page_from
@@ -93,11 +97,12 @@ function getSectionTextCanonical(section: StructureSectionPreviewDTO): {
   hasText: boolean;
 } {
   const structure = (section.structure_text ?? "").trim();
-  const text = structure;
-  return { text, hasText: text.length > 0 };
+  return { text: structure, hasText: structure.length > 0 };
 }
 
-function getSectionTextFriendly(section: StructureSectionPreviewDTO): string {
+function getSectionTextFriendly(
+  section: StructureSectionPreviewDTO,
+): string {
   const enriched = (section.enriched_text ?? "").trim();
   const structure = (section.structure_text ?? "").trim();
   return enriched || structure;
@@ -107,15 +112,15 @@ function getSectionLabel(section: StructureSectionPreviewDTO): string {
   return (section.title ?? "").trim() || "Без названия";
 }
 
-function getSectionMetaLine(section: StructureSectionPreviewDTO): string {
+function getSectionMetaLine(
+  section: StructureSectionPreviewDTO,
+): string {
   const parts: string[] = [];
 
   parts.push(`Уровень ${section.level ?? 1}`);
 
   const pages = formatPageRange(section);
-  if (pages) {
-    parts.push(pages);
-  }
+  if (pages) parts.push(pages);
 
   if (section.clause_uid) {
     parts.push(`clause_uid: ${section.clause_uid}`);
@@ -132,13 +137,13 @@ function getSectionMetaLine(section: StructureSectionPreviewDTO): string {
   return parts.join(" · ");
 }
 
-function getSectionNavDescription(section: StructureSectionPreviewDTO): string {
+function getSectionNavDescription(
+  section: StructureSectionPreviewDTO,
+): string {
   const enriched = (section.enriched_text ?? "").trim();
   const structure = (section.structure_text ?? "").trim();
-
   const text = enriched || structure;
   if (!text) return "";
-
   return text.length > 160 ? `${text.slice(0, 160)}…` : text;
 }
 
@@ -188,9 +193,7 @@ function groupSectionsBySegment(
   result.sort((a, b) => {
     if (a.isPrimary && !b.isPrimary) return -1;
     if (!a.isPrimary && b.isPrimary) return 1;
-    const ao = a.order ?? 0;
-    const bo = b.order ?? 0;
-    return ao - bo;
+    return (a.order ?? 0) - (b.order ?? 0);
   });
 
   return result;
@@ -201,22 +204,37 @@ function groupSectionsBySegment(
 const PanelHeader: React.FC<{
   title: string;
   description?: string;
-}> = ({ title, description }) => {
-  return (
-    <div className="mb-3 h-[72px] border-b border-[var(--border-subtle)] pb-2">
-      <div className="flex h-full flex-col items-start justify-start">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          {title}
+}> = ({ title, description }) => (
+  <div className="mb-3 h-[72px] border-b border-[var(--border-subtle)] pb-2">
+    <div className="flex h-full flex-col items-start justify-start">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+        {title}
+      </p>
+      {description ? (
+        <p className="mt-1 text-xs leading-4 text-[var(--text-faint)]">
+          {description}
         </p>
-        {description ? (
-          <p className="mt-1 text-xs leading-4 text-[var(--text-faint)]">
-            {description}
-          </p>
-        ) : null}
-      </div>
+      ) : null}
     </div>
+  </div>
+);
+
+/* ===== Status badges — канонический паттерн ===== */
+
+const ChunksMappingBadge: React.FC<{ mapped: boolean }> = ({ mapped }) =>
+  mapped ? (
+    <span className="inline-flex items-center rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-2 py-0.5 text-xs text-[var(--color-success-text)]">
+      Есть привязка к CHUNKS
+    </span>
+  ) : (
+    <span className="inline-flex items-center rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-xs text-[var(--color-warning-text)]">
+      Нет привязки к CHUNKS для этой секции
+    </span>
   );
-};
+
+/* ================================================================
+ * Main component
+ * ================================================================ */
 
 export const StructureStageViewer: React.FC<Props> = ({
   documentId,
@@ -227,12 +245,9 @@ export const StructureStageViewer: React.FC<Props> = ({
   const status = structureStage.status;
   const preview = structureStage.preview;
 
-  // Флаги вычисляем до хуков — они не вызывают хуков сами по себе
   const isPending = status === "pending";
   const isMissing = status === "missing";
   const structurePreview = isStructurePreview(preview) ? preview : null;
-
-  // ── Все хуки безусловно наверху ──────────────────────────────────────────
 
   const segmentGroups = React.useMemo(
     () =>
@@ -251,26 +266,16 @@ export const StructureStageViewer: React.FC<Props> = ({
     return all;
   }, [hasSegmentGroups, segmentGroups]);
 
-  const [activeSectionId, setActiveSectionId] = React.useState<string | null>(
-    sections[0]?.id ?? null,
-  );
+  const [activeSectionId, setActiveSectionId] = React.useState<
+    string | null
+  >(sections[0]?.id ?? null);
 
   React.useEffect(() => {
     setActiveSectionId((prev) => {
-      if (prev && sections.some((s) => s.id === prev)) {
-        return prev;
-      }
+      if (prev && sections.some((s) => s.id === prev)) return prev;
       return sections[0]?.id ?? null;
     });
   }, [sections]);
-
-  const activeSection = React.useMemo<StructureSectionPreviewDTO | null>(() => {
-    if (!sections.length) return null;
-    if (!activeSectionId) return sections[0];
-    return sections.find((s) => s.id === activeSectionId) ?? sections[0];
-  }, [sections, activeSectionId]);
-
-  // ── Ранние возвраты только после всех хуков ──────────────────────────────
 
   if (isPending) {
     return (
@@ -282,7 +287,7 @@ export const StructureStageViewer: React.FC<Props> = ({
 
   if (isMissing) {
     return (
-      <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-error)_40%,transparent)] bg-[var(--color-error-highlight)] p-4 text-sm text-[var(--color-error)]">
+      <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-4 text-sm text-[var(--color-error-text)]">
         Структурированный артефакт ожидается, но недоступен или повреждён.
         Проверь состояние пайплайна для стадии STRUCTURE.
       </div>
@@ -297,25 +302,29 @@ export const StructureStageViewer: React.FC<Props> = ({
     );
   }
 
-  // ── Derived values, не требующие хуков ───────────────────────────────────
-
   const isCanonical = isCanonicalStructureView(structureStage);
   const sectionCount =
     structureStage.meta?.section_count ?? sections.length;
 
   const highlightedChunkIndices =
-    activeSection && activeSection.source_mapping?.source_stage === "CHUNKS"
-      ? activeSection.source_mapping.chunk_indices ?? []
+    activeSectionId != null
+      ? (() => {
+          const active = sections.find((s) => s.id === activeSectionId);
+          return active?.source_mapping?.source_stage === "CHUNKS"
+            ? active.source_mapping.chunk_indices ?? []
+            : [];
+        })()
       : [];
-
-  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-3">
+      {/* ── Левая панель: навигация по секциям ── */}
       <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
         <PanelHeader
           title="Структура документа"
-          description={sectionCount > 0 ? `Секций: ${sectionCount}` : undefined}
+          description={
+            sectionCount > 0 ? `Секций: ${sectionCount}` : undefined
+          }
         />
 
         <div className="min-h-0 flex-1 overflow-auto px-1">
@@ -334,7 +343,9 @@ export const StructureStageViewer: React.FC<Props> = ({
                           key={section.id}
                           section={section}
                           isActive={section.id === activeSectionId}
-                          onSelect={() => setActiveSectionId(section.id)}
+                          onSelect={() =>
+                            setActiveSectionId(section.id)
+                          }
                         />
                       ))}
                     </div>
@@ -361,6 +372,7 @@ export const StructureStageViewer: React.FC<Props> = ({
         </div>
       </aside>
 
+      {/* ── Средняя панель: детали секции ── */}
       <section className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
         {isCanonical ? (
           <CanonicalSectionPanel
@@ -379,6 +391,7 @@ export const StructureStageViewer: React.FC<Props> = ({
         )}
       </section>
 
+      {/* ── Правая панель: JSON или chunks ── */}
       <section className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
         {isCanonical ? (
           <CanonicalJsonPanel
@@ -403,7 +416,7 @@ export const StructureStageViewer: React.FC<Props> = ({
               CHUNKS ещё не готовы в v2-формате. Попробуй позже.
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-[var(--color-error)]">
+            <div className="flex h-full items-center justify-center text-sm text-[var(--color-error-text)]">
               CHUNKS-артефакт ожидается, но недоступен или повреждён.
             </div>
           )
@@ -437,13 +450,16 @@ const SectionNavItem: React.FC<{
       onClick={onSelect}
       className={cx(
         "flex w-full items-start gap-2 rounded-xl py-1.5 text-left transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
         isActive
           ? "bg-[var(--bg-elevated-soft)] text-[var(--text-primary)] ring-1 ring-[color:color-mix(in_oklab,var(--accent-primary)_35%,transparent)]"
           : "text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]",
       )}
       style={{ paddingLeft: `${8 + indent * 12}px`, paddingRight: "8px" }}
       title={[
-        section.clause_uid ? `clause_uid: ${section.clause_uid}` : null,
+        section.clause_uid
+          ? `clause_uid: ${section.clause_uid}`
+          : null,
         pageRange,
         section.segment_type
           ? `segment: ${section.segment_type}${
@@ -465,12 +481,12 @@ const SectionNavItem: React.FC<{
 
       {hasSourceChunks ? (
         <span
-          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success,#22c55e)]"
+          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success)]"
           aria-label="Есть привязка к CHUNKS"
         />
       ) : hasClauseUid ? (
         <span
-          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary,#3b82f6)]"
+          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]"
           aria-label="Есть clause_uid"
         />
       ) : null}
@@ -494,7 +510,7 @@ const CanonicalSectionPanel: React.FC<{
 
   const section =
     activeSectionId != null
-      ? sections.find((s) => s.id === activeSectionId) ?? sections[0]
+      ? (sections.find((s) => s.id === activeSectionId) ?? sections[0])
       : sections[0];
 
   if (!section) {
@@ -528,22 +544,13 @@ const CanonicalSectionPanel: React.FC<{
           >
             {getSectionLabel(section)}
           </p>
-
           <p className="mt-1 text-xs leading-4 text-[var(--text-faint)]">
             {getSectionMetaLine(section)}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {sourceMapped ? (
-            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-success)_40%,transparent)] bg-[var(--color-success-highlight)] px-2 py-0.5 text-xs text-[var(--color-success)]">
-              Есть привязка к CHUNKS
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-warning)_35%,transparent)] bg-[var(--color-warning-highlight)] px-2 py-0.5 text-xs text-[var(--color-warning)]">
-              Нет привязки к CHUNKS для этой секции
-            </span>
-          )}
+          <ChunksMappingBadge mapped={sourceMapped} />
 
           {section.segment_type ? (
             <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
@@ -559,78 +566,55 @@ const CanonicalSectionPanel: React.FC<{
           </p>
 
           <dl className="space-y-2 text-xs text-[var(--text-secondary)]">
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
-                ID
-              </dt>
-              <dd className="break-all">{section.id || "—"}</dd>
-            </div>
-
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
-                Clause UID
-              </dt>
-              <dd>{section.clause_uid || "—"}</dd>
-            </div>
-
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
-                Уровень
-              </dt>
-              <dd>{section.level ?? 1}</dd>
-            </div>
-
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
-                Страницы
-              </dt>
-              <dd>{pageRange ?? "—"}</dd>
-            </div>
-
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
-                Segment ID
-              </dt>
-              <dd>{section.segment_id || "—"}</dd>
-            </div>
-
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
-                Segment Type
-              </dt>
-              <dd>{section.segment_type || "—"}</dd>
-            </div>
-
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
-                Segment Title
-              </dt>
-              <dd>{section.segment_title || "—"}</dd>
-            </div>
-
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
-                Segment Order
-              </dt>
-              <dd>
-                {typeof section.segment_order === "number"
-                  ? section.segment_order
-                  : "—"}
-              </dd>
-            </div>
-
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
-                Primary Segment
-              </dt>
-              <dd>
-                {typeof section.is_primary_segment === "boolean"
-                  ? section.is_primary_segment
-                    ? "true"
-                    : "false"
-                  : "—"}
-              </dd>
-            </div>
+            {[
+              { label: "ID", value: section.id || "—", breakAll: true },
+              {
+                label: "Clause UID",
+                value: section.clause_uid || "—",
+              },
+              {
+                label: "Уровень",
+                value: String(section.level ?? 1),
+              },
+              { label: "Страницы", value: pageRange ?? "—" },
+              {
+                label: "Segment ID",
+                value: section.segment_id || "—",
+              },
+              {
+                label: "Segment Type",
+                value: section.segment_type || "—",
+              },
+              {
+                label: "Segment Title",
+                value: section.segment_title || "—",
+              },
+              {
+                label: "Segment Order",
+                value:
+                  typeof section.segment_order === "number"
+                    ? String(section.segment_order)
+                    : "—",
+              },
+              {
+                label: "Primary Segment",
+                value:
+                  typeof section.is_primary_segment === "boolean"
+                    ? section.is_primary_segment
+                      ? "true"
+                      : "false"
+                    : "—",
+              },
+            ].map(({ label, value, breakAll }) => (
+              <div key={label}>
+                <dt className="text-xs uppercase tracking-wide text-[var(--text-faint)]">
+                  {label}
+                </dt>
+                <dd className={breakAll ? "break-all" : undefined}>
+                  {value}
+                </dd>
+              </div>
+            ))}
           </dl>
         </div>
 
@@ -658,9 +642,11 @@ const CanonicalSectionPanel: React.FC<{
             <button
               type="button"
               onClick={() =>
-                onOpenAtLocation(buildSectionViewerPayload(documentId, section))
+                onOpenAtLocation(
+                  buildSectionViewerPayload(documentId, section),
+                )
               }
-              className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)]"
+              className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--accent-primary)] transition-colors hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             >
               Открыть в документе
             </button>
@@ -687,7 +673,7 @@ const FriendlySectionPanel: React.FC<{
 
   const section =
     activeSectionId != null
-      ? sections.find((s) => s.id === activeSectionId) ?? sections[0]
+      ? (sections.find((s) => s.id === activeSectionId) ?? sections[0])
       : sections[0];
 
   if (!section) {
@@ -720,22 +706,13 @@ const FriendlySectionPanel: React.FC<{
           >
             {getSectionLabel(section)}
           </p>
-
           <p className="mt-1 text-xs leading-4 text-[var(--text-faint)]">
             {getSectionMetaLine(section)}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {sourceMapped ? (
-            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-success)_40%,transparent)] bg-[var(--color-success-highlight)] px-2 py-0.5 text-xs text-[var(--color-success)]">
-              Есть привязка к CHUNKS
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-warning)_35%,transparent)] bg-[var(--color-warning-highlight)] px-2 py-0.5 text-xs text-[var(--color-warning)]">
-              Нет привязки к CHUNKS для этой секции
-            </span>
-          )}
+          <ChunksMappingBadge mapped={sourceMapped} />
 
           {section.segment_type ? (
             <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
@@ -764,9 +741,11 @@ const FriendlySectionPanel: React.FC<{
             <button
               type="button"
               onClick={() =>
-                onOpenAtLocation(buildSectionViewerPayload(documentId, section))
+                onOpenAtLocation(
+                  buildSectionViewerPayload(documentId, section),
+                )
               }
-              className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)]"
+              className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--accent-primary)] transition-colors hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             >
               Открыть в документе
             </button>
@@ -791,7 +770,7 @@ const CanonicalJsonPanel: React.FC<{
 
   const section =
     activeSectionId != null
-      ? sections.find((s) => s.id === activeSectionId) ?? sections[0]
+      ? (sections.find((s) => s.id === activeSectionId) ?? sections[0])
       : sections[0];
 
   if (!section) {
@@ -809,8 +788,8 @@ const CanonicalJsonPanel: React.FC<{
         description="Здесь показывается текущий объект секции из preview.segments[].sections[]."
       />
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-[#050816] p-3">
-        <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
+      <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-[var(--bg-inverse)] p-3">
+        <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[var(--text-inverse)]">
           {getSectionJson(section)}
         </pre>
       </div>

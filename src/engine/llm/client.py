@@ -886,10 +886,14 @@ class LLMClient:
         data = response.json()
         text = data.get("response", "")
 
+        _ollama_pt = _safe_non_negative_int(data.get("prompt_eval_count")) or 0
+        _ollama_ct = _safe_non_negative_int(data.get("eval_count")) or 0
+
         result = LLMResponse(
             text=text,
             provider="ollama",
             model=settings.LLM_OLLAMA_MODEL,
+            tokens_used=_ollama_pt + _ollama_ct,
             raw_response=data,
             prompt_tokens=_safe_non_negative_int(data.get("prompt_eval_count")),
             completion_tokens=_safe_non_negative_int(data.get("eval_count")),
@@ -1317,10 +1321,14 @@ class LLMClient:
         data = response.json()
         text = data.get("response", "")
 
+        _ollama_pt = _safe_non_negative_int(data.get("prompt_eval_count")) or 0
+        _ollama_ct = _safe_non_negative_int(data.get("eval_count")) or 0
+
         result = LLMResponse(
             text=text,
             provider="ollama",
             model=settings.LLM_OLLAMA_MODEL,
+            tokens_used=_ollama_pt + _ollama_ct,
             raw_response=data,
             prompt_tokens=_safe_non_negative_int(data.get("prompt_eval_count")),
             completion_tokens=_safe_non_negative_int(data.get("eval_count")),

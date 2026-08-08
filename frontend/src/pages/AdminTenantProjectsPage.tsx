@@ -39,7 +39,7 @@ const STATUS_CONFIG: Record<
   active: {
     label: "Активен",
     className:
-      "bg-[color:var(--color-success-bg)] text-[color:var(--color-success-text)] border-[color:var(--color-success-border)]",
+      "bg-[var(--color-success-bg)] text-[var(--color-success-text)] border-[var(--color-success-border)]",
   },
   draft: {
     label: "Черновик",
@@ -190,13 +190,12 @@ const AdminTenantProjectsPage: React.FC = () => {
   return (
     <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
       <div className="animate-fadein space-y-8">
-
         {/* ── Заголовок страницы (на фоне) ─────────────────── */}
         <header>
           <button
             type="button"
             onClick={() => navigate(`/admin/tenants/${tenant.id}`)}
-            className="mb-2 flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+            className="mb-2 flex items-center gap-1.5 rounded-md text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             {tenant.name}
@@ -208,14 +207,14 @@ const AdminTenantProjectsPage: React.FC = () => {
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             <Link
               to="/admin"
-              className="hover:text-[var(--text-secondary)]"
+              className="rounded-sm transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
             >
               Клиенты
             </Link>
             <span className="mx-1.5">·</span>
             <Link
               to={`/admin/tenants/${tenant.id}`}
-              className="hover:text-[var(--text-secondary)]"
+              className="rounded-sm transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
             >
               {tenant.name}
             </Link>
@@ -226,7 +225,7 @@ const AdminTenantProjectsPage: React.FC = () => {
 
         {/* ── Ошибка ───────────────────────────────────────── */}
         {error && (
-          <div className="max-w-3xl rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+          <div className="max-w-3xl rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-5 text-sm text-[var(--color-error-text)]">
             Не удалось загрузить проекты клиента.
           </div>
         )}

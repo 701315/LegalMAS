@@ -61,6 +61,11 @@ from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
+from services.structure.legal_unit_models import (
+    ClauseFunction,
+    LegalUnitType,
+    normalize_clause_function_label,
+)
 
 # ────────────────────────── DETECTOR CONFIG ──────────────────────────
 
@@ -329,6 +334,93 @@ class RetrievalConfig(BaseModel):
     # current_segment — только текущий сегмент в batch execution.
     # document — весь документ включая appendices.
     corpus_scope: RetrievalCorpusScope = RetrievalCorpusScope.PRIMARY_SEGMENT
+
+    @field_validator("preferred_unit_types", "excluded_unit_types", mode="before")
+    @classmethod
+    def _normalize_unit_types(cls, values: list) -> list:
+        """
+        Нормализует и валидирует значения preferred_unit_types и excluded_unit_types.
+
+        Принимает только канонические значения LegalUnitType.
+        Невалидные значения отбрасываются с предупреждением в лог.
+
+        Это нужно потому что retrieval engine делает exact string match
+        против chunk metadata unit_type (который содержит canonical values).
+        Невалидные значения создают мёртвые boosts/penalties.
+        """
+        if not values:
+            return []
+
+        import logging
+        _log = logging.getLogger(__name__)
+
+        result: list[str] = []
+        valid_values = {m.value for m in LegalUnitType}
+
+        for raw in values:
+            if not isinstance(raw, str):
+                continue
+            normalized = raw.strip().lower().replace("-", "_").replace(" ", "_")
+            while "__" in normalized:
+                normalized = normalized.replace("__", "_")
+            normalized = normalized.strip("_")
+
+            if normalized in valid_values:
+                result.append(normalized)
+            else:
+                _log.warning(
+                    "RetrievalConfig: unknown unit_type value ignored",
+                    extra={
+                        "raw_value": raw,
+                        "normalized": normalized,
+                        "valid_values": sorted(valid_values),
+                    },
+                )
+
+        return result
+
+    @field_validator("preferred_clause_functions", mode="before")
+    @classmethod
+    def _normalize_clause_functions(cls, values: list) -> list:
+        """
+        Нормализует значения preferred_clause_functions к canonical ClauseFunction.
+
+        Использует normalize_clause_function_label() который поддерживает aliases.
+        Невалидные значения (не canonical и не alias) отбрасываются с предупреждением.
+
+        Это нужно потому что retrieval engine и executor используют
+        exact string match против chunk metadata clause_function
+        (который содержит canonical ClauseFunction values).
+        Невалидные значения создают мёртвые boosts.
+        """
+        if not values:
+            return []
+
+        import logging
+        _log = logging.getLogger(__name__)
+
+        result: list[str] = []
+
+        for raw in values:
+            if not isinstance(raw, str):
+                continue
+
+            normalized = normalize_clause_function_label(raw)
+            if normalized is not None:
+                result.append(normalized.value)
+            else:
+                _log.warning(
+                    "RetrievalConfig: unknown clause_function value ignored",
+                    extra={
+                        "raw_value": raw,
+                        "hint": (
+                            "Use canonical values: rights, obligations, limitations, "
+                            "procedures, definitions, representations, remedies, boilerplate"
+                        ),
+                    },
+                )
+
+        return result
 
     @field_validator("retrieval_query")
     @classmethod
@@ -664,18 +756,29 @@ class ExtractionConfig(BaseModel):
     # Per-check override для max_tokens в extraction LLM call.
     llm_max_tokens: int | None = None
 
-    # Whether runtime should append the generic "compact 1-2 sentences" footer
-    # to the extraction prompt.
+    # Управляет добавлением generic compact footer к extraction prompt.
     #
-    # True  (default):
-    #   Good for summary-style checks where each field is expected to be short.
+    # Три состояния (tri-state policy):
     #
-    # False:
-    #   Use for inventory / schedule / register-style checks where a field may
-    #   legitimately contain a long multi-line list of items.
+    # None (default — авто-режим):
+    #   - если у check есть custom llm_prompt_extraction:
+    #     footer НЕ добавляется. Custom prompt сам управляет стилем вывода.
+    #     Добавление footer поверх детального custom prompt создаёт конфликт
+    #     инструкций и ухудшает предсказуемость модели.
+    #   - если custom prompt отсутствует (fallback template):
+    #     footer добавляется — как раньше.
     #
-    # This is playbook-driven: the check declares its output style contract.
-    compact_output: bool = True
+    # True (явный opt-in):
+    #   Footer добавляется принудительно независимо от наличия custom prompt.
+    #   Используй только если custom prompt намеренно не задаёт стиль вывода.
+    #
+    # False (явный opt-out):
+    #   Footer не добавляется принудительно.
+    #   Используй для inventory/register-style checks с длинными списками.
+    #
+    # Примечание: массовое выставление compact_output: false в YAML не требуется.
+    # Авто-режим (None) корректно обрабатывает большинство случаев.
+    compact_output: bool | None = None
 
     # Явная конфигурация колонок DD Grid V1.
     #
@@ -864,6 +967,50 @@ class EnrichmentHints(BaseModel):
     preferred_clause_functions: list[str] = Field(default_factory=list)
     confidence_bonus_on_match: float = Field(default=0.0, ge=0.0, le=1.0)
     confidence_penalty_on_excluded_segment: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+    @field_validator("preferred_clause_functions", mode="before")
+    @classmethod
+    def _normalize_hint_clause_functions(cls, values: list) -> list:
+        """
+        Нормализует preferred_clause_functions в EnrichmentHints к canonical ClauseFunction.
+
+        EnrichmentHints.preferred_clause_functions используется в executor.py для
+        semantic multiplier: intersection с semantic_context.clause_functions.
+        semantic_context.clause_functions содержит canonical values из enrichment sidecar.
+        Поэтому только canonical values создают реальный match и реальный boost.
+
+        Невалидные или domain-specific values (например, "confidentiality" как
+        semantic domain, а не clause function) создают мёртвые boosts.
+        """
+        if not values:
+            return []
+
+        import logging
+        _log = logging.getLogger(__name__)
+
+        result: list[str] = []
+
+        for raw in values:
+            if not isinstance(raw, str):
+                continue
+
+            normalized = normalize_clause_function_label(raw)
+            if normalized is not None:
+                result.append(normalized.value)
+            else:
+                _log.warning(
+                    "EnrichmentHints: unknown clause_function value ignored",
+                    extra={
+                        "raw_value": raw,
+                        "hint": (
+                            "Use canonical values: rights, obligations, limitations, "
+                            "procedures, definitions, representations, remedies, boilerplate"
+                        ),
+                    },
+                )
+
+        return result
 
 
 class CheckDefinition(BaseModel):

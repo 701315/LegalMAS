@@ -66,13 +66,16 @@ const defaultCreateValues: ModelConfigCreateInput = {
 };
 
 const inputClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const elevatedSoftInputClassName =
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const numberInputClassName =
-  "w-16 rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-right font-mono text-sm font-semibold text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]";
+  "w-16 rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-right font-mono text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const weightInputClassName =
-  "w-20 rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-right font-mono text-sm font-semibold text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]";
+  "w-20 rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-right font-mono text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-60";
 
 // ─────────────────────────────────────────────────────────────
 // Panel
@@ -451,7 +454,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               name="embeddings_primary"
               value={formValues.embeddings_primary}
               onChange={(e) => handleInputChange(e, false)}
-              className={`${inputClassName} mt-1.5 font-mono`}
+              className={`${elevatedSoftInputClassName} mt-1.5 font-mono`}
             />
             <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-muted)]">
               Microsoft E5 (large). Мультиязычная, работает с RU/EN и
@@ -474,7 +477,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               name="embeddings_fallback"
               value={formValues.embeddings_fallback ?? ""}
               onChange={(e) => handleInputChange(e, false)}
-              className={`${inputClassName} mt-1.5 font-mono`}
+              className={`${elevatedSoftInputClassName} mt-1.5 font-mono`}
               placeholder="Пусто = отключено"
             />
             <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-muted)]">
@@ -676,26 +679,40 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             className={[
               "rounded-lg border p-3",
               weightsSum > 0
-                ? "border-[var(--border)] bg-[var(--bg-card)]"
-                : "border-rose-300 bg-rose-50",
+                ? "border-[var(--color-success-border)] bg-[var(--color-success-bg)]"
+                : "border-[var(--color-error-border)] bg-[var(--color-error-bg)]",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              <span
+                className={[
+                  "text-[10px] font-semibold uppercase tracking-[0.12em]",
+                  weightsSum > 0
+                    ? "text-[var(--color-success-text)]"
+                    : "text-[var(--color-error-text)]",
+                ].join(" ")}
+              >
                 Сумма весов
               </span>
               <span
                 className={[
                   "font-mono text-sm font-semibold",
                   weightsSum > 0
-                    ? "text-[color:var(--color-success-text)]"
-                    : "text-rose-600",
+                    ? "text-[var(--color-success-text)]"
+                    : "text-[var(--color-error-text)]",
                 ].join(" ")}
               >
                 {weightsSum.toFixed(2)}
               </span>
             </div>
-            <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
+            <p
+              className={[
+                "mt-1.5 text-[10px] leading-relaxed",
+                weightsSum > 0
+                  ? "text-[var(--color-success-text)]"
+                  : "text-[var(--color-error-text)]",
+              ].join(" ")}
+            >
               {weightsSum > 0
                 ? "Валидная конфигурация. Сумма пересчитывается при изменении весов."
                 : "Сумма должна быть больше нуля."}
@@ -955,16 +972,16 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             </div>
 
             {/* Сумма — как отдельная карточка для симметрии */}
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3">
+            <div className="rounded-lg border border-[var(--color-success-border)] bg-[var(--color-success-bg)] p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-success-text)]">
                   Сумма весов
                 </span>
-                <span className="font-mono text-sm font-semibold text-[color:var(--color-success-text)]">
+                <span className="font-mono text-sm font-semibold text-[var(--color-success-text)]">
                   1.0
                 </span>
               </div>
-              <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
+              <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--color-success-text)]">
                 0.6 + 0.3 + 0.1 = 1.0. Валидная конфигурация.
               </p>
             </div>
@@ -980,7 +997,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           {!usage ? (
             <p className="text-[11px] text-[var(--text-muted)]">Загружаем…</p>
           ) : !isUsed ? (
-            <p className="text-[11px] text-[color:var(--color-success-text)]">
+            <p className="text-[11px] text-[var(--color-success-text)]">
               Не используется ни в одной playbook-версии или проекте.
             </p>
           ) : (
@@ -1031,7 +1048,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             type="button"
             onClick={() => void handleDelete(selectedConfig)}
             disabled={isDeleting || isUsed}
-            className="ml-auto text-[10px] text-[var(--text-muted)] transition-colors hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-40"
+            className="ml-auto text-[10px] text-[var(--text-muted)] transition-colors hover:text-[var(--color-error-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Удалить профиль
           </button>
@@ -1106,7 +1123,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
                       type="button"
                       onClick={() => handleSelectConfig(cfg.id)}
                       className={[
-                        "w-full rounded-xl border px-3 py-2.5 text-left text-xs transition-colors",
+                        "w-full rounded-xl border px-3 py-2.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
                         isSelected || isEditing
                           ? "border-[var(--accent-primary)] bg-[var(--accent-muted)]"
                           : isCurrentDealConfig
@@ -1116,7 +1133,14 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="truncate font-semibold text-[var(--text-primary)]">
+                          <span
+                            className={[
+                              "truncate font-semibold",
+                              isSelected || isEditing
+                                ? "text-[var(--accent-primary)]"
+                                : "text-[var(--text-primary)]",
+                            ].join(" ")}
+                          >
                             {cfg.name}
                           </span>
                           {isCurrentDealConfig && (
@@ -1125,14 +1149,21 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
                             </span>
                           )}
                         </div>
-                        <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                        <div
+                          className={[
+                            "mt-0.5 flex items-center gap-2 text-[10px]",
+                            isSelected || isEditing
+                              ? "text-[var(--accent-primary)]"
+                              : "text-[var(--text-muted)]",
+                          ].join(" ")}
+                        >
                           <span className="font-mono">
                             {cfg.id.slice(0, 8)}…
                           </span>
                           {isUsed ? (
                             <span>Используется</span>
                           ) : usage ? (
-                            <span className="text-[color:var(--color-success-text)]">
+                            <span className="text-[var(--color-success-text)]">
                               Свободен
                             </span>
                           ) : null}
@@ -1174,6 +1205,5 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
 };
 
 export default ModelConfigManagerPanel;
-
 
 
