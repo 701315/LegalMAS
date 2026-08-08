@@ -1,7 +1,5 @@
-// src/App.tsx
-
 import React from "react";
-import { Routes, Route, Navigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
 import "./App.css";
 
 // ── Marketing pages ───────────────────────────────────────────
@@ -172,6 +170,20 @@ function RequireAdminOrSuperadmin({
 }
 
 // ─────────────────────────────────────────────────────────────
+// Shared authenticated AppShell layout
+// ─────────────────────────────────────────────────────────────
+
+function AuthenticatedAppShellLayout() {
+  return (
+    <RequireAuth>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </RequireAuth>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // App
 // ─────────────────────────────────────────────────────────────
 
@@ -225,267 +237,273 @@ function App() {
           {/* ── Auth ───────────────────────────────────────── */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* ── Dashboard & Projects ───────────────────────── */}
-          <Route
-            path="/dashboard"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <DashboardPage />
-                </AppShell>
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/deals"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <DealListPage />
-                </AppShell>
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/projects/:dealId"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <DealRouteWrapper />
-                </AppShell>
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/projects/new"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <NewProjectPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/projects/:dealId/upload"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <ProjectRouteGuard requiredCapability="canUploadDocuments">
-                    <ProjectUploadPage />
-                  </ProjectRouteGuard>
-                </AppShell>
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/projects/:dealId/members"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <ProjectRouteGuard requiredCapability="canManageRequests">
-                    <ProjectMembersPage />
-                  </ProjectRouteGuard>
-                </AppShell>
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/projects/:dealId/playbook"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <ProjectRouteGuard requiredCapability="canManageRequests">
-                    <DealPlaybookSelectorPage />
-                  </ProjectRouteGuard>
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/projects/:dealId/playbooks/admin"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <ProjectRouteGuard requiredCapability="canManageRequests">
-                    <AdminPlaybookLinesPage />
-                  </ProjectRouteGuard>
-                </AppShell>
-              </RequireAuth>
-            }
-          />
-
-          {/* ── Deal-level Instructions ─────────────────────── */}
-          <Route
-            path="/projects/:dealId/instructions"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <ProjectRouteGuard requiredCapability="canManageRequests">
-                    <DealInstructionsPage />
-                  </ProjectRouteGuard>
-                </AppShell>
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/projects/:dealId/instructions/overrides"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <ProjectRouteGuard requiredCapability="canManageRequests">
-                    <DealOverridesPage />
-                  </ProjectRouteGuard>
-                </AppShell>
-              </RequireAuth>
-            }
-          />
-
-          <Route
-            path="/projects/:dealId/instructions/overrides/:docType"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <ProjectRouteGuard requiredCapability="canManageRequests">
-                    <DealOverrideDetailPage />
-                  </ProjectRouteGuard>
-                </AppShell>
-              </RequireAuth>
-            }
-          />
-
-          {/* ── Admin — Model Configs & Playbook Versions ───── */}
-          <Route
-            path="/admin/model-configs"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <ModelConfigsAdminPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          {/* Реестр стандартных playbook — read-only + экспорт */}
-          <Route
-            path="/admin/instructions/playbooks-registry"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <PlaybooksRegistryPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
-
-          {/* Legacy redirects — старые URL ведут на новую страницу */}
+          {/* ── Legacy redirects — сохраняем вне общего shell ─ */}
           <Route
             path="/admin/playbook-versions"
-            element={<Navigate to="/admin/instructions/playbooks-registry" replace />}
+            element={
+              <Navigate
+                to="/admin/instructions/playbooks-registry"
+                replace
+              />
+            }
           />
           <Route
             path="/admin/instructions/playbook-versions"
-            element={<Navigate to="/admin/instructions/playbooks-registry" replace />}
+            element={
+              <Navigate
+                to="/admin/instructions/playbooks-registry"
+                replace
+              />
+            }
           />
           <Route
             path="/tenant-admin/instructions/playbook-versions"
-            element={<Navigate to="/admin/instructions/playbooks-registry" replace />}
-          />
-
-          {/* ── Admin — Instructions index ──────────────────── */}
-          <Route
-            path="/admin/instructions"
             element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <InstructionsIndexPage />
-                </AppShell>
-              </RequireSuperadmin>
+              <Navigate
+                to="/admin/instructions/playbooks-registry"
+                replace
+              />
             }
           />
 
-          {/* ── Admin — Global Playbooks ────────────────────── */}
-          <Route
-            path="/admin/instructions/global-playbooks"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <GlobalPlaybooksPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
+          {/* ── Shared authenticated app shell ─────────────── */}
+          <Route element={<AuthenticatedAppShellLayout />}>
+            {/* ── Dashboard & base project routes ─────────── */}
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/deals" element={<DealListPage />} />
+            <Route path="/projects/:dealId" element={<DealRouteWrapper />} />
 
-          <Route
-            path="/admin/instructions/playbook-studio"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <GlobalPlaybooksPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
+            <Route
+              path="/projects/:dealId/upload"
+              element={
+                <ProjectRouteGuard requiredCapability="canUploadDocuments">
+                  <ProjectUploadPage />
+                </ProjectRouteGuard>
+              }
+            />
 
-          <Route
-            path="/admin/instructions/global-playbooks/:playbookId"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <GlobalPlaybookDetailPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
+            <Route
+              path="/projects/:dealId/members"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <ProjectMembersPage />
+                </ProjectRouteGuard>
+              }
+            />
 
-          <Route
-            path="/admin/instructions/global-playbooks/:playbookId/versions/:versionId"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <PlaybookVersionDetailPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
+            <Route
+              path="/projects/:dealId/playbooks/admin"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <AdminPlaybookLinesPage />
+                </ProjectRouteGuard>
+              }
+            />
 
-          {/* ── Admin — Global Instructions lifecycle ───────── */}
-          <Route
-            path="/admin/instructions/global-checks"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <GlobalInstructionsPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
+            {/* ── Deal-level Instructions ─────────────────── */}
+            <Route
+              path="/projects/:dealId/instructions"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <DealInstructionsPage />
+                </ProjectRouteGuard>
+              }
+            />
 
-          {/* Главная страница инструкции — sidebar с версиями + редактор выбранной версии */}
-          <Route
-            path="/admin/instructions/global-checks/:instructionCode"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <GlobalInstructionDetailPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
+            <Route
+              path="/projects/:dealId/instructions/overrides"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <DealOverridesPage />
+                </ProjectRouteGuard>
+              }
+            />
+
+            <Route
+              path="/projects/:dealId/instructions/overrides/:docType"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <DealOverrideDetailPage />
+                </ProjectRouteGuard>
+              }
+            />
+
+            {/* ── Admin or Superadmin routes ──────────────── */}
+            <Route
+              element={
+                <RequireAdminOrSuperadmin>
+                  <Outlet />
+                </RequireAdminOrSuperadmin>
+              }
+            >
+              <Route path="/projects/new" element={<NewProjectPage />} />
+
+              <Route
+                path="/projects/:dealId/playbook"
+                element={
+                  <ProjectRouteGuard requiredCapability="canManageRequests">
+                    <DealPlaybookSelectorPage />
+                  </ProjectRouteGuard>
+                }
+              />
+
+              <Route
+                path="/admin/model-configs"
+                element={<ModelConfigsAdminPage />}
+              />
+
+              {/* ── Tenant Admin ─────────────────────────── */}
+              <Route path="/tenant-admin" element={<TenantAdminPage />} />
+
+              {/* ── Tenant-level Instructions ────────────── */}
+              <Route
+                path="/tenant-admin/instructions"
+                element={<TenantInstructionsPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/playbook-studio"
+                element={<TenantBasePlaybooksPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-playbooks"
+                element={<TenantBasePlaybooksPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-global-checks"
+                element={<TenantBaseGlobalChecksPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-global-checks/:instructionCode"
+                element={<TenantBaseGlobalCheckDetailPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-doc-types"
+                element={<TenantBaseDocTypesPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-doc-types/:docType"
+                element={<TenantBaseDocTypeDetailPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/my-playbooks"
+                element={<TenantOwnedPlaybooksPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/overrides"
+                element={<TenantOverridesPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/overrides/new"
+                element={<TenantOverrideCreatePage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/overrides/:overrideId"
+                element={<TenantOverrideDetailPage />}
+              />
+            </Route>
+
+            {/* ── Superadmin routes ───────────────────────── */}
+            <Route
+              element={
+                <RequireSuperadmin>
+                  <Outlet />
+                </RequireSuperadmin>
+              }
+            >
+              {/* Реестр стандартных playbook — read-only + экспорт */}
+              <Route
+                path="/admin/instructions/playbooks-registry"
+                element={<PlaybooksRegistryPage />}
+              />
+
+              {/* ── Admin — Instructions index ───────────── */}
+              <Route
+                path="/admin/instructions"
+                element={<InstructionsIndexPage />}
+              />
+
+              {/* ── Admin — Global Playbooks ─────────────── */}
+              <Route
+                path="/admin/instructions/global-playbooks"
+                element={<GlobalPlaybooksPage />}
+              />
+
+              <Route
+                path="/admin/instructions/playbook-studio"
+                element={<GlobalPlaybooksPage />}
+              />
+
+              <Route
+                path="/admin/instructions/global-playbooks/:playbookId"
+                element={<GlobalPlaybookDetailPage />}
+              />
+
+              <Route
+                path="/admin/instructions/global-playbooks/:playbookId/versions/:versionId"
+                element={<PlaybookVersionDetailPage />}
+              />
+
+              {/* ── Admin — Global Instructions lifecycle ─ */}
+              <Route
+                path="/admin/instructions/global-checks"
+                element={<GlobalInstructionsPage />}
+              />
+
+              <Route
+                path="/admin/instructions/global-checks/:instructionCode"
+                element={<GlobalInstructionDetailPage />}
+              />
+
+              {/* ── Admin — Doc-Type Instructions ────────── */}
+              <Route
+                path="/admin/instructions/doc-types"
+                element={<DocTypeInstructionsPage />}
+              />
+
+              <Route
+                path="/admin/instructions/doc-types/:docType"
+                element={<DocTypeDetailPage />}
+              />
+
+              {/* ── Admin — Tenants ─────────────────────── */}
+              <Route path="/admin" element={<AdminPage />} />
+
+              <Route
+                path="/admin/tenants/new"
+                element={<AdminTenantNewPage />}
+              />
+
+              <Route
+                path="/admin/tenants/:tenantId"
+                element={<AdminTenantDetailPage />}
+              />
+
+              <Route
+                path="/admin/tenants/:tenantId/projects"
+                element={<AdminTenantProjectsPage />}
+              />
+
+              <Route
+                path="/admin/monitoring"
+                element={<AdminMonitoringPage />}
+              />
+            </Route>
+          </Route>
 
           {/*
             LEGACY маршрут.
-            Оставлен для обратной совместимости — все внешние ссылки
-            вида /versions/:versionId редиректятся на новый ?version=<id>.
-            Можно удалить через несколько релизов.
+            Оставлен вне общего shell для сохранения текущего поведения —
+            без аудита самого экрана не меняем его layout-contract.
           */}
           <Route
             path="/admin/instructions/global-checks/:instructionCode/versions/:versionId"
@@ -496,224 +514,15 @@ function App() {
             }
           />
 
-          {/* ── Admin — Doc-Type Instructions ───────────────── */}
-          <Route
-            path="/admin/instructions/doc-types"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <DocTypeInstructionsPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
-
-          <Route
-            path="/admin/instructions/doc-types/:docType"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <DocTypeDetailPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
-
+          {/*
+            Legacy redirect.
+            Оставлен вне общего shell для сохранения текущего поведения.
+          */}
           <Route
             path="/admin/instructions/doc-types/:docType/versions/:versionId"
             element={
               <RequireSuperadmin>
                 <DocTypeVersionLegacyRedirect />
-              </RequireSuperadmin>
-            }
-          />
-
-          {/* ── Tenant Admin ────────────────────────────────── */}
-          <Route
-            path="/tenant-admin"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantAdminPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          {/* ── Tenant-level Instructions ───────────────────── */}
-          <Route
-            path="/tenant-admin/instructions"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantInstructionsPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/playbook-studio"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantBasePlaybooksPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/base-playbooks"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantBasePlaybooksPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/base-global-checks"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantBaseGlobalChecksPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/base-global-checks/:instructionCode"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantBaseGlobalCheckDetailPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/base-doc-types"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantBaseDocTypesPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/base-doc-types/:docType"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantBaseDocTypeDetailPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/my-playbooks"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantOwnedPlaybooksPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/overrides"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantOverridesPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/overrides/new"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantOverrideCreatePage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/tenant-admin/instructions/overrides/:overrideId"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <TenantOverrideDetailPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
-          />
-
-          {/* ── Admin — Tenants ─────────────────────────────── */}
-          <Route
-            path="/admin"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <AdminPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
-
-          <Route
-            path="/admin/tenants/new"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <AdminTenantNewPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
-
-          <Route
-            path="/admin/tenants/:tenantId"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <AdminTenantDetailPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
-
-          <Route
-            path="/admin/tenants/:tenantId/projects"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <AdminTenantProjectsPage />
-                </AppShell>
-              </RequireSuperadmin>
-            }
-          />
-
-          <Route
-            path="/admin/monitoring"
-            element={
-              <RequireSuperadmin>
-                <AppShell>
-                  <AdminMonitoringPage />
-                </AppShell>
               </RequireSuperadmin>
             }
           />
