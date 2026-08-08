@@ -735,7 +735,7 @@ checks_v8:
         [ПРАВИЛА]
         1. Только текст документа.
         2. Если данные не указаны прямо — "not_defined" или "Данные не определены".
-        3. Не используй "None", "null", "not_specified", пустые строки.
+        3. Не используй "None", "null", "not_defined", пустые строки.
         4. В evidence — только цитаты из документа.
         5. Верни только один JSON-объект.
 
@@ -1410,7 +1410,7 @@ checks_v8:
         Ответ:
         {
           "notarization_status": "not_defined",
-          "notarization_level": "not_found",
+          "notarization_level": "not_defined",
           "notary_details_status": "not_defined",
           "notary_details_value": "Данные не определены",
           "notary_date_status": "not_defined",
@@ -1519,7 +1519,7 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. notarization_status — "defined" если нотариальная форма прямо подтверждена, иначе "not_defined".
-        2. notarization_level — "clearly_notarial" / "mentioned" / "not_found".
+        2. notarization_level — "clearly_notarial" / "mentioned" / "not_defined".
         3. notary_details_status — "defined" если данные нотариуса указаны, иначе "not_defined".
         4. notary_details_value — ФИО нотариуса и/или нотариальный округ.
         5. notary_date_status — "defined" если дата удостоверения указана, иначе "not_defined".
@@ -1552,7 +1552,7 @@ checks_v8:
         - name: "notarization_level"
           type: "string"
           presentation: "signal"
-          allowed_values: ["clearly_notarial", "mentioned", "not_found"]
+          allowed_values: ["clearly_notarial", "mentioned", "not_defined"]
           description: "Уровень подтверждения нотариального удостоверения."
           required: false
         - name: "notary_details_status"

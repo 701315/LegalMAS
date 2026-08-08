@@ -1,6 +1,7 @@
 type: contract_7.4_nda
 name: "Соглашение о неразглашении конфиденциальной информации (NDA)"
-
+version: 6.0
+parent: class_7_intellectual_property
 description: |
   Соглашение, по которому одна или обе стороны обязуются сохранять конфиденциальность
   информации, полученной в ходе переговоров, сотрудничества или иного взаимодействия.
@@ -10,10 +11,6 @@ description: |
   от несанкционированного разглашения.
   Ключевой инструмент при M&A, инвестициях, партнёрствах, IT-разработке.
   Регулируется ФЗ-98 «О коммерческой тайне», ГК РФ ст. 1465–1472, ст. 421, 422.
-
-version: 4.0
-parent: class_7_intellectual_property
-
 metadata:
   category: agreement
   subcategory: intellectual_property
@@ -29,12 +26,10 @@ metadata:
     - "соглашение о защите коммерческой тайны"
     - "двустороннее соглашение о конфиденциальности"
     - "соглашение о защите информации"
-
     - "NDA"
     - "Non-Disclosure Agreement"
     - "Confidential Disclosure Agreement"
     - "non-disclosure agreement"
-    - "NDA"
     - "NDCA"
     - "confidentiality agreement"
     - "confidential information agreement"
@@ -48,20 +43,12 @@ metadata:
     - "confidentiality and non-use agreement"
     - "non-circumvention agreement"
 
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
 
 classification_runtime_v1:
-
   scoring:
     accept_threshold: 0.78
     strong_signal_threshold: 0.88
@@ -69,230 +56,159 @@ classification_runtime_v1:
     input_quality_weight: 1.0
 
   rules:
-
     filename_patterns:
       - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*неразглашени[яи]\\b"
         kind: specific_subject
         weight: 1.0
-        # Прямое наименование соглашения о неразглашении
-
       - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*конфиденциальност[аи]\\b"
         kind: specific_subject
         weight: 0.98
-        # Соглашение о конфиденциальности — прямой русский маркер NDA
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*о[\\s_.-]*неразглашени[яи]\\b"
         kind: specific_subject
         weight: 0.97
-        # Договор о неразглашении — из supported types
-
       - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*защит[а-я]*[\\s_.-]*(?:коммерческ[а-я]*[\\s_.-]*тайн[а-я]*|информаци[яи])\\b"
         kind: specific_subject
         weight: 0.96
-        # Защита коммерческой тайны / защита информации — из supported types
-
       - pattern: "(?i)\\b(?:двустороннее|взаимное)[\\s_.-]*соглашени[ея][\\s_.-]*о[\\s_.-]*конфиденциальност[аи]\\b"
         kind: specific_subject
         weight: 0.97
-        # Двустороннее / взаимное NDA — из supported types
-
       - pattern: "(?i)\\bнеразглашени[яи]\\b"
         kind: specific_subject
         weight: 0.88
-        # Базовый русский маркер неразглашения; достаточно специфичен в документарном контексте
-
       - pattern: "(?i)(?<![A-Za-z])NDA(?![A-Za-z])"
         kind: specific_subject
         weight: 0.96
-        # NDA — прямая и общепринятая аббревиатура; очень специфична
-
       - pattern: "(?i)(?<![A-Za-z])MNDA(?![A-Za-z])"
         kind: specific_subject
         weight: 0.96
-        # MNDA — mutual NDA, из supported types
-
       - pattern: "(?i)(?<![A-Za-z])NDCA(?![A-Za-z])"
         kind: specific_subject
-        weight: 0.90
-        # NDCA — Non-Disclosure and Confidentiality Agreement, из supported types
-
+        weight: 0.9
       - pattern: "(?i)\\bnon[\\s_.-]*disclosure[\\s_.-]*(?:agreement|contract|deed)?\\b"
         kind: specific_subject
         weight: 0.98
-        # Non-disclosure agreement — полная английская форма NDA
-
       - pattern: "(?i)\\bconfidentiality[\\s_.-]*(?:agreement|deed|contract)\\b"
         kind: specific_subject
         weight: 0.96
-        # Confidentiality agreement / deed — прямой маркер NDA
-
       - pattern: "(?i)\\bconfidential[\\s_.-]*(?:disclosure|information)[\\s_.-]*agreement\\b"
         kind: specific_subject
         weight: 0.96
-        # Confidential Disclosure Agreement / CDA с раскрытием — из supported types
-
       - pattern: "(?i)\\b(?:mutual|unilateral)[\\s_.-]*(?:non[\\s_.-]*disclosure|NDA|confidentiality)[\\s_.-]*(?:agreement|deed)?\\b"
         kind: specific_subject
         weight: 0.96
-        # Mutual / unilateral NDA — из supported types, важные режимные маркеры
-
       - pattern: "(?i)\\bsecrecy[\\s_.-]*agreement\\b"
         kind: specific_subject
-        weight: 0.90
-        # Secrecy agreement — из supported types, прямой синоним NDA
-
+        weight: 0.9
       - pattern: "(?i)\\bproprietary[\\s_.-]*information[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.84
-        # Proprietary information agreement — из supported types; чуть ниже — может входить в IP/employment пакет
-
       - pattern: "(?i)\\bconfidentiality[\\s_.-]*and[\\s_.-]*non[\\s_.-]*use[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.92
-        # Confidentiality and non-use agreement — из supported types, расширенная NDA-форма
-
       - pattern: "(?i)(?<![A-Za-z])CDA(?![A-Za-z])"
         kind: generic_form
         weight: 0.62
-        # CDA — из supported types, но короткая аббревиатура с риском коллизии (Commercial Development Agreement и др.)
-
       - pattern: "(?i)\\bnon[\\s_.-]*circumvention[\\s_.-]*(?:agreement|contract)?\\b"
         kind: generic_form
         weight: 0.52
-        # Non-circumvention — из supported types, но отдельное обязательство; часто идёт в пакете NCNDA
-
       - pattern: "(?i)\\bconfidential\\b"
         kind: context
         weight: 0.18
-        # Confidential без agreement/NDA-квалификатора: confidential memo, confidential report и т.п.
-
       - pattern: "(?i)\\bконфиденциальн[а-я]*\\b"
         kind: context
         weight: 0.16
-        # Конфиденциальный без соглашение-квалификатора слишком широко
-
 
     folder_patterns:
       - pattern: "(?i)(?:соглашени[ея]|договор)[_\\s-]*(?:о[_\\s-]*)?(?:неразглашени[яи]|конфиденциальност[аи])"
         kind: specific_subject
         weight: 0.88
-        # Прямые русскоязычные NDA-папки
-
       - pattern: "(?i)(?<![A-Za-z])NDA(?![A-Za-z])|(?<![A-Za-z])MNDA(?![A-Za-z])|(?<![A-Za-z])NDCA(?![A-Za-z])"
         kind: specific_subject
-        weight: 0.90
-        # NDA / MNDA / NDCA — явные аббревиатурные folder-markers
-
+        weight: 0.9
       - pattern: "(?i)non[_\\s-]*disclosure[_\\s-]*(?:agreement)?|confidentiality[_\\s-]*(?:agreement|deed)?"
         kind: specific_subject
         weight: 0.86
-        # Прямые англоязычные NDA folder-markers
-
       - pattern: "(?i)(?:mutual|unilateral)[_\\s-]*(?:nda|non[_\\s-]*disclosure|confidentiality)"
         kind: specific_subject
         weight: 0.86
-        # Режимные NDA папки — mutual / unilateral
-
       - pattern: "(?i)secrecy[_\\s-]*agreement|proprietary[_\\s-]*information[_\\s-]*(?:agreement)?|confidentiality[_\\s-]*and[_\\s-]*non[_\\s-]*use"
         kind: specific_subject
         weight: 0.82
-        # Поддерживаемые NDA-формы в taxonomy папок
-
       - pattern: "(?i)защит[а-я]*[_\\s-]*(?:коммерческ[а-я]*[_\\s-]*тайн|информаци[яи])|коммерческ[а-я]*[_\\s-]*тайн"
         kind: specific_subject
         weight: 0.82
-        # Защита коммерческой тайны / информации в taxonomy
-
       - pattern: "(?i)non[_\\s-]*circumvention|(?<![A-Za-z])CDA(?![A-Za-z])"
         kind: generic_form
         weight: 0.48
-        # Non-circumvention / CDA: полезны в NDA-контексте, но шире или короче чистого NDA
-
       - pattern: "(?i)confidential|конфиденциальн"
         kind: context
         weight: 0.22
-        # Confidential / конфиденциальный без NDA-уточнения слишком широкий folder-marker
-
       - pattern: "(?i)(?:intellectual[_\\s-]*property|IP|интеллектуальн[а-я]*[_\\s-]*собственност)"
         kind: context
         weight: 0.18
-        # IP/ИС контекст: NDA часто живёт в IP-папке, но сама по себе не IP-сделка
 
     keywords:
-
       high:
         - pattern: "(?i)соглашен[иея]\\s+о\\s+неразглашен[иии]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Базовое русское название NDA в заголовке"
-
         - pattern: "(?i)договор\\s+о\\s+неразглашен[иии]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Альтернативная форма — договор о неразглашении"
-
         - pattern: "(?i)соглашен[иея]\\s+о\\s+конфиденциал[ьннойой\\s]*информац[иии]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Соглашение о конфиденциальной информации"
-
         - pattern: "(?i)соглашен[иея]\\s+о\\s+защит[еы]\\s+коммерческ[ойой]\\s+тайн[ыеи]"
           weight: 0.9
           distinctiveness: high
           context: any
           description: "Соглашение о защите коммерческой тайны"
-
         - pattern: "(?i)коммерческ[аяое]\\s+тайн[аеи]"
           weight: 0.85
           distinctiveness: high
           context: any
           description: "Коммерческая тайна как предмет защиты NDA"
-
         - pattern: "(?i)non-?disclosure\\s+agreement"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Англоязычное название NDA"
-
         - pattern: "(?i)confidential\\s+disclosure\\s+agreement"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "CDA — синоним NDA"
-
         - pattern: "(?i)\\bnda\\b"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Аббревиатура NDA"
-
         - pattern: "(?i)неразглашен[иеи]"
           weight: 0.85
           distinctiveness: high
           context: any
           description: "Обязательство неразглашения информации"
-
         - pattern: "(?i)конфиденциал[ьннаяость]+"
           weight: 0.85
           distinctiveness: high
           context: any
           description: "Ссылки на конфиденциальность и конфиденциальную информацию"
-
         - pattern: "(?i)режим\\s+конфиденциал[ьнности]+"
           weight: 0.8
           distinctiveness: high
           context: any
           description: "Установление режима конфиденциальности"
-
         - pattern: "(?i)конфиденциал[ьннаяая]\\s+информац[ияи]"
           weight: 0.85
           distinctiveness: high
           context: any
           description: "Определение конфиденциальной информации"
-
         - pattern: "(?i)фз-?98\\b"
           weight: 0.8
           distinctiveness: high
@@ -305,37 +221,31 @@ classification_runtime_v1:
           distinctiveness: medium
           context: any
           description: "Disclosing Party — раскрывающая сторона в англоязычном NDA"
-
         - pattern: "(?i)\\breceiving\\s+party\\b"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Receiving Party — получающая сторона в англоязычном NDA"
-
         - pattern: "(?i)раскрывающ[а-яё]+\\s+сторон[аа]"
           weight: 0.6
           distinctiveness: medium
           context: any
           description: "Раскрывающая сторона"
-
         - pattern: "(?i)получающ[а-яё]+\\s+сторон[аа]"
           weight: 0.6
           distinctiveness: medium
           context: any
           description: "Получающая сторона"
-
         - pattern: "(?i)\\bноу-?хау\\b"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Ноу-хау как типичный объект, защищаемый NDA"
-
         - pattern: "(?i)секрет\\s+производств[аа]"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Секрет производства / trade secret"
-
         - pattern: "(?i)исключени[яя]\\s+из\\s+конфиденциальност[ии]"
           weight: 0.6
           distinctiveness: medium
@@ -348,31 +258,26 @@ classification_runtime_v1:
           distinctiveness: low
           context: any
           description: "Полное написание CDA"
-
         - pattern: "(?i)возврат\\s+информаци[ии]"
           weight: 0.3
           distinctiveness: low
           context: any
           description: "Возврат предоставленных материалов после прекращения NDA"
-
         - pattern: "(?i)персональн[ыо]е\\s+данн[ыо]е"
           weight: 0.3
           distinctiveness: low
           context: any
           description: "Персональные данные могут входить в объем конфиденциальной информации"
-
         - pattern: "(?i)служебн[а-яё]+\\s+тайн[аа]"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Служебная тайна как один из режимов защищаемой информации"
-
         - pattern: "(?i)уничтожени[яя]\\s+информаци[ии]"
           weight: 0.3
           distinctiveness: low
           context: any
           description: "Обязанность уничтожения информации вместо возврата"
-
         - pattern: "(?i)\\bresiduals\\b"
           weight: 0.3
           distinctiveness: low
@@ -384,19 +289,14 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "Упор на трудовой договор с отдельной конфиденциальностью — ближе к employment, а не standalone NDA"
-
       - pattern: "(?i)договор\\s+коммерческ[оа]й\\s+концесси[ии]"
         severity: hard
         weight: -1.0
         description: "Коммерческая концессия с условиями конфиденциальности — отдельный тип contract_7.3_franchise"
-
       - pattern: "(?i)лицензионн[ыо]й\\s+договор"
         severity: hard
         weight: -1.0
         description: "Лицензионный договор с конфиденциальностью — тип contract_7.2_license"
-
-      # ── Soft exclusion
-
       - pattern: "(?i)только\\s+как\\s+част[ььи]\\s+друг[оа]го\\s+договор[аа]"
         severity: soft
         weight: -0.35
@@ -408,7 +308,6 @@ classification_runtime_v1:
 # ════════════════════════════════════════════════════════════════════════════
 
 trigger_definitions:
-
   unilateral_nda:
     any_keywords:
       - "(?i)односторонн[еое]\\s+соглашени[ея]"
@@ -539,119 +438,358 @@ trigger_definitions:
 # ════════════════════════════════════════════════════════════════════════════
 
 shared_patterns:
-
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
   term_pattern: "(?i)\\b\\d+\\s+(лет|год|года|месяц|месяцев|дней)\\b"
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|USD|EUR)"
   inn_pattern: "(?i)\\bИНН\\s*\\d{10,12}\\b"
   ogrn_pattern: "(?i)\\bОГРН\\s*\\d{13,15}\\b"
-  passport_data: "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
   fz_ref: "(?i)ФЗ[-]?\\d+"
-  article_gk_ref: "(?i)ст\\.?\\s*\\d+\\s*ГК\\s*РФ"
+
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "confidential_info_definition_mandatory"
-    name: "Определение конфиденциальной информации обязательно (ФЗ-98 ст. 3)"
-    description: |
-      NDA без чёткого определения конфиденциальной информации неработоспособно.
-      Стороны не могут доказать нарушение. Определение должно включать
-      категории или конкретный перечень информации.
-    legal_base: "ФЗ-98 ст. 3, ст. 1465 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "конфиденциальная информация"
-        - "confidential information"
-        - "определение"
-        - "включает"
-        - "не ограничиваясь"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 6
-      boost_keywords:
-        - "конфиденциальная информация"
-        - "определение"
-        - "включает"
-      rerank: true
-
-  - id: "standard_exceptions_required"
-    name: "Стандартные исключения из конфиденциальности (защита получающей стороны)"
-    description: |
-      Без исключений получающая сторона несёт ответственность за информацию,
-      известную ранее, полученную от третьих лиц, ставшую общедоступной или
-      разработанную независимо.
-    legal_base: "ФЗ-98 ст. 3, международная практика"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "warn"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "не является конфиденциальной"
-        - "исключения"
-        - "общедоступная"
-        - "была известна до раскрытия"
-        - "получена от третьих лиц"
-        - "независимо разработана"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "исключения"
-        - "не является конфиденциальной"
-        - "общедоступная"
-      rerank: true
-
-  - id: "personal_data_protection_compliance"
-    name: "Защита персональных данных (ФЗ-152)"
-    description: |
-      Если конфиденциальная информация включает персональные данные,
-      получающая сторона обязана соблюдать ФЗ-152.
-    legal_base: "ФЗ-152 «О персональных данных»"
-    required_triggers: ["personal_data_included"]
-    severity: "critical"
-    result_if_triggered: "warn"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "персональные данные"
-        - "ФЗ-152"
-        - "согласие субъекта"
-        - "Роскомнадзор"
-        - "меры защиты ПДн"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "персональные данные"
-        - "ФЗ-152"
-      rerank: true
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
 
-  - id: confidential_info_extraction
-    name: "Определение конфиденциальной информации"
-    description: |
-      Извлекает определение конфиденциальной информации:
-      категории, конкретный перечень, примеры, требование маркировки.
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 1: Стороны, тип NDA и цель раскрытия
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: nda_parties_and_type_check
+    name: "Стороны, тип NDA (односторонний/двусторонний) и цель раскрытия"
+    description: >
+      Фактографическая проверка идентификации раскрывающей и получающей сторон,
+      типа NDA (односторонний/двусторонний) и цели раскрытия информации.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "раскрывающая сторона"
+        - "получающая сторона"
+        - "disclosing party"
+        - "receiving party"
+        - "одностороннее"
+        - "двустороннее"
+        - "взаимное"
+        - "цель раскрытия"
+        - "для целей"
+        - "в связи с"
+        - "due diligence"
+        - "M&A"
+        - "инвестиции"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(раскрывающ|получающ)[а-яё]+\\s+сторон"
+        - "(?i)(односторонн|двусторонн|взаимн)[а-яё]+"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении конфиденциальной информации (NDA)
+        (ФЗ-98 «О коммерческой тайне»; ГК РФ ст. 421, 422).
+        Проверяется только один вопрос: стороны, тип NDA и цель раскрытия.
+
+        Нормативный ориентир:
+        - ст. 432 ГК РФ — существенные условия
+        - ФЗ-98 ст. 3 — понятие коммерческой тайны
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Идентификация раскрывающей стороны (наименование, реквизиты).
+        2. Идентификация получающей стороны.
+        3. Тип NDA (односторонний / двусторонний / не указан).
+        4. Цель раскрытия информации.
+        5. Ограничение использования информации целью.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если данные не указаны прямо — возвращай "not_defined".
+        4. Если текстового значения нет — возвращай строго "Данные не определены".
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        6. В evidence включай только текст договора.
+        7. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — односторонний NDA с целью:
+        Фрагмент:
+        "ООО «Альфа» (ИНН 7700000001), именуемое «Раскрывающая сторона»,
+        и ООО «Бета» (ИНН 7700000002), именуемое «Получающая сторона».
+        Информация раскрывается исключительно для целей проведения
+        due diligence в связи с потенциальной сделкой M&A."
+
+        Ответ:
+        {
+          "disclosing_party_status": "defined",
+          "disclosing_party_details": "ООО «Альфа», ИНН 7700000001",
+          "receiving_party_status": "defined",
+          "receiving_party_details": "ООО «Бета», ИНН 7700000002",
+          "nda_type": "unilateral",
+          "nda_type_details": "одностороннее: ООО «Альфа» раскрывает, ООО «Бета» получает",
+          "purpose_status": "defined",
+          "purpose_details": "для целей проведения due diligence в связи с потенциальной сделкой M&A",
+          "use_restriction_status": "defined",
+          "use_restriction_details": "исключительно для целей due diligence",
+          "evidence": [
+            {
+              "clause_ref": "преамбула",
+              "quote": "ООО «Альфа» (ИНН 7700000001), именуемое «Раскрывающая сторона», и ООО «Бета» (ИНН 7700000002), именуемое «Получающая сторона»."
+            }
+          ]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Стороны заключили настоящее соглашение."
+
+        Ответ:
+        {
+          "disclosing_party_status": "not_defined",
+          "disclosing_party_details": "Данные не определены",
+          "receiving_party_status": "not_defined",
+          "receiving_party_details": "Данные не определены",
+          "nda_type": "not_defined",
+          "nda_type_details": "Данные не определены",
+          "purpose_status": "not_defined",
+          "purpose_details": "Данные не определены",
+          "use_restriction_status": "not_defined",
+          "use_restriction_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с идентификацией раскрывающей стороны.
+        2. Найди прямую цитату с идентификацией получающей стороны.
+        3. Определи тип NDA из текста (односторонний/двусторонний).
+        4. Найди прямую цитату о цели раскрытия.
+        5. Найди прямую цитату об ограничении использования.
+        6. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "disclosing_party_status": "<defined / not_defined>",
+          "disclosing_party_details": "<текст или 'Данные не определены'>",
+          "receiving_party_status": "<defined / not_defined>",
+          "receiving_party_details": "<текст или 'Данные не определены'>",
+          "nda_type": "<unilateral / mutual / not_defined>",
+          "nda_type_details": "<текст или 'Данные не определены'>",
+          "purpose_status": "<defined / not_defined>",
+          "purpose_details": "<текст или 'Данные не определены'>",
+          "use_restriction_status": "<defined / not_defined>",
+          "use_restriction_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 700
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "раскрывающая сторона получающая сторона disclosing party receiving party одностороннее двустороннее взаимное NDA цель раскрытия для целей в связи с due diligence M&A инвестиции ограничение использования"
+      retrieval_profile: "party_identification_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "конфиденциальная информация"
+        - "исключения"
+        - "меры защиты"
+        - "срок действия"
+        - "штраф"
+        - "неустойка"
+        - "возврат информации"
+        - "уничтожение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.25]
+        boost: 0.25
+        scope: segment
+      context_k: 7
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.15
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1300
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA сведения о сторонах, типе NDA
+        (односторонний/двусторонний) и цели раскрытия информации.
+        Не анализируй определение конфиденциальной информации, исключения,
+        меры защиты, ответственность или срок.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. disclosing_party_status — "defined" или "not_defined".
+        2. disclosing_party_details — наименование и реквизиты раскрывающей стороны.
+        3. receiving_party_status — "defined" или "not_defined".
+        4. receiving_party_details — наименование и реквизиты получающей стороны.
+        5. nda_type — "unilateral" / "mutual" / "not_defined".
+        6. nda_type_details — описание типа NDA.
+        7. purpose_status — "defined" или "not_defined".
+        8. purpose_details — цель раскрытия информации.
+        9. use_restriction_status — "defined" или "not_defined".
+        10. use_restriction_details — ограничение использования информации.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - nda_type: "unilateral" — если информация раскрывается только одной стороной;
+          "mutual" — если обе стороны обмениваются информацией;
+          "not_defined" — если тип прямо не указан.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "disclosing_party_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации раскрывающей стороны."
+          required: true
+        - name: "disclosing_party_details"
+          type: "string"
+          presentation: "fact"
+          label: "Раскрывающая сторона"
+          description: "Наименование и реквизиты раскрывающей стороны."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+        - name: "receiving_party_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации получающей стороны."
+          required: true
+        - name: "receiving_party_details"
+          type: "string"
+          presentation: "fact"
+          label: "Получающая сторона"
+          description: "Наименование и реквизиты получающей стороны."
+          required: true
+          display_in_grid: true
+          display_priority: 2
+        - name: "nda_type"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["unilateral", "mutual", "not_defined"]
+          description: "Тип NDA."
+          required: true
+        - name: "nda_type_details"
+          type: "string"
+          presentation: "fact"
+          label: "Тип NDA"
+          description: "Описание типа NDA."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "purpose_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания цели раскрытия."
+          required: true
+        - name: "purpose_details"
+          type: "string"
+          presentation: "fact"
+          label: "Цель раскрытия"
+          description: "Цель раскрытия конфиденциальной информации."
+          required: false
+          display_in_grid: true
+          display_priority: 4
+        - name: "use_restriction_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ограничения использования."
+          required: false
+        - name: "use_restriction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ограничение использования"
+          description: "Ограничение использования информации целью."
+          required: false
+          display_in_grid: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 2: Определение конфиденциальной информации
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: confidential_info_definition_check
+    name: "Определение конфиденциальной информации и проверка на catch-all"
+    description: >
+      Фактографическая проверка определения конфиденциальной информации:
+      категории, конкретный перечень, примеры, требование маркировки,
+      а также выявление чрезмерно широких catch-all формулировок.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "конфиденциальная информация"
@@ -660,193 +798,336 @@ checks_v8:
         - "включает"
         - "не ограничиваясь"
         - "категории информации"
-      keyword_mode: "any"
-      regex_patterns: []
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Определи, как определена конфиденциальная информация.
-
-        Ответь строго в JSON:
-        {
-          "definition_present": "<yes / vague / no>",
-          "definition_type": "<categories / specific_list / both / unclear>",
-          "categories": "<перечень категорий или not_found>",
-          "examples": "<примеры или not_found>",
-          "marking_required": "<yes / no / unclear>"
-        }
-
-        ВАЖНО: Чёткое определение критично для применения NDA.
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 8
-      temperature: 0.0
-      max_tokens: 600
-    retrieval:
-      context_k: 8
-      max_chunks: 12
-      retrieval_profile: "confidentiality_check"
-      boost_keywords:
-        - "конфиденциальная информация"
-        - "определение"
-        - "включает"
-        - "категории"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 60
-      max_snippet_length: 800
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "definition_present"
-          type: "string"
-          allowed_values: ["yes", "vague", "no"]
-          keyword_hints: ["конфиденциальная информация", "определение", "означает"]
-          description: "Наличие чёткого определения"
-        - name: "definition_type"
-          type: "string"
-          allowed_values: ["categories", "specific_list", "both", "unclear"]
-          description: "Тип определения"
-        - name: "marking_required"
-          type: "string"
-          allowed_values: ["yes", "no", "unclear"]
-          keyword_hints: ["маркировка", "пометка", "гриф", "Конфиденциально"]
-          description: "Требуется ли маркировка"
-      store_payload: true
-
-  - id: overbroad_definition_check
-    name: "Проверка на чрезмерно широкое определение (catch-all)"
-    description: |
-      Чрезмерно широкое определение («любая информация, переданная в любой форме»)
-      создаёт неоправданные риски для получающей стороны и может быть оспорено в суде.
-    triggers: {}
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
         - "любая информация"
         - "вся информация"
         - "в любой форме"
         - "без ограничений"
-        - "включая, но не ограничиваясь"
-        - "any and all information"
+        - "маркировка"
+        - "пометка"
+        - "гриф"
       keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциальн[а-яё]+\\s+информац"
+        - "(?i)(любая|вся)\\s+информаци"
+        - "(?i)в\\s+любой\\s+форме"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA) (ФЗ-98 ст. 3; ст. 1465 ГК РФ).
+        Проверяется только один вопрос: определение конфиденциальной информации.
+
+        Нормативный ориентир:
+        - ФЗ-98 ст. 3 — понятие коммерческой тайны
+        - ст. 1465 ГК РФ — секрет производства (ноу-хау)
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Фиксируй наличие catch-all формулировок как факт, не как оценку.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие определения конфиденциальной информации.
+        2. Тип определения (категории / конкретный перечень / оба / неясно).
+        3. Перечень категорий информации.
+        4. Примеры конфиденциальной информации.
+        5. Требование маркировки «Конфиденциально».
+        6. Наличие catch-all формулировок («любая информация», «в любой форме»).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если данные не указаны прямо — возвращай "not_defined".
+        4. Если текстового значения нет — возвращай строго "Данные не определены".
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        6. В evidence включай только текст договора.
+        7. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — определение с категориями:
+        Фрагмент:
+        "Конфиденциальная информация означает любую информацию, раскрытую
+        Раскрывающей стороной, включая: (а) технические данные, ноу-хау,
+        рецептуры; (б) финансовые показатели; (в) клиентскую базу;
+        (г) бизнес-планы. Информация должна быть помечена грифом
+        «Конфиденциально»."
+
+        Ответ:
+        {
+          "definition_status": "defined",
+          "definition_type": "both",
+          "definition_type_details": "категории и примеры: технические данные, ноу-хау, рецептуры; финансовые показатели; клиентская база; бизнес-планы",
+          "categories_status": "defined",
+          "categories_details": "технические данные, ноу-хау, рецептуры; финансовые показатели; клиентская база; бизнес-планы",
+          "examples_status": "defined",
+          "examples_details": "технические данные, ноу-хау, рецептуры",
+          "marking_required_status": "defined",
+          "marking_required_details": "помечена грифом «Конфиденциально»",
+          "catch_all_phrases_status": "defined",
+          "catch_all_phrases_details": "любую информацию, раскрытую Раскрывающей стороной",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.1",
+              "quote": "Конфиденциальная информация означает любую информацию, раскрытую Раскрывающей стороной, включая: (а) технические данные, ноу-хау, рецептуры..."
+            }
+          ]
+        }
+
+        Пример 2 — определение отсутствует:
+        Фрагмент:
+        "Стороны обязуются не разглашать информацию."
+
+        Ответ:
+        {
+          "definition_status": "not_defined",
+          "definition_type": "not_defined",
+          "definition_type_details": "Данные не определены",
+          "categories_status": "not_defined",
+          "categories_details": "Данные не определены",
+          "examples_status": "not_defined",
+          "examples_details": "Данные не определены",
+          "marking_required_status": "not_defined",
+          "marking_required_details": "Данные не определены",
+          "catch_all_phrases_status": "not_defined",
+          "catch_all_phrases_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с определением конфиденциальной информации.
+        2. Определи тип определения (категории / перечень / оба).
+        3. Найди прямую цитату о маркировке.
+        4. Найди прямые catch-all формулировки.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "definition_status": "<defined / not_defined>",
+          "definition_type": "<categories / specific_list / both / unclear / not_defined>",
+          "definition_type_details": "<текст или 'Данные не определены'>",
+          "categories_status": "<defined / not_defined>",
+          "categories_details": "<текст или 'Данные не определены'>",
+          "examples_status": "<defined / not_defined>",
+          "examples_details": "<текст или 'Данные не определены'>",
+          "marking_required_status": "<defined / not_defined>",
+          "marking_required_details": "<текст или 'Данные не определены'>",
+          "catch_all_phrases_status": "<defined / not_defined>",
+          "catch_all_phrases_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 700
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "конфиденциальная информация определение включает не ограничиваясь категории информации любая информация вся информация в любой форме без ограничений маркировка пометка гриф Конфиденциально but not limited to including"
+      retrieval_profile: "confidentiality_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
       negative_keywords:
-        - "конкретный перечень"
-        - "категории информации"
-        - "за исключением"
-      regex_patterns: []
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Оцени, не является ли определение конфиденциальной информации чрезмерно широким.
-
-        Ответь строго в JSON:
-        {
-          "overbroad_risk": "<high / medium / low / none>",
-          "catch_all_phrases": ["<выявленные catch-all формулировки>"],
-          "narrowing_provisions": "<есть ли ограничительные оговорки или not_found>"
-        }
-
-        ВАЖНО: Определение «любая информация» без ограничений — рискованно и потенциально неисполнимо.
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 400
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      retrieval_profile: "confidentiality_check"
-      boost_keywords:
-        - "любая информация"
-        - "вся информация"
-        - "без ограничений"
+        - "исключения"
+        - "не является конфиденциальной"
+        - "общедоступная"
+        - "была известна"
+        - "независимо разработана"
+        - "срок действия"
+        - "штраф"
+        - "неустойка"
+        - "возврат"
+        - "уничтожение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.40]
+        boost: 0.20
+        scope: segment
+      context_k: 8
+      max_chunks: 10
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
       required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
+      min_snippet_length: 50
+      max_snippet_length: 700
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1500
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA определение конфиденциальной
+        информации: тип определения, категории, примеры, маркировку,
+        catch-all формулировки.
+        Не анализируй исключения, меры защиты, ответственность или срок.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. definition_status — "defined" или "not_defined".
+        2. definition_type — categories / specific_list / both / unclear / not_defined.
+        3. definition_type_details — описание типа определения.
+        4. categories_status — "defined" или "not_defined".
+        5. categories_details — перечень категорий.
+        6. examples_status — "defined" или "not_defined".
+        7. examples_details — примеры конфиденциальной информации.
+        8. marking_required_status — "defined" или "not_defined".
+        9. marking_required_details — требование маркировки.
+        10. catch_all_phrases_status — "defined" или "not_defined".
+        11. catch_all_phrases_details — выявленные catch-all формулировки.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - definition_type: "categories" — если даны общие категории;
+          "specific_list" — если дан конкретный перечень;
+          "both" — если и категории, и перечень;
+          "unclear" — если определение размыто;
+          "not_defined" — если определения нет.
+        - catch_all_phrases_status = "defined" только если в тексте прямо
+          присутствуют формулировки типа «любая информация», «вся информация»,
+          «в любой форме», «без ограничений».
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "overbroad_risk"
+        - name: "definition_status"
           type: "string"
-          allowed_values: ["high", "medium", "low", "none"]
-          description: "Уровень риска чрезмерно широкого определения"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения конфиденциальной информации."
+          required: true
+        - name: "definition_type"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["categories", "specific_list", "both", "unclear", "not_defined"]
+          description: "Тип определения."
+          required: true
+        - name: "definition_type_details"
+          type: "string"
+          presentation: "fact"
+          label: "Определение"
+          description: "Описание типа определения конфиденциальной информации."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "categories_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечня категорий."
+          required: false
+        - name: "categories_details"
+          type: "string"
+          presentation: "fact"
+          label: "Категории информации"
+          description: "Перечень категорий конфиденциальной информации."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "examples_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус примеров."
+          required: false
+        - name: "examples_details"
+          type: "string"
+          presentation: "fact"
+          label: "Примеры информации"
+          description: "Примеры конфиденциальной информации."
+          required: false
+          display_in_grid: false
+        - name: "marking_required_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус требования маркировки."
+          required: false
+        - name: "marking_required_details"
+          type: "string"
+          presentation: "fact"
+          label: "Маркировка"
+          description: "Требование маркировки «Конфиденциально»."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "catch_all_phrases_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия catch-all формулировок."
+          required: false
+        - name: "catch_all_phrases_details"
+          type: "string"
+          presentation: "fact"
+          label: "Catch-all формулировки"
+          description: "Выявленные catch-all формулировки."
+          required: false
+          display_in_grid: true
+          display_priority: 4
       store_payload: true
 
-  - id: purpose_of_disclosure
-    name: "Цель раскрытия информации"
-    description: "Для каких целей информация передаётся и может использоваться"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 3: Исключения из конфиденциальности
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: exceptions_check
+    name: "Исключения из конфиденциальности"
+    description: >
+      Фактографическая проверка наличия стандартных исключений из режима
+      конфиденциальности: общедоступная информация, известная до раскрытия,
+      полученная от третьих лиц, независимо разработанная, раскрытие по закону.
     triggers: {}
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "цель раскрытия"
-        - "purpose of disclosure"
-        - "для целей"
-        - "в связи с"
-        - "ограничение использования"
-      keyword_mode: "any"
-      regex_patterns: []
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Определи цель раскрытия конфиденциальной информации.
-
-        Ответь строго в JSON:
-        {
-          "purpose": "<цель или not_found>",
-          "use_restriction": "<ограничение использования или not_found>"
-        }
-
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 5
-      temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      retrieval_profile: "confidentiality_check"
-      context_k: 5
-      max_chunks: 6
-      boost_keywords:
-        - "цель"
-        - "для целей"
-        - "использование"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "purpose"
-          type: "string"
-          keyword_hints: ["цель", "для целей", "в связи с"]
-          description: "Цель раскрытия информации"
-      store_payload: true
-
-  - id: exceptions_extraction
-    name: "Исключения из конфиденциальности (стандартные)"
-    description: |
-      Общедоступная, известна ранее, получена от третьих лиц, независимо разработана,
-      раскрытие по закону/суду.
-    triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "не является конфиденциальной"
@@ -857,144 +1138,306 @@ checks_v8:
         - "независимо разработана"
         - "publicly available"
         - "prior knowledge"
-      keyword_mode: "any"
-      regex_patterns: []
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь наличие стандартных исключений из конфиденциальности.
-
-        Ответь строго в JSON:
-        {
-          "public_domain": "<yes / no>",
-          "prior_knowledge": "<yes / no>",
-          "third_party_lawful": "<yes / no>",
-          "independent_development": "<yes / no>",
-          "government_required": "<yes / no>"
-        }
-
-        ВАЖНО: Без исключений получающая сторона в ловушке.
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 400
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      retrieval_profile: "confidentiality_check"
-      boost_keywords:
-        - "исключения"
-        - "не является конфиденциальной"
-        - "общедоступная"
-        - "независимо разработана"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 50
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "public_domain"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          keyword_hints: ["общедоступная", "публичная", "общеизвестная"]
-          description: "Исключение: общедоступная информация"
-        - name: "prior_knowledge"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          keyword_hints: ["была известна", "до раскрытия", "ранее"]
-          description: "Исключение: известна до раскрытия"
-        - name: "independent_development"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          keyword_hints: ["независимо разработана", "самостоятельно создана"]
-          description: "Исключение: независимо разработана"
-      store_payload: true
-
-  - id: term_and_confidentiality_period
-    name: "Срок действия NDA и срок конфиденциальности"
-    description: "Срок действия соглашения и срок режима конфиденциальности (могут различаться)"
-    triggers: {}
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "срок действия"
-        - "срок конфиденциальности"
-        - "период действия"
-        - "бессрочная конфиденциальность"
-        - "на весь срок"
-        - "survival"
+        - "стала общедоступной"
+        - "раскрытие по закону"
+        - "по требованию суда"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)срок.*?(\\d+\\s+(лет|год|года|месяц))"
-        - "(?i)действует\\s+до\\s+\\d{2}\\.\\d{2}\\.\\d{4}"
+        - "(?i)не\\s+являетс[яьа]\\s+конфиденциальн"
+        - "(?i)исключени[яя]"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Определи срок действия NDA и срок конфиденциальности.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA) (ФЗ-98 ст. 3).
+        Проверяется только один вопрос: исключения из конфиденциальности.
 
-        Ответь строго в JSON:
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Исключение: информация стала общедоступной не по вине получающей стороны.
+        2. Исключение: информация была известна получающей стороне до раскрытия.
+        3. Исключение: информация получена от третьих лиц без нарушения обязательств.
+        4. Исключение: информация независимо разработана получающей стороной.
+        5. Исключение: раскрытие по требованию закона/суда/госоргана.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если исключение не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — исключения присутствуют:
+        Фрагмент:
+        "Не является конфиденциальной информация, которая: (а) стала общедоступной
+        не по вине Получающей стороны; (б) была известна Получающей стороне
+        до раскрытия; (в) получена от третьих лиц без нарушения обязательств;
+        (г) независимо разработана Получающей стороной."
+
+        Ответ:
         {
-          "nda_term": "<срок действия NDA или not_found>",
-          "confidentiality_term": "<срок конфиденциальности или not_found>",
-          "perpetual": "<yes / no / unclear>",
-          "survival_clause": "<yes / no / unclear>"
+          "public_domain_status": "defined",
+          "public_domain_details": "стала общедоступной не по вине Получающей стороны",
+          "prior_knowledge_status": "defined",
+          "prior_knowledge_details": "была известна Получающей стороне до раскрытия",
+          "third_party_lawful_status": "defined",
+          "third_party_lawful_details": "получена от третьих лиц без нарушения обязательств",
+          "independent_development_status": "defined",
+          "independent_development_details": "независимо разработана Получающей стороной",
+          "government_required_status": "not_defined",
+          "government_required_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "Не является конфиденциальной информация, которая: (а) стала общедоступной не по вине Получающей стороны..."
+            }
+          ]
         }
 
-        ВАЖНО: Срок должен соответствовать ценности информации (обычно 3–5 лет).
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 5
+        Пример 2 — исключения отсутствуют:
+        Фрагмент:
+        "Получающая сторона обязуется не разглашать конфиденциальную информацию."
+
+        Ответ:
+        {
+          "public_domain_status": "not_defined",
+          "public_domain_details": "Данные не определены",
+          "prior_knowledge_status": "not_defined",
+          "prior_knowledge_details": "Данные не определены",
+          "third_party_lawful_status": "not_defined",
+          "third_party_lawful_details": "Данные не определены",
+          "independent_development_status": "not_defined",
+          "independent_development_details": "Данные не определены",
+          "government_required_status": "not_defined",
+          "government_required_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об общедоступности.
+        2. Найди прямую цитату о предшествующем знании.
+        3. Найди прямую цитату о получении от третьих лиц.
+        4. Найди прямую цитату о независимой разработке.
+        5. Найди прямую цитату о раскрытии по закону/суду.
+        6. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "public_domain_status": "<defined / not_defined>",
+          "public_domain_details": "<текст или 'Данные не определены'>",
+          "prior_knowledge_status": "<defined / not_defined>",
+          "prior_knowledge_details": "<текст или 'Данные не определены'>",
+          "third_party_lawful_status": "<defined / not_defined>",
+          "third_party_lawful_details": "<текст или 'Данные не определены'>",
+          "independent_development_status": "<defined / not_defined>",
+          "independent_development_details": "<текст или 'Данные не определены'>",
+          "government_required_status": "<defined / not_defined>",
+          "government_required_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
       temperature: 0.0
-      max_tokens: 300
+      max_tokens: 650
+
     retrieval:
-      context_k: 5
-      max_chunks: 6
-      retrieval_profile: "term_and_renewal_check"
-      boost_keywords:
-        - "срок"
-        - "действует"
-        - "конфиденциальность"
-        - "survival"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "не является конфиденциальной исключения общедоступная была известна до раскрытия получена от третьих лиц независимо разработана раскрытие по закону по требованию суда государственные органы publicly available prior knowledge"
+      retrieval_profile: "confidentiality_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение конфиденциальной информации"
+        - "меры защиты"
+        - "срок действия"
+        - "штраф"
+        - "неустойка"
+        - "возврат"
+        - "уничтожение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.55]
+        boost: 0.15
+        scope: segment
+      context_k: 7
+      max_chunks: 8
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
       required: true
-      min_snippet_length: 30
-      max_snippet_length: 400
+      min_snippet_length: 40
+      max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1200
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA стандартные исключения из режима
+        конфиденциальности: общедоступность, предшествующее знание, получение
+        от третьих лиц, независимая разработка, раскрытие по закону.
+        Не анализируй определение конфиденциальной информации, меры защиты,
+        ответственность или срок.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. public_domain_status — "defined" или "not_defined".
+        2. public_domain_details — исключение об общедоступности.
+        3. prior_knowledge_status — "defined" или "not_defined".
+        4. prior_knowledge_details — исключение о предшествующем знании.
+        5. third_party_lawful_status — "defined" или "not_defined".
+        6. third_party_lawful_details — исключение о получении от третьих лиц.
+        7. independent_development_status — "defined" или "not_defined".
+        8. independent_development_details — исключение о независимой разработке.
+        9. government_required_status — "defined" или "not_defined".
+        10. government_required_details — исключение о раскрытии по закону/суду.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не выводи исключения из норм закона — только из текста договора.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "nda_term"
+        - name: "public_domain_status"
           type: "string"
-          keyword_hints: ["срок действия", "действует до", "заключён на"]
-          description: "Срок действия NDA"
-        - name: "confidentiality_term"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус исключения об общедоступности."
+          required: true
+        - name: "public_domain_details"
           type: "string"
-          keyword_hints: ["срок конфиденциальности", "режим конфиденциальности"]
-          description: "Срок конфиденциальности"
-        - name: "perpetual"
+          presentation: "fact"
+          label: "Общедоступность"
+          description: "Исключение: информация стала общедоступной."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "prior_knowledge_status"
           type: "string"
-          allowed_values: ["yes", "no", "unclear"]
-          description: "Бессрочная конфиденциальность"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус исключения о предшествующем знании."
+          required: true
+        - name: "prior_knowledge_details"
+          type: "string"
+          presentation: "fact"
+          label: "Предшествующее знание"
+          description: "Исключение: информация была известна до раскрытия."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "third_party_lawful_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус исключения о получении от третьих лиц."
+          required: true
+        - name: "third_party_lawful_details"
+          type: "string"
+          presentation: "fact"
+          label: "Получение от третьих лиц"
+          description: "Исключение: информация получена от третьих лиц."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "independent_development_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус исключения о независимой разработке."
+          required: true
+        - name: "independent_development_details"
+          type: "string"
+          presentation: "fact"
+          label: "Независимая разработка"
+          description: "Исключение: информация независимо разработана."
+          required: false
+          display_in_grid: true
+          display_priority: 4
+        - name: "government_required_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус исключения о раскрытии по закону/суду."
+          required: false
+        - name: "government_required_details"
+          type: "string"
+          presentation: "fact"
+          label: "Раскрытие по закону"
+          description: "Исключение: раскрытие по требованию закона/суда/госоргана."
+          required: false
+          display_in_grid: true
+          display_priority: 5
       store_payload: true
 
-  - id: protection_obligations
-    name: "Меры защиты конфиденциальной информации"
-    description: |
-      Конкретные обязательства: ограничение доступа, хранение, уровень защиты,
-      не просто «не разглашать».
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 4: Обязательства по защите и распространение на консультантов
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: obligations_protection_check
+    name: "Меры защиты информации и распространение на консультантов"
+    description: >
+      Фактографическая проверка конкретных обязательств по защите информации:
+      стандарт защиты, ограничение доступа (need-to-know), распространение
+      обязательств на аффилированных лиц и консультантов.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "меры защиты"
@@ -1003,69 +1446,7 @@ checks_v8:
         - "надлежащая защита"
         - "физическая безопасность"
         - "информационная безопасность"
-        - "need-to-know basis"
-      keyword_mode: "any"
-      regex_patterns: []
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь конкретность обязательств по защите информации.
-
-        Ответь строго в JSON:
-        {
-          "protection_standard": "<конкретный стандарт или not_found>",
-          "access_restriction": "<yes / no / unclear>",
-          "need_to_know": "<yes / no / unclear>",
-          "reasonable_care": "<yes / no / unclear>"
-        }
-
-        ВАЖНО: Общее обязательство «не разглашать» недостаточно.
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 400
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      retrieval_profile: "confidentiality_check"
-      boost_keywords:
-        - "меры защиты"
-        - "ограничение доступа"
-        - "не разглашать"
         - "need-to-know"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "protection_standard"
-          type: "string"
-          keyword_hints: ["не ниже мер", "стандарт защиты", "reasonable care"]
-          description: "Стандарт защиты информации"
-        - name: "access_restriction"
-          type: "string"
-          allowed_values: ["yes", "no", "unclear"]
-          keyword_hints: ["ограничение доступа", "need-to-know"]
-          description: "Ограничение доступа"
-      store_payload: true
-
-  - id: affiliate_advisor_binding
-    name: "Распространение обязательств на аффилированных лиц и консультантов"
-    description: |
-      Без обязательности NDA для консультантов/аудиторов — риск разглашения.
-    triggers:
-      any: ["consultant_disclosure", "ma_context"]
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
         - "аффилированные лица"
         - "консультанты"
         - "юристы"
@@ -1073,124 +1454,577 @@ checks_v8:
         - "инвесторы"
         - "подрядчики"
         - "обязательство о неразглашении"
-        - "связывание третьих лиц"
       keyword_mode: "any"
-      regex_patterns: []
+      regex_patterns:
+        - "(?i)не\\s+ниже\\s+мер"
+        - "(?i)need-?to-?know"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь условия о раскрытии информации консультантам/аффилированным лицам.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA) (ФЗ-98 ст. 10).
+        Проверяется только один вопрос: меры защиты информации
+        и распространение обязательств на консультантов.
 
-        Ответь строго в JSON:
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Стандарт защиты (не ниже мер для собственной информации / reasonable care / конкретный стандарт).
+        2. Ограничение доступа (need-to-know basis).
+        3. Разрешение раскрытия консультантам/аффилированным лицам.
+        4. Требование подписания NDA консультантами.
+        5. Ответственность получающей стороны за действия консультантов.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Получающая сторона обязуется защищать Конфиденциальную информацию
+        с применением мер не ниже тех, которые она применяет для защиты
+        собственной конфиденциальной информации. Доступ предоставляется
+        только на основе need-to-know. Раскрытие консультантам допускается
+        при условии подписания ими NDA. Получающая сторона несёт
+        ответственность за действия консультантов как за свои собственные."
+
+        Ответ:
         {
-          "disclosure_to_advisors_allowed": "<yes / no / unclear>",
-          "binding_nda_required": "<yes / no / unclear>",
-          "liability_for_breach": "<получающая сторона отвечает или not_found>"
+          "protection_standard_status": "defined",
+          "protection_standard_details": "не ниже мер для защиты собственной конфиденциальной информации",
+          "access_restriction_status": "defined",
+          "access_restriction_details": "на основе need-to-know",
+          "advisor_disclosure_status": "defined",
+          "advisor_disclosure_details": "при условии подписания ими NDA",
+          "advisor_nda_binding_status": "defined",
+          "advisor_nda_binding_details": "подписание NDA консультантами",
+          "advisor_liability_status": "defined",
+          "advisor_liability_details": "ответственность за действия консультантов как за свои собственные",
+          "evidence": [{"clause_ref": "п. 3.1", "quote": "Получающая сторона обязуется защищать Конфиденциальную информацию с применением мер не ниже тех..."}]
         }
 
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 6
+        Пример 2:
+        Фрагмент:
+        "Получающая сторона не разглашает информацию."
+
+        Ответ:
+        {
+          "protection_standard_status": "not_defined",
+          "protection_standard_details": "Данные не определены",
+          "access_restriction_status": "not_defined",
+          "access_restriction_details": "Данные не определены",
+          "advisor_disclosure_status": "not_defined",
+          "advisor_disclosure_details": "Данные не определены",
+          "advisor_nda_binding_status": "not_defined",
+          "advisor_nda_binding_details": "Данные не определены",
+          "advisor_liability_status": "not_defined",
+          "advisor_liability_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о стандарте защиты.
+        2. Найди прямую цитату об ограничении доступа.
+        3. Найди прямую цитату о раскрытии консультантам.
+        4. Найди прямую цитату о NDA для консультантов.
+        5. Найди прямую цитату об ответственности за консультантов.
+        6. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "protection_standard_status": "<defined / not_defined>",
+          "protection_standard_details": "<текст или 'Данные не определены'>",
+          "access_restriction_status": "<defined / not_defined>",
+          "access_restriction_details": "<текст или 'Данные не определены'>",
+          "advisor_disclosure_status": "<defined / not_defined>",
+          "advisor_disclosure_details": "<текст или 'Данные не определены'>",
+          "advisor_nda_binding_status": "<defined / not_defined>",
+          "advisor_nda_binding_details": "<текст или 'Данные не определены'>",
+          "advisor_liability_status": "<defined / not_defined>",
+          "advisor_liability_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
       temperature: 0.0
-      max_tokens: 400
+      max_tokens: 700
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "меры защиты ограничение доступа не ниже мер для собственной информации надлежащая защита физическая безопасность информационная безопасность need-to-know basis аффилированные лица консультанты юристы аудиторы инвесторы подрядчики обязательство о неразглашении связывание третьих лиц"
       retrieval_profile: "confidentiality_check"
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "консультанты"
-        - "аффилированные"
-        - "раскрытие"
-        - "обязательство"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение"
+        - "исключения"
+        - "общедоступная"
+        - "срок действия"
+        - "штраф"
+        - "неустойка"
+        - "возврат"
+        - "уничтожение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.15
+        scope: segment
+      context_k: 7
+      max_chunks: 10
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
-      required: false
+      required: true
       min_snippet_length: 40
-      max_snippet_length: 500
+      max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1300
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA обязательства по защите информации:
+        стандарт защиты, ограничение доступа, раскрытие консультантам,
+        NDA для консультантов, ответственность за консультантов.
+        Не анализируй определение конфиденциальной информации, исключения,
+        ответственность за нарушение или срок.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. protection_standard_status — "defined" или "not_defined".
+        2. protection_standard_details — стандарт защиты информации.
+        3. access_restriction_status — "defined" или "not_defined".
+        4. access_restriction_details — ограничение доступа.
+        5. advisor_disclosure_status — "defined" или "not_defined".
+        6. advisor_disclosure_details — условия раскрытия консультантам.
+        7. advisor_nda_binding_status — "defined" или "not_defined".
+        8. advisor_nda_binding_details — требование NDA для консультантов.
+        9. advisor_liability_status — "defined" или "not_defined".
+        10. advisor_liability_details — ответственность за консультантов.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "disclosure_to_advisors_allowed"
+        - name: "protection_standard_status"
           type: "string"
-          allowed_values: ["yes", "no", "unclear"]
-          keyword_hints: ["консультанты", "аффилированные", "раскрытие"]
-          description: "Разрешено ли раскрытие консультантам"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус стандарта защиты."
+          required: true
+        - name: "protection_standard_details"
+          type: "string"
+          presentation: "fact"
+          label: "Стандарт защиты"
+          description: "Стандарт защиты конфиденциальной информации."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "access_restriction_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ограничения доступа."
+          required: false
+        - name: "access_restriction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ограничение доступа"
+          description: "Условия ограничения доступа (need-to-know)."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "advisor_disclosure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условий раскрытия консультантам."
+          required: false
+        - name: "advisor_disclosure_details"
+          type: "string"
+          presentation: "fact"
+          label: "Раскрытие консультантам"
+          description: "Условия раскрытия информации консультантам."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "advisor_nda_binding_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус требования NDA для консультантов."
+          required: false
+        - name: "advisor_nda_binding_details"
+          type: "string"
+          presentation: "fact"
+          label: "NDA для консультантов"
+          description: "Требование подписания NDA консультантами."
+          required: false
+          display_in_grid: false
+        - name: "advisor_liability_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ответственности за консультантов."
+          required: false
+        - name: "advisor_liability_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ответственность за консультантов"
+          description: "Ответственность получающей стороны за действия консультантов."
+          required: false
+          display_in_grid: true
+          display_priority: 4
       store_payload: true
 
-  - id: government_disclosure_procedure
-    name: "Порядок раскрытия по требованию государственных органов"
-    description: |
-      Получающая сторона может быть обязана раскрыть информацию по запросу суда.
-      Без порядка — конфликт юридических обязанностей.
-    triggers:
-      any: ["government_disclosure"]
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Срок действия и срок конфиденциальности
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: term_survival_check
+    name: "Срок действия NDA, срок конфиденциальности и survival clause"
+    description: >
+      Фактографическая проверка срока действия NDA, срока конфиденциальности
+      (могут различаться), бессрочности и survival clause.
+    triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
-        - "раскрытие по требованию суда"
-        - "по требованию государственных органов"
-        - "обязательное раскрытие"
-        - "уведомление о запросе"
-        - "минимально необходимый объём"
-        - "судебный запрос"
+        - "срок действия"
+        - "срок конфиденциальности"
+        - "период действия"
+        - "бессрочная конфиденциальность"
+        - "на весь срок"
+        - "survival"
+        - "переживает прекращение"
+        - "действует до"
       keyword_mode: "any"
-      regex_patterns: []
+      regex_patterns:
+        - "(?i)срок.*?(\\d+\\s+(лет|год|года|месяц))"
+        - "(?i)действует\\s+до\\s+\\d{2}\\.\\d{2}\\.\\d{4}"
+        - "(?i)бессрочн"
+        - "(?i)surviv"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь условия о раскрытии информации по требованию госорганов.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA) (ст. 425 ГК РФ).
+        Проверяется только один вопрос: срок действия NDA и срок конфиденциальности.
 
-        Ответь строго в JSON:
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Срок действия NDA и срок конфиденциальности — разные понятия.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Срок действия NDA.
+        2. Срок конфиденциальности.
+        3. Бессрочность конфиденциальности.
+        4. Survival clause (переживает прекращение NDA).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Настоящее соглашение действует в течение 3 лет с даты подписания.
+        Обязательства конфиденциальности сохраняются в течение 5 лет после
+        прекращения действия соглашения."
+
+        Ответ:
         {
-          "government_disclosure_allowed": "<yes / no / unclear>",
-          "notification_required": "<yes / no / unclear>",
-          "minimum_disclosure": "<yes / no / unclear>"
+          "nda_term_status": "defined",
+          "nda_term_details": "3 года с даты подписания",
+          "confidentiality_term_status": "defined",
+          "confidentiality_term_details": "5 лет после прекращения действия соглашения",
+          "perpetual_status": "not_defined",
+          "perpetual_details": "Данные не определены",
+          "survival_clause_status": "defined",
+          "survival_clause_details": "обязательства конфиденциальности сохраняются в течение 5 лет после прекращения",
+          "evidence": [{"clause_ref": "п. 7.1", "quote": "Настоящее соглашение действует в течение 3 лет с даты подписания."}]
         }
 
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 5
+        Пример 2:
+        Фрагмент:
+        "Стороны заключили настоящее соглашение."
+
+        Ответ:
+        {
+          "nda_term_status": "not_defined",
+          "nda_term_details": "Данные не определены",
+          "confidentiality_term_status": "not_defined",
+          "confidentiality_term_details": "Данные не определены",
+          "perpetual_status": "not_defined",
+          "perpetual_details": "Данные не определены",
+          "survival_clause_status": "not_defined",
+          "survival_clause_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о сроке действия NDA.
+        2. Найди прямую цитату о сроке конфиденциальности.
+        3. Найди прямую цитату о бессрочности.
+        4. Найди прямую цитату о survival clause.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "nda_term_status": "<defined / not_defined>",
+          "nda_term_details": "<текст или 'Данные не определены'>",
+          "confidentiality_term_status": "<defined / not_defined>",
+          "confidentiality_term_details": "<текст или 'Данные не определены'>",
+          "perpetual_status": "<defined / not_defined>",
+          "perpetual_details": "<текст или 'Данные не определены'>",
+          "survival_clause_status": "<defined / not_defined>",
+          "survival_clause_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
       temperature: 0.0
-      max_tokens: 300
+      max_tokens: 600
+
     retrieval:
-      retrieval_profile: "confidentiality_check"
-      context_k: 5
-      max_chunks: 6
-      boost_keywords:
-        - "раскрытие по требованию"
-        - "суд"
-        - "государственные органы"
-        - "уведомление"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "срок действия срок конфиденциальности период действия бессрочная конфиденциальность на весь срок survival переживает прекращение действует до лет год месяца"
+      retrieval_profile: "term_and_renewal_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - boilerplate
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение"
+        - "исключения"
+        - "меры защиты"
+        - "штраф"
+        - "неустойка"
+        - "возврат"
+        - "уничтожение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 0.90]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
-      required: false
-      min_snippet_length: 40
-      max_snippet_length: 500
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 900
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA срок действия соглашения,
+        срок конфиденциальности, бессрочность и survival clause.
+        Не анализируй определение конфиденциальной информации, исключения,
+        меры защиты или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. nda_term_status — "defined" или "not_defined".
+        2. nda_term_details — срок действия NDA.
+        3. confidentiality_term_status — "defined" или "not_defined".
+        4. confidentiality_term_details — срок конфиденциальности.
+        5. perpetual_status — "defined" или "not_defined".
+        6. perpetual_details — бессрочность конфиденциальности.
+        7. survival_clause_status — "defined" или "not_defined".
+        8. survival_clause_details — survival clause.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Срок действия NDA и срок конфиденциальности — разные поля.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "government_disclosure_allowed"
+        - name: "nda_term_status"
           type: "string"
-          allowed_values: ["yes", "no", "unclear"]
-          keyword_hints: ["по требованию суда", "обязательное раскрытие"]
-          description: "Разрешено ли раскрытие по требованию госорганов"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус срока действия NDA."
+          required: true
+        - name: "nda_term_details"
+          type: "string"
+          presentation: "fact"
+          label: "Срок действия NDA"
+          description: "Срок действия соглашения."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "confidentiality_term_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус срока конфиденциальности."
+          required: true
+        - name: "confidentiality_term_details"
+          type: "string"
+          presentation: "fact"
+          label: "Срок конфиденциальности"
+          description: "Срок действия обязательств конфиденциальности."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "perpetual_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус бессрочности."
+          required: false
+        - name: "perpetual_details"
+          type: "string"
+          presentation: "fact"
+          label: "Бессрочность"
+          description: "Условие о бессрочной конфиденциальности."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "survival_clause_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус survival clause."
+          required: false
+        - name: "survival_clause_details"
+          type: "string"
+          presentation: "fact"
+          label: "Survival clause"
+          description: "Условие о переживании прекращения NDA."
+          required: false
+          display_in_grid: true
+          display_priority: 4
       store_payload: true
 
-  - id: breach_liability_penalties
-    name: "Ответственность и штрафные санкции за нарушение"
-    description: |
-      Доказать убытки от разглашения крайне сложно.
-      Без штрафной неустойки раскрывающая сторона может остаться без компенсации.
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 6: Ответственность и уведомление о нарушении
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: liability_breach_notification_check
+    name: "Ответственность за нарушение и уведомление об утечке"
+    description: >
+      Фактографическая проверки штрафных санкций за нарушение NDA,
+      возмещения убытков и обязанности уведомления о нарушении/утечке.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "штраф"
@@ -1200,123 +2034,281 @@ checks_v8:
         - "ответственность за нарушение"
         - "penalty"
         - "liquidated damages"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)штраф.*?\\d[\\d\\s]*(?:руб|USD|EUR)"
-        - "(?i)неустойка.*?\\d+[.,]?\\d*\\s*%"
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь условия об ответственности за нарушение.
-
-        Ответь строго в JSON:
-        {
-          "penalty_clause": "<yes / no>",
-          "penalty_amount": "<сумма или not_found>",
-          "damages_compensation": "<yes / no / unclear>"
-        }
-
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 5
-      temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      context_k: 5
-      max_chunks: 6
-      retrieval_profile: "liability_cap_check"
-      boost_keywords:
-        - "штраф"
-        - "неустойка"
-        - "ответственность"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "penalty_clause"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          keyword_hints: ["штраф", "неустойка", "penalty"]
-          description: "Наличие штрафной неустойки"
-        - name: "penalty_amount"
-          type: "string"
-          keyword_hints: ["в размере", "руб", "USD", "EUR"]
-          description: "Размер штрафа"
-      store_payload: true
-
-  - id: breach_notification_obligation
-    name: "Обязанность уведомления о нарушении или утечке"
-    description: |
-      Без обязательства уведомления раскрывающая сторона не сможет принять
-      меры по минимизации ущерба.
-    triggers: {}
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
         - "уведомление о нарушении"
         - "уведомление об утечке"
         - "breach notification"
         - "немедленное уведомление"
-        - "сообщить о несанкционированном доступе"
       keyword_mode: "any"
-      regex_patterns: []
+      regex_patterns:
+        - "(?i)штраф.*?\\d[\\d\\s]*(?:руб|USD|EUR)"
+        - "(?i)неустойка.*?\\d+[.,]?\\d*\\s*%"
+        - "(?i)уведомлени[ея].*?(нарушени|утечк)"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь условия об уведомлении о нарушении/утечке.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA) (ст. 330, 393 ГК РФ).
+        Проверяется только один вопрос: ответственность за нарушение
+        и уведомление об утечке.
 
-        Ответь строго в JSON:
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие штрафной неустойки за нарушение.
+        2. Размер штрафа.
+        3. Право на возмещение убытков.
+        4. Обязанность уведомления о нарушении/утечке.
+        5. Срок уведомления.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "За нарушение обязательств конфиденциальности Получающая сторона
+        уплачивает штраф в размере 5 000 000 рублей. Уплата штрафа не
+        освобождает от возмещения убытков. Получающая сторона обязана
+        уведомить Раскрывающую сторону о любом нарушении или утечке
+        в течение 24 часов."
+
+        Ответ:
         {
-          "breach_notification": "<yes / no>",
-          "notification_deadline": "<срок или not_found>"
+          "penalty_clause_status": "defined",
+          "penalty_clause_details": "штраф в размере 5 000 000 рублей",
+          "penalty_amount_status": "defined",
+          "penalty_amount_details": "5 000 000 рублей",
+          "damages_status": "defined",
+          "damages_details": "уплата штрафа не освобождает от возмещения убытков",
+          "breach_notification_status": "defined",
+          "breach_notification_details": "уведомить в течение 24 часов",
+          "evidence": [{"clause_ref": "п. 6.1", "quote": "За нарушение обязательств конфиденциальности Получающая сторона уплачивает штраф в размере 5 000 000 рублей."}]
         }
 
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 5
+        Пример 2:
+        Фрагмент:
+        "Стороны несут ответственность в соответствии с законодательством."
+
+        Ответ:
+        {
+          "penalty_clause_status": "not_defined",
+          "penalty_clause_details": "Данные не определены",
+          "penalty_amount_status": "not_defined",
+          "penalty_amount_details": "Данные не определены",
+          "damages_status": "not_defined",
+          "damages_details": "Данные не определены",
+          "breach_notification_status": "not_defined",
+          "breach_notification_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о штрафе/неустойке.
+        2. Найди прямую цитату о размере штрафа.
+        3. Найди прямую цитату о возмещении убытков.
+        4. Найди прямую цитату об уведомлении о нарушении/утечке.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "penalty_clause_status": "<defined / not_defined>",
+          "penalty_clause_details": "<текст или 'Данные не определены'>",
+          "penalty_amount_status": "<defined / not_defined>",
+          "penalty_amount_details": "<текст или 'Данные не определены'>",
+          "damages_status": "<defined / not_defined>",
+          "damages_details": "<текст или 'Данные не определены'>",
+          "breach_notification_status": "<defined / not_defined>",
+          "breach_notification_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
       temperature: 0.0
-      max_tokens: 300
+      max_tokens: 600
+
     retrieval:
-      retrieval_profile: "confidentiality_check"
-      context_k: 5
-      max_chunks: 6
-      boost_keywords:
-        - "уведомление о нарушении"
-        - "утечка"
-        - "breach notification"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "штраф неустойка штрафные санкции компенсация убытков ответственность за нарушение penalty liquidated damages уведомление о нарушении уведомление об утечке breach notification немедленное уведомление сообщить о несанкционированном доступе"
+      retrieval_profile: "liability_cap_check"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - obligations
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение"
+        - "исключения"
+        - "меры защиты"
+        - "срок действия"
+        - "возврат"
+        - "уничтожение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.85]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "remedies"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
-      required: false
-      min_snippet_length: 30
-      max_snippet_length: 400
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 900
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA условия об ответственности
+        за нарушение: штраф, неустойка, возмещение убытков, уведомление об утечке.
+        Не анализируй определение конфиденциальной информации, исключения,
+        меры защиты или срок.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. penalty_clause_status — "defined" или "not_defined".
+        2. penalty_clause_details — условие о штрафе/неустойке.
+        3. penalty_amount_status — "defined" или "not_defined".
+        4. penalty_amount_details — размер штрафа.
+        5. damages_status — "defined" или "not_defined".
+        6. damages_details — условие о возмещении убытков.
+        7. breach_notification_status — "defined" или "not_defined".
+        8. breach_notification_details — обязанность и срок уведомления о нарушении/утечке.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не выводи ответственность из норм закона — только из текста.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "breach_notification"
+        - name: "penalty_clause_status"
           type: "string"
-          allowed_values: ["yes", "no"]
-          keyword_hints: ["уведомление", "сообщить", "breach"]
-          description: "Обязательность уведомления о нарушении"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус штрафной неустойки."
+          required: true
+        - name: "penalty_clause_details"
+          type: "string"
+          presentation: "fact"
+          label: "Штраф/неустойка"
+          description: "Условие о штрафной неустойке за нарушение."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "penalty_amount_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус размера штрафа."
+          required: false
+        - name: "penalty_amount_details"
+          type: "string"
+          presentation: "fact"
+          label: "Размер штрафа"
+          description: "Размер штрафа за нарушение."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "damages_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус возмещения убытков."
+          required: false
+        - name: "damages_details"
+          type: "string"
+          presentation: "fact"
+          label: "Возмещение убытков"
+          description: "Условие о возмещении убытков."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "breach_notification_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус уведомления о нарушении/утечке."
+          required: false
+        - name: "breach_notification_details"
+          type: "string"
+          presentation: "fact"
+          label: "Уведомление об утечке"
+          description: "Обязанность и срок уведомления о нарушении или утечке."
+          required: false
+          display_in_grid: true
+          display_priority: 4
       store_payload: true
 
-  - id: return_destruction_procedure
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 7: Возврат или уничтожение информации
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: return_destruction_check
     name: "Порядок возврата или уничтожения информации"
-    description: |
-      По окончании срока — чёткие процедуры возврата/уничтожения носителей.
+    description: >
+      Фактографическая проверка порядка возврата или уничтожения носителей
+      конфиденциальной информации по окончании срока NDA, включая подтверждение
+      уничтожения и исключения для архивных копий.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "возврат информации"
@@ -1325,67 +2317,560 @@ checks_v8:
         - "подтверждение уничтожения"
         - "сертификат об уничтожении"
         - "право сохранять копии для архивных целей"
+        - "архивные копии"
+        - "backup"
       keyword_mode: "any"
-      regex_patterns: []
+      regex_patterns:
+        - "(?i)возврат.*информаци"
+        - "(?i)уничтожени.*информаци"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь условия о возврате/уничтожении информации.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA) (ФЗ-98 ст. 10).
+        Проверяется только один вопрос: возврат или уничтожение информации.
 
-        Ответь строго в JSON:
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Возврат или уничтожение информации (или выбор).
+        2. Срок возврата/уничтожения.
+        3. Требование подтверждения уничтожения (сертификат, акт).
+        4. Исключение для архивных копий / backup.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "По требованию Раскрывающей стороны Получающая сторона обязана
+        в течение 30 дней вернуть или уничтожить все носители конфиденциальной
+        информации и предоставить письменный сертификат об уничтожении.
+        Получающая сторона вправе сохранить одну архивную копию для целей
+        соблюдения законодательства."
+
+        Ответ:
         {
-          "return_or_destruction": "<return / destruction / choice / not_found>",
-          "deadline": "<срок или not_found>",
-          "certification_required": "<yes / no / unclear>",
-          "backup_exception": "<yes / no / unclear>"
+          "return_or_destruction_status": "defined",
+          "return_or_destruction_details": "вернуть или уничтожить все носители",
+          "deadline_status": "defined",
+          "deadline_details": "в течение 30 дней",
+          "certification_status": "defined",
+          "certification_details": "письменный сертификат об уничтожении",
+          "backup_exception_status": "defined",
+          "backup_exception_details": "одна архивная копия для целей соблюдения законодательства",
+          "evidence": [{"clause_ref": "п. 8.1", "quote": "Получающая сторона обязана в течение 30 дней вернуть или уничтожить все носители конфиденциальной информации."}]
         }
 
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 5
+        Пример 2:
+        Фрагмент:
+        "Соглашение прекращается по истечении срока."
+
+        Ответ:
+        {
+          "return_or_destruction_status": "not_defined",
+          "return_or_destruction_details": "Данные не определены",
+          "deadline_status": "not_defined",
+          "deadline_details": "Данные не определены",
+          "certification_status": "not_defined",
+          "certification_details": "Данные не определены",
+          "backup_exception_status": "not_defined",
+          "backup_exception_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о возврате/уничтожении.
+        2. Найди прямую цитату о сроке.
+        3. Найди прямую цитату о подтверждении уничтожения.
+        4. Найди прямую цитату об архивных копиях.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "return_or_destruction_status": "<defined / not_defined>",
+          "return_or_destruction_details": "<текст или 'Данные не определены'>",
+          "deadline_status": "<defined / not_defined>",
+          "deadline_details": "<текст или 'Данные не определены'>",
+          "certification_status": "<defined / not_defined>",
+          "certification_details": "<текст или 'Данные не определены'>",
+          "backup_exception_status": "<defined / not_defined>",
+          "backup_exception_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
       temperature: 0.0
-      max_tokens: 300
+      max_tokens: 600
+
     retrieval:
-      context_k: 5
-      max_chunks: 6
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "возврат информации уничтожение информации срок возврата подтверждение уничтожения сертификат об уничтожении право сохранять копии для архивных целей архивные копии backup удаление носителей"
       retrieval_profile: "termination_check"
-      boost_keywords:
-        - "возврат"
-        - "уничтожение"
-        - "информации"
-        - "сертификат"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение"
+        - "исключения"
+        - "меры защиты"
+        - "срок действия"
+        - "штраф"
+        - "неустойка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.50, 0.90]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
-      max_snippet_length: 500
+      max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 900
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA порядок возврата или уничтожения
+        информации: возврат/уничтожение, срок, подтверждение, архивные копии.
+        Не анализируй определение конфиденциальной информации, исключения,
+        меры защиты или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. return_or_destruction_status — "defined" или "not_defined".
+        2. return_or_destruction_details — возврат или уничтожение.
+        3. deadline_status — "defined" или "not_defined".
+        4. deadline_details — срок возврата/уничтожения.
+        5. certification_status — "defined" или "not_defined".
+        6. certification_details — подтверждение уничтожения.
+        7. backup_exception_status — "defined" или "not_defined".
+        8. backup_exception_details — исключение для архивных копий.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "return_or_destruction"
+        - name: "return_or_destruction_status"
           type: "string"
-          allowed_values: ["return", "destruction", "choice", "not_found"]
-          keyword_hints: ["возврат", "уничтожение", "удаление"]
-          description: "Возврат или уничтожение"
-        - name: "certification_required"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка возврата/уничтожения."
+          required: true
+        - name: "return_or_destruction_details"
           type: "string"
-          allowed_values: ["yes", "no", "unclear"]
-          keyword_hints: ["подтверждение", "сертификат", "акт"]
-          description: "Требуется ли подтверждение уничтожения"
+          presentation: "fact"
+          label: "Возврат/уничтожение"
+          description: "Порядок возврата или уничтожения информации."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "deadline_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус срока возврата/уничтожения."
+          required: false
+        - name: "deadline_details"
+          type: "string"
+          presentation: "fact"
+          label: "Срок возврата/уничтожения"
+          description: "Срок возврата или уничтожения информации."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "certification_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус подтверждения уничтожения."
+          required: false
+        - name: "certification_details"
+          type: "string"
+          presentation: "fact"
+          label: "Подтверждение уничтожения"
+          description: "Требование подтверждения уничтожения (сертификат, акт)."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "backup_exception_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус исключения для архивных копий."
+          required: false
+        - name: "backup_exception_details"
+          type: "string"
+          presentation: "fact"
+          label: "Архивные копии"
+          description: "Исключение для архивных копий / backup."
+          required: false
+          display_in_grid: true
+          display_priority: 4
       store_payload: true
 
-  - id: residuals_clause_check
-    name: "Оговорка о неосязаемых остатках (Residuals Clause)"
-    description: |
-      Сотрудники неизбежно запоминают часть информации.
-      Без residuals clause — формальное нарушение при использовании общих знаний.
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 8: Раскрытие по требованию госорганов
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: government_disclosure_check
+    name: "Порядок раскрытия по требованию государственных органов"
+    description: >
+      Фактографическая проверка условий о раскрытии информации по требованию
+      суда или государственных органов: уведомление раскрывающей стороны,
+      содействие в ограничении объёма, минимально необходимый объём.
     triggers:
-      any: ["residuals_clause"]
-    severity: "medium"
+      any:
+        - government_disclosure
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "раскрытие по требованию суда"
+        - "по требованию государственных органов"
+        - "обязательное раскрытие"
+        - "уведомление о запросе"
+        - "минимально необходимый объём"
+        - "судебный запрос"
+        - "налоговые органы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)по\\s+требовани[юю].*?(суд|государственн)"
+        - "(?i)обязательн[оа]е\\s+раскрыти"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA).
+        Проверяется только один вопрос: порядок раскрытия информации
+        по требованию государственных органов.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Разрешение раскрытия по требованию суда/госоргана.
+        2. Обязанность уведомления раскрывающей стороны о запросе.
+        3. Содействие раскрывающей стороны в ограничении объёма раскрытия.
+        4. Раскрытие только в минимально необходимом объёме.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Получающая сторона вправе раскрыть конфиденциальную информацию
+        по требованию суда или уполномоченного государственного органа,
+        при условии незамедлительного уведомления Раскрывающей стороны.
+        Раскрывающая сторона оказывает содействие в ограничении объёма
+        раскрытия. Раскрытие осуществляется в минимально необходимом объёме."
+
+        Ответ:
+        {
+          "government_disclosure_status": "defined",
+          "government_disclosure_details": "по требованию суда или уполномоченного государственного органа",
+          "notification_status": "defined",
+          "notification_details": "незамедлительное уведомление Раскрывающей стороны",
+          "cooperation_status": "defined",
+          "cooperation_details": "содействие в ограничении объёма раскрытия",
+          "minimum_disclosure_status": "defined",
+          "minimum_disclosure_details": "в минимально необходимом объёме",
+          "evidence": [{"clause_ref": "п. 4.3", "quote": "Получающая сторона вправе раскрыть конфиденциальную информацию по требованию суда..."}]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Получающая сторона не разглашает информацию."
+
+        Ответ:
+        {
+          "government_disclosure_status": "not_defined",
+          "government_disclosure_details": "Данные не определены",
+          "notification_status": "not_defined",
+          "notification_details": "Данные не определены",
+          "cooperation_status": "not_defined",
+          "cooperation_details": "Данные не определены",
+          "minimum_disclosure_status": "not_defined",
+          "minimum_disclosure_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о раскрытии по требованию.
+        2. Найди прямую цитату об уведомлении.
+        3. Найди прямую цитату о содействии.
+        4. Найди прямую цитату о минимальном объёме.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "government_disclosure_status": "<defined / not_defined>",
+          "government_disclosure_details": "<текст или 'Данные не определены'>",
+          "notification_status": "<defined / not_defined>",
+          "notification_details": "<текст или 'Данные не определены'>",
+          "cooperation_status": "<defined / not_defined>",
+          "cooperation_details": "<текст или 'Данные не определены'>",
+          "minimum_disclosure_status": "<defined / not_defined>",
+          "minimum_disclosure_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "раскрытие по требованию суда по требованию государственных органов обязательное раскрытие уведомление о запросе минимально необходимый объём судебный запрос налоговые органы содействие в ограничении объёма"
+      retrieval_profile: "confidentiality_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение"
+        - "исключения"
+        - "общедоступная"
+        - "была известна"
+        - "независимо разработана"
+        - "меры защиты"
+        - "срок действия"
+        - "штраф"
+        - "возврат"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.12
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 900
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA порядок раскрытия информации
+        по требованию государственных органов: разрешение, уведомление,
+        содействие, минимальный объём.
+        Не анализируй определение конфиденциальной информации, исключения,
+        меры защиты или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. government_disclosure_status — "defined" или "not_defined".
+        2. government_disclosure_details — условие о раскрытии по требованию.
+        3. notification_status — "defined" или "not_defined".
+        4. notification_details — обязанность уведомления раскрывающей стороны.
+        5. cooperation_status — "defined" или "not_defined".
+        6. cooperation_details — содействие в ограничении объёма.
+        7. minimum_disclosure_status — "defined" или "not_defined".
+        8. minimum_disclosure_details — минимально необходимый объём.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "government_disclosure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия о раскрытии по требованию госорганов."
+          required: true
+        - name: "government_disclosure_details"
+          type: "string"
+          presentation: "fact"
+          label: "Раскрытие по требованию"
+          description: "Условие о раскрытии по требованию суда/госоргана."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "notification_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус обязанности уведомления."
+          required: false
+        - name: "notification_details"
+          type: "string"
+          presentation: "fact"
+          label: "Уведомление о запросе"
+          description: "Обязанность уведомления раскрывающей стороны о запросе."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "cooperation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус содействия в ограничении объёма."
+          required: false
+        - name: "cooperation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Содействие в ограничении"
+          description: "Содействие раскрывающей стороны в ограничении объёма раскрытия."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "minimum_disclosure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус минимального объёма раскрытия."
+          required: false
+        - name: "minimum_disclosure_details"
+          type: "string"
+          presentation: "fact"
+          label: "Минимальный объём"
+          description: "Раскрытие только в минимально необходимом объёме."
+          required: false
+          display_in_grid: true
+          display_priority: 4
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 9: Специальные оговорки (residuals, no-warranty, non-solicitation)
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: special_clauses_check
+    name: "Специальные оговорки: residuals, no-warranty, non-solicitation, non-compete"
+    description: >
+      Фактографическая проверка наличия специальных оговорок: residuals clause,
+      отказ от гарантий полноты информации, запрет переманивания,
+      запрет конкуренции.
+    triggers:
+      any:
+        - residuals_clause
+        - non_compete_linked
+        - ma_context
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "residuals"
@@ -1393,183 +2878,297 @@ checks_v8:
         - "общие знания и навыки"
         - "запомненная информация"
         - "unaided memory"
-        - "general knowledge"
-      keyword_mode: "any"
-      regex_patterns: []
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь наличие оговорки о неосязаемых остатках (residuals).
-
-        Ответь строго в JSON:
-        {
-          "residuals_clause": "<yes / no>",
-          "scope": "<описание или not_found>"
-        }
-
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 5
-      temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      retrieval_profile: "confidentiality_check"
-      context_k: 5
-      max_chunks: 6
-      boost_keywords:
-        - "residuals"
-        - "общие знания"
-        - "запомненная"
-      rerank: true
-      filters: {}
-    evidence:
-      required: false
-      min_snippet_length: 30
-      max_snippet_length: 400
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "residuals_clause"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Наличие residuals clause"
-      store_payload: true
-
-  - id: no_warranty_accuracy
-    name: "Отсутствие гарантий полноты и достоверности информации"
-    description: |
-      Без оговорки получающая сторона может требовать компенсации за неточную информацию.
-    triggers: {}
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
         - "без гарантий"
         - "as is"
         - "отказ от гарантий"
         - "не гарантирует полноту"
         - "не гарантирует достоверность"
         - "disclaimer"
-      keyword_mode: "any"
-      regex_patterns: []
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь наличие оговорки об отсутствии гарантий информации.
-
-        Ответь строго в JSON:
-        {
-          "no_warranty_clause": "<yes / no>",
-          "as_is": "<yes / no / unclear>"
-        }
-
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 4
-      temperature: 0.0
-      max_tokens: 200
-    retrieval:
-      retrieval_profile: "warranties_check"
-      context_k: 4
-      max_chunks: 6
-      boost_keywords:
-        - "без гарантий"
-        - "as is"
-        - "disclaimer"
-      rerank: true
-      filters: {}
-    evidence:
-      required: false
-      min_snippet_length: 30
-      max_snippet_length: 400
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "no_warranty_clause"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          keyword_hints: ["без гарантий", "as is", "disclaimer"]
-          description: "Наличие disclaimer"
-      store_payload: true
-
-  - id: non_solicitation_check
-    name: "Запрет переманивания сотрудников и клиентов (Non-Solicitation)"
-    description: |
-      NDA часто содержат условия о запрете переманивания ключевых сотрудников
-      или клиентов раскрывающей стороны. Проверяет наличие, объём и срок действия.
-    triggers:
-      any: ["non_compete_linked", "ma_context"]
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
         - "запрет переманивания"
         - "non-solicitation"
         - "не переманивать"
         - "не привлекать сотрудников"
         - "не привлекать клиентов"
-        - "ключевые сотрудники"
+        - "запрет конкуренции"
+        - "non-compete"
+        - "не конкурировать"
       keyword_mode: "any"
       regex_patterns:
+        - "(?i)\\bresiduals\\b"
+        - "(?i)as\\s+is"
         - "(?i)non[\\s-]?solicitation"
-        - "(?i)запрет.*переманиван"
+        - "(?i)non[\\s-]?compete"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь наличие условий о запрете переманивания (non-solicitation).
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA).
+        Проверяется только один вопрос: специальные оговорки.
 
-        Ответь строго в JSON:
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Residuals clause (оговорка о неосязаемых остатках).
+        2. Отказ от гарантий полноты/достоверности информации (as-is disclaimer).
+        3. Запрет переманивания сотрудников/клиентов (non-solicitation).
+        4. Запрет конкуренции (non-compete).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Настоящее соглашение не ограничивает использование получающей стороной
+        общих знаний и навыков, запомненных её сотрудниками без обращения
+        к материалам. Информация предоставляется «как есть» без гарантий
+        полноты и достоверности. Получающая сторона не вправе переманивать
+        сотрудников раскрывающей стороны в течение 2 лет."
+
+        Ответ:
         {
-          "non_solicitation_clause": "<present / not_found>",
-          "scope": "<employees / clients / both / not_found>",
-          "duration": "<срок действия запрета или not_found>",
-          "non_solicitation_snippet": "<цитата или not_found>"
+          "residuals_clause_status": "defined",
+          "residuals_clause_details": "не ограничивает использование общих знаний и навыков, запомненных без обращения к материалам",
+          "no_warranty_status": "defined",
+          "no_warranty_details": "«как есть» без гарантий полноты и достоверности",
+          "non_solicitation_status": "defined",
+          "non_solicitation_details": "не вправе переманивать сотрудников в течение 2 лет",
+          "non_compete_status": "not_defined",
+          "non_compete_details": "Данные не определены",
+          "evidence": [{"clause_ref": "п. 9.1", "quote": "Настоящее соглашение не ограничивает использование получающей стороной общих знаний и навыков..."}]
         }
 
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 5
+        Пример 2:
+        Фрагмент:
+        "Получающая сторона не разглашает информацию."
+
+        Ответ:
+        {
+          "residuals_clause_status": "not_defined",
+          "residuals_clause_details": "Данные не определены",
+          "no_warranty_status": "not_defined",
+          "no_warranty_details": "Данные не определены",
+          "non_solicitation_status": "not_defined",
+          "non_solicitation_details": "Данные не определены",
+          "non_compete_status": "not_defined",
+          "non_compete_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о residuals clause.
+        2. Найди прямую цитату об отказе от гарантий.
+        3. Найди прямую цитату о non-solicitation.
+        4. Найди прямую цитату о non-compete.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "residuals_clause_status": "<defined / not_defined>",
+          "residuals_clause_details": "<текст или 'Данные не определены'>",
+          "no_warranty_status": "<defined / not_defined>",
+          "no_warranty_details": "<текст или 'Данные не определены'>",
+          "non_solicitation_status": "<defined / not_defined>",
+          "non_solicitation_details": "<текст или 'Данные не определены'>",
+          "non_compete_status": "<defined / not_defined>",
+          "non_compete_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
       temperature: 0.0
-      max_tokens: 400
+      max_tokens: 650
+
     retrieval:
-      context_k: 5
-      max_chunks: 6
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "residuals неосязаемые остатки общие знания и навыки запомненная информация unaided memory без гарантий as is отказ от гарантий не гарантирует полноту не гарантирует достоверность disclaimer запрет переманивания non-solicitation не переманивать не привлекать сотрудников не привлекать клиентов запрет конкуренции non-compete не конкурировать"
       retrieval_profile: "non_compete_check"
-      boost_keywords:
-        - "переманивание"
-        - "non-solicitation"
-        - "сотрудников"
-        - "клиентов"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+        - boilerplate
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение"
+        - "исключения"
+        - "общедоступная"
+        - "была известна"
+        - "независимо разработана"
+        - "меры защиты"
+        - "срок действия"
+        - "штраф"
+        - "возврат"
+        - "уничтожение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.85]
+        boost: 0.12
+        scope: segment
+      context_k: 7
+      max_chunks: 10
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
-      required: false
+      required: true
       min_snippet_length: 30
-      max_snippet_length: 500
+      max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1000
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA специальные оговорки:
+        residuals clause, отказ от гарантий, non-solicitation, non-compete.
+        Не анализируй определение конфиденциальной информации, исключения,
+        меры защиты или ответственность за нарушение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. residuals_clause_status — "defined" или "not_defined".
+        2. residuals_clause_details — оговорка о неосязаемых остатках.
+        3. no_warranty_status — "defined" или "not_defined".
+        4. no_warranty_details — отказ от гарантий полноты/достоверности.
+        5. non_solicitation_status — "defined" или "not_defined".
+        6. non_solicitation_details — запрет переманивания.
+        7. non_compete_status — "defined" или "not_defined".
+        8. non_compete_details — запрет конкуренции.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "non_solicitation_clause"
+        - name: "residuals_clause_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          keyword_hints: ["запрет переманивания", "non-solicitation"]
-          description: "Наличие условия о запрете переманивания"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус residuals clause."
+          required: false
+        - name: "residuals_clause_details"
+          type: "string"
+          presentation: "fact"
+          label: "Residuals clause"
+          description: "Оговорка о неосязаемых остатках."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "no_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус отказа от гарантий."
+          required: false
+        - name: "no_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Отказ от гарантий"
+          description: "Отказ от гарантий полноты и достоверности информации."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "non_solicitation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус запрета переманивания."
+          required: false
+        - name: "non_solicitation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Non-solicitation"
+          description: "Запрет переманивания сотрудников/клиентов."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "non_compete_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус запрета конкуренции."
+          required: false
+        - name: "non_compete_details"
+          type: "string"
+          presentation: "fact"
+          label: "Non-compete"
+          description: "Запрет конкуренции."
+          required: false
+          display_in_grid: true
+          display_priority: 4
       store_payload: true
 
-  - id: governing_law_dispute_resolution
-    name: "Применимое право и порядок разрешения споров"
-    description: |
-      Без указания применимого права и подсудности процесс защиты неэффективен.
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 10: Применимое право, разрешение споров, обеспечительные меры
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: dispute_resolution_check
+    name: "Применимое право, разрешение споров и обеспечительные меры"
+    description: >
+      Фактографическая проверка применимого права, порядка разрешения споров
+      (суд/арбитраж/переговоры), подсудности, претензионного порядка
+      и права на обеспечительные меры (injunctive relief).
     triggers:
-      any: ["international_parties"]
+      any:
+        - international_parties
+        - injunctive_relief
+    ui_mode: "field_extraction"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "применимое право"
@@ -1578,322 +3177,313 @@ checks_v8:
         - "арбитраж"
         - "третейский суд"
         - "обеспечительные меры"
-        - "претензионный порядок"
-      keyword_mode: "any"
-      regex_patterns: []
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий NDA.
-        Проверь условия о применимом праве и разрешении споров.
-
-        Ответь строго в JSON:
-        {
-          "governing_law": "<законодательство или not_found>",
-          "dispute_resolution": "<court / arbitration / negotiation / not_found>",
-          "jurisdiction": "<юрисдикция или not_found>"
-        }
-
-        Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 5
-      temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      context_k: 5
-      max_chunks: 6
-      retrieval_profile: "governing_law_check"
-      boost_keywords:
-        - "применимое право"
-        - "разрешение споров"
-        - "юрисдикция"
-      rerank: true
-      filters: {}
-    evidence:
-      required: false
-      min_snippet_length: 30
-      max_snippet_length: 400
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "governing_law"
-          type: "string"
-          keyword_hints: ["применимое право", "законодательство", "governing law"]
-          description: "Применимое право"
-        - name: "dispute_resolution"
-          type: "string"
-          allowed_values: ["court", "arbitration", "negotiation", "not_found"]
-          keyword_hints: ["разрешение споров", "подсудность", "арбитраж"]
-          description: "Способ разрешения споров"
-      store_payload: true
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "parties_identification_nda"
-    name: "Стороны: раскрывающая и получающая (или обе в mutual NDA)"
-    description: "Проверка идентификации сторон"
-    legal_base: "ст. 432 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "раскрывающая сторона"
-        - "получающая сторона"
-        - "disclosing party"
-        - "receiving party"
-        - "стороны"
-      keyword_mode: "any"
-      regex_patterns: []
-
-  - id: "confidential_info_definition"
-    name: "Определение конфиденциальной информации (обязательно)"
-    description: "Без определения NDA неработоспособно"
-    legal_base: "ФЗ-98 ст. 3, ст. 1465 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "конфиденциальная информация"
-        - "confidential information"
-        - "определение"
-        - "включает"
-      keyword_mode: "any"
-      regex_patterns: []
-
-  - id: "purpose_clause"
-    name: "Цель раскрытия информации (обязательна)"
-    description: "Ограничение использования информации"
-    legal_base: "ст. 421 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "цель раскрытия"
-        - "для целей"
-        - "в связи с"
-        - "ограничение использования"
-      keyword_mode: "any"
-      regex_patterns: []
-
-  - id: "exceptions_clause"
-    name: "Исключения из конфиденциальности (обязательны)"
-    description: "Защита получающей стороны"
-    legal_base: "ФЗ-98 ст. 3"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "не является конфиденциальной"
-        - "исключения"
-        - "общедоступная"
-        - "была известна"
-      keyword_mode: "any"
-      regex_patterns: []
-
-  - id: "term_clause"
-    name: "Срок действия обязательств (обязателен)"
-    description: "Обычно 3–5 лет"
-    legal_base: "ст. 425 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "срок действия"
-        - "срок конфиденциальности"
-        - "период действия"
-        - "бессрочная"
-      keyword_mode: "any"
-      regex_patterns: []
-
-  - id: "protection_measures_clause"
-    name: "Конкретные меры защиты информации"
-    description: "Не просто «не разглашать», а конкретные меры"
-    legal_base: "ФЗ-98 ст. 10"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "меры защиты"
-        - "ограничение доступа"
-        - "не ниже мер"
-        - "надлежащая защита"
-      keyword_mode: "any"
-      regex_patterns: []
-
-  - id: "liability_clause_nda"
-    name: "Ответственность за нарушение (штрафы, неустойка)"
-    description: "Упрощение доказывания и взыскания"
-    legal_base: "ст. 330, 393 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "штраф"
-        - "неустойка"
-        - "штрафные санкции"
-        - "ответственность за нарушение"
-      keyword_mode: "any"
-      regex_patterns: []
-
-  - id: "return_destruction_clause"
-    name: "Возврат или уничтожение информации"
-    description: "Порядок возврата/уничтожения по окончании срока"
-    legal_base: "ФЗ-98 ст. 10"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "возврат информации"
-        - "уничтожение информации"
-        - "срок возврата"
-        - "подтверждение уничтожения"
-      keyword_mode: "any"
-      regex_patterns: []
-
-  - id: "non_compete_restriction"
-    name: "Ограничение конкуренции (non-compete) в NDA"
-    description: "Проверка наличия условий о запрете конкуренции"
-    legal_base: "ст. 421 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["non_compete_linked"]
-    rules:
-      keywords:
-        - "запрет конкуренции"
-        - "non-compete"
-        - "ограничение конкуренции"
-        - "не конкурировать"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)non[\\s-]?compete"
-
-  - id: "injunctive_relief_clause"
-    name: "Право на обеспечительные меры (injunctive relief)"
-    description: "Право на судебный запрет при нарушении"
-    legal_base: "ст. 99 АПК РФ, ст. 139 ГПК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "обеспечительные меры"
         - "судебный запрет"
         - "injunctive relief"
         - "запретительные меры"
-        - "предварительные обеспечительные меры"
+        - "претензионный порядок"
+        - "governing law"
       keyword_mode: "any"
       regex_patterns:
+        - "(?i)применим[оа]е\\s+прав"
         - "(?i)injunctive\\s+relief"
 
-  - id: "amendment_procedure"
-    name: "Порядок внесения изменений в NDA"
-    description: "Процедура изменения условий"
-    legal_base: "ст. 450 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "изменение соглашения"
-        - "дополнения"
-        - "поправки"
-        - "в письменной форме"
-        - "по согласию сторон"
-      keyword_mode: "any"
-      regex_patterns: []
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA) (ст. 99 АПК РФ; ст. 139 ГПК РФ).
+        Проверяется только один вопрос: применимое право, разрешение споров
+        и обеспечительные меры.
 
-  - id: "assignment_restriction"
-    name: "Запрет уступки прав по NDA"
-    description: "Ограничение на передачу прав и обязанностей"
-    legal_base: "ст. 382–392 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "уступка"
-        - "переуступка"
-        - "передача прав"
-        - "без согласия"
-        - "запрет уступки"
-      keyword_mode: "any"
-      regex_patterns: []
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
 
-  - id: "entire_agreement"
-    name: "Оговорка о полноте соглашения (entire agreement)"
-    description: "NDA заменяет все предшествующие договорённости по предмету"
-    legal_base: "ст. 431.2 ГК РФ"
-    severity: "low"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "полнота соглашения"
-        - "entire agreement"
-        - "заменяет все предшествующие"
-        - "полное и окончательное"
-        - "все предыдущие договорённости"
-      keyword_mode: "any"
-      regex_patterns: []
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Применимое право.
+        2. Способ разрешения споров (суд / арбитраж / переговоры).
+        3. Подсудность / юрисдикция.
+        4. Претензионный порядок и срок ответа.
+        5. Право на обеспечительные меры (injunctive relief).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Настоящее соглашение регулируется правом Российской Федерации.
+        Все споры подлежат рассмотрению в Арбитражном суде г. Москвы.
+        Стороны обязаны соблюдать претензионный порядок: срок ответа — 15 дней.
+        Раскрывающая сторона вправе требовать обеспечительных мер в виде
+        судебного запрета на использование конфиденциальной информации."
+
+        Ответ:
+        {
+          "governing_law_status": "defined",
+          "governing_law_details": "право Российской Федерации",
+          "dispute_method": "court",
+          "dispute_method_details": "Арбитражный суд г. Москвы",
+          "jurisdiction_status": "defined",
+          "jurisdiction_details": "Арбитражный суд г. Москвы",
+          "pretrial_status": "defined",
+          "pretrial_details": "претензионный порядок, срок ответа — 15 дней",
+          "injunctive_relief_status": "defined",
+          "injunctive_relief_details": "право требовать обеспечительных мер в виде судебного запрета",
+          "evidence": [{"clause_ref": "п. 10.1", "quote": "Настоящее соглашение регулируется правом Российской Федерации."}]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Стороны разрешают споры путём переговоров."
+
+        Ответ:
+        {
+          "governing_law_status": "not_defined",
+          "governing_law_details": "Данные не определены",
+          "dispute_method": "negotiation",
+          "dispute_method_details": "путём переговоров",
+          "jurisdiction_status": "not_defined",
+          "jurisdiction_details": "Данные не определены",
+          "pretrial_status": "not_defined",
+          "pretrial_details": "Данные не определены",
+          "injunctive_relief_status": "not_defined",
+          "injunctive_relief_details": "Данные не определены",
+          "evidence": [{"clause_ref": "п. 10.1", "quote": "Стороны разрешают споры путём переговоров."}]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о применимом праве.
+        2. Найди прямую цитату о способе разрешения споров.
+        3. Найди прямую цитату о подсудности.
+        4. Найди прямую цитату о претензионном порядке.
+        5. Найди прямую цитату об обеспечительных мерах.
+        6. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "governing_law_status": "<defined / not_defined>",
+          "governing_law_details": "<текст или 'Данные не определены'>",
+          "dispute_method": "<court / arbitration / negotiation / mixed / not_defined>",
+          "dispute_method_details": "<текст или 'Данные не определены'>",
+          "jurisdiction_status": "<defined / not_defined>",
+          "jurisdiction_details": "<текст или 'Данные не определены'>",
+          "pretrial_status": "<defined / not_defined>",
+          "pretrial_details": "<текст или 'Данные не определены'>",
+          "injunctive_relief_status": "<defined / not_defined>",
+          "injunctive_relief_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "применимое право подсудность разрешение споров арбитраж третейский суд обеспечительные меры судебный запрет injunctive relief запретительные меры претензионный порядок governing law юрисдикция"
+      retrieval_profile: "dispute_resolution_check"
+      preferred_unit_types:
+        - general_provision
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - procedures
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение"
+        - "исключения"
+        - "меры защиты"
+        - "срок действия"
+        - "штраф"
+        - "неустойка"
+        - "возврат"
+        - "уничтожение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.65, 1.0]
+        boost: 0.20
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "boilerplate"
+        - "procedures"
+      confidence_bonus_on_match: 0.06
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1000
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA применимое право, способ разрешения
+        споров, подсудность, претензионный порядок и обеспечительные меры.
+        Не анализируй определение конфиденциальной информации, исключения,
+        меры защиты или ответственность за нарушение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+        1. governing_law_status — "defined" или "not_defined".
+        2. governing_law_details — применимое право.
+        3. dispute_method — court / arbitration / negotiation / mixed / not_defined.
+        4. dispute_method_details — способ разрешения споров.
+        5. jurisdiction_status — "defined" или "not_defined".
+        6. jurisdiction_details — подсудность / юрисдикция.
+        7. pretrial_status — "defined" или "not_defined".
+        8. pretrial_details — претензионный порядок и срок ответа.
+        9. injunctive_relief_status — "defined" или "not_defined".
+        10. injunctive_relief_details — право на обеспечительные меры.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - dispute_method: "court" — государственный суд;
+          "arbitration" — третейский суд / арбитраж;
+          "negotiation" — переговоры;
+          "mixed" — сочетание;
+          "not_defined" — не указан.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "governing_law_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус применимого права."
+          required: true
+        - name: "governing_law_details"
+          type: "string"
+          presentation: "fact"
+          label: "Применимое право"
+          description: "Применимое право."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "dispute_method"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["court", "arbitration", "negotiation", "mixed", "not_defined"]
+          description: "Способ разрешения споров."
+          required: false
+        - name: "dispute_method_details"
+          type: "string"
+          presentation: "fact"
+          label: "Разрешение споров"
+          description: "Способ разрешения споров."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "jurisdiction_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус подсудности."
+          required: false
+        - name: "jurisdiction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Подсудность"
+          description: "Подсудность / юрисдикция."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "pretrial_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус претензионного порядка."
+          required: false
+        - name: "pretrial_details"
+          type: "string"
+          presentation: "fact"
+          label: "Претензионный порядок"
+          description: "Претензионный порядок и срок ответа."
+          required: false
+          display_in_grid: false
+        - name: "injunctive_relief_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус права на обеспечительные меры."
+          required: false
+        - name: "injunctive_relief_details"
+          type: "string"
+          presentation: "fact"
+          label: "Обеспечительные меры"
+          description: "Право на обеспечительные меры (injunctive relief)."
+          required: false
+          display_in_grid: true
+          display_priority: 4
+      store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
 
 dd_request_templates:
+  nda_parties_and_type_check:
+    text: >
+      Просим предоставить по {doc_names}: полные реквизиты раскрывающей
+      и получающей сторон, тип NDA (односторонний/двусторонний),
+      цель раскрытия информации и ограничение использования целью.
+    addressee: "Обе стороны"
 
-  confidential_info_extraction:
+  confidential_info_definition_check:
     text: >
       КРИТИЧЕСКИЙ ЗАПРОС: Просим предоставить чёткое определение конфиденциальной
       информации по {doc_names}: (а) категории; (б) конкретный перечень;
-      (в) примеры; (г) требуется ли маркировка «Конфиденциально».
+      (в) примеры; (г) требование маркировки «Конфиденциально»;
+      (д) выявление и устранение catch-all формулировок.
       Без определения NDA неработоспособно.
     addressee: "Юридический отдел раскрывающей стороны"
 
-  overbroad_definition_check:
-    text: >
-      ВНИМАНИЕ: В {doc_names} определение конфиденциальной информации может быть
-      чрезмерно широким (catch-all). Просим: (а) сузить до конкретных категорий;
-      (б) добавить ограничительные оговорки; (в) исключить общеизвестные сведения.
-      Чрезмерно широкое определение — рискованно и потенциально неисполнимо.
-    addressee: "Юридический отдел получающей стороны"
-
-  purpose_of_disclosure:
-    text: >
-      Просим уточнить в {doc_names} цель раскрытия и ограничения использования.
-    addressee: "Обе стороны"
-
-  exceptions_extraction:
+  exceptions_check:
     text: >
       КРИТИЧЕСКИЙ ЗАПРОС: Просим включить в {doc_names} стандартные исключения:
       (а) общедоступная; (б) известна ранее; (в) от третьих лиц;
@@ -1901,171 +3491,64 @@ dd_request_templates:
       Без исключений получающая сторона в ловушке.
     addressee: "Юридический отдел получающей стороны"
 
-  term_and_confidentiality_period:
+  obligations_protection_check:
     text: >
-      Просим уточнить для {doc_names}: (а) срок NDA; (б) срок конфиденциальности;
-      (в) бессрочность (для ноу-хау); (г) survival clause.
+      Просим согласовать для {doc_names}: (а) стандарт защиты (не ниже мер
+      для собственной информации / reasonable care); (б) ограничение доступа
+      (need-to-know); (в) право раскрытия консультантам и аффилированным лицам;
+      (г) обязательность NDA для консультантов; (д) ответственность получающей
+      стороны за действия консультантов.
     addressee: "Обе стороны"
 
-  protection_obligations:
+  term_survival_check:
     text: >
-      Просим согласовать для {doc_names}: (а) need-to-know; (б) физическая безопасность;
-      (в) информационная безопасность; (г) стандарт «не ниже собственной».
+      Просим уточнить для {doc_names}: (а) срок действия NDA; (б) срок
+      конфиденциальности; (в) бессрочность (для ноу-хау); (г) survival clause.
     addressee: "Обе стороны"
 
-  affiliate_advisor_binding:
+  liability_breach_notification_check:
     text: >
-      Просим согласовать для {doc_names}: (а) право раскрытия консультантам;
-      (б) обязательность NDA для них; (в) ответственность получающей стороны.
-    addressee: "Обе стороны"
-
-  government_disclosure_procedure:
-    text: >
-      Просим согласовать для {doc_names}: (а) уведомление раскрывающей стороны;
-      (б) содействие в ограничении объёма; (в) минимально необходимый объём.
-    addressee: "Юридический отдел"
-
-  breach_liability_penalties:
-    text: >
-      КРИТИЧЕСКИЙ ЗАПРОС: Просим включить в {doc_names}: (а) фиксированный штраф;
-      (б) право на убытки; (в) упрощённое доказывание.
+      КРИТИЧЕСКИЙ ЗАПРОС: Просим включить в {doc_names}: (а) фиксированный штраф
+      за нарушение конфиденциальности; (б) право на возмещение убытков сверх штрафа;
+      (в) обязанность немедленного уведомления о нарушении или утечке (24 часа).
       Без штрафов доказать ущерб крайне сложно.
     addressee: "Юридический отдел раскрывающей стороны"
 
-  breach_notification_obligation:
+  return_destruction_check:
     text: >
-      Просим включить в {doc_names}: (а) немедленное уведомление об утечке;
-      (б) уведомление о запросах третьих лиц; (в) срок (24 часа).
+      Просим согласовать для {doc_names}: (а) срок возврата/уничтожения
+      информации (обычно 30 дней); (б) способ возврата/уничтожения;
+      (в) сертификат об уничтожении; (г) исключения для архивных копий.
     addressee: "Обе стороны"
 
-  return_destruction_procedure:
+  government_disclosure_check:
     text: >
-      Просим согласовать для {doc_names}: (а) срок возврата/уничтожения (30 дней);
-      (б) способ; (в) сертификат об уничтожении; (г) исключения (архивные копии).
-    addressee: "Обе стороны"
-
-  residuals_clause_check:
-    text: >
-      Просим рассмотреть включение в {doc_names} residuals clause:
-      общие знания и навыки сотрудников не нарушают NDA при условии
-      неиспользования записей. Важно в IT и R&D.
-    addressee: "Юридический отдел получающей стороны"
-
-  no_warranty_accuracy:
-    text: >
-      Просим включить в {doc_names} disclaimer: информация «as is»,
-      без гарантий полноты и достоверности.
-    addressee: "Юридический отдел раскрывающей стороны"
-
-  non_solicitation_check:
-    text: >
-      Просим согласовать для {doc_names} условия о запрете переманивания:
-      (а) объём (сотрудники/клиенты/оба); (б) срок действия;
-      (в) санкции за нарушение.
+      Просим согласовать для {doc_names} порядок раскрытия по требованию
+      госорганов: (а) уведомление раскрывающей стороны о запросе;
+      (б) содействие в ограничении объёма раскрытия; (в) раскрытие
+      только в минимально необходимом объёме.
     addressee: "Юридический отдел"
 
-  governing_law_dispute_resolution:
+  special_clauses_check:
     text: >
-      Просим согласовать для {doc_names}: (а) применимое право;
-      (б) подсудность; (в) претензионный порядок;
-      (г) право на обеспечительные меры.
+      Просим согласовать для {doc_names} специальные оговорки:
+      (а) residuals clause (общие знания и навыки);
+      (б) отказ от гарантий полноты/достоверности информации (as-is);
+      (в) запрет переманивания сотрудников/клиентов (non-solicitation);
+      (г) запрет конкуренции (non-compete) — при наличии.
     addressee: "Юридический отдел"
 
-  parties_identification_nda:
+  dispute_resolution_check:
     text: >
-      Просим подтвердить реквизиты сторон по {doc_names}.
-    addressee: "Обе стороны"
-
-  confidential_info_definition:
-    text: >
-      КРИТИЧНО: В {doc_names} нет определения конфиденциальной информации.
-      NDA НЕРАБОТОСПОСОБНО. Незамедлительно дополнить.
-    addressee: "Юридический отдел раскрывающей стороны"
-
-  purpose_clause:
-    text: >
-      Просим указать цель раскрытия в {doc_names}.
-    addressee: "Обе стороны"
-
-  exceptions_clause:
-    text: >
-      КРИТИЧНО: В {doc_names} нет исключений из конфиденциальности.
-      Незамедлительно дополнить стандартными исключениями.
-    addressee: "Юридический отдел получающей стороны"
-
-  term_clause:
-    text: >
-      Просим указать срок обязательств для {doc_names}.
-    addressee: "Обе стороны"
-
-  protection_measures_clause:
-    text: >
-      Просим согласовать меры защиты для {doc_names}.
-    addressee: "Обе стороны"
-
-  liability_clause_nda:
-    text: >
-      Просим включить в {doc_names} штрафы/неустойку за нарушение.
+      Просим согласовать для {doc_names}: (а) применимое право; (б) подсудность;
+      (в) претензионный порядок и срок ответа; (г) право на обеспечительные меры
+      (injunctive relief) при нарушении.
     addressee: "Юридический отдел"
 
-  return_destruction_clause:
-    text: >
-      Просим согласовать порядок возврата/уничтожения для {doc_names}.
-    addressee: "Обе стороны"
-
-  non_compete_restriction:
-    text: >
-      В {doc_names} выявлено условие о запрете конкуренции (non-compete).
-      Просим уточнить: (а) объём; (б) территорию; (в) срок;
-      (г) компенсацию за ограничение (если применимо).
-    addressee: "Юридический отдел"
-
-  injunctive_relief_clause:
-    text: >
-      Просим рассмотреть включение в {doc_names} оговорки о праве
-      на обеспечительные меры (injunctive relief) при нарушении.
-    addressee: "Юридический отдел"
-
-  amendment_procedure:
-    text: >
-      Просим согласовать порядок внесения изменений в {doc_names}.
-    addressee: "Юридический отдел"
-
-  assignment_restriction:
-    text: >
-      Просим включить в {doc_names} запрет уступки прав без согласия
-      другой стороны.
-    addressee: "Юридический отдел"
-
-  entire_agreement:
-    text: >
-      Просим включить в {doc_names} оговорку о полноте соглашения
-      (entire agreement).
-    addressee: "Юридический отдел"
-
-  confidential_info_definition_mandatory:
-    text: >
-      ВНИМАНИЕ: {doc_names} — NDA без определения конфиденциальной информации.
-      Такое NDA НЕРАБОТОСПОСОБНО (ФЗ-98 ст. 3). Незамедлительно дополнить.
-    addressee: "Юридический отдел раскрывающей стороны"
-
-  standard_exceptions_required:
-    text: >
-      ВНИМАНИЕ: В {doc_names} нет стандартных исключений.
-      Неоправданные риски для получающей стороны.
-      Незамедлительно дополнить.
-    addressee: "Юридический отдел получающей стороны"
-
-  personal_data_protection_compliance:
-    text: >
-      ВНИМАНИЕ: {doc_names} включает персональные данные.
-      Необходимо: (а) согласие субъектов; (б) меры защиты;
-      (в) уведомление Роскомнадзора.
-    addressee: "Юридический отдел / DPO"
-
-  # Generic fallback
   _default:
     text: >
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
-    addressee: "Юридический консультант"
+    addressee: "Юридический советник"
+
+

@@ -1,0 +1,3800 @@
+type: contract_9.3_prenuptial_agreement
+name: "Брачный договор (брачный контракт)"
+version: 6.0
+parent: class_9_special_imperative
+description: |
+  Соглашение лиц, вступающих в брак, или супругов, определяющее исключительно имущественные
+  права и обязанности супругов в браке и (или) в случае его расторжения. Позволяет изменить
+  установленный законом режим совместной собственности на режим раздельной, долевой или
+  смешанной собственности. Не может регулировать личные неимущественные отношения, права
+  и обязанности в отношении детей, ограничивать правоспособность или дееспособность супругов,
+  содержать условия, ставящие одного из супругов в крайне неблагоприятное положение.
+  Требует обязательного нотариального удостоверения; несоблюдение формы влечёт ничтожность.
+  Регулируется Главой 8 Семейного кодекса РФ (ст. 40–44), а также ст. 45–46 СК РФ
+  (ответственность по обязательствам, гарантии прав кредиторов).
+metadata:
+  category: contract
+  subcategory: family_law
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "Семейный кодекс РФ (Глава 8, ст. 40–44; ст. 45–46)"
+  doc_types_supported:
+    - "брачный договор"
+    - "брачный договор до заключения брака"
+    - "брачный договор в период брака"
+    - "брачный контракт"
+    - "соглашение о разделе имущества супругов"
+    - "prenuptial agreement"
+    - "pre-nup"
+    - "postnuptial agreement"
+    - "marital agreement"
+    - "matrimonial property agreement"
+    - "spousal property agreement"
+    - "marriage contract"
+    - "nuptial agreement"
+    - "separation agreement"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.9
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
+  rules:
+    filename_patterns:
+      - pattern: "(?i)\\bбрачн[а-я]*[\\s_.-]*договор\\b"
+        kind: specific_subject
+        weight: 1.0
+      - pattern: "(?i)\\bбрачн[а-я]*[\\s_.-]*контракт\\b"
+        kind: specific_subject
+        weight: 0.98
+      - pattern: "(?i)\\bбрачн[а-я]*[\\s_.-]*договор[\\s_.-]*(?:до[\\s_.-]*заключени[а-я]*[\\s_.-]*брак[а-я]*|в[\\s_.-]*период[\\s_.-]*брак[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.98
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*раздел[а-я]*[\\s_.-]*имущества[\\s_.-]*супругов\\b"
+        kind: specific_subject
+        weight: 0.94
+      - pattern: "(?i)\\bprenuptial[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.98
+      - pattern: "(?i)\\bpre[\\s_.-]*nup(?:tial)?\\b"
+        kind: specific_subject
+        weight: 0.96
+      - pattern: "(?i)\\bantenuptial[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.96
+      - pattern: "(?i)\\bpostnuptial[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.96
+      - pattern: "(?i)\\bnuptial[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.92
+      - pattern: "(?i)\\bmatrimonial[\\s_.-]*property[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.90
+      - pattern: "(?i)\\bmarriage[\\s_.-]*contract\\b"
+        kind: specific_subject
+        weight: 0.90
+      - pattern: "(?i)\\bspousal[\\s_.-]*property[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.88
+      - pattern: "(?i)\\bmarital[\\s_.-]*(?:agreement|contract|property[\\s_.-]*agreement)\\b"
+        kind: generic_form
+        weight: 0.62
+      - pattern: "(?i)\\bseparation[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.52
+      - pattern: "(?i)\\bбрачн[а-я]*\\b"
+        kind: context
+        weight: 0.24
+      - pattern: "(?i)\\bсупруг[аи]\\b"
+        kind: context
+        weight: 0.16
+      - pattern: "(?i)\\bmarriage\\b"
+        kind: context
+        weight: 0.14
+
+    folder_patterns:
+      - pattern: "(?i)брачн[а-я]*[_\\s-]*(?:договор|контракт)"
+        kind: specific_subject
+        weight: 0.88
+      - pattern: "(?i)(?:prenuptial|postnuptial|antenuptial|nuptial)[_\\s-]*(?:agreement|contract)?"
+        kind: specific_subject
+        weight: 0.88
+      - pattern: "(?i)раздел[_\\s-]*имущества[_\\s-]*супругов|matrimonial[_\\s-]*property|spousal[_\\s-]*property"
+        kind: specific_subject
+        weight: 0.82
+      - pattern: "(?i)pre[_\\s-]*nup|prenup"
+        kind: specific_subject
+        weight: 0.86
+      - pattern: "(?i)marriage[_\\s-]*contract|marital[_\\s-]*(?:agreement|property)"
+        kind: generic_form
+        weight: 0.56
+      - pattern: "(?i)separation[_\\s-]*(?:agreement|deed)?"
+        kind: generic_form
+        weight: 0.44
+      - pattern: "(?i)брачн|nuptial|matrimonial"
+        kind: context
+        weight: 0.22
+      - pattern: "(?i)семейн|family[_\\s-]*(?:law|matters?)"
+        kind: context
+        weight: 0.16
+      - pattern: "(?i)family|семья"
+        kind: context
+        weight: 0.12
+
+    keywords:
+      high:
+        - pattern: "(?i)брачн[ыйое]\\s+договор"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное наименование брачного договора"
+        - pattern: "(?i)брачн[ыйое]\\s+контракт"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Альтернативное название — брачный контракт"
+        - pattern: "(?i)брачн[ыйое]\\s+договор\\s+до\\s+заключен[ияи]\\s+брака"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Брачный договор, заключаемый до регистрации брака"
+        - pattern: "(?i)брачн[ыйое]\\s+договор\\s+в\\s+период\\s+брака"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Брачный договор, заключаемый в период существования брака"
+        - pattern: "(?i)дополнительн[оеое]\\s+соглашен[иеия]\\s+к\\s+брачн[омуому]\\s+договор[у]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Дополнительное соглашение к уже заключённому брачному договору"
+        - pattern: "(?i)супруг[иов]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Участники брачного договора — супруги"
+        - pattern: "(?i)лиц[аы],?\\s+вступающ[иеие]\\s+в\\s+брак"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Лица, вступающие в брак — потенциальные стороны договора"
+        - pattern: "(?i)имущественн[ыеые]\\s+прав[ао]\\s+и\\s+обязанност[иьи]\\s+супруг[ов]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Определение имущественных прав и обязанностей супругов"
+        - pattern: "(?i)режим\\s+имуществ[ао]\\s+супруг[ов]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Установление режима имущества супругов"
+        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]\\s+брачного\\s+договора"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Нотариальное удостоверение брачного договора — ст. 41 СК РФ"
+        - pattern: "(?i)ст\\.?\\s*40\\s+ск\\s+рф"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ст. 40 СК РФ о брачном договоре"
+        - pattern: "(?i)ст\\.?\\s*42\\s+ск\\s+рф"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Статья СК РФ о содержании брачного договора"
+
+      medium:
+        - pattern: "(?i)совместн[а-яё]+\\s+собственност[ьи]\\s+супруг[оо]в"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Совместная собственность супругов как базовый режим"
+        - pattern: "(?i)раздельн[а-яё]+\\s+собственност[ьи]\\s+супруг[оо]в"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Раздельная собственность супругов как возможный режим"
+        - pattern: "(?i)долев[а-яё]+\\s+собственност[ьи]\\s+супруг[оо]в"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Долевая собственность супругов"
+        - pattern: "(?i)имуществ[оо],?\\s+нажит[оо]\\s+в\\s+брак[ее]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Имущество, нажитое в браке"
+        - pattern: "(?i)добрачн[оа]е\\s+имуществ[оо]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Добрачное имущество каждого из супругов"
+        - pattern: "(?i)расторжени[ея]\\s+брак[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Урегулирование последствий расторжения брака"
+        - pattern: "(?i)раздел\\s+имуществ[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Раздел имущества супругов"
+        - pattern: "(?i)режим\\s+совместн[оа]й\\s+собственност[ии]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Режим совместной собственности"
+        - pattern: "(?i)режим\\s+раздельн[оа]й\\s+собственност[ии]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Режим раздельной собственности"
+        - pattern: "(?i)крайне\\s+неблагоприятн[оа]е\\s+положени[ея]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Запрет ставить одного из супругов в крайне неблагоприятное положение"
+        - pattern: "(?i)ст\\.\\s*44\\s*СК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на правила изменения, расторжения и признания недействительным брачного договора"
+        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Нотариальное удостоверение — общий семейно-правовой маркер"
+
+      low:
+        - pattern: "(?i)семейн[ыо]е\\s+расход[ыо]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Распределение семейных расходов"
+        - pattern: "(?i)взаимн[оа]е\\s+содержани[ея]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Взаимное содержание супругов"
+        - pattern: "(?i)алиментн[ыо]е\\s+обязательств[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Алиментные обязательства супругов"
+        - pattern: "(?i)кредитн[ыо]е\\s+обязательств[аа]\\s+супруг[оо]в"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Распределение кредитных обязательств супругов"
+        - pattern: "(?i)унаследованн[оа]е\\s+имуществ[оо]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Имущество, полученное по наследству"
+        - pattern: "(?i)изменени[ея]\\s+брачн[оа]го\\s+договор[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Изменение условий брачного договора"
+        - pattern: "(?i)уведомлени[ея]\\s+кредитор[оо]в"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Уведомление кредиторов о заключении/изменении брачного договора"
+
+    exclusions:
+      - pattern: "(?i)соглашени[ея]\\s+о\\s+раздел[ее]\\s+общ[ео]го\\s+имуществ[аа]\\s+супруг[оо]в"
+        severity: hard
+        weight: -1.0
+        description: "Самостоятельное соглашение о разделе имущества, а не брачный договор"
+      - pattern: "(?i)соглашени[ея]\\s+об\\s+уплат[ее]\\s+алимент[оо]в"
+        severity: hard
+        weight: -1.0
+        description: "Алиментное соглашение — отдельный тип, не брачный договор"
+      - pattern: "(?i)соглашени[ея]\\s+о\\s+порядк[ее]\\s+осуществлени[яя]\\s+родительск[ио]х\\s+прав"
+        severity: hard
+        weight: -1.0
+        description: "Соглашение о детях и родительских правах не относится к брачному договору"
+      - pattern: "(?i)договор\\s+дарени[яя]\\s+между\\s+супругами"
+        severity: hard
+        weight: -1.0
+        description: "Договор дарения между супругами — отдельная сделка, не брачный договор"
+      - pattern: "(?i)индивидуальн[ыо]й\\s+трудов[оа]й\\s+договор"
+        severity: soft
+        weight: -0.35
+        description: "Индивидуальный трудовой договор указывает на трудовые, а не семейные отношения"
+      - pattern: "(?i)гражданско-?правов[оа]й\\s+договор"
+        severity: soft
+        weight: -0.3
+        description: "Гражданско-правовой договор иной природы, чем брачный договор"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+  prenuptial_context:
+    any_keywords:
+      - "(?i)лиц[аа],?\\s+вступающ[иие]+\\s+в\\s+брак"
+      - "(?i)до\\s+заключени[яя]\\s+брак[аа]"
+      - "(?i)до\\s+регистраци[ии]\\s+брак[аа]"
+      - "(?i)намеревающ[иие]+ся\\s+вступить\\s+в\\s+брак"
+      - "(?i)будущ[иие]+\\s+супруг[ии]"
+
+  postnuptial_context:
+    any_keywords:
+      - "(?i)в\\s+период\\s+брак[аа]"
+      - "(?i)состоящ[иие]+\\s+в\\s+брак[ее]"
+      - "(?i)зарегистрированн[ыо]й\\s+брак"
+      - "(?i)свидетельств[оо]\\s+о\\s+заключени[ии]\\s+брак[аа]"
+
+  business_assets_context:
+    any_keywords:
+      - "(?i)дол[яьи]\\s+в\\s+уставн[оа]м\\s+капитал[ее]"
+      - "(?i)\\bакци[яяи]\\b"
+      - "(?i)предпринимательск[а-яё]+\\s+деятельност[ьи]"
+      - "(?i)\\bИП\\b"
+      - "(?i)индивидуальн[ыо]й\\s+предпринимател[ья]"
+      - "(?i)\\bбизнес\\b"
+      - "(?i)\\bпредприяти[ея]\\b"
+      - "(?i)корпоративн[ыо]е\\s+прав[аа]"
+      - "(?i)интеллектуальн[а-яё]+\\s+собственност[ьи]"
+      - "(?i)товарн[ыо]й\\s+знак"
+      - "(?i)\\bпатент\\b"
+
+  real_estate_in_contract:
+    any_keywords:
+      - "(?i)\\bквартир[аеиу]\\b"
+      - "(?i)жил[оа]й\\s+дом"
+      - "(?i)земельн[ыо]й\\s+участ[оа]к"
+      - "(?i)недвижим[оа]е?\\s+имуществ[оо]"
+      - "(?i)нежил[оаоеые]+\\s+помещени[ея]"
+      - "(?i)кадастров[ыо]й\\s+номер"
+      - "(?i)\\bЕГРН\\b"
+
+  debt_obligations_context:
+    any_keywords:
+      - "(?i)\\bкредит\\b"
+      - "(?i)\\bипотек[ааы]\\b"
+      - "(?i)за[её]м"
+      - "(?i)долгов[ыо]е\\s+обязательств[аа]"
+      - "(?i)\\bпоручительств[ооа]\\b"
+      - "(?i)кредитн[ыо]й\\s+договор"
+      - "(?i)ипотечн[ыо]й\\s+кредит"
+      - "(?i)обязательств[аа]\\s+перед\\s+банк[оо]м"
+
+  children_present:
+    any_keywords:
+      - "(?i)общ[иие]\\s+дет[ии]"
+      - "(?i)несовершеннолетн[иие]+\\s+дет[ии]"
+      - "(?i)реб[её]нок"
+      - "(?i)дет[ии]\\s+от\\s+предыдущ[ео]го\\s+брак[аа]"
+      - "(?i)интерес[ыа]\\s+дет[ее]й"
+
+  homemaker_spouse:
+    any_keywords:
+      - "(?i)ведени[ея]\\s+домашн[ео]го\\s+хозяйств[аа]"
+      - "(?i)уход\\s+за\\s+детьми"
+      - "(?i)не\\s+имеющ[иие]+й\\s+самостоятельн[оа]го\\s+доход[аа]"
+      - "(?i)неработающ[иие]+й\\s+супруг"
+      - "(?i)\\bдомохозяйк[аа]\\b"
+      - "(?i)отпуск\\s+по\\s+уходу\\s+за\\s+реб[её]нк[оо]м"
+
+  foreign_element:
+    any_keywords:
+      - "(?i)иностранн[ыо]й\\s+гражданин"
+      - "(?i)гражданин\\s+иностранн[оа]го\\s+государств[аа]"
+      - "(?i)двойн[оа]е\\s+гражданств[оо]"
+      - "(?i)имуществ[оо]\\s+за\\s+рубежом"
+      - "(?i)применим[оа]е\\s+прав[оо]"
+      - "(?i)международн[ыо]й\\s+брак"
+
+  bankruptcy_risk_context:
+    any_keywords:
+      - "(?i)\\bбанкротств[оо]\\b"
+      - "(?i)\\bнесостоятельност[ьи]\\b"
+      - "(?i)оспаривани[ея]\\s+сделк[ии]"
+      - "(?i)финансов[ыо]й\\s+управляющ[иаяй]"
+      - "(?i)конкурсн[а-яё]+\\s+масс[аа]"
+      - "(?i)\\bФЗ-127\\b"
+      - "(?i)закон\\s+о\\s+банкротств[ее]"
+
+  high_value_assets:
+    any_keywords:
+      - "(?i)драгоценност[ии]"
+      - "(?i)предмет[ыа]\\s+роскош[ии]"
+      - "(?i)транспортн[ыо]е\\s+средств[аа]"
+      - "(?i)\\bавтомобил[ьяею]\\b"
+      - "(?i)\\bяхт[ааы]\\b"
+      - "(?i)воздушн[оа]е\\s+судн[оо]"
+      - "(?i)ценн[ыо]е\\s+бумаг[ии]"
+      - "(?i)инвестици[ии]"
+      - "(?i)банковск[иие]+\\s+вклад[ыа]"
+      - "(?i)\\bкриптовалют[ааы]\\b"
+      - "(?i)цифров[ыо]е\\s+актив[ыа]"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+  passport_data: "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|процент|%)"
+  cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+  article_sk_ref: "(?i)ст\\.?\\s*\\d+\\s*СК\\s*РФ"
+
+compliance_rules: []
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 1: Стороны, статус брака, нотариальная форма, момент вступления в силу
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: parties_notarial_effective_date_check
+    name: "Стороны, статус брака, нотариальная форма и момент вступления в силу"
+    description: >
+      Фактографическая проверка идентификации сторон, статуса отношений
+      (prenuptial / postnuptial), нотариального удостоверения (ст. 41 СК РФ)
+      и момента вступления договора в силу.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "супруг"
+        - "супруга"
+        - "лицо, вступающее в брак"
+        - "муж"
+        - "жена"
+        - "паспорт"
+        - "гражданин"
+        - "гражданка"
+        - "зарегистрирован брак"
+        - "свидетельство о заключении брака"
+        - "нотариальное удостоверение"
+        - "нотариус"
+        - "удостоверено нотариусом"
+        - "реестр нотариальных действий"
+        - "вступает в силу"
+        - "с момента регистрации брака"
+        - "с момента нотариального удостоверения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
+        - "(?i)(супруг|супруга|муж|жена)\\s*[-—:]"
+        - "(?i)свидетельств(о|а)\\s+о\\s+(заключении|регистрации)\\s+брака"
+        - "(?i)удостоверен(о|а)\\s+нотариусом"
+        - "(?i)нотариальн(ое|ого|ым)\\s+удостоверен"
+        - "(?i)реестр(а|е)?\\s+нотариальн"
+        - "(?i)вступает\\s+в\\s+силу\\s+(с\\s+момента|со\\s+дня)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (Глава 8 СК РФ, ст. 40, 41).
+        Проверяется только один вопрос: идентификация сторон, статус отношений,
+        нотариальное удостоверение и момент вступления в силу.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора,
+          а чего прямо нет.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. ФИО и паспортные данные первого супруга.
+        2. ФИО и паспортные данные второго супруга.
+        3. Статус отношений на момент заключения (вступающие в брак / супруги).
+        4. Дату и номер свидетельства о браке (если брак заключён).
+        5. Наличие нотариального удостоверения, ФИО нотариуса, номер в реестре.
+        6. Момент вступления договора в силу.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — данные определены:
+        Фрагмент:
+        "Иванов Иван Иванович, паспорт серия 45 00 № 123456, и Петрова Мария Сергеевна,
+        паспорт серия 45 01 № 654321, вступающие в брак, заключили настоящий брачный
+        договор. Договор вступает в силу с момента государственной регистрации брака.
+        Удостоверено нотариусом г. Москвы Сидоровой А.Б., реестр № 77-АА-123456."
+        Ответ:
+        {
+          "spouse_1_name_status": "defined",
+          "spouse_1_name_value": "Иванов Иван Иванович, паспорт серия 45 00 № 123456",
+          "spouse_2_name_status": "defined",
+          "spouse_2_name_value": "Петрова Мария Сергеевна, паспорт серия 45 01 № 654321",
+          "marital_status": "prenuptial",
+          "marriage_registration_status": "not_defined",
+          "notarial_status": "certified",
+          "notary_name_status": "defined",
+          "notary_name_value": "нотариус г. Москвы Сидорова А.Б.",
+          "registry_number_status": "defined",
+          "registry_number_value": "реестр № 77-АА-123456",
+          "effective_date_status": "defined",
+          "effective_date_details": "с момента государственной регистрации брака",
+          "evidence": [
+            {
+              "clause_ref": "преамбула",
+              "quote": "Иванов Иван Иванович, паспорт серия 45 00 № 123456, и Петрова Мария Сергеевна, паспорт серия 45 01 № 654321, вступающие в брак, заключили настоящий брачный договор."
+            }
+          ]
+        }
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Настоящий договор заключён между супругами."
+        Ответ:
+        {
+          "spouse_1_name_status": "not_defined",
+          "spouse_1_name_value": "Данные не определены",
+          "spouse_2_name_status": "not_defined",
+          "spouse_2_name_value": "Данные не определены",
+          "marital_status": "postnuptial",
+          "marriage_registration_status": "not_defined",
+          "notarial_status": "not_defined",
+          "notary_name_status": "not_defined",
+          "notary_name_value": "Данные не определены",
+          "registry_number_status": "not_defined",
+          "registry_number_value": "Данные не определены",
+          "effective_date_status": "not_defined",
+          "effective_date_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с ФИО первого супруга.
+        2. Найди прямую цитату с ФИО второго супруга.
+        3. Определи статус отношений по тексту (вступающие в брак / супруги).
+        4. Найди прямую цитату о нотариальном удостоверении.
+        5. Найди прямую цитату о моменте вступления в силу.
+        6. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "spouse_1_name_status": "<defined / not_defined>",
+          "spouse_1_name_value": "<ФИО и паспорт или 'Данные не определены'>",
+          "spouse_2_name_status": "<defined / not_defined>",
+          "spouse_2_name_value": "<ФИО и паспорт или 'Данные не определены'>",
+          "marital_status": "<prenuptial / postnuptial / not_defined>",
+          "marriage_registration_status": "<defined / not_defined>",
+          "notarial_status": "<certified / mentioned / not_defined>",
+          "notary_name_status": "<defined / not_defined>",
+          "notary_name_value": "<ФИО нотариуса или 'Данные не определены'>",
+          "registry_number_status": "<defined / not_defined>",
+          "registry_number_value": "<номер или 'Данные не определены'>",
+          "effective_date_status": "<defined / not_defined>",
+          "effective_date_details": "<момент вступления или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      retrieval_profile: "party_identification_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "супруг супруга муж жена лицо вступающее в брак паспорт гражданин гражданка свидетельство о заключении брака нотариальное удостоверение нотариус реестр нотариальных действий вступает в силу с момента регистрации брака с момента нотариального удостоверения"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - definitions
+        - boilerplate
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "долевая собственность"
+        - "имущество нажитое в браке"
+        - "алименты"
+        - "компенсация"
+        - "недвижимость"
+        - "ипотека"
+        - "банкротство"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.35
+        scope: segment
+      context_k: 6
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "representations"
+        - "definitions"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.15
+
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1400
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        сведения о сторонах, статусе отношений, нотариальном удостоверении
+        и моменте вступления в силу.
+        Не анализируй режим собственности, алименты, раздел имущества или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. spouse_1_name_status — "defined" или "not_defined".
+        2. spouse_1_name_value — ФИО и паспорт первого супруга.
+        3. spouse_2_name_status — "defined" или "not_defined".
+        4. spouse_2_name_value — ФИО и паспорт второго супруга.
+        5. marital_status — prenuptial / postnuptial / not_defined.
+        6. marriage_registration_status — "defined" или "not_defined".
+        7. notarial_status — certified / mentioned / not_defined.
+        8. notary_name_status — "defined" или "not_defined".
+        9. notary_name_value — ФИО нотариуса.
+        10. registry_number_status — "defined" или "not_defined".
+        11. registry_number_value — номер в реестре.
+        12. effective_date_status — "defined" или "not_defined".
+        13. effective_date_details — момент вступления в силу.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - marital_status: "prenuptial" — если прямо указано, что стороны вступают в брак;
+          "postnuptial" — если прямо указано, что стороны состоят в браке;
+          "not_defined" — если статус прямо не указан.
+        - notarial_status: "certified" — есть удостоверительная надпись нотариуса;
+          "mentioned" — упоминается необходимость удостоверения, но надписи нет;
+          "not_defined" — вопрос не раскрыт.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "spouse_1_name_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации первого супруга."
+          required: true
+        - name: "spouse_1_name_value"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Супруг 1"
+          description: "ФИО и паспортные данные первого супруга."
+          required: true
+        - name: "spouse_2_name_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации второго супруга."
+          required: true
+        - name: "spouse_2_name_value"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Супруг 2"
+          description: "ФИО и паспортные данные второго супруга."
+          required: true
+        - name: "marital_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["prenuptial", "postnuptial", "not_defined"]
+          description: "Статус отношений на момент заключения."
+          required: true
+        - name: "marriage_registration_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус реквизитов свидетельства о браке."
+          required: false
+        - name: "notarial_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["certified", "mentioned", "not_defined"]
+          description: "Статус нотариального удостоверения."
+          required: true
+        - name: "notary_name_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания ФИО нотариуса."
+          required: false
+        - name: "notary_name_value"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Нотариус"
+          description: "ФИО нотариуса, удостоверившего договор."
+          required: false
+        - name: "registry_number_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус номера в реестре."
+          required: false
+        - name: "registry_number_value"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Номер в реестре"
+          description: "Номер в реестре нотариальных действий."
+          required: false
+        - name: "effective_date_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания момента вступления в силу."
+          required: true
+        - name: "effective_date_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Момент вступления в силу"
+          description: "Момент вступления договора в силу."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 2: Режим собственности на имущество
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: property_regime_check
+    name: "Режим собственности: добрачное имущество, брачное имущество, перечень объектов"
+    description: >
+      Фактографическая проверка режима собственности на добрачное имущество,
+      имущество, нажитое в браке, имущество, полученное по наследству и в дар,
+      а также наличия конкретного перечня объектов имущества.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "долевая собственность"
+        - "смешанный режим"
+        - "добрачное имущество"
+        - "имущество, нажитое в браке"
+        - "имущество, нажитое во время брака"
+        - "каждому из супругов принадлежит"
+        - "является личной собственностью"
+        - "по наследству"
+        - "в дар"
+        - "приложение"
+        - "перечень имущества"
+        - "кадастровый номер"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(совместн|раздельн|долев)(ая|ой|ую)\\s+собственност"
+        - "(?i)режим\\s+(совместной|раздельной|долевой|смешанн)"
+        - "(?i)имущество.*нажит(ое|ого)\\s+в\\s+(период\\s+)?брак"
+        - "(?i)(по\\s+наследств|в\\s+дар|безвозмездн)"
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 42, 36 СК РФ).
+        Проверяется только один вопрос: режим собственности на имущество супругов.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Режим добрачного имущества каждого супруга.
+        2. Режим имущества, нажитого в браке.
+        3. Режим имущества, полученного по наследству и в дар.
+        4. Наличие конкретного перечня объектов с идентификацией.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — режимы определены:
+        Фрагмент:
+        "Имущество, приобретённое каждым из супругов до брака, а также полученное
+        по наследству или в дар, является его личной собственностью.
+        Имущество, нажитое в браке, является раздельной собственностью каждого из супругов.
+        Перечень объектов указан в Приложении № 1."
+        Ответ:
+        {
+          "premarital_regime_status": "defined",
+          "premarital_regime_code": "separate",
+          "premarital_regime_details": "имущество, приобретённое до брака, является личной собственностью",
+          "marital_regime_status": "defined",
+          "marital_regime_code": "separate",
+          "marital_regime_details": "имущество, нажитое в браке, является раздельной собственностью",
+          "inherited_gifted_regime_status": "defined",
+          "inherited_gifted_regime_details": "полученное по наследству или в дар является личной собственностью",
+          "assets_inventory_status": "defined",
+          "assets_inventory_details": "Перечень объектов указан в Приложении № 1",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "Имущество, приобретённое каждым из супругов до брака, а также полученное по наследству или в дар, является его личной собственностью."
+            }
+          ]
+        }
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Стороны определяют режим имущества."
+        Ответ:
+        {
+          "premarital_regime_status": "not_defined",
+          "premarital_regime_code": "not_defined",
+          "premarital_regime_details": "Данные не определены",
+          "marital_regime_status": "not_defined",
+          "marital_regime_code": "not_defined",
+          "marital_regime_details": "Данные не определены",
+          "inherited_gifted_regime_status": "not_defined",
+          "inherited_gifted_regime_details": "Данные не определены",
+          "assets_inventory_status": "not_defined",
+          "assets_inventory_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о режиме добрачного имущества.
+        2. Найди прямую цитату о режиме имущества, нажитого в браке.
+        3. Найди прямую цитату о наследстве и даре.
+        4. Найди прямую цитату о перечне объектов.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "premarital_regime_status": "<defined / not_defined>",
+          "premarital_regime_code": "<joint / separate / shared_proportional / not_defined>",
+          "premarital_regime_details": "<текст или 'Данные не определены'>",
+          "marital_regime_status": "<defined / not_defined>",
+          "marital_regime_code": "<joint / separate / shared_proportional / mixed / not_defined>",
+          "marital_regime_details": "<текст или 'Данные не определены'>",
+          "inherited_gifted_regime_status": "<defined / not_defined>",
+          "inherited_gifted_regime_details": "<текст или 'Данные не определены'>",
+          "assets_inventory_status": "<defined / not_defined>",
+          "assets_inventory_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      retrieval_profile: "definitions_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "режим собственности совместная собственность раздельная собственность долевая собственность смешанный режим добрачное имущество имущество нажитое в браке каждому из супругов принадлежит является личной собственностью по наследству в дар приложение перечень имущества кадастровый номер"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "алименты"
+        - "компенсация"
+        - "банкротство"
+        - "неустойка"
+        - "расторжение"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.10, 0.50]
+        boost: 0.20
+        scope: segment
+      context_k: 8
+      max_chunks: 12
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1400
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        режимы собственности: добрачное имущество, имущество, нажитое в браке,
+        наследственное и подаренное имущество, перечень объектов.
+        Не анализируй алименты, компенсационные механизмы или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. premarital_regime_status — "defined" или "not_defined".
+        2. premarital_regime_code — joint / separate / shared_proportional / not_defined.
+        3. premarital_regime_details — режим добрачного имущества.
+        4. marital_regime_status — "defined" или "not_defined".
+        5. marital_regime_code — joint / separate / shared_proportional / mixed / not_defined.
+        6. marital_regime_details — режим имущества, нажитого в браке.
+        7. inherited_gifted_regime_status — "defined" или "not_defined".
+        8. inherited_gifted_regime_details — режим наследственного и подаренного имущества.
+        9. assets_inventory_status — "defined" или "not_defined".
+        10. assets_inventory_details — перечень объектов с идентификацией.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - premarital_regime_code и marital_regime_code:
+          "joint" — совместная собственность;
+          "separate" — раздельная собственность;
+          "shared_proportional" — долевая собственность;
+          "mixed" — разные режимы для разных видов имущества (только для marital);
+          "not_defined" — режим не определён.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "premarital_regime_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения режима добрачного имущества."
+          required: true
+        - name: "premarital_regime_code"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["joint", "separate", "shared_proportional", "not_defined"]
+          description: "Режим добрачного имущества."
+          required: false
+        - name: "premarital_regime_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Добрачное имущество"
+          description: "Режим добрачного имущества каждого супруга."
+          required: false
+        - name: "marital_regime_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения режима имущества, нажитого в браке."
+          required: true
+        - name: "marital_regime_code"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["joint", "separate", "shared_proportional", "mixed", "not_defined"]
+          description: "Режим имущества, нажитого в браке."
+          required: false
+        - name: "marital_regime_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Имущество в браке"
+          description: "Режим имущества, нажитого в браке."
+          required: false
+        - name: "inherited_gifted_regime_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус режима наследственного и подаренного имущества."
+          required: false
+        - name: "inherited_gifted_regime_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Наследство и дар"
+          description: "Режим имущества, полученного по наследству и в дар."
+          required: false
+        - name: "assets_inventory_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечня объектов имущества."
+          required: false
+        - name: "assets_inventory_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Перечень имущества"
+          description: "Перечень объектов имущества с идентификацией."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 3: Крайне неблагоприятное положение, жилищные права, компенсации
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: unfavorable_position_compensation_check
+    name: "Баланс прав, жилищные права и компенсационные механизмы (ст. 42, 44 СК РФ)"
+    description: >
+      Фактографическая проверка наличия условий, ставящих супруга в крайне
+      неблагоприятное положение, гарантий жилищных прав и компенсационных
+      механизмов для экономически слабой стороны.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "отказывается от имущества"
+        - "не претендует"
+        - "лишается права"
+        - "полностью переходит"
+        - "всё имущество принадлежит"
+        - "крайне неблагоприятное положение"
+        - "компенсация"
+        - "компенсационная выплата"
+        - "фиксированная выплата"
+        - "право пользования жилым помещением"
+        - "обеспечение жильём"
+        - "за ведение домашнего хозяйства"
+        - "за уход за детьми"
+        - "баланс интересов"
+      keyword_mode: "any"
+      negative_keywords:
+        - "компенсация"
+        - "взамен"
+        - "в качестве возмещения"
+        - "с учётом интересов"
+      regex_patterns:
+        - "(?i)(полностью|целиком)\\s+(отказывается|переходит|принадлежит)"
+        - "(?i)не\\s+претендует\\s+на\\s+(какое-либо|любое|всё)\\s+имущество"
+        - "(?i)крайне\\s+неблагоприятн(ое|ого)\\s+положени"
+        - "(?i)компенсаци(я|ю|и)\\s+(в\\s+размере|составляет|равна)"
+        - "(?i)право\\s+пользования\\s+жил(ым|ого)\\s+(помещени|дом)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 42, 44 СК РФ).
+        Проверяется только один вопрос: наличие условий о крайне неблагоприятном
+        положении, жилищных правах и компенсационных механизмах.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска и не делай выводов о балансе прав.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие условий о полном отказе от имущества.
+        2. Наличие явного указания на недопустимость крайне неблагоприятного положения.
+        3. Гарантии жилищных прав.
+        4. Виды компенсационных механизмов.
+        5. Компенсация за ведение домашнего хозяйства.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Настоящий договор не ставит ни одного из супругов в крайне неблагоприятное
+        положение. Супруге предоставляется право пользования жилым помещением
+        по адресу: г. Москва, ул. Ленина, д. 5, кв. 12. При расторжении брака
+        выплачивается компенсация в размере 3 000 000 рублей."
+        Ответ:
+        {
+          "full_refusal_detected": "not_defined",
+          "unfavorable_position_clause_status": "defined",
+          "unfavorable_position_clause_details": "не ставит ни одного из супругов в крайне неблагоприятное положение",
+          "housing_rights_status": "defined",
+          "housing_rights_details": "право пользования жилым помещением по адресу: г. Москва, ул. Ленина, д. 5, кв. 12",
+          "compensation_type_code": "lump_sum",
+          "compensation_type_details": "компенсация в размере 3 000 000 рублей",
+          "homemaker_compensation_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.1",
+              "quote": "Настоящий договор не ставит ни одного из супругов в крайне неблагоприятное положение."
+            }
+          ]
+        }
+        Пример 2 — признаки неблагоприятного положения:
+        Фрагмент:
+        "Супруга полностью отказывается от всего имущества, нажитого в браке.
+        Всё имущество переходит в собственность Супруга."
+        Ответ:
+        {
+          "full_refusal_detected": "defined",
+          "unfavorable_position_clause_status": "not_defined",
+          "unfavorable_position_clause_details": "Данные не определены",
+          "housing_rights_status": "not_defined",
+          "housing_rights_details": "Данные не определены",
+          "compensation_type_code": "not_defined",
+          "compensation_type_details": "Данные не определены",
+          "homemaker_compensation_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "Супруга полностью отказывается от всего имущества, нажитого в браке."
+            }
+          ]
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о полном отказе от имущества.
+        2. Найди прямую цитату о недопустимости крайне неблагоприятного положения.
+        3. Найди прямую цитату о жилищных правах.
+        4. Найди прямую цитату о компенсациях.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "full_refusal_detected": "<defined / not_defined>",
+          "unfavorable_position_clause_status": "<defined / not_defined>",
+          "unfavorable_position_clause_details": "<текст или 'Данные не определены'>",
+          "housing_rights_status": "<defined / not_defined>",
+          "housing_rights_details": "<текст или 'Данные не определены'>",
+          "compensation_type_code": "<lump_sum / periodic / housing_right / property_share / combination / not_defined>",
+          "compensation_type_details": "<текст или 'Данные не определены'>",
+          "homemaker_compensation_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 10
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "отказывается от имущества не претендует лишается права полностью переходит всё имущество принадлежит крайне неблагоприятное положение компенсация компенсационная выплата фиксированная выплата право пользования жилым помещением обеспечение жильём за ведение домашнего хозяйства за уход за детьми баланс интересов неравенство несоразмерность"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "алименты"
+        - "недвижимость"
+        - "ипотека"
+        - "банкротство"
+        - "расторжение"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.75]
+        boost: 0.15
+        scope: segment
+      context_k: 10
+      max_chunks: 12
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1200
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        условия о крайне неблагоприятном положении, жилищных правах и компенсациях.
+        Не оценивай баланс прав и не делай выводов о рисках.
+        Не анализируй режим собственности, алименты или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. full_refusal_detected — "defined" если полный отказ от имущества прямо указан.
+        2. unfavorable_position_clause_status — "defined" или "not_defined".
+        3. unfavorable_position_clause_details — явное указание на недопустимость крайне неблагоприятного положения.
+        4. housing_rights_status — "defined" или "not_defined".
+        5. housing_rights_details — гарантии жилищных прав.
+        6. compensation_type_code — lump_sum / periodic / housing_right / property_share / combination / not_defined.
+        7. compensation_type_details — описание компенсационных механизмов.
+        8. homemaker_compensation_status — "defined" или "not_defined".
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - full_refusal_detected = "defined" только если прямо указано, что один из супругов
+          полностью отказывается от всего имущества или всё имущество переходит одному супругу.
+        - compensation_type_code:
+          "lump_sum" — единовременная выплата;
+          "periodic" — периодические выплаты;
+          "housing_right" — право пользования жильём;
+          "property_share" — выделение доли в имуществе;
+          "combination" — несколько механизмов;
+          "not_defined" — не указано.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "full_refusal_detected"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус выявления полного отказа от имущества."
+          required: true
+        - name: "unfavorable_position_clause_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус явного указания на недопустимость крайне неблагоприятного положения."
+          required: false
+        - name: "unfavorable_position_clause_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Недопустимость неблагоприятного положения"
+          description: "Явное указание на недопустимость крайне неблагоприятного положения."
+          required: false
+        - name: "housing_rights_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус гарантий жилищных прав."
+          required: true
+        - name: "housing_rights_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Жилищные права"
+          description: "Гарантии жилищных прав более слабой стороны."
+          required: false
+        - name: "compensation_type_code"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["lump_sum", "periodic", "housing_right", "property_share", "combination", "not_defined"]
+          description: "Вид компенсационного механизма."
+          required: false
+        - name: "compensation_type_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Компенсационные механизмы"
+          description: "Описание компенсационных механизмов."
+          required: false
+        - name: "homemaker_compensation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус компенсации за ведение домашнего хозяйства."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 4: Бизнес-активы и корпоративные права
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: business_assets_check
+    name: "Отделение бизнес-активов и корпоративных прав (ст. 42 СК РФ)"
+    description: >
+      Фактографическая проверка отнесения бизнес-активов (доли, акции, доходы
+      от предпринимательской деятельности, ИС) к раздельной собственности
+      супруга-предпринимателя.
+    triggers:
+      any: ["business_assets_context"]
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "доля в уставном капитале"
+        - "акции"
+        - "доходы от предпринимательской деятельности"
+        - "бизнес"
+        - "предприятие"
+        - "корпоративные права"
+        - "интеллектуальная собственность"
+        - "раздельная собственность супруга-предпринимателя"
+        - "не подлежат разделу"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(дол[яи]|акци[ия])\\s+(в\\s+)?уставн(ом|ого)\\s+капитал"
+        - "(?i)доход(ы|ов)\\s+от\\s+предпринимательск"
+        - "(?i)интеллектуальн(ая|ой)\\s+собственност"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 42 СК РФ).
+        Проверяется только один вопрос: отнесение бизнес-активов к имуществу супругов.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Режим бизнес-активов (доли, акции, предприятия).
+        2. Режим доходов от предпринимательской деятельности.
+        3. Режим интеллектуальной собственности.
+        4. Указаны ли конкретные компании/бизнесы.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Доля в уставном капитале ООО «Альфа» (ИНН 7700000001) и доходы от
+        предпринимательской деятельности Супруга являются его раздельной собственностью.
+        Исключительные права на интеллектуальную собственность Супруга являются
+        его личной собственностью."
+        Ответ:
+        {
+          "business_assets_regime_code": "separate",
+          "business_assets_regime_details": "доля в ООО «Альфа» является раздельной собственностью Супруга",
+          "business_income_regime_code": "separate",
+          "business_income_regime_details": "доходы от предпринимательской деятельности являются раздельной собственностью",
+          "ip_rights_regime_code": "separate",
+          "ip_rights_regime_details": "исключительные права на интеллектуальную собственность являются личной собственностью",
+          "specific_companies_status": "defined",
+          "specific_companies_details": "ООО «Альфа» (ИНН 7700000001)",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.3",
+              "quote": "Доля в уставном капитале ООО «Альфа» (ИНН 7700000001) и доходы от предпринимательской деятельности Супруга являются его раздельной собственностью."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Стороны определяют режим имущества."
+        Ответ:
+        {
+          "business_assets_regime_code": "not_defined",
+          "business_assets_regime_details": "Данные не определены",
+          "business_income_regime_code": "not_defined",
+          "business_income_regime_details": "Данные не определены",
+          "ip_rights_regime_code": "not_defined",
+          "ip_rights_regime_details": "Данные не определены",
+          "specific_companies_status": "not_defined",
+          "specific_companies_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о режиме бизнес-активов.
+        2. Найди прямую цитату о доходах от предпринимательской деятельности.
+        3. Найди прямую цитату об интеллектуальной собственности.
+        4. Найди прямую цитату о конкретных компаниях.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "business_assets_regime_code": "<separate / joint / mixed / not_defined>",
+          "business_assets_regime_details": "<текст или 'Данные не определены'>",
+          "business_income_regime_code": "<separate / joint / not_defined>",
+          "business_income_regime_details": "<текст или 'Данные не определены'>",
+          "ip_rights_regime_code": "<separate / joint / not_defined>",
+          "ip_rights_regime_details": "<текст или 'Данные не определены'>",
+          "specific_companies_status": "<defined / not_defined>",
+          "specific_companies_details": "<перечень или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+
+    retrieval:
+      retrieval_profile: "definitions_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "доля в уставном капитале акции доходы от предпринимательской деятельности бизнес предприятие корпоративные права интеллектуальная собственность раздельная собственность супруга-предпринимателя не подлежат разделу"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "алименты"
+        - "компенсация"
+        - "банкротство"
+        - "недвижимость"
+        - "ипотека"
+        - "расторжение"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.10, 0.60]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 900
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        режим бизнес-активов, доходов от предпринимательской деятельности
+        и интеллектуальной собственности.
+        Не анализируй алименты, компенсационные механизмы или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. business_assets_regime_code — separate / joint / mixed / not_defined.
+        2. business_assets_regime_details — режим бизнес-активов.
+        3. business_income_regime_code — separate / joint / not_defined.
+        4. business_income_regime_details — режим доходов от предпринимательской деятельности.
+        5. ip_rights_regime_code — separate / joint / not_defined.
+        6. ip_rights_regime_details — режим интеллектуальной собственности.
+        7. specific_companies_status — "defined" или "not_defined".
+        8. specific_companies_details — перечень конкретных компаний/бизнесов.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - business_assets_regime_code:
+          "separate" — бизнес-активы являются раздельной собственностью супруга-предпринимателя;
+          "joint" — бизнес-активы являются совместной собственностью;
+          "mixed" — разные режимы для разных бизнес-активов;
+          "not_defined" — режим не определён.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "business_assets_regime_code"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["separate", "joint", "mixed", "not_defined"]
+          description: "Режим бизнес-активов."
+          required: true
+        - name: "business_assets_regime_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Бизнес-активы"
+          description: "Режим бизнес-активов (доли, акции, предприятия)."
+          required: false
+        - name: "business_income_regime_code"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["separate", "joint", "not_defined"]
+          description: "Режим доходов от предпринимательской деятельности."
+          required: false
+        - name: "business_income_regime_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Доходы от бизнеса"
+          description: "Режим доходов от предпринимательской деятельности."
+          required: false
+        - name: "ip_rights_regime_code"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["separate", "joint", "not_defined"]
+          description: "Режим интеллектуальной собственности."
+          required: false
+        - name: "ip_rights_regime_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Интеллектуальная собственность"
+          description: "Режим интеллектуальной собственности."
+          required: false
+        - name: "specific_companies_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечня конкретных компаний."
+          required: false
+        - name: "specific_companies_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Конкретные компании"
+          description: "Перечень конкретных компаний/бизнесов."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Алиментные права и взаимное содержание
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: alimony_maintenance_check
+    name: "Алиментные права нетрудоспособного супруга и взаимное содержание"
+    description: >
+      Фактографическая проверка условий об алиментных правах нетрудоспособного
+      нуждающегося супруга (ст. 42, 89–92 СК РФ), взаимном содержании
+      и выявлении ограничений алиментных прав.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "алименты"
+        - "содержание супруга"
+        - "нетрудоспособность"
+        - "нуждаемость"
+        - "инвалидность"
+        - "право на содержание"
+        - "обязанность по содержанию"
+        - "отказ от алиментов"
+        - "не вправе требовать содержание"
+        - "взаимное содержание"
+      keyword_mode: "any"
+      negative_keywords:
+        - "отказывается от права на содержание"
+        - "не вправе требовать алименты"
+        - "освобождается от обязанности содержать"
+        - "алименты не выплачиваются"
+      regex_patterns:
+        - "(?i)алимент(ы|ов|ных)"
+        - "(?i)содержани(е|я)\\s+супруг"
+        - "(?i)нетрудоспособн(ый|ого|ой)\\s+(нуждающ|супруг)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 42, 89–92 СК РФ).
+        Проверяется только один вопрос: алиментные права и взаимное содержание.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Статус алиментных условий (расширены / сохранены / ограничены / не раскрыты).
+        2. Выявлено ли ограничение права на алименты.
+        3. Указан ли размер алиментов.
+        4. Условия взаимного содержания.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "При расторжении брака Супруг обязуется выплачивать Супруге алименты
+        в размере 50 000 рублей ежемесячно в случае её нетрудоспособности."
+        Ответ:
+        {
+          "alimony_clause_status": "enhanced",
+          "restriction_detected": "not_defined",
+          "alimony_amount_status": "defined",
+          "alimony_amount_details": "50 000 рублей ежемесячно в случае нетрудоспособности",
+          "mutual_maintenance_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.1",
+              "quote": "При расторжении брака Супруг обязуется выплачивать Супруге алименты в размере 50 000 рублей ежемесячно в случае её нетрудоспособности."
+            }
+          ]
+        }
+        Пример 2 — ограничение:
+        Фрагмент:
+        "Супруга не вправе требовать алименты при расторжении брака."
+        Ответ:
+        {
+          "alimony_clause_status": "restricted",
+          "restriction_detected": "defined",
+          "alimony_amount_status": "not_defined",
+          "alimony_amount_details": "Данные не определены",
+          "mutual_maintenance_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.1",
+              "quote": "Супруга не вправе требовать алименты при расторжении брака."
+            }
+          ]
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об алиментных условиях.
+        2. Проверь, есть ли ограничение права на алименты.
+        3. Найди прямую цитату о размере алиментов.
+        4. Найди прямую цитату о взаимном содержании.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "alimony_clause_status": "<enhanced / preserved / restricted / not_defined>",
+          "restriction_detected": "<defined / not_defined>",
+          "alimony_amount_status": "<defined / not_defined>",
+          "alimony_amount_details": "<размер или 'Данные не определены'>",
+          "mutual_maintenance_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      retrieval_profile: "definitions_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "алименты содержание супруга нетрудоспособность нуждаемость инвалидность право на содержание обязанность по содержанию отказ от алиментов не вправе требовать содержание взаимное содержание ст. 89 СК РФ ст. 90 СК РФ ст. 91 СК РФ ст. 92 СК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "недвижимость"
+        - "ипотека"
+        - "банкротство"
+        - "расторжение"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.75]
+        boost: 0.12
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 800
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        условия об алиментных правах, взаимном содержании и выявлении ограничений.
+        Не анализируй режим собственности, компенсационные механизмы или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. alimony_clause_status — enhanced / preserved / restricted / not_defined.
+        2. restriction_detected — "defined" или "not_defined".
+        3. alimony_amount_status — "defined" или "not_defined".
+        4. alimony_amount_details — размер алиментов.
+        5. mutual_maintenance_status — "defined" или "not_defined".
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - alimony_clause_status:
+          "enhanced" — договор устанавливает алименты выше закона;
+          "preserved" — договор подтверждает право на алименты по закону;
+          "restricted" — договор ограничивает право на алименты;
+          "not_defined" — вопрос не раскрыт.
+        - restriction_detected = "defined" только если прямо указано ограничение
+          права на алименты (отказ, запрет требовать).
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "alimony_clause_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["enhanced", "preserved", "restricted", "not_defined"]
+          description: "Статус алиментных условий."
+          required: true
+        - name: "restriction_detected"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус выявления ограничения алиментных прав."
+          required: true
+        - name: "alimony_amount_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания размера алиментов."
+          required: false
+        - name: "alimony_amount_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Размер алиментов"
+          description: "Размер алиментов."
+          required: false
+        - name: "mutual_maintenance_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условий о взаимном содержании."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 6: Распределение долгов и ипотеки
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: debt_mortgage_allocation_check
+    name: "Распределение долговых и ипотечных обязательств (ст. 42, 45 СК РФ)"
+    description: >
+      Фактографическая проверка распределения кредитов и долгов,
+      урегулированности ипотечных обязательств, статуса созаёмщика.
+    triggers:
+      any: ["debt_obligations_context"]
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "долги"
+        - "долговые обязательства"
+        - "кредит"
+        - "кредитные обязательства"
+        - "ипотека"
+        - "ипотечный кредит"
+        - "залог недвижимости"
+        - "созаёмщик"
+        - "солидарная ответственность"
+        - "ежемесячный платёж"
+        - "погашение кредита"
+        - "заём"
+        - "поручительство"
+        - "личные долги"
+        - "общие долги"
+        - "ответственность по обязательствам"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(личн|общ)(ые|их)\\s+долг(и|ов)"
+        - "(?i)ответственност(ь|и)\\s+по\\s+обязательств"
+        - "(?i)ипотечн(ый|ого|ых)\\s+(кредит|обязательств)"
+        - "(?i)созаёмщик|солидарн(ая|ой)\\s+ответственност"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 42, 45 СК РФ; ФЗ-102 «Об ипотеке»).
+        Проверяется только один вопрос: распределение долговых и ипотечных обязательств.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Распределение личных и общих долгов.
+        2. Кто несёт ипотечные обязательства.
+        3. Статус созаёмщика.
+        4. Порядок при расторжении брака (рефинансирование, продажа, переоформление).
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Каждый из супругов несёт ответственность по своим личным долгам самостоятельно.
+        Ипотечный кредит по квартире по адресу: г. Москва, ул. Ленина, д. 5, кв. 12
+        погашается Супругом. Супруга является созаёмщиком. При расторжении брака
+        ипотека переоформляется на Супруга."
+        Ответ:
+        {
+          "debt_allocation_status": "defined",
+          "debt_allocation_details": "каждый супруг несёт ответственность по своим личным долгам самостоятельно",
+          "mortgage_obligation_status": "defined",
+          "mortgage_obligation_details": "ипотечный кредит погашается Супругом",
+          "co_borrower_status": "defined",
+          "co_borrower_details": "Супруга является созаёмщиком",
+          "divorce_mortgage_procedure_status": "defined",
+          "divorce_mortgage_procedure_details": "при расторжении брака ипотека переоформляется на Супруга",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.1",
+              "quote": "Каждый из супругов несёт ответственность по своим личным долгам самостоятельно."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Стороны определяют режим имущества."
+        Ответ:
+        {
+          "debt_allocation_status": "not_defined",
+          "debt_allocation_details": "Данные не определены",
+          "mortgage_obligation_status": "not_defined",
+          "mortgage_obligation_details": "Данные не определены",
+          "co_borrower_status": "not_defined",
+          "co_borrower_details": "Данные не определены",
+          "divorce_mortgage_procedure_status": "not_defined",
+          "divorce_mortgage_procedure_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о распределении долгов.
+        2. Найди прямую цитату об ипотечных обязательствах.
+        3. Найди прямую цитату о созаёмщике.
+        4. Найди прямую цитату о порядке при расторжении.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "debt_allocation_status": "<defined / not_defined>",
+          "debt_allocation_details": "<текст или 'Данные не определены'>",
+          "mortgage_obligation_status": "<defined / not_defined>",
+          "mortgage_obligation_details": "<текст или 'Данные не определены'>",
+          "co_borrower_status": "<defined / not_defined>",
+          "co_borrower_details": "<текст или 'Данные не определены'>",
+          "divorce_mortgage_procedure_status": "<defined / not_defined>",
+          "divorce_mortgage_procedure_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 600
+
+    retrieval:
+      retrieval_profile: "security_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "долги долговые обязательства кредит кредитные обязательства ипотека ипотечный кредит залог недвижимости созаёмщик солидарная ответственность ежемесячный платёж погашение кредита заём поручительство личные долги общие долги ответственность по обязательствам"
+      preferred_unit_types:
+        - obligation
+        - liability_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "алименты"
+        - "компенсация"
+        - "банкротство"
+        - "расторжение"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.75]
+        boost: 0.12
+        scope: segment
+      context_k: 7
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 900
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        распределение долговых и ипотечных обязательств.
+        Не анализируй режим собственности, алименты или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. debt_allocation_status — "defined" или "not_defined".
+        2. debt_allocation_details — распределение личных и общих долгов.
+        3. mortgage_obligation_status — "defined" или "not_defined".
+        4. mortgage_obligation_details — кто несёт ипотечные обязательства.
+        5. co_borrower_status — "defined" или "not_defined".
+        6. co_borrower_details — статус созаёмщика.
+        7. divorce_mortgage_procedure_status — "defined" или "not_defined".
+        8. divorce_mortgage_procedure_details — порядок при расторжении брака.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "debt_allocation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус распределения долгов."
+          required: true
+        - name: "debt_allocation_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Распределение долгов"
+          description: "Распределение личных и общих долгов."
+          required: false
+        - name: "mortgage_obligation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ипотечных обязательств."
+          required: false
+        - name: "mortgage_obligation_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Ипотечные обязательства"
+          description: "Кто несёт ипотечные обязательства."
+          required: false
+        - name: "co_borrower_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус созаёмщика."
+          required: false
+        - name: "co_borrower_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Созаёмщик"
+          description: "Статус созаёмщика по ипотеке."
+          required: false
+        - name: "divorce_mortgage_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка при расторжении."
+          required: false
+        - name: "divorce_mortgage_procedure_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Порядок при расторжении"
+          description: "Порядок при расторжении брака (рефинансирование, продажа, переоформление)."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 7: Уведомление кредиторов и защита от кредиторов
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: creditor_notification_protection_check
+    name: "Уведомление кредиторов (ст. 46 СК РФ) и защита от кредиторов супруга"
+    description: >
+      Фактографическая проверка обязанности уведомления кредиторов (ст. 46 СК РФ),
+      перечня кредиторов и механизмов защиты имущества от кредиторов другого супруга.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "уведомление кредиторов"
+        - "обязанность уведомить кредиторов"
+        - "кредиторы извещаются"
+        - "статья 46 СК РФ"
+        - "ст. 46 СК РФ"
+        - "ответственность перед кредиторами"
+        - "независимо от содержания договора"
+        - "не отвечает по обязательствам другого супруга"
+        - "раздельная ответственность"
+        - "обращение взыскания только на имущество должника"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уведом(ить|ление|ления)\\s+(своих\\s+)?кредитор"
+        - "(?i)ст\\.?\\s*46\\s*СК"
+        - "(?i)не\\s+отвечает\\s+по\\s+обязательствам\\s+друг(ого|ой)\\s+супруг"
+        - "(?i)раздельн(ая|ой)\\s+ответственност"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 45, 46 СК РФ).
+        Проверяется только один вопрос: уведомление кредиторов и защита от кредиторов.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие положения об уведомлении кредиторов.
+        2. На кого возложена обязанность уведомления.
+        3. Последствия неуведомления.
+        4. Механизмы защиты имущества от кредиторов другого супруга.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Супруг-должник обязан уведомить своих кредиторов о заключении настоящего
+        договора в течение 30 дней. Супруг не отвечает по обязательствам другого
+        супруга, кроме случаев, предусмотренных настоящим договором."
+        Ответ:
+        {
+          "creditor_notification_status": "defined",
+          "creditor_notification_details": "обязан уведомить своих кредиторов в течение 30 дней",
+          "notification_obligor_status": "defined",
+          "notification_obligor_details": "супруг-должник",
+          "non_notification_consequences_status": "not_defined",
+          "protection_from_creditors_status": "defined",
+          "protection_from_creditors_details": "супруг не отвечает по обязательствам другого супруга",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "Супруг-должник обязан уведомить своих кредиторов о заключении настоящего договора в течение 30 дней."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Стороны определяют режим имущества."
+        Ответ:
+        {
+          "creditor_notification_status": "not_defined",
+          "creditor_notification_details": "Данные не определены",
+          "notification_obligor_status": "not_defined",
+          "notification_obligor_details": "Данные не определены",
+          "non_notification_consequences_status": "not_defined",
+          "protection_from_creditors_status": "not_defined",
+          "protection_from_creditors_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об уведомлении кредиторов.
+        2. Найди прямую цитату о том, кто обязан уведомить.
+        3. Найди прямую цитату о последствиях неуведомления.
+        4. Найди прямую цитату о защите от кредиторов.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "creditor_notification_status": "<defined / not_defined>",
+          "creditor_notification_details": "<текст или 'Данные не определены'>",
+          "notification_obligor_status": "<defined / not_defined>",
+          "notification_obligor_details": "<кто обязан уведомить или 'Данные не определены'>",
+          "non_notification_consequences_status": "<defined / not_defined>",
+          "protection_from_creditors_status": "<defined / not_defined>",
+          "protection_from_creditors_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      retrieval_profile: "definitions_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "уведомление кредиторов обязанность уведомить кредиторов кредиторы извещаются ст. 46 СК РФ ответственность перед кредиторами независимо от содержания договора не отвечает по обязательствам другого супруга раздельная ответственность обращение взыскания только на имущество должника"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "алименты"
+        - "компенсация"
+        - "банкротство"
+        - "расторжение"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 800
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        условия об уведомлении кредиторов и защите от кредиторов другого супруга.
+        Не анализируй режим собственности, алименты или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. creditor_notification_status — "defined" или "not_defined".
+        2. creditor_notification_details — положение об уведомлении кредиторов.
+        3. notification_obligor_status — "defined" или "not_defined".
+        4. notification_obligor_details — кто обязан уведомить кредиторов.
+        5. non_notification_consequences_status — "defined" или "not_defined".
+        6. protection_from_creditors_status — "defined" или "not_defined".
+        7. protection_from_creditors_details — механизмы защиты от кредиторов другого супруга.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "creditor_notification_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус положения об уведомлении кредиторов."
+          required: true
+        - name: "creditor_notification_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Уведомление кредиторов"
+          description: "Положение об уведомлении кредиторов."
+          required: false
+        - name: "notification_obligor_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания на обязанность уведомления."
+          required: false
+        - name: "notification_obligor_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Кто уведомляет"
+          description: "Кто обязан уведомить кредиторов."
+          required: false
+        - name: "non_notification_consequences_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус последствий неуведомления."
+          required: false
+        - name: "protection_from_creditors_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус механизмов защиты от кредиторов другого супруга."
+          required: false
+        - name: "protection_from_creditors_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Защита от кредиторов"
+          description: "Механизмы защиты имущества от кредиторов другого супруга."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 8: Риск оспаривания в банкротстве
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: bankruptcy_challenge_risk_check
+    name: "Риск оспаривания брачного договора в банкротстве (ФЗ-127)"
+    description: >
+      Фактографическая проверка наличия условий, создающих повышенный риск
+      оспаривания в рамках банкротства: безвозмездные передачи, концентрация
+      активов на одном супруге, отсутствие встречного предоставления.
+    triggers:
+      any: ["bankruptcy_risk_context", "debt_obligations_context"]
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "банкротство"
+        - "несостоятельность"
+        - "оспаривание сделки"
+        - "финансовый управляющий"
+        - "конкурсная масса"
+        - "подозрительная сделка"
+        - "причинение вреда кредиторам"
+        - "безвозмездная передача"
+        - "вывод активов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)банкротств(о|а|е)"
+        - "(?i)оспаривани(е|я)\\s+сдел"
+        - "(?i)конкурсн(ая|ой)\\s+масс"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ФЗ-127 «О несостоятельности»).
+        Проверяется только один вопрос: наличие условий, создающих повышенный
+        риск оспаривания в банкротстве.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие безвозмездных передач.
+        2. Концентрацию активов на одном супруге.
+        3. Наличие встречного предоставления (компенсации).
+        4. Упоминание банкротства и оспаривания.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Всё имущество, нажитое в браке, переходит в собственность Супруга.
+        Супруга не претендует на какое-либо имущество. Компенсация не предусмотрена."
+        Ответ:
+        {
+          "gratuitous_transfers_status": "defined",
+          "gratuitous_transfers_details": "всё имущество переходит в собственность Супруга, компенсация не предусмотрена",
+          "asset_concentration_status": "defined",
+          "asset_concentration_details": "всё имущество переходит в собственность Супруга",
+          "compensatory_provision_status": "not_defined",
+          "bankruptcy_reference_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "Всё имущество, нажитое в браке, переходит в собственность Супруга."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Имущество, нажитое в браке, является раздельной собственностью каждого из супругов."
+        Ответ:
+        {
+          "gratuitous_transfers_status": "not_defined",
+          "gratuitous_transfers_details": "Данные не определены",
+          "asset_concentration_status": "not_defined",
+          "asset_concentration_details": "Данные не определены",
+          "compensatory_provision_status": "not_defined",
+          "bankruptcy_reference_status": "not_defined",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о безвозмездных передачах.
+        2. Найди прямую цитату о концентрации активов.
+        3. Найди прямую цитату о встречном предоставлении.
+        4. Найди прямую цитату о банкротстве.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "gratuitous_transfers_status": "<defined / not_defined>",
+          "gratuitous_transfers_details": "<текст или 'Данные не определены'>",
+          "asset_concentration_status": "<defined / not_defined>",
+          "asset_concentration_details": "<текст или 'Данные не определены'>",
+          "compensatory_provision_status": "<defined / not_defined>",
+          "bankruptcy_reference_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      retrieval_profile: "event_of_default_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "банкротство несостоятельность оспаривание сделки финансовый управляющий конкурсная масса подозрительная сделка причинение вреда кредиторам безвозмездная передача вывод активов"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "алименты"
+        - "недвижимость"
+        - "ипотека"
+        - "расторжение"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 8
+      max_chunks: 12
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 800
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        условия, создающие повышенный риск оспаривания в банкротстве.
+        Не оценивай серьёзность риска.
+        Не анализируй режим собственности, алименты или раздел имущества.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. gratuitous_transfers_status — "defined" или "not_defined".
+        2. gratuitous_transfers_details — безвозмездные передачи.
+        3. asset_concentration_status — "defined" или "not_defined".
+        4. asset_concentration_details — концентрация активов на одном супруге.
+        5. compensatory_provision_status — "defined" или "not_defined".
+        6. bankruptcy_reference_status — "defined" или "not_defined".
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - gratuitous_transfers_status = "defined" только если прямо указано,
+          что всё имущество переходит одному супругу без компенсации.
+        - asset_concentration_status = "defined" только если прямо указана
+          концентрация активов на одном супруге.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "gratuitous_transfers_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус выявления безвозмездных передач."
+          required: true
+        - name: "gratuitous_transfers_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Безвозмездные передачи"
+          description: "Безвозмездные передачи имущества."
+          required: false
+        - name: "asset_concentration_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус концентрации активов на одном супруге."
+          required: false
+        - name: "asset_concentration_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Концентрация активов"
+          description: "Концентрация активов на одном супруге."
+          required: false
+        - name: "compensatory_provision_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус встречного предоставления."
+          required: false
+        - name: "bankruptcy_reference_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус упоминания банкротства."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 9: Раздел недвижимости при расторжении брака
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: real_estate_division_check
+    name: "Раздел недвижимости при расторжении брака"
+    description: >
+      Фактографическая проверка условий о судьбе недвижимости при расторжении брака:
+      кому переходит, компенсации, сроки передачи, ипотечные обязательства.
+    triggers:
+      any: ["real_estate_in_contract"]
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "квартира"
+        - "жилой дом"
+        - "земельный участок"
+        - "при расторжении брака переходит"
+        - "остаётся в собственности"
+        - "компенсация за долю"
+        - "ипотека"
+        - "ипотечный кредит"
+        - "кадастровый номер"
+        - "при расторжении брака"
+        - "при разводе"
+        - "раздел имущества"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "(?i)(квартира|дом|участок).*перех(одит|одят)\\s+в\\s+собственность"
+        - "(?i)при\\s+расторжении\\s+брака.*недвижим"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 42 СК РФ).
+        Проверяется только один вопрос: раздел недвижимости при расторжении брака.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Перечислены ли конкретные объекты недвижимости.
+        2. Механизм раздела (переход конкретному супругу / пропорционально / компенсация).
+        3. Урегулированность ипотечных обязательств.
+        4. Указаны ли сроки передачи.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "При расторжении брака квартира по адресу: г. Москва, ул. Ленина, д. 5, кв. 12,
+        кадастровый номер 77:06:0001001:123, переходит в собственность Супруги.
+        Супругу выплачивается компенсация в размере 5 000 000 рублей в течение 6 месяцев."
+        Ответ:
+        {
+          "real_estate_objects_status": "defined",
+          "real_estate_objects_details": "квартира по адресу: г. Москва, ул. Ленина, д. 5, кв. 12, кадастровый номер 77:06:0001001:123",
+          "division_mechanism_code": "to_specific_spouse",
+          "division_mechanism_details": "переходит в собственность Супруги",
+          "mortgage_obligations_addressed": "not_defined",
+          "transfer_timeline_status": "defined",
+          "transfer_timeline_details": "в течение 6 месяцев",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.1",
+              "quote": "При расторжении брака квартира по адресу: г. Москва, ул. Ленина, д. 5, кв. 12, кадастровый номер 77:06:0001001:123, переходит в собственность Супруги."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Стороны определяют режим имущества."
+        Ответ:
+        {
+          "real_estate_objects_status": "not_defined",
+          "real_estate_objects_details": "Данные не определены",
+          "division_mechanism_code": "not_defined",
+          "division_mechanism_details": "Данные не определены",
+          "mortgage_obligations_addressed": "not_defined",
+          "transfer_timeline_status": "not_defined",
+          "transfer_timeline_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о перечне объектов недвижимости.
+        2. Найди прямую цитату о механизме раздела.
+        3. Найди прямую цитату об ипотечных обязательствах.
+        4. Найди прямую цитату о сроках передачи.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "real_estate_objects_status": "<defined / not_defined>",
+          "real_estate_objects_details": "<перечень или 'Данные не определены'>",
+          "division_mechanism_code": "<to_specific_spouse / proportional / compensation / not_defined>",
+          "division_mechanism_details": "<текст или 'Данные не определены'>",
+          "mortgage_obligations_addressed": "<defined / not_defined>",
+          "transfer_timeline_status": "<defined / not_defined>",
+          "transfer_timeline_details": "<сроки или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 600
+
+    retrieval:
+      retrieval_profile: "definitions_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "квартира жилой дом земельный участок при расторжении брака переходит остаётся в собственности компенсация за долю ипотека ипотечный кредит кадастровый номер при расторжении брака при разводе раздел имущества"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "алименты"
+        - "банкротство"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 7
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 900
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        условия о разделе недвижимости при расторжении брака.
+        Не анализируй режим собственности, алименты или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. real_estate_objects_status — "defined" или "not_defined".
+        2. real_estate_objects_details — перечень объектов недвижимости.
+        3. division_mechanism_code — to_specific_spouse / proportional / compensation / not_defined.
+        4. division_mechanism_details — механизм раздела.
+        5. mortgage_obligations_addressed — "defined" или "not_defined".
+        6. transfer_timeline_status — "defined" или "not_defined".
+        7. transfer_timeline_details — сроки передачи.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - division_mechanism_code:
+          "to_specific_spouse" — объект переходит конкретному супругу;
+          "proportional" — пропорциональное распределение;
+          "compensation" — компенсация за долю;
+          "not_defined" — механизм не определён.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "real_estate_objects_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечня объектов недвижимости."
+          required: true
+        - name: "real_estate_objects_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Объекты недвижимости"
+          description: "Перечень объектов недвижимости с идентификацией."
+          required: false
+        - name: "division_mechanism_code"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["to_specific_spouse", "proportional", "compensation", "not_defined"]
+          description: "Механизм раздела недвижимости."
+          required: false
+        - name: "division_mechanism_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Механизм раздела"
+          description: "Механизм раздела недвижимости при расторжении брака."
+          required: false
+        - name: "mortgage_obligations_addressed"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус урегулированности ипотечных обязательств."
+          required: false
+        - name: "transfer_timeline_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус сроков передачи."
+          required: false
+        - name: "transfer_timeline_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Сроки передачи"
+          description: "Сроки передачи объектов недвижимости."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 10: Запрещённые условия
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: prohibited_conditions_check
+    name: "Запрещённые условия: личные неимущественные отношения, дети, правоспособность"
+    description: >
+      Фактографическая проверка отсутствия условий, запрещённых ст. 42 СК РФ:
+      условия о личных неимущественных отношениях, правах в отношении детей,
+      ограничении правоспособности или дееспособности.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "верность"
+        - "супружеская верность"
+        - "любовь"
+        - "уважение"
+        - "воспитание детей"
+        - "место жительства ребёнка"
+        - "место жительства ребенка"
+        - "порядок общения с детьми"
+        - "выбор фамилии"
+        - "ограничивает правоспособность"
+        - "ограничивает дееспособность"
+        - "запрещается работать"
+        - "обязан не работать"
+        - "не имеет права заниматься"
+        - "запрещается обращаться в суд"
+        - "не вправе обращаться в суд"
+        - "ограничивает право на труд"
+        - "право на обращение в суд"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(супружеск(ая|ой)\\s+верност|воспитание\\s+дет|общение\\s+с\\s+дет)"
+        - "(?i)запрещается\\s+(работать|заниматься)"
+        - "(?i)не\\s+(имеет\\s+права|вправе)\\s+(обращаться\\s+в\\s+суд|работать)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 42 СК РФ).
+        Проверяется только один вопрос: наличие условий, запрещённых ст. 42 СК РФ.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Брачный договор не может регулировать личные неимущественные отношения,
+          права в отношении детей, ограничивать правоспособность или дееспособность.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие условий о личных неимущественных отношениях (верность, любовь, уважение).
+        2. Наличие условий о правах в отношении детей (воспитание, место жительства, общение).
+        3. Наличие условий, ограничивающих правоспособность или дееспособность.
+        4. Наличие условий об ограничении права на обращение в суд.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — запрещённые условия выявлены:
+        Фрагмент:
+        "Супруга обязуется соблюдать супружескую верность. Место жительства ребёнка
+        определяется Супругом. Супруга не вправе обращаться в суд."
+        Ответ:
+        {
+          "personal_nonproperty_status": "defined",
+          "personal_nonproperty_details": "обязуется соблюдать супружескую верность",
+          "children_rights_status": "defined",
+          "children_rights_details": "место жительства ребёнка определяется Супругом",
+          "capacity_restriction_status": "defined",
+          "capacity_restriction_details": "не вправе обращаться в суд",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.1",
+              "quote": "Супруга обязуется соблюдать супружескую верность."
+            }
+          ]
+        }
+        Пример 2 — запрещённых условий нет:
+        Фрагмент:
+        "Стороны определяют режим имущества."
+        Ответ:
+        {
+          "personal_nonproperty_status": "not_defined",
+          "personal_nonproperty_details": "Данные не определены",
+          "children_rights_status": "not_defined",
+          "children_rights_details": "Данные не определены",
+          "capacity_restriction_status": "not_defined",
+          "capacity_restriction_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о личных неимущественных отношениях.
+        2. Найди прямую цитату о правах в отношении детей.
+        3. Найди прямую цитату об ограничении правоспособности/дееспособности.
+        4. Найди прямую цитату об ограничении права на обращение в суд.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "personal_nonproperty_status": "<defined / not_defined>",
+          "personal_nonproperty_details": "<текст или 'Данные не определены'>",
+          "children_rights_status": "<defined / not_defined>",
+          "children_rights_details": "<текст или 'Данные не определены'>",
+          "capacity_restriction_status": "<defined / not_defined>",
+          "capacity_restriction_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      retrieval_profile: "definitions_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "верность супружеская верность любовь уважение воспитание детей место жительства ребёнка порядок общения с детьми выбор фамилии ограничивает правоспособность ограничивает дееспособность запрещается работать обязан не работать не имеет права заниматься запрещается обращаться в суд не вправе обращаться в суд ограничивает право на труд право на обращение в суд"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "алименты"
+        - "компенсация"
+        - "банкротство"
+        - "расторжение"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.10, 0.90]
+        boost: 0.12
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 700
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        условия, запрещённые ст. 42 СК РФ: личные неимущественные отношения,
+        права в отношении детей, ограничение правоспособности/дееспособности.
+        Не анализируй режим собственности, алименты или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. personal_nonproperty_status — "defined" или "not_defined".
+        2. personal_nonproperty_details — условия о личных неимущественных отношениях.
+        3. children_rights_status — "defined" или "not_defined".
+        4. children_rights_details — условия о правах в отношении детей.
+        5. capacity_restriction_status — "defined" или "not_defined".
+        6. capacity_restriction_details — условия об ограничении правоспособности/дееспособности.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - personal_nonproperty_status = "defined" только если прямо указаны условия
+          о личных неимущественных отношениях (верность, любовь, уважение, выбор фамилии).
+        - children_rights_status = "defined" только если прямо указаны условия
+          о правах в отношении детей (воспитание, место жительства, порядок общения).
+        - capacity_restriction_status = "defined" только если прямо указаны условия,
+          ограничивающие правоспособность или дееспособность (запрет работать,
+          запрет обращаться в суд).
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "personal_nonproperty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условий о личных неимущественных отношениях."
+          required: true
+        - name: "personal_nonproperty_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Личные неимущественные отношения"
+          description: "Условия о личных неимущественных отношениях (запрещены ст. 42 СК РФ)."
+          required: false
+        - name: "children_rights_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условий о правах в отношении детей."
+          required: true
+        - name: "children_rights_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Права в отношении детей"
+          description: "Условия о правах в отношении детей (запрещены ст. 42 СК РФ)."
+          required: false
+        - name: "capacity_restriction_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условий об ограничении правоспособности/дееспособности."
+          required: true
+        - name: "capacity_restriction_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Ограничение правоспособности"
+          description: "Условия об ограничении правоспособности/дееспособности (запрещены ст. 42 СК РФ)."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 11: Изменение, расторжение, споры, делимость
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: amendment_dispute_severability_check
+    name: "Порядок изменения, расторжения, разрешения споров и оговорка о делимости"
+    description: >
+      Фактографическая проверка порядка изменения и расторжения брачного договора
+      (ст. 43 СК РФ), порядка разрешения споров и оговорки о делимости (ст. 180 ГК РФ).
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "изменение брачного договора"
+        - "расторжение брачного договора"
+        - "по взаимному согласию"
+        - "в нотариальной форме"
+        - "односторонний отказ не допускается"
+        - "через суд"
+        - "разрешение споров"
+        - "подсудность"
+        - "досудебный порядок"
+        - "медиация"
+        - "частичная недействительность"
+        - "сохранение действия"
+        - "делимость"
+        - "остальные условия сохраняют силу"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)изменени(е|я)\\s+(и\\s+)?расторжени"
+        - "(?i)односторонний\\s+отказ\\s+не\\s+допускается"
+        - "(?i)спор(ы|ов)\\s+(подлежат|разрешаются)"
+        - "(?i)недействительность\\s+отдельных\\s+(условий|положений)\\s+не\\s+влечёт"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 43 СК РФ; ст. 180 ГК РФ).
+        Проверяется только один вопрос: порядок изменения, расторжения,
+        разрешения споров и оговорка о делимости.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Порядок изменения и расторжения (нотариальная форма, взаимное согласие).
+        2. Невозможность одностороннего отказа.
+        3. Порядок разрешения споров (подсудность, досудебный порядок).
+        4. Оговорка о делимости.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Изменение и расторжение договора производится по взаимному согласию
+        сторон в нотариальной форме. Односторонний отказ не допускается.
+        Споры разрешаются в суде по месту жительства ответчика.
+        Недействительность отдельных условий не влечёт недействительности
+        договора в целом."
+        Ответ:
+        {
+          "amendment_procedure_status": "defined",
+          "amendment_procedure_details": "по взаимному согласию сторон в нотариальной форме",
+          "unilateral_refusal_status": "defined",
+          "unilateral_refusal_details": "односторонний отказ не допускается",
+          "dispute_resolution_status": "defined",
+          "dispute_resolution_details": "споры разрешаются в суде по месту жительства ответчика",
+          "severability_clause_status": "defined",
+          "severability_clause_details": "недействительность отдельных условий не влечёт недействительности договора в целом",
+          "evidence": [
+            {
+              "clause_ref": "п. 9.1",
+              "quote": "Изменение и расторжение договора производится по взаимному согласию сторон в нотариальной форме."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Стороны определяют режим имущества."
+        Ответ:
+        {
+          "amendment_procedure_status": "not_defined",
+          "amendment_procedure_details": "Данные не определены",
+          "unilateral_refusal_status": "not_defined",
+          "unilateral_refusal_details": "Данные не определены",
+          "dispute_resolution_status": "not_defined",
+          "dispute_resolution_details": "Данные не определены",
+          "severability_clause_status": "not_defined",
+          "severability_clause_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о порядке изменения и расторжения.
+        2. Найди прямую цитату об одностороннем отказе.
+        3. Найди прямую цитату о порядке разрешения споров.
+        4. Найди прямую цитату об оговорке о делимости.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "amendment_procedure_status": "<defined / not_defined>",
+          "amendment_procedure_details": "<текст или 'Данные не определены'>",
+          "unilateral_refusal_status": "<defined / not_defined>",
+          "unilateral_refusal_details": "<текст или 'Данные не определены'>",
+          "dispute_resolution_status": "<defined / not_defined>",
+          "dispute_resolution_details": "<текст или 'Данные не определены'>",
+          "severability_clause_status": "<defined / not_defined>",
+          "severability_clause_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+
+    retrieval:
+      retrieval_profile: "termination_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "изменение брачного договора расторжение брачного договора по взаимному согласию в нотариальной форме односторонний отказ не допускается через суд разрешение споров подсудность досудебный порядок медиация частичная недействительность сохранение действия делимость остальные условия сохраняют силу ст. 43 СК РФ ст. 180 ГК РФ"
+      preferred_unit_types:
+        - termination_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - remedies
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "алименты"
+        - "компенсация"
+        - "банкротство"
+        - "недвижимость"
+        - "ипотека"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 1.0]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "procedures"
+        - "remedies"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 550
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 800
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        порядок изменения, расторжения, разрешения споров и оговорку о делимости.
+        Не анализируй режим собственности, алименты или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. amendment_procedure_status — "defined" или "not_defined".
+        2. amendment_procedure_details — порядок изменения и расторжения.
+        3. unilateral_refusal_status — "defined" или "not_defined".
+        4. unilateral_refusal_details — невозможность одностороннего отказа.
+        5. dispute_resolution_status — "defined" или "not_defined".
+        6. dispute_resolution_details — порядок разрешения споров.
+        7. severability_clause_status — "defined" или "not_defined".
+        8. severability_clause_details — оговорка о делимости.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "amendment_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка изменения и расторжения."
+          required: true
+        - name: "amendment_procedure_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Изменение и расторжение"
+          description: "Порядок изменения и расторжения брачного договора."
+          required: false
+        - name: "unilateral_refusal_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус невозможности одностороннего отказа."
+          required: false
+        - name: "unilateral_refusal_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Односторонний отказ"
+          description: "Условие о невозможности одностороннего отказа."
+          required: false
+        - name: "dispute_resolution_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка разрешения споров."
+          required: false
+        - name: "dispute_resolution_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Разрешение споров"
+          description: "Порядок разрешения споров."
+          required: false
+        - name: "severability_clause_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус оговорки о делимости."
+          required: false
+        - name: "severability_clause_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Оговорка о делимости"
+          description: "Оговорка о делимости (ст. 180 ГК РФ)."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 12: Иностранный элемент и цифровые активы
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: foreign_digital_assets_check
+    name: "Иностранный элемент и режим цифровых активов"
+    description: >
+      Фактографическая проверка применимого права при иностранном элементе
+      (ст. 161 СК РФ) и урегулированности цифровых активов и криптовалюты.
+    triggers:
+      any: ["foreign_element", "high_value_assets"]
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "применимое право"
+        - "право Российской Федерации"
+        - "иностранное право"
+        - "ст. 161 СК РФ"
+        - "международное частное право"
+        - "коллизионная норма"
+        - "криптовалюта"
+        - "цифровые активы"
+        - "цифровая валюта"
+        - "токен"
+        - "блокчейн"
+        - "биткоин"
+        - "цифровые финансовые активы"
+        - "ЦФА"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)применим(ое|ого)\\s+прав(о|а)"
+        - "(?i)ст\\.?\\s*161\\s*СК"
+        - "(?i)криптовалют|цифров(ые|ых)\\s+(актив|валют)|\\bЦФА\\b"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву.
+        Анализируется брачный договор (ст. 161 СК РФ; ФЗ-259 «О ЦФА»).
+        Проверяется только один вопрос: применимое право при иностранном элементе
+        и режим цифровых активов.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Выбор применимого права.
+        2. Наличие иностранного элемента.
+        3. Режим криптовалюты и цифровых активов.
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Настоящий договор регулируется правом Российской Федерации.
+        Криптовалюта и цифровые активы являются раздельной собственностью
+        каждого из супругов."
+        Ответ:
+        {
+          "governing_law_status": "defined",
+          "governing_law_details": "регулируется правом Российской Федерации",
+          "foreign_element_status": "not_defined",
+          "digital_assets_status": "defined",
+          "digital_assets_details": "криптовалюта и цифровые активы являются раздельной собственностью каждого из супругов",
+          "evidence": [
+            {
+              "clause_ref": "п. 10.1",
+              "quote": "Настоящий договор регулируется правом Российской Федерации."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Стороны определяют режим имущества."
+        Ответ:
+        {
+          "governing_law_status": "not_defined",
+          "governing_law_details": "Данные не определены",
+          "foreign_element_status": "not_defined",
+          "digital_assets_status": "not_defined",
+          "digital_assets_details": "Данные не определены",
+          "evidence": []
+        }
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о применимом праве.
+        2. Найди прямую цитату об иностранном элементе.
+        3. Найди прямую цитату о цифровых активах.
+        4. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        Не выводи шаги проверки. Верни только JSON.
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "governing_law_status": "<defined / not_defined>",
+          "governing_law_details": "<текст или 'Данные не определены'>",
+          "foreign_element_status": "<defined / not_defined>",
+          "digital_assets_status": "<defined / not_defined>",
+          "digital_assets_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+
+    retrieval:
+      retrieval_profile: "definitions_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "применимое право право Российской Федерации иностранное право ст. 161 СК РФ международное частное право коллизионная норма криптовалюта цифровые активы цифровая валюта токен блокчейн биткоин цифровые финансовые активы ЦФА"
+      preferred_unit_types:
+        - general_provision
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - definitions
+      negative_keywords:
+        - "режим собственности"
+        - "совместная собственность"
+        - "раздельная собственность"
+        - "алименты"
+        - "компенсация"
+        - "банкротство"
+        - "расторжение"
+        - "споры"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.60, 1.0]
+        boost: 0.15
+        scope: segment
+      context_k: 5
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "boilerplate"
+        - "definitions"
+      confidence_bonus_on_match: 0.06
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 700
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по семейному праву. Извлеки из брачного договора
+        применимое право при иностранном элементе и режим цифровых активов.
+        Не анализируй режим собственности, алименты или банкротство.
+        </role>
+        <context>
+        {context}
+        </context>
+        <task>
+        Заполни строго следующие поля:
+        1. governing_law_status — "defined" или "not_defined".
+        2. governing_law_details — выбор применимого права.
+        3. foreign_element_status — "defined" или "not_defined".
+        4. digital_assets_status — "defined" или "not_defined".
+        5. digital_assets_details — режим цифровых активов.
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+        <rules>
+        - Используй только текст договора.
+        - foreign_element_status = "defined" только если прямо указан иностранный элемент
+          (иностранный гражданин, двойное гражданство, имущество за рубежом).
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "governing_law_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус выбора применимого права."
+          required: true
+        - name: "governing_law_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Применимое право"
+          description: "Выбор применимого права."
+          required: false
+        - name: "foreign_element_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус иностранного элемента."
+          required: false
+        - name: "digital_assets_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус режима цифровых активов."
+          required: false
+        - name: "digital_assets_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Цифровые активы"
+          description: "Режим криптовалюты и цифровых активов."
+          required: false
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+  parties_notarial_effective_date_check:
+    text: >
+      Просим предоставить по {doc_names}: (а) полные данные сторон (ФИО, паспортные
+      данные, дата и место рождения); (б) статус отношений (вступающие в брак / супруги);
+      (в) реквизиты свидетельства о браке (если имеется); (г) подтверждение
+      нотариального удостоверения (ст. 41 СК РФ); (д) момент вступления в силу.
+    addressee: "Обе стороны / Нотариус"
+
+  property_regime_check:
+    text: >
+      Просим детализировать в {doc_names}: (а) режим добрачного имущества каждого
+      супруга; (б) режим имущества, нажитого в браке; (в) режим наследственного
+      и подаренного имущества; (г) перечень объектов с идентификацией (кадастровые
+      номера, VIN, номера счетов).
+    addressee: "Обе стороны"
+
+  unfavorable_position_compensation_check:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены признаки крайне неблагоприятного положения
+      одного из супругов (ст. 44 СК РФ). Просим обеспечить: (а) баланс имущественных
+      прав; (б) компенсационные механизмы; (в) гарантии жилищных прав; (г) правовое
+      заключение нотариуса о соответствии договора требованиям закона.
+    addressee: "Нотариус / Юридический советник"
+
+  business_assets_check:
+    text: >
+      Просим детализировать в {doc_names}: (а) перечень бизнес-активов (доли, акции,
+      ИС); (б) режим собственности на них; (в) режим доходов от предпринимательской
+      деятельности; (г) порядок при продаже/отчуждении бизнеса.
+    addressee: "Юридический советник супруга-предпринимателя"
+
+  alimony_maintenance_check:
+    text: >
+      Просим проверить {doc_names} на предмет: (а) сохранения права нетрудоспособного
+      нуждающегося супруга на содержание (ст. 42 СК РФ — императивно); (б) размера
+      и порядка выплаты алиментов (если установлены); (в) отсутствия ограничений
+      алиментных прав.
+    addressee: "Нотариус / Юридический советник"
+
+  debt_mortgage_allocation_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) распределение личных и общих долгов;
+      (б) кто несёт ипотечные обязательства; (в) статус созаёмщика; (г) порядок
+      при расторжении брака (рефинансирование, продажа, переоформление).
+    addressee: "Юридический советник / Банк"
+
+  creditor_notification_protection_check:
+    text: >
+      Просим подтвердить по {doc_names}: обязательство супруга-должника уведомить
+      кредиторов (ст. 46 СК РФ), перечень кредиторов, порядок и сроки уведомления,
+      а также механизмы защиты имущества от кредиторов другого супруга.
+    addressee: "Обе стороны"
+
+  bankruptcy_challenge_risk_check:
+    text: >
+      ВНИМАНИЕ: {doc_names} содержит условия с повышенным риском оспаривания
+      в банкротстве (ФЗ-127). Просим обеспечить: (а) встречное предоставление
+      (компенсацию); (б) обоснование экономической целесообразности; (в) правовое
+      заключение о рисках оспаривания.
+    addressee: "Юридический советник"
+
+  real_estate_division_check:
+    text: >
+      Просим предоставить по {doc_names}: (а) перечень объектов недвижимости с
+      кадастровыми номерами; (б) режим собственности на каждый объект; (в) порядок
+      раздела при разводе; (г) урегулированность ипотечных обязательств; (д) сроки передачи.
+    addressee: "Юридический советник"
+
+  prohibited_conditions_check:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены условия, запрещённые ст. 42 СК РФ
+      (личные неимущественные отношения, условия в отношении детей, ограничение
+      правоспособности/дееспособности). Такие условия ничтожны.
+      Просим немедленно исключить их из договора.
+    addressee: "Нотариус"
+
+  amendment_dispute_severability_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) порядок внесения изменений (нотариальная
+      форма, ст. 43 СК РФ); (б) основания расторжения; (в) невозможность
+      одностороннего отказа; (г) порядок разрешения споров; (д) оговорку о делимости
+      (ст. 180 ГК РФ).
+    addressee: "Юридический советник"
+
+  foreign_digital_assets_check:
+    text: >
+      В {doc_names} присутствует иностранный элемент и/или цифровые активы.
+      Просим определить: (а) применимое право (ст. 161 СК РФ); (б) подсудность;
+      (в) режим криптовалюты и цифровых активов, порядок их учёта, оценки и раздела.
+    addressee: "Юридический советник по МЧП"
+
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"
+
+
+    

@@ -1,6 +1,7 @@
 type: contract_6.2_commission
 name: "Договор комиссии"
-
+version: 6.0
+parent: class_6_intermediary
 description: |
   Возмездный посреднический договор, по которому комиссионер обязуется по поручению
   комитента за вознаграждение совершить от своего имени, но за счет комитента одну
@@ -11,10 +12,6 @@ description: |
   сохранения собственности комитента, обособления товара и выручки, отчетности,
   сроков перечисления выручки, вознаграждения и расходов комиссионера, субкомиссии,
   делькредере и последствий прекращения договора.
-
-version: 4.0
-parent: class_6_intermediary
-
 metadata:
   category: contract
   subcategory: intermediary
@@ -32,7 +29,6 @@ metadata:
     - "договор товарной комиссии"
     - "договор комиссии с делькредере"
     - "договор субкомиссии"
-
     - "consignment agreement"
     - "commission agreement"
     - "commission sale contract"
@@ -41,20 +37,12 @@ metadata:
     - "broker commission agreement"
     - "selling agency agreement"
 
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
 
 classification_runtime_v1:
-
   scoring:
     accept_threshold: 0.81
     strong_signal_threshold: 0.89
@@ -62,248 +50,174 @@ classification_runtime_v1:
     input_quality_weight: 1.0
 
   rules:
-
     filename_patterns:
       - pattern: "(?i)\\bдоговор[\\s_.-]*комисси[яи]\\b"
         kind: specific_subject
         weight: 1.0
-        # Прямое наименование договора комиссии
-
       - pattern: "(?i)\\bкомиссионн[а-я]*[\\s_.-]*договор\\b"
         kind: specific_subject
         weight: 0.98
-        # Комиссионный договор — прямой русский маркер
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*товарн[а-я]*[\\s_.-]*комисси[яи]\\b"
         kind: specific_subject
         weight: 0.96
-        # Договор товарной комиссии — из supported types
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*субкомисси[яи]\\b"
         kind: specific_subject
         weight: 0.96
-        # Субкомиссия — прямой subtype из supported types
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*комисси[яи][\\s_.-]*с[\\s_.-]*делькредере\\b|\\bделькредере\\b"
         kind: specific_subject
         weight: 0.98
-        # Делькредере — почти исключительно комиссионный термин; очень специфичен
-
       - pattern: "(?i)\\bкомисси[яи]\\b"
         kind: specific_subject
         weight: 0.82
-        # Базовый русский маркер комиссии; достаточно специфичен, но без договор-квалификатора чуть ниже
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*консигнаци[яи]\\b|\\bконсигнаци[яи]\\b"
         kind: specific_subject
         weight: 0.96
-        # Консигнация — в RU-практике классическая форма товарной комиссии
-
       - pattern: "(?i)\\bconsignment[\\s_.-]*(?:agreement|contract)\\b"
         kind: specific_subject
         weight: 0.94
-        # Consignment agreement — прямой английский эквивалент консигнации/комиссии
-
       - pattern: "(?i)\\bcommission[\\s_.-]*(?:sale[\\s_.-]*contract|sales?[\\s_.-]*agreement)\\b"
         kind: specific_subject
         weight: 0.92
-        # Commission sale contract / sales agreement — из supported types, sale-контекст указывает на товарную комиссию
-
       - pattern: "(?i)\\bdel[\\s_.-]*credere[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.96
-        # Del credere agreement — из supported types, почти исключительно комиссионный термин
-
       - pattern: "(?i)(?=.*\\bкомисси[яи]\\b)(?=.*\\b(?:реализаци[яи]|закупк[аи]|товар[а-я]*)\\b).*"
         kind: specific_subject
-        weight: 0.90
-        # Комиссия в связке с реализацией / закупкой / товаром — из supported types (договор на реализацию/закупку товара)
-
+        weight: 0.9
       - pattern: "(?i)\\bcommission[\\s_.-]*agreement\\b"
         kind: generic_form
         weight: 0.58
-        # Commission agreement без sale/consignment/товарного квалификатора: может быть fee agreement, real estate commission и т.п.
-
       - pattern: "(?i)\\bresale[\\s_.-]*commission[\\s_.-]*(?:agreement|contract)?\\b"
         kind: generic_form
         weight: 0.62
-        # Resale commission — из supported types, но шире комиссии по ГК: может быть дистрибьюторским fee
-
       - pattern: "(?i)\\bbroker[\\s_.-]*commission[\\s_.-]*(?:agreement|contract)?\\b"
         kind: generic_form
         weight: 0.54
-        # Broker commission agreement: граница с брокерским/агентским договором
-
       - pattern: "(?i)\\bselling[\\s_.-]*agency[\\s_.-]*(?:agreement|contract)?\\b"
         kind: generic_form
         weight: 0.52
-        # Selling agency agreement — из supported types, но граница с агентским договором размыта
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?реализаци[а-я]*[\\s_.-]*товар[а-я]*\\b"
         kind: generic_form
         weight: 0.54
-        # Договор на реализацию товара без комиссионного квалификатора тяготеет к sale / supply
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?закупк[а-я]*[\\s_.-]*товар[а-я]*\\b"
         kind: generic_form
         weight: 0.48
-        # Договор на закупку товара без комиссионного квалификатора тяготеет к supply / procurement
-
       - pattern: "(?i)\\bкомисси[яи]\\b(?![\\s_.-]*(?:договор|вознаграждени|товарн|субкомисси|делькредере))"
         kind: context
-        weight: 0.20
-        # Комиссия без уточнения типа документа: может быть комиссионное вознаграждение, government commission и т.п.
-
+        weight: 0.2
       - pattern: "(?i)\\bcommission\\b"
         kind: context
         weight: 0.16
-        # Commission без sale/consignment/agreement qualifier: слишком широко
-
 
     folder_patterns:
       - pattern: "(?i)комисси[яи]|commission[_\\s-]*(?:sale|sales|agreement|contract)"
         kind: specific_subject
         weight: 0.86
-        # Явная taxonomy папок по комиссии / commission sale
-
       - pattern: "(?i)консигнаци[яи]|consignment[_\\s-]*(?:agreement|contract)?"
         kind: specific_subject
         weight: 0.86
-        # Консигнация / consignment в taxonomy папок
-
       - pattern: "(?i)делькредере|del[_\\s-]*credere"
         kind: specific_subject
         weight: 0.88
-        # Делькредере — очень специфичный folder-marker
-
       - pattern: "(?i)субкомисси[яи]|sub[_\\s-]*commission"
         kind: specific_subject
         weight: 0.84
-        # Субкомиссия — прямой subtype folder
-
       - pattern: "(?i)товарн[а-я]*[_\\s-]*комисси[яи]|commission[_\\s-]*sale[s]?"
         kind: specific_subject
         weight: 0.82
-        # Товарная комиссия / commission sales taxonomy
-
       - pattern: "(?i)resale[_\\s-]*commission|selling[_\\s-]*agency"
         kind: generic_form
         weight: 0.52
-        # Resale commission / selling agency — полезны, но размытая граница с агентским договором
-
       - pattern: "(?i)broker[_\\s-]*commission|брокерск[а-я]*[_\\s-]*комисси"
         kind: generic_form
         weight: 0.46
-        # Broker commission folder — граница с брокерским/агентским договором
-
       - pattern: "(?i)реализаци[яи][_\\s-]*товар|закупк[а-я]*[_\\s-]*товар"
         kind: generic_form
-        weight: 0.40
-        # Реализация / закупка товара без комиссионного квалификатора тяготеет к sale / supply
-
+        weight: 0.4
       - pattern: "(?i)commission"
         kind: context
         weight: 0.18
-        # Commission folder без уточнения типа слишком широкий
-
       - pattern: "(?i)intermediary|посредник"
         kind: context
         weight: 0.16
-        # Посредник / intermediary: общий контекст intermediary family
 
     keywords:
-
       high:
         - pattern: "(?i)договор\\s+комисс[иии]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное название договора комиссии"
-
         - pattern: "(?i)комиссионн[ыйое]\\s+договор"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Комиссионный договор"
-
         - pattern: "(?i)договор\\s+на\\s+реализац[июии]\\s+товар[аов]"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "Комиссия на реализацию товара"
-
         - pattern: "(?i)договор\\s+на\\s+закупк[уи]\\s+товар[аов]"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "Комиссия на закупку товара"
-
         - pattern: "(?i)договор\\s+консигнац[иии]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Консигнационная модель комиссии"
-
         - pattern: "(?i)договор\\s+товарн[ойой]\\s+комисс[иии]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Товарная комиссия"
-
         - pattern: "(?i)договор\\s+комисс[иии]\\s+с\\s+делькредер[ееи]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Комиссия с делькредере"
-
         - pattern: "(?i)договор\\s+субкомисс[иии]"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "Субкомиссия"
-
         - pattern: "(?i)consignment\\s+agreement"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "English title form for consignment agreement"
-
         - pattern: "(?i)commission\\s+agreement"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "English title form for commission agreement"
-
         - pattern: "(?i)комиссионер[а-я]*"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Комиссионер как сторона договора"
-
         - pattern: "(?i)комитент[а-я]*"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Комитент как сторона договора"
-
         - pattern: "(?i)от\\s+своего\\s+имени"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Ключевой ownership-marker комиссии"
-
         - pattern: "(?i)за\\s+сч[её]т\\s+комитент[аа]"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Совершение сделок за счет комитента"
-
         - pattern: "(?i)комиссионн[оеая]\\s+вознагражден[иеия]"
           weight: 0.9
           distinctiveness: high
           context: any
           description: "Комиссионное вознаграждение"
-
         - pattern: "(?i)право\\s+собственност[иью]\\s+сохраняетс[яь]\\s+за\\s+комитент[ом]"
           weight: 0.9
           distinctiveness: high
@@ -316,49 +230,41 @@ classification_runtime_v1:
           distinctiveness: medium
           context: any
           description: "Отчет комиссионера"
-
         - pattern: "(?i)\\bсубкомисси[яяи]\\b"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Субкомиссия"
-
         - pattern: "(?i)\\bделькредере\\b"
           weight: 0.7
           distinctiveness: medium
           context: any
           description: "Ручательство комиссионера за исполнение сделки третьим лицом"
-
         - pattern: "(?i)реализаци[яи]\\s+товар[аа]"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Реализация товара в комиссионной модели"
-
         - pattern: "(?i)закупк[аа]\\s+товар[аа]"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Закупка товара по поручению комитента"
-
         - pattern: "(?i)дополнительн[а-яё]+\\s+выгод[аа]"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Дополнительная выгода по сделке комиссии"
-
         - pattern: "(?i)удержани[ея]\\s+комиссионер[аа]"
           weight: 0.6
           distinctiveness: medium
           context: any
           description: "Удержание комиссионером причитающихся сумм"
-
         - pattern: "(?i)нереализованн[ыо]й\\s+товар"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Нереализованный товар комитента"
-
         - pattern: "(?i)обособленн[ыо]й\\s+уч[её]т"
           weight: 0.55
           distinctiveness: medium
@@ -371,25 +277,21 @@ classification_runtime_v1:
           distinctiveness: low
           context: any
           description: "Товар передан на комиссию"
-
         - pattern: "(?i)посредническ[иие]+\\s+услуг[ии]"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Общий посреднический контекст"
-
         - pattern: "(?i)банкротств[оо]\\s+комиссионер[аа]"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Банкротный риск комиссионера"
-
         - pattern: "(?i)раздельн[оа]е\\s+хранени[ея]"
           weight: 0.3
           distinctiveness: low
           context: any
           description: "Раздельное хранение товара комитента"
-
         - pattern: "(?i)выручк[аа]\\s+комитент[аа]"
           weight: 0.3
           distinctiveness: low
@@ -401,29 +303,22 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "Поручение строится на модели действий от имени доверителя, а не от своего имени"
-
       - pattern: "(?i)агентск[иоя]+\\s+договор\\s+по\\s+модел[ии]\\s+поручени[яя]"
         severity: hard
         weight: -1.0
         description: "Агентская модель по типу поручения ближе к mandate, а не к комиссии"
-
       - pattern: "(?i)транспортн[а-яё]+\\s+экспедиц[ияии]"
         severity: hard
         weight: -1.0
         description: "Транспортная экспедиция — самостоятельный посредническо-логистический тип"
-
-      # ── Soft exclusions
-
       - pattern: "(?i)купл[яи]-?продаж[ааи]"
         severity: soft
         weight: -0.35
         description: "Купля-продажа может быть underlying transaction, но не тождественна комиссии"
-
       - pattern: "(?i)оказани[ея]\\s+услуг"
         severity: soft
         weight: -0.35
         description: "Общая сервисная модель снижает уверенность в наличии комиссионной конструкции"
-
       - pattern: "(?i)от\\s+имени\\s+комитент[аа]"
         severity: soft
         weight: -0.4
@@ -435,7 +330,6 @@ classification_runtime_v1:
 # ════════════════════════════════════════════════════════════════════════════
 
 trigger_definitions:
-
   sale_commission:
     any_keywords:
       - "(?i)реализаци[яи]\\s+товар[аа]"
@@ -509,144 +403,37 @@ trigger_definitions:
 # ════════════════════════════════════════════════════════════════════════════
 
 shared_patterns:
-
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
   percentage_pattern: "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
   invoice_pattern: "(?i)(?:накладн|акт|счет|счет-фактур|спецификац)\\s*№?\\s*[A-ZА-Я0-9\\-\\/]+"
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-  - id: "acts_in_principals_name_red_flag"
-    name: "Исполнитель действует от имени комитента"
-    description: "Если исполнитель действует от имени комитента, это риск переквалификации договора комиссии в поручение"
-    legal_base: "ст. 990 ГК РФ, ст. 971 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "от имени комитента"
-        - "от имени доверителя"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "от имени комитента"
-        - "от своего имени"
-        - "комиссионер"
-      rerank: true
-
-  - id: "gratuitous_commission_red_flag"
-    name: "Попытка безвозмездной комиссии"
-    description: "Договор комиссии по своей природе является возмездным; отсутствие ясной модели вознаграждения создает высокий спорный риск"
-    legal_base: "ст. 990, 991 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "безвозмездно"
-        - "без выплаты вознаграждения"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "вознаграждение комиссионера"
-        - "безвозмездно"
-      rerank: true
-
-  - id: "ownership_and_segregation_missing"
-    name: "Нет ясной оговорки о собственности комитента и обособлении товара"
-    description: "Отсутствие оговорки о сохранении собственности за комитентом и раздельном учете/хранении усиливает риск споров и банкротной потери товара"
-    legal_base: "ст. 996 ГК РФ, ФЗ-127"
-    required_triggers: ["goods_transfer_model"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "право собственности сохраняется за комитентом"
-        - "обособленный учет"
-        - "раздельное хранение"
-        - "имущество комитента"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "право собственности сохраняется"
-        - "обособленный учет"
-        - "раздельное хранение"
-      rerank: true
-
-  - id: "delcredere_without_clear_terms"
-    name: "Делькредере без ясных условий"
-    description: "Если договор содержит делькредере, должны быть ясны его пределы, основания и дополнительное вознаграждение"
-    legal_base: "ст. 993 ГК РФ"
-    required_triggers: ["delcredere_terms"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "делькредере"
-        - "ручательство за исполнение"
-      negative_keywords:
-        - "дополнительное вознаграждение"
-        - "условия наступления ответственности"
-        - "предел ответственности"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "делькредере"
-        - "дополнительное вознаграждение"
-        - "ответственность комиссионера"
-      rerank: true
-
-  - id: "proceeds_transfer_timing_missing"
-    name: "Не урегулированы сроки перечисления выручки комитенту"
-    description: "Отсутствие сроков перевода выручки комитенту создает высокий денежный и банкротный риск"
-    legal_base: "ст. 999 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "перечисление выручки"
-        - "срок перечисления"
-        - "не позднее"
-        - "в течение"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "перечисление выручки"
-        - "срок перечисления"
-        - "выручка комитента"
-      rerank: true
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 1: Базовое извлечение структуры договора комиссии
+  # ──────────────────────────────────────────────────────────────────────────
   - id: commission_subject_extraction
     name: "Базовое извлечение структуры договора комиссии"
-    description: "Извлекает комитента, комиссионера, модель действия, предмет сделок, вознаграждение и ключевые комиссионные параметры"
+    description: >
+      Извлекает комитента, комиссионера, модель действия, предмет сделок,
+      вознаграждение и ключевые комиссионные параметры.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "комиссионер"
@@ -660,96 +447,290 @@ checks_v8:
         - "(?i)(договор\\s+комиссии|комиссионер|комитент)"
         - "(?i)(от\\s+своего\\s+имени|за\\s+счет\\s+комитента)"
         - "(?i)вознаграждени[ея].{0,30}комиссионер"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор комиссии.
-        Извлеки ключевые параметры строго по тексту договора.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии по Главе 51 ГК РФ (ст. 990-1004).
+        Проверяется только один вопрос: ключевые параметры договора комиссии.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 990 ГК РФ — договор комиссии
+        - ст. 991 ГК РФ — вознаграждение комиссионера
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора,
+          а чего прямо нет.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Комитент (наименование / ФИО).
+        2. Комиссионер (наименование / ФИО).
+        3. От чьего имени действует комиссионер.
+        4. Тип поручаемых сделок (продажа / закупка / смешанные).
+        5. Предмет комиссии (какие сделки / товары).
+        6. Статус вознаграждения.
+        7. Наличие оговорки о собственности комитента.
+        8. Наличие отчётности.
+        9. Наличие делькредере.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если данные не указаны прямо — возвращай "not_defined".
+        4. Если текстового значения нет — возвращай строго "Данные не определены".
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        6. В evidence включай только текст договора.
+        7. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — параметры определены:
+        Фрагмент:
+        "Комитент — ООО «Альфа» поручает, а Комиссионер — ООО «Бета» обязуется
+        от своего имени, но за счёт Комитента совершить сделки по реализации
+        товара. Вознаграждение — 5% от суммы реализации. Право собственности
+        на товар сохраняется за Комитентом. Комиссионер представляет отчёт
+        ежемесячно."
+
+        Ответ:
         {
-          "principal": "<комитент или not_found>",
-          "commissioner": "<комиссионер или not_found>",
-          "acts_in_name_of": "<self / principal / unclear / not_found>",
-          "transaction_type": "<sale / purchase / mixed / unclear / not_found>",
-          "subject_of_commission": "<какие сделки/товары или not_found>",
-          "remuneration_status": "<present / unclear / not_found>",
-          "goods_ownership_clause": "<present / not_found>",
-          "reporting_status": "<present / not_found>",
-          "delcredere_status": "<present / absent / not_found>"
+          "principal": "ООО «Альфа»",
+          "commissioner": "ООО «Бета»",
+          "acts_in_name_of": "self",
+          "transaction_type": "sale",
+          "subject_of_commission": "реализация товара",
+          "remuneration_status": "present",
+          "goods_ownership_clause": "present",
+          "reporting_status": "present",
+          "delcredere_status": "absent"
         }
 
-        Используй только явно указанные в тексте сведения.
-        Если данных нет — пиши "not_found".
-      prompt_file: null
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Стороны заключили настоящий договор."
+
+        Ответ:
+        {
+          "principal": "Данные не определены",
+          "commissioner": "Данные не определены",
+          "acts_in_name_of": "not_defined",
+          "transaction_type": "not_defined",
+          "subject_of_commission": "Данные не определены",
+          "remuneration_status": "not_defined",
+          "goods_ownership_clause": "not_defined",
+          "reporting_status": "not_defined",
+          "delcredere_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о комитенте.
+        2. Найди прямую цитату о комиссионере.
+        3. Найди прямую цитату о модели действия (от своего имени / от имени комитента).
+        4. Найди прямую цитату о предмете комиссии.
+        5. Если прямой цитаты нет — верни "not_defined" или "Данные не определены".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "principal": "<текст или 'Данные не определены'>",
+          "commissioner": "<текст или 'Данные не определены'>",
+          "acts_in_name_of": "<self / principal / unclear / not_defined>",
+          "transaction_type": "<sale / purchase / mixed / unclear / not_defined>",
+          "subject_of_commission": "<текст или 'Данные не определены'>",
+          "remuneration_status": "<present / unclear / not_defined>",
+          "goods_ownership_clause": "<present / not_defined>",
+          "reporting_status": "<present / not_defined>",
+          "delcredere_status": "<present / absent / not_defined>"
+        }
       context_k: 6
       temperature: 0.0
       max_tokens: 700
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "комитент комиссионер договор комиссии от своего имени за счёт комитента комиссионное вознаграждение отчёт комиссионера предмет комиссии реализация товара закупка товара делькредере право собственности сохраняется"
       retrieval_profile: "scope_of_work_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "приложение"
+        - "индекс"
+        - "субкомиссия"
+        - "прекращение"
+        - "возврат товара"
+      position_bias:
+        preferred_range: [0.0, 0.35]
+        boost: 0.20
+        scope: segment
       context_k: 6
       max_chunks: 10
-      boost_keywords:
-        - "комиссионер"
-        - "комитент"
-        - "от своего имени"
-        - "комиссионное вознаграждение"
-        - "отчет комиссионера"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 50
       max_snippet_length: 700
+
     extraction:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1150
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии ключевые
+        параметры: комитента, комиссионера, модель действия, предмет сделок,
+        вознаграждение, собственность, отчётность и делькредере.
+        Не анализируй субкомиссию, прекращение или ценовые лимиты.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. principal — комитент.
+        2. commissioner — комиссионер.
+        3. acts_in_name_of — "self" / "principal" / "unclear" / "not_defined".
+        4. transaction_type — "sale" / "purchase" / "mixed" / "unclear" / "not_defined".
+        5. subject_of_commission — предмет комиссии.
+        6. remuneration_status — "present" / "unclear" / "not_defined".
+        7. goods_ownership_clause — "present" / "not_defined".
+        8. reporting_status — "present" / "not_defined".
+        9. delcredere_status — "present" / "absent" / "not_defined".
+
+        Если данные отсутствуют:
+        - текстовое поле = "Данные не определены"
+        - статусное поле = "not_defined"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - acts_in_name_of: "self" — если прямо указано "от своего имени";
+          "principal" — если прямо указано "от имени комитента";
+          "unclear" — если формулировка неоднозначна;
+          "not_defined" — если не указано.
+        - delcredere_status: "absent" — если прямо указано, что делькредере
+          не предусмотрено; "not_defined" — если тема не упомянута.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "principal"
           type: "string"
-          keyword_hints: ["комитент"]
-          description: "Комитент"
+          presentation: "fact"
+          label: "Комитент"
+          description: "Комитент по договору комиссии."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "commissioner"
           type: "string"
-          keyword_hints: ["комиссионер"]
-          description: "Комиссионер"
+          presentation: "fact"
+          label: "Комиссионер"
+          description: "Комиссионер по договору комиссии."
+          required: true
+          display_in_grid: true
+          display_priority: 2
         - name: "acts_in_name_of"
           type: "string"
-          allowed_values: ["self", "principal", "unclear", "not_found"]
-          description: "От чьего имени действует исполнитель"
+          presentation: "signal"
+          allowed_values: ["self", "principal", "unclear", "not_defined"]
+          description: "От чьего имени действует комиссионер."
+          required: true
         - name: "transaction_type"
           type: "string"
-          allowed_values: ["sale", "purchase", "mixed", "unclear", "not_found"]
-          description: "Тип поручаемых сделок"
+          presentation: "signal"
+          allowed_values: ["sale", "purchase", "mixed", "unclear", "not_defined"]
+          description: "Тип поручаемых сделок."
+          required: true
         - name: "subject_of_commission"
           type: "string"
-          keyword_hints: ["предмет договора", "реализация товара", "закупка товара"]
-          description: "Предмет комиссии"
+          presentation: "fact"
+          label: "Предмет комиссии"
+          description: "Предмет комиссии (сделки, товары)."
+          required: true
+          display_in_grid: true
+          display_priority: 3
         - name: "remuneration_status"
           type: "string"
-          allowed_values: ["present", "unclear", "not_found"]
-          description: "Статус вознаграждения"
+          presentation: "signal"
+          allowed_values: ["present", "unclear", "not_defined"]
+          description: "Статус вознаграждения."
+          required: false
         - name: "goods_ownership_clause"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли оговорка о собственности комитента"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие оговорки о собственности комитента."
+          required: false
         - name: "reporting_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли отчетность"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие отчётности."
+          required: false
         - name: "delcredere_status"
           type: "string"
-          allowed_values: ["present", "absent", "not_found"]
-          description: "Есть ли делькредере"
+          presentation: "signal"
+          allowed_values: ["present", "absent", "not_defined"]
+          description: "Наличие делькредере."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 2: Предмет комиссии, модель действия и ценовые лимиты
+  # ──────────────────────────────────────────────────────────────────────────
   - id: subject_and_representation_model_check
-    name: "Предмет комиссии и модель действия от своего имени"
-    description: "Проверяет, что комиссионер действует от своего имени, но за счет комитента, а предмет сделок определен достаточно ясно"
+    name: "Предмет комиссии, модель действия и ценовые лимиты"
+    description: >
+      Проверяет, что комиссионер действует от своего имени, но за счет комитента,
+      предмет сделок определён достаточно ясно и установлены ценовые лимиты
+      (минимальная цена продажи / максимальная цена закупки).
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "от своего имени"
@@ -757,74 +738,215 @@ checks_v8:
         - "совершить одну или несколько сделок"
         - "реализация товара"
         - "закупка товара"
+        - "минимальная цена продажи"
+        - "максимальная цена закупки"
+        - "не ниже"
+        - "не выше"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)от\\s+своего\\s+имени"
         - "(?i)за\\s+счет\\s+комитента"
         - "(?i)одну\\s+или\\s+несколько\\s+сделок"
+        - "(?i)минимальн(ая|ой)\\s+цен[аы]\\s+продаж"
+        - "(?i)максимальн(ая|ой)\\s+цен[аы]\\s+закуп"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор комиссии.
-        Проверь предмет договора и представительную модель.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии по Главе 51 ГК РФ.
+        Проверяется только один вопрос: предмет договора, модель действия
+        и ценовые лимиты.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 990 ГК РФ — модель комиссии
+        - ст. 995 ГК РФ — ценовые условия
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Модель представительства (от своего имени / от имени комитента).
+        2. Степень конкретизации предмета.
+        3. Наличие ценовых лимитов (минимальная цена продажи, максимальная цена закупки).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Комиссионер обязуется от своего имени, но за счёт Комитента совершить
+        сделки по реализации товара по цене не ниже 100 000 рублей за единицу."
+
+        Ответ:
         {
-          "representation_model": "<commission_true_model / mandate_like_model / unclear / not_found>",
-          "subject_specificity": "<specific / generic / not_found>",
-          "pricing_limits_status": "<present / partial / not_found>",
-          "requalification_risk": "<high / medium / low / not_found>"
+          "representation_model": "commission_true_model",
+          "subject_specificity": "specific",
+          "pricing_limits_status": "defined"
         }
 
-        - "commission_true_model" — комиссионер действует от своего имени, но за счет комитента.
-        - "mandate_like_model" — видны признаки действия от имени комитента.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Комиссионер совершает сделки в интересах Комитента."
+
+        Ответ:
+        {
+          "representation_model": "unclear",
+          "subject_specificity": "generic",
+          "pricing_limits_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о модели действия.
+        2. Найди прямую цитату о предмете.
+        3. Найди прямую цитату о ценовых лимитах.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "representation_model": "<commission_true_model / mandate_like_model / unclear / not_defined>",
+          "subject_specificity": "<specific / generic / not_defined>",
+          "pricing_limits_status": "<defined / partial / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 380
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "от своего имени за счёт комитента совершить одну или несколько сделок реализация товара закупка товара минимальная цена продажи максимальная цена закупки не ниже не выше ценовые лимиты"
       retrieval_profile: "scope_of_work_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "вознаграждение"
+        - "отчёт"
+        - "субкомиссия"
+        - "делькредере"
+        - "прекращение"
+        - "возврат товара"
+      position_bias:
+        preferred_range: [0.0, 0.40]
+        boost: 0.18
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "от своего имени"
-        - "за счет комитента"
-        - "минимальная цена"
-        - "максимальная цена"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "definitions"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии сведения
+        о модели действия, конкретизации предмета и ценовых лимитах.
+        Не анализируй вознаграждение, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. representation_model — "commission_true_model" / "mandate_like_model" / "unclear" / "not_defined".
+        2. subject_specificity — "specific" / "generic" / "not_defined".
+        3. pricing_limits_status — "defined" / "partial" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - representation_model: "commission_true_model" — если прямо указано
+          "от своего имени, но за счёт комитента";
+          "mandate_like_model" — если видны признаки "от имени комитента";
+          "unclear" — если формулировка неоднозначна.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "representation_model"
           type: "string"
-          allowed_values: ["commission_true_model", "mandate_like_model", "unclear", "not_found"]
-          description: "Модель представительства в договоре"
+          presentation: "signal"
+          allowed_values: ["commission_true_model", "mandate_like_model", "unclear", "not_defined"]
+          description: "Модель представительства в договоре."
+          required: true
         - name: "subject_specificity"
           type: "string"
-          allowed_values: ["specific", "generic", "not_found"]
-          description: "Степень определенности предмета"
+          presentation: "signal"
+          allowed_values: ["specific", "generic", "not_defined"]
+          description: "Степень конкретизации предмета."
+          required: true
         - name: "pricing_limits_status"
           type: "string"
-          allowed_values: ["present", "partial", "not_found"]
-          description: "Есть ли ценовые лимиты/инструкции"
-        - name: "requalification_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск переквалификации"
+          presentation: "signal"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Наличие ценовых лимитов."
+          required: true
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 3: Вознаграждение, расходы и удержание
+  # ──────────────────────────────────────────────────────────────────────────
   - id: remuneration_expenses_and_retention_check
     name: "Вознаграждение, расходы и удержание комиссионера"
-    description: "Проверяет структуру комиссионного вознаграждения, компенсацию расходов и право удержания"
+    description: >
+      Проверяет структуру комиссионного вознаграждения, компенсацию расходов
+      и право удержания причитающихся сумм.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "комиссионное вознаграждение"
@@ -838,67 +960,204 @@ checks_v8:
         - "(?i)комиссионн(ое|ого)\\s+вознаграждени"
         - "(?i)возмещени[ея]\\s+расход"
         - "(?i)право\\s+удержан|удерживат[ья].{0,30}причитающ"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор комиссии.
-        Проверь экономические условия комиссионера.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии по Главе 51 ГК РФ.
+        Проверяется только один вопрос: вознаграждение, расходы и удержание.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 991 ГК РФ — вознаграждение
+        - ст. 1001 ГК РФ — возмещение расходов
+        - ст. 997 ГК РФ — право удержания
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Определено ли вознаграждение (размер, формула, порядок).
+        2. Есть ли возмещение расходов.
+        3. Есть ли право удержания.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Вознаграждение Комиссионера составляет 5% от суммы реализации.
+        Расходы на хранение возмещаются по документально подтверждённым затратам.
+        Комиссионер вправе удерживать причитающиеся суммы из поступившей выручки."
+
+        Ответ:
         {
-          "remuneration_clarity": "<clear / partial / not_found>",
-          "expenses_reimbursement_status": "<present / not_found>",
-          "retention_right_status": "<present / not_found>",
-          "open_ended_cost_risk": "<high / medium / low / not_found>"
+          "remuneration_clarity": "defined",
+          "expenses_reimbursement_status": "defined",
+          "retention_right_status": "defined"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Комиссионер исполняет поручение Комитента."
+
+        Ответ:
+        {
+          "remuneration_clarity": "not_defined",
+          "expenses_reimbursement_status": "not_defined",
+          "retention_right_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о вознаграждении.
+        2. Найди прямую цитату о возмещении расходов.
+        3. Найди прямую цитату о праве удержания.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "remuneration_clarity": "<defined / partial / not_defined>",
+          "expenses_reimbursement_status": "<defined / not_defined>",
+          "retention_right_status": "<defined / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 360
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "комиссионное вознаграждение вознаграждение комиссионера возмещение расходов аванс на расходы право удержания удерживать причитающиеся суммы процент от суммы сделки"
+      retrieval_profile: "payment_terms_check"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "отчёт"
+        - "субкомиссия"
+        - "делькредере"
+        - "прекращение"
+        - "возврат товара"
+        - "право собственности"
+      position_bias:
+        preferred_range: [0.15, 0.60]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 8
-      retrieval_profile: "payment_terms_check"
-      boost_keywords:
-        - "комиссионное вознаграждение"
-        - "возмещение расходов"
-        - "право удержания"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 580
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии сведения
+        о вознаграждении, возмещении расходов и праве удержания.
+        Не анализируй отчётность, субкомиссию или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. remuneration_clarity — "defined" / "partial" / "not_defined".
+        2. expenses_reimbursement_status — "defined" / "not_defined".
+        3. retention_right_status — "defined" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - remuneration_clarity: "defined" — если размер/формула прямо указаны;
+          "partial" — если есть лишь частичные указания;
+          "not_defined" — если не указано.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "remuneration_clarity"
           type: "string"
-          allowed_values: ["clear", "partial", "not_found"]
-          description: "Понятность вознаграждения"
+          presentation: "signal"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Определённость вознаграждения."
+          required: true
         - name: "expenses_reimbursement_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли возмещение расходов"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие возмещения расходов."
+          required: true
         - name: "retention_right_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли право удержания"
-        - name: "open_ended_cost_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск открытых/неограниченных расходов"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие права удержания."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 4: Отчёт комиссионера и перечисление выручки
+  # ──────────────────────────────────────────────────────────────────────────
   - id: reporting_and_proceeds_transfer_check
-    name: "Отчет комиссионера и перечисление выручки"
-    description: "Проверяет отчетность, сроки возражений и сроки перечисления выручки комитенту"
+    name: "Отчёт комиссионера и перечисление выручки"
+    description: >
+      Проверяет отчётность, сроки возражений и сроки перечисления выручки комитенту.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "отчет комиссионера"
@@ -912,68 +1171,202 @@ checks_v8:
         - "(?i)отчет\\s+комиссионер"
         - "(?i)возражени[яй]\\s+на\\s+отчет|утверждени[ея]\\s+отчета"
         - "(?i)перечислени[ея]\\s+выручк"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор комиссии.
-        Проверь порядок отчетности и перевода выручки комитенту.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии по Главе 51 ГК РФ.
+        Проверяется только один вопрос: отчётность и перечисление выручки.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 999 ГК РФ — отчёт комиссионера и перечисление выручки
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли порядок отчётности.
+        2. Есть ли срок возражений на отчёт.
+        3. Есть ли срок перечисления выручки.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Комиссионер представляет отчёт ежемесячно. Комитент вправе заявить
+        возражения в течение 10 дней. Выручка перечисляется не позднее
+        5 рабочих дней после утверждения отчёта."
+
+        Ответ:
         {
-          "reporting_status": "<present / partial / not_found>",
-          "report_objection_period": "<present / not_found>",
-          "proceeds_transfer_timing": "<present / not_found>",
-          "cashflow_risk_for_principal": "<high / medium / low / not_found>"
+          "reporting_status": "defined",
+          "report_objection_period": "defined",
+          "proceeds_transfer_timing": "defined"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Комиссионер исполняет поручение."
+
+        Ответ:
+        {
+          "reporting_status": "not_defined",
+          "report_objection_period": "not_defined",
+          "proceeds_transfer_timing": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об отчётности.
+        2. Найди прямую цитату о сроке возражений.
+        3. Найди прямую цитату о сроке перечисления выручки.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "reporting_status": "<defined / partial / not_defined>",
+          "report_objection_period": "<defined / not_defined>",
+          "proceeds_transfer_timing": "<defined / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 360
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "отчёт комиссионера утверждение отчёта возражения на отчёт перечисление выручки срок перечисления молчание считается согласием"
       retrieval_profile: "payment_terms_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "вознаграждение"
+        - "субкомиссия"
+        - "делькредере"
+        - "прекращение"
+        - "возврат товара"
+        - "право собственности"
+      position_bias:
+        preferred_range: [0.25, 0.70]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "отчет комиссионера"
-        - "возражения на отчет"
-        - "перечисление выручки"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 580
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии сведения
+        об отчётности, сроке возражений и перечислении выручки.
+        Не анализируй вознаграждение, субкомиссию или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. reporting_status — "defined" / "partial" / "not_defined".
+        2. report_objection_period — "defined" / "not_defined".
+        3. proceeds_transfer_timing — "defined" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "reporting_status"
           type: "string"
-          allowed_values: ["present", "partial", "not_found"]
-          description: "Статус отчетности"
+          presentation: "signal"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Статус отчётности."
+          required: true
         - name: "report_objection_period"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли срок возражений на отчет"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие срока возражений на отчёт."
+          required: false
         - name: "proceeds_transfer_timing"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли срок перечисления выручки"
-        - name: "cashflow_risk_for_principal"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск удержания/задержки выручки"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие срока перечисления выручки."
+          required: true
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Собственность комитента и обособление товара
+  # ──────────────────────────────────────────────────────────────────────────
   - id: ownership_and_segregation_check
     name: "Сохранение собственности комитента и обособление товара"
-    description: "Проверяет оговорки о собственности комитента, раздельном хранении и защите от банкротства комиссионера"
+    description: >
+      Проверяет оговорки о собственности комитента, раздельном хранении
+      и защите от банкротства комиссионера.
     triggers:
-      any: ["goods_transfer_model", "consignment_model"]
+      any:
+        - goods_transfer_model
+        - consignment_model
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "право собственности сохраняется за комитентом"
@@ -986,68 +1379,391 @@ checks_v8:
         - "(?i)право\\s+собственности\\s+сохраняется\\s+за\\s+комитентом"
         - "(?i)обособленн(ый|ого)\\s+учет|раздельн(ое|ого)\\s+хранен"
         - "(?i)не\\s+подлежит\\s+взысканию\\s+по\\s+долгам\\s+комиссионера"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор комиссии.
-        Проверь режим собственности и обособления товара комитента.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии по Главе 51 ГК РФ.
+        Проверяется только один вопрос: собственность комитента и обособление товара.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 996 ГК РФ — имущество комитента
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли оговорка о сохранении собственности за комитентом.
+        2. Есть ли условия обособления (раздельное хранение, учёт).
+        3. Есть ли защитные оговорки от банкротства комиссионера.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Право собственности на товар сохраняется за Комитентом.
+        Товар хранится обособленно и не подлежит взысканию по долгам Комиссионера."
+
+        Ответ:
         {
-          "ownership_clause_status": "<present / not_found>",
-          "segregation_status": "<full / partial / not_found>",
-          "bankruptcy_protection_status": "<present / not_found>",
-          "principal_property_risk": "<high / medium / low / not_found>"
+          "ownership_clause_status": "defined",
+          "segregation_status": "defined",
+          "bankruptcy_protection_status": "defined"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Комиссионер принимает товар на хранение."
+
+        Ответ:
+        {
+          "ownership_clause_status": "not_defined",
+          "segregation_status": "not_defined",
+          "bankruptcy_protection_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о собственности.
+        2. Найди прямую цитату об обособлении.
+        3. Найди прямую цитату о защите от банкротства.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "ownership_clause_status": "<defined / not_defined>",
+          "segregation_status": "<defined / partial / not_defined>",
+          "bankruptcy_protection_status": "<defined / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 360
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "право собственности сохраняется за комитентом обособленный учёт раздельное хранение не подлежит взысканию по долгам комиссионера маркировка товара имущество комитента"
       retrieval_profile: "title_transfer_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - representations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "вознаграждение"
+        - "отчёт"
+        - "субкомиссия"
+        - "делькредере"
+        - "прекращение"
+      position_bias:
+        preferred_range: [0.10, 0.55]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "право собственности сохраняется за комитентом"
-        - "обособленный учет"
-        - "раздельное хранение"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "representations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии сведения
+        о собственности комитента, обособлении товара и защите от банкротства.
+        Не анализируй вознаграждение, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. ownership_clause_status — "defined" / "not_defined".
+        2. segregation_status — "defined" / "partial" / "not_defined".
+        3. bankruptcy_protection_status — "defined" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "ownership_clause_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли оговорка о сохранении собственности"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие оговорки о сохранении собственности."
+          required: true
         - name: "segregation_status"
           type: "string"
-          allowed_values: ["full", "partial", "not_found"]
-          description: "Статус обособления товара"
+          presentation: "signal"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Статус обособления товара."
+          required: true
         - name: "bankruptcy_protection_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли специальные защитные оговорки от смешения/взыскания"
-        - name: "principal_property_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск для собственности комитента"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие защитных оговорок от банкротства."
+          required: false
       store_payload: true
 
-  - id: subcommission_check
-    name: "Субкомиссия: допустимость и контроль"
-    description: "Проверяет условия привлечения субкомиссионера и ответственность комиссионера"
-    triggers:
-      any: ["subcommission_allowed"]
-    severity: "high"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 6: Дополнительная выгода
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: additional_benefit_check
+    name: "Распределение дополнительной выгоды (ст. 992 ГК РФ)"
+    description: >
+      Проверяет порядок распределения дополнительной выгоды при совершении
+      сделки на более выгодных условиях, чем было указано комитентом.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "дополнительная выгода"
+        - "делится поровну"
+        - "более выгодные условия"
+        - "превышение цены"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)дополнительн(ая|ой)\\s+выгод"
+        - "(?i)делитс[яь]\\s+.*поровну"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии по Главе 51 ГК РФ.
+        Проверяется только один вопрос: распределение дополнительной выгоды.
+
+        Нормативный ориентир:
+        - ст. 992 ГК РФ — дополнительная выгода
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Упомянута ли дополнительная выгода.
+        2. Определён ли порядок её распределения.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Дополнительная выгода, полученная при совершении сделки на более
+        выгодных условиях, делится между Комитентом и Комиссионером поровну."
+
+        Ответ:
+        {
+          "additional_benefit_status": "defined",
+          "distribution_model": "equal_split"
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Комиссионер совершает сделки по поручению Комитента."
+
+        Ответ:
+        {
+          "additional_benefit_status": "not_defined",
+          "distribution_model": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о дополнительной выгоде.
+        2. Найди прямую цитату о порядке распределения.
+        3. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "additional_benefit_status": "<defined / not_defined>",
+          "distribution_model": "<equal_split / custom / not_defined>"
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 320
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "дополнительная выгода делится поровну более выгодные условия превышение цены распределение выгоды"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "вознаграждение"
+        - "отчёт"
+        - "субкомиссия"
+        - "делькредере"
+        - "прекращение"
+        - "возврат товара"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.10
+        scope: segment
+      context_k: 5
+      max_chunks: 6
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 500
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии сведения
+        о распределении дополнительной выгоды.
+        Не анализируй вознаграждение, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. additional_benefit_status — "defined" / "not_defined".
+        2. distribution_model — "equal_split" / "custom" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - distribution_model: "equal_split" — если прямо указано "поровну";
+          "custom" — если указан иной порядок;
+          "not_defined" — если не указано.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "additional_benefit_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условия о дополнительной выгоде."
+          required: true
+        - name: "distribution_model"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["equal_split", "custom", "not_defined"]
+          description: "Модель распределения дополнительной выгоды."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 7: Субкомиссия
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: subcommission_check
+    name: "Субкомиссия: допустимость, согласие и ответственность"
+    description: >
+      Проверяет условия привлечения субкомиссионера, необходимость согласия
+      комитента и ответственность комиссионера за субкомиссионера.
+    triggers:
+      any:
+        - subcommission_allowed
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "субкомиссия"
@@ -1060,68 +1776,203 @@ checks_v8:
         - "(?i)субкомисси"
         - "(?i)согласия\\s+комитента"
         - "(?i)отвечает\\s+за\\s+действия\\s+субкомиссионера"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор комиссии.
-        Проверь режим субкомиссии.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии по Главе 51 ГК РФ.
+        Проверяется только один вопрос: режим субкомиссии.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 994 ГК РФ — субкомиссия
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Допускается или запрещена субкомиссия.
+        2. Требуется ли согласие комитента.
+        3. Есть ли ответственность комиссионера за субкомиссионера.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Субкомиссия допускается с письменного согласия Комитента.
+        Комиссионер отвечает за действия субкомиссионера как за свои собственные."
+
+        Ответ:
         {
-          "subcommission_status": "<allowed / prohibited / unclear / not_found>",
-          "principal_consent_required": "<yes / no / not_found>",
-          "commissioner_liability_for_subagent": "<present / not_found>",
-          "subcommission_risk": "<high / medium / low / not_found>"
+          "subcommission_status": "allowed",
+          "principal_consent_required": "yes",
+          "commissioner_liability_for_subagent": "defined"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Комиссионер исполняет поручение лично."
+
+        Ответ:
+        {
+          "subcommission_status": "prohibited",
+          "principal_consent_required": "not_defined",
+          "commissioner_liability_for_subagent": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о субкомиссии.
+        2. Найди прямую цитату о согласии комитента.
+        3. Найди прямую цитату об ответственности.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "subcommission_status": "<allowed / prohibited / unclear / not_defined>",
+          "principal_consent_required": "<yes / no / not_defined>",
+          "commissioner_liability_for_subagent": "<defined / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 340
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "субкомиссия субкомиссионер с письменного согласия комитента комиссионер отвечает за действия субкомиссионера запрет на субкомиссию привлечение третьих лиц"
+      retrieval_profile: "consent_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "вознаграждение"
+        - "отчёт"
+        - "делькредере"
+        - "прекращение"
+        - "возврат товара"
+      position_bias:
+        preferred_range: [0.30, 0.75]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 7
-      retrieval_profile: "consent_check"
-      boost_keywords:
-        - "субкомиссия"
-        - "субкомиссионер"
-        - "согласие комитента"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 35
       max_snippet_length: 540
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии сведения
+        о режиме субкомиссии: допустимость, согласие комитента, ответственность.
+        Не анализируй вознаграждение, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. subcommission_status — "allowed" / "prohibited" / "unclear" / "not_defined".
+        2. principal_consent_required — "yes" / "no" / "not_defined".
+        3. commissioner_liability_for_subagent — "defined" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - subcommission_status: "allowed" — если прямо разрешена;
+          "prohibited" — если прямо запрещена или указано "лично";
+          "unclear" — если формулировка неоднозначна;
+          "not_defined" — если не указано.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "subcommission_status"
           type: "string"
-          allowed_values: ["allowed", "prohibited", "unclear", "not_found"]
-          description: "Статус субкомиссии"
+          presentation: "signal"
+          allowed_values: ["allowed", "prohibited", "unclear", "not_defined"]
+          description: "Статус субкомиссии."
+          required: true
         - name: "principal_consent_required"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Требуется ли согласие комитента"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Требуется ли согласие комитента."
+          required: false
         - name: "commissioner_liability_for_subagent"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли ответственность комиссионера за субкомиссионера"
-        - name: "subcommission_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск субкомиссии"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие ответственности за субкомиссионера."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 8: Делькредере
+  # ──────────────────────────────────────────────────────────────────────────
   - id: delcredere_check
     name: "Делькредере: пределы ответственности и допвознаграждение"
-    description: "Проверяет условия принятия комиссионером ответственности за исполнение третьим лицом"
+    description: >
+      Проверяет условия принятия комиссионером ответственности за исполнение
+      третьим лицом, дополнительное вознаграждение и пределы ответственности.
     triggers:
-      any: ["delcredere_terms"]
+      any:
+        - delcredere_terms
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "делькредере"
@@ -1134,66 +1985,199 @@ checks_v8:
         - "(?i)делькредере"
         - "(?i)ручательств(о|а)\\s+за\\s+исполнени"
         - "(?i)дополнительн(ое|ого)\\s+вознаграждени"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор комиссии с делькредере.
-        Проверь, насколько ясно урегулирована дополнительная ответственность комиссионера.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии с делькредере по Главе 51 ГК РФ.
+        Проверяется только один вопрос: условия делькредере.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 993 ГК РФ — делькредере
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Определены ли условия делькредере.
+        2. Есть ли отдельное вознаграждение за делькредере.
+        3. Определены ли основания наступления ответственности.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Комиссионер принимает на себя делькредере — ручательство за исполнение
+        сделки третьим лицом. Дополнительное вознаграждение за делькредере —
+        2% от суммы сделки. Ответственность наступает при просрочке оплаты
+        третьим лицом более 30 дней."
+
+        Ответ:
         {
-          "delcredere_status": "<clear / partial / not_found>",
-          "additional_fee_for_delcredere": "<present / not_found>",
-          "liability_trigger_clarity": "<clear / unclear / not_found>",
-          "commissioner_risk_level": "<high / medium / low / not_found>"
+          "delcredere_status": "defined",
+          "additional_fee_for_delcredere": "defined",
+          "liability_trigger_clarity": "defined"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Комиссионер совершает сделки по поручению Комитента."
+
+        Ответ:
+        {
+          "delcredere_status": "not_defined",
+          "additional_fee_for_delcredere": "not_defined",
+          "liability_trigger_clarity": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о делькредере.
+        2. Найди прямую цитату о дополнительном вознаграждении.
+        3. Найди прямую цитату об основаниях ответственности.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "delcredere_status": "<defined / partial / not_defined>",
+          "additional_fee_for_delcredere": "<defined / not_defined>",
+          "liability_trigger_clarity": "<defined / unclear / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 360
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "делькредере ручательство за исполнение дополнительное вознаграждение условия наступления ответственности предел ответственности"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "вознаграждение комиссионера"
+        - "отчёт"
+        - "субкомиссия"
+        - "прекращение"
+        - "возврат товара"
+      position_bias:
+        preferred_range: [0.25, 0.70]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "делькредере"
-        - "дополнительное вознаграждение"
-        - "ручательство"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 35
       max_snippet_length: 560
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии сведения
+        о делькредере: условия, дополнительное вознаграждение, основания ответственности.
+        Не анализируй вознаграждение комиссионера, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. delcredere_status — "defined" / "partial" / "not_defined".
+        2. additional_fee_for_delcredere — "defined" / "not_defined".
+        3. liability_trigger_clarity — "defined" / "unclear" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не смешивай делькредере с обычным вознаграждением комиссионера.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "delcredere_status"
           type: "string"
-          allowed_values: ["clear", "partial", "not_found"]
-          description: "Статус условий делькредере"
+          presentation: "signal"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Статус условий делькредере."
+          required: true
         - name: "additional_fee_for_delcredere"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли отдельное вознаграждение"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие отдельного вознаграждения за делькредере."
+          required: false
         - name: "liability_trigger_clarity"
           type: "string"
-          allowed_values: ["clear", "unclear", "not_found"]
-          description: "Понятность оснований ответственности"
-        - name: "commissioner_risk_level"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Уровень риска для комиссионера"
+          presentation: "signal"
+          allowed_values: ["defined", "unclear", "not_defined"]
+          description: "Определённость оснований ответственности."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 9: Прекращение договора и возврат нереализованного товара
+  # ──────────────────────────────────────────────────────────────────────────
   - id: termination_and_unsold_goods_check
     name: "Прекращение договора и возврат нереализованного товара"
-    description: "Проверяет последствия отмены поручения, порядок возврата товара и расчеты между сторонами"
+    description: >
+      Проверяет последствия отмены поручения, порядок возврата нереализованного
+      товара и расчёты между сторонами при прекращении.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "отмена поручения"
@@ -1207,373 +2191,200 @@ checks_v8:
         - "(?i)отмен[аы]\\s+поручен|отказ\\s+от\\s+договора"
         - "(?i)нереализованн(ый|ого)\\s+товар"
         - "(?i)акт\\s+возврат"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор комиссии.
-        Проверь последствия прекращения договора.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии по Главе 51 ГК РФ.
+        Проверяется только один вопрос: прекращение договора и возврат товара.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 1003 ГК РФ — прекращение договора комиссии
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли порядок прекращения (отмена / отказ).
+        2. Есть ли режим возврата нереализованного товара.
+        3. Есть ли расчёты/компенсация при прекращении.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Комитент вправе отменить поручение в любое время. Нереализованный товар
+        возвращается по акту в течение 10 дней. Комиссионер сохраняет право
+        на вознаграждение за совершённые сделки и компенсацию расходов."
+
+        Ответ:
         {
-          "termination_mechanism_status": "<present / not_found>",
-          "unsold_goods_return_status": "<present / not_found>",
-          "termination_compensation_status": "<present / not_found>",
-          "post_termination_risk": "<high / medium / low / not_found>"
+          "termination_mechanism_status": "defined",
+          "unsold_goods_return_status": "defined",
+          "termination_compensation_status": "defined"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Договор действует до полного исполнения поручения."
+
+        Ответ:
+        {
+          "termination_mechanism_status": "not_defined",
+          "unsold_goods_return_status": "not_defined",
+          "termination_compensation_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о порядке прекращения.
+        2. Найди прямую цитату о возврате нереализованного товара.
+        3. Найди прямую цитату о расчётах при прекращении.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "termination_mechanism_status": "<defined / not_defined>",
+          "unsold_goods_return_status": "<defined / not_defined>",
+          "termination_compensation_status": "<defined / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 340
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "отмена поручения отказ от договора возврат нереализованного товара акт возврата срок возврата товара вознаграждение при досрочной отмене компенсация расходов при отмене"
+      retrieval_profile: "termination_check"
+      preferred_unit_types:
+        - termination_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "вознаграждение комиссионера"
+        - "отчёт"
+        - "субкомиссия"
+        - "делькредере"
+        - "право собственности"
+      position_bias:
+        preferred_range: [0.50, 0.95]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 7
-      retrieval_profile: "termination_check"
-      boost_keywords:
-        - "возврат нереализованного товара"
-        - "отмена поручения"
-        - "акт возврата"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "remedies"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 35
       max_snippet_length: 540
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии сведения
+        о прекращении договора, возврате нереализованного товара и расчётах.
+        Не анализируй вознаграждение, отчётность или субкомиссию.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. termination_mechanism_status — "defined" / "not_defined".
+        2. unsold_goods_return_status — "defined" / "not_defined".
+        3. termination_compensation_status — "defined" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "termination_mechanism_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли порядок прекращения"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие порядка прекращения."
+          required: true
         - name: "unsold_goods_return_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли режим возврата нереализованного товара"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие режима возврата нереализованного товара."
+          required: true
         - name: "termination_compensation_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли расчеты/компенсация при прекращении"
-        - name: "post_termination_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск неурегулированности последствий прекращения"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие расчётов/компенсации при прекращении."
+          required: false
       store_payload: true
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "subject_specific_transactions"
-    name: "Предмет комиссии: определенные сделки"
-    description: "Проверяет наличие определенного перечня или критериев сделок, которые совершает комиссионер"
-    legal_base: "ст. 432, 990 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "совершить одну или несколько сделок"
-        - "реализация товара"
-        - "закупка товара"
-        - "предмет договора"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)одну\\s+или\\s+несколько\\s+сделок"
-        - "(?i)реализац[ияии]\\s+товара|закупк[аи]\\s+товара"
-
-  - id: "commission_true_model_required"
-    name: "Комиссионер действует от своего имени, но за счет комитента"
-    description: "Проверяет базовую квалифицирующую модель договора комиссии"
-    legal_base: "ст. 990 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "от своего имени"
-        - "за счет комитента"
-        - "комиссионер"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)от\\s+своего\\s+имени"
-        - "(?i)за\\s+счет\\s+комитента"
-
-  - id: "commission_remuneration"
-    name: "Вознаграждение комиссионера"
-    description: "Проверяет наличие размера, формулы или порядка выплаты вознаграждения"
-    legal_base: "ст. 990, 991 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "комиссионное вознаграждение"
-        - "вознаграждение комиссионера"
-        - "процент от суммы сделки"
-        - "фиксированное вознаграждение"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)комиссионн(ое|ого)\\s+вознаграждени"
-        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
-
-  - id: "price_terms_limitation"
-    name: "Ценовые условия сделки"
-    description: "Проверяет наличие минимальной цены продажи или максимальной цены закупки"
-    legal_base: "ст. 995 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "минимальная цена продажи"
-        - "максимальная цена закупки"
-        - "не ниже"
-        - "не выше"
-        - "цена продажи"
-        - "цена закупки"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)минимальн(ая|ой)\\s+цен[аы]\\s+продаж"
-        - "(?i)максимальн(ая|ой)\\s+цен[аы]\\s+закуп"
-        - "(?i)не\\s+ниже|не\\s+выше"
-
-  - id: "ownership_preservation_clause"
-    name: "Сохранение права собственности за комитентом"
-    description: "Проверяет наличие прямой оговорки о сохранении собственности на товар за комитентом"
-    legal_base: "ст. 996 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["goods_transfer_model", "consignment_model"]
-    rules:
-      keywords:
-        - "право собственности сохраняется за комитентом"
-        - "товар комитента"
-        - "не становится собственностью комиссионера"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)право\\s+собственности\\s+сохраняется\\s+за\\s+комитентом"
-        - "(?i)не\\s+становитс[яь]\\s+собственностью\\s+комиссионера"
-
-  - id: "segregation_and_bankruptcy_protection"
-    name: "Обособление имущества комитента"
-    description: "Проверяет наличие условий о раздельном хранении и учете имущества комитента"
-    legal_base: "ст. 996 ГК РФ, ФЗ-127"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["goods_transfer_model", "consignment_model", "bankruptcy_segregation_sensitive"]
-    rules:
-      keywords:
-        - "обособленный учет"
-        - "раздельное хранение"
-        - "не подлежит взысканию по долгам комиссионера"
-        - "маркировка товара комитента"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)обособленн(ый|ого)\\s+учет|раздельн(ое|ого)\\s+хранен"
-        - "(?i)не\\s+подлежит\\s+взысканию\\s+по\\s+долгам\\s+комиссионера"
-
-  - id: "report_approval_and_dispute_procedure"
-    name: "Отчет комиссионера и порядок возражений"
-    description: "Проверяет наличие отчета комиссионера, срока на возражения и механизма согласования"
-    legal_base: "ст. 999 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["report_approval_required"]
-    rules:
-      keywords:
-        - "отчет комиссионера"
-        - "срок утверждения отчета"
-        - "возражения"
-        - "мотивированный отказ"
-        - "молчание считается согласием"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)отчет\\s+комиссионер"
-        - "(?i)возражени[яй]|молчание\\s+считается\\s+согласием"
-
-  - id: "proceeds_transfer_timing"
-    name: "Сроки перечисления выручки комитенту"
-    description: "Проверяет наличие срока и порядка перечисления выручки комитенту"
-    legal_base: "ст. 999 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "перечисление выручки"
-        - "срок перечисления"
-        - "не позднее"
-        - "в течение"
-        - "обособленный счет"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)перечислени[ея]\\s+выручк"
-        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+"
-
-  - id: "reimbursement_of_expenses_procedure"
-    name: "Порядок возмещения расходов комиссионера"
-    description: "Проверяет условия возмещения необходимых расходов и их документального подтверждения"
-    legal_base: "ст. 1001 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "возмещение необходимых расходов"
-        - "аванс на расходы"
-        - "смета расходов"
-        - "документальное подтверждение"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)возмещени[ея]\\s+.*расход"
-        - "(?i)аванс\\s+на\\s+расход|смета\\s+расход"
-
-  - id: "right_of_retention_clause"
-    name: "Право удержания комиссионера"
-    description: "Проверяет наличие права удержания причитающихся сумм"
-    legal_base: "ст. 997 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["retention_right_clause"]
-    rules:
-      keywords:
-        - "право удержания"
-        - "удерживать причитающиеся суммы"
-        - "из поступивших денежных средств"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)право\\s+удержан"
-        - "(?i)удерживат[ья].{0,40}причитающ"
-
-  - id: "subcommission_control"
-    name: "Субкомиссия: допустимость и контроль"
-    description: "Проверяет условия привлечения субкомиссионера"
-    legal_base: "ст. 994 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["subcommission_allowed"]
-    rules:
-      keywords:
-        - "субкомиссия"
-        - "субкомиссионер"
-        - "с письменного согласия комитента"
-        - "комиссионер отвечает за действия субкомиссионера"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)субкомисси"
-        - "(?i)согласия\\s+комитента"
-        - "(?i)отвечает\\s+за\\s+действия\\s+субкомиссионера"
-
-  - id: "delcredere_conditions"
-    name: "Делькредере: условия ответственности"
-    description: "Проверяет наличие условий делькредере, дополнительного вознаграждения и основания ответственности"
-    legal_base: "ст. 993 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["delcredere_terms"]
-    rules:
-      keywords:
-        - "делькредере"
-        - "ручательство за исполнение"
-        - "дополнительное вознаграждение"
-        - "условия наступления ответственности"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)делькредере"
-        - "(?i)ручательств(о|а)\\s+за\\s+исполнени"
-        - "(?i)дополнительн(ое|ого)\\s+вознаграждени"
-
-  - id: "additional_benefit_distribution"
-    name: "Распределение дополнительной выгоды"
-    description: "Проверяет порядок распределения дополнительной выгоды при совершении сделки на лучших условиях"
-    legal_base: "ст. 992 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "дополнительная выгода"
-        - "делится поровну"
-        - "более выгодные условия"
-        - "превышение цены"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)дополнительн(ая|ой)\\s+выгод"
-        - "(?i)делитс[яь]\\s+.*поровну"
-
-  - id: "unsold_goods_return_procedure"
-    name: "Возврат нереализованного товара"
-    description: "Проверяет порядок и сроки возврата нереализованного товара комитенту"
-    legal_base: "ст. 996, 1003 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["goods_transfer_model", "consignment_model"]
-    rules:
-      keywords:
-        - "возврат нереализованного товара"
-        - "срок возврата товара"
-        - "акт возврата"
-        - "расходы на возврат"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)нереализованн(ый|ого)\\s+товар"
-        - "(?i)акт\\s+возврат"
-        - "(?i)срок\\s+возврата\\s+товара"
-
-  - id: "termination_compensation_clause"
-    name: "Компенсация комиссионеру при досрочной отмене"
-    description: "Проверяет сохранение права комиссионера на вознаграждение и расходы при досрочном прекращении"
-    legal_base: "ст. 1003 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "вознаграждение при досрочной отмене"
-        - "компенсация расходов при отмене"
-        - "при отмене поручения комитентом"
-        - "сохраняет право на вознаграждение"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)при\\s+отмене\\s+поручени[яи].{0,40}сохраняет\\s+право\\s+на\\s+вознаграждени"
-        - "(?i)компенсац[ияии]\\s+расход"
-
-  - id: "tax_risks_clarification"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 10: Налоговые последствия и документооборот
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: tax_and_documentation_check
     name: "Налоговые последствия и документооборот по комиссии"
-    description: "Проверяет наличие налоговых оговорок и корректного первичного документооборота"
-    legal_base: "НК РФ ст. 156, 251, 54.1"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    description: >
+      Проверяет наличие налоговых оговорок, корректного первичного
+      документооборота и подтверждения того, что доходом комиссионера
+      является только вознаграждение.
     triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "налоговые последствия"
@@ -1587,11 +2398,184 @@ doc_type_checks:
         - "(?i)доходом\\s+комиссионера\\s+является\\s+вознаграждение"
         - "(?i)счет[- ]фактур|первичн(ый|ого)\\s+документ"
 
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор комиссии по Главе 51 ГК РФ.
+        Проверяется только один вопрос: налоговые последствия и документооборот.
+
+        Нормативный ориентир:
+        - ст. 156 НК РФ — налоговая база при комиссионной модели
+        - ст. 251 НК РФ — доходы, не учитываемые при налогообложении
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли налоговая оговорка.
+        2. Есть ли указание на документооборот (счета-фактуры, первичные документы).
+        3. Есть ли подтверждение, что доходом комиссионера является только вознаграждение.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Доходом Комиссионера является только комиссионное вознаграждение.
+        Счета-фактуры выставляются в порядке, предусмотренном НК РФ.
+        Отчёт Комиссионера является первичным документом для учёта."
+
+        Ответ:
+        {
+          "tax_clause_status": "defined",
+          "documentation_status": "defined",
+          "revenue_qualification_status": "defined"
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Комиссионер исполняет поручение Комитента."
+
+        Ответ:
+        {
+          "tax_clause_status": "not_defined",
+          "documentation_status": "not_defined",
+          "revenue_qualification_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о налоговых последствиях.
+        2. Найди прямую цитату о документообороте.
+        3. Найди прямую цитату о квалификации дохода комиссионера.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "tax_clause_status": "<defined / not_defined>",
+          "documentation_status": "<defined / not_defined>",
+          "revenue_qualification_status": "<defined / not_defined>"
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 340
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "налоговые последствия доходом комиссионера является вознаграждение счёт-фактура отчёт как первичный документ документооборот по комиссии НК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "вознаграждение комиссионера"
+        - "отчёт"
+        - "субкомиссия"
+        - "делькредере"
+        - "прекращение"
+        - "возврат товара"
+      position_bias:
+        preferred_range: [0.60, 1.0]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 6
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "boilerplate"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора комиссии сведения
+        о налоговых оговорках, документообороте и квалификации дохода комиссионера.
+        Не анализируй вознаграждение, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. tax_clause_status — "defined" / "not_defined".
+        2. documentation_status — "defined" / "not_defined".
+        3. revenue_qualification_status — "defined" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "tax_clause_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие налоговой оговорки."
+          required: true
+        - name: "documentation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условия о документообороте."
+          required: false
+        - name: "revenue_qualification_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Подтверждение, что доход комиссионера — только вознаграждение."
+          required: false
+      store_payload: true
+
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
 
 dd_request_templates:
@@ -1599,46 +2583,14 @@ dd_request_templates:
     text: >
       Просим предоставить по {doc_names}: базовую структуру договора комиссии —
       комитента, комиссионера, предмет сделок, модель действия от своего имени,
-      размер вознаграждения, отчетность, статус товара комитента и наличие делькредере.
+      размер вознаграждения, отчётность, статус товара комитента и наличие делькредере.
     addressee: "Комитент / Комиссионер"
 
   subject_and_representation_model_check:
     text: >
       Просим уточнить по {doc_names}: какие именно сделки совершает комиссионер,
-      от чьего имени он действует, за чей счет совершаются сделки,
-      а также минимальные/максимальные ценовые параметры.
-    addressee: "Юридический советник"
-
-  subject_specific_transactions:
-    text: >
-      Просим конкретизировать в {doc_names}: перечень сделок, товаров,
-      ценовые параметры, допустимые контрагенты и иные существенные элементы предмета комиссии.
-    addressee: "Комитент"
-
-  commission_true_model_required:
-    text: >
-      Просим прямо закрепить в {doc_names}, что комиссионер действует от своего имени,
-      но за счет комитента, во избежание переквалификации договора.
-    addressee: "Юридический советник"
-
-  acts_in_principals_name_red_flag:
-    text: >
-      В {doc_names} выявлен риск модели, при которой исполнитель действует от имени комитента,
-      что противоречит конструкции комиссии. Просим скорректировать квалификацию
-      либо переработать договор под поручение/агентирование.
-    addressee: "Юридический советник"
-
-  commission_remuneration:
-    text: >
-      Просим уточнить по {doc_names}: размер комиссионного вознаграждения,
-      порядок его расчета, момент возникновения права на вознаграждение и сроки выплаты.
-    addressee: "Обе стороны"
-
-  gratuitous_commission_red_flag:
-    text: >
-      В {doc_names} выявлен риск безвозмездной конструкции комиссии.
-      Просим срочно урегулировать вознаграждение комиссионера,
-      поскольку договор комиссии является возмездным.
+      от чьего имени он действует, за чей счёт совершаются сделки, а также
+      минимальные/максимальные ценовые параметры.
     addressee: "Юридический советник"
 
   remuneration_expenses_and_retention_check:
@@ -1647,143 +2599,58 @@ dd_request_templates:
       порядок возмещения расходов, смету/виды расходов, а также условия права удержания.
     addressee: "Комиссионер / Комитент"
 
-  reimbursement_of_expenses_procedure:
-    text: >
-      Просим уточнить в {doc_names}: какие расходы комиссионера подлежат возмещению,
-      требуется ли авансирование, какие документы подтверждают расходы
-      и в какой срок комитент их возмещает.
-    addressee: "Комитент / Комиссионер"
-
-  right_of_retention_clause:
-    text: >
-      Просим уточнить в {doc_names}: какие суммы комиссионер вправе удерживать,
-      из каких поступлений, в каком объеме и с каким уведомлением комитента.
-    addressee: "Юридический советник"
-
   reporting_and_proceeds_transfer_check:
     text: >
-      Просим предоставить по {doc_names}: форму и периодичность отчета комиссионера,
-      срок и порядок заявления возражений комитентом, а также сроки перечисления выручки комитенту.
+      Просим предоставить по {doc_names}: форму и периодичность отчёта комиссионера,
+      срок и порядок заявления возражений комитентом, а также сроки перечисления
+      выручки комитенту.
     addressee: "Комиссионер / Комитент"
-
-  report_approval_and_dispute_procedure:
-    text: >
-      Просим уточнить в {doc_names}: порядок утверждения отчета,
-      срок для мотивированных возражений, последствия молчания комитента
-      и механизм урегулирования разногласий по отчету.
-    addressee: "Юридический советник"
-
-  proceeds_transfer_timing:
-    text: >
-      Просим уточнить в {doc_names}: срок перечисления выручки комитенту,
-      реквизиты и порядок платежа, а также режим хранения средств до их перечисления.
-    addressee: "Комиссионер"
-
-  proceeds_transfer_timing_missing:
-    text: >
-      В {doc_names} не выявлены четкие сроки перечисления выручки комитенту.
-      Просим срочно установить конкретный срок перевода средств и режим их обособления.
-    addressee: "Юридический советник / Комиссионер"
 
   ownership_and_segregation_check:
     text: >
       Просим предоставить по {doc_names}: оговорки о сохранении собственности комитента,
-      правила раздельного хранения/учета товара, маркировку имущества
-      и меры защиты от смешения с имуществом комиссионера.
+      правила раздельного хранения/учёта товара, маркировку имущества и меры защиты
+      от смешения с имуществом комиссионера.
     addressee: "Комиссионер / Комитент"
 
-  ownership_preservation_clause:
-    text: >
-      Просим включить/уточнить в {doc_names}: прямое указание,
-      что право собственности на товар сохраняется за комитентом
-      до его реализации третьему лицу либо иного предусмотренного момента.
-    addressee: "Юридический советник"
-
-  segregation_and_bankruptcy_protection:
-    text: >
-      Просим уточнить в {doc_names}: порядок обособленного учета и хранения имущества комитента,
-      запрет смешения с имуществом комиссионера и меры защиты в случае банкротства комиссионера.
-    addressee: "Комиссионер / Юридический советник"
-
-  ownership_and_segregation_missing:
-    text: >
-      В {doc_names} отсутствуют достаточные положения о собственности комитента
-      и раздельном учете товара. Просим срочно доработать договор,
-      чтобы минимизировать риск утраты товара при взыскании или банкротстве комиссионера.
-    addressee: "Юридический советник"
-
-  subcommission_check:
-    text: >
-      По {doc_names} с субкомиссией просим предоставить:
-      условия привлечения субкомиссионера, необходимость согласия комитента,
-      объем ответственности комиссионера и сведения о субкомиссионере.
-    addressee: "Комиссионер / Юридический советник"
-
-  subcommission_control:
-    text: >
-      Просим уточнить в {doc_names}: допускается ли субкомиссия,
-      нужно ли предварительное письменное согласие комитента
-      и отвечает ли комиссионер за действия субкомиссионера как за свои.
-    addressee: "Юридический советник"
-
-  delcredere_check:
-    text: >
-      По {doc_names} с делькредере просим предоставить:
-      условия наступления ответственности комиссионера за третье лицо,
-      предел такой ответственности и размер дополнительного вознаграждения.
-    addressee: "Комиссионер / Комитент"
-
-  delcredere_conditions:
-    text: >
-      Просим уточнить в {doc_names}: делькредере, его пределы,
-      основания наступления ответственности и отдельное вознаграждение за принятие этого риска.
-    addressee: "Юридический советник"
-
-  delcredere_without_clear_terms:
-    text: >
-      В {doc_names} выявлен риск делькредере без достаточной детализации.
-      Просим срочно определить основания, предел ответственности
-      и размер допвознаграждения комиссионера.
-    addressee: "Юридический советник / Комиссионер"
-
-  additional_benefit_distribution:
+  additional_benefit_check:
     text: >
       Просим уточнить по {doc_names}: как распределяется дополнительная выгода,
       если сделка совершена на более выгодных условиях, чем было указано комитентом.
     addressee: "Обе стороны"
 
+  subcommission_check:
+    text: >
+      По {doc_names} с субкомиссией просим предоставить: условия привлечения
+      субкомиссионера, необходимость согласия комитента, объём ответственности
+      комиссионера и сведения о субкомиссионере.
+    addressee: "Комиссионер / Юридический советник"
+
+  delcredere_check:
+    text: >
+      По {doc_names} с делькредере просим предоставить: условия наступления
+      ответственности комиссионера за третье лицо, предел такой ответственности
+      и размер дополнительного вознаграждения.
+    addressee: "Комиссионер / Комитент"
+
   termination_and_unsold_goods_check:
     text: >
-      Просим уточнить в {doc_names}: порядок прекращения договора,
-      сроки и форму возврата нереализованного товара, оформление акта возврата,
-      а также расчеты по вознаграждению и расходам при прекращении.
+      Просим уточнить в {doc_names}: порядок прекращения договора, сроки и форму
+      возврата нереализованного товара, оформление акта возврата, а также расчёты
+      по вознаграждению и расходам при прекращении.
     addressee: "Комитент / Комиссионер"
 
-  unsold_goods_return_procedure:
-    text: >
-      Просим предоставить по {doc_names}: режим возврата нереализованного товара —
-      сроки, место возврата, распределение расходов, требования к состоянию товара
-      и комплекту сопроводительных документов.
-    addressee: "Комиссионер"
-
-  termination_compensation_clause:
-    text: >
-      Просим уточнить в {doc_names}: какие суммы сохраняет комиссионер
-      при досрочной отмене поручения комитентом, включая вознаграждение
-      за уже совершенные сделки и компенсацию понесенных расходов.
-    addressee: "Юридический советник"
-
-  tax_risks_clarification:
+  tax_and_documentation_check:
     text: >
       Просим предоставить по {doc_names}: налоговую модель договора комиссии,
       порядок выставления счетов-фактур, первичный документооборот и пояснение,
-      почему доходом комиссионера признается только вознаграждение, а не вся выручка.
+      почему доходом комиссионера признаётся только вознаграждение, а не вся выручка.
     addressee: "Налоговый консультант / Юридический советник"
 
-  # Generic fallback
   _default:
     text: >
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
-    
+
+

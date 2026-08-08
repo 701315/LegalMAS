@@ -3687,7 +3687,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           label: "Режим НДС"
-          allowed_values: ["both_charge", "exempt", "not_specified", "not_defined"]
+          allowed_values: ["both_charge", "exempt", "not_defined", "not_defined"]
           description: "Порядок начисления НДС."
           required: false
           display_in_grid: true

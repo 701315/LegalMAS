@@ -1,6 +1,7 @@
 type: contract_5.2_credit_agreement
 name: "Кредитный договор"
-
+version: 6.0
+parent: class_5_financial_security
 description: |
   Консенсуальный возмездный договор, по которому банк или иная кредитная организация
   обязуется предоставить заемщику денежные средства (кредит) в размере и на условиях,
@@ -11,10 +12,6 @@ description: |
   Характеризуется обязательной письменной формой, обязательной возмездностью,
   специальным статусом кредитора, повышенной регуляторной нагрузкой и высоким объемом
   типовых банковских рисков для обеих сторон.
-
-version: 4.0
-parent: class_5_financial_security
-
 metadata:
   category: contract
   subcategory: financial_security
@@ -38,7 +35,6 @@ metadata:
     - "договор ипотечного кредита"
     - "договор синдицированного кредита"
     - "договор возобновляемой кредитной линии"
-
     - "credit agreement"
     - "facilities agreement"
     - "credit facility agreement"
@@ -53,372 +49,267 @@ metadata:
     - "bridge facility agreement"
     - "borrowing base agreement"
 
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
 
 classification_runtime_v1:
-
   scoring:
     accept_threshold: 0.82
-    strong_signal_threshold: 0.9
+    strong_signal_threshold: 0.90
     ambiguity_margin: 0.18
     input_quality_weight: 1.0
 
   rules:
-
     filename_patterns:
       - pattern: "(?i)\\bкредитн[а-я]*[\\s_.-]*договор\\b|\\bдоговор[\\s_.-]*кредит[а-я]*\\b"
         kind: specific_subject
         weight: 1.0
-        # Прямое наименование кредитного договора
-
       - pattern: "(?i)\\bкредитн[а-я]*[\\s_.-]*соглашени[ея]\\b|\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*кредит[а-я]*\\b"
         kind: specific_subject
         weight: 0.97
-        # Кредитное соглашение — из supported types
-
       - pattern: "(?i)\\b(?:банковск[а-я]*[\\s_.-]*)?кредитн[а-я]*[\\s_.-]*(?:лини[яи]|линии)\\b|\\bдоговор[\\s_.-]*кредитн[а-я]*[\\s_.-]*лини[яи]\\b"
         kind: specific_subject
         weight: 0.96
-        # Кредитная линия / договор кредитной линии — из supported types
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*(?:об[\\s_.-]*)?открыти[а-я]*[\\s_.-]*кредитн[а-я]*[\\s_.-]*лини[яи]\\b"
         kind: specific_subject
         weight: 0.96
-        # Договор об открытии кредитной линии — прямая форма из supported types
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*(?:возобновляемой[\\s_.-]*)?кредитн[а-я]*[\\s_.-]*лини[яи]\\b"
         kind: specific_subject
         weight: 0.96
-        # Возобновляемая / revolving кредитная линия
-
       - pattern: "(?i)\\b(?:договор[\\s_.-]*)?овердрафт[а-я]*\\b"
         kind: specific_subject
         weight: 0.94
-        # Овердрафт — специфичный банковский кредитный продукт
-
       - pattern: "(?i)\\b(?:потребительск[а-я]*[\\s_.-]*кредит|договор[\\s_.-]*потребительск[а-я]*[\\s_.-]*кредит[а-я]*)\\b"
         kind: specific_subject
         weight: 0.94
-        # Потребительский кредит — регулируется ФЗ-353
-
       - pattern: "(?i)\\b(?:ипотечн[а-я]*[\\s_.-]*кредит|договор[\\s_.-]*ипотечн[а-я]*[\\s_.-]*кредит[а-я]*)\\b"
         kind: specific_subject
         weight: 0.94
-        # Ипотечный кредит — из supported types
-
       - pattern: "(?i)\\b(?:корпоративн[а-я]*[\\s_.-]*кредитн[а-я]*[\\s_.-]*договор|синдицированн[а-я]*[\\s_.-]*кредит[а-я]*)\\b|\\bдоговор[\\s_.-]*синдицированн[а-я]*[\\s_.-]*кредит[а-я]*\\b"
         kind: specific_subject
         weight: 0.96
-        # Корпоративный / синдицированный кредит — из supported types
-
       - pattern: "(?i)\\b(?:договор[\\s_.-]*)?рефинансировани[а-я]*\\b"
         kind: specific_subject
         weight: 0.88
-        # Рефинансирование — банковский кредитный продукт, но может встречаться и в иных контекстах
-
       - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*предоставлени[а-я]*[\\s_.-]*транш[а-я]*\\b"
         kind: specific_subject
         weight: 0.90
-        # Соглашение о предоставлении траншей — из supported types, специфичен для кредитных линий
-
       - pattern: "(?i)\\bcredit[\\s_.-]*(?:agreement|facility[\\s_.-]*agreement)\\b"
         kind: specific_subject
         weight: 0.96
-        # Credit agreement / credit facility agreement — прямые LMA-формы
-
       - pattern: "(?i)\\bfacilities?[\\s_.-]*agreement\\b"
         kind: specific_subject
         weight: 0.92
-        # Facilities agreement — в LMA-практике почти исключительно bank credit facility
-
       - pattern: "(?i)\\bloan[\\s_.-]*facility[\\s_.-]*(?:agreement)?\\b"
         kind: specific_subject
         weight: 0.92
-        # Loan facility agreement — из supported types, facility-qualifier отличает от simple loan
-
       - pattern: "(?i)\\b(?:revolving[\\s_.-]*(?:credit[\\s_.-]*)?facility|revolving[\\s_.-]*facility[\\s_.-]*agreement)\\b"
         kind: specific_subject
         weight: 0.96
-        # Revolving credit facility — из supported types, сильный специфичный маркер
-
       - pattern: "(?i)\\bterm[\\s_.-]*loan[\\s_.-]*(?:agreement)?\\b"
         kind: specific_subject
         weight: 0.90
-        # Term loan agreement — из supported types; term-qualifier отличает от demand/on-call loan
-
       - pattern: "(?i)\\bmortgage[\\s_.-]*loan[\\s_.-]*(?:agreement)?\\b"
         kind: specific_subject
         weight: 0.90
-        # Mortgage loan agreement — из supported types
-
       - pattern: "(?i)\\bsyndicated[\\s_.-]*(?:facilities?|credit|loan)[\\s_.-]*(?:agreement)?\\b"
         kind: specific_subject
         weight: 0.96
-        # Syndicated facilities/credit/loan agreement — из supported types
-
       - pattern: "(?i)\\b(?:senior|bridge|multicurrency)[\\s_.-]*(?:facilities?|credit|loan)[\\s_.-]*(?:agreement)?\\b"
         kind: specific_subject
         weight: 0.90
-        # Senior / bridge / multicurrency facility — специфичные структурные кредитные формы
-
       - pattern: "(?i)\\bborrowing[\\s_.-]*base[\\s_.-]*(?:agreement)?\\b"
         kind: specific_subject
         weight: 0.86
-        # Borrowing base agreement — из supported types, используется в ABL/structured credit
-
       - pattern: "(?i)\\bloan[\\s_.-]*agreement\\b"
         kind: generic_form
         weight: 0.56
-        # Loan agreement без facility/bank/credit qualifier может быть межкорпоративным займом, shareholder loan и др.
-
       - pattern: "(?i)\\bкредитн[а-я]*\\b"
         kind: context
         weight: 0.24
-        # Кредитный без договор/соглашение-квалификатора может относиться к кредитным нотам, кредитным историям и т.п.
-
       - pattern: "(?i)\\bcredit\\b"
         kind: context
         weight: 0.20
-        # Credit без agreement/facility qualifier слишком широко: credit note, letter of credit, credit report и др.
-
       - pattern: "(?i)\\bloan\\b"
         kind: context
         weight: 0.18
-        # Loan без qualifier: может быть shareholder loan, intercompany loan, demand loan и др.
-
       - pattern: "(?i)\\bбанковск[а-я]*\\b"
         kind: context
         weight: 0.16
-        # Банковский без предмета — слишком широкий контекст
-
 
     folder_patterns:
       - pattern: "(?i)кредитн[а-я]*[_\\s-]*(?:договор|соглашени[ея]|лини[яи])|credit[_\\s-]*(?:agreement|facility|line)"
         kind: specific_subject
         weight: 0.86
-        # Явная taxonomy кредитных договоров / credit facilities
-
       - pattern: "(?i)(?:syndicated|revolving|term|senior|bridge|multicurrency)[_\\s-]*(?:loan|credit|facilit)"
         kind: specific_subject
         weight: 0.84
-        # Специфические структурные кредитные папки
-
       - pattern: "(?i)mortgage[_\\s-]*loan|ипотечн[а-я]*[_\\s-]*кредит"
         kind: specific_subject
         weight: 0.82
-        # Ипотечное кредитование в taxonomy
-
       - pattern: "(?i)(?:overdraft|овердрафт|потребительск[а-я]*[_\\s-]*кредит|consumer[_\\s-]*credit)"
         kind: specific_subject
         weight: 0.82
-        # Продуктовые кредитные папки
-
       - pattern: "(?i)facilities?[_\\s-]*agreement|loan[_\\s-]*facility"
         kind: specific_subject
         weight: 0.80
-        # LMA-taxonomy папок
-
       - pattern: "(?i)loan[_\\s-]*agreement|borrowing[_\\s-]*base"
         kind: generic_form
         weight: 0.50
-        # Loan agreement folder — возможен конфликт с займом
-
       - pattern: "(?i)рефинансировани[ея]|refinanc"
         kind: generic_form
         weight: 0.48
-        # Рефинансирование — кредитный контекст, но возможно и в mortgage/bond refinancing
-
       - pattern: "(?i)кредит(?![а-я])|credit"
         kind: context
         weight: 0.22
-        # Общий кредитный folder-context без уточнения продукта
-
       - pattern: "(?i)banking|банк"
         kind: context
         weight: 0.16
-        # Слишком широкий banking-контекст
-
       - pattern: "(?i)(?:loan|заём|займ)"
         kind: context
         weight: 0.14
-        # Loan / заём без qualifier: конфликт с договором займа
 
     keywords:
-
       high:
         - pattern: "(?i)кредитн[ыйое]\\s+договор"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное название кредитного договора с банком/кредитной организацией"
-
         - pattern: "(?i)банковск[ийое]\\s+кредит"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Банковский кредит по § 2 Главы 42 ГК РФ"
-
         - pattern: "(?i)кредитн[оеая]\\s+соглашен[иеия]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Кредитное соглашение как синоним кредитного договора"
-
         - pattern: "(?i)договор\\s+об\\s+открыт[ииии]\\s+кредитн[ойой]\\s+лини[ии]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Договор об открытии кредитной линии"
-
         - pattern: "(?i)договор\\s+овердрафт[ауы]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Договор овердрафта как разновидность кредитования по счёту"
-
         - pattern: "(?i)потребительск[ийое]\\s+кредит"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Потребительский кредит/займ в смысле 353-ФЗ"
-
         - pattern: "(?i)ипотечн[ыйое]\\s+кредит"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Ипотечный кредит под залог недвижимости"
-
         - pattern: "(?i)корпоративн[ыйое]\\s+кредитн[ыйое]\\s+договор"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Корпоративный кредитный договор"
-
         - pattern: "(?i)договор\\s+рефинансирован[ияи]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Рефинансирование ранее выданного кредита"
-
         - pattern: "(?i)соглашен[иея]\\s+о\\s+предоставлен[иии]\\s+транш[еёй]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Соглашение о предоставлении кредитных траншей в рамках линии"
-
         - pattern: "(?i)кредитор[ауы]"
           weight: 0.85
           distinctiveness: medium
           context: any
           description: "Кредитор как сторона по кредитному договору"
-
         - pattern: "(?i)заемщик[ауы]"
           weight: 0.85
           distinctiveness: medium
           context: any
           description: "Заёмщик по кредитному договору"
-
         - pattern: "(?i)кредитн[аяое]\\s+организац[ияи]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Кредитная организация как специальный субъект кредитного договора"
-
         - pattern: "(?i)банк[а-я]*"
           weight: 0.85
           distinctiveness: medium
           context: any
           description: "Банк как кредитор"
-
         - pattern: "(?i)процентн[аяое]\\s+ставк[ауы]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: medium
           context: any
           description: "Процентная ставка по кредиту"
-
         - pattern: "(?i)полн[аяое]\\s+стоимост[ьи]\\s+кредит[ауы]"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Полная стоимость кредита (ПСК) по 353-ФЗ"
-
         - pattern: "(?i)\\bpsk\\b"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Аббревиатура ПСК — полная стоимость кредита"
 
       medium:
         - pattern: "(?i)процент[ыа]\\s+за\\s+пользовани[ея]\\s+кредит[оо]м"
-          weight: 0.7
+          weight: 0.70
           distinctiveness: medium
           context: any
           description: "Проценты за пользование кредитом"
-
         - pattern: "(?i)график\\s+платеж[её]й"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "График платежей по кредиту"
-
         - pattern: "(?i)аннуитетн[ыо]й\\s+плат[её]ж"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Аннуитетные платежи по кредиту"
-
         - pattern: "(?i)дифференцированн[ыо]й\\s+плат[её]ж"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Дифференцированные платежи по кредиту"
-
         - pattern: "(?i)погашени[ея]\\s+кредит[аа]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Погашение суммы кредита"
-
         - pattern: "(?i)\\bтранш\\b"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Предоставление кредита отдельными траншами"
-
         - pattern: "(?i)кредитн[а-яё]+\\s+лини[яя]"
-          weight: 0.7
+          weight: 0.70
           distinctiveness: medium
           context: any
           description: "Кредитная линия"
-
         - pattern: "(?i)лимит\\s+кредитовани[яя]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Лимит кредитования по договору"
-
         - pattern: "(?i)\\bовердрафт\\b"
-          weight: 0.7
+          weight: 0.70
           distinctiveness: medium
           context: any
           description: "Овердрафт как форма кредитования"
-
         - pattern: "(?i)досрочн[оа]е\\s+погашени[ея]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Досрочное погашение кредита"
-
         - pattern: "(?i)обеспечени[ея]\\s+исполнени[яя]"
           weight: 0.55
           distinctiveness: low
@@ -427,43 +318,37 @@ classification_runtime_v1:
 
       low:
         - pattern: "(?i)потребительск[иоя]+\\s+кредит"
-          weight: 0.4
+          weight: 0.40
           distinctiveness: low
           context: any
           description: "Упоминание потребительского кредита"
-
         - pattern: "(?i)ипотечн[ыо]й\\s+кредит"
-          weight: 0.4
+          weight: 0.40
           distinctiveness: low
           context: any
           description: "Упоминание ипотечного кредита"
-
         - pattern: "(?i)\\bрефинансировани[ея]\\b"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Рефинансирование кредита"
-
         - pattern: "(?i)реструктуризаци[яи]"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Реструктуризация кредитной задолженности"
-
         - pattern: "(?i)бюро\\s+кредитн[ыо]х\\s+истори[йи]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Бюро кредитных историй"
-
         - pattern: "(?i)страховани[ея]\\s+жизн[ии]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Страхование жизни, привязанное к кредиту"
-
         - pattern: "(?i)комисси[яи]\\s+за\\s+обслуживани[ея]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Комиссия за обслуживание кредита"
@@ -473,42 +358,33 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "Заем между физическими лицами — договор займа, а не банковский кредит"
-
       - pattern: "(?i)беспроцентн[ыо]й\\s+за[её]м"
         severity: hard
         weight: -1.0
         description: "Беспроцентный заём регулируется нормами о займе, а не о кредитном договоре"
-
       - pattern: "(?i)\\bмикрозайм\\b"
         severity: hard
         weight: -1.0
-        description: "Микрозайм по 151-ФЗ — отдельный микрофинансовый продукт, не банковский кредитный договор"
-
+        description: "Микрозайм по 151-ФЗ — отдельный микрофинансовый продукт"
       - pattern: "(?i)договор\\s+ссуд[ыа]"
         severity: hard
         weight: -1.0
         description: "Ссуда — безвозмездное пользование вещью, а не кредит"
-
       - pattern: "(?i)товарн[ыо]й\\s+кредит"
         severity: hard
         weight: -1.0
-        description: "Товарный кредит по ст. 822 ГК РФ — отдельная конструкция, отличная от банковского кредита"
-
-      # ── Soft exclusions
-
+        description: "Товарный кредит по ст. 822 ГК РФ — отдельная конструкция"
       - pattern: "(?i)договор\\s+за[йеё]м[аа]"
         severity: soft
         weight: -0.35
-        description: "Общее название договора займа снижает уверенность в том, что документ — банковский кредит"
-
+        description: "Общее название договора займа снижает уверенность"
       - pattern: "(?i)займодавец"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Маркер классического договора займа, а не кредитного договора"
-
       - pattern: "(?i)\\bмфо\\b|микрофинансир[ующа-яё]+\\s+организац[ияи]"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "МФО работают по специальным договорным моделям микрозайма"
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -517,7 +393,6 @@ classification_runtime_v1:
 # ════════════════════════════════════════════════════════════════════════════
 
 trigger_definitions:
-
   consumer_credit:
     any_keywords:
       - "(?i)потребительск[иоя]+\\s+кредит"
@@ -675,241 +550,38 @@ trigger_definitions:
 # ════════════════════════════════════════════════════════════════════════════
 
 shared_patterns:
-
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
   percentage_pattern: "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
   psk_pattern: "(?i)(?:полная\\s+стоимость\\s+кредита|ПСК).{0,30}\\d+(?:[.,]\\d+)?\\s*%"
   license_pattern: "(?i)лиценз[ияе]\\s*(?:№|N|No\\.)?\\s*[A-ZА-Я0-9\\-\\/]+"
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "non_licensed_lender_red_flag"
-    name: "Отсутствуют признаки банковской/кредитной лицензии у кредитора"
-    description: "Кредитный договор может заключаться только банком или иной кредитной организацией"
-    legal_base: "ст. 819 ГК РФ, ФЗ № 395-1"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "банк"
-        - "кредитная организация"
-        - "лицензия банка россии"
-        - "генеральная лицензия"
-        - "цб рф"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "лицензия банка россии"
-        - "кредитная организация"
-        - "банк"
-      rerank: true
-
-  - id: "interest_free_credit_red_flag"
-    name: "Выявлен риск беспроцентного кредитного договора"
-    description: "Кредитный договор является возмездным; беспроцентная конструкция противоречит сущности кредита"
-    legal_base: "ст. 819 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "беспроцентный"
-        - "проценты не начисляются"
-        - "0% годовых"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "беспроцентный"
-        - "0% годовых"
-        - "кредитный договор"
-      rerank: true
-
-  - id: "consumer_credit_without_psk"
-    name: "Потребительский кредит без раскрытия ПСК"
-    description: "Для потребительского кредита раскрытие полной стоимости кредита обязательно"
-    legal_base: "ст. 6 ФЗ № 353-ФЗ"
-    required_triggers: ["consumer_credit"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "полная стоимость кредита"
-        - "пск"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "пск"
-        - "полная стоимость кредита"
-        - "потребительский кредит"
-      rerank: true
-
-  - id: "foreign_currency_credit_without_conversion_logic"
-    name: "Валютный кредит без ясной валютной оговорки"
-    description: "При валютном кредите должны быть понятны валюта обязательства, курс и дата пересчета"
-    legal_base: "ст. 140, 317 ГК РФ, валютное регулирование"
-    required_triggers: ["foreign_currency_credit"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "доллар"
-        - "евро"
-        - "usd"
-        - "eur"
-      negative_keywords:
-        - "курс цб рф"
-        - "на дату платежа"
-        - "валютная оговорка"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "курс цб"
-        - "валютная оговорка"
-        - "дата платежа"
-      rerank: true
-
-  - id: "credit_line_without_limit_terms"
-    name: "Кредитная линия без лимита и правил выдачи траншей"
-    description: "Для кредитной линии критично определить лимит, порядок выборки и возврата траншей"
-    legal_base: "ст. 819 ГК РФ, общие положения"
-    required_triggers: ["credit_line"]
-    severity: "high"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "кредитная линия"
-        - "транш"
-      negative_keywords:
-        - "лимит кредитования"
-        - "максимальная сумма"
-        - "порядок предоставления траншей"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "кредитная линия"
-        - "лимит"
-        - "транш"
-      rerank: true
-
-  - id: "purpose_without_control_mechanism"
-    name: "Целевой кредит без механизма контроля использования"
-    description: |
-      При целевом кредите банк вправе контролировать использование средств.
-      Отсутствие порядка подтверждения целевого использования создаёт риск
-      досрочного истребования по ст. 814 ГК РФ.
-    legal_base: "ст. 814 ГК РФ"
-    required_triggers: ["purpose_restricted"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "целевой кредит"
-        - "целевое использование"
-      keyword_mode: "any"
-      negative_keywords:
-        - "подтверждение целевого использования"
-        - "документы, подтверждающие"
-        - "порядок контроля"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "целевое использование"
-        - "подтверждение"
-        - "контроль"
-      rerank: true
-
-  - id: "cross_default_without_thresholds"
-    name: "Кросс-дефолт без порогов существенности"
-    description: |
-      Кросс-дефолт без минимальных порогов по сумме задолженности
-      позволяет банку объявить дефолт при любом незначительном нарушении
-      по другим обязательствам заёмщика.
-    legal_base: "Банковская практика, ст. 310 ГК РФ"
-    required_triggers: ["cross_default"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "кросс-дефолт"
-        - "cross-default"
-        - "дефолт по иным обязательствам"
-      keyword_mode: "any"
-      negative_keywords:
-        - "превышающей"
-        - "более чем"
-        - "порог существенности"
-        - "минимальная сумма"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "кросс-дефолт"
-        - "порог"
-        - "существенность"
-      rerank: true
-
-  - id: "unilateral_rate_change_risk"
-    name: "Односторонее изменение ставки банком"
-    description: |
-      Условие о праве банка в одностороннем порядке изменять процентную ставку
-      (вне привязки к объективному индикатору) противоречит ст. 310 ГК РФ
-      и ограничениям ФЗ-353 для потребительских кредитов.
-    legal_base: "ст. 310 ГК РФ, ст. 5 ФЗ № 353-ФЗ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "банк вправе изменить ставку"
-        - "в одностороннем порядке изменить"
-        - "по усмотрению банка"
-      keyword_mode: "any"
-      negative_keywords:
-        - "ключевая ставка"
-        - "mosprime"
-        - "индикативная ставка"
-        - "по соглашению сторон"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "одностороннее изменение"
-        - "ставка"
-        - "усмотрение банка"
-      rerank: true
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 1: Базовое извлечение параметров кредитного договора
+  # ──────────────────────────────────────────────────────────────────────────
   - id: credit_subject_extraction
     name: "Базовое извлечение параметров кредитного договора"
-    description: "Извлекает кредитора, заемщика, сумму, валюту, ставку, срок, ПСК и вид кредитной конструкции"
+    description: >
+      Извлекает кредитора, заемщика, сумму, валюту, ставку, срок, ПСК
+      и вид кредитной конструкции.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "кредитор"
@@ -924,102 +596,294 @@ checks_v8:
         - "(?i)(кредитный\\s+договор|кредитор|заемщик)"
         - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)\\b"
         - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Извлеки ключевые параметры договора строго по тексту.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор по § 2 Главы 42 ГК РФ (ст. 819-821).
+        Проверяется только один вопрос: ключевые параметры кредита.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 819 ГК РФ — кредитный договор
+        - ст. 6 ФЗ № 353-ФЗ — ПСК
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора,
+          а чего прямо нет.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Кредитор (банк/кредитная организация).
+        2. Заемщик.
+        3. Вид кредитной конструкции.
+        4. Сумма кредита.
+        5. Валюта кредита.
+        6. Процентная ставка.
+        7. Тип ставки (фиксированная / переменная).
+        8. Срок кредита.
+        9. Полная стоимость кредита (ПСК).
+        10. Структура погашения (аннуитет / дифференцированная).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если данные не указаны прямо — возвращай "not_defined".
+        4. Если текстового значения нет — возвращай строго "Данные не определены".
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        6. В evidence включай только текст договора.
+        7. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — параметры определены:
+        Фрагмент:
+        "Банк «Альфа» (лицензия № 1234) предоставляет ООО «Бета» кредит в сумме 10 000 000 рублей сроком на 3 года. Процентная ставка — 15% годовых. Структура погашения — аннуитет."
+
+        Ответ:
         {
-          "lender": "<кредитор или not_found>",
-          "borrower": "<заемщик или not_found>",
-          "credit_type": "<standard / consumer / mortgage / credit_line / overdraft / refinancing / unclear / not_found>",
-          "credit_amount": "<сумма кредита или not_found>",
-          "currency": "<RUB / USD / EUR / other / not_found>",
-          "interest_rate": "<ставка или not_found>",
-          "rate_type": "<fixed / variable / unclear / not_found>",
-          "term": "<срок кредита или not_found>",
-          "psk": "<значение ПСК или not_found>",
-          "repayment_structure": "<annuity / differentiated / custom / not_found>"
+          "lender": "Банк «Альфа»",
+          "borrower": "ООО «Бета»",
+          "credit_type": "standard",
+          "credit_amount": "10 000 000 рублей",
+          "currency": "RUB",
+          "interest_rate": "15%",
+          "rate_type": "fixed",
+          "term": "3 года",
+          "psk": "Данные не определены",
+          "repayment_structure": "annuity"
         }
 
-        Используй только данные из текста.
-        Если сведения отсутствуют — пиши "not_found".
-      prompt_file: null
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Стороны заключили кредитный договор."
+
+        Ответ:
+        {
+          "lender": "Данные не определены",
+          "borrower": "Данные не определены",
+          "credit_type": "not_defined",
+          "credit_amount": "Данные не определены",
+          "currency": "not_defined",
+          "interest_rate": "Данные не определены",
+          "rate_type": "not_defined",
+          "term": "Данные не определены",
+          "psk": "Данные не определены",
+          "repayment_structure": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о кредиторе.
+        2. Найди прямую цитату о сумме кредита.
+        3. Найди прямую цитату о процентной ставке.
+        4. Найди прямую цитату о сроке кредита.
+        5. Если прямой цитаты нет — верни "not_defined" или "Данные не определены".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "lender": "<текст или 'Данные не определены'>",
+          "borrower": "<текст или 'Данные не определены'>",
+          "credit_type": "<standard / consumer / mortgage / credit_line / overdraft / refinancing / unclear / not_defined>",
+          "credit_amount": "<текст или 'Данные не определены'>",
+          "currency": "<RUB / USD / EUR / other / not_defined>",
+          "interest_rate": "<текст или 'Данные не определены'>",
+          "rate_type": "<fixed / variable / unclear / not_defined>",
+          "term": "<текст или 'Данные не определены'>",
+          "psk": "<текст или 'Данные не определены'>",
+          "repayment_structure": "<annuity / differentiated / custom / not_defined>"
+        }
       context_k: 6
       temperature: 0.0
       max_tokens: 700
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "кредитор заемщик сумма кредита процентная ставка полная стоимость кредита график платежей кредитная линия"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - payment_term
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "приложение"
+        - "индекс"
+      position_bias:
+        preferred_range: [0.0, 0.35]
+        boost: 0.20
+        scope: segment
       context_k: 6
       max_chunks: 10
-      retrieval_profile: "interest_rate_check"
-      boost_keywords:
-        - "сумма кредита"
-        - "процентная ставка"
-        - "полная стоимость кредита"
-        - "график платежей"
-        - "аннуитетный платеж"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 50
       max_snippet_length: 700
+
     extraction:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1250
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста кредитного договора
+        ключевые параметры кредита: кредитора, заемщика, сумму, валюту, ставку,
+        срок, ПСК и структуру погашения.
+        Не анализируй комиссии, обеспечение, ковенанты или последствия нарушения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. lender — наименование кредитора.
+        2. borrower — наименование заемщика.
+        3. credit_type — "standard" / "consumer" / "mortgage" / "credit_line" / "overdraft" / "refinancing" / "unclear" / "not_defined".
+        4. credit_amount — сумма кредита.
+        5. currency — "RUB" / "USD" / "EUR" / "other" / "not_defined".
+        6. interest_rate — процентная ставка.
+        7. rate_type — "fixed" / "variable" / "unclear" / "not_defined".
+        8. term — срок кредита.
+        9. psk — полная стоимость кредита.
+        10. repayment_structure — "annuity" / "differentiated" / "custom" / "not_defined".
+
+        Если данные отсутствуют:
+        - текстовое поле = "Данные не определены"
+        - статусное поле = "not_defined"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не делай предположений.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "lender"
           type: "string"
-          keyword_hints: ["кредитор", "банк", "кредитная организация"]
-          description: "Кредитор"
+          presentation: "fact"
+          label: "Кредитор"
+          description: "Наименование кредитора."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "borrower"
           type: "string"
-          keyword_hints: ["заемщик"]
-          description: "Заемщик"
+          presentation: "fact"
+          label: "Заемщик"
+          description: "Наименование заемщика."
+          required: true
+          display_in_grid: true
+          display_priority: 2
         - name: "credit_type"
           type: "string"
-          allowed_values: ["standard", "consumer", "mortgage", "credit_line", "overdraft", "refinancing", "unclear", "not_found"]
-          description: "Вид кредитной конструкции"
+          presentation: "signal"
+          allowed_values: ["standard", "consumer", "mortgage", "credit_line", "overdraft", "refinancing", "unclear", "not_defined"]
+          description: "Вид кредитной конструкции."
+          required: false
         - name: "credit_amount"
           type: "string"
-          keyword_hints: ["сумма кредита", "лимит кредитования", "размер кредита"]
-          description: "Сумма кредита"
+          presentation: "fact"
+          label: "Сумма кредита"
+          description: "Сумма кредита."
+          required: true
+          display_in_grid: true
+          display_priority: 3
         - name: "currency"
           type: "string"
-          allowed_values: ["RUB", "USD", "EUR", "other", "not_found"]
-          description: "Валюта кредита"
+          presentation: "signal"
+          allowed_values: ["RUB", "USD", "EUR", "other", "not_defined"]
+          description: "Валюта кредита."
+          required: false
         - name: "interest_rate"
           type: "string"
-          regex_patterns:
-            - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-          description: "Процентная ставка"
+          presentation: "fact"
+          label: "Процентная ставка"
+          description: "Процентная ставка по кредиту."
+          required: true
+          display_in_grid: true
+          display_priority: 4
         - name: "rate_type"
           type: "string"
-          allowed_values: ["fixed", "variable", "unclear", "not_found"]
-          description: "Тип процентной ставки"
+          presentation: "signal"
+          allowed_values: ["fixed", "variable", "unclear", "not_defined"]
+          description: "Тип процентной ставки."
+          required: false
         - name: "term"
           type: "string"
-          keyword_hints: ["срок кредита", "срок возврата", "дата окончательного погашения"]
-          description: "Срок кредита"
+          presentation: "fact"
+          label: "Срок кредита"
+          description: "Срок кредита."
+          required: true
+          display_in_grid: true
+          display_priority: 5
         - name: "psk"
           type: "string"
-          keyword_hints: ["полная стоимость кредита", "ПСК"]
-          description: "ПСК"
+          presentation: "fact"
+          label: "ПСК"
+          description: "Полная стоимость кредита."
+          required: false
+          display_in_grid: true
+          display_priority: 6
         - name: "repayment_structure"
           type: "string"
-          allowed_values: ["annuity", "differentiated", "custom", "not_found"]
-          description: "Структура платежей"
+          presentation: "signal"
+          allowed_values: ["annuity", "differentiated", "custom", "not_defined"]
+          description: "Структура погашения."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 2: Статус и лицензия кредитора
+  # ──────────────────────────────────────────────────────────────────────────
   - id: lender_license_check
     name: "Статус и лицензия кредитора"
-    description: "Проверяет, что кредитор обозначен как банк/кредитная организация и содержатся признаки лицензии"
+    description: >
+      Проверяет, что кредитор обозначен как банк/кредитная организация
+      и содержатся признаки лицензии.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "банк"
@@ -1031,58 +895,190 @@ checks_v8:
       regex_patterns:
         - "(?i)лиценз[ияе].{0,40}(банка\\s+россии|цб|центрального\\s+банка)"
         - "(?i)(банк|кредитная\\s+организация)"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь, идентифицирован ли кредитор как надлежащий субъект кредитного договора.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор по § 2 Главы 42 ГК РФ.
+        Проверяется только один вопрос: статус кредитора и наличие лицензии.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 819 ГК РФ
+        - ФЗ № 395-1
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Как идентифицирован кредитор.
+        2. Есть ли ссылка на лицензию Банка России.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Кредитор — Банк «Альфа», действующий на основании лицензии Банка России № 1234."
+
+        Ответ:
         {
-          "lender_status": "<bank / credit_organization / unclear / not_found>",
-          "license_reference_status": "<present / not_found>",
-          "license_details": "<если указаны, кратко; иначе not_found>"
+          "lender_status": "bank",
+          "license_reference_status": "present",
+          "license_details": "№ 1234"
         }
 
-        Используй только текст документа.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Кредитор предоставляет заемщику денежные средства."
+
+        Ответ:
+        {
+          "lender_status": "unclear",
+          "license_reference_status": "not_defined",
+          "license_details": "Данные не определены"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о статусе кредитора.
+        2. Найди прямую цитату о лицензии.
+        3. Если прямой цитаты нет — верни "not_defined" или "Данные не определены".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "lender_status": "<bank / credit_organization / unclear / not_defined>",
+          "license_reference_status": "<present / not_defined>",
+          "license_details": "<текст или 'Данные не определены'>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 350
+
     retrieval:
-      retrieval_profile: "party_identification_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "лицензия банка россии банк кредитная организация цб рф"
+      preferred_unit_types:
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "сумма кредита"
+        - "проценты"
+      position_bias:
+        preferred_range: [0.0, 0.25]
+        boost: 0.20
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "лицензия банка россии"
-        - "банк"
-        - "кредитная организация"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 35
       max_snippet_length: 550
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста кредитного договора сведения
+        о статусе кредитора и наличии лицензии.
+        Не анализируй условия кредита, комиссии или обеспечение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. lender_status — "bank" / "credit_organization" / "unclear" / "not_defined".
+        2. license_reference_status — "present" / "not_defined".
+        3. license_details — реквизиты лицензии или "Данные не определены".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "lender_status"
           type: "string"
-          allowed_values: ["bank", "credit_organization", "unclear", "not_found"]
-          description: "Статус кредитора"
+          presentation: "signal"
+          allowed_values: ["bank", "credit_organization", "unclear", "not_defined"]
+          description: "Статус кредитора."
+          required: true
         - name: "license_reference_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли ссылка на лицензию"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Есть ли ссылка на лицензию."
+          required: false
+        - name: "license_details"
+          type: "string"
+          presentation: "fact"
+          label: "Реквизиты лицензии"
+          description: "Реквизиты лицензии кредитора."
+          required: false
+          display_in_grid: true
+          display_priority: 1
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 3: Проценты, ПСК и дополнительные платежи
+  # ──────────────────────────────────────────────────────────────────────────
   - id: interest_psk_fees_check
     name: "Проценты, ПСК и дополнительные платежи"
-    description: "Проверяет процентную ставку, ПСК, комиссии и прозрачность общей стоимости кредита"
+    description: >
+      Проверяет процентную ставку, ПСК, комиссии и прозрачность общей стоимости
+      кредита.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "процентная ставка"
@@ -1097,74 +1093,207 @@ checks_v8:
         - "(?i)процентн(ая|ой)\\s+ставк"
         - "(?i)(полная\\s+стоимость\\s+кредита|ПСК)"
         - "(?i)комисси|плата\\s+за\\s+обслуживан"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь, раскрыты ли проценты, ПСК и дополнительные платежи.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор.
+        Проверяется только один вопрос: проценты, ПСК и дополнительные платежи.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 819 ГК РФ
+        - ст. 6 ФЗ № 353-ФЗ
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли процентная ставка.
+        2. Есть ли ПСК.
+        3. Есть ли комиссии и дополнительные платежи.
+        4. Какая база начисления процентов.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — условия определены:
+        Фрагмент:
+        "Процентная ставка — 15% годовых. ПСК — 17,5% годовых. Комиссии: за выдачу — 5 000 рублей, за обслуживание — 1 000 рублей ежемесячно."
+
+        Ответ:
         {
-          "interest_rate_status": "<present / not_found>",
-          "psk_status": "<present / not_found / not_applicable>",
-          "fees_status": "<none_stated / enumerated / vague / not_found>",
-          "hidden_fees_risk": "<high / medium / low / not_found>",
-          "calculation_base": "<outstanding_balance / principal / unclear / not_found>"
+          "interest_rate_status": "present",
+          "psk_status": "present",
+          "fees_status": "enumerated",
+          "calculation_base": "outstanding_balance"
         }
 
-        - "vague" — если есть открытые формулы вроде "и иные комиссии банка"
-        - "not_applicable" — если по тексту не видно, что договор потребительский и ПСК не требуется оценивать в рамках документа
-      prompt_file: null
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Стороны согласовали условия кредитования."
+
+        Ответ:
+        {
+          "interest_rate_status": "not_defined",
+          "psk_status": "not_defined",
+          "fees_status": "not_defined",
+          "calculation_base": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о процентной ставке.
+        2. Найди прямую цитату о ПСК.
+        3. Найди прямую цитату о комиссиях.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "interest_rate_status": "<present / not_defined>",
+          "psk_status": "<present / not_defined / not_applicable>",
+          "fees_status": "<none_stated / enumerated / vague / not_defined>",
+          "calculation_base": "<outstanding_balance / principal / unclear / not_defined>"
+        }
       context_k: 6
       temperature: 0.0
       max_tokens: 450
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "процентная ставка пск полная стоимость кредита комиссия плата за обслуживание"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "предмет договора"
+        - "срок кредита"
+      position_bias:
+        preferred_range: [0.10, 0.50]
+        boost: 0.18
+        scope: segment
       context_k: 6
       max_chunks: 9
-      retrieval_profile: "interest_rate_check"
-      boost_keywords:
-        - "процентная ставка"
-        - "пск"
-        - "полная стоимость кредита"
-        - "комиссия"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 45
       max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 750
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста кредитного договора сведения
+        о процентной ставке, ПСК, комиссиях и дополнительных платежах.
+        Не анализируй обеспечение, ковенанты или последствия нарушения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. interest_rate_status — "present" / "not_defined".
+        2. psk_status — "present" / "not_defined" / "not_applicable".
+        3. fees_status — "none_stated" / "enumerated" / "vague" / "not_defined".
+        4. calculation_base — "outstanding_balance" / "principal" / "unclear" / "not_defined".
+
+        "vague" — если есть открытые формулы вроде "и иные комиссии банка".
+        "not_applicable" — если по тексту не видно, что договор потребительский.
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "interest_rate_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Наличие процентной ставки"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие процентной ставки."
+          required: true
         - name: "psk_status"
           type: "string"
-          allowed_values: ["present", "not_found", "not_applicable"]
-          description: "Статус раскрытия ПСК"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined", "not_applicable"]
+          description: "Статус раскрытия ПСК."
+          required: false
         - name: "fees_status"
           type: "string"
-          allowed_values: ["none_stated", "enumerated", "vague", "not_found"]
-          description: "Раскрытие комиссий и дополнительных платежей"
-        - name: "hidden_fees_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск скрытых платежей"
+          presentation: "signal"
+          allowed_values: ["none_stated", "enumerated", "vague", "not_defined"]
+          description: "Раскрытие комиссий и дополнительных платежей."
+          required: false
         - name: "calculation_base"
           type: "string"
-          allowed_values: ["outstanding_balance", "principal", "unclear", "not_found"]
-          description: "База начисления процентов"
+          presentation: "signal"
+          allowed_values: ["outstanding_balance", "principal", "unclear", "not_defined"]
+          description: "База начисления процентов."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 4: График погашения и досрочное погашение
+  # ──────────────────────────────────────────────────────────────────────────
   - id: repayment_schedule_and_early_repayment_check
     name: "График погашения и досрочное погашение"
-    description: "Проверяет наличие графика платежей, структуры погашения и условий досрочного возврата"
+    description: >
+      Проверяет наличие графика платежей, структуры погашения и условий
+      досрочного возврата.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "график платежей"
@@ -1178,73 +1307,206 @@ checks_v8:
         - "(?i)график\\s+платеж"
         - "(?i)аннуитетн|дифференцированн"
         - "(?i)досрочн(ое|ого)\\s+погашен"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь порядок погашения кредита и условия досрочного погашения.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор.
+        Проверяется только один вопрос: порядок погашения и досрочное погашение.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 810 ГК РФ
+        - ст. 11 ФЗ № 353-ФЗ
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли график платежей.
+        2. Какая структура погашения.
+        3. Разрешено ли досрочное погашение.
+        4. Есть ли требование уведомления.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "График платежей — аннуитетный. Заемщик вправе погасить кредит досрочно, уведомив банк за 5 рабочих дней. Комиссия за досрочное погашение не взимается."
+
+        Ответ:
         {
-          "schedule_status": "<present / not_found>",
-          "payment_structure": "<annuity / differentiated / custom / not_found>",
-          "early_repayment_status": "<allowed / restricted / not_found>",
-          "notice_requirement_for_early_repayment": "<present / not_found>",
-          "early_repayment_fee_risk": "<high / medium / low / not_found>"
+          "schedule_status": "present",
+          "payment_structure": "annuity",
+          "early_repayment_status": "allowed",
+          "notice_requirement_for_early_repayment": "present"
         }
 
-        Используй только текст документа.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Погашение кредита осуществляется по графику."
+
+        Ответ:
+        {
+          "schedule_status": "present",
+          "payment_structure": "not_defined",
+          "early_repayment_status": "not_defined",
+          "notice_requirement_for_early_repayment": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о графике платежей.
+        2. Найди прямую цитату о структуре погашения.
+        3. Найди прямую цитату о досрочном погашении.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "schedule_status": "<present / not_defined>",
+          "payment_structure": "<annuity / differentiated / custom / not_defined>",
+          "early_repayment_status": "<allowed / restricted / not_defined>",
+          "notice_requirement_for_early_repayment": "<present / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 420
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "график платежей досрочное погашение аннуитетный платеж дифференцированный платеж"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "процентная ставка"
+        - "пск"
+      position_bias:
+        preferred_range: [0.20, 0.60]
+        boost: 0.14
+        scope: segment
       context_k: 5
       max_chunks: 8
-      retrieval_profile: "repayment_schedule_check"
-      boost_keywords:
-        - "график платежей"
-        - "досрочное погашение"
-        - "аннуитетный платеж"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 750
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста кредитного договора сведения
+        о графике погашения, структуре платежей и условиях досрочного погашения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. schedule_status — "present" / "not_defined".
+        2. payment_structure — "annuity" / "differentiated" / "custom" / "not_defined".
+        3. early_repayment_status — "allowed" / "restricted" / "not_defined".
+        4. notice_requirement_for_early_repayment — "present" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "schedule_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли график платежей"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Есть ли график платежей."
+          required: true
         - name: "payment_structure"
           type: "string"
-          allowed_values: ["annuity", "differentiated", "custom", "not_found"]
-          description: "Структура графика платежей"
+          presentation: "signal"
+          allowed_values: ["annuity", "differentiated", "custom", "not_defined"]
+          description: "Структура графика платежей."
+          required: false
         - name: "early_repayment_status"
           type: "string"
-          allowed_values: ["allowed", "restricted", "not_found"]
-          description: "Статус досрочного погашения"
+          presentation: "signal"
+          allowed_values: ["allowed", "restricted", "not_defined"]
+          description: "Статус досрочного погашения."
+          required: false
         - name: "notice_requirement_for_early_repayment"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли уведомительный порядок"
-        - name: "early_repayment_fee_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск санкций/скрытых издержек при досрочном погашении"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Есть ли уведомительный порядок."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Навязанные услуги и страховые продукты
+  # ──────────────────────────────────────────────────────────────────────────
   - id: forced_services_and_insurance_check
     name: "Навязанные услуги и страховые продукты"
-    description: "Проверяет, не поставлена ли выдача кредита в зависимость от приобретения дополнительных услуг/страхования"
+    description: >
+      Проверяет, не поставлена ли выдача кредита в зависимость от приобретения
+      дополнительных услуг/страхования.
     triggers:
-      any: ["consumer_credit", "insurance_linked_product"]
+      any:
+        - consumer_credit
+        - insurance_linked_product
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "страхование жизни"
@@ -1259,68 +1521,188 @@ checks_v8:
         - "(?i)страхован(ие|ия)\\s+(жизни|здоровья)"
         - "(?i)не\\s+является\\s+обязательным\\s+условием"
         - "(?i)обязательн(ое|ым)\\s+услови"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь, есть ли риск навязывания дополнительных услуг.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор.
+        Проверяется только один вопрос: риск навязывания дополнительных услуг.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 7 ФЗ № 353-ФЗ
+        - ст. 16 ЗоЗПП
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли дополнительные услуги/страхование.
+        2. Есть ли право заемщика отказаться.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Страхование жизни и здоровья не является обязательным условием предоставления кредита. Заемщик вправе отказаться от страховки."
+
+        Ответ:
         {
-          "additional_services_present": "<yes / no / not_found>",
-          "insurance_linked": "<yes / no / not_found>",
-          "borrower_opt_out_right": "<present / not_found>",
-          "forced_services_risk": "<high / medium / low / not_found>"
+          "additional_services_present": "yes",
+          "insurance_linked": "yes",
+          "borrower_opt_out_right": "present"
         }
 
-        Используй только текст документа.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Выдача кредита осуществляется при условии подключения программы страхования."
+
+        Ответ:
+        {
+          "additional_services_present": "yes",
+          "insurance_linked": "yes",
+          "borrower_opt_out_right": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о дополнительных услугах.
+        2. Найди прямую цитату о праве отказаться.
+        3. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "additional_services_present": "<yes / no / not_defined>",
+          "insurance_linked": "<yes / no / not_defined>",
+          "borrower_opt_out_right": "<present / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 350
+
     retrieval:
-      retrieval_profile: "insurance_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "страхование жизни добровольное страхование обязательное условие вправе отказаться"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "проценты"
+        - "пск"
+      position_bias:
+        preferred_range: [0.20, 0.60]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "страхование жизни"
-        - "добровольное страхование"
-        - "обязательное условие"
-        - "вправе отказаться"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 35
       max_snippet_length: 550
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста кредитного договора сведения
+        о дополнительных услугах и страховых продуктах.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. additional_services_present — "yes" / "no" / "not_defined".
+        2. insurance_linked — "yes" / "no" / "not_defined".
+        3. borrower_opt_out_right — "present" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "additional_services_present"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Есть ли дополнительные услуги"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Есть ли дополнительные услуги."
+          required: true
         - name: "insurance_linked"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Связан ли кредит со страховым продуктом"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Связан ли кредит со страховым продуктом."
+          required: false
         - name: "borrower_opt_out_right"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли право отказаться"
-        - name: "forced_services_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск навязывания услуг"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Есть ли право отказаться."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 6: Основания для досрочного истребования кредита
+  # ──────────────────────────────────────────────────────────────────────────
   - id: acceleration_events_check
     name: "Основания для досрочного истребования кредита"
-    description: "Проверяет перечень оснований, при которых банк вправе потребовать досрочного возврата кредита"
+    description: >
+      Проверяет перечень оснований, при которых банк вправе потребовать
+      досрочного возврата кредита.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "досрочный возврат по требованию банка"
@@ -1334,64 +1716,195 @@ checks_v8:
         - "(?i)банк.*вправе.*потребовать.*досрочного\\s+возврата"
         - "(?i)утрат[аы]\\s+обеспечения"
         - "(?i)нецелев(ое|ого)\\s+использован"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь, раскрыты ли основания для досрочного истребования кредита.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор.
+        Проверяется только один вопрос: основания для досрочного истребования кредита.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 811, 813, 814, 821 ГК РФ
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли право банка на досрочное истребование.
+        2. Какие основания для досрочного истребования.
+        3. Есть ли срок на устранение нарушения.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Банк вправе потребовать досрочного возврата кредита при просрочке платежа более 5 рабочих дней, утрате обеспечения, нецелевом использовании."
+
+        Ответ:
         {
-          "acceleration_right_status": "<present / not_found>",
-          "acceleration_triggers": ["<основание 1>", "<основание 2>"],
-          "borrower_cure_period": "<present / not_found>",
-          "acceleration_clause_breadth": "<narrow / balanced / broad / not_found>"
+          "acceleration_right_status": "present",
+          "acceleration_triggers": ["просрочка платежа более 5 рабочих дней", "утрата обеспечения", "нецелевое использование"],
+          "borrower_cure_period": "not_defined"
         }
 
-        Используй только текст документа.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Банк вправе потребовать досрочного возврата кредита в случае любого нарушения."
+
+        Ответ:
+        {
+          "acceleration_right_status": "present",
+          "acceleration_triggers": ["любое нарушение"],
+          "borrower_cure_period": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о праве банка на досрочное истребование.
+        2. Найди перечень оснований.
+        3. Найди срок на устранение нарушения.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "acceleration_right_status": "<present / not_defined>",
+          "acceleration_triggers": ["<основание 1>", "<основание 2>"],
+          "borrower_cure_period": "<present / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 380
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "досрочный возврат по требованию банка ухудшение финансового состояния утрата обеспечения нецелевое использование"
+      preferred_unit_types:
+        - obligation
+        - termination_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "процентная ставка"
+        - "пск"
+      position_bias:
+        preferred_range: [0.30, 0.75]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 8
-      retrieval_profile: "event_of_default_check"
-      boost_keywords:
-        - "досрочный возврат по требованию банка"
-        - "ухудшение финансового состояния"
-        - "утрата обеспечения"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "remedies"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 700
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста кредитного договора основания
+        для досрочного истребования кредита.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. acceleration_right_status — "present" / "not_defined".
+        2. acceleration_triggers — список оснований.
+        3. borrower_cure_period — "present" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "acceleration_right_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли право на досрочное истребование"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Есть ли право на досрочное истребование."
+          required: true
+        - name: "acceleration_triggers"
+          type: "array"
+          presentation: "fact"
+          label: "Основания досрочного истребования"
+          description: "Перечень оснований для досрочного возврата."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "borrower_cure_period"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли срок на устранение нарушения"
-        - name: "acceleration_clause_breadth"
-          type: "string"
-          allowed_values: ["narrow", "balanced", "broad", "not_found"]
-          description: "Широта формулировки оснований для акселерации"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Есть ли срок на устранение нарушения."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 7: Плавающая ставка
+  # ──────────────────────────────────────────────────────────────────────────
   - id: variable_rate_check
     name: "Плавающая ставка: механизм пересмотра и уведомления"
-    description: "Проверяет формулу плавающей ставки, частоту пересмотра и обязанность уведомления заемщика"
+    description: >
+      Проверяет формулу плавающей ставки, частоту пересмотра и обязанность
+      уведомления заемщика.
     triggers:
-      any: ["variable_rate"]
+      any:
+        - variable_rate
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "плавающая ставка"
@@ -1405,67 +1918,186 @@ checks_v8:
         - "(?i)(плавающ|переменн)\\s+ставк"
         - "(?i)ключев(ая|ой)\\s+ставк"
         - "(?i)уведомлен(ие|ия)\\s+заемщик"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор с плавающей ставкой.
-        Проверь, достаточно ли прозрачен механизм изменения ставки.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор с плавающей ставкой.
+        Проверяется только один вопрос: механизм изменения ставки.
 
-        Ответь строго в JSON:
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли формула плавающей ставки.
+        2. Есть ли периодичность пересмотра.
+        3. Есть ли обязанность уведомления заемщика.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Ставка переменная: ключевая ставка ЦБ РФ + 3%. Пересмотр — ежемесячно. Банк уведомляет заемщика за 5 дней."
+
+        Ответ:
         {
-          "rate_formula_status": "<clear / unclear / not_found>",
-          "revision_frequency_status": "<present / not_found>",
-          "borrower_notice_status": "<present / not_found>",
-          "variable_rate_risk": "<high / medium / low / not_found>"
+          "rate_formula_status": "clear",
+          "revision_frequency_status": "present",
+          "borrower_notice_status": "present"
         }
 
-        Используй только текст документа.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Ставка может изменяться по усмотрению банка."
+
+        Ответ:
+        {
+          "rate_formula_status": "unclear",
+          "revision_frequency_status": "not_defined",
+          "borrower_notice_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о формуле ставки.
+        2. Найди прямую цитату о периодичности пересмотра.
+        3. Найди прямую цитату об уведомлении.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "rate_formula_status": "<clear / unclear / not_defined>",
+          "revision_frequency_status": "<present / not_defined>",
+          "borrower_notice_status": "<present / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 320
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "плавающая ставка ключевая ставка уведомление заемщика пересмотр ставки"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "пск"
+        - "комиссия"
+      position_bias:
+        preferred_range: [0.10, 0.50]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 7
-      retrieval_profile: "interest_rate_check"
-      boost_keywords:
-        - "плавающая ставка"
-        - "ключевая ставка"
-        - "уведомление заемщика"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 35
       max_snippet_length: 520
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста кредитного договора сведения
+        о механизме плавающей ставки.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. rate_formula_status — "clear" / "unclear" / "not_defined".
+        2. revision_frequency_status — "present" / "not_defined".
+        3. borrower_notice_status — "present" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "rate_formula_status"
           type: "string"
-          allowed_values: ["clear", "unclear", "not_found"]
-          description: "Понятность формулы плавающей ставки"
+          presentation: "signal"
+          allowed_values: ["clear", "unclear", "not_defined"]
+          description: "Понятность формулы плавающей ставки."
+          required: true
         - name: "revision_frequency_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли периодичность пересмотра"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Есть ли периодичность пересмотра."
+          required: false
         - name: "borrower_notice_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли обязанность уведомления заемщика"
-        - name: "variable_rate_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск непрозрачности переменной ставки"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Есть ли обязанность уведомления заемщика."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 8: Очередность списания платежей
+  # ──────────────────────────────────────────────────────────────────────────
   - id: payment_allocation_priority_check
     name: "Очередность списания поступающих платежей"
-    description: "Проверяет порядок распределения платежей между основным долгом, процентами, штрафами и расходами"
+    description: >
+      Проверяет порядок распределения платежей между основным долгом,
+      процентами, штрафами и расходами.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "очередность списания"
@@ -1478,34 +2110,116 @@ checks_v8:
         - "(?i)очередност[ьи]\\s+списан"
         - "(?i)в\\s+первую\\s+очередь"
         - "(?i)направля(ются|ется)\\s+в\\s+следующей\\s+очередности"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь очередность списания поступающих от заемщика платежей.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор.
+        Проверяется только один вопрос: очередность списания платежей.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 319 ГК РФ
+        - ст. 5 ФЗ № 353-ФЗ
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли порядок списания.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Поступающие платежи направляются в следующей очередности: расходы банка, просроченные проценты, просроченный основной долг, текущие проценты, текущий основной долг, штрафы."
+
+        Ответ:
         {
-          "allocation_order_status": "<present / not_found>",
-          "penalties_before_principal_risk": "<high / medium / low / not_found>",
-          "allocation_order_summary": "<кратко или not_found>"
+          "allocation_order_status": "present",
+          "allocation_order_summary": "расходы, просроченные проценты, просроченный основной долг, текущие проценты, текущий основной долг, штрафы"
         }
 
-        Используй только текст документа.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Платежи направляются по усмотрению банка."
+
+        Ответ:
+        {
+          "allocation_order_status": "present",
+          "allocation_order_summary": "по усмотрению банка"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об очередности списания.
+        2. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "allocation_order_status": "<present / not_defined>",
+          "allocation_order_summary": "<кратко или 'Данные не определены'>"
+        }
       context_k: 4
       temperature: 0.0
       max_tokens: 280
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "очередность списания в первую очередь штраф основной долг"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "процентная ставка"
+        - "пск"
+      position_bias:
+        preferred_range: [0.20, 0.60]
+        boost: 0.12
+        scope: segment
       context_k: 4
       max_chunks: 6
-      retrieval_profile: "payment_terms_check"
-      boost_keywords:
-        - "очередность списания"
-        - "в первую очередь"
-        - "штраф"
-        - "основной долг"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 30
@@ -1514,25 +2228,65 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 550
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста кредитного договора сведения
+        об очередности списания платежей.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. allocation_order_status — "present" / "not_defined".
+        2. allocation_order_summary — краткое описание или "Данные не определены".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "allocation_order_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли порядок списания"
-        - name: "penalties_before_principal_risk"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Есть ли порядок списания."
+          required: true
+        - name: "allocation_order_summary"
           type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск направления платежей на штрафы раньше основного долга"
+          presentation: "fact"
+          label: "Очерёдность списания"
+          description: "Краткое описание очередности списания."
+          required: false
+          display_in_grid: true
+          display_priority: 1
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 9: Финансовые ковенанты
+  # ──────────────────────────────────────────────────────────────────────────
   - id: financial_covenants_check
     name: "Финансовые ковенанты и последствия их нарушения"
-    description: "Проверяет наличие финансовых ковенантов, их формулировку и последствия нарушения"
+    description: >
+      Проверяет наличие финансовых ковенантов, их формулировку и последствия
+      нарушения.
     triggers:
-      any: ["financial_covenants", "corporate_borrower"]
+      any:
+        - financial_covenants
+        - corporate_borrower
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "ковенант"
@@ -1547,68 +2301,199 @@ checks_v8:
         - "(?i)ковенант"
         - "(?i)debt.*ebitda|ebitda"
         - "(?i)коэффициент\\s+покрытия"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь наличие и формулировку финансовых ковенантов.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор с финансовыми ковенантами.
+        Проверяется только один вопрос: наличие и формулировка ковенантов.
 
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли финансовые ковенанты.
+        2. Какие типы ковенантов установлены.
+        3. Каковы последствия нарушения.
+        4. Есть ли срок на исправление.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Заемщик обязуется соблюдать: отношение чистого долга к EBITDA не более 3,5x, коэффициент текущей ликвидности не ниже 1,2. Нарушение — уведомление и 30 дней на исправление."
+
+        Ответ:
+        {
+          "covenants_present": "yes",
+          "covenant_types": ["debt/ebitda", "current_ratio"],
+          "breach_consequences": "waiver_required",
+          "cure_period_present": "yes"
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Заемщик обязан соблюдать финансовые показатели по требованию банка."
+
+        Ответ:
+        {
+          "covenants_present": "yes",
+          "covenant_types": [],
+          "breach_consequences": "not_defined",
+          "cure_period_present": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о ковенантах.
+        2. Найди формулировку каждого ковенанта.
+        3. Найди последствия нарушения.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
         Ответь строго в JSON:
         {
-          "covenants_present": "<yes / no / not_found>",
+          "covenants_present": "<yes / no / not_defined>",
           "covenant_types": ["<тип 1>", "<тип 2>"],
-          "calculation_methodology_clarity": "<clear / vague / not_found>",
           "breach_consequences": "<acceleration / margin_increase / waiver_required / not_specified>",
-          "cure_period_present": "<yes / no / not_found>",
-          "covenant_risk_level": "<high / medium / low>"
+          "cure_period_present": "<yes / no / not_defined>"
         }
-      prompt_file: null
       context_k: 6
       temperature: 0.0
       max_tokens: 450
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "ковенант финансовые показатели ebitda debt коэффициент покрытия нарушение"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - covenants
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "проценты"
+        - "пск"
+      position_bias:
+        preferred_range: [0.30, 0.75]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 8
-      retrieval_profile: "financial_covenant_check"
-      boost_keywords:
-        - "ковенант"
-        - "финансовые показатели"
-        - "ebitda"
-        - "нарушение ковенанта"
       rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "covenants"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 800
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста кредитного договора сведения
+        о финансовых ковенантах.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. covenants_present — "yes" / "no" / "not_defined".
+        2. covenant_types — список типов ковенантов.
+        3. breach_consequences — "acceleration" / "margin_increase" / "waiver_required" / "not_defined".
+        4. cure_period_present — "yes" / "no" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "covenants_present"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие ковенантов"
-        - name: "calculation_methodology_clarity"
-          type: "string"
-          allowed_values: ["clear", "vague", "not_found"]
-          description: "Ясность методологии расчёта"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Наличие ковенантов."
+          required: true
+        - name: "covenant_types"
+          type: "array"
+          presentation: "fact"
+          label: "Типы ковенантов"
+          description: "Перечень типов финансовых ковенантов."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "breach_consequences"
           type: "string"
-          allowed_values: ["acceleration", "margin_increase", "waiver_required", "not_specified"]
-          description: "Последствия нарушения"
+          presentation: "signal"
+          allowed_values: ["acceleration", "margin_increase", "waiver_required", "not_defined"]
+          description: "Последствия нарушения."
+          required: false
         - name: "cure_period_present"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие срока на исправление"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Наличие срока на исправление."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 10: Кросс-дефолт
+  # ──────────────────────────────────────────────────────────────────────────
   - id: cross_default_check
     name: "Кросс-дефолт: условия и пороги существенности"
-    description: "Проверяет наличие кросс-дефолта и его параметры"
+    description: >
+      Проверяет наличие кросс-дефолта и его параметры.
     triggers:
-      any: ["cross_default", "corporate_borrower"]
+      any:
+        - cross_default
+        - corporate_borrower
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "кросс-дефолт"
@@ -1619,61 +2504,199 @@ checks_v8:
       regex_patterns:
         - "(?i)кросс[- ]?дефолт"
         - "(?i)cross[- ]?default"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь наличие и условия кросс-дефолта.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется кредитный договор.
+        Проверяется только один вопрос: наличие и условия кросс-дефолта.
 
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли условие о кросс-дефолте.
+        2. Установлен ли порог существенности.
+        3. Какие обязательства охвачены.
+        4. Есть ли льготный период.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Кросс-дефолт наступает при неисполнении обязательств на сумму более 500 000 рублей перед любым кредитором. Уведомление банка в течение 10 дней."
+
+        Ответ:
+        {
+          "cross_default_present": "yes",
+          "threshold_amount": "более 500 000 рублей",
+          "covered_obligations": "all",
+          "grace_period_for_third_party_default": "present"
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Любое неисполнение обязательств перед третьими лицами является основанием для дефолта."
+
+        Ответ:
+        {
+          "cross_default_present": "yes",
+          "threshold_amount": "no_threshold",
+          "covered_obligations": "all",
+          "grace_period_for_third_party_default": "absent"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о кросс-дефолте.
+        2. Найди порог существенности.
+        3. Найди льготный период.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
         Ответь строго в JSON:
         {
-          "cross_default_present": "<yes / no / not_found>",
-          "threshold_amount": "<сумма порога или no_threshold или not_found>",
-          "covered_obligations": "<all / financial_only / specified_list / not_found>",
-          "grace_period_for_third_party_default": "<present / absent / not_found>",
-          "cross_default_risk": "<high / medium / low>"
+          "cross_default_present": "<yes / no / not_defined>",
+          "threshold_amount": "<сумма порога или no_threshold или 'Данные не определены'>",
+          "covered_obligations": "<all / financial_only / specified_list / not_defined>",
+          "grace_period_for_third_party_default": "<present / absent / not_defined>"
         }
-      prompt_file: null
       context_k: 5
       temperature: 0.0
       max_tokens: 350
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "кросс-дефолт cross-default иные обязательства порог"
+      preferred_unit_types:
+        - obligation
+        - termination_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - remedies
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "проценты"
+        - "пск"
+      position_bias:
+        preferred_range: [0.35, 0.75]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 7
-      retrieval_profile: "event_of_default_check"
-      boost_keywords:
-        - "кросс-дефолт"
-        - "иные обязательства"
-        - "порог"
       rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "remedies"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 35
       max_snippet_length: 500
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 650
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста кредитного договора сведения
+        о кросс-дефолте.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. cross_default_present — "yes" / "no" / "not_defined".
+        2. threshold_amount — сумма порога / "no_threshold" / "Данные не определены".
+        3. covered_obligations — "all" / "financial_only" / "specified_list" / "not_defined".
+        4. grace_period_for_third_party_default — "present" / "absent" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "cross_default_present"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие кросс-дефолта"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Наличие кросс-дефолта."
+          required: true
         - name: "threshold_amount"
           type: "string"
-          description: "Порог существенности"
-        - name: "cross_default_risk"
+          presentation: "fact"
+          label: "Порог кросс-дефолта"
+          description: "Порог существенности."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "covered_obligations"
           type: "string"
-          allowed_values: ["high", "medium", "low"]
-          description: "Уровень риска"
+          presentation: "signal"
+          allowed_values: ["all", "financial_only", "specified_list", "not_defined"]
+          description: "Охват обязательств."
+          required: false
+        - name: "grace_period_for_third_party_default"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "absent", "not_defined"]
+          description: "Наличие льготного периода."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 11: Целевое использование и контроль (rules-only)
+  # ──────────────────────────────────────────────────────────────────────────
   - id: purpose_and_control_check
     name: "Целевое использование кредита и механизм контроля"
-    description: "Проверяет указание цели кредита и порядок подтверждения целевого использования"
+    description: >
+      Проверяет указание цели кредита и порядок подтверждения целевого
+      использования.
     triggers:
-      any: ["purpose_restricted"]
+      any:
+        - purpose_restricted
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
+    detector_type: "rules"
+
     rules:
       keywords:
         - "целевой кредит"
@@ -1685,63 +2708,88 @@ checks_v8:
       regex_patterns:
         - "(?i)целев(ой|ое|ого)\\s+(кредит|использован)"
         - "(?i)цель\\s+кредит"
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь целевое назначение кредита и механизм контроля.
 
-        Ответь строго в JSON:
-        {
-          "purpose_specified": "<yes / no / not_found>",
-          "purpose_description": "<описание цели или not_found>",
-          "control_mechanism_present": "<yes / no / not_found>",
-          "supporting_documents_required": "<yes / no / not_found>",
-          "misuse_consequences": "<acceleration / penalty / not_specified / not_found>"
-        }
-      prompt_file: null
-      context_k: 5
-      temperature: 0.0
-      max_tokens: 350
     retrieval:
-      retrieval_profile: "credit_facility_check"
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "целевое использование"
-        - "цель кредита"
-        - "подтверждение"
-        - "нецелевое"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "целевое использование цель кредита подтверждение нецелевое"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "проценты"
+        - "пск"
+      position_bias:
+        preferred_range: [0.15, 0.50]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
       rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
-      min_snippet_length: 35
-      max_snippet_length: 500
+      min_snippet_length: 30
+      max_snippet_length: 450
+
     extraction:
       enabled: true
-      mode: "hybrid"
+      mode: "rules"
       fields:
-        - name: "purpose_specified"
+        - name: "purpose_and_control_status"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Указана ли цель"
-        - name: "control_mechanism_present"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Есть ли механизм контроля"
-        - name: "misuse_consequences"
-          type: "string"
-          allowed_values: ["acceleration", "penalty", "not_specified", "not_found"]
-          description: "Последствия нецелевого использования"
-      store_payload: true
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия цели и механизма контроля."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Целевое использование и контроль"
+      store_payload: false
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 12: Негативный залог (rules-only)
+  # ──────────────────────────────────────────────────────────────────────────
   - id: negative_pledge_check
     name: "Негативный залог и ограничения на обременение активов"
-    description: "Проверяет наличие обязательства не обременять активы без согласия банка"
+    description: >
+      Проверяет наличие обязательства не обременять активы без согласия банка.
     triggers:
-      any: ["negative_pledge", "corporate_borrower"]
+      any:
+        - negative_pledge
+        - corporate_borrower
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
+    detector_type: "rules"
+
     rules:
       keywords:
         - "негативный залог"
@@ -1754,61 +2802,90 @@ checks_v8:
         - "(?i)негативн(ый|ого)\\s+залог"
         - "(?i)negative\\s+pledge"
         - "(?i)не\\s+передавать\\s+в\\s+залог"
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь наличие негативного залога и ограничений на обременение.
 
-        Ответь строго в JSON:
-        {
-          "negative_pledge_present": "<yes / no / not_found>",
-          "scope": "<all_assets / specified_assets / not_found>",
-          "exceptions_listed": "<yes / no / not_found>",
-          "consent_requirement": "<bank_consent / notification / not_specified / not_found>"
-        }
-      prompt_file: null
-      context_k: 5
-      temperature: 0.0
-      max_tokens: 300
     retrieval:
-      context_k: 5
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "негативный залог не обременять согласие банка negative pledge"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - covenants
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "проценты"
+        - "пск"
+      position_bias:
+        preferred_range: [0.30, 0.70]
+        boost: 0.10
+        scope: segment
+      context_k: 4
       max_chunks: 6
-      retrieval_profile: "security_check"
-      boost_keywords:
-        - "негативный залог"
-        - "не обременять"
-        - "согласие банка"
       rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "covenants"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 30
       max_snippet_length: 450
+
     extraction:
       enabled: true
-      mode: "hybrid"
+      mode: "rules"
       fields:
-        - name: "negative_pledge_present"
+        - name: "negative_pledge_status"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие негативного залога"
-        - name: "scope"
-          type: "string"
-          allowed_values: ["all_assets", "specified_assets", "not_found"]
-          description: "Охват ограничения"
-        - name: "consent_requirement"
-          type: "string"
-          allowed_values: ["bank_consent", "notification", "not_specified", "not_found"]
-          description: "Требование согласия"
-      store_payload: true
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия негативного залога."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Негативный залог"
+      store_payload: false
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 13: Заверения и гарантии заёмщика (rules-only)
+  # ──────────────────────────────────────────────────────────────────────────
   - id: representations_and_warranties_check
     name: "Заверения и гарантии заёмщика"
-    description: "Проверяет полноту заверений заёмщика о своём статусе и финансовом положении"
+    description: >
+      Проверяет полноту заверений заёмщика о своём статусе и финансовом
+      положении.
     triggers:
-      any: ["corporate_borrower"]
+      any:
+        - corporate_borrower
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
+    detector_type: "rules"
+
     rules:
       keywords:
         - "заверения"
@@ -1821,76 +2898,86 @@ checks_v8:
       regex_patterns:
         - "(?i)заемщик.*(заверяет|гарантирует)"
         - "(?i)заверени[ея]\\s+и\\s+гарантии"
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий кредитный договор.
-        Проверь наличие и полноту заверений заёмщика.
 
-        Типичные заверения:
-        - правоспособность и полномочия
-        - отсутствие судебных споров
-        - достоверность финансовой отчётности
-        - отсутствие дефолта
-        - соблюдение законодательства
-        - отсутствие признаков банкротства
-
-        Ответь в JSON:
-        {
-          "representations_section_present": "<yes / no / not_found>",
-          "corporate_capacity_warranty": "<present / absent>",
-          "no_litigation_warranty": "<present / absent>",
-          "financial_statements_warranty": "<present / absent>",
-          "no_default_warranty": "<present / absent>",
-          "compliance_warranty": "<present / absent>",
-          "no_insolvency_warranty": "<present / absent>",
-          "representations_completeness": "<comprehensive / partial / minimal / absent>"
-        }
-      prompt_file: null
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 450
     retrieval:
-      retrieval_profile: "warranties_check"
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "заверения"
-        - "гарантии"
-        - "заемщик заверяет"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "заверения гарантии заемщик заверяет representations warranties"
+      preferred_unit_types:
+        - warranty
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "проценты"
+        - "пск"
+      position_bias:
+        preferred_range: [0.15, 0.55]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
       rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "representations"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
+      min_snippet_length: 30
+      max_snippet_length: 450
+
     extraction:
       enabled: true
-      mode: "hybrid"
+      mode: "rules"
       fields:
-        - name: "representations_section_present"
+        - name: "representations_status"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие раздела заверений"
-        - name: "representations_completeness"
-          type: "string"
-          allowed_values: ["comprehensive", "partial", "minimal", "absent"]
-          description: "Полнота заверений"
-      store_payload: true
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия заверений заёмщика."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Заверения заёмщика"
+      store_payload: false
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "written_form_required"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 14: Письменная форма кредитного договора (rules-only)
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: written_form_required
     name: "Письменная форма кредитного договора"
-    description: "Проверяет наличие признаков письменной формы и документарного оформления"
-    legal_base: "ст. 820 ГК РФ"
+    description: "Проверяет наличие признаков письменной формы и документарного оформления."
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
+
     rules:
       keywords:
         - "кредитный договор"
@@ -1901,584 +2988,112 @@ doc_type_checks:
       regex_patterns:
         - "(?i)кредитн(ый|ого)\\s+договор"
 
-  - id: "lender_identification_and_license"
-    name: "Кредитор: идентификация и лицензия"
-    description: "Проверяет, что кредитор является банком или кредитной организацией с лицензией"
-    legal_base: "ст. 819 ГК РФ, ФЗ № 395-1"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "банк"
-        - "кредитная организация"
-        - "лицензия банка россии"
-        - "генеральная лицензия"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(банк|кредитная\\s+организация)"
-        - "(?i)лиценз"
-
-  - id: "credit_amount_required"
-    name: "Размер кредита и валюта"
-    description: "Проверяет наличие размера кредита с указанием валюты"
-    legal_base: "ст. 819, 432 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "сумма кредита"
-        - "размер кредита"
-        - "лимит кредитования"
-        - "валюта"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(сумма|размер)\\s+кредита"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur|доллар|евро)"
-
-  - id: "interest_rate_required"
-    name: "Процентная ставка обязательна"
-    description: "Проверяет наличие процентной ставки по кредиту"
-    legal_base: "ст. 819 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "процентная ставка"
-        - "проценты за пользование кредитом"
-        - "% годовых"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)процентн(ая|ой)\\s+ставк"
-        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-
-  - id: "repayment_schedule_required"
-    name: "Срок возврата и график погашения"
-    description: "Проверяет наличие срока кредита и графика/дат платежей"
-    legal_base: "ст. 810, 819 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "график платежей"
-        - "срок возврата"
-        - "дата платежа"
-        - "погашение кредита"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)график\\s+платеж"
-        - "(?i)погашени[ея]\\s+кредит"
-        - "(?i)дата\\s+платеж"
-
-  - id: "psk_required_for_consumer_credit"
-    name: "ПСК для потребительского кредита"
-    description: "Проверяет наличие полной стоимости кредита в потребительской конструкции"
-    legal_base: "ст. 6 ФЗ № 353-ФЗ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["consumer_credit"]
-    rules:
-      keywords:
-        - "полная стоимость кредита"
-        - "пск"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(полная\\s+стоимость\\s+кредита|ПСК)"
-        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-
-  - id: "credit_line_limit_and_tranches"
-    name: "Кредитная линия: лимит и правила траншей"
-    description: "Проверяет наличие лимита кредитования и порядка предоставления траншей"
-    legal_base: "ст. 819 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["credit_line"]
-    rules:
-      keywords:
-        - "кредитная линия"
-        - "лимит кредитования"
-        - "транш"
-        - "выборка"
-        - "доступный лимит"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)кредитн(ая|ой)\\s+линия"
-        - "(?i)лимит\\s+кредитован"
-        - "(?i)транш"
-
-  - id: "variable_rate_conditions"
-    name: "Плавающая ставка: формула и уведомление"
-    description: "Проверяет наличие формулы плавающей ставки и порядка уведомления заемщика"
-    legal_base: "ст. 819 ГК РФ, ФЗ № 353-ФЗ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["variable_rate"]
-    rules:
-      keywords:
-        - "плавающая ставка"
-        - "переменная ставка"
-        - "ключевая ставка"
-        - "уведомление заемщика"
-        - "порядок изменения"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(плавающ|переменн)\\s+ставк"
-        - "(?i)уведомлен(ие|ия)\\s+заемщик"
-
-  - id: "hidden_fees_transparency"
-    name: "Комиссии и дополнительные платежи: прозрачность"
-    description: "Проверяет прозрачность комиссий и отсутствие открытых формул дополнительных платежей"
-    legal_base: "ст. 819 ГК РФ, ФЗ № 353-ФЗ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "комиссия"
-        - "плата за обслуживание"
-        - "иные платежи"
-        - "дополнительные расходы"
-      keyword_mode: "any"
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "кредитный договор подписи сторон письменная форма"
+      preferred_unit_types:
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
       negative_keywords:
-        - "комиссия за ведение ссудного счета"
-        - "комиссия за выдачу кредита"
-      regex_patterns:
-        - "(?i)комисси|плата\\s+за\\s+обслуживан"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.15
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
 
-  - id: "early_repayment_right"
-    name: "Досрочное погашение кредита"
-    description: "Проверяет условия полного и частичного досрочного погашения"
-    legal_base: "ст. 810 ГК РФ, ст. 11 ФЗ № 353-ФЗ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "досрочное погашение"
-        - "досрочный возврат кредита"
-        - "частичное досрочное погашение"
-        - "полное досрочное погашение"
-        - "уведомление"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)досрочн(ое|ого)\\s+погашен"
-        - "(?i)досрочн(ый|ого)\\s+возврат\\s+кредит"
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
 
-  - id: "no_forced_services"
-    name: "Запрет навязывания дополнительных услуг"
-    description: "Проверяет, поставлена ли выдача кредита в зависимость от приобретения допуслуг"
-    legal_base: "ст. 7 ФЗ № 353-ФЗ, ст. 16 ЗоЗПП"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["consumer_credit", "insurance_linked_product"]
-    rules:
-      keywords:
-        - "добровольное страхование"
-        - "не является обязательным условием"
-        - "заемщик вправе отказаться"
-        - "обязательное подключение услуги"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)не\\s+является\\s+обязательным\\s+условием"
-        - "(?i)обязательн(ое|ым)\\s+подключен"
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
 
-  - id: "collateral_security"
-    name: "Обеспечение исполнения обязательств по кредиту"
-    description: "Проверяет наличие и описание обеспечения возврата кредита"
-    legal_base: "Глава 23 ГК РФ, ФЗ № 102-ФЗ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["secured_credit", "mortgage_credit"]
-    rules:
-      keywords:
-        - "залог"
-        - "ипотека"
-        - "поручительство"
-        - "обеспечение исполнения"
-        - "предмет залога"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)залог|ипотек|поручительств"
-
-  - id: "early_demand_triggers"
-    name: "Основания для досрочного истребования кредита"
-    description: "Проверяет наличие оснований досрочного взыскания по инициативе банка"
-    legal_base: "ст. 811, 813, 814, 821 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "досрочное истребование"
-        - "досрочный возврат по требованию банка"
-        - "просрочка"
-        - "утрата обеспечения"
-        - "нецелевое использование"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)банк.*вправе.*потребовать.*досрочного\\s+возврата"
-        - "(?i)досрочн(ое|ого)\\s+истребован"
-
-  - id: "cooling_off_disclosure"
-    name: "Потребительский кредит: право отказа / период охлаждения"
-    description: "Проверяет раскрытие права заемщика на отказ от кредита в предусмотренный законом срок"
-    legal_base: "ст. 11 ФЗ № 353-ФЗ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["consumer_credit"]
-    rules:
-      keywords:
-        - "вправе отказаться"
-        - "в течение 14 дней"
-        - "в течение 30 дней"
-        - "право на возврат кредита"
-        - "без объяснения причин"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)в\\s+течение\\s+14\\s+д"
-        - "(?i)в\\s+течение\\s+30\\s+д"
-        - "(?i)вправе\\s+отказаться"
-
-  - id: "penalty_proportionality"
-    name: "Неустойка и штрафные санкции: соразмерность"
-    description: "Проверяет условия о пенях/штрафах и их потенциальную соразмерность"
-    legal_base: "ст. 333 ГК РФ, ст. 21 ФЗ № 353-ФЗ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "неустойка"
-        - "пеня"
-        - "штраф"
-        - "20% годовых"
-        - "размер неустойки"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)неустойк|пен[яеи]|штраф"
-        - "(?i)20\\s*%\\s*годов"
-
-  - id: "personal_data_and_credit_history"
-    name: "Персональные данные и передача информации в БКИ"
-    description: "Проверяет наличие согласия/уведомления о кредитной истории и обработке данных"
-    legal_base: "ФЗ № 218-ФЗ, ФЗ № 152-ФЗ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["consumer_credit", "individual_borrower"]
-    rules:
-      keywords:
-        - "бюро кредитных историй"
-        - "бки"
-        - "кредитная история"
-        - "согласие на обработку персональных данных"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)бюро\\s+кредитных\\s+историй|БКИ"
-        - "(?i)персональн(ых|ые)\\s+данн"
-
-  - id: "payment_priority_order"
-    name: "Очередность списания платежей"
-    description: "Проверяет порядок направления поступающих платежей на основной долг, проценты, неустойки и расходы"
-    legal_base: "ст. 319 ГК РФ, ФЗ № 353-ФЗ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "очередность списания"
-        - "в первую очередь"
-        - "порядок погашения"
-        - "направление платежей"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)очередност[ьи]\\s+списан"
-        - "(?i)в\\s+первую\\s+очередь"
-
-  - id: "information_obligations_of_borrower"
-    name: "Информационные обязанности заемщика"
-    description: "Проверяет наличие обязанностей заемщика уведомлять банк об изменении существенных обстоятельств"
-    legal_base: "ст. 821 ГК РФ, банковская практика"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "обязан уведомить банк"
-        - "изменение места работы"
-        - "изменение дохода"
-        - "иные кредитные обязательства"
-        - "в течение"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)обязан.*уведомит.*банк"
-        - "(?i)изменен(ие|ия)\\s+(места\\s+работы|дохода)"
-
-  - id: "financial_covenants_clarity"
-    name: "Финансовые ковенанты: ясность формулировок"
-    description: "Проверяет наличие и понятность финансовых ковенантов для корпоративного заёмщика"
-    legal_base: "Банковская практика"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["financial_covenants", "corporate_borrower"]
-    rules:
-      keywords:
-        - "ковенант"
-        - "финансовые показатели"
-        - "ebitda"
-        - "долговая нагрузка"
-        - "собственный капитал"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)ковенант"
-        - "(?i)ebitda|debt.*equity"
-
-  - id: "cross_default_clause"
-    name: "Кросс-дефолт: наличие и условия"
-    description: "Проверяет наличие условия о кросс-дефолте и его параметры"
-    legal_base: "Банковская практика"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["cross_default", "corporate_borrower"]
-    rules:
-      keywords:
-        - "кросс-дефолт"
-        - "cross-default"
-        - "дефолт по иным обязательствам"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)кросс[- ]?дефолт"
-
-  - id: "purpose_restriction_clause"
-    name: "Целевое назначение кредита"
-    description: "Проверяет указание цели кредита и порядок контроля"
-    legal_base: "ст. 814 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["purpose_restricted"]
-    rules:
-      keywords:
-        - "целевой кредит"
-        - "целевое использование"
-        - "цель кредита"
-        - "подтверждение целевого использования"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)целев(ой|ое)\\s+(кредит|использован)"
-
-  - id: "negative_pledge_clause"
-    name: "Негативный залог"
-    description: "Проверяет наличие обязательства не обременять активы"
-    legal_base: "Банковская практика"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["negative_pledge", "corporate_borrower"]
-    rules:
-      keywords:
-        - "негативный залог"
-        - "negative pledge"
-        - "не передавать в залог"
-        - "без согласия банка"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)негативн(ый|ого)\\s+залог"
-
-  - id: "change_of_control_clause"
-    name: "Смена контроля (Change of Control)"
-    description: "Проверяет наличие условия о последствиях смены контроля над заёмщиком"
-    legal_base: "Банковская практика"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["corporate_borrower"]
-    rules:
-      keywords:
-        - "смена контроля"
-        - "change of control"
-        - "изменение состава участников"
-        - "смена акционеров"
-        - "переход контроля"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)смен(а|е)\\s+контрол"
-        - "(?i)change\\s+of\\s+control"
-
-  - id: "mac_clause"
-    name: "Оговорка о существенном негативном изменении (MAC/MAE)"
-    description: "Проверяет наличие условия о Material Adverse Change"
-    legal_base: "Банковская практика"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["corporate_borrower"]
-    rules:
-      keywords:
-        - "существенное негативное изменение"
-        - "существенное неблагоприятное изменение"
-        - "material adverse change"
-        - "mac"
-        - "mae"
-        - "ухудшение финансового состояния"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)существенн(ое|ого)\\s+(негативн|неблагоприятн)"
-        - "(?i)material\\s+adverse"
-
-  - id: "grace_period_disclosure"
-    name: "Льготный период / кредитные каникулы"
-    description: "Проверяет наличие условий о льготном периоде"
-    legal_base: "ФЗ № 353-ФЗ, ФЗ № 106-ФЗ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["grace_period", "consumer_credit", "mortgage_credit"]
-    rules:
-      keywords:
-        - "льготный период"
-        - "кредитные каникулы"
-        - "отсрочка платежа"
-        - "ипотечные каникулы"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)льготн(ый|ого)\\s+период"
-        - "(?i)кредитн(ые|ых)\\s+каникул"
-
-  - id: "borrower_representations"
-    name: "Заверения заёмщика"
-    description: "Проверяет наличие раздела заверений и гарантий заёмщика"
-    legal_base: "ст. 431.2 ГК РФ, банковская практика"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["corporate_borrower"]
-    rules:
-      keywords:
-        - "заверения"
-        - "гарантии"
-        - "заемщик заверяет"
-        - "заемщик гарантирует"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)заверени[ея]\\s+(и\\s+)?гарантии"
-
-  - id: "events_of_default_list"
-    name: "Перечень событий дефолта"
-    description: "Проверяет наличие исчерпывающего перечня событий дефолта"
-    legal_base: "Банковская практика, ст. 811 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "событие дефолта"
-        - "events of default"
-        - "случай неисполнения"
-        - "случай досрочного истребования"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)событи[ея]\\s+дефолт"
-        - "(?i)случа[ий]\\s+(неисполнен|досрочного)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "written_form_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия письменной формы."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Письменная форма"
+      store_payload: false
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
 
 dd_request_templates:
-
   credit_subject_extraction:
     text: >
-      Просим предоставить по {doc_names}: полные параметры кредита —
-      кредитор, заемщик, сумма и валюта кредита, срок, процентная ставка,
-      ПСК, структура погашения, наличие обеспечения, а также вид кредитного продукта
+      Просим предоставить по {doc_names}: полные параметры кредита — кредитор,
+      заемщик, сумма и валюта кредита, срок, процентная ставка, ПСК, структура
+      погашения, наличие обеспечения, а также вид кредитного продукта
       (потребительский, ипотечный, кредитная линия, овердрафт и т.п.).
     addressee: "Банк / Юридический советник"
 
   lender_license_check:
     text: >
-      Просим предоставить по {doc_names}: сведения о статусе кредитора,
-      реквизиты лицензии Банка России, организационно-правовую форму и подтверждение,
-      что кредитор вправе осуществлять банковские операции по предоставлению кредитов.
-    addressee: "Кредитор"
-
-  lender_identification_and_license:
-    text: >
-      Просим предоставить по {doc_names}: полное фирменное наименование кредитора,
-      ОГРН, ИНН, реквизиты лицензии Банка России и ссылку на публичный реестр.
+      Просим предоставить по {doc_names}: сведения о статусе кредитора, реквизиты
+      лицензии Банка России, организационно-правовую форму и подтверждение,
+      что кредитор вправе осуществлять банковские операции по предоставлению
+      кредитов.
     addressee: "Кредитор"
 
   non_licensed_lender_red_flag:
     text: >
-      В {doc_names} не выявлены достаточные признаки лицензии кредитора.
-      Просим срочно предоставить реквизиты лицензии Банка России
-      и правовое подтверждение допустимости заключения именно кредитного договора.
+      В {doc_names} не выявлены достаточные признаки лицензии кредитора. Просим
+      срочно предоставить реквизиты лицензии Банка России и правовое
+      подтверждение допустимости заключения именно кредитного договора.
     addressee: "Кредитор / Юридический советник"
 
   written_form_required:
     text: >
-      Просим подтвердить по {doc_names}, что кредитный договор оформлен в письменной форме
-      с надлежащими реквизитами и подписями сторон, включая все приложения,
-      являющиеся его неотъемлемой частью.
+      Просим подтвердить по {doc_names}, что кредитный договор оформлен
+      в письменной форме с надлежащими реквизитами и подписями сторон,
+      включая все приложения, являющиеся его неотъемлемой частью.
     addressee: "Обе стороны"
 
   credit_amount_required:
     text: >
-      Просим уточнить по {doc_names}: размер кредита, валюту,
-      а для кредитной линии — лимит кредитования и максимальный размер задолженности.
+      Просим уточнить по {doc_names}: размер кредита, валюту, а для кредитной
+      линии — лимит кредитования и максимальный размер задолженности.
     addressee: "Кредитор"
 
   interest_psk_fees_check:
     text: >
-      Просим предоставить по {doc_names}: процентную ставку, ПСК,
-      полный перечень комиссий и иных платежей заемщика, а также пример расчета
-      общей стоимости кредита и ежемесячного платежа.
-    addressee: "Кредитор"
-
-  interest_rate_required:
-    text: >
-      Просим уточнить в {doc_names}: процентную ставку, базу начисления процентов,
-      периодичность уплаты процентов и порядок их изменения (если применимо).
+      Просим предоставить по {doc_names}: процентную ставку, ПСК, полный перечень
+      комиссий и иных платежей заемщика, а также пример расчета общей стоимости
+      кредита и ежемесячного платежа.
     addressee: "Кредитор"
 
   interest_free_credit_red_flag:
@@ -2488,17 +3103,11 @@ dd_request_templates:
       поскольку кредитный договор по своей природе является возмездным.
     addressee: "Юридический советник"
 
-  psk_required_for_consumer_credit:
-    text: >
-      Для {doc_names} как потребительского кредита просим предоставить раскрытие ПСК
-      в требуемой законом форме, а также расчет всех включаемых в ПСК платежей.
-    addressee: "Кредитор"
-
   consumer_credit_without_psk:
     text: >
       В {doc_names} выявлен риск отсутствия ПСК при потребительском кредите.
-      Просим срочно предоставить значение полной стоимости кредита
-      и расчет согласно требованиям ФЗ-353 и актам Банка России.
+      Просим срочно предоставить значение полной стоимости кредита и расчет
+      согласно требованиям ФЗ-353 и актам Банка России.
     addressee: "Кредитор / Юридический советник"
 
   repayment_schedule_and_early_repayment_check:
@@ -2508,32 +3117,20 @@ dd_request_templates:
       сроки уведомления и последствия частичного/полного досрочного возврата.
     addressee: "Кредитор"
 
-  repayment_schedule_required:
-    text: >
-      Просим уточнить в {doc_names}: срок возврата кредита, даты платежей,
-      график погашения и порядок изменения графика при досрочном погашении.
-    addressee: "Кредитор"
-
   early_repayment_right:
     text: >
-      Просим уточнить по {doc_names}: вправе ли заемщик осуществить полное
-      или частичное досрочное погашение, в какой срок требуется уведомление,
+      Просим уточнить по {doc_names}: вправе ли заемщик осуществить полное или
+      частичное досрочное погашение, в какой срок требуется уведомление,
       и взимаются ли какие-либо дополнительные комиссии/санкции.
     addressee: "Кредитор / Юридический советник"
 
   forced_services_and_insurance_check:
     text: >
-      Просим предоставить по {doc_names}: перечень всех дополнительных услуг и страховых продуктов,
-      указать, какие из них являются добровольными, как оформляется отказ заемщика,
-      и подтвердить, что выдача кредита не поставлена в зависимость от приобретения таких услуг.
+      Просим предоставить по {doc_names}: перечень всех дополнительных услуг
+      и страховых продуктов, указать, какие из них являются добровольными,
+      как оформляется отказ заемщика, и подтвердить, что выдача кредита
+      не поставлена в зависимость от приобретения таких услуг.
     addressee: "Кредитор"
-
-  no_forced_services:
-    text: >
-      Просим включить/уточнить в {doc_names} оговорку о том, что дополнительные услуги
-      и страховые продукты не являются обязательным условием выдачи кредита,
-      если иное прямо не вытекает из закона и существа продукта.
-    addressee: "Юридический советник"
 
   collateral_security:
     text: >
@@ -2544,72 +3141,51 @@ dd_request_templates:
 
   acceleration_events_check:
     text: >
-      Просим уточнить в {doc_names}: основания для досрочного истребования кредита,
-      наличие срока на устранение нарушения, порядок уведомления заемщика
-      и последствия предъявления требования о досрочном возврате.
-    addressee: "Кредитор / Юридический советник"
-
-  early_demand_triggers:
-    text: >
-      Просим предоставить по {doc_names} исчерпывающий перечень оснований,
-      при которых банк вправе потребовать досрочного возврата кредита,
-      а также правовое обоснование каждого такого основания.
+      Просим уточнить в {doc_names}: основания для досрочного истребования
+      кредита, наличие срока на устранение нарушения, порядок уведомления
+      заемщика и последствия предъявления требования о досрочном возврате.
     addressee: "Кредитор / Юридический советник"
 
   variable_rate_check:
     text: >
-      По {doc_names} с плавающей ставкой просим предоставить:
-      формулу ставки, источник референсного индикатора, периодичность пересмотра,
-      порядок уведомления заемщика и пример перерасчета платежей.
+      По {doc_names} с плавающей ставкой просим предоставить: формулу ставки,
+      источник референсного индикатора, периодичность пересмотра, порядок
+      уведомления заемщика и пример перерасчета платежей.
     addressee: "Кредитор"
-
-  variable_rate_conditions:
-    text: >
-      Просим включить/уточнить в {doc_names}: ясную формулу переменной ставки,
-      способ определения базового индикатора, периодичность изменения
-      и обязанность предварительного уведомления заемщика.
-    addressee: "Юридический советник"
 
   payment_allocation_priority_check:
     text: >
-      Просим уточнить в {doc_names}: очередность списания поступающих от заемщика сумм
-      между расходами, процентами, основным долгом, неустойкой и иными платежами,
-      а также привести пример распределения частичного платежа.
+      Просим уточнить в {doc_names}: очередность списания поступающих от заемщика
+      сумм между расходами, процентами, основным долгом, неустойкой и иными
+      платежами, а также привести пример распределения частичного платежа.
     addressee: "Кредитор"
-
-  payment_priority_order:
-    text: >
-      Просим предоставить по {doc_names} формулировку очередности погашения задолженности
-      и подтвердить, что она не создает необоснованного приоритета штрафов
-      над основным долгом и процентами.
-    addressee: "Кредитор / Юридический советник"
 
   credit_line_limit_and_tranches:
     text: >
-      По {doc_names} (кредитная линия) просим предоставить:
-      лимит кредитования, правила выборки траншей, условия доступности лимита,
-      порядок возврата траншей и случаи приостановления дальнейшей выборки.
+      По {doc_names} (кредитная линия) просим предоставить: лимит кредитования,
+      правила выборки траншей, условия доступности лимита, порядок возврата
+      траншей и случаи приостановления дальнейшей выборки.
     addressee: "Кредитор"
 
   credit_line_without_limit_terms:
     text: >
-      В {doc_names} выявлен риск неполного регулирования кредитной линии.
-      Просим срочно уточнить лимит, порядок выдачи траншей,
-      условия их возврата и механизм расчета доступного остатка лимита.
+      В {doc_names} выявлен риск неполного регулирования кредитной линии. Просим
+      срочно уточнить лимит, порядок выдачи траншей, условия их возврата
+      и механизм расчета доступного остатка лимита.
     addressee: "Кредитор / Юридический советник"
 
   foreign_currency_credit_without_conversion_logic:
     text: >
       В {doc_names} выявлен валютный элемент без достаточной валютной оговорки.
-      Просим предоставить условия пересчета, источник курса, дату определения курса
-      и правовое обоснование валютной конструкции кредита.
+      Просим предоставить условия пересчета, источник курса, дату определения
+      курса и правовое обоснование валютной конструкции кредита.
     addressee: "Кредитор / Юридический советник"
 
   cooling_off_disclosure:
     text: >
-      Для {doc_names} как потребительского кредита просим уточнить:
-      право заемщика отказаться от кредита в предусмотренный законом срок,
-      порядок такого отказа, сумму процентов к уплате за фактический период пользования
+      Для {doc_names} как потребительского кредита просим уточнить: право
+      заемщика отказаться от кредита в предусмотренный законом срок, порядок
+      такого отказа, сумму процентов к уплате за фактический период пользования
       и форму уведомления кредитора.
     addressee: "Кредитор"
 
@@ -2622,16 +3198,10 @@ dd_request_templates:
 
   personal_data_and_credit_history:
     text: >
-      Просим предоставить по {doc_names}: формулировки согласия на обработку персональных данных,
-      сведения о передаче информации в БКИ, перечень передаваемых данных
-      и основания такой передачи.
+      Просим предоставить по {doc_names}: формулировки согласия на обработку
+      персональных данных, сведения о передаче информации в БКИ, перечень
+      передаваемых данных и основания такой передачи.
     addressee: "Кредитор"
-
-  information_obligations_of_borrower:
-    text: >
-      Просим уточнить в {doc_names}: какие именно изменения заемщик обязан сообщать банку,
-      в какие сроки, в какой форме и каковы последствия нарушения этой обязанности.
-    addressee: "Юридический советник"
 
   financial_covenants_check:
     text: >
@@ -2640,46 +3210,26 @@ dd_request_templates:
       последствия нарушения и наличие срока на исправление (cure period).
     addressee: "Кредитор / Юридический советник"
 
-  financial_covenants_clarity:
-    text: >
-      Просим уточнить в {doc_names}: формулы расчёта финансовых ковенантов,
-      источник данных для расчёта (РСБУ/МСФО), периодичность тестирования
-      и механизм waiver при нарушении.
-    addressee: "Кредитор"
-
   cross_default_check:
     text: >
-      Просим предоставить по {doc_names}: условия кросс-дефолта,
-      пороговую сумму задолженности, перечень охватываемых обязательств,
-      наличие grace period и порядок уведомления заёмщика.
+      Просим предоставить по {doc_names}: условия кросс-дефолта, пороговую сумму
+      задолженности, перечень охватываемых обязательств, наличие grace period
+      и порядок уведомления заёмщика.
     addressee: "Кредитор / Юридический советник"
-
-  cross_default_clause:
-    text: >
-      Просим уточнить в {doc_names}: какие обязательства заёмщика охватывает
-      кросс-дефолт, установлен ли порог существенности по сумме,
-      и предусмотрен ли срок на устранение.
-    addressee: "Юридический советник"
 
   cross_default_without_thresholds:
     text: >
-      В {doc_names} выявлен кросс-дефолт без порога существенности.
-      Просим установить минимальную сумму задолженности, при которой
-      срабатывает кросс-дефолт, и предусмотреть grace period.
+      В {doc_names} выявлен кросс-дефолт без порога существенности. Просим
+      установить минимальную сумму задолженности, при которой срабатывает
+      кросс-дефолт, и предусмотреть grace period.
     addressee: "Юридический советник / Заёмщик"
 
   purpose_and_control_check:
     text: >
       Просим предоставить по {doc_names}: описание целевого назначения кредита,
-      перечень документов для подтверждения целевого использования,
-      сроки предоставления и последствия нецелевого использования.
+      перечень документов для подтверждения целевого использования, сроки
+      предоставления и последствия нецелевого использования.
     addressee: "Кредитор"
-
-  purpose_restriction_clause:
-    text: >
-      Просим уточнить в {doc_names}: цель кредита, порядок контроля
-      целевого использования и последствия нарушения.
-    addressee: "Кредитор / Заёмщик"
 
   purpose_without_control_mechanism:
     text: >
@@ -2690,16 +3240,10 @@ dd_request_templates:
 
   negative_pledge_check:
     text: >
-      Просим предоставить по {doc_names}: условия негативного залога,
-      перечень активов, на которые распространяется ограничение,
-      исключения и порядок получения согласия банка.
+      Просим предоставить по {doc_names}: условия негативного залога, перечень
+      активов, на которые распространяется ограничение, исключения и порядок
+      получения согласия банка.
     addressee: "Кредитор / Юридический советник"
-
-  negative_pledge_clause:
-    text: >
-      Просим уточнить в {doc_names}: охват негативного залога,
-      допустимые исключения и порядок получения согласия на обременение.
-    addressee: "Юридический советник"
 
   representations_and_warranties_check:
     text: >
@@ -2708,52 +3252,39 @@ dd_request_templates:
       последствия недостоверности заверений.
     addressee: "Кредитор / Заёмщик"
 
-  borrower_representations:
-    text: >
-      Просим включить/уточнить в {doc_names}: заверения заёмщика
-      о правоспособности, отсутствии судебных споров, достоверности
-      финансовой отчётности, отсутствии дефолта и признаков банкротства.
-    addressee: "Юридический советник"
-
   change_of_control_clause:
     text: >
-      Просим уточнить в {doc_names}: определение смены контроля,
-      последствия (досрочное погашение / пересмотр условий / waiver),
-      порядок уведомления банка.
+      Просим уточнить в {doc_names}: определение смены контроля, последствия
+      (досрочное погашение / пересмотр условий / waiver), порядок уведомления
+      банка.
     addressee: "Кредитор / Заёмщик"
-
-  mac_clause:
-    text: >
-      Просим уточнить в {doc_names}: определение существенного негативного изменения (MAC),
-      критерии существенности, право банка на досрочное истребование
-      и порядок фиксации MAC.
-    addressee: "Юридический советник"
 
   grace_period_disclosure:
     text: >
       Просим уточнить по {doc_names}: условия предоставления льготного периода,
-      критерии для получения, порядок подачи заявления,
-      влияние на начисление процентов и срок кредита.
+      критерии для получения, порядок подачи заявления, влияние на начисление
+      процентов и срок кредита.
     addressee: "Кредитор"
 
   events_of_default_list:
     text: >
       Просим предоставить по {doc_names}: исчерпывающий перечень событий дефолта,
-      наличие cure period для каждого события, порядок уведомления
-      и механизм waiver.
+      наличие cure period для каждого события, порядок уведомления и механизм
+      waiver.
     addressee: "Кредитор / Юридический советник"
 
   unilateral_rate_change_risk:
     text: >
-      В {doc_names} выявлен риск одностороннего изменения ставки банком.
-      Просим привязать изменение к объективному индикатору (ключевая ставка и т.п.)
+      В {doc_names} выявлен риск одностороннего изменения ставки банком. Просим
+      привязать изменение к объективному индикатору (ключевая ставка и т.п.)
       или исключить право одностороннего изменения.
     addressee: "Юридический советник / Заёмщик"
 
-  # Generic fallback
   _default:
     text: >
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
+
+
     

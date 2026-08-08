@@ -1,6 +1,7 @@
 type: contract_5.4_bank_deposit_account
 name: "Договор банковского вклада (депозита) и банковского счета"
-
+version: 6.0
+parent: class_5_financial_security
 description: |
   Комплексный банковский тип документа, охватывающий две смежные конструкции:
   1) договор банковского вклада — договор, по которому банк принимает денежные средства
@@ -14,10 +15,6 @@ description: |
   возврат по вкладу, страхование вкладов физлиц, тарифы и комиссии по счету,
   приостановление операций по 115-ФЗ, безакцептное списание, безопасность ДБО
   и корректное закрытие счета.
-
-version: 4.0
-parent: class_5_financial_security
-
 metadata:
   category: contract
   subcategory: financial_security
@@ -41,7 +38,6 @@ metadata:
     - "договор открытия счета"
     - "договор номинального счета"
     - "договор счета эскроу"
-
     - "account agreement"
     - "banking services agreement"
     - "deposit agreement"
@@ -53,518 +49,389 @@ metadata:
     - "bank account terms and conditions"
     - "certificate of deposit"
     - "CD agreement"
-
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
-
 classification_runtime_v1:
-
   scoring:
-    accept_threshold: 0.8
+    accept_threshold: 0.80
     strong_signal_threshold: 0.88
     ambiguity_margin: 0.18
     input_quality_weight: 1.0
-
   rules:
-
     filename_patterns:
-      # Русский — банковский вклад / депозит
-
       - pattern: "(?i)договор[_\\s-]*банковск[огоой][_\\s-]*вклад[аы]"
         kind: specific_subject
         weight: 1.0
-        # Базовое: договор банковского вклада
-
       - pattern: "(?i)договор[_\\s-]*вклад[аы]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)депозитн[ыйого][_\\s-]*договор"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*срочн[огоой][_\\s-]*вклад[аы]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*вклад[аы][_\\s-]*до[_\\s-]*востребовани[яия]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*банковск[огоой][_\\s-]*вклад[аы][_\\s-]*физическ[огоой][_\\s-]*лиц[аеи]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)депозитн[ыйого][_\\s-]*вклад"
         kind: specific_subject
-        weight: 0.9
-
+        weight: 0.90
       - pattern: "(?i)депозит[аы][_\\s-]*физическ[огоой][_\\s-]*лиц[аеи]"
         kind: specific_subject
-        weight: 0.9
-
-      # Русский — банковский счёт / РКО / ДБО / эскроу-счета
-
+        weight: 0.90
       - pattern: "(?i)договор[_\\s-]*банковск[огоой][_\\s-]*счет[аы]"
         kind: specific_subject
         weight: 1.0
-        # Договор банковского счёта
-
       - pattern: "(?i)договор[_\\s-]*расчетн[огоой][_\\s-]*счет[аы]"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)договор[_\\s-]*расчетно[_\\s-]*кассов[огоой][_\\s-]*обслуживан[ияи]"
         kind: specific_subject
         weight: 0.98
-        # Договор РКО
-
       - pattern: "(?i)договор[_\\s-]*РКО\\b"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)договор[_\\s-]*расчетн[огоой][_\\s-]*счет[аы][_\\s-]*и[_\\s-]*РКО"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)договор[_\\s-]*текущ[егоий][_\\s-]*счет[аы]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*на[_\\s-]*открыти[еия][_\\s-]*счет[аы]"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)договор[_\\s-]*открыти[яия][_\\s-]*банковск[огоой][_\\s-]*счет[аы]"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)договор[_\\s-]*открыти[яия][_\\s-]*расчетн[огоой][_\\s-]*счет[аы]"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)договор[_\\s-]*обслуживан[ияи][_\\s-]*банковск[огоой][_\\s-]*счет[аы]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*номинальн[огоой][_\\s-]*счет[аы]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*счет[аы][_\\s-]*эскроу"
         kind: specific_subject
         weight: 0.95
-        # Escrow account agreement (в банке)
-
       - pattern: "(?i)договор[_\\s-]*ДБО\\b"
         kind: specific_subject
-        weight: 0.9
-        # ДБО как часть обслуживания банковского счёта
-
+        weight: 0.90
       - pattern: "(?i)договор[_\\s-]*дистанционн[огоой][_\\s-]*банковск[огоой][_\\s-]*обслуживан[ияи]"
         kind: specific_subject
-        weight: 0.9
-
-      # Английский — account / deposit / banking services / CM / treasury
-
+        weight: 0.90
       - pattern: "(?i)account[_\\s-]*agreement"
         kind: specific_subject
         weight: 1.0
-        # В банковском контексте — договор счёта
-
       - pattern: "(?i)bank(?:ing)?[_\\s-]*services?[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)deposit[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)savings[_\\s-]*account[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)escrow[_\\s-]*account[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)cash[_\\s-]*management[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)treasury[_\\s-]*services?[_\\s-]*agreement"
         kind: specific_subject
-        weight: 0.9
-
+        weight: 0.90
       - pattern: "(?i)master[_\\s-]*current[_\\s-]*account[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)bank[_\\s-]*account[_\\s-]*terms?[_\\s-]*and[_\\s-]*conditions"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)certificate[_\\s-]*of[_\\s-]*deposit"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)CD[_\\s-]*agreement"
         kind: specific_subject
-        weight: 0.9
-
-      # Более общие deposit/account/bank — generic/context, чтобы не ловить policy/отчёты
-
+        weight: 0.90
       - pattern: "(?i)deposit"
         kind: generic_form
-        weight: 0.6
-        # Может быть и security deposit, и кэш‑депозит по аренде, поэтому не максимальный
-
+        weight: 0.60
       - pattern: "(?i)account"
         kind: generic_form
-        weight: 0.6
-        # Просто 'account' без 'agreement/terms' — поддерживающий сигнал
-
+        weight: 0.60
       - pattern: "(?i)банковск[ийоеая][_\\s-]*счет"
         kind: generic_form
-        weight: 0.6
-
+        weight: 0.60
       - pattern: "(?i)банковск[ийоеая][_\\s-]*вклад"
         kind: generic_form
-        weight: 0.6
-
+        weight: 0.60
       - pattern: "(?i)РКО\\b"
         kind: generic_form
-        weight: 0.6
-
+        weight: 0.60
       - pattern: "(?i)вклад"
         kind: generic_form
         weight: 0.55
-
       - pattern: "(?i)счет"
         kind: context
-        weight: 0.4
-
+        weight: 0.40
     folder_patterns:
       - pattern: "(?i)вклад[ыы]?"
         kind: specific_subject
-        weight: 0.8
-        # Папка вкладов/депозитов
-
+        weight: 0.80
       - pattern: "(?i)депозит[ыы]?"
         kind: specific_subject
-        weight: 0.8
-
+        weight: 0.80
       - pattern: "(?i)счет[аы]?"
         kind: specific_subject
-        weight: 0.8
-        # Папка по банковским счетам
-
+        weight: 0.80
       - pattern: "(?i)РКО\\b"
         kind: specific_subject
-        weight: 0.8
-
+        weight: 0.80
       - pattern: "(?i)account[s]?"
         kind: specific_subject
         weight: 0.75
-
       - pattern: "(?i)deposit[s]?"
         kind: specific_subject
         weight: 0.75
-
       - pattern: "(?i)cash[_\\s-]*management"
         kind: specific_subject
         weight: 0.75
-
       - pattern: "(?i)treasury"
         kind: context
-        weight: 0.4
-
+        weight: 0.40
       - pattern: "(?i)bank"
         kind: context
-        weight: 0.4
-        # Слишком широкий контекст, может содержать любые банковские документы
-
+        weight: 0.40
     keywords:
-
       high:
         - pattern: "(?i)банковск[ийое]\\s+вклад"
           weight: 1.0
           distinctiveness: high
           context: any
           description: "Прямой маркер банковского вклада"
-
         - pattern: "(?i)банковск[ийое]\\s+сч[её]т"
           weight: 1.0
           distinctiveness: high
           context: any
           description: "Прямой маркер банковского счета"
-
         - pattern: "(?i)договор\\s+банковск[огоой]\\s+вклад[ауы]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное название договора банковского вклада"
-
         - pattern: "(?i)договор\\s+банковск[огоой]\\s+сч[её]т[ауы]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное название договора банковского счета"
-
         - pattern: "(?i)депозитн[ыйое]\\s+договор"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Депозитный договор как синоним договора вклада"
-
         - pattern: "(?i)договор\\s+на\\s+открыт[иеия]\\s+сч[её]т[ауы]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Договор на открытие банковского счета"
-
         - pattern: "(?i)договор\\s+рко\\b"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Договор расчетно-кассового обслуживания"
-
         - pattern: "(?i)договор\\s+расч[её]тн[огоой]\\s+сч[её]т[ауы]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Договор расчетного счета"
-
         - pattern: "(?i)договор\\s+текущ[егоий]\\s+сч[её]т[ауы]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Договор текущего счета"
-
         - pattern: "(?i)договор\\s+срочн[огоой]\\s+вклад[ауы]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Договор срочного вклада"
-
         - pattern: "(?i)договор\\s+вклад[ауы]\\s+до\\s+востребован[ияи]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Договор вклада до востребования"
-
         - pattern: "(?i)договор\\s+банковск[огоой]\\s+вклад[ауы]\\s+физическ[огоой\\s]*лиц[ауы]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Вклад физического лица"
-
         - pattern: "(?i)договор\\s+дбо\\b.*сч[её]т[ауы]"
           weight: 0.85
           distinctiveness: medium
           context: any
           description: "ДБО как приложение или режим обслуживания банковского счета"
-
         - pattern: "(?i)депозит[ауы]"
-          weight: 0.8
+          weight: 0.80
           distinctiveness: medium
           context: any
           description: "Депозит как термин банковского вклада"
-
         - pattern: "(?i)вкладчик[а-я]*"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Вкладчик как сторона договора банковского вклада"
-
         - pattern: "(?i)банк[а-я]*"
-          weight: 0.8
+          weight: 0.80
           distinctiveness: medium
           context: any
           description: "Банк как обязательный специальный субъект"
-
         - pattern: "(?i)процент[ыо]\\s+по\\s+вклад[уые]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Проценты по банковскому вкладу"
-
         - pattern: "(?i)расч[её]тн[ыйое]\\s+сч[её]т"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Расчетный счет"
-
         - pattern: "(?i)текущ[ийее]\\s+сч[её]т"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Текущий счет"
-
       medium:
         - pattern: "(?i)срочн[ыо]й\\s+вклад"
-          weight: 0.7
+          weight: 0.70
           distinctiveness: medium
           context: any
           description: "Срочный вклад"
-
         - pattern: "(?i)до\\s+востребовани[яя]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Формула вклада до востребования"
-
         - pattern: "(?i)процентн[а-яё]+\\s+ставк[аа]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Процентная ставка по вкладу или начислению на остаток"
-
         - pattern: "(?i)капитализаци[яи]\\s+процент[оо]в"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Капитализация процентов по вкладу"
-
         - pattern: "(?i)расч[её]тно-?кассов[оа]е\\s+обслуживани[ея]"
-          weight: 0.7
+          weight: 0.70
           distinctiveness: medium
           context: any
           description: "Расчетно-кассовое обслуживание по банковскому счету"
-
         - pattern: "(?i)\\bрко\\b"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Сокращенное обозначение расчетно-кассового обслуживания"
-
         - pattern: "(?i)банковск[а-яё]+\\s+тайн[аа]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Банковская тайна"
-
         - pattern: "(?i)дистанционн[оа]е\\s+банковск[оа]е\\s+обслуживани[ея]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Дистанционное банковское обслуживание счета"
-
         - pattern: "(?i)интернет-?банк"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Интернет-банк как канал обслуживания счета"
-
         - pattern: "(?i)\\bовердрафт\\b"
-          weight: 0.5
+          weight: 0.50
           distinctiveness: low
           context: any
-          description: "Овердрафт как сопутствующий режим счета, но не основной тип документа"
-
+          description: "Овердрафт как сопутствующий режим счета"
         - pattern: "(?i)страховани[ея]\\s+вклад[оо]в"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Страхование вкладов физических лиц"
-
         - pattern: "(?i)\\bасв\\b"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Агентство по страхованию вкладов"
-
         - pattern: "(?i)\\b115-фз\\b"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "AML/CFT-ограничения по банковскому счету и вкладу"
-
       low:
         - pattern: "(?i)выписк[аа]\\s+по\\s+сч[её]т[уу]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Выписка по банковскому счету"
-
         - pattern: "(?i)безакцептн[оа]е\\s+списани[ея]"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Безакцептное списание со счета"
-
         - pattern: "(?i)исполнительн[ыо]й\\s+документ"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Исполнительный документ как основание списания/ареста"
-
         - pattern: "(?i)арест\\s+сч[её]т[аа]"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Арест банковского счета"
-
         - pattern: "(?i)налогов[ыо]й\\s+агент"
-          weight: 0.2
+          weight: 0.20
           distinctiveness: low
           context: any
           description: "Налоговый агент в контексте расчетного счета клиента"
-
     exclusions:
       - pattern: "(?i)кредитн[ыо]й\\s+договор"
         severity: hard
         weight: -1.0
         description: "Кредитный договор — отдельный банковский продукт из § 2 Главы 42 ГК РФ"
-
       - pattern: "(?i)договор\\s+за[йеё]м[аа]"
         severity: hard
         weight: -1.0
         description: "Договор займа — самостоятельная конструкция, отличная от вклада и счета"
-
       - pattern: "(?i)договор\\s+хранени[яя]"
         severity: hard
         weight: -1.0
         description: "Хранение имущества не является договором банковского вклада или счета"
-
       - pattern: "(?i)договор\\s+факторинг[аа]"
         severity: hard
         weight: -1.0
         description: "Факторинг — отдельный вид финансирования под уступку денежного требования"
-
-      # ── Soft exclusions
-
       - pattern: "(?i)\\bэскроу\\b"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Счет эскроу близок к банковскому счету, но является специальным режимом"
-
       - pattern: "(?i)номинальн[ыо]й\\s+сч[её]т"
         severity: soft
-        weight: -0.3
-        description: "Номинальный счет — специальная разновидность счета, может требовать отдельной типизации"
-
+        weight: -0.30
+        description: "Номинальный счет — специальная разновидность счета"
       - pattern: "(?i)публичн[ыо]й\\s+депозитн[ыо]й\\s+сч[её]т"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Публичный депозитный счет — специальная банковская конструкция"
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
 # ════════════════════════════════════════════════════════════════════════════
-
 trigger_definitions:
-
   deposit_contract:
     any_keywords:
       - "(?i)банковск[иоя]+\\s+вклад"
@@ -572,7 +439,6 @@ trigger_definitions:
       - "(?i)\\bвкладчик\\b"
       - "(?i)сумм[аа]\\s+вклад[аа]"
       - "(?i)процент[ыа]\\s+по\\s+вклад[уу]"
-
   bank_account_contract:
     any_keywords:
       - "(?i)банковск[иоя]+\\s+сч[её]т"
@@ -581,34 +447,29 @@ trigger_definitions:
       - "(?i)банк\\s+обязуетс[яьа]\\s+открыть\\s+сч[её]т"
       - "(?i)операци[ии]\\s+по\\s+сч[её]т[уу]"
       - "(?i)\\bрко\\b"
-
   consumer_depositor:
     any_keywords:
       - "(?i)физическ[оеая]\\s+лиц[оо]"
       - "(?i)\\bгражданин\\b"
       - "(?i)\\bвкладчик\\b"
       - "(?i)\\bпаспорт\\b"
-
   term_deposit:
     any_keywords:
       - "(?i)срочн[ыо]й\\s+вклад"
       - "(?i)на\\s+срок"
       - "(?i)срок\\s+вклад[аа]"
       - "(?i)дата\\s+возврат[аа]\\s+вклад[аа]"
-
   on_demand_deposit:
     any_keywords:
       - "(?i)до\\s+востребовани[яя]"
       - "(?i)вклад\\s+до\\s+востребовани[яя]"
       - "(?i)по\\s+первому\\s+требовани[юя]"
-
   overdraft_present:
     any_keywords:
       - "(?i)\\bовердрафт\\b"
       - "(?i)кредитовани[ея]\\s+сч[её]т[аа]"
       - "(?i)лимит\\s+овердрафт[аа]"
       - "(?i)дебетов[оа]е\\s+сальдо"
-
   dbs_enabled:
     any_keywords:
       - "(?i)дистанционн[оа]е\\s+банковск[оа]е\\s+обслуживани[ея]"
@@ -616,7 +477,6 @@ trigger_definitions:
       - "(?i)мобильн[оа]е\\s+приложени[ея]"
       - "(?i)электронн[а-яё]+\\s+подпис[ья]"
       - "(?i)\\bдбо\\b"
-
   aml_ctf_terms:
     any_keywords:
       - "(?i)\\b115-фз\\b"
@@ -624,7 +484,6 @@ trigger_definitions:
       - "(?i)подозрительн[ыо]е\\s+операци[ии]"
       - "(?i)противодействи[ея]\\s+легализаци[ии]"
       - "(?i)приостановлени[ея]\\s+операци[ий]"
-
   foreign_currency_account_or_deposit:
     any_keywords:
       - "(?i)\\bдоллар\\b"
@@ -634,13 +493,11 @@ trigger_definitions:
       - "(?i)иностранн[а-яё]+\\s+валют[аа]"
       - "(?i)валютн[ыо]й\\s+сч[её]т"
       - "(?i)валютн[ыо]й\\s+вклад"
-
   deposit_insurance_relevant:
     any_keywords:
       - "(?i)страховани[ея]\\s+вклад[оо]в"
       - "(?i)\\bасв\\b"
       - "(?i)страхов[оа]е\\s+возмещени[ея]"
-
   escrow_account:
     any_keywords:
       - "(?i)\\bэскроу\\b"
@@ -648,7 +505,6 @@ trigger_definitions:
       - "(?i)\\bescrow\\b"
       - "(?i)депонировани[ея]\\s+средств"
       - "(?i)услови[яя]\\s+раскрыти[яя]"
-
   joint_account:
     any_keywords:
       - "(?i)совместн[ыо]й\\s+сч[её]т"
@@ -656,650 +512,1733 @@ trigger_definitions:
       - "(?i)доверенност[ьи]\\s+на\\s+сч[её]т"
       - "(?i)представител[ья]\\s+по\\s+сч[её]т[уу]"
       - "(?i)прав[оа]\\s+подпис[ии]"
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
 # ════════════════════════════════════════════════════════════════════════════
-
 shared_patterns:
-
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
   percentage_pattern: "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
   iban_or_account_pattern: "(?i)\\b4\\d{19}\\b|\\b\\d{20}\\b"
-  license_pattern: "(?i)лиценз[ияе]\\s*(?:№|N|No\\.)?\\s*[A-ZА-Я0-9\\-\\/]+"
+  license_pattern: "(?i)лиценз[ияе]\\s*(?:№|N|No\\.)?\\s*[A-ZА-Я0-9\\-/]+"
+
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "bank_license_missing"
-    name: "Отсутствуют признаки лицензии банка"
-    description: "Банковский вклад и банковский счет могут вестись только банком/кредитной организацией с надлежащей лицензией"
-    legal_base: "ст. 834, 845 ГК РФ, ФЗ № 395-1"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "банк"
-        - "кредитная организация"
-        - "лицензия банка россии"
-        - "генеральная лицензия"
-        - "цб рф"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "лицензия банка россии"
-        - "банк"
-        - "кредитная организация"
-      rerank: true
-
-  - id: "consumer_deposit_without_insurance_disclosure"
-    name: "Вклад физического лица без раскрытия страхования вкладов"
-    description: "Для вкладов физлиц отсутствие признаков раскрытия страхования вкладов является существенным риском"
-    legal_base: "ст. 840 ГК РФ, ФЗ № 177-ФЗ"
-    required_triggers: ["deposit_contract", "consumer_depositor"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "страхование вкладов"
-        - "асв"
-        - "страховое возмещение"
-        - "1,4 млн"
-        - "1 400 000"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "страхование вкладов"
-        - "асв"
-        - "страховое возмещение"
-      rerank: true
-
-  - id: "term_deposit_rate_change_risk"
-    name: "Риск одностороннего снижения ставки по срочному вкладу гражданина"
-    description: "Для срочного вклада гражданина банк не вправе односторонне уменьшать процентную ставку"
-    legal_base: "ст. 838 ГК РФ"
-    required_triggers: ["deposit_contract", "consumer_depositor", "term_deposit"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "банк вправе изменить процентную ставку"
-        - "процентная ставка может быть изменена банком"
-        - "в одностороннем порядке изменить ставку"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "процентная ставка"
-        - "в одностороннем порядке"
-        - "срочный вклад"
-      rerank: true
-
-  - id: "overdraft_without_core_terms"
-    name: "Овердрафт без ясных условий"
-    description: "Если в договоре есть овердрафт, должны быть понятны лимит, проценты и порядок погашения"
-    legal_base: "ст. 850 ГК РФ"
-    required_triggers: ["overdraft_present"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "овердрафт"
-        - "кредитование счета"
-      negative_keywords:
-        - "лимит овердрафта"
-        - "проценты за овердрафт"
-        - "срок погашения"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "овердрафт"
-        - "лимит"
-        - "проценты"
-      rerank: true
-
-  - id: "foreign_currency_terms_unclear"
-    name: "Валютный вклад/счет без ясных валютных условий"
-    description: "Для валютной банковской конструкции должны быть понятны валюта счета/вклада, пересчет и банковские ограничения"
-    legal_base: "ГК РФ, валютное регулирование"
-    required_triggers: ["foreign_currency_account_or_deposit"]
-    severity: "high"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "доллар"
-        - "евро"
-        - "usd"
-        - "eur"
-      negative_keywords:
-        - "валюта счета"
-        - "курс"
-        - "конвертация"
-        - "пересчет"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "валюта счета"
-        - "конвертация"
-        - "пересчет"
-      rerank: true
-
-  - id: "deposit_exceeds_insurance_limit"
-    name: "Вклад физлица превышает лимит страхового возмещения АСВ (1,4 млн руб.)"
-    description: |
-      При отзыве лицензии банка вкладчик получает страховое возмещение
-      не более 1,4 млн руб. (ФЗ-177). Если сумма вклада превышает этот лимит,
-      разница не застрахована — критический риск для вкладчика.
-    legal_base: "ФЗ № 177-ФЗ, ст. 11"
-    required_triggers: ["deposit_contract", "consumer_depositor"]
-    severity: "high"
-    result_if_triggered: "warn"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "свыше 1 400 000"
-        - "свыше 1,4 млн"
-        - "превышает лимит страхования"
-        - "не покрывается страхованием"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "1 400 000"
-        - "лимит страхования"
-        - "страховое возмещение"
-      rerank: true
-
-  - id: "escrow_account_without_special_regime"
-    name: "Эскроу-счёт без специального режима (ст. 860.7-860.10 ГК РФ)"
-    description: |
-      Счёт эскроу имеет специальный правовой режим: средства блокируются до наступления
-      условий, указанных в договоре. Без соблюдения специальных правил ГК РФ
-      «эскроу» превращается в обычный счёт без защиты.
-    legal_base: "ст. 860.7-860.10 ГК РФ"
-    required_triggers: ["escrow_account"]
-    severity: "critical"
-    result_if_triggered: "warn"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "условия раскрытия"
-        - "основания для перечисления"
-        - "блокировка средств"
-        - "депонент"
-        - "бенефициар"
-      keyword_mode: "any"
-      negative_keywords:
-        - "условия раскрытия не определены"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "эскроу"
-        - "условия раскрытия"
-        - "депонент"
-        - "бенефициар"
-      rerank: true
-
-  - id: "unilateral_tariff_change_consumer"
-    name: "Одностороннее изменение тарифов для потребителя (ЗоЗПП, ст. 16)"
-    description: |
-      Одностороннее изменение тарифов банком для потребителя (физлица)
-      может быть признано ущемляющим права потребителя (ст. 16 ЗоЗПП).
-      Роспотребнадзор и суды неоднократно признавали такие условия недействительными.
-    legal_base: "ст. 16 ЗоЗПП, ст. 310 ГК РФ"
-    required_triggers: ["consumer_depositor"]
-    severity: "high"
-    result_if_triggered: "warn"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "банк вправе в одностороннем порядке изменить тарифы"
-        - "изменение тарифов без согласия клиента"
-        - "новые тарифы размещаются на сайте"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "одностороннее изменение тарифов"
-        - "без согласия клиента"
-      rerank: true
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
 
-  - id: bank_deposit_account_subject_extraction
-    name: "Базовое извлечение параметров вклада/счета"
-    description: "Извлекает тип банковского договора, банк, клиента, сумму, валюту, проценты, срок и специальные банковские условия"
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 1: Стороны договора — банк и клиент
+# ──────────────────────────────────────────────────────────────────────────
+  - id: bank_deposit_parties_identification
+    name: "Стороны договора: банк и клиент / вкладчик"
+    description: >
+      Фактографическая проверка идентификации банка и клиента / вкладчика,
+      реквизитов, подписантов, оснований полномочий и указания на лицензию банка.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
       keywords:
-        - "банковский вклад"
-        - "банковский счет"
-        - "депозит"
+        - "банк"
+        - "кредитная организация"
         - "вкладчик"
         - "клиент"
-        - "процентная ставка"
-        - "расчетный счет"
-        - "текущий счет"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+        - "ИНН"
+        - "ОГРН"
+        - "лицензия"
+        - "корреспондентский счет"
+        - "БИК"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)(банковск(ий|ого)\\s+вклад|банковск(ий|ого)\\s+счет|депозит)"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)\\b"
-        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
+        - "(?i)(банк|вкладчик|клиент).*именуем"
+        - "(?i)действующ[а-я]+\\s+на\\s+основании"
+        - "(?i)лиценз[ияе]"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор банковского вклада или банковского счета.
-        Извлеки ключевые параметры строго по тексту.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор банковского вклада или банковского счета
+        (Главы 44–45 ГК РФ, ФЗ «О банках и банковской деятельности»).
+        Проверяется только один вопрос: идентификация банка и клиента / вкладчика,
+        реквизиты, подписанты, основания полномочий и указание на лицензию банка.
+        Нормативный ориентир:
+        - ст. 834, 845 ГК РФ — стороны договора
+        - ст. 13 ФЗ «О банках и банковской деятельности» — лицензирование
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наименование и реквизиты банка (ИНН, ОГРН, БИК, корр. счёт, адрес).
+        2. Указание на лицензию банка.
+        3. Тип клиента / вкладчика (юрлицо / ИП / физлицо).
+        4. Наименование и реквизиты клиента / вкладчика.
+        5. Кто подписывает договор от каждой стороны и на каком основании.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если данные не указаны прямо — возвращай "not_defined" / "Данные не определены".
+        4. Не используй "None", "null", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — стороны определены:
+        Фрагмент:
+        "ПАО «Сбербанк» (ИНН 7707083893, ОГРН 1027700132195, БИК 044525225,
+        лицензия Банка России № 1481), именуемое «Банк», в лице управляющего
+        отделением Петрова П.П., действующего на основании доверенности № 55,
+        и ООО «Альфа» (ИНН 7700000001), именуемое «Клиент», в лице
+        Генерального директора Иванова И.И., действующего на основании Устава."
+        Ответ:
         {
-          "contract_type": "<deposit / account / mixed / unclear / not_found>",
-          "bank": "<банк или not_found>",
-          "client": "<клиент/вкладчик или not_found>",
-          "amount": "<сумма вклада/лимит/остаток если явно указан или not_found>",
-          "currency": "<RUB / USD / EUR / other / not_found>",
-          "deposit_type": "<term / on_demand / not_applicable / unclear / not_found>",
-          "interest_rate": "<ставка или not_found>",
-          "account_type": "<settlement / current / special / other / not_applicable / not_found>",
-          "overdraft_status": "<present / absent / not_found>",
-          "dbs_status": "<present / absent / not_found>"
+          "bank_details_status": "defined",
+          "bank_details_value": "ПАО «Сбербанк», ИНН 7707083893, ОГРН 1027700132195, БИК 044525225",
+          "bank_type": "credit_organization",
+          "bank_license_status": "defined",
+          "bank_license_details": "лицензия Банка России № 1481",
+          "client_details_status": "defined",
+          "client_details_value": "ООО «Альфа», ИНН 7700000001",
+          "client_type": "legal_entity",
+          "client_signatory": "Генеральный директор Иванов И.И.",
+          "client_signatory_basis": "charter",
+          "bank_signatory": "Управляющий отделением Петров П.П.",
+          "bank_signatory_basis": "poa",
+          "evidence": [
+            {
+              "clause_ref": "Преамбула",
+              "quote": "ПАО «Сбербанк» (ИНН 7707083893, ОГРН 1027700132195, БИК 044525225, лицензия Банка России № 1481), именуемое «Банк»."
+            }
+          ]
+        }
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Банк открывает Клиенту счет."
+        Ответ:
+        {
+          "bank_details_status": "not_defined",
+          "bank_details_value": "Данные не определены",
+          "bank_type": "not_defined",
+          "bank_license_status": "not_defined",
+          "bank_license_details": "Данные не определены",
+          "client_details_status": "not_defined",
+          "client_details_value": "Данные не определены",
+          "client_type": "not_defined",
+          "client_signatory": "Данные не определены",
+          "client_signatory_basis": "not_defined",
+          "bank_signatory": "Данные не определены",
+          "bank_signatory_basis": "not_defined",
+          "evidence": []
         }
 
-        Используй только явно указанные в тексте сведения.
-        Если данных нет — пиши "not_found".
-      prompt_file: null
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с идентификацией банка.
+        2. Найди прямую цитату с идентификацией клиента / вкладчика.
+        3. Найди прямую цитату о лицензии банка.
+        4. Найди прямую цитату о подписантах и основаниях полномочий.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай реквизиты.
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "bank_details_status": "<defined / not_defined>",
+          "bank_details_value": "<текст или 'Данные не определены'>",
+          "bank_type": "<credit_organization / not_defined>",
+          "bank_license_status": "<defined / not_defined>",
+          "bank_license_details": "<текст или 'Данные не определены'>",
+          "client_details_status": "<defined / not_defined>",
+          "client_details_value": "<текст или 'Данные не определены'>",
+          "client_type": "<legal_entity / individual_entrepreneur / individual / not_defined>",
+          "client_signatory": "<текст или 'Данные не определены'>",
+          "client_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
+          "bank_signatory": "<текст или 'Данные не определены'>",
+          "bank_signatory_basis": "<charter / poa / order / other / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
       max_tokens: 700
-    retrieval:
-      context_k: 6
-      max_chunks: 10
-      retrieval_profile: "interest_rate_check"
-      boost_keywords:
-        - "банковский вклад"
-        - "банковский счет"
-        - "процентная ставка"
-        - "срочный вклад"
-        - "расчетный счет"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 50
-      max_snippet_length: 700
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      llm_max_tokens: 1250
-      fields:
-        - name: "contract_type"
-          type: "string"
-          allowed_values: ["deposit", "account", "mixed", "unclear", "not_found"]
-          description: "Тип банковского договора"
-        - name: "bank"
-          type: "string"
-          keyword_hints: ["банк", "кредитная организация"]
-          description: "Банк"
-        - name: "client"
-          type: "string"
-          keyword_hints: ["клиент", "вкладчик"]
-          description: "Клиент/вкладчик"
-        - name: "amount"
-          type: "string"
-          keyword_hints: ["сумма вклада", "размер вклада", "остаток", "лимит"]
-          description: "Сумма/лимит"
-        - name: "currency"
-          type: "string"
-          allowed_values: ["RUB", "USD", "EUR", "other", "not_found"]
-          description: "Валюта"
-        - name: "deposit_type"
-          type: "string"
-          allowed_values: ["term", "on_demand", "not_applicable", "unclear", "not_found"]
-          description: "Вид вклада"
-        - name: "interest_rate"
-          type: "string"
-          regex_patterns:
-            - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-          description: "Процентная ставка"
-        - name: "account_type"
-          type: "string"
-          allowed_values: ["settlement", "current", "special", "other", "not_applicable", "not_found"]
-          description: "Тип счета"
-        - name: "overdraft_status"
-          type: "string"
-          allowed_values: ["present", "absent", "not_found"]
-          description: "Наличие овердрафта"
-        - name: "dbs_status"
-          type: "string"
-          allowed_values: ["present", "absent", "not_found"]
-          description: "Наличие ДБО"
-      store_payload: true
-
-  - id: deposit_interest_and_fixation_check
-    name: "Вклад: проценты, капитализация и изменение ставки"
-    description: "Проверяет размер процентной ставки, порядок начисления процентов и риск изменения ставки"
-    triggers:
-      any: ["deposit_contract"]
+      retrieval:
+        retrieval_profile: "party_identification_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "банк кредитная организация вкладчик клиент именуем в лице действующего на основании ИНН ОГРН БИК лицензия корреспондентский счет реквизиты"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - boilerplate
+        negative_keywords:
+          - "процентная ставка"
+          - "тариф"
+          - "комиссия"
+          - "овердрафт"
+          - "115-ФЗ"
+          - "безакцептное"
+          - "ДБО"
+          - "страхование"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.0, 0.20]
+          boost: 0.30
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "boilerplate"
+          confidence_bonus_on_match: 0.08
+          confidence_penalty_on_excluded_segment: 0.15
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 1300
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора банковского вклада
+          или банковского счета сведения о банке и клиенте / вкладчике:
+          реквизиты, лицензию банка, подписантов и основания полномочий.
+          Не анализируй проценты, тарифы, AML или ДБО.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. bank_details_status — "defined" если банк прямо идентифицирован,
+          иначе "not_defined".
+          2. bank_details_value — наименование и реквизиты банка.
+          3. bank_type — "credit_organization" / "not_defined".
+          4. bank_license_status — "defined" если лицензия прямо указана.
+          5. bank_license_details — номер и реквизиты лицензии.
+          6. client_details_status — "defined" если клиент прямо идентифицирован.
+          7. client_details_value — наименование / ФИО и реквизиты клиента.
+          8. client_type — "legal_entity" / "individual_entrepreneur" /
+          "individual" / "not_defined".
+          9. client_signatory — подписант клиента.
+          10. client_signatory_basis — charter / poa / order / personal / other /
+          not_defined.
+          11. bank_signatory — подписант банка.
+          12. bank_signatory_basis — charter / poa / order / other / not_defined.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - bank_license_status = "defined" только если номер или реквизиты
+            лицензии прямо указаны в тексте.
+          - client_type:
+            "legal_entity" — ООО, АО, ПАО и иные юрлица.
+            "individual_entrepreneur" — ИП (указан ОГРНИП).
+            "individual" — физическое лицо без статуса ИП.
+            "not_defined" — тип прямо не указан.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "bank_details_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус идентификации банка."
+            required: true
+          - name: "bank_details_value"
+            type: "string"
+            presentation: "fact"
+            label: "Банк: реквизиты"
+            description: "Наименование и реквизиты банка."
+            required: true
+            display_in_grid: true
+            display_priority: 1
+          - name: "bank_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["credit_organization", "not_defined"]
+            description: "Тип банка."
+            required: false
+          - name: "bank_license_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания лицензии банка."
+            required: true
+          - name: "bank_license_details"
+            type: "string"
+            presentation: "fact"
+            label: "Лицензия банка"
+            description: "Номер и реквизиты лицензии банка."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "client_details_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус идентификации клиента / вкладчика."
+            required: true
+          - name: "client_details_value"
+            type: "string"
+            presentation: "fact"
+            label: "Клиент / Вкладчик: реквизиты"
+            description: "Наименование / ФИО и реквизиты клиента или вкладчика."
+            required: true
+            display_in_grid: true
+            display_priority: 3
+          - name: "client_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["legal_entity", "individual_entrepreneur", "individual", "not_defined"]
+            description: "Тип клиента / вкладчика."
+            required: false
+          - name: "client_signatory"
+            type: "string"
+            presentation: "fact"
+            label: "Подписант клиента"
+            description: "Подписант от клиента / вкладчика."
+            required: false
+            display_in_grid: false
+          - name: "client_signatory_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
+            description: "Основание полномочий подписанта клиента."
+            required: false
+          - name: "bank_signatory"
+            type: "string"
+            presentation: "fact"
+            label: "Подписант банка"
+            description: "Подписант от банка."
+            required: false
+            display_in_grid: false
+          - name: "bank_signatory_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["charter", "poa", "order", "other", "not_defined"]
+            description: "Основание полномочий подписанта банка."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 2: Предмет, срок и базовые условия вклада / счета
+# ──────────────────────────────────────────────────────────────────────────
+  - id: bank_deposit_account_subject_extraction
+    name: "Предмет вклада / счета: сумма, валюта, срок, тип договора"
+    description: >
+      Фактографическая проверка наличия в договоре суммы вклада / типа счёта,
+      валюты, срока, типа договора (вклад / счёт), вида вклада (срочный /
+      до востребования) и указания на подтверждение передачи средств.
+    triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
       keywords:
-        - "проценты по вкладу"
-        - "процентная ставка"
-        - "капитализация процентов"
-        - "начисление процентов"
-        - "банк вправе изменить ставку"
-        - "ставка не подлежит изменению"
+        - "сумма вклада"
+        - "размер вклада"
+        - "валюта"
+        - "срок вклада"
+        - "тип счета"
+        - "расчетный счет"
+        - "текущий счет"
+        - "срочный вклад"
+        - "до востребования"
+        - "внесение вклада"
+        - "зачисление"
+        - "переданы"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)процентн(ая|ой)\\s+ставк"
-        - "(?i)капитализац"
-        - "(?i)не\\s+подлежит\\s+изменению|вправе\\s+изменить\\s+ставку"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
+        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%"
+        - "(?i)(срочн|до\\s+востребовани)"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор банковского вклада.
-        Проверь условия о процентах.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор банковского вклада или банковского счета
+        (Главы 44–45 ГК РФ).
+        Проверяется только один вопрос: сумма вклада / тип счёта, валюта,
+        срок, тип договора и подтверждение передачи / зачисления средств.
+        Нормативный ориентир:
+        - ст. 834–837 ГК РФ — банковский вклад
+        - ст. 845–849 ГК РФ — банковский счёт
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Тип договора (вклад / счёт / смешанный).
+        2. Сумму вклада или тип счёта.
+        3. Валюту.
+        4. Срок вклада или срок действия договора счёта.
+        5. Вид вклада (срочный / до востребования).
+        6. Есть ли подтверждение передачи / зачисления средств.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Не используй "None", "null", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Банк принимает от Вкладчика денежные средства в размере 1 500 000 рублей
+        на срочный вклад сроком на 12 месяцев. Валюта вклада — рубли РФ.
+        Средства зачислены на счет Вкладчика в день подписания договора."
+        Ответ:
         {
-          "interest_rate_status": "<present / not_found>",
-          "interest_payment_mode": "<periodic / at_maturity / capitalized / mixed / not_found>",
-          "rate_change_right": "<bank_can_change / bank_cannot_change / unclear / not_found>",
-          "rate_clause_clarity": "<clear / unclear / not_found>"
+          "contract_type": "deposit",
+          "amount_status": "defined",
+          "amount_value": "1 500 000 рублей",
+          "currency": "RUB",
+          "term_status": "defined",
+          "term_value": "12 месяцев",
+          "deposit_kind": "term",
+          "transfer_evidence_status": "defined",
+          "transfer_evidence_details": "средства зачислены на счет Вкладчика в день подписания договора",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.1",
+              "quote": "Банк принимает от Вкладчика денежные средства в размере 1 500 000 рублей на срочный вклад сроком на 12 месяцев."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Банк открывает Клиенту расчетный счет."
+        Ответ:
+        {
+          "contract_type": "account",
+          "amount_status": "not_defined",
+          "amount_value": "Данные не определены",
+          "currency": "not_defined",
+          "term_status": "not_defined",
+          "term_value": "Данные не определены",
+          "deposit_kind": "not_defined",
+          "transfer_evidence_status": "not_defined",
+          "transfer_evidence_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.1",
+              "quote": "Банк открывает Клиенту расчетный счет."
+            }
+          ]
         }
 
-        Используй только текст договора.
-      prompt_file: null
-      context_k: 5
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о типе договора (вклад / счёт).
+        2. Найди прямую цитату о сумме или типе счёта.
+        3. Найди прямую цитату о валюте.
+        4. Найди прямую цитату о сроке.
+        5. Найди прямую цитату о подтверждении передачи / зачисления.
+        6. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "contract_type": "<deposit / account / mixed / not_defined>",
+          "amount_status": "<defined / not_defined>",
+          "amount_value": "<текст или 'Данные не определены'>",
+          "currency": "<RUB / USD / EUR / other / not_defined>",
+          "term_status": "<defined / not_defined>",
+          "term_value": "<текст или 'Данные не определены'>",
+          "deposit_kind": "<term / on_demand / not_defined>",
+          "transfer_evidence_status": "<defined / not_defined>",
+          "transfer_evidence_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
       temperature: 0.0
-      max_tokens: 380
-    retrieval:
-      context_k: 5
-      max_chunks: 8
-      retrieval_profile: "interest_rate_check"
-      boost_keywords:
+      max_tokens: 700
+      retrieval:
+        retrieval_profile: "deposit_subject_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "сумма вклада размер вклада валюта срок вклада тип счета расчетный счет текущий счет срочный вклад до востребования внесение вклада зачисление переданы"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - definitions
+          - obligations
+        negative_keywords:
+          - "процентная ставка"
+          - "тариф"
+          - "комиссия"
+          - "овердрафт"
+          - "115-ФЗ"
+          - "безакцептное"
+          - "ДБО"
+          - "страхование"
+          - "закрытие счета"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.0, 0.35]
+          boost: 0.20
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "definitions"
+            - "obligations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 650
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 1100
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора банковского вклада
+          или банковского счета сумму, валюту, срок, тип договора, вид вклада
+          и подтверждение передачи средств.
+          Не анализируй проценты, тарифы, AML, ДБО или страхование.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. contract_type — "deposit" / "account" / "mixed" / "not_defined".
+          2. amount_status — "defined" если сумма прямо указана.
+          3. amount_value — сумма вклада или тип счёта.
+          4. currency — "RUB" / "USD" / "EUR" / "other" / "not_defined".
+          5. term_status — "defined" если срок прямо указан.
+          6. term_value — срок вклада или договора счёта.
+          7. deposit_kind — "term" / "on_demand" / "not_defined".
+          8. transfer_evidence_status — "defined" если подтверждение передачи
+            или зачисления прямо указано.
+          9. transfer_evidence_details — формулировка о передаче / зачислении.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - contract_type:
+            "deposit" — договор банковского вклада.
+            "account" — договор банковского счёта.
+            "mixed" — смешанный договор.
+            "not_defined" — тип прямо не определён.
+          - deposit_kind:
+            "term" — срочный вклад.
+            "on_demand" — вклад до востребования.
+            "not_defined" — вид прямо не указан.
+          - transfer_evidence_status = "defined" только если в тексте прямо
+            указано, что средства переданы, зачислены или внесены.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "contract_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["deposit", "account", "mixed", "not_defined"]
+            description: "Тип договора."
+            required: true
+          - name: "amount_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания суммы вклада."
+            required: true
+          - name: "amount_value"
+            type: "string"
+            presentation: "fact"
+            label: "Сумма вклада"
+            description: "Сумма вклада или тип счёта."
+            required: true
+            display_in_grid: true
+            display_priority: 1
+          - name: "currency"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["RUB", "USD", "EUR", "other", "not_defined"]
+            description: "Валюта вклада / счёта."
+            required: false
+          - name: "term_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания срока."
+            required: true
+          - name: "term_value"
+            type: "string"
+            presentation: "fact"
+            label: "Срок"
+            description: "Срок вклада или договора счёта."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "deposit_kind"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["term", "on_demand", "not_defined"]
+            description: "Вид вклада."
+            required: false
+          - name: "transfer_evidence_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус подтверждения передачи / зачисления средств."
+            required: false
+          - name: "transfer_evidence_details"
+            type: "string"
+            presentation: "fact"
+            label: "Подтверждение передачи средств"
+            description: "Формулировка о передаче или зачислении средств."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 3: Проценты и капитализация
+# ──────────────────────────────────────────────────────────────────────────
+  - id: deposit_interest_and_fixation_check
+    name: "Вклад: проценты, капитализация и изменение ставки (ст. 838 ГК РФ)"
+    description: >
+      Фактографическая проверка наличия процентной ставки, порядка начисления,
+      капитализации и права банка изменять ставку.
+    triggers:
+      any: ["deposit_contract"]
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "процентная ставка"
         - "проценты по вкладу"
         - "капитализация"
+        - "начисление процентов"
         - "ставка не подлежит изменению"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "interest_rate_status"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Наличие ставки по вкладу"
-        - name: "interest_payment_mode"
-          type: "string"
-          allowed_values: ["periodic", "at_maturity", "capitalized", "mixed", "not_found"]
-          description: "Способ выплаты/начисления процентов"
-        - name: "rate_change_right"
-          type: "string"
-          allowed_values: ["bank_can_change", "bank_cannot_change", "unclear", "not_found"]
-          description: "Право банка менять ставку"
-        - name: "rate_clause_clarity"
-          type: "string"
-          allowed_values: ["clear", "unclear", "not_found"]
-          description: "Понятность процентной оговорки"
-      store_payload: true
+        - "банк вправе изменить ставку"
+        - "годовых"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%"
+        - "(?i)капитализаци"
+        - "(?i)(не\\s+подлежит\\s+изменению|вправе\\s+изменить\\s+ставку)"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор банковского вклада (Глава 44 ГК РФ).
+        Проверяется только один вопрос: процентная ставка, порядок начисления,
+        капитализация и право банка изменять ставку.
+        Нормативный ориентир:
+        - ст. 838 ГК РФ — проценты по вкладу
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
 
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли процентная ставка и её размер.
+        2. Порядок начисления процентов.
+        3. Есть ли капитализация процентов.
+        4. Есть ли право банка изменять ставку.
+        5. Указаны ли условия изменения ставки.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Процентная ставка по вкладу составляет 12% годовых. Проценты
+        начисляются ежемесячно и капитализируются. Ставка не подлежит
+        изменению в течение срока вклада."
+        Ответ:
+        {
+          "interest_rate_status": "defined",
+          "interest_rate_value": "12% годовых",
+          "accrual_procedure_status": "defined",
+          "accrual_procedure_details": "начисляются ежемесячно",
+          "capitalization_status": "defined",
+          "capitalization_details": "проценты капитализируются",
+          "rate_change_right_status": "defined",
+          "rate_change_right_details": "ставка не подлежит изменению в течение срока вклада",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "Процентная ставка по вкладу составляет 12% годовых. Проценты начисляются ежемесячно и капитализируются."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Банк начисляет проценты в порядке, установленном тарифами."
+        Ответ:
+        {
+          "interest_rate_status": "not_defined",
+          "interest_rate_value": "Данные не определены",
+          "accrual_procedure_status": "defined",
+          "accrual_procedure_details": "в порядке, установленном тарифами",
+          "capitalization_status": "not_defined",
+          "capitalization_details": "Данные не определены",
+          "rate_change_right_status": "not_defined",
+          "rate_change_right_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "Банк начисляет проценты в порядке, установленном тарифами."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о процентной ставке.
+        2. Найди прямую цитату о порядке начисления.
+        3. Найди прямую цитату о капитализации.
+        4. Найди прямую цитату о праве изменения ставки.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "interest_rate_status": "<defined / not_defined>",
+          "interest_rate_value": "<текст или 'Данные не определены'>",
+          "accrual_procedure_status": "<defined / not_defined>",
+          "accrual_procedure_details": "<текст или 'Данные не определены'>",
+          "capitalization_status": "<defined / not_defined>",
+          "capitalization_details": "<текст или 'Данные не определены'>",
+          "rate_change_right_status": "<defined / not_defined>",
+          "rate_change_right_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+      retrieval:
+        retrieval_profile: "interest_rate_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "процентная ставка проценты по вкладу капитализация начисление процентов ставка не подлежит изменению банк вправе изменить ставку годовых"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - definitions
+        negative_keywords:
+          - "тариф"
+          - "комиссия"
+          - "овердрафт"
+          - "115-ФЗ"
+          - "безакцептное"
+          - "ДБО"
+          - "страхование"
+          - "закрытие счета"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.10, 0.50]
+          boost: 0.18
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "definitions"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 900
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора банковского вклада
+          процентную ставку, порядок начисления, капитализацию и право изменения ставки.
+          Не анализируй тарифы, AML, ДБО или страхование.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          1. interest_rate_status — "defined" если ставка прямо указана.
+          2. interest_rate_value — размер ставки.
+          3. accrual_procedure_status — "defined" если порядок начисления указан.
+          4. accrual_procedure_details — формулировка.
+          5. capitalization_status — "defined" если капитализация прямо указана.
+          6. capitalization_details — формулировка.
+          7. rate_change_right_status — "defined" если право изменения ставки
+            прямо указано.
+          8. rate_change_right_details — формулировка.
+          Если данные отсутствуют: статус = "not_defined",
+          текст = "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - rate_change_right_status = "defined" только если прямо указано,
+            что банк вправе или не вправе изменять ставку.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "interest_rate_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания процентной ставки."
+            required: true
+          - name: "interest_rate_value"
+            type: "string"
+            presentation: "fact"
+            label: "Процентная ставка"
+            description: "Размер процентной ставки по вкладу."
+            required: true
+            display_in_grid: true
+            display_priority: 1
+          - name: "accrual_procedure_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания порядка начисления."
+            required: false
+          - name: "accrual_procedure_details"
+            type: "string"
+            presentation: "fact"
+            label: "Порядок начисления"
+            description: "Порядок начисления процентов."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "capitalization_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания капитализации."
+            required: false
+          - name: "capitalization_details"
+            type: "string"
+            presentation: "fact"
+            label: "Капитализация"
+            description: "Формулировка о капитализации процентов."
+            required: false
+            display_in_grid: false
+          - name: "rate_change_right_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания права изменения ставки."
+            required: false
+          - name: "rate_change_right_details"
+            type: "string"
+            presentation: "fact"
+            label: "Изменение ставки"
+            description: "Формулировка о праве изменения ставки."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 4: Досрочный возврат вклада
+# ──────────────────────────────────────────────────────────────────────────
   - id: deposit_early_withdrawal_check
-    name: "Вклад: досрочный возврат и пересчет процентов"
-    description: "Проверяет право на досрочное изъятие вклада и порядок пересчета процентов"
+    name: "Вклад: досрочный возврат и пересчет процентов (ст. 837 ГК РФ)"
+    description: >
+      Фактографическая проверка права вкладчика на досрочный возврат,
+      порядка пересчета процентов и ограничений досрочного возврата.
     triggers:
       any: ["deposit_contract"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
       keywords:
+        - "досрочный возврат"
+        - "досрочное истребование"
         - "досрочное расторжение"
-        - "досрочный возврат вклада"
         - "пересчет процентов"
-        - "ставка до востребования"
-        - "по требованию вкладчика"
+        - "по ставке до востребования"
+        - "по первому требованию"
+        - "возврат вклада"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)досрочн(ое|ого)\\s+(расторжен|возврат)"
+        - "(?i)досрочн(ый|ого)\\s+возврат"
+        - "(?i)досрочн(ое|ого)\\s+(истребовани|расторж)"
         - "(?i)пересчет\\s+процент"
-        - "(?i)до\\s+востребования"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор банковского вклада.
-        Проверь условия досрочного возврата вклада.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор банковского вклада (Глава 44 ГК РФ).
+        Проверяется только один вопрос: право на досрочный возврат,
+        порядок пересчета процентов и ограничения.
+        Нормативный ориентир:
+        - ст. 837 ГК РФ — досрочный возврат вклада
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли право вкладчика на досрочный возврат.
+        2. Порядок пересчета процентов при досрочном возврате.
+        3. Есть ли ограничения досрочного возврата.
+        4. Порядок и срок возврата средств.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Вкладчик вправе истребовать вклад досрочно. При досрочном возврате
+        проценты пересчитываются по ставке вклада до востребования.
+        Возврат осуществляется в течение 3 рабочих дней."
+        Ответ:
         {
-          "early_withdrawal_status": "<allowed / restricted / not_found>",
-          "interest_recalculation_rule": "<on_demand_rate / other / unclear / not_found>",
-          "notice_requirement": "<present / not_found>",
-          "early_withdrawal_clause_clarity": "<clear / unclear / not_found>"
+          "early_withdrawal_status": "defined",
+          "early_withdrawal_details": "вкладчик вправе истребовать вклад досрочно",
+          "recalculation_status": "defined",
+          "recalculation_details": "проценты пересчитываются по ставке вклада до востребования",
+          "restrictions_status": "not_defined",
+          "restrictions_details": "Данные не определены",
+          "return_procedure_status": "defined",
+          "return_procedure_details": "возврат осуществляется в течение 3 рабочих дней",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "Вкладчик вправе истребовать вклад досрочно. При досрочном возврате проценты пересчитываются по ставке вклада до востребования."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Возврат вклада производится по истечении срока."
+        Ответ:
+        {
+          "early_withdrawal_status": "not_defined",
+          "early_withdrawal_details": "Данные не определены",
+          "recalculation_status": "not_defined",
+          "recalculation_details": "Данные не определены",
+          "restrictions_status": "not_defined",
+          "restrictions_details": "Данные не определены",
+          "return_procedure_status": "defined",
+          "return_procedure_details": "возврат вклада производится по истечении срока",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "Возврат вклада производится по истечении срока."
+            }
+          ]
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о праве на досрочный возврат.
+        2. Найди прямую цитату о пересчете процентов.
+        3. Найди прямую цитату об ограничениях.
+        4. Найди прямую цитату о порядке и сроке возврата.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "early_withdrawal_status": "<defined / not_defined>",
+          "early_withdrawal_details": "<текст или 'Данные не определены'>",
+          "recalculation_status": "<defined / not_defined>",
+          "recalculation_details": "<текст или 'Данные не определены'>",
+          "restrictions_status": "<defined / not_defined>",
+          "restrictions_details": "<текст или 'Данные не определены'>",
+          "return_procedure_status": "<defined / not_defined>",
+          "return_procedure_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 360
-    retrieval:
-      retrieval_profile: "interest_rate_check"
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "досрочный возврат вклада"
-        - "пересчет процентов"
-        - "до востребования"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "early_withdrawal_status"
-          type: "string"
-          allowed_values: ["allowed", "restricted", "not_found"]
-          description: "Статус досрочного возврата вклада"
-        - name: "interest_recalculation_rule"
-          type: "string"
-          allowed_values: ["on_demand_rate", "other", "unclear", "not_found"]
-          description: "Правило пересчета процентов"
-        - name: "notice_requirement"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли требование уведомления"
-      store_payload: true
-
+      max_tokens: 600
+      retrieval:
+        retrieval_profile: "termination_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "досрочный возврат досрочное истребование досрочное расторжение пересчет процентов по ставке до востребования по первому требованию возврат вклада"
+        preferred_unit_types:
+          - obligation
+          - termination_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - remedies
+        negative_keywords:
+          - "тариф"
+          - "комиссия"
+          - "овердрафт"
+          - "115-ФЗ"
+          - "безакцептное"
+          - "ДБО"
+          - "страхование"
+          - "закрытие счета"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.20, 0.65]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "remedies"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 800
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора банковского вклада
+          право на досрочный возврат, пересчет процентов, ограничения и порядок возврата.
+          Не анализируй тарифы, AML, ДБО или страхование.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          1. early_withdrawal_status — "defined" если право на досрочный возврат
+            прямо указано.
+          2. early_withdrawal_details — формулировка.
+          3. recalculation_status — "defined" если пересчет процентов прямо указан.
+          4. recalculation_details — формулировка.
+          5. restrictions_status — "defined" если ограничения прямо указаны.
+          6. restrictions_details — формулировка.
+          7. return_procedure_status — "defined" если порядок возврата указан.
+          8. return_procedure_details — формулировка.
+          Если данные отсутствуют: статус = "not_defined",
+          текст = "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи право на досрочный возврат из ст. 837 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "early_withdrawal_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус права на досрочный возврат."
+            required: true
+          - name: "early_withdrawal_details"
+            type: "string"
+            presentation: "fact"
+            label: "Досрочный возврат"
+            description: "Формулировка о праве на досрочный возврат."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "recalculation_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания пересчета процентов."
+            required: false
+          - name: "recalculation_details"
+            type: "string"
+            presentation: "fact"
+            label: "Пересчет процентов"
+            description: "Формулировка о пересчете процентов при досрочном возврате."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "restrictions_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания ограничений досрочного возврата."
+            required: false
+          - name: "restrictions_details"
+            type: "string"
+            presentation: "fact"
+            label: "Ограничения досрочного возврата"
+            description: "Формулировка об ограничениях досрочного возврата."
+            required: false
+            display_in_grid: false
+          - name: "return_procedure_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания порядка возврата."
+            required: false
+          - name: "return_procedure_details"
+            type: "string"
+            presentation: "fact"
+            label: "Порядок возврата"
+            description: "Формулировка о порядке и сроке возврата средств."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 5: Тарифы и комиссии по счёту
+# ──────────────────────────────────────────────────────────────────────────
   - id: account_tariffs_and_commissions_check
-    name: "Счет: тарифы, комиссии и изменение стоимости услуг"
-    description: "Проверяет раскрытие тарифов банка, комиссий за обслуживание и риск одностороннего изменения"
+    name: "Счёт: тарифы, комиссии и изменение стоимости услуг"
+    description: >
+      Фактографическая проверка наличия тарифов, перечня комиссий,
+      права банка изменять тарифы и порядка уведомления об изменениях.
     triggers:
       any: ["bank_account_contract"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
       keywords:
-        - "тарифы банка"
-        - "комиссия за обслуживание"
+        - "тариф"
+        - "комиссия"
+        - "плата за обслуживание"
         - "стоимость услуг"
-        - "плата за ведение счета"
         - "изменение тарифов"
-        - "в одностороннем порядке"
+        - "одностороннем порядке"
+        - "уведомление об изменении"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)тариф(ы|ов)\\s+банка"
-        - "(?i)комисси|плата\\s+за\\s+ведение\\s+счета"
-        - "(?i)изменени[ея]\\s+тариф"
+        - "(?i)тариф"
+        - "(?i)комисси"
+        - "(?i)изменени(е|я)\\s+тариф"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор банковского счета.
-        Проверь тарифы и комиссии.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор банковского счёта (Глава 45 ГК РФ).
+        Проверяется только один вопрос: тарифы, комиссии и право банка
+        изменять стоимость услуг.
+        Нормативный ориентир:
+        - ст. 851 ГК РФ — комиссионное вознаграждение банка
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли указание на тарифы.
+        2. Есть ли перечень комиссий.
+        3. Есть ли право банка изменять тарифы.
+        4. Есть ли порядок уведомления об изменении тарифов.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Обслуживание счёта осуществляется по Тарифам Банка, являющимся
+        Приложением № 1. Комиссия за ведение счёта — 1 000 руб. в месяц.
+        Банк вправе изменять Тарифы, уведомив Клиента за 30 дней."
+        Ответ:
         {
-          "tariff_disclosure_status": "<clear / partial / not_found>",
-          "fee_list_status": "<enumerated / vague / not_found>",
-          "unilateral_change_right": "<present / not_found>",
-          "notice_of_tariff_change": "<present / not_found>"
+          "tariff_reference_status": "defined",
+          "tariff_reference_details": "по Тарифам Банка, Приложение № 1",
+          "fee_list_status": "defined",
+          "fee_list_details": "комиссия за ведение счёта — 1 000 руб. в месяц",
+          "tariff_change_right_status": "defined",
+          "tariff_change_right_details": "банк вправе изменять тарифы, уведомив клиента за 30 дней",
+          "tariff_change_notice_status": "defined",
+          "tariff_change_notice_details": "уведомление за 30 дней",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.1",
+              "quote": "Обслуживание счёта осуществляется по Тарифам Банка, являющимся Приложением № 1. Комиссия за ведение счёта — 1 000 руб. в месяц."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Клиент оплачивает услуги Банка в соответствии с тарифами."
+        Ответ:
+        {
+          "tariff_reference_status": "defined",
+          "tariff_reference_details": "в соответствии с тарифами",
+          "fee_list_status": "not_defined",
+          "fee_list_details": "Данные не определены",
+          "tariff_change_right_status": "not_defined",
+          "tariff_change_right_details": "Данные не определены",
+          "tariff_change_notice_status": "not_defined",
+          "tariff_change_notice_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.1",
+              "quote": "Клиент оплачивает услуги Банка в соответствии с тарифами."
+            }
+          ]
         }
 
-        Используй только текст документа.
-      prompt_file: null
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о тарифах.
+        2. Найди прямую цитату о перечне комиссий.
+        3. Найди прямую цитату о праве изменения тарифов.
+        4. Найди прямую цитату о порядке уведомления.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "tariff_reference_status": "<defined / not_defined>",
+          "tariff_reference_details": "<текст или 'Данные не определены'>",
+          "fee_list_status": "<defined / not_defined>",
+          "fee_list_details": "<текст или 'Данные не определены'>",
+          "tariff_change_right_status": "<defined / not_defined>",
+          "tariff_change_right_details": "<текст или 'Данные не определены'>",
+          "tariff_change_notice_status": "<defined / not_defined>",
+          "tariff_change_notice_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 360
-    retrieval:
-      context_k: 5
-      max_chunks: 8
-      retrieval_profile: "payment_terms_check"
-      boost_keywords:
-        - "тарифы банка"
-        - "комиссия"
-        - "изменение тарифов"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "tariff_disclosure_status"
-          type: "string"
-          allowed_values: ["clear", "partial", "not_found"]
-          description: "Понятность раскрытия тарифов"
-        - name: "fee_list_status"
-          type: "string"
-          allowed_values: ["enumerated", "vague", "not_found"]
-          description: "Статус перечня комиссий"
-        - name: "unilateral_change_right"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли право банка менять тарифы"
-        - name: "notice_of_tariff_change"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли порядок уведомления об изменении тарифов"
-      store_payload: true
-
+      max_tokens: 600
+      retrieval:
+        retrieval_profile: "payment_terms_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "тариф комиссия плата за обслуживание стоимость услуг изменение тарифов одностороннем порядке уведомление об изменении"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - procedures
+        negative_keywords:
+          - "процентная ставка"
+          - "овердрафт"
+          - "115-ФЗ"
+          - "безакцептное"
+          - "ДБО"
+          - "страхование"
+          - "закрытие счета"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.20, 0.60]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "procedures"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 800
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора банковского счёта
+          тарифы, комиссии и право банка изменять стоимость услуг.
+          Не анализируй проценты, AML, ДБО или страхование.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          1. tariff_reference_status — "defined" если тарифы прямо указаны.
+          2. tariff_reference_details — формулировка.
+          3. fee_list_status — "defined" если перечень комиссий прямо указан.
+          4. fee_list_details — формулировка.
+          5. tariff_change_right_status — "defined" если право изменения тарифов
+            прямо указано.
+          6. tariff_change_right_details — формулировка.
+          7. tariff_change_notice_status — "defined" если порядок уведомления
+            прямо указан.
+          8. tariff_change_notice_details — формулировка.
+          Если данные отсутствуют: статус = "not_defined",
+          текст = "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - tariff_change_right_status = "defined" только если прямо указано,
+            что банк вправе или не вправе изменять тарифы.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "tariff_reference_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания тарифов."
+            required: true
+          - name: "tariff_reference_details"
+            type: "string"
+            presentation: "fact"
+            label: "Тарифы"
+            description: "Формулировка о тарифах."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "fee_list_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус перечня комиссий."
+            required: false
+          - name: "fee_list_details"
+            type: "string"
+            presentation: "fact"
+            label: "Перечень комиссий"
+            description: "Формулировка о перечне комиссий."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "tariff_change_right_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус права изменения тарифов."
+            required: false
+          - name: "tariff_change_right_details"
+            type: "string"
+            presentation: "fact"
+            label: "Изменение тарифов"
+            description: "Формулировка о праве изменения тарифов."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+          - name: "tariff_change_notice_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус порядка уведомления об изменении тарифов."
+            required: false
+          - name: "tariff_change_notice_details"
+            type: "string"
+            presentation: "fact"
+            label: "Уведомление об изменении тарифов"
+            description: "Формулировка о порядке уведомления."
+            required: false
+            display_in_grid: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 6: ПОД/ФТ — идентификация и приостановление операций
+# ──────────────────────────────────────────────────────────────────────────
   - id: aml_blocking_check
-    name: "ПОД/ФТ: идентификация клиента и приостановление операций"
-    description: "Проверяет AML/CFT-положения, право банка требовать документы и основания приостановления операций"
+    name: "ПОД/ФТ: идентификация клиента и приостановление операций (115-ФЗ)"
+    description: >
+      Фактографическая проверка наличия AML/CFT-положений, права банка
+      запрашивать документы, оснований блокировки и порядка разблокировки.
     triggers:
-      any: ["bank_account_contract", "aml_ctf_terms"]
+      any: ["aml_ctf_terms"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
       keywords:
-        - "115-фз"
+        - "115-ФЗ"
         - "идентификация клиента"
         - "подозрительные операции"
         - "приостановление операций"
+        - "блокировка"
+        - "разблокировка"
         - "документы для идентификации"
-        - "блокировка счета"
+        - "противодействие легализации"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)115[- ]?фз"
         - "(?i)идентификац"
-        - "(?i)приостановлени[ея]\\s+операц|блокировк[аи]\\s+счета"
+        - "(?i)приостановлени[ея]\\s+операц|блокировк[аи]\\s+сч"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий банковский договор.
-        Проверь AML/CFT-положения.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор банковского вклада или банковского счёта.
+        Проверяется только один вопрос: AML/CFT-положения — идентификация,
+        блокировка, разблокировка.
+        Нормативный ориентир:
+        - ФЗ № 115-ФЗ — противодействие легализации доходов
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли AML/CFT-условия.
+        2. Есть ли право банка запрашивать документы.
+        3. Раскрыты ли основания блокировки.
+        4. Есть ли механизм разблокировки.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Банк вправе приостановить операции по счёту в случаях, предусмотренных
+        115-ФЗ. Банк вправе запросить документы для идентификации клиента.
+        Разблокировка производится после устранения оснований."
+        Ответ:
         {
-          "aml_terms_status": "<present / partial / not_found>",
-          "bank_document_request_right": "<present / not_found>",
-          "blocking_grounds_disclosed": "<yes / no / not_found>",
-          "unblocking_mechanism": "<present / not_found>"
+          "aml_terms_status": "defined",
+          "aml_terms_details": "банк вправе приостановить операции по счёту в случаях, предусмотренных 115-ФЗ",
+          "document_request_status": "defined",
+          "document_request_details": "банк вправе запросить документы для идентификации клиента",
+          "blocking_grounds_status": "defined",
+          "blocking_grounds_details": "случаи, предусмотренные 115-ФЗ",
+          "unblocking_status": "defined",
+          "unblocking_details": "разблокировка производится после устранения оснований",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.1",
+              "quote": "Банк вправе приостановить операции по счёту в случаях, предусмотренных 115-ФЗ."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Клиент обязуется предоставлять документы по требованию банка."
+        Ответ:
+        {
+          "aml_terms_status": "not_defined",
+          "aml_terms_details": "Данные не определены",
+          "document_request_status": "defined",
+          "document_request_details": "клиент обязуется предоставлять документы по требованию банка",
+          "blocking_grounds_status": "not_defined",
+          "blocking_grounds_details": "Данные не определены",
+          "unblocking_status": "not_defined",
+          "unblocking_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.1",
+              "quote": "Клиент обязуется предоставлять документы по требованию банка."
+            }
+          ]
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об AML/CFT-условиях.
+        2. Найди прямую цитату о праве запрашивать документы.
+        3. Найди прямую цитату об основаниях блокировки.
+        4. Найди прямую цитату о механизме разблокировки.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "aml_terms_status": "<defined / not_defined>",
+          "aml_terms_details": "<текст или 'Данные не определены'>",
+          "document_request_status": "<defined / not_defined>",
+          "document_request_details": "<текст или 'Данные не определены'>",
+          "blocking_grounds_status": "<defined / not_defined>",
+          "blocking_grounds_details": "<текст или 'Данные не определены'>",
+          "unblocking_status": "<defined / not_defined>",
+          "unblocking_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 360
-    retrieval:
-      retrieval_profile: "sanctions_compliance_check"
-      context_k: 5
-      max_chunks: 8
-      boost_keywords:
-        - "115-фз"
-        - "идентификация клиента"
-        - "блокировка счета"
-        - "приостановление операций"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "aml_terms_status"
-          type: "string"
-          allowed_values: ["present", "partial", "not_found"]
-          description: "Статус AML/CFT-условий"
-        - name: "bank_document_request_right"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли право банка запрашивать документы"
-        - name: "blocking_grounds_disclosed"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Раскрыты ли основания блокировки/приостановления"
-        - name: "unblocking_mechanism"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли механизм разблокировки"
-      store_payload: true
-
+      max_tokens: 600
+      retrieval:
+        retrieval_profile: "aml_compliance_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "115-ФЗ идентификация клиента подозрительные операции приостановление операций блокировка разблокировка документы для идентификации противодействие легализации"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - procedures
+        negative_keywords:
+          - "процентная ставка"
+          - "тариф"
+          - "комиссия"
+          - "овердрафт"
+          - "безакцептное"
+          - "ДБО"
+          - "страхование"
+          - "закрытие счета"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.30, 0.75]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "procedures"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 800
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора банковского вклада
+          или банковского счёта AML/CFT-положения: идентификация, блокировка,
+          разблокировка.
+          Не анализируй проценты, тарифы, ДБО или страхование.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          1. aml_terms_status — "defined" если AML/CFT-условия прямо указаны.
+          2. aml_terms_details — формулировка.
+          3. document_request_status — "defined" если право запрашивать документы
+            прямо указано.
+          4. document_request_details — формулировка.
+          5. blocking_grounds_status — "defined" если основания блокировки
+            прямо раскрыты.
+          6. blocking_grounds_details — формулировка.
+          7. unblocking_status — "defined" если механизм разблокировки указан.
+          8. unblocking_details — формулировка.
+          Если данные отсутствуют: статус = "not_defined",
+          текст = "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи AML-положения из нормы 115-ФЗ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "aml_terms_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус AML/CFT-условий."
+            required: true
+          - name: "aml_terms_details"
+            type: "string"
+            presentation: "fact"
+            label: "AML/CFT-условия"
+            description: "Формулировка об AML/CFT-условиях."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "document_request_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус права запрашивать документы."
+            required: false
+          - name: "document_request_details"
+            type: "string"
+            presentation: "fact"
+            label: "Запрос документов"
+            description: "Формулировка о праве запрашивать документы."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "blocking_grounds_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус раскрытия оснований блокировки."
+            required: false
+          - name: "blocking_grounds_details"
+            type: "string"
+            presentation: "fact"
+            label: "Основания блокировки"
+            description: "Формулировка об основаниях блокировки."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+          - name: "unblocking_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус механизма разблокировки."
+            required: false
+          - name: "unblocking_details"
+            type: "string"
+            presentation: "fact"
+            label: "Разблокировка"
+            description: "Формулировка о механизме разблокировки."
+            required: false
+            display_in_grid: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 7: Безакцептное списание
+# ──────────────────────────────────────────────────────────────────────────
   - id: unauthorized_debit_check
-    name: "Безакцептное списание и несанкционированные операции"
-    description: "Проверяет основания списания без распоряжения клиента и защиту от несанкционированных списаний"
+    name: "Безакцептное списание и несанкционированные операции (ст. 854 ГК РФ)"
+    description: >
+      Фактографическая проверка оснований списания без распоряжения клиента
+      и защиты от несанкционированных списаний.
     triggers:
       any: ["bank_account_contract"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1307,8 +2246,9 @@ checks_v8:
         - "безакцептное списание"
         - "списание без распоряжения"
         - "инкассовое поручение"
-        - "не санкционирован"
+        - "несанкционированное списание"
         - "уведомление о списании"
+        - "исполнительный документ"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)безакцептн(ое|ого)\\s+списан"
@@ -1316,74 +2256,263 @@ checks_v8:
         - "(?i)инкассов(ое|ого)\\s+поручени"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор банковского счета.
-        Проверь основания списания средств без распоряжения клиента и защиту от несанкционированных операций.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор банковского счёта (Глава 45 ГК РФ).
+        Проверяется только один вопрос: основания списания без распоряжения
+        клиента и защита от несанкционированных списаний.
+        Нормативный ориентир:
+        - ст. 854 ГК РФ — списание денежных средств со счёта
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли основания безакцептного списания.
+        2. Есть ли перечень случаев списания без распоряжения.
+        3. Есть ли механизм уведомления клиента о списании.
+        4. Есть ли защита от несанкционированных списаний.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Банк вправе списывать средства без распоряжения Клиента на основании
+        исполнительных документов и в случаях, предусмотренных законодательством.
+        Клиент уведомляется о списании не позднее следующего рабочего дня."
+        Ответ:
         {
-          "debit_without_client_order_status": "<regulated / not_found>",
-          "legal_basis_of_debit": "<law_only / law_and_contract / unclear / not_found>",
-          "client_notice_mechanism": "<present / not_found>",
-          "unauthorized_debit_risk": "<high / medium / low / not_found>"
+          "debit_grounds_status": "defined",
+          "debit_grounds_details": "на основании исполнительных документов и в случаях, предусмотренных законодательством",
+          "debit_cases_status": "defined",
+          "debit_cases_details": "исполнительные документы и случаи, предусмотренные законодательством",
+          "client_notice_status": "defined",
+          "client_notice_details": "клиент уведомляется не позднее следующего рабочего дня",
+          "unauthorized_protection_status": "not_defined",
+          "unauthorized_protection_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.1",
+              "quote": "Банк вправе списывать средства без распоряжения Клиента на основании исполнительных документов и в случаях, предусмотренных законодательством."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Банк выполняет распоряжения Клиента."
+        Ответ:
+        {
+          "debit_grounds_status": "not_defined",
+          "debit_grounds_details": "Данные не определены",
+          "debit_cases_status": "not_defined",
+          "debit_cases_details": "Данные не определены",
+          "client_notice_status": "not_defined",
+          "client_notice_details": "Данные не определены",
+          "unauthorized_protection_status": "not_defined",
+          "unauthorized_protection_details": "Данные не определены",
+          "evidence": []
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об основаниях безакцептного списания.
+        2. Найди прямую цитату о перечне случаев.
+        3. Найди прямую цитату об уведомлении клиента.
+        4. Найди прямую цитату о защите от несанкционированных списаний.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "debit_grounds_status": "<defined / not_defined>",
+          "debit_grounds_details": "<текст или 'Данные не определены'>",
+          "debit_cases_status": "<defined / not_defined>",
+          "debit_cases_details": "<текст или 'Данные не определены'>",
+          "client_notice_status": "<defined / not_defined>",
+          "client_notice_details": "<текст или 'Данные не определены'>",
+          "unauthorized_protection_status": "<defined / not_defined>",
+          "unauthorized_protection_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 360
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      retrieval_profile: "payment_terms_check"
-      boost_keywords:
-        - "безакцептное списание"
-        - "инкассовое поручение"
-        - "уведомление о списании"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "debit_without_client_order_status"
-          type: "string"
-          allowed_values: ["regulated", "not_found"]
-          description: "Урегулировано ли списание без распоряжения клиента"
-        - name: "legal_basis_of_debit"
-          type: "string"
-          allowed_values: ["law_only", "law_and_contract", "unclear", "not_found"]
-          description: "Основание безакцептного списания"
-        - name: "client_notice_mechanism"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли механизм уведомления клиента"
-        - name: "unauthorized_debit_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск несанкционированного списания"
-      store_payload: true
-
+      max_tokens: 600
+      retrieval:
+        retrieval_profile: "unauthorized_debit_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "безакцептное списание списание без распоряжения инкассовое поручение несанкционированное списание уведомление о списании исполнительный документ"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - limitations
+        negative_keywords:
+          - "процентная ставка"
+          - "тариф"
+          - "комиссия"
+          - "овердрафт"
+          - "115-ФЗ"
+          - "ДБО"
+          - "страхование"
+          - "закрытие счета"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.30, 0.75]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "limitations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 800
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора банковского счёта
+          основания безакцептного списания и защиту от несанкционированных списаний.
+          Не анализируй проценты, тарифы, AML или ДБО.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          1. debit_grounds_status — "defined" если основания безакцептного списания
+            прямо указаны.
+          2. debit_grounds_details — формулировка.
+          3. debit_cases_status — "defined" если перечень случаев прямо указан.
+          4. debit_cases_details — формулировка.
+          5. client_notice_status — "defined" если механизм уведомления указан.
+          6. client_notice_details — формулировка.
+          7. unauthorized_protection_status — "defined" если защита от
+            несанкционированных списаний прямо указана.
+          8. unauthorized_protection_details — формулировка.
+          Если данные отсутствуют: статус = "not_defined",
+          текст = "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи основания списания из ст. 854 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "debit_grounds_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус оснований безакцептного списания."
+            required: true
+          - name: "debit_grounds_details"
+            type: "string"
+            presentation: "fact"
+            label: "Основания безакцептного списания"
+            description: "Формулировка об основаниях списания без распоряжения."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "debit_cases_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус перечня случаев списания."
+            required: false
+          - name: "debit_cases_details"
+            type: "string"
+            presentation: "fact"
+            label: "Случаи списания"
+            description: "Формулировка о перечне случаев списания."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "client_notice_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус уведомления клиента о списании."
+            required: false
+          - name: "client_notice_details"
+            type: "string"
+            presentation: "fact"
+            label: "Уведомление о списании"
+            description: "Формулировка об уведомлении клиента."
+            required: false
+            display_in_grid: false
+          - name: "unauthorized_protection_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус защиты от несанкционированных списаний."
+            required: false
+          - name: "unauthorized_protection_details"
+            type: "string"
+            presentation: "fact"
+            label: "Защита от несанкционированных списаний"
+            description: "Формулировка о защите от несанкционированных списаний."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 8: Безопасность ДБО
+# ──────────────────────────────────────────────────────────────────────────
   - id: dbs_security_check
-    name: "Дистанционное банковское обслуживание: безопасность и распределение ответственности"
-    description: "Проверяет условия использования интернет-банка/ДБО и распределение рисков несанкционированного доступа"
+    name: "ДБО: безопасность и распределение ответственности (161-ФЗ)"
+    description: >
+      Фактографическая проверка условий дистанционного банковского обслуживания:
+      аутентификация, распределение ответственности за инциденты,
+      порядок уведомления о компрометации.
     triggers:
       any: ["dbs_enabled"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
       keywords:
+        - "ДБО"
         - "дистанционное банковское обслуживание"
         - "интернет-банк"
         - "мобильное приложение"
+        - "аутентификация"
         - "электронная подпись"
         - "несанкционированный доступ"
-        - "средства аутентификации"
+        - "компрометация"
+        - "средства доступа"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)дистанционн(ое|ого)\\s+банковск(ое|ого)\\s+обслуживан"
@@ -1391,64 +2520,255 @@ checks_v8:
         - "(?i)несанкционированн(ый|ого)\\s+доступ"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор банковского счета/ДБО.
-        Проверь безопасность дистанционного банковского обслуживания.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор банковского счёта с ДБО.
+        Проверяется только один вопрос: безопасность ДБО — аутентификация,
+        распределение ответственности за инциденты, уведомление о компрометации.
+        Нормативный ориентир:
+        - ФЗ № 161-ФЗ — о национальной платёжной системе
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли условия ДБО.
+        2. Есть ли механизм аутентификации.
+        3. Как распределена ответственность за инциденты.
+        4. Есть ли правило уведомления об инцидентах.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "ДБО осуществляется через интернет-банк с использованием одноразовых
+        паролей. Клиент несёт ответственность за сохранность ключей. При
+        обнаружении несанкционированного доступа клиент обязан уведомить банк
+        в течение 24 часов."
+        Ответ:
         {
-          "dbs_terms_status": "<present / partial / not_found>",
-          "authentication_mechanism": "<present / not_found>",
-          "liability_allocation": "<balanced / bank_favored / unclear / not_found>",
-          "client_incident_notice_rule": "<present / not_found>"
+          "dbs_terms_status": "defined",
+          "dbs_terms_details": "ДБО осуществляется через интернет-банк",
+          "authentication_status": "defined",
+          "authentication_details": "с использованием одноразовых паролей",
+          "liability_allocation_status": "defined",
+          "liability_allocation_details": "клиент несёт ответственность за сохранность ключей",
+          "incident_notice_status": "defined",
+          "incident_notice_details": "клиент обязан уведомить банк в течение 24 часов",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "ДБО осуществляется через интернет-банк с использованием одноразовых паролей."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Банк предоставляет клиенту доступ к интернет-банку."
+        Ответ:
+        {
+          "dbs_terms_status": "defined",
+          "dbs_terms_details": "банк предоставляет клиенту доступ к интернет-банку",
+          "authentication_status": "not_defined",
+          "authentication_details": "Данные не определены",
+          "liability_allocation_status": "not_defined",
+          "liability_allocation_details": "Данные не определены",
+          "incident_notice_status": "not_defined",
+          "incident_notice_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "Банк предоставляет клиенту доступ к интернет-банку."
+            }
+          ]
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об условиях ДБО.
+        2. Найди прямую цитату об аутентификации.
+        3. Найди прямую цитату о распределении ответственности.
+        4. Найди прямую цитату об уведомлении об инцидентах.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "dbs_terms_status": "<defined / not_defined>",
+          "dbs_terms_details": "<текст или 'Данные не определены'>",
+          "authentication_status": "<defined / not_defined>",
+          "authentication_details": "<текст или 'Данные не определены'>",
+          "liability_allocation_status": "<defined / not_defined>",
+          "liability_allocation_details": "<текст или 'Данные не определены'>",
+          "incident_notice_status": "<defined / not_defined>",
+          "incident_notice_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 360
-    retrieval:
-      retrieval_profile: "cybersecurity_check"
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "дистанционное банковское обслуживание"
-        - "интернет-банк"
-        - "несанкционированный доступ"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "dbs_terms_status"
-          type: "string"
-          allowed_values: ["present", "partial", "not_found"]
-          description: "Статус условий ДБО"
-        - name: "authentication_mechanism"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли механизм аутентификации"
-        - name: "liability_allocation"
-          type: "string"
-          allowed_values: ["balanced", "bank_favored", "unclear", "not_found"]
-          description: "Распределение ответственности за инциденты"
-        - name: "client_incident_notice_rule"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли правило уведомления об инциденте"
-      store_payload: true
-
+      max_tokens: 600
+      retrieval:
+        retrieval_profile: "dbs_security_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "ДБО дистанционное банковское обслуживание интернет-банк мобильное приложение аутентификация электронная подпись несанкционированный доступ компрометация средства доступа"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - procedures
+        negative_keywords:
+          - "процентная ставка"
+          - "тариф"
+          - "комиссия"
+          - "овердрафт"
+          - "115-ФЗ"
+          - "безакцептное"
+          - "страхование"
+          - "закрытие счета"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.35, 0.80]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "procedures"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 800
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора банковского счёта
+          условия ДБО: аутентификация, ответственность за инциденты,
+          уведомление о компрометации.
+          Не анализируй проценты, тарифы, AML или страхование.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          1. dbs_terms_status — "defined" если условия ДБО прямо указаны.
+          2. dbs_terms_details — формулировка.
+          3. authentication_status — "defined" если механизм аутентификации указан.
+          4. authentication_details — формулировка.
+          5. liability_allocation_status — "defined" если распределение
+            ответственности за инциденты указано.
+          6. liability_allocation_details — формулировка.
+          7. incident_notice_status — "defined" если правило уведомления указано.
+          8. incident_notice_details — формулировка.
+          Если данные отсутствуют: статус = "not_defined",
+          текст = "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - dbs_terms_status = "defined" только если ДБО прямо упомянуто.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "dbs_terms_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус условий ДБО."
+            required: true
+          - name: "dbs_terms_details"
+            type: "string"
+            presentation: "fact"
+            label: "Условия ДБО"
+            description: "Формулировка об условиях ДБО."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "authentication_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус механизма аутентификации."
+            required: false
+          - name: "authentication_details"
+            type: "string"
+            presentation: "fact"
+            label: "Аутентификация"
+            description: "Формулировка о механизме аутентификации."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "liability_allocation_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус распределения ответственности за инциденты."
+            required: false
+          - name: "liability_allocation_details"
+            type: "string"
+            presentation: "fact"
+            label: "Ответственность за инциденты"
+            description: "Формулировка о распределении ответственности."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+          - name: "incident_notice_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус правила уведомления об инцидентах."
+            required: false
+          - name: "incident_notice_details"
+            type: "string"
+            presentation: "fact"
+            label: "Уведомление об инцидентах"
+            description: "Формулировка о правиле уведомления."
+            required: false
+            display_in_grid: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 9: Овердрафт
+# ──────────────────────────────────────────────────────────────────────────
   - id: overdraft_terms_check
-    name: "Овердрафт: лимит, проценты, срок погашения"
-    description: "Проверяет ключевые условия овердрафта при кредитовании счета"
+    name: "Овердрафт: лимит, проценты, срок погашения (ст. 850 ГК РФ)"
+    description: >
+      Фактографическая проверка условий овердрафта: лимит, проценты,
+      срок и порядок погашения, основания прекращения лимита.
     triggers:
       any: ["overdraft_present"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1458,1160 +2778,308 @@ checks_v8:
         - "лимит овердрафта"
         - "проценты за овердрафт"
         - "срок погашения"
+        - "дебетовое сальдо"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)овердрафт|кредитовани[ея]\\s+счета"
+        - "(?i)овердрафт|кредитовани[ея]\\s+сч"
         - "(?i)лимит\\s+овердрафт"
         - "(?i)процент(ы|ная\\s+ставка).{0,30}овердрафт"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор банковского счета с овердрафтом.
-        Проверь условия овердрафта.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор банковского счёта с овердрафтом (ст. 850 ГК РФ).
+        Проверяется только один вопрос: условия овердрафта.
+        Нормативный ориентир:
+        - ст. 850 ГК РФ — кредитование счёта
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
 
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли лимит овердрафта.
+        2. Есть ли проценты за овердрафт.
+        3. Есть ли срок / порядок погашения.
+        4. Есть ли основания прекращения лимита.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Лимит овердрафта — 500 000 рублей. Процентная ставка за пользование
+        овердрафтом — 20% годовых. Погашение овердрафта — не позднее 30 дней
+        с даты возникновения."
+        Ответ:
+        {
+          "overdraft_limit_status": "defined",
+          "overdraft_limit_details": "500 000 рублей",
+          "overdraft_interest_status": "defined",
+          "overdraft_interest_details": "20% годовых",
+          "repayment_status": "defined",
+          "repayment_details": "не позднее 30 дней с даты возникновения",
+          "termination_grounds_status": "not_defined",
+          "termination_grounds_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.1",
+              "quote": "Лимит овердрафта — 500 000 рублей. Процентная ставка за пользование овердрафтом — 20% годовых."
+            }
+          ]
+        }
+        Пример 2:
+        Фрагмент:
+        "Банк предоставляет овердрафт по счёту."
+        Ответ:
+        {
+          "overdraft_limit_status": "not_defined",
+          "overdraft_limit_details": "Данные не определены",
+          "overdraft_interest_status": "not_defined",
+          "overdraft_interest_details": "Данные не определены",
+          "repayment_status": "not_defined",
+          "repayment_details": "Данные не определены",
+          "termination_grounds_status": "not_defined",
+          "termination_grounds_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.1",
+              "quote": "Банк предоставляет овердрафт по счёту."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о лимите овердрафта.
+        2. Найди прямую цитату о процентах.
+        3. Найди прямую цитату о сроке / порядке погашения.
+        4. Найди прямую цитату об основаниях прекращения лимита.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
         Ответь строго в JSON:
         {
-          "overdraft_limit_status": "<present / not_found>",
-          "overdraft_interest_status": "<present / not_found>",
-          "repayment_period_status": "<present / not_found>",
-          "overdraft_clause_clarity": "<clear / unclear / not_found>"
+          "overdraft_limit_status": "<defined / not_defined>",
+          "overdraft_limit_details": "<текст или 'Данные не определены'>",
+          "overdraft_interest_status": "<defined / not_defined>",
+          "overdraft_interest_details": "<текст или 'Данные не определены'>",
+          "repayment_status": "<defined / not_defined>",
+          "repayment_details": "<текст или 'Данные не определены'>",
+          "termination_grounds_status": "<defined / not_defined>",
+          "termination_grounds_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-
-        Используй только текст договора.
-      prompt_file: null
       context_k: 5
       temperature: 0.0
-      max_tokens: 320
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      retrieval_profile: "interest_rate_check"
-      boost_keywords:
-        - "овердрафт"
-        - "лимит овердрафта"
-        - "проценты за овердрафт"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 520
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "overdraft_limit_status"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли лимит овердрафта"
-        - name: "overdraft_interest_status"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли условия о процентах"
-        - name: "repayment_period_status"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли срок/порядок погашения"
-        - name: "overdraft_clause_clarity"
-          type: "string"
-          allowed_values: ["clear", "unclear", "not_found"]
-          description: "Понятность овердрафтной оговорки"
-      store_payload: true
-
-  - id: deposit_prolongation_check
-    name: "Вклад: пролонгация / автопролонгация"
-    description: |
-      Частый спор: на каких условиях продлевается вклад после окончания срока.
-      Автопролонгация может быть по старой ставке или по новой (как правило, ниже).
-      Без ясности — вкладчик рискует получить ставку «до востребования».
-    triggers:
-      any: ["deposit_contract", "term_deposit"]
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "пролонгация"
-        - "автопролонгация"
-        - "продление вклада"
-        - "на новый срок"
-        - "условия продления"
-        - "ставка при продлении"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(авто)?пролонгац"
-        - "(?i)продлени[ея]\\s+вклад"
-    llm:
-      prompt_template: |
-        Проанализируй договор банковского вклада. Проверь условия пролонгации.
-
-        Ответь в JSON:
-        {
-          "prolongation_present": "<yes / no / not_found>",
-          "prolongation_type": "<automatic / manual / not_applicable>",
-          "rate_on_prolongation": "<same_rate / new_rate / on_demand_rate / not_specified>",
-          "prolongation_count_limit": "<limited / unlimited / not_specified>"
-        }
-      prompt_file: null
-      context_k: 5
-      temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      context_k: 5
-      max_chunks: 6
-      retrieval_profile: "term_and_renewal_check"
-      boost_keywords:
-        - "пролонгация"
-        - "продление"
-        - "новый срок"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "prolongation_present"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие пролонгации"
-        - name: "rate_on_prolongation"
-          type: "string"
-          allowed_values: ["same_rate", "new_rate", "on_demand_rate", "not_specified"]
-          description: "Ставка при пролонгации"
-      store_payload: true
-
-  - id: account_power_of_attorney_check
-    name: "Доверенности на распоряжение счётом"
-    description: |
-      Кто вправе распоряжаться счётом помимо владельца:
-      доверенные лица, количество подписей, электронная подпись.
-    triggers:
-      any: ["bank_account_contract", "joint_account"]
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "доверенность на счёт"
-        - "право подписи"
-        - "карточка образцов подписей"
-        - "распорядитель счёта"
-        - "лица, уполномоченные распоряжаться"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)доверенност.*на\\s+счёт"
-        - "(?i)карточк.*образцов\\s+подписей"
-    llm:
-      prompt_template: |
-        Проанализируй договор банковского счёта.
-        Проверь условия о лицах, уполномоченных распоряжаться счётом.
-
-        Ответь в JSON:
-        {
-          "authorized_persons_specified": "<yes / no / not_found>",
-          "power_of_attorney_procedure": "<present / not_found>",
-          "multiple_signatures_required": "<yes / no / not_found>",
-          "electronic_signature_used": "<yes / no / not_found>"
-        }
-      prompt_file: null
-      context_k: 4
-      temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      context_k: 4
-      max_chunks: 6
-      retrieval_profile: "authority_check"
-      boost_keywords:
-        - "доверенность"
-        - "право подписи"
-        - "распорядитель"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "authorized_persons_specified"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Указаны ли уполномоченные лица"
-      store_payload: true
-
-  - id: interest_calculation_method
-    name: "Методика расчёта процентов (база, сложные/простые)"
-    description: |
-      Методика расчёта процентов влияет на итоговый доход/расход:
-      база 365 vs 360 дней, простые vs сложные (капитализация).
-    triggers:
-      any: ["deposit_contract"]
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "методика расчёта процентов"
-        - "база расчёта"
-        - "365 дней"
-        - "360 дней"
-        - "простые проценты"
-        - "сложные проценты"
-        - "капитализация"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(365|360)\\s*дн"
-        - "(?i)(прост|сложн)\\w+\\s+процент"
-    llm:
-      prompt_template: |
-        Проанализируй договор банковского вклада.
-        Проверь методику расчёта процентов.
-
-        Ответь в JSON:
-        {
-          "calculation_method_specified": "<yes / no / not_found>",
-          "day_count_basis": "<365 / 360 / actual / not_specified>",
-          "interest_type": "<simple / compound / not_specified>",
-          "capitalization_frequency": "<monthly / quarterly / annual / at_maturity / not_applicable>"
-        }
-      prompt_file: null
-      context_k: 4
-      temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      retrieval_profile: "interest_rate_check"
-      context_k: 4
-      max_chunks: 6
-      boost_keywords:
-        - "методика расчёта"
-        - "365 дней"
-        - "капитализация"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 400
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "calculation_method_specified"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Указана ли методика расчёта"
-      store_payload: true
-
-  - id: dispute_resolution_banking
-    name: "Порядок разрешения споров (банковский омбудсмен, ЦБ РФ, суд)"
-    description: "Подсудность, досудебный порядок, жалоба в ЦБ РФ"
-    triggers: {}
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "разрешение споров"
-        - "арбитражный суд"
-        - "суд общей юрисдикции"
-        - "претензионный порядок"
-        - "банк России"
-        - "финансовый уполномоченный"
-        - "омбудсмен"
-      keyword_mode: "any"
-    llm:
-      prompt_template: |
-        Проанализируй банковский договор. Проверь порядок разрешения споров.
-
-        Ответь в JSON:
-        {
-          "dispute_resolution_method": "<court / arbitration / ombudsman / mixed / not_found>",
-          "pretrial_procedure": "<yes / no / not_found>",
-          "court_jurisdiction": "<описание суда или not_found>",
-          "central_bank_complaint_mentioned": "<yes / no / not_found>"
-        }
-      prompt_file: null
-      context_k: 4
-      temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      context_k: 4
-      max_chunks: 6
-      retrieval_profile: "dispute_resolution_check"
-      boost_keywords:
-        - "разрешение споров"
-        - "претензионный порядок"
-        - "финансовый уполномоченный"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 400
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "dispute_resolution_method"
-          type: "string"
-          allowed_values: ["court", "arbitration", "ombudsman", "mixed", "not_found"]
-          description: "Способ разрешения споров"
-      store_payload: true
-
-  - id: personal_data_banking
-    name: "Персональные данные в банковских отношениях"
-    description: |
-      Банк обрабатывает ПД клиента (ФЗ-152). Банковская тайна (ст. 857 ГК РФ)
-      пересекается с ПД. Критично: согласие на обработку, передача третьим лицам,
-      бюро кредитных историй.
-    triggers:
-      any: ["consumer_depositor"]
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "персональные данные"
-        - "согласие на обработку"
-        - "ФЗ-152"
-        - "бюро кредитных историй"
-        - "передача третьим лицам"
-        - "маркетинговые рассылки"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)персональн\\w+\\s+данн"
-        - "(?i)ФЗ[- ]?152|152[- ]?ФЗ"
-    llm:
-      prompt_template: |
-        Проанализируй банковский договор. Проверь условия о персональных данных.
-
-        Ответь в JSON:
-        {
-          "pd_consent_present": "<yes / no / not_found>",
-          "pd_third_party_transfer": "<yes / no / not_found>",
-          "credit_bureau_reporting": "<yes / no / not_found>",
-          "marketing_consent_separate": "<yes / no / not_found>"
-        }
-      prompt_file: null
-      context_k: 4
-      temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      context_k: 4
-      max_chunks: 6
-      retrieval_profile: "confidentiality_check"
-      boost_keywords:
-        - "персональные данные"
-        - "согласие"
-        - "бюро кредитных историй"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "pd_consent_present"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие согласия на обработку ПД"
-      store_payload: true
-
+      max_tokens: 600
+      retrieval:
+        retrieval_profile: "overdraft_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "овердрафт кредитование счета лимит овердрафта проценты за овердрафт срок погашения дебетовое сальдо"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - definitions
+        negative_keywords:
+          - "процентная ставка по вкладу"
+          - "тариф"
+          - "комиссия"
+          - "115-ФЗ"
+          - "безакцептное"
+          - "ДБО"
+          - "страхование"
+          - "закрытие счета"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.30, 0.75]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "definitions"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 800
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора банковского счёта
+          условия овердрафта: лимит, проценты, погашение, прекращение лимита.
+          Не анализируй тарифы, AML, ДБО или страхование.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          1. overdraft_limit_status — "defined" если лимит прямо указан.
+          2. overdraft_limit_details — размер лимита.
+          3. overdraft_interest_status — "defined" если проценты прямо указаны.
+          4. overdraft_interest_details — размер процентов.
+          5. repayment_status — "defined" если срок / порядок погашения указан.
+          6. repayment_details — формулировка.
+          7. termination_grounds_status — "defined" если основания прекращения
+            лимита указаны.
+          8. termination_grounds_details — формулировка.
+          Если данные отсутствуют: статус = "not_defined",
+          текст = "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи условия овердрафта из ст. 850 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "overdraft_limit_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус лимита овердрафта."
+            required: true
+          - name: "overdraft_limit_details"
+            type: "string"
+            presentation: "fact"
+            label: "Лимит овердрафта"
+            description: "Размер лимита овердрафта."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "overdraft_interest_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус процентов за овердрафт."
+            required: false
+          - name: "overdraft_interest_details"
+            type: "string"
+            presentation: "fact"
+            label: "Проценты за овердрафт"
+            description: "Размер процентов за пользование овердрафтом."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "repayment_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус срока / порядка погашения."
+            required: false
+          - name: "repayment_details"
+            type: "string"
+            presentation: "fact"
+            label: "Погашение овердрафта"
+            description: "Формулировка о сроке / порядке погашения."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+          - name: "termination_grounds_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус оснований прекращения лимита."
+            required: false
+          - name: "termination_grounds_details"
+            type: "string"
+            presentation: "fact"
+            label: "Прекращение лимита"
+            description: "Формулировка об основаниях прекращения лимита."
+            required: false
+            display_in_grid: false
+    store_payload: true
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "bank_identification_and_license"
-    name: "Банк: идентификация и лицензия"
-    description: "Проверяет наличие идентификации банка и признаков лицензии Банка России"
-    legal_base: "ст. 834, 845 ГК РФ, ФЗ № 395-1"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "банк"
-        - "кредитная организация"
-        - "лицензия банка россии"
-        - "генеральная лицензия"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(банк|кредитная\\s+организация)"
-        - "(?i)лиценз"
-
-  - id: "deposit_amount_and_currency"
-    name: "Вклад: сумма и валюта"
-    description: "Проверяет наличие суммы и валюты вклада"
-    legal_base: "ст. 836, 837 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["deposit_contract"]
-    rules:
-      keywords:
-        - "сумма вклада"
-        - "размер вклада"
-        - "валюта вклада"
-        - "депозит"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(сумма|размер)\\s+вклад"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur|доллар|евро)"
-
-  - id: "deposit_type_and_term"
-    name: "Вклад: вид и срок"
-    description: "Проверяет наличие вида вклада и срока для срочного вклада"
-    legal_base: "ст. 837 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["deposit_contract"]
-    rules:
-      keywords:
-        - "срочный вклад"
-        - "до востребования"
-        - "срок вклада"
-        - "на срок"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)срочн(ый|ого)\\s+вклад|до\\s+востребования"
-        - "(?i)срок\\s+вклад"
-
-  - id: "deposit_interest_rate_required"
-    name: "Вклад: процентная ставка"
-    description: "Проверяет наличие процентной ставки и порядка начисления процентов"
-    legal_base: "ст. 838 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["deposit_contract"]
-    rules:
-      keywords:
-        - "проценты по вкладу"
-        - "процентная ставка"
-        - "начисление процентов"
-        - "капитализация"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)процентн(ая|ой)\\s+ставк"
-        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-
-  - id: "deposit_return_procedure"
-    name: "Вклад: порядок возврата"
-    description: "Проверяет наличие порядка возврата вклада, включая досрочный возврат"
-    legal_base: "ст. 837 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["deposit_contract"]
-    rules:
-      keywords:
-        - "возврат вклада"
-        - "досрочное расторжение"
-        - "досрочный возврат вклада"
-        - "выдача вклада"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)возврат\\s+вклад"
-        - "(?i)досрочн(ое|ого)\\s+(расторжен|возврат)"
-
-  - id: "deposit_insurance_disclosure"
-    name: "Страхование вклада физического лица"
-    description: "Проверяет раскрытие информации о страховании вкладов"
-    legal_base: "ст. 840 ГК РФ, ФЗ № 177-ФЗ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["deposit_contract", "consumer_depositor"]
-    rules:
-      keywords:
-        - "страхование вкладов"
-        - "асв"
-        - "страховое возмещение"
-        - "1,4 млн"
-        - "1 400 000"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)страховани[ея]\\s+вклад"
-        - "(?i)АСВ|страхов(ое|ого)\\s+возмещен"
-
-  - id: "public_deposit_nature"
-    name: "Публичный характер вклада гражданина"
-    description: "Проверяет наличие признаков публичного банковского продукта для вкладчика-гражданина"
-    legal_base: "ст. 426, 834 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["deposit_contract", "consumer_depositor"]
-    rules:
-      keywords:
-        - "публичный договор"
-        - "гражданин"
-        - "вкладчик"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)публичн(ый|ого)\\s+договор"
-
-  - id: "account_type_and_currency"
-    name: "Счет: тип и валюта"
-    description: "Проверяет наличие типа счета и валюты"
-    legal_base: "ст. 845, 846 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["bank_account_contract"]
-    rules:
-      keywords:
-        - "расчетный счет"
-        - "текущий счет"
-        - "валюта счета"
-        - "банковский счет"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)расчетн(ый|ого)\\s+счет|текущ(ий|его)\\s+счет|банковск(ий|ого)\\s+счет"
-        - "(?i)валют[аы]\\s+счета|руб|usd|eur|евро|доллар"
-
-  - id: "account_operations_framework"
-    name: "Счет: рамка операций по счету"
-    description: "Проверяет наличие базового описания операций, совершаемых банком по счету"
-    legal_base: "ст. 845 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["bank_account_contract"]
-    rules:
-      keywords:
-        - "принимать и зачислять"
-        - "перечислять"
-        - "выдавать денежные средства"
-        - "операции по счету"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)принимать\\s+и\\s+зачислять"
-        - "(?i)операци[ия]\\s+по\\s+счету"
-
-  - id: "bank_secrecy_clause"
-    name: "Банковская тайна"
-    description: "Проверяет наличие условий о банковской тайне и ограничениях раскрытия сведений"
-    legal_base: "ст. 857 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "банковская тайна"
-        - "тайна банковского счета"
-        - "операции по счету"
-        - "сведения о клиенте"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)банковск(ая|ой)\\s+тайн"
-
-  - id: "aml_ctf_compliance"
-    name: "ПОД/ФТ: идентификация и документы"
-    description: "Проверяет AML/CFT-условия и обязанность клиента предоставлять документы"
-    legal_base: "ФЗ № 115-ФЗ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "идентификация клиента"
-        - "115-фз"
-        - "документы для идентификации"
-        - "подозрительные операции"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)115[- ]?фз"
-        - "(?i)идентификац"
-        - "(?i)подозрительн(ые|ых)\\s+операц"
-
-  - id: "account_blocking_transparency"
-    name: "Блокировка счета / приостановление операций"
-    description: "Проверяет наличие оснований блокировки и механизма взаимодействия с клиентом"
-    legal_base: "ст. 858 ГК РФ, ФЗ № 115-ФЗ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["bank_account_contract"]
-    rules:
-      keywords:
-        - "блокировка счета"
-        - "приостановление операций"
-        - "ограничение распоряжения"
-        - "разблокировка"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)блокировк[аи]\\s+счета"
-        - "(?i)приостановлени[ея]\\s+операц"
-
-  - id: "unauthorized_debit_protection"
-    name: "Безакцептное списание / списание без распоряжения клиента"
-    description: "Проверяет основания и режим безакцептного списания"
-    legal_base: "ст. 854 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["bank_account_contract"]
-    rules:
-      keywords:
-        - "безакцептное списание"
-        - "списание без распоряжения"
-        - "инкассовое поручение"
-        - "по распоряжению клиента"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)безакцептн(ое|ого)\\s+списан"
-        - "(?i)списани[ея].{0,40}без\\s+распоряжен"
-
-  - id: "tariff_transparency"
-    name: "Прозрачность тарифов и комиссий банка"
-    description: "Проверяет наличие тарификации обслуживания и комиссий"
-    legal_base: "ст. 851 ГК РФ, ЗоЗПП"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["bank_account_contract"]
-    rules:
-      keywords:
-        - "тарифы банка"
-        - "стоимость услуг"
-        - "комиссия за обслуживание"
-        - "плата за ведение счета"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)тариф(ы|ов)\\s+банка"
-        - "(?i)комисси|плата\\s+за\\s+ведение\\s+счета"
-
-  - id: "electronic_banking_security"
-    name: "Безопасность ДБО / интернет-банка"
-    description: "Проверяет наличие условий о безопасности дистанционного банковского обслуживания"
-    legal_base: "ФЗ № 161-ФЗ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["dbs_enabled"]
-    rules:
-      keywords:
-        - "дистанционное банковское обслуживание"
-        - "интернет-банк"
-        - "электронная подпись"
-        - "несанкционированный доступ"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)дистанционн(ое|ого)\\s+банковск(ое|ого)\\s+обслуживан"
-        - "(?i)интернет[- ]банк|электронн(ая|ой)\\s+подпис"
-
-  - id: "overdraft_terms"
-    name: "Условия овердрафта"
-    description: "Проверяет лимит, проценты и погашение при кредитовании счета"
-    legal_base: "ст. 850 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["overdraft_present"]
-    rules:
-      keywords:
-        - "овердрафт"
-        - "кредитование счета"
-        - "лимит овердрафта"
-        - "проценты за овердрафт"
-        - "срок погашения"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)овердрафт|кредитовани[ея]\\s+счета"
-        - "(?i)лимит\\s+овердрафт"
-
-  - id: "account_closure_procedure"
-    name: "Порядок расторжения договора и закрытия счета"
-    description: "Проверяет процедуру закрытия счета и возврата/выдачи остатка денежных средств"
-    legal_base: "ст. 859 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["bank_account_contract"]
-    rules:
-      keywords:
-        - "расторжение договора"
-        - "закрытие счета"
-        - "остаток средств"
-        - "по заявлению клиента"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)закрыт(ие|ь)\\s+счета"
-        - "(?i)по\\s+заявлению\\s+клиента"
-        - "(?i)остат(ок|ка)\\s+средств"
-
-  - id: "interest_on_account_balance"
-    name: "Проценты на остаток по счету"
-    description: "Проверяет наличие или отсутствие процентов на остаток денежных средств на счете"
-    legal_base: "ст. 852 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["bank_account_contract"]
-    rules:
-      keywords:
-        - "проценты на остаток"
-        - "проценты на денежные средства на счете"
-        - "банк уплачивает проценты"
-        - "проценты не начисляются"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)процент(ы|ов)\\s+на\\s+остат(ок|ка)"
-        - "(?i)процент(ы|ов).{0,40}на\\s+счете"
-
-  - id: "tax_agent_obligations"
-    name: "Налоговый агент по процентам по вкладу"
-    description: "Проверяет раскрытие функций банка как налогового агента, если это применимо"
-    legal_base: "НК РФ ст. 214.2"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["deposit_contract", "consumer_depositor"]
-    rules:
-      keywords:
-        - "налоговый агент"
-        - "ндфл с процентов"
-        - "удержание налога"
-        - "проценты по вкладу"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)налогов(ый|ого)\\s+агент"
-        - "(?i)НДФЛ"
-
-  - id: "court_and_enforcement_orders"
-    name: "Исполнительные документы и судебные акты"
-    description: "Проверяет порядок исполнения исполнительных документов и информирования клиента"
-    legal_base: "ФЗ № 229-ФЗ, ст. 855 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["bank_account_contract"]
-    rules:
-      keywords:
-        - "исполнительный документ"
-        - "судебный акт"
-        - "арест счета"
-        - "исполнительное производство"
-        - "инкассовое поручение"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)исполнительн(ый|ого)\\s+документ"
-        - "(?i)судебн(ый|ого)\\s+акт"
-        - "(?i)арест\\s+счета"
-
-  - id: "force_majeure_banking"
-    name: "Форс-мажор (санкции, технические сбои)"
-    description: "Обстоятельства непреодолимой силы, включая санкции и IT-сбои банка"
-    legal_base: "ст. 401 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "форс-мажор"
-        - "обстоятельства непреодолимой силы"
-        - "санкции"
-        - "технический сбой"
-        - "недоступность системы"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)форс[- ]?мажор"
-
-  - id: "governing_law_banking"
-    name: "Применимое право"
-    description: "Выбор применимого права"
-    legal_base: "ГК РФ"
-    severity: "low"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "применимое право"
-        - "регулируется законодательством"
-        - "законодательство Российской Федерации"
-      keyword_mode: "any"
-
-  - id: "beneficiary_owner_disclosure"
-    name: "Раскрытие бенефициарного владельца (115-ФЗ)"
-    description: "Обязанность клиента раскрыть бенефициарного владельца"
-    legal_base: "ФЗ № 115-ФЗ, ст. 6.1"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "бенефициарный владелец"
-        - "конечный бенефициар"
-        - "выгодоприобретатель"
-        - "раскрытие информации"
-        - "контролирующее лицо"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)бенефициарн\\w+\\s+владел"
-
-  - id: "account_statement_procedure"
-    name: "Порядок предоставления выписок по счёту"
-    description: "Периодичность, форма и способ предоставления выписок"
-    legal_base: "ст. 853 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["bank_account_contract"]
-    rules:
-      keywords:
-        - "выписка по счёту"
-        - "предоставление выписки"
-        - "ежемесячная выписка"
-        - "электронная выписка"
-      keyword_mode: "any"
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
-# ════════════════════════════════════════════════════════════════════════════
-
 dd_request_templates:
-
+  bank_deposit_parties_identification:
+    text: >
+      Просим подтвердить по {doc_names}: реквизиты банка (ИНН, ОГРН, БИК,
+      номер лицензии), реквизиты клиента / вкладчика, полномочия подписантов
+      и правовое основание, по которому банк вправе осуществлять соответствующую
+      банковскую операцию.
+    addressee: "Банк / Клиент"
   bank_deposit_account_subject_extraction:
     text: >
-      Просим предоставить по {doc_names}: тип банковского договора (вклад/счет),
-      сведения о банке и клиенте, сумму и валюту, процентную ставку,
-      вид вклада/тип счета, наличие овердрафта, ДБО и иные существенные параметры.
-    addressee: "Банк / Юридический советник"
-
-  bank_identification_and_license:
-    text: >
-      Просим предоставить по {doc_names}: полное наименование банка,
-      ОГРН, ИНН, реквизиты лицензии Банка России и подтверждение права
-      на привлечение вкладов/ведение счетов соответствующего вида.
-    addressee: "Банк"
-
-  bank_license_missing:
-    text: >
-      В {doc_names} не выявлены достаточные признаки лицензии банка.
-      Просим срочно предоставить реквизиты лицензии Банка России
-      и подтверждение допустимости соответствующей банковской операции.
-    addressee: "Банк / Юридический советник"
-
-  deposit_amount_and_currency:
-    text: >
-      Просим уточнить по {doc_names}: сумму вклада, валюту вклада,
-      дату внесения средств и подтверждение фактического зачисления вклада.
-    addressee: "Банк / Вкладчик"
-
-  deposit_type_and_term:
-    text: >
-      Просим уточнить по {doc_names}: является ли вклад срочным или до востребования,
-      каков срок размещения, дата возврата и условия продления/пролонгации.
-    addressee: "Банк"
-
+      Просим предоставить по {doc_names}: сумму вклада или тип счёта, валюту,
+      срок, тип договора (вклад / счёт), вид вклада (срочный / до востребования)
+      и подтверждение передачи / зачисления средств.
+    addressee: "Банк / Клиент"
   deposit_interest_and_fixation_check:
     text: >
-      Просим предоставить по {doc_names}: процентную ставку, порядок начисления процентов,
-      периодичность их выплаты/капитализации, а также подтвердить,
-      может ли банк изменять ставку и при каких условиях.
+      Просим уточнить в {doc_names}: процентную ставку, порядок начисления,
+      капитализацию процентов, а также право банка изменять ставку и условия
+      такого изменения.
     addressee: "Банк"
-
-  deposit_interest_rate_required:
-    text: >
-      Просим уточнить в {doc_names}: точную процентную ставку по вкладу,
-      способ начисления процентов и дату начала/окончания начисления.
-    addressee: "Банк"
-
-  term_deposit_rate_change_risk:
-    text: >
-      В {doc_names} выявлен риск одностороннего изменения ставки по срочному вкладу гражданина.
-      Просим предоставить правовое пояснение и скорректировать договор
-      в соответствии со ст. 838 ГК РФ.
-    addressee: "Банк / Юридический советник"
-
   deposit_early_withdrawal_check:
     text: >
-      Просим уточнить по {doc_names}: порядок досрочного возврата вклада,
-      пересчет процентов при досрочном изъятии, сроки выплаты средств
-      и требования к уведомлению банка.
-    addressee: "Банк"
-
-  deposit_return_procedure:
-    text: >
-      Просим уточнить по {doc_names}: процедуру возврата вклада,
-      включая стандартный и досрочный возврат, а также способ выдачи денежных средств вкладчику.
-    addressee: "Банк"
-
-  deposit_insurance_disclosure:
-    text: >
-      Просим предоставить по {doc_names}: сведения о страховании вклада,
-      участии банка в системе страхования вкладов, размере страхового возмещения
-      и случаях, когда страхование может не применяться.
-    addressee: "Банк"
-
-  consumer_deposit_without_insurance_disclosure:
-    text: >
-      В {doc_names} выявлен риск отсутствия раскрытия страхования вкладов физического лица.
-      Просим срочно предоставить подтверждение участия банка в системе страхования вкладов
-      и пояснение о лимите страхового возмещения.
-    addressee: "Банк / Юридический советник"
-
-  public_deposit_nature:
-    text: >
-      Просим подтвердить по {doc_names}, что вклад гражданина оформляется
-      с учетом публичного характера банковского продукта, и предоставить
-      стандартные правила/условия обслуживания вкладчиков.
-    addressee: "Банк"
-
-  account_type_and_currency:
-    text: >
-      Просим уточнить по {doc_names}: тип банковского счета, валюту,
-      реквизиты счета и допустимый перечень операций по нему.
-    addressee: "Банк"
-
-  account_operations_framework:
-    text: >
-      Просим предоставить по {doc_names}: описание операций, которые банк вправе
-      и обязан осуществлять по счету, включая прием, зачисление, перечисление и выдачу средств.
-    addressee: "Банк"
-
+      Просим уточнить в {doc_names}: право вкладчика на досрочный возврат,
+      порядок пересчета процентов при досрочном возврате, ограничения
+      досрочного возврата и порядок / срок возврата средств.
+    addressee: "Банк / Вкладчик"
   account_tariffs_and_commissions_check:
     text: >
-      Просим предоставить по {doc_names}: действующие тарифы банка,
-      полный перечень комиссий и платежей, порядок изменения тарифов
-      и способ уведомления клиента о таких изменениях.
+      Просим предоставить по {doc_names}: действующие тарифы банка, полный
+      перечень комиссий, право банка изменять тарифы и порядок уведомления
+      об изменениях.
     addressee: "Банк"
-
-  tariff_transparency:
-    text: >
-      Просим предоставить по {doc_names}: полный перечень тарифов и комиссий,
-      исключить открытые/неопределенные отсылки к будущим тарифам
-      либо уточнить механизм уведомления и согласования изменений.
-    addressee: "Банк / Юридический советник"
-
-  bank_secrecy_clause:
-    text: >
-      Просим предоставить по {doc_names}: формулировки о банковской тайне,
-      перечень охраняемых сведений и законные основания их раскрытия третьим лицам.
-    addressee: "Банк"
-
   aml_blocking_check:
     text: >
-      Просим предоставить по {doc_names}: AML/CFT-положения,
-      перечень документов для идентификации/актуализации данных клиента,
-      основания приостановления операций и порядок разблокировки счета.
-    addressee: "Банк"
-
-  aml_ctf_compliance:
-    text: >
-      Просим уточнить в {doc_names}: обязанности клиента по предоставлению документов
-      для идентификации и прав банка в рамках 115-ФЗ.
-    addressee: "Банк / Юридический советник"
-
-  account_blocking_transparency:
-    text: >
-      Просим уточнить по {doc_names}: основания блокировки счета или приостановления операций,
-      порядок уведомления клиента, перечень требуемых документов
-      и процедуру возобновления операций.
-    addressee: "Банк"
-
+      Просим предоставить по {doc_names}: AML/CFT-положения, перечень документов
+      для идентификации, основания приостановления операций и порядок
+      разблокировки счёта.
+    addressee: "Банк / Комплаенс"
   unauthorized_debit_check:
     text: >
-      Просим предоставить по {doc_names}: основания безакцептного списания,
-      перечень случаев списания без распоряжения клиента, порядок уведомления клиента
-      и механизм оспаривания несанкционированных списаний.
-    addressee: "Банк"
-
-  unauthorized_debit_protection:
-    text: >
-      Просим уточнить в {doc_names}: в каких случаях банк вправе списывать средства
-      без распоряжения клиента, на каком правовом основании и как клиент уведомляется о таком списании.
+      Просим уточнить в {doc_names}: основания безакцептного списания, перечень
+      случаев списания без распоряжения клиента, порядок уведомления клиента
+      и защиту от несанкционированных списаний.
     addressee: "Банк / Юридический советник"
-
   dbs_security_check:
     text: >
-      Просим предоставить по {doc_names}: условия ДБО/интернет-банка,
-      способы аутентификации, распределение ответственности при несанкционированном доступе
-      и порядок экстренного уведомления банка о компрометации средств доступа.
-    addressee: "Банк"
-
-  electronic_banking_security:
-    text: >
-      Просим уточнить в {doc_names}: кто несет риск при несанкционированном доступе
-      к интернет-банку/мобильному приложению, какие меры безопасности обязан соблюдать клиент
-      и каков порядок блокировки электронных средств доступа.
-    addressee: "Банк / Юридический советник"
-
+      Просим предоставить по {doc_names}: условия ДБО, механизм аутентификации,
+      распределение ответственности за инциденты и порядок уведомления
+      о компрометации средств доступа.
+    addressee: "Банк / IT-служба"
   overdraft_terms_check:
     text: >
-      По {doc_names} с овердрафтом просим предоставить:
-      лимит овердрафта, процентную ставку, срок и порядок погашения,
-      основания прекращения лимита и санкции за просрочку.
+      Просим уточнить в {doc_names}: лимит овердрафта, процентную ставку,
+      срок и порядок погашения, а также основания прекращения лимита.
     addressee: "Банк"
-
-  overdraft_terms:
-    text: >
-      Просим уточнить в {doc_names}: условия овердрафта,
-      включая лимит, проценты, дату/срок погашения и порядок отражения задолженности.
-    addressee: "Банк"
-
-  overdraft_without_core_terms:
-    text: >
-      В {doc_names} выявлен риск неполного регулирования овердрафта.
-      Просим срочно уточнить лимит, ставку, срок погашения и прочие существенные условия кредитования счета.
-    addressee: "Банк / Юридический советник"
-
-  account_closure_procedure:
-    text: >
-      Просим уточнить по {doc_names}: порядок закрытия счета,
-      сроки прекращения обслуживания, судьбу остатка денежных средств
-      и форму распоряжения клиента о закрытии счета.
-    addressee: "Банк"
-
-  interest_on_account_balance:
-    text: >
-      Просим уточнить по {doc_names}: начисляются ли проценты на остаток денежных средств на счете,
-      по какой ставке, с какой периодичностью и может ли банк изменять такие условия.
-    addressee: "Банк"
-
-  tax_agent_obligations:
-    text: >
-      Просим предоставить по {doc_names}: правила удержания НДФЛ с процентов по вкладу,
-      статус банка как налогового агента и порядок информирования клиента о налоговых удержаниях.
-    addressee: "Банк / Налоговый консультант"
-
-  court_and_enforcement_orders:
-    text: >
-      Просим уточнить в {doc_names}: порядок исполнения исполнительных документов,
-      судебных актов, ареста счета и инкассовых поручений,
-      а также практику/порядок информирования клиента о таких действиях.
-    addressee: "Банк / Юридический советник"
-
-  foreign_currency_terms_unclear:
-    text: >
-      В {doc_names} выявлен валютный элемент без достаточной ясности условий.
-      Просим уточнить валюту счета/вклада, порядок конвертации,
-      применимый курс и ограничения на совершение валютных операций.
-    addressee: "Банк / Юридический советник"
-
-  deposit_exceeds_insurance_limit:
-    text: >
-      ВНИМАНИЕ: по {doc_names} сумма вклада может превышать лимит страхового возмещения
-      АСВ (1,4 млн руб.). Просим: (а) подтвердить сумму вклада;
-      (б) проинформировать вкладчика о незастрахованной части;
-      (в) рассмотреть разделение вклада между несколькими банками.
-    addressee: "Вкладчик / Финансовый консультант"
-
-  escrow_account_without_special_regime:
-    text: >
-      По {doc_names} — счёт эскроу. Просим подтвердить соблюдение специального режима
-      (ст. 860.7-860.10 ГК РФ): (а) условия раскрытия средств;
-      (б) запрет распоряжения средствами до наступления условий;
-      (в) роли депонента и бенефициара.
-    addressee: "Банк / Юридический советник"
-
-  unilateral_tariff_change_consumer:
-    text: >
-      По {doc_names} — одностороннее изменение тарифов для физлица.
-      Просим: (а) исключить право одностороннего изменения или
-      (б) установить обязательное уведомление + право клиента расторгнуть договор
-      без штрафных санкций.
-    addressee: "Банк / Юридический советник"
-
-  deposit_prolongation_check:
-    text: >
-      Просим уточнить по {doc_names}: (а) предусмотрена ли пролонгация/автопролонгация;
-      (б) на каких условиях (ставка, срок); (в) сколько раз может продлеваться;
-      (г) что происходит при отсутствии обращения вкладчика.
-    addressee: "Банк"
-
-  account_power_of_attorney_check:
-    text: >
-      Просим уточнить по {doc_names}: (а) кто вправе распоряжаться счётом;
-      (б) порядок оформления доверенностей; (в) требования к подписям;
-      (г) порядок отзыва полномочий.
-    addressee: "Банк / Клиент"
-
-  interest_calculation_method:
-    text: >
-      Просим уточнить по {doc_names}: (а) базу расчёта процентов (365/360 дней);
-      (б) простые или сложные проценты; (в) периодичность начисления;
-      (г) порядок округления.
-    addressee: "Банк"
-
-  dispute_resolution_banking:
-    text: >
-      Просим согласовать по {doc_names}: претензионный порядок,
-      подсудность, возможность обращения к финансовому уполномоченному.
-    addressee: "Юридический советник"
-
-  personal_data_banking:
-    text: >
-      По {doc_names} просим уточнить: (а) порядок обработки ПД;
-      (б) передачу данных третьим лицам (БКИ, коллекторы);
-      (в) отдельное согласие на маркетинговые рассылки.
-    addressee: "Банк / DPO"
-
-  force_majeure_banking:
-    text: >
-      Просим уточнить для {doc_names} условия о форс-мажоре,
-      включая санкционные ограничения и технические сбои.
-    addressee: "Юридический советник"
-
-  governing_law_banking:
-    text: >
-      Просим указать применимое право для {doc_names}.
-    addressee: "Юридический советник"
-
-  beneficiary_owner_disclosure:
-    text: >
-      Просим уточнить для {doc_names} порядок раскрытия бенефициарного владельца.
-    addressee: "Банк / Комплаенс"
-
-  account_statement_procedure:
-    text: >
-      Просим уточнить для {doc_names}: периодичность, форму и способ
-      предоставления выписок по счёту.
-    addressee: "Банк"
-
-  # Generic fallback
   _default:
     text: >
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
+
+

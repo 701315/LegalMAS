@@ -1,19 +1,16 @@
 type: contract_5.3_factoring
 name: "Договор финансирования под уступку денежного требования (факторинг)"
-
+version: 6.0
+parent: class_5_financial_security
 description: |
-  Договор, по которому финансовый агент (фактор) передает или обязуется передать
-  денежные средства клиенту в счет денежного требования клиента к третьему лицу
+  Договор, по которому финансовый агент (фактор) передаёт или обязуется передать
+  денежные средства клиенту в счёт денежного требования клиента к третьему лицу
   (должнику), а клиент уступает или обязуется уступить фактору это денежное требование.
   Регулируется Главой 43 ГК РФ и в соответствующей части общими нормами об уступке
   права требования. На практике ключевыми вопросами являются наличие элемента
   финансирования, определимость уступаемого требования, распределение кредитного риска
   должника, условия регресса, порядок уведомления должника, передача подтверждающих
   документов и защита от споров о действительности требования.
-
-version: 4.0
-parent: class_5_financial_security
-
 metadata:
   category: contract
   subcategory: financial_security
@@ -32,7 +29,6 @@ metadata:
     - "договор международного факторинга"
     - "договор финансирования под дебиторскую задолженность"
     - "договор финансирования дебиторской задолженности"
-
     - "master factoring agreement"
     - "notification factoring agreement"
     - "factoring agreement"
@@ -43,442 +39,323 @@ metadata:
     - "reverse factoring agreement"
     - "supply chain finance agreement"
     - "undisclosed factoring agreement"
-
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
-
 classification_runtime_v1:
-
   scoring:
     accept_threshold: 0.82
-    strong_signal_threshold: 0.9
+    strong_signal_threshold: 0.90
     ambiguity_margin: 0.18
     input_quality_weight: 1.0
-
   rules:
-
     filename_patterns:
       - pattern: "(?i)\\bдоговор[\\s_.-]*факторинга\\b"
         kind: specific_subject
         weight: 1.0
-        # Прямое наименование договора факторинга
-
       - pattern: "(?i)\\bфакторинг\\b"
         kind: specific_subject
         weight: 0.94
-        # Базовый русский маркер; достаточно специфичен для данного типа
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*финансировани[а-я]*[\\s_.-]*под[\\s_.-]*уступк[а-я]*[\\s_.-]*(?:денежн[а-я]*[\\s_.-]*)?требовани[а-я]*\\b"
         kind: specific_subject
         weight: 1.0
-        # Полная юридическая формула из ст. 824 ГК РФ
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*(?:финансировани[а-я]*[\\s_.-]*(?:под|дебиторск[а-я]*)|финансировани[а-я]*[\\s_.-]*дебиторск[а-я]*)[\\s_.-]*задолженност[аи]\\b"
         kind: specific_subject
         weight: 0.96
-        # Финансирование под / дебиторской задолженности — прямое покрытие из supported types
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*факторинга[\\s_.-]*(?:с|без)[\\s_.-]*регресс[а-я]*\\b"
         kind: specific_subject
         weight: 0.98
-        # Факторинг с регрессом / без регресса — ключевые subtypes
-
       - pattern: "(?i)\\bдоговор[\\s_.-]*(?:открытого|скрытого|международного)[\\s_.-]*факторинга\\b"
         kind: specific_subject
         weight: 0.96
-        # Открытый / скрытый / международный факторинг из supported types
-
       - pattern: "(?i)\\bfactoring[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.96
-        # Прямой английский маркер factoring agreement
-
       - pattern: "(?i)\\bmaster[\\s_.-]*factoring[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.98
-        # Master factoring agreement — рамочная форма из supported types
-
       - pattern: "(?i)\\bnotification[\\s_.-]*factoring[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.94
-        # Notification factoring — из supported types, open factoring subtype
-
       - pattern: "(?i)\\bundisclosed[\\s_.-]*factoring[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.94
-        # Undisclosed factoring — аналог скрытого факторинга из supported types
-
       - pattern: "(?i)\\breceivables[\\s_.-]*financing[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.90
-        # Receivables financing — financing-элемент отличает от чистой цессии
-
       - pattern: "(?i)\\baccounts[\\s_.-]*receivable[s]?[\\s_.-]*purchase[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.90
-        # Accounts receivable purchase — из supported types; purchase-элемент указывает на factoring, а не assignment
-
       - pattern: "(?i)\\bdebtor[\\s_.-]*finance[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.88
-        # Debtor finance agreement — из supported types, финансирование под дебиторку
-
       - pattern: "(?i)\\breverse[\\s_.-]*factoring[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.88
-        # Reverse factoring — из supported types; supplier finance subtype
-
       - pattern: "(?i)\\bsupply[\\s_.-]*chain[\\s_.-]*finance[\\s_.-]*(?:agreement|contract)?\\b"
         kind: specific_subject
         weight: 0.84
-        # Supply chain finance — из supported types; шире reverse factoring, но в его семействе
-
       - pattern: "(?i)\\binvoice[\\s_.-]*discounting[\\s_.-]*(?:agreement|contract)?\\b"
         kind: generic_form
         weight: 0.66
-        # Invoice discounting из supported types; без factoring-квалификатора может быть treasury/banking инструментом
-
       - pattern: "(?i)\\binvoice[\\s_.-]*financ(?:ing|e)[\\s_.-]*(?:agreement|contract)?\\b"
         kind: generic_form
         weight: 0.60
-        # Invoice financing шире factoring: может быть кредитование под залог инвойсов без уступки
-
       - pattern: "(?i)\\bfinансировани[а-я]*[\\s_.-]*(?:под[\\s_.-]*)?требовани[а-я]*\\b"
         kind: generic_form
         weight: 0.58
-        # Финансирование под требование — релевантно, но без уступки-квалификатора шире
-
       - pattern: "(?i)\\bdebtor\\b"
         kind: context
         weight: 0.16
-        # Debtor сам по себе: встречается в assignment, кредите, банкротстве и т.д.
-
       - pattern: "(?i)\\breceivables?\\b"
         kind: context
         weight: 0.14
-        # Receivables без financing/factoring qualifier: конфликт с assignment
-
-
     folder_patterns:
       - pattern: "(?i)факторинг|factoring"
         kind: specific_subject
         weight: 0.88
-        # Явная taxonomy папок по факторингу
-
       - pattern: "(?i)(?:master|notification|undisclosed|reverse)[_\\s-]*factoring"
         kind: specific_subject
         weight: 0.86
-        # Специфические factoring-subtype папки
-
       - pattern: "(?i)receivables[_\\s-]*financ(?:ing|e)|accounts[_\\s-]*receivable[s]?[_\\s-]*purchase"
         kind: specific_subject
         weight: 0.82
-        # Receivables financing / AR purchase — financing-элемент отличает от цессии
-
       - pattern: "(?i)debtor[_\\s-]*finance|финансировани[ея][_\\s-]*(?:под[_\\s-]*)?(?:дебиторск|требовани)"
         kind: specific_subject
         weight: 0.82
-        # Debtor finance / финансирование дебиторки в taxonomy
-
       - pattern: "(?i)supply[_\\s-]*chain[_\\s-]*finance|reverse[_\\s-]*factoring"
         kind: specific_subject
         weight: 0.78
-        # Supply chain finance / reverse factoring папки
-
       - pattern: "(?i)invoice[_\\s-]*discount(?:ing)?|invoice[_\\s-]*financ(?:ing|e)"
         kind: generic_form
         weight: 0.54
-        # Invoice discounting / financing folder — полезны, но шире чистого факторинга
-
       - pattern: "(?i)receivables?|дебиторск[а-я]*[_\\s-]*задолженност"
         kind: context
         weight: 0.18
-        # Receivables / дебиторка без factoring/financing qualifier: конфликт с assignment, credit
-
       - pattern: "(?i)финансировани[ея]|financing"
         kind: context
         weight: 0.14
-        # Financing без предмета слишком широко: кредит, лизинг, облигации и т.д.
-
     keywords:
-
       high:
         - pattern: "(?i)факторинг[ауы]?"
           weight: 1.0
           distinctiveness: high
           context: any
           description: "Общий термин факторинга в заголовке или теле договора"
-
         - pattern: "(?i)финансировани[ея]\\s+под\\s+уступк[уи]"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Финансирование под уступку денежного требования"
-
         - pattern: "(?i)договор\\s+факторинг[ауы]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Прямое название договора факторинга"
-
         - pattern: "(?i)договор\\s+финансировани[ея]\\s+под\\s+уступк[уи]\\s+денежн[огоой\\s]*требован[ияи]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Полное наименование договора финансирования под уступку денежного требования"
-
         - pattern: "(?i)договор\\s+финансировани[ея]\\s+под\\s+дебиторск[уюой\\s]*задолженн[остьости]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Факторинг, оформленный как финансирование под дебиторскую задолженность"
-
         - pattern: "(?i)договор\\s+факторинг[ауы]\\s+с\\s+регресс[ома]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Факторинг с регрессом на клиента"
-
         - pattern: "(?i)договор\\s+факторинг[ауы]\\s+без\\s+регресс[а]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Факторинг без регресса (перенос кредитного риска на фактора)"
-
         - pattern: "(?i)договор\\s+открыт[огоой]\\s+факторинг[ауы]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Открытый факторинг с уведомлением должника"
-
         - pattern: "(?i)договор\\s+скрыт[огоой]\\s+факторинг[ауы]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Скрытый (undisclosed) факторинг"
-
         - pattern: "(?i)договор\\s+международн[огоой]\\s+факторинг[ауы]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Международный факторинг"
-
         - pattern: "(?i)master\\s+factoring\\s+agreement"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Master factoring agreement — рамочный договор факторинга"
-
         - pattern: "(?i)notification\\s+factoring\\s+agreement"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Notification factoring agreement — договор с уведомлением должника"
-
         - pattern: "(?i)финансов[ыйое]\\s+агент"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Финансовый агент как фактор по ст. 825 ГК РФ"
-
         - pattern: "(?i)уступк[аеи]\\s+денежн[огоой\\s]*требован[ияи]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Уступка денежного требования в пользу фактора"
-
-
-
       medium:
         - pattern: "(?i)\\bрегресс\\b"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Регресс по факторинговой операции"
-
         - pattern: "(?i)без\\s+регресс[аа]"
-          weight: 0.7
+          weight: 0.70
           distinctiveness: medium
           context: any
           description: "Факторинг без регресса"
-
         - pattern: "(?i)безрегрессн[ыо]й\\s+факторинг"
-          weight: 0.7
+          weight: 0.70
           distinctiveness: medium
           context: any
           description: "Безрегрессный факторинг"
-
         - pattern: "(?i)уступк[аа]\\s+будущ[ео]го\\s+требовани[яя]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Уступка будущих денежных требований"
-
         - pattern: "(?i)факторингов[а-яё]+\\s+комисси[яя]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Комиссия фактора за финансирование и обслуживание"
-
         - pattern: "(?i)реестр\\s+уступленн[ыо]х\\s+требовани[йя]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Реестр уступленных требований как приложение к договору факторинга"
-
         - pattern: "(?i)уведомлени[ея]\\s+должник[аа]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Уведомление должника об уступке требования фактору"
-
         - pattern: "(?i)финансировани[ея]\\s+поставщик[аа]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Финансирование поставщика под уступку требований к покупателю"
-
       low:
         - pattern: "(?i)инкассировани[ея]\\s+задолженност[ии]"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Инкассирование задолженности фактором"
-
         - pattern: "(?i)управлени[ея]\\s+дебиторск[оа]й\\s+задолженност[ьюи]"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Управление дебиторской задолженностью в контексте факторинга"
-
         - pattern: "(?i)открыт[ыо]й\\s+факторинг"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Упоминание открытого факторинга в теле"
-
         - pattern: "(?i)скрыт[ыо]й\\s+факторинг"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Упоминание скрытого факторинга"
-
         - pattern: "(?i)международн[ыо]й\\s+факторинг"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Упоминание международного факторинга"
-
         - pattern: "(?i)\\bдисконт\\b"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Дисконт/скидка к номиналу требований при факторинге"
-
         - pattern: "(?i)зач[её]т\\s+встречн[ыо]х\\s+требовани[йя]"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Зачёт взаимных требований, возможный в структуре факторинговых расчётов"
-
         - pattern: "(?i)дебиторск[аяое]\\s+задолженн[остьости]"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Дебиторская задолженность как объект финансирования"
-
         - pattern: "(?i)клиент[а-я]*"
           weight: 0.15
           distinctiveness: low
           context: any
           description: "Клиент (поставщик) как сторона договора факторинга"
-
         - pattern: "(?i)должник[ауы]"
           weight: 0.15
           distinctiveness: low
           context: any
           description: "Должник по уступаемому требованию"
-
     exclusions:
       - pattern: "(?i)договор\\s+цесси[ии]"
         severity: hard
         weight: -1.0
         description: "Чистая уступка права требования без элемента финансирования (цессия), а не факторинг"
-
       - pattern: "(?i)договор\\s+за[йеё]м[аа]"
         severity: hard
         weight: -1.0
         description: "Договор займа, а не финансирование под уступку денежного требования"
-
       - pattern: "(?i)\\bпоручительств[ооа]\\b"
         severity: hard
         weight: -1.0
         description: "Поручительство — акцессорное обеспечение, а не факторинговый договор"
-
       - pattern: "(?i)агентск[иоя]+\\s+договор"
         severity: hard
         weight: -1.0
         description: "Агентский договор об оказании услуг без финансирования и уступки требований"
-
       - pattern: "(?i)договор\\s+оказани[яя]\\s+услуг\\s+по\\s+взыскани[юю]"
         severity: hard
         weight: -1.0
         description: "Договор услуг по взысканию задолженности (collection), а не факторинг"
-
-      # ── Soft exclusions
-
       - pattern: "(?i)кредитн[ыйое]\\s+договор"
         severity: soft
         weight: -0.35
         description: "Кредитный договор может сопровождать уступку требований, но сам по себе не является факторингом"
-
       - pattern: "(?i)залог\\s+прав\\s+требовани[яй]"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Залог прав требования без элемента финансирования клиента — ближе к залоговой конструкции"
-
       - pattern: "(?i)договор\\s+финансировани[яя]\\s+под\\s+залог"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Финансирование под залог, а не под уступку денежного требования"
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
 # ════════════════════════════════════════════════════════════════════════════
-
 trigger_definitions:
-
   recourse_factoring:
     any_keywords:
       - "(?i)с\\s+регрессом"
       - "(?i)регрессн[оа]е\\s+требовани[ея]"
       - "(?i)фактор\\s+вправе\\s+предъявить\\s+регресс"
       - "(?i)обязан\\s+возвратить\\s+финансировани[ея]"
-
   non_recourse_factoring:
     any_keywords:
       - "(?i)без\\s+регресс[аа]"
       - "(?i)безрегрессн[ыо]й\\s+факторинг"
       - "(?i)фактор\\s+принимает\\s+риск\\s+неплатеж[аа]"
       - "(?i)фактор\\s+не\\s+вправе\\s+требовать\\s+возврат[аа]\\s+финансировани[яя]"
-
   future_claim_assignment:
     any_keywords:
       - "(?i)будущ[ео]е\\s+требовани[ея]"
       - "(?i)требовани[ея],?\\s+котор[оае]\\s+возникнет"
       - "(?i)после\\s+поставк[ии]"
       - "(?i)будущ[а-яё]+\\s+дебиторск[а-яё]+\\s+задолженност[ьи]"
-
   debtor_notification_required:
     any_keywords:
       - "(?i)уведомлени[ея]\\s+должник[аа]"
@@ -486,7 +363,6 @@ trigger_definitions:
       - "(?i)после\\s+получени[яя]\\s+уведомлени[яя]"
       - "(?i)плат[её]ж\\s+фактор[уу]"
       - "(?i)извещени[ея]\\s+об\\s+уступк[ее]"
-
   international_factoring:
     any_keywords:
       - "(?i)международн[ыо]й\\s+факторинг"
@@ -495,25 +371,21 @@ trigger_definitions:
       - "(?i)экспортн[ыо]й\\s+факторинг"
       - "(?i)\\bimport\\s+factor\\b"
       - "(?i)\\bexport\\s+factor\\b"
-
   bank_factor:
     any_keywords:
       - "(?i)\\bбанк\\b"
       - "(?i)кредитн[а-яё]+\\s+организаци[яи]"
       - "(?i)лицензи[яи]\\s+банк[аа]\\s+росси[ии]"
-
   factoring_company_factor:
     any_keywords:
       - "(?i)финансов[ыо]й\\s+агент"
       - "(?i)факторингов[а-яё]+\\s+компани[яи]"
       - "(?i)коммерческ[а-яё]+\\s+организаци[яи]"
-
   credit_risk_retained_by_factor:
     any_keywords:
       - "(?i)риск\\s+неплатеж[аа]\\s+нес[её]т\\s+фактор"
       - "(?i)кредитн[ыо]й\\s+риск\\s+должник[аа]\\s+принимает\\s+фактор"
       - "(?i)без\\s+прав[аа]\\s+регресс[аа]"
-
   secured_by_registry_or_schedule:
     any_keywords:
       - "(?i)реестр\\s+уступленн[ыо]х\\s+требовани[йя]"
@@ -521,7 +393,6 @@ trigger_definitions:
       - "(?i)\\bschedule\\s+of\\s+receivables\\b"
       - "(?i)приложени[ея]\\s+с\\s+требовани[яями]"
       - "(?i)реестр\\s+дебитор[оо]в"
-
   hidden_factoring:
     any_keywords:
       - "(?i)скрыт[ыо]й\\s+факторинг"
@@ -531,7 +402,6 @@ trigger_definitions:
       - "(?i)плат[её]ж\\s+клиент[уу]"
       - "(?i)\\bclosed\\s+factoring\\b"
       - "(?i)\\bundisclosed\\s+factoring\\b"
-
   pledge_over_receivables:
     any_keywords:
       - "(?i)залог\\s+дебиторск[оа]й\\s+задолженност[ии]"
@@ -539,7 +409,6 @@ trigger_definitions:
       - "(?i)обеспечительн[а-яё]+\\s+уступк[аа]"
       - "(?i)\\bзалогодержател[ья]\\b"
       - "(?i)залог\\s+требовани[яя]"
-
   assignment_prohibition_in_underlying:
     any_keywords:
       - "(?i)запрет\\s+уступк[ии]"
@@ -547,7 +416,6 @@ trigger_definitions:
       - "(?i)без\\s+согласи[яя]\\s+должник[аа]"
       - "(?i)требуетс[яьа]\\s+согласи[ея]\\s+должник[аа]"
       - "(?i)ограничени[ея]\\s+уступк[ии]"
-
   reverse_factoring:
     any_keywords:
       - "(?i)реверсивн[ыо]й\\s+факторинг"
@@ -555,279 +423,325 @@ trigger_definitions:
       - "(?i)факторинг\\s+по\\s+инициатив[ее]\\s+покупател[яя]"
       - "(?i)подтвержд[её]нн[ыо]й\\s+факторинг"
       - "(?i)\\bsupply\\s+chain\\s+finance\\b"
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
 # ════════════════════════════════════════════════════════════════════════════
-
 shared_patterns:
-
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
   percentage_pattern: "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
-  invoice_pattern: "(?i)(?:счет|инвойс|invoice|накладн|акт)\\s*№?\\s*[A-ZА-Я0-9\\-\\/]+"
+  invoice_pattern: "(?i)(?:счет|инвойс|invoice|накладн|акт)\\s*№?\\s*[A-ZА-Я0-9\\-/]+"
   debtor_pattern: "(?i)(должник|дебитор)"
   claim_pattern: "(?i)(денежн(ое|ого)\\s+требован|дебиторск(ая|ой)\\s+задолженн)"
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "no_financing_element_red_flag"
-    name: "Отсутствует явный элемент финансирования"
-    description: "Если в договоре есть уступка требования, но отсутствует финансирование/обязательство предоставить финансирование, конструкция может быть простой цессией, а не факторингом"
-    legal_base: "ст. 824 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "уступка"
-        - "денежное требование"
-      negative_keywords:
-        - "финансирование"
-        - "денежные средства"
-        - "выплата клиенту"
-        - "авансирование"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "финансирование"
-        - "уступка требования"
-        - "денежные средства"
-      rerank: true
-
-  - id: "factor_status_unclear"
-    name: "Неясный статус финансового агента"
-    description: "Финансовый агент должен быть надлежащим субъектом по смыслу закона; отсутствие ясной идентификации повышает риск дефектной конструкции"
-    legal_base: "ст. 825 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "финансовый агент"
-        - "банк"
-        - "коммерческая организация"
-        - "фактор"
-        - "ооо"
-        - "ао"
-        - "пао"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "финансовый агент"
-        - "фактор"
-        - "коммерческая организация"
-      rerank: true
-
-  - id: "future_claim_not_determinable"
-    name: "Будущее требование недостаточно определимо"
-    description: "При уступке будущего требования необходимо, чтобы требование можно было определить в момент его возникновения"
-    legal_base: "ст. 826 ГК РФ"
-    required_triggers: ["future_claim_assignment"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "будущее требование"
-        - "после поставки"
-      negative_keywords:
-        - "должник"
-        - "основание требования"
-        - "договор поставки"
-        - "срок оплаты"
-        - "реестр уступленных требований"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "будущее требование"
-        - "должник"
-        - "основание требования"
-      rerank: true
-
-  - id: "non_recourse_contradiction"
-    name: "Противоречие в безрегрессной конструкции"
-    description: "Если договор одновременно называет факторинг безрегрессным и предусматривает возврат финансирования клиентом при неплатеже должника, риск конструкции критический"
-    legal_base: "ст. 831 ГК РФ"
-    required_triggers: ["non_recourse_factoring"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "без регресса"
-        - "безрегрессный"
-        - "обязан возвратить финансирование"
-        - "регрессное требование"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "без регресса"
-        - "регрессное требование"
-        - "возврат финансирования"
-      rerank: true
-
-  - id: "debtor_payment_routing_unclear"
-    name: "Неясно, кому и после какого уведомления платит должник"
-    description: "Если порядок уведомления должника и маршрутизация платежа неясны, высок риск двойного платежа и споров об исполнении"
-    legal_base: "ст. 830 ГК РФ"
-    required_triggers: []
-    severity: "high"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "уведомление должника"
-        - "платеж финансовому агенту"
-        - "после получения уведомления"
-        - "исполнение в пользу фактора"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "уведомление должника"
-        - "платеж фактору"
-        - "исполнение должником"
-      rerank: true
-
-  - id: "hidden_factoring_double_payment_risk"
-    name: "Скрытый факторинг: риск двойного платежа"
-    description: |
-      При скрытом факторинге должник не уведомляется и платит клиенту.
-      Без механизмов перевода средств фактору — высок риск присвоения денег клиентом.
-    legal_base: "ст. 830 ГК РФ"
-    required_triggers: ["hidden_factoring"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "скрытый факторинг"
-        - "конфиденциальный факторинг"
-        - "без уведомления должника"
-      keyword_mode: "any"
-      negative_keywords:
-        - "перечислить фактору"
-        - "специальный счёт"
-        - "в течение"
-        - "обязан передать"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "перечисление фактору"
-        - "специальный счёт"
-        - "отчётность"
-      rerank: true
-
-  - id: "assignment_despite_prohibition_risk"
-    name: "Уступка при запрете в основном договоре — риск ответственности клиента"
-    description: |
-      По ст. 828 ГК РФ уступка действительна даже при запрете, но клиент
-      может нести ответственность перед должником. Фактору важны заверения.
-    legal_base: "ст. 828 ГК РФ"
-    required_triggers: ["assignment_prohibition_in_underlying"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "запрет уступки"
-        - "уступка запрещена"
-        - "согласие должника"
-      keyword_mode: "any"
-      negative_keywords:
-        - "клиент заверяет"
-        - "отсутствует запрет"
-        - "клиент гарантирует"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "запрет уступки"
-        - "заверение"
-        - "ответственность клиента"
-      rerank: true
-
-  - id: "international_factoring_currency_control"
-    name: "Международный факторинг: валютный контроль"
-    description: |
-      При международном факторинге применяются требования ФЗ-173:
-      репатриация выручки, документы валютного контроля.
-    legal_base: "ФЗ № 173-ФЗ"
-    required_triggers: ["international_factoring"]
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "международный факторинг"
-        - "иностранный должник"
-        - "валютная выручка"
-        - "экспортный факторинг"
-      keyword_mode: "any"
-      negative_keywords:
-        - "валютный контроль"
-        - "репатриация"
-        - "паспорт сделки"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "валюта"
-        - "репатриация"
-        - "валютный контроль"
-      rerank: true
-
-  - id: "pledge_priority_conflict"
-    name: "Конфликт приоритетов: залог vs. уступка дебиторки"
-    description: |
-      Если дебиторская задолженность уже заложена, уступка фактору
-      создаёт конфликт приоритетов с залогодержателем.
-    legal_base: "ст. 358.1-358.8 ГК РФ"
-    required_triggers: ["pledge_over_receivables"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "залог дебиторской задолженности"
-        - "залог требования"
-        - "залогодержатель"
-      keyword_mode: "any"
-      negative_keywords:
-        - "отсутствует залог"
-        - "не обременено"
-        - "клиент заверяет"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "залог"
-        - "залогодержатель"
-        - "приоритет"
-      rerank: true
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
 
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 1: Стороны договора факторинга
+# ──────────────────────────────────────────────────────────────────────────
+  - id: factoring_parties_identification
+    name: "Стороны договора: идентификация фактора и клиента"
+    description: >
+      Фактографическая проверка идентификации финансового агента (фактора)
+      и клиента, их реквизитов, статуса фактора как допустимого субъекта,
+      подписантов и оснований полномочий.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "финансовый агент"
+        - "фактор"
+        - "клиент"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+        - "банк"
+        - "коммерческая организация"
+        - "факторинговая компания"
+        - "ИНН"
+        - "ОГРН"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(финансовый\\s+агент|фактор|клиент).*именуем"
+        - "(?i)действующ[а-я]+\\s+на\\s+основании"
+        - "(?i)(банк|коммерческ(ая|ой)\\s+организац|факторингов(ая|ой)\\s+компани)"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор финансирования под уступку денежного требования
+        (факторинг) по Главе 43 ГК РФ (ст. 824–825).
+        Проверяется только один вопрос: идентификация сторон — финансового агента
+        (фактора) и клиента, их реквизиты, статус фактора, подписанты и полномочия.
+        Нормативный ориентир:
+        - ст. 825 ГК РФ — финансовый агент
+        - ст. 432 ГК РФ — существенные условия
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наименование и реквизиты финансового агента (фактора).
+        2. Статус фактора (банк / коммерческая организация / факторинговая компания).
+        3. Наименование и реквизиты клиента.
+        4. Кто подписывает от каждой стороны и на каком основании.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если данные не указаны прямо — возвращай "not_defined" / "Данные не определены".
+        4. Не используй "None", "null", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "ООО «ФакторПлюс» (ИНН 7700000001, ОГРН 1027700000001), коммерческая
+        организация, именуемое «Финансовый агент», в лице Генерального директора
+        Иванова И.И., действующего на основании Устава, и ООО «Поставщик»
+        (ИНН 7700000002), именуемое «Клиент», в лице директора Петрова П.П."
+        Ответ:
+        {
+          "factor_details_status": "defined",
+          "factor_details_value": "ООО «ФакторПлюс», ИНН 7700000001, ОГРН 1027700000001",
+          "factor_status": "commercial_organization",
+          "factor_signatory": "Генеральный директор Иванов И.И.",
+          "factor_signatory_basis": "charter",
+          "client_details_status": "defined",
+          "client_details_value": "ООО «Поставщик», ИНН 7700000002",
+          "client_signatory": "Директор Петров П.П.",
+          "client_signatory_basis": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "Преамбула",
+              "quote": "ООО «ФакторПлюс» (ИНН 7700000001, ОГРН 1027700000001), коммерческая организация, именуемое «Финансовый агент»."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Стороны заключили настоящий договор факторинга."
+        Ответ:
+        {
+          "factor_details_status": "not_defined",
+          "factor_details_value": "Данные не определены",
+          "factor_status": "not_defined",
+          "factor_signatory": "Данные не определены",
+          "factor_signatory_basis": "not_defined",
+          "client_details_status": "not_defined",
+          "client_details_value": "Данные не определены",
+          "client_signatory": "Данные не определены",
+          "client_signatory_basis": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с идентификацией фактора.
+        2. Найди прямую цитату с идентификацией клиента.
+        3. Найди прямую цитату о статусе фактора.
+        4. Найди прямую цитату о подписантах и основаниях.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "factor_details_status": "<defined / not_defined>",
+          "factor_details_value": "<реквизиты или 'Данные не определены'>",
+          "factor_status": "<bank / commercial_organization / factoring_company / not_defined>",
+          "factor_signatory": "<ФИО и должность или 'Данные не определены'>",
+          "factor_signatory_basis": "<charter / poa / order / other / not_defined>",
+          "client_details_status": "<defined / not_defined>",
+          "client_details_value": "<реквизиты или 'Данные не определены'>",
+          "client_signatory": "<ФИО и должность или 'Данные не определены'>",
+          "client_signatory_basis": "<charter / poa / order / other / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 700
+      retrieval:
+        retrieval_profile: "party_identification_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "финансовый агент фактор клиент именуем в лице действующего на основании банк коммерческая организация факторинговая компания ИНН ОГРН реквизиты"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - boilerplate
+        negative_keywords:
+          - "уступка требования"
+          - "финансирование"
+          - "регресс"
+          - "уведомление должника"
+          - "комиссия"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.0, 0.20]
+          boost: 0.40
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "boilerplate"
+          confidence_bonus_on_match: 0.08
+          confidence_penalty_on_excluded_segment: 0.15
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 1300
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга сведения
+          о финансовом агенте (факторе) и клиенте: реквизиты, статус фактора,
+          подписанты и основания полномочий.
+          Не анализируй уступку, финансирование, регресс или уведомление должника.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. factor_details_status — "defined" или "not_defined".
+          2. factor_details_value — наименование и реквизиты фактора.
+          3. factor_status — bank / commercial_organization / factoring_company / not_defined.
+          4. factor_signatory — подписант фактора.
+          5. factor_signatory_basis — charter / poa / order / other / not_defined.
+          6. client_details_status — "defined" или "not_defined".
+          7. client_details_value — наименование и реквизиты клиента.
+          8. client_signatory — подписант клиента.
+          9. client_signatory_basis — charter / poa / order / other / not_defined.
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - factor_status:
+            "bank" — прямо указан банк или кредитная организация.
+            "commercial_organization" — указано ООО, АО или иная коммерческая организация.
+            "factoring_company" — прямо указана факторинговая компания.
+            "not_defined" — статус не определён.
+          - Не выводи статус фактора из нормы ст. 825 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "factor_details_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус идентификации фактора."
+            required: true
+          - name: "factor_details_value"
+            type: "string"
+            presentation: "fact"
+            label: "Финансовый агент (фактор)"
+            description: "Наименование и реквизиты финансового агента."
+            required: true
+            display_in_grid: true
+            display_priority: 1
+          - name: "factor_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["bank", "commercial_organization", "factoring_company", "not_defined"]
+            description: "Статус фактора как допустимого субъекта."
+            required: true
+          - name: "factor_signatory"
+            type: "string"
+            presentation: "fact"
+            label: "Подписант фактора"
+            description: "Подписант от финансового агента."
+            required: false
+            display_in_grid: false
+          - name: "factor_signatory_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["charter", "poa", "order", "other", "not_defined"]
+            description: "Основание полномочий подписанта фактора."
+            required: false
+          - name: "client_details_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус идентификации клиента."
+            required: true
+          - name: "client_details_value"
+            type: "string"
+            presentation: "fact"
+            label: "Клиент"
+            description: "Наименование и реквизиты клиента."
+            required: true
+            display_in_grid: true
+            display_priority: 2
+          - name: "client_signatory"
+            type: "string"
+            presentation: "fact"
+            label: "Подписант клиента"
+            description: "Подписант от клиента."
+            required: false
+            display_in_grid: false
+          - name: "client_signatory_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["charter", "poa", "order", "other", "not_defined"]
+            description: "Основание полномочий подписанта клиента."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 2: Базовая структура факторинга
+# ──────────────────────────────────────────────────────────────────────────
   - id: factoring_subject_extraction
     name: "Базовое извлечение структуры факторинга"
-    description: "Извлекает финансового агента, клиента, должника, финансирование, вид уступаемого требования и регрессность"
+    description: >
+      Фактографическая проверка ключевых параметров договора факторинга:
+      тип уступаемого требования, основание требования, размер финансирования,
+      вознаграждение фактора, вид факторинга и порядок уведомления должника.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -847,92 +761,253 @@ checks_v8:
         - "(?i)(с\\s+регрессом|без\\s+регресса|безрегрессн)"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор факторинга.
-        Извлеки ключевые параметры договора строго по тексту.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор финансирования под уступку денежного требования
+        (факторинг) по Главе 43 ГК РФ.
+        Проверяется только один вопрос: базовая структура сделки факторинга.
+        Нормативный ориентир:
+        - ст. 824 ГК РФ — договор финансирования под уступку денежного требования
+        - ст. 826 ГК РФ — денежное требование
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Тип уступаемого требования (существующее / будущее / смешанное).
+        2. Основание требования (договор поставки, оказания услуг и т.д.).
+        3. Размер финансирования.
+        4. Вознаграждение фактора.
+        5. Вид факторинга (с регрессом / без регресса).
+        6. Наличие порядка уведомления должника.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined" / "Данные не определены".
+        3. Не используй "None", "null", "not_defined" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Клиент уступает Фактору денежное требование к ООО «Покупатель»
+        по договору поставки № 45 от 01.03.2024. Фактор выплачивает Клиенту
+        финансирование в размере 90% от суммы требования. Комиссия Фактора —
+        2% годовых. Факторинг без регресса. Должник уведомляется Клиентом."
+        Ответ:
         {
-          "factor": "<финансовый агент/фактор или not_found>",
-          "client": "<клиент или not_found>",
-          "debtor": "<должник или not_found>",
-          "claim_type": "<existing / future / mixed / unclear / not_found>",
-          "assigned_claim_basis": "<основание требования или not_found>",
-          "financing_amount": "<сумма финансирования или not_found>",
-          "factor_fee": "<вознаграждение фактора или not_found>",
-          "factoring_type": "<recourse / non_recourse / unclear / not_found>",
-          "debtor_notification_status": "<present / not_found>"
+          "claim_type": "existing",
+          "assigned_claim_basis": "договор поставки № 45 от 01.03.2024",
+          "financing_amount_status": "defined",
+          "financing_amount_value": "90% от суммы требования",
+          "factor_fee_status": "defined",
+          "factor_fee_value": "2% годовых",
+          "factoring_type": "non_recourse",
+          "debtor_notification_status": "defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.1",
+              "quote": "Клиент уступает Фактору денежное требование к ООО «Покупатель» по договору поставки № 45 от 01.03.2024."
+            }
+          ]
         }
 
-        Используй только сведения из текста.
-        Если данных нет — пиши "not_found".
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Фактор предоставляет финансирование Клиенту."
+        Ответ:
+        {
+          "claim_type": "not_defined",
+          "assigned_claim_basis": "Данные не определены",
+          "financing_amount_status": "not_defined",
+          "financing_amount_value": "Данные не определены",
+          "factor_fee_status": "not_defined",
+          "factor_fee_value": "Данные не определены",
+          "factoring_type": "not_defined",
+          "debtor_notification_status": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о типе требования.
+        2. Найди прямую цитату об основании требования.
+        3. Найди прямую цитату о размере финансирования.
+        4. Найди прямую цитату о вознаграждении фактора.
+        5. Найди прямую цитату о виде факторинга.
+        6. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "claim_type": "<existing / future / mixed / not_defined>",
+          "assigned_claim_basis": "<текст или 'Данные не определены'>",
+          "financing_amount_status": "<defined / not_defined>",
+          "financing_amount_value": "<текст или 'Данные не определены'>",
+          "factor_fee_status": "<defined / not_defined>",
+          "factor_fee_value": "<текст или 'Данные не определены'>",
+          "factoring_type": "<recourse / non_recourse / not_defined>",
+          "debtor_notification_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
-      max_tokens: 700
-    retrieval:
-      retrieval_profile: "assignment_check"
-      context_k: 6
-      max_chunks: 10
-      boost_keywords:
-        - "финансовый агент"
-        - "уступка денежного требования"
-        - "финансирование"
-        - "регресс"
-        - "уведомление должника"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 50
-      max_snippet_length: 700
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      llm_max_tokens: 1150
-      fields:
-        - name: "factor"
-          type: "string"
-          keyword_hints: ["финансовый агент", "фактор"]
-          description: "Финансовый агент"
-        - name: "client"
-          type: "string"
-          keyword_hints: ["клиент"]
-          description: "Клиент"
-        - name: "debtor"
-          type: "string"
-          keyword_hints: ["должник", "дебитор"]
-          description: "Должник"
-        - name: "claim_type"
-          type: "string"
-          allowed_values: ["existing", "future", "mixed", "unclear", "not_found"]
-          description: "Тип уступаемого требования"
-        - name: "assigned_claim_basis"
-          type: "string"
-          keyword_hints: ["договор поставки", "договор оказания услуг", "основание требования"]
-          description: "Основание требования"
-        - name: "financing_amount"
-          type: "string"
-          keyword_hints: ["сумма финансирования", "размер финансирования", "аванс"]
-          description: "Размер финансирования"
-        - name: "factor_fee"
-          type: "string"
-          keyword_hints: ["факторинговая комиссия", "вознаграждение", "дисконт"]
-          description: "Вознаграждение фактора"
-        - name: "factoring_type"
-          type: "string"
-          allowed_values: ["recourse", "non_recourse", "unclear", "not_found"]
-          description: "Вид факторинга"
-        - name: "debtor_notification_status"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Наличие порядка уведомления должника"
-      store_payload: true
-
+      max_tokens: 750
+      retrieval:
+        retrieval_profile: "assignment_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "финансовый агент фактор клиент должник финансирование уступка денежного требования с регрессом без регресса уведомление должника комиссия вознаграждение"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - definitions
+          - obligations
+        negative_keywords:
+          - "зачет"
+          - "возражения должника"
+          - "банкротство"
+          - "конфиденциальность"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.0, 0.40]
+          boost: 0.20
+          scope: segment
+        context_k: 6
+        max_chunks: 10
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "definitions"
+            - "obligations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 50
+        max_snippet_length: 700
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 1200
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга базовую
+          структуру сделки: тип требования, основание, финансирование, вознаграждение,
+          вид факторинга и уведомление должника.
+          Не анализируй зачёт, возражения должника или банкротство.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. claim_type — existing / future / mixed / not_defined.
+          2. assigned_claim_basis — основание требования.
+          3. financing_amount_status — "defined" или "not_defined".
+          4. financing_amount_value — размер финансирования.
+          5. factor_fee_status — "defined" или "not_defined".
+          6. factor_fee_value — вознаграждение фактора.
+          7. factoring_type — recourse / non_recourse / not_defined.
+          8. debtor_notification_status — "defined" или "not_defined".
+          Если данные отсутствуют:
+          - статус = "not_defined"
+          - текст = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - claim_type: "existing" — требование существует на момент договора;
+            "future" — требование возникнет в будущем; "mixed" — оба типа.
+          - factoring_type: "recourse" — с регрессом; "non_recourse" — без регресса.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "claim_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["existing", "future", "mixed", "not_defined"]
+            description: "Тип уступаемого требования."
+            required: true
+          - name: "assigned_claim_basis"
+            type: "string"
+            presentation: "fact"
+            label: "Основание требования"
+            description: "Основание возникновения уступаемого требования."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "financing_amount_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения размера финансирования."
+            required: true
+          - name: "financing_amount_value"
+            type: "string"
+            presentation: "fact"
+            label: "Размер финансирования"
+            description: "Размер финансирования клиента фактором."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "factor_fee_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения вознаграждения фактора."
+            required: true
+          - name: "factor_fee_value"
+            type: "string"
+            presentation: "fact"
+            label: "Вознаграждение фактора"
+            description: "Размер и структура вознаграждения фактора."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+          - name: "factoring_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["recourse", "non_recourse", "not_defined"]
+            description: "Вид факторинга по регрессности."
+            required: true
+          - name: "debtor_notification_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус наличия порядка уведомления должника."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 3: Идентификация уступаемого требования
+# ──────────────────────────────────────────────────────────────────────────
   - id: assigned_claim_identification_check
-    name: "Идентификация уступаемого денежного требования"
-    description: "Проверяет достаточную определимость уступаемого требования, включая основание, сумму и должника"
+    name: "Идентификация уступаемого денежного требования (ст. 826 ГК РФ)"
+    description: >
+      Фактографическая проверка достаточной определимости уступаемого требования:
+      должник, сумма, основание, реестр или приложение с требованиями.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -951,69 +1026,214 @@ checks_v8:
         - "(?i)реестр\\s+уступленн(ых|ые)\\s+требован"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор факторинга.
-        Проверь, достаточно ли определено уступаемое требование.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор факторинга по Главе 43 ГК РФ.
+        Проверяется только один вопрос: достаточная определимость
+        уступаемого денежного требования.
+        Нормативный ориентир:
+        - ст. 826 ГК РФ — денежное требование
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Идентифицирован ли должник по уступаемому требованию.
+        2. Идентифицирована ли сумма требования.
+        3. Указано ли основание требования (договор, счёт, накладная).
+        4. Есть ли реестр или приложение с перечнем требований.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Клиент уступает Фактору требование к ООО «Покупатель» (ИНН 7700000003)
+        по договору поставки № 45 от 01.03.2024 на сумму 5 000 000 рублей.
+        Перечень требований — Приложение № 1 (Реестр уступленных требований)."
+        Ответ:
         {
-          "claim_identification_status": "<clear / partial / not_found>",
+          "claim_identification_status": "clear",
+          "debtor_identified": "yes",
+          "claim_amount_identified": "yes",
+          "underlying_contract_identified": "yes",
+          "registry_or_schedule_present": "yes",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.1",
+              "quote": "Клиент уступает Фактору требование к ООО «Покупатель» (ИНН 7700000003) по договору поставки № 45 от 01.03.2024 на сумму 5 000 000 рублей."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Клиент уступает Фактору дебиторскую задолженность."
+        Ответ:
+        {
+          "claim_identification_status": "partial",
+          "debtor_identified": "no",
+          "claim_amount_identified": "no",
+          "underlying_contract_identified": "no",
+          "registry_or_schedule_present": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.1",
+              "quote": "Клиент уступает Фактору дебиторскую задолженность."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с должником.
+        2. Найди прямую цитату с суммой.
+        3. Найди прямую цитату с основанием.
+        4. Найди прямую цитату о реестре/приложении.
+        5. Если прямой цитаты нет — верни "not_defined" или "no".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "claim_identification_status": "<clear / partial / not_defined>",
           "debtor_identified": "<yes / no>",
           "claim_amount_identified": "<yes / no>",
           "underlying_contract_identified": "<yes / no>",
-          "registry_or_schedule_present": "<yes / no / not_found>"
+          "registry_or_schedule_present": "<yes / no / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-
-        Используй только текст договора.
-      prompt_file: null
       context_k: 5
       temperature: 0.0
-      max_tokens: 380
-    retrieval:
-      context_k: 5
-      max_chunks: 8
-      retrieval_profile: "assignment_check"
-      boost_keywords:
-        - "денежное требование"
-        - "должник"
-        - "реестр уступленных требований"
-        - "основание требования"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "claim_identification_status"
-          type: "string"
-          allowed_values: ["clear", "partial", "not_found"]
-          description: "Статус идентификации требования"
-        - name: "debtor_identified"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Идентифицирован ли должник"
-        - name: "claim_amount_identified"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Идентифицирована ли сумма требования"
-        - name: "underlying_contract_identified"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Указано ли основание требования"
-        - name: "registry_or_schedule_present"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Есть ли реестр/приложение с требованиями"
-      store_payload: true
-
+      max_tokens: 550
+      retrieval:
+        retrieval_profile: "assignment_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "денежное требование дебиторская задолженность должник основание требования договор поставки реестр уступленных требований сумма требования приложение"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - definitions
+          - obligations
+        negative_keywords:
+          - "регресс"
+          - "уведомление должника"
+          - "комиссия"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.0, 0.40]
+          boost: 0.20
+          scope: segment
+        context_k: 5
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "definitions"
+            - "obligations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 700
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга сведения
+          об идентификации уступаемого требования: должник, сумма, основание, реестр.
+          Не анализируй финансирование, регресс или уведомление должника.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. claim_identification_status — clear / partial / not_defined.
+          2. debtor_identified — yes / no.
+          3. claim_amount_identified — yes / no.
+          4. underlying_contract_identified — yes / no.
+          5. registry_or_schedule_present — yes / no / not_defined.
+          Если данные отсутствуют: используй "no" или "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - claim_identification_status: "clear" — должник, сумма и основание
+            прямо указаны; "partial" — указана только часть данных;
+            "not_defined" — данные отсутствуют.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "claim_identification_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["clear", "partial", "not_defined"]
+            description: "Статус идентификации уступаемого требования."
+            required: true
+          - name: "debtor_identified"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no"]
+            description: "Идентифицирован ли должник."
+            required: true
+          - name: "claim_amount_identified"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no"]
+            description: "Идентифицирована ли сумма требования."
+            required: false
+          - name: "underlying_contract_identified"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no"]
+            description: "Указано ли основание требования."
+            required: false
+          - name: "registry_or_schedule_present"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Наличие реестра или приложения с требованиями."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 4: Финансирование и вознаграждение фактора
+# ──────────────────────────────────────────────────────────────────────────
   - id: financing_and_fee_structure_check
-    name: "Финансирование и структура вознаграждения фактора"
-    description: "Проверяет размер финансирования, сроки выплаты и прозрачность комиссий/дисконта"
+    name: "Финансирование и структура вознаграждения фактора (ст. 824 ГК РФ)"
+    description: >
+      Фактографическая проверка размера финансирования, сроков выплаты,
+      прозрачности комиссий/дисконта и условия возврата излишка клиенту.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1025,6 +1245,7 @@ checks_v8:
         - "дисконт"
         - "дополнительные платежи"
         - "по тарифам"
+        - "возврат излишка"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)(сумма|размер)\\s+финансирован"
@@ -1032,64 +1253,206 @@ checks_v8:
         - "(?i)дисконт|вознаграждени"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор факторинга.
-        Проверь условия финансирования и вознаграждения фактора.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор факторинга по Главе 43 ГК РФ.
+        Проверяется только один вопрос: условия финансирования и вознаграждения фактора.
+        Нормативный ориентир:
+        - ст. 824 ГК РФ — финансирование и вознаграждение
+        - ст. 831 ГК РФ — распределение сумм
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Понятность условий финансирования.
+        2. Прозрачность структуры вознаграждения фактора.
+        3. Наличие открытых/скрытых комиссий.
+        4. Условие о возврате клиенту излишка.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Фактор выплачивает Клиенту 85% от суммы требования в течение 3 рабочих дней.
+        Комиссия Фактора — 1,5% от суммы требования. Иных платежей не взимается.
+        Сумма, полученная от должника сверх финансирования и комиссии, возвращается Клиенту."
+        Ответ:
         {
-          "financing_terms_status": "<clear / partial / not_found>",
-          "fee_structure_status": "<transparent / vague / not_found>",
-          "open_ended_fees_risk": "<high / medium / low / not_found>",
-          "client_excess_return_clause": "<present / not_found>"
+          "financing_terms_status": "clear",
+          "fee_structure_status": "transparent",
+          "open_ended_fees_risk": "low",
+          "client_excess_return_clause": "present",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "Фактор выплачивает Клиенту 85% от суммы требования в течение 3 рабочих дней. Комиссия Фактора — 1,5% от суммы требования."
+            }
+          ]
         }
 
-        - "vague" — если есть формулы об оплате по тарифам, дополнительным платежам или дискреции фактора без полного раскрытия.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Фактор выплачивает финансирование в порядке, определённом тарифами Фактора."
+        Ответ:
+        {
+          "financing_terms_status": "partial",
+          "fee_structure_status": "vague",
+          "open_ended_fees_risk": "high",
+          "client_excess_return_clause": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "Фактор выплачивает финансирование в порядке, определённом тарифами Фактора."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о размере и сроках финансирования.
+        2. Найди прямую цитату о комиссиях/дисконте.
+        3. Найди прямую цитату об открытых тарифах или дополнительных платежах.
+        4. Найди прямую цитату о возврате излишка.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "financing_terms_status": "<clear / partial / not_defined>",
+          "fee_structure_status": "<transparent / vague / not_defined>",
+          "open_ended_fees_risk": "<high / medium / low / not_defined>",
+          "client_excess_return_clause": "<present / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
-      max_tokens: 420
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      retrieval_profile: "payment_terms_check"
-      boost_keywords:
-        - "сумма финансирования"
-        - "факторинговая комиссия"
-        - "дисконт"
-        - "тарифы"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 45
-      max_snippet_length: 650
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "financing_terms_status"
-          type: "string"
-          allowed_values: ["clear", "partial", "not_found"]
-          description: "Понятность условий финансирования"
-        - name: "fee_structure_status"
-          type: "string"
-          allowed_values: ["transparent", "vague", "not_found"]
-          description: "Прозрачность вознаграждения фактора"
-        - name: "open_ended_fees_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск скрытых/открытых комиссий"
-        - name: "client_excess_return_clause"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли условие о возврате клиенту излишка"
-      store_payload: true
-
+      max_tokens: 550
+      retrieval:
+        retrieval_profile: "payment_terms_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "сумма финансирования размер финансирования факторинговая комиссия вознаграждение дисконт тарифы дополнительные платежи возврат излишка"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - procedures
+        negative_keywords:
+          - "регресс"
+          - "уведомление должника"
+          - "зачет"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.15, 0.55]
+          boost: 0.18
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "procedures"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 45
+        max_snippet_length: 650
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 700
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга условия
+          финансирования и вознаграждения: понятность, прозрачность, открытые комиссии,
+          возврат излишка.
+          Не анализируй регресс, уведомление должника или банкротство.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. financing_terms_status — clear / partial / not_defined.
+          2. fee_structure_status — transparent / vague / not_defined.
+          3. open_ended_fees_risk — high / medium / low / not_defined.
+          4. client_excess_return_clause — present / not_defined.
+          Если данные отсутствуют: используй "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - fee_structure_status: "transparent" — все комиссии прямо перечислены;
+            "vague" — есть ссылки на тарифы, дискрецию фактора или открытые платежи.
+          - open_ended_fees_risk: "high" — есть открытые тарифы или одностороннее
+            изменение комиссий; "medium" — частично раскрыто; "low" — всё раскрыто.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "financing_terms_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["clear", "partial", "not_defined"]
+            description: "Понятность условий финансирования."
+            required: true
+          - name: "fee_structure_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["transparent", "vague", "not_defined"]
+            description: "Прозрачность структуры вознаграждения фактора."
+            required: true
+          - name: "open_ended_fees_risk"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["high", "medium", "low", "not_defined"]
+            description: "Риск скрытых/открытых комиссий."
+            required: false
+          - name: "client_excess_return_clause"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Наличие условия о возврате клиенту излишка."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 5: Регресс / безрегрессность
+# ──────────────────────────────────────────────────────────────────────────
   - id: recourse_allocation_check
-    name: "Регресс / безрегрессность и распределение кредитного риска"
-    description: "Проверяет вид факторинга, условия регресса и распределение риска неплатежа должника"
+    name: "Регресс / безрегрессность и распределение кредитного риска (ст. 831 ГК РФ)"
+    description: >
+      Фактографическая проверка вида факторинга, условий регресса,
+      распределения риска неплатежа должника и лимита ответственности клиента.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1100,6 +1463,7 @@ checks_v8:
         - "регрессное требование"
         - "риск неплатежа"
         - "обязан возвратить финансирование"
+        - "лимит ответственности клиента"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)(с\\s+регрессом|без\\s+регресса|безрегрессн)"
@@ -1107,63 +1471,208 @@ checks_v8:
         - "(?i)риск\\s+неплатежа"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор факторинга.
-        Проверь распределение риска неплатежа должника и условия регресса.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор факторинга по Главе 43 ГК РФ.
+        Проверяется только один вопрос: распределение кредитного риска должника
+        и условия регресса.
+        Нормативный ориентир:
+        - ст. 831 ГК РФ — распределение сумм, регресс
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Вид факторинга (с регрессом / без регресса / противоречивый).
+        2. Понятность условий регресса.
+        3. Наличие лимита ответственности клиента.
+        4. Понятность распределения кредитного риска.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Факторинг без регресса. Риск неплатежа должника несёт Фактор.
+        Фактор не вправе требовать от Клиента возврата финансирования
+        при неплатеже должника."
+        Ответ:
         {
-          "factoring_type": "<recourse / non_recourse / mixed_or_contradictory / unclear / not_found>",
-          "recourse_trigger_conditions": "<clear / vague / not_found>",
-          "client_liability_cap": "<present / not_found>",
-          "risk_allocation_clarity": "<clear / unclear / not_found>"
+          "factoring_type": "non_recourse",
+          "recourse_trigger_conditions": "not_defined",
+          "client_liability_cap": "not_defined",
+          "risk_allocation_clarity": "clear",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.1",
+              "quote": "Факторинг без регресса. Риск неплатежа должника несёт Фактор."
+            }
+          ]
         }
 
-        - "mixed_or_contradictory" — если договор одновременно содержит признаки безрегрессного факторинга и регрессных обязательств клиента.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Факторинг с регрессом. При неплатеже должника в течение 90 дней
+        Клиент обязан вернуть финансирование. Максимальная сумма регресса
+        не превышает сумму финансирования."
+        Ответ:
+        {
+          "factoring_type": "recourse",
+          "recourse_trigger_conditions": "clear",
+          "client_liability_cap": "present",
+          "risk_allocation_clarity": "clear",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.1",
+              "quote": "Факторинг с регрессом. При неплатеже должника в течение 90 дней Клиент обязан вернуть финансирование."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о виде факторинга.
+        2. Найди прямую цитату об условиях регресса.
+        3. Найди прямую цитату о лимите ответственности.
+        4. Проверь, нет ли противоречия между безрегрессной формулой и регрессными обязанностями.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "factoring_type": "<recourse / non_recourse / mixed_or_contradictory / not_defined>",
+          "recourse_trigger_conditions": "<clear / vague / not_defined>",
+          "client_liability_cap": "<present / not_defined>",
+          "risk_allocation_clarity": "<clear / unclear / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
-      max_tokens: 420
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "с регрессом"
-        - "без регресса"
-        - "риск неплатежа"
-        - "возврат финансирования"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 45
-      max_snippet_length: 650
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "factoring_type"
-          type: "string"
-          allowed_values: ["recourse", "non_recourse", "mixed_or_contradictory", "unclear", "not_found"]
-          description: "Вид факторинга"
-        - name: "recourse_trigger_conditions"
-          type: "string"
-          allowed_values: ["clear", "vague", "not_found"]
-          description: "Понятность условий регресса"
-        - name: "client_liability_cap"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли лимит ответственности клиента"
-        - name: "risk_allocation_clarity"
-          type: "string"
-          allowed_values: ["clear", "unclear", "not_found"]
-          description: "Понятность распределения кредитного риска"
-      store_payload: true
-
+      max_tokens: 550
+      retrieval:
+        retrieval_profile: "liability_cap_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "с регрессом без регресса безрегрессный регрессное требование риск неплатежа обязан возвратить финансирование лимит ответственности клиента"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - limitations
+        negative_keywords:
+          - "уведомление должника"
+          - "комиссия"
+          - "зачет"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.25, 0.70]
+          boost: 0.18
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "limitations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 45
+        max_snippet_length: 650
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 700
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга сведения
+          о распределении кредитного риска: вид факторинга, условия регресса,
+          лимит ответственности клиента.
+          Не анализируй финансирование, уведомление должника или банкротство.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. factoring_type — recourse / non_recourse / mixed_or_contradictory / not_defined.
+          2. recourse_trigger_conditions — clear / vague / not_defined.
+          3. client_liability_cap — present / not_defined.
+          4. risk_allocation_clarity — clear / unclear / not_defined.
+          Если данные отсутствуют: используй "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - factoring_type: "mixed_or_contradictory" — если договор одновременно
+            содержит признаки безрегрессного факторинга и регрессные обязанности клиента.
+          - Не выводи вид факторинга из нормы ст. 831 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "factoring_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["recourse", "non_recourse", "mixed_or_contradictory", "not_defined"]
+            description: "Вид факторинга по регрессности."
+            required: true
+          - name: "recourse_trigger_conditions"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["clear", "vague", "not_defined"]
+            description: "Понятность условий регресса."
+            required: false
+          - name: "client_liability_cap"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Наличие лимита ответственности клиента."
+            required: false
+          - name: "risk_allocation_clarity"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["clear", "unclear", "not_defined"]
+            description: "Понятность распределения кредитного риска."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 6: Уведомление должника
+# ──────────────────────────────────────────────────────────────────────────
   - id: debtor_notification_check
-    name: "Уведомление должника и порядок исполнения в пользу фактора"
-    description: "Проверяет порядок уведомления должника, ответственного за уведомление и момент, с которого должник должен платить фактору"
+    name: "Уведомление должника и порядок исполнения в пользу фактора (ст. 830 ГК РФ)"
+    description: >
+      Фактографическая проверка порядка уведомления должника об уступке,
+      ответственной стороны, момента перехода платежа фактору
+      и доказательственного механизма уведомления.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1181,63 +1690,200 @@ checks_v8:
         - "(?i)платеж.*финансовому\\s+агенту"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор факторинга.
-        Проверь порядок уведомления должника и исполнения уступленного требования.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор факторинга по Главе 43 ГК РФ.
+        Проверяется только один вопрос: порядок уведомления должника
+        и исполнения уступленного требования в пользу фактора.
+        Нормативный ориентир:
+        - ст. 830 ГК РФ — исполнение должником
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие порядка уведомления должника.
+        2. Кто уведомляет должника (клиент / фактор / оба).
+        3. Кому платит должник после уведомления.
+        4. Наличие доказательственного механизма уведомления.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. Не используй "None", "null" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Клиент обязан уведомить должника об уступке в течение 3 рабочих дней.
+        После получения уведомления должник обязан производить платежи Фактору.
+        Уведомление направляется заказным письмом с описью вложения."
+        Ответ:
         {
-          "notification_clause_status": "<present / not_found>",
-          "who_notifies_debtor": "<client / factor / both / not_found>",
-          "payment_routing_after_notice": "<factor / client / unclear / not_found>",
-          "proof_of_notice_mechanism": "<present / not_found>"
+          "notification_clause_status": "present",
+          "who_notifies_debtor": "client",
+          "payment_routing_after_notice": "factor",
+          "proof_of_notice_mechanism": "present",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.1",
+              "quote": "Клиент обязан уведомить должника об уступке в течение 3 рабочих дней."
+            }
+          ]
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Фактор приобретает право требования."
+        Ответ:
+        {
+          "notification_clause_status": "not_defined",
+          "who_notifies_debtor": "not_defined",
+          "payment_routing_after_notice": "not_defined",
+          "proof_of_notice_mechanism": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об уведомлении должника.
+        2. Найди прямую цитату о том, кто уведомляет.
+        3. Найди прямую цитату о маршрутизации платежа.
+        4. Найди прямую цитату о доказательстве уведомления.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "notification_clause_status": "<present / not_defined>",
+          "who_notifies_debtor": "<client / factor / both / not_defined>",
+          "payment_routing_after_notice": "<factor / client / unclear / not_defined>",
+          "proof_of_notice_mechanism": "<present / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 360
-    retrieval:
-      context_k: 5
-      max_chunks: 8
-      retrieval_profile: "notice_check"
-      boost_keywords:
-        - "уведомление должника"
-        - "об уступке"
-        - "платеж фактору"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 580
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "notification_clause_status"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли порядок уведомления должника"
-        - name: "who_notifies_debtor"
-          type: "string"
-          allowed_values: ["client", "factor", "both", "not_found"]
-          description: "Кто уведомляет должника"
-        - name: "payment_routing_after_notice"
-          type: "string"
-          allowed_values: ["factor", "client", "unclear", "not_found"]
-          description: "Кому платит должник после уведомления"
-        - name: "proof_of_notice_mechanism"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли доказательственный механизм уведомления"
-      store_payload: true
-
+      max_tokens: 500
+      retrieval:
+        retrieval_profile: "notice_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "уведомление должника об уступке платеж финансовому агенту исполнение в пользу фактора получение уведомления кто уведомляет доказательство"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - procedures
+          - obligations
+        negative_keywords:
+          - "регресс"
+          - "комиссия"
+          - "зачет"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.20, 0.65]
+          boost: 0.18
+          scope: segment
+        context_k: 5
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "procedures"
+            - "obligations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 580
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 600
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга сведения
+          об уведомлении должника: порядок, ответственная сторона, маршрутизация
+          платежа, доказательство уведомления.
+          Не анализируй регресс, комиссию или банкротство.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. notification_clause_status — present / not_defined.
+          2. who_notifies_debtor — client / factor / both / not_defined.
+          3. payment_routing_after_notice — factor / client / unclear / not_defined.
+          4. proof_of_notice_mechanism — present / not_defined.
+          Если данные отсутствуют: используй "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - payment_routing_after_notice: "factor" — должник платит фактору;
+            "client" — должник платит клиенту (скрытый факторинг);
+            "unclear" — неясно.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "notification_clause_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Наличие порядка уведомления должника."
+            required: true
+          - name: "who_notifies_debtor"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["client", "factor", "both", "not_defined"]
+            description: "Кто уведомляет должника."
+            required: false
+          - name: "payment_routing_after_notice"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["factor", "client", "unclear", "not_defined"]
+            description: "Кому платит должник после уведомления."
+            required: false
+          - name: "proof_of_notice_mechanism"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Наличие доказательственного механизма уведомления."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 7: Зачёт и повторная уступка
+# ──────────────────────────────────────────────────────────────────────────
   - id: setoff_and_double_assignment_risk_check
-    name: "Зачет встречных требований и повторная уступка"
-    description: "Проверяет наличие защиты фактора от зачета и повторной уступки того же требования"
+    name: "Защита от зачёта встречных требований и повторной уступки (ст. 829, 832 ГК РФ)"
+    description: >
+      Фактографическая проверка наличия защиты фактора от зачёта встречных
+      требований должника и запрета повторной уступки того же требования.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1255,58 +1901,187 @@ checks_v8:
         - "(?i)повторн(ая|ой)\\s+уступк|последующ(ая|ей)\\s+уступк"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор факторинга.
-        Проверь, есть ли защита от зачета и повторной уступки.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор факторинга по Главе 43 ГК РФ.
+        Проверяется только один вопрос: защита фактора от зачёта
+        встречных требований должника и повторной уступки.
+        Нормативный ориентир:
+        - ст. 829 ГК РФ — недействительность последующей уступки
+        - ст. 832 ГК РФ — возражения должника
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие защиты от зачёта встречных требований.
+        2. Наличие запрета повторной уступки.
+        3. Наличие заверения клиента об отсутствии встречных требований.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. В evidence включай только текст договора.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Клиент заверяет, что у должника отсутствуют встречные требования,
+        которые могут быть предъявлены к зачёту. Клиент не вправе уступать
+        то же требование третьим лицам."
+        Ответ:
         {
-          "setoff_protection_status": "<present / partial / not_found>",
-          "subsequent_assignment_prohibition": "<present / not_found>",
-          "client_warranty_on_no_setoff": "<present / not_found>"
+          "setoff_protection_status": "present",
+          "subsequent_assignment_prohibition": "present",
+          "client_warranty_on_no_setoff": "present",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.2",
+              "quote": "Клиент заверяет, что у должника отсутствуют встречные требования, которые могут быть предъявлены к зачёту."
+            }
+          ]
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Клиент уступает требование Фактору."
+        Ответ:
+        {
+          "setoff_protection_status": "not_defined",
+          "subsequent_assignment_prohibition": "not_defined",
+          "client_warranty_on_no_setoff": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о защите от зачёта.
+        2. Найди прямую цитату о запрете повторной уступки.
+        3. Найди прямую цитату о заверении клиента.
+        4. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "setoff_protection_status": "<present / partial / not_defined>",
+          "subsequent_assignment_prohibition": "<present / not_defined>",
+          "client_warranty_on_no_setoff": "<present / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      retrieval_profile: "assignment_check"
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "зачет"
-        - "встречные требования"
-        - "запрет последующей уступки"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "setoff_protection_status"
-          type: "string"
-          allowed_values: ["present", "partial", "not_found"]
-          description: "Статус защиты от зачета"
-        - name: "subsequent_assignment_prohibition"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли запрет повторной уступки"
-        - name: "client_warranty_on_no_setoff"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли заверение клиента об отсутствии зачета"
-      store_payload: true
-
+      max_tokens: 450
+      retrieval:
+        retrieval_profile: "assignment_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "встречные требования зачет отсутствие встречных требований повторная уступка клиент не вправе уступать запрет последующей уступки заверение"
+        preferred_unit_types:
+          - warranty
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - limitations
+        negative_keywords:
+          - "регресс"
+          - "комиссия"
+          - "уведомление должника"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.30, 0.75]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "limitations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 500
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга сведения
+          о защите от зачёта и повторной уступки.
+          Не анализируй регресс, финансирование или банкротство.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. setoff_protection_status — present / partial / not_defined.
+          2. subsequent_assignment_prohibition — present / not_defined.
+          3. client_warranty_on_no_setoff — present / not_defined.
+          Если данные отсутствуют: используй "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - setoff_protection_status: "present" — есть заверение и/или компенсация;
+            "partial" — есть только часть защиты; "not_defined" — отсутствует.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "setoff_protection_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "partial", "not_defined"]
+            description: "Статус защиты от зачёта."
+            required: true
+          - name: "subsequent_assignment_prohibition"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Наличие запрета повторной уступки."
+            required: false
+          - name: "client_warranty_on_no_setoff"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Наличие заверения клиента об отсутствии зачёта."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 8: Передача документов и банкротные заверения
+# ──────────────────────────────────────────────────────────────────────────
   - id: document_transfer_and_bankruptcy_check
-    name: "Передача документов и банкротные заверения клиента"
-    description: "Проверяет обязанность клиента передать подтверждающие документы и заверения об отсутствии признаков банкротства"
+    name: "Передача документов и банкротные заверения клиента (ст. 61.2 ФЗ-127)"
+    description: >
+      Фактографическая проверка обязанности клиента передать подтверждающие
+      документы и заверений об отсутствии признаков банкротства.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1318,6 +2093,7 @@ checks_v8:
         - "счета-фактуры"
         - "отсутствие признаков банкротства"
         - "не находится в процедуре банкротства"
+        - "рыночные условия"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)передач[аи]\\s+документ"
@@ -1325,63 +2101,203 @@ checks_v8:
         - "(?i)признак(ов)?\\s+банкротств"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор факторинга.
-        Проверь наличие обязательств по передаче документов и заверений клиента о своем финансовом состоянии.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор факторинга по Главе 43 ГК РФ.
+        Проверяется только один вопрос: передача документов и банкротные заверения.
+        Нормативный ориентир:
+        - ст. 826, 830 ГК РФ — документы
+        - ст. 61.2, 61.3 ФЗ-127 — оспаривание сделок
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие обязательства передать документы.
+        2. Конкретизация перечня документов.
+        3. Наличие банкротных заверений клиента.
+        4. Наличие заверения о рыночности условий.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. В evidence включай только текст договора.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Клиент обязан передать Фактору оригиналы накладных, счетов-фактур
+        и актов по уступаемому требованию по акту приёма-передачи документов.
+        Клиент заверяет, что не находится в процедуре банкротства и не имеет
+        признаков неплатёжеспособности."
+        Ответ:
         {
-          "document_transfer_status": "<present / not_found>",
-          "document_list_specificity": "<specific / generic / not_found>",
-          "bankruptcy_representations_status": "<present / not_found>",
-          "market_terms_representation": "<present / not_found>"
+          "document_transfer_status": "present",
+          "document_list_specificity": "specific",
+          "bankruptcy_representations_status": "present",
+          "market_terms_representation": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "Клиент обязан передать Фактору оригиналы накладных, счетов-фактур и актов по уступаемому требованию."
+            }
+          ]
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Клиент предоставляет документы по запросу Фактора."
+        Ответ:
+        {
+          "document_transfer_status": "present",
+          "document_list_specificity": "generic",
+          "bankruptcy_representations_status": "not_defined",
+          "market_terms_representation": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "Клиент предоставляет документы по запросу Фактора."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о передаче документов.
+        2. Найди прямую цитату о банкротных заверениях.
+        3. Найди прямую цитату о рыночности.
+        4. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "document_transfer_status": "<present / not_defined>",
+          "document_list_specificity": "<specific / generic / not_defined>",
+          "bankruptcy_representations_status": "<present / not_defined>",
+          "market_terms_representation": "<present / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 340
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "передача документов"
-        - "накладные"
-        - "банкротство"
-        - "рыночные условия"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 520
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "document_transfer_status"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли обязательство передать документы"
-        - name: "document_list_specificity"
-          type: "string"
-          allowed_values: ["specific", "generic", "not_found"]
-          description: "Насколько конкретизирован перечень документов"
-        - name: "bankruptcy_representations_status"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли заверения о банкротстве"
-        - name: "market_terms_representation"
-          type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли заверение о рыночности/эквивалентности условий"
-      store_payload: true
-
+      max_tokens: 500
+      retrieval:
+        retrieval_profile: "warranties_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "передача документов оригиналы документов акт приема-передачи документов накладные счета-фактуры отсутствие признаков банкротства не находится в процедуре банкротства рыночные условия"
+        preferred_unit_types:
+          - warranty
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - obligations
+        negative_keywords:
+          - "регресс"
+          - "комиссия"
+          - "уведомление должника"
+          - "зачет"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.35, 0.80]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "obligations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 520
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 600
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга сведения
+          о передаче документов и банкротных заверениях клиента.
+          Не анализируй регресс, финансирование или уведомление должника.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. document_transfer_status — present / not_defined.
+          2. document_list_specificity — specific / generic / not_defined.
+          3. bankruptcy_representations_status — present / not_defined.
+          4. market_terms_representation — present / not_defined.
+          Если данные отсутствуют: используй "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - document_list_specificity: "specific" — перечислены конкретные документы;
+            "generic" — общая формулировка без перечня.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "document_transfer_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Наличие обязательства передать документы."
+            required: true
+          - name: "document_list_specificity"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["specific", "generic", "not_defined"]
+            description: "Конкретизация перечня документов."
+            required: false
+          - name: "bankruptcy_representations_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Наличие банкротных заверений клиента."
+            required: false
+          - name: "market_terms_representation"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Наличие заверения о рыночности условий."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 9: Возражения должника
+# ──────────────────────────────────────────────────────────────────────────
   - id: debtor_defenses_check
     name: "Право должника на возражения и зачёт (ст. 832 ГК РФ)"
-    description: "Проверяет раскрытие права должника на возражения и защиту фактора от зачёта"
+    description: >
+      Фактографическая проверка раскрытия риска возражений должника,
+      заверений клиента и механизмов компенсации фактору при зачёте.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1391,77 +2307,205 @@ checks_v8:
         - "встречные требования"
         - "зачет"
         - "отсутствие встречных требований"
+        - "компенсация при зачете"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)возражен(ия|ий)\\s+должник"
         - "(?i)встречн(ые|ых)\\s+требован"
     llm:
       prompt_template: |
-        Проанализируй договор факторинга на предмет защиты от возражений должника (ст. 832 ГК РФ).
-        
-        Проверь:
-        1. Раскрыт ли риск возражений должника
-        2. Есть ли заверение клиента об отсутствии оснований для возражений
-        3. Есть ли заверение об отсутствии встречных требований должника
-        4. Предусмотрена ли компенсация фактору при зачёте
-        
-        Ответь в JSON:
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор факторинга по Главе 43 ГК РФ.
+        Проверяется только один вопрос: защита фактора от возражений должника.
+        Нормативный ориентир:
+        - ст. 832 ГК РФ — возражения должника
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Раскрыт ли риск возражений должника.
+        2. Заверение клиента об отсутствии оснований для возражений.
+        3. Заверение об отсутствии встречных требований.
+        4. Компенсация фактору при зачёте.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. В evidence включай только текст договора.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Клиент заверяет, что должник не имеет оснований для возражений
+        против требования и не имеет встречных требований к зачёту.
+        В случае зачёта Клиент компенсирует Фактору убытки."
+        Ответ:
+        {
+          "debtor_defenses_risk_disclosed": "yes",
+          "no_defenses_warranty": "present",
+          "no_setoff_claims_warranty": "present",
+          "setoff_indemnity_clause": "present",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.3",
+              "quote": "Клиент заверяет, что должник не имеет оснований для возражений против требования и не имеет встречных требований к зачёту."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Фактор приобретает требование."
+        Ответ:
+        {
+          "debtor_defenses_risk_disclosed": "no",
+          "no_defenses_warranty": "not_defined",
+          "no_setoff_claims_warranty": "not_defined",
+          "setoff_indemnity_clause": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о раскрытии риска возражений.
+        2. Найди прямую цитату о заверениях клиента.
+        3. Найди прямую цитату о компенсации при зачёте.
+        4. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
         {
           "debtor_defenses_risk_disclosed": "<yes / no>",
-          "no_defenses_warranty": "<present / absent>",
-          "no_setoff_claims_warranty": "<present / absent>",
-          "setoff_indemnity_clause": "<present / absent>",
-          "dilution_risk_level": "<high / medium / low>"
+          "no_defenses_warranty": "<present / not_defined>",
+          "no_setoff_claims_warranty": "<present / not_defined>",
+          "setoff_indemnity_clause": "<present / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      prompt_file: null
       context_k: 5
       temperature: 0.0
-      max_tokens: 350
-    retrieval:
-      retrieval_profile: "assignment_check"
-      context_k: 5
-      max_chunks: 8
-      boost_keywords:
-        - "возражения должника"
-        - "зачет"
-        - "встречные требования"
-      rerank: true
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "debtor_defenses_risk_disclosed"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Раскрыт ли риск возражений"
-        - name: "no_defenses_warranty"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Заверение об отсутствии возражений"
-        - name: "no_setoff_claims_warranty"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Заверение об отсутствии встречных требований"
-        - name: "setoff_indemnity_clause"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Компенсация при зачёте"
-        - name: "dilution_risk_level"
-          type: "string"
-          allowed_values: ["high", "medium", "low"]
-          description: "Уровень риска размытия"
-      store_payload: true
-
+      max_tokens: 500
+      retrieval:
+        retrieval_profile: "assignment_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "возражения должника право на возражения встречные требования зачет отсутствие встречных требований компенсация при зачете заверение"
+        preferred_unit_types:
+          - warranty
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - remedies
+        negative_keywords:
+          - "регресс"
+          - "комиссия"
+          - "уведомление должника"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.30, 0.75]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "remedies"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 550
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 600
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга сведения
+          о защите от возражений должника: раскрытие риска, заверения, компенсация.
+          Не анализируй регресс, финансирование или банкротство.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. debtor_defenses_risk_disclosed — yes / no.
+          2. no_defenses_warranty — present / not_defined.
+          3. no_setoff_claims_warranty — present / not_defined.
+          4. setoff_indemnity_clause — present / not_defined.
+          Если данные отсутствуют: используй "not_defined" или "no".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - debtor_defenses_risk_disclosed: "yes" — риск прямо раскрыт;
+            "no" — не раскрыт.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "debtor_defenses_risk_disclosed"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no"]
+            description: "Раскрыт ли риск возражений должника."
+            required: true
+          - name: "no_defenses_warranty"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Заверение об отсутствии оснований для возражений."
+            required: false
+          - name: "no_setoff_claims_warranty"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Заверение об отсутствии встречных требований."
+            required: false
+          - name: "setoff_indemnity_clause"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Компенсация фактору при зачёте."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 10: Скрытый факторинг
+# ──────────────────────────────────────────────────────────────────────────
   - id: hidden_factoring_protection_check
     name: "Скрытый факторинг: механизмы защиты фактора"
-    description: "Проверяет наличие механизмов перевода средств фактору при скрытом факторинге"
+    description: >
+      Фактографическая проверка наличия механизмов перевода средств фактору
+      при скрытом факторинге: обязанность перечисления, сроки, специальный счёт,
+      отчётность, право фактора уведомить должника.
     triggers:
       any: ["hidden_factoring"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1471,79 +2515,233 @@ checks_v8:
         - "перечислить фактору"
         - "специальный счёт"
         - "отчётность перед фактором"
+        - "без уведомления должника"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)перечисл(ить|ение|яет).*фактор"
         - "(?i)специальн(ый|ого)\\s+счёт"
     llm:
       prompt_template: |
-        Проанализируй договор скрытого факторинга на предмет защиты фактора.
-        
-        Проверь:
-        1. Обязанность клиента перечислить полученное от должника фактору
-        2. Сроки перечисления
-        3. Требование специального счёта
-        4. Отчётность клиента перед фактором
-        5. Право фактора уведомить должника при нарушении
-        
-        Ответь в JSON:
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор скрытого факторинга по Главе 43 ГК РФ.
+        Проверяется только один вопрос: механизмы защиты фактора
+        при скрытом (конфиденциальном) факторинге.
+        Нормативный ориентир:
+        - ст. 830 ГК РФ — исполнение должником
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Обязанность клиента перечислить полученное от должника фактору.
+        2. Сроки перечисления.
+        3. Требование специального счёта.
+        4. Отчётность клиента перед фактором.
+        5. Право фактора уведомить должника при нарушении.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. В evidence включай только текст договора.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Клиент обязан перечислить Фактору все суммы, полученные от должника,
+        в течение 1 рабочего дня на специальный счёт Фактора. Клиент представляет
+        еженедельную отчётность. При нарушении Фактор вправе уведомить должника."
+        Ответ:
         {
-          "funds_transfer_obligation": "<present / absent>",
-          "transfer_deadline": "<specified / not_specified>",
-          "special_account_requirement": "<present / absent>",
-          "reporting_obligation": "<present / absent>",
-          "factor_right_to_notify_debtor": "<present / absent>",
-          "protection_level": "<strong / medium / weak / absent>"
+          "funds_transfer_obligation": "present",
+          "transfer_deadline": "specified",
+          "special_account_requirement": "present",
+          "reporting_obligation": "present",
+          "factor_right_to_notify_debtor": "present",
+          "protection_level": "strong",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.1",
+              "quote": "Клиент обязан перечислить Фактору все суммы, полученные от должника, в течение 1 рабочего дня на специальный счёт Фактора."
+            }
+          ]
         }
-      prompt_file: null
+
+        Пример 2:
+        Фрагмент:
+        "Факторинг является конфиденциальным."
+        Ответ:
+        {
+          "funds_transfer_obligation": "not_defined",
+          "transfer_deadline": "not_defined",
+          "special_account_requirement": "not_defined",
+          "reporting_obligation": "not_defined",
+          "factor_right_to_notify_debtor": "not_defined",
+          "protection_level": "absent",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.1",
+              "quote": "Факторинг является конфиденциальным."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об обязанности перечисления.
+        2. Найди прямую цитату о сроках.
+        3. Найди прямую цитату о специальном счёте.
+        4. Найди прямую цитату об отчётности.
+        5. Найди прямую цитату о праве уведомить должника.
+        6. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "funds_transfer_obligation": "<present / not_defined>",
+          "transfer_deadline": "<specified / not_defined>",
+          "special_account_requirement": "<present / not_defined>",
+          "reporting_obligation": "<present / not_defined>",
+          "factor_right_to_notify_debtor": "<present / not_defined>",
+          "protection_level": "<strong / medium / weak / absent>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 350
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      retrieval_profile: "assignment_check"
-      boost_keywords:
-        - "перечислить фактору"
-        - "специальный счёт"
-        - "отчётность"
-        - "уведомить должника"
-      rerank: true
-    evidence:
-      required: true
-      min_snippet_length: 35
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "funds_transfer_obligation"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Обязанность перечислить средства"
-        - name: "transfer_deadline"
-          type: "string"
-          allowed_values: ["specified", "not_specified"]
-          description: "Срок перечисления"
-        - name: "special_account_requirement"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Требование специального счёта"
-        - name: "factor_right_to_notify_debtor"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Право фактора уведомить должника"
-        - name: "protection_level"
-          type: "string"
-          allowed_values: ["strong", "medium", "weak", "absent"]
-          description: "Уровень защиты"
-      store_payload: true
-
+      max_tokens: 550
+      retrieval:
+        retrieval_profile: "assignment_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "перечислить фактору специальный счёт отчётность уведомить должника скрытый факторинг конфиденциальный без уведомления должника"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - procedures
+        negative_keywords:
+          - "регресс"
+          - "комиссия"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.30, 0.80]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "procedures"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 35
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 700
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора скрытого факторинга
+          механизмы защиты фактора: перечисление, сроки, спецсчёт, отчётность,
+          право уведомить должника.
+          Не анализируй регресс, комиссию или банкротство.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. funds_transfer_obligation — present / not_defined.
+          2. transfer_deadline — specified / not_defined.
+          3. special_account_requirement — present / not_defined.
+          4. reporting_obligation — present / not_defined.
+          5. factor_right_to_notify_debtor — present / not_defined.
+          6. protection_level — strong / medium / weak / absent.
+          Если данные отсутствуют: используй "not_defined" или "absent".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - protection_level: "strong" — все механизмы присутствуют;
+            "medium" — часть механизмов; "weak" — только общие формулировки;
+            "absent" — механизмы отсутствуют.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "funds_transfer_obligation"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Обязанность перечислить средства фактору."
+            required: true
+          - name: "transfer_deadline"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["specified", "not_defined"]
+            description: "Срок перечисления."
+            required: false
+          - name: "special_account_requirement"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Требование специального счёта."
+            required: false
+          - name: "reporting_obligation"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Отчётность клиента перед фактором."
+            required: false
+          - name: "factor_right_to_notify_debtor"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Право фактора уведомить должника при нарушении."
+            required: false
+          - name: "protection_level"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["strong", "medium", "weak", "absent"]
+            description: "Уровень защиты фактора при скрытом факторинге."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 11: Гарантии действительности требования
+# ──────────────────────────────────────────────────────────────────────────
   - id: claim_validity_warranties_check
     name: "Гарантии действительности уступаемого требования (ст. 827 ГК РФ)"
-    description: "Проверяет заверения клиента о действительности требования"
+    description: >
+      Фактографическая проверка заверений клиента о действительности требования:
+      существование, непогашенность, отсутствие оспаривания, действительность
+      основного договора, выполнение поставки/услуг, возмещение при недействительности.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1554,273 +2752,252 @@ checks_v8:
         - "требование существует"
         - "не погашено"
         - "не оспорено"
+        - "возмещение при недействительности"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)клиент.*(гарантирует|заверяет)"
         - "(?i)требовани[ея].*(существ|действительн)"
     llm:
       prompt_template: |
-        Проверь заверения о действительности требования по ст. 827 ГК РФ.
-        
-        Проверь наличие заверений:
-        1. Требование существует и действительно
-        2. Требование не погашено, не прекращено
-        3. Требование не оспаривается
-        4. Основной договор действует
-        5. Товар поставлен / услуга оказана
-        6. Возмещение при недействительности
-        
-        Ответь в JSON:
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор факторинга по Главе 43 ГК РФ.
+        Проверяется только один вопрос: заверения клиента о действительности
+        уступаемого требования.
+        Нормативный ориентир:
+        - ст. 827 ГК РФ — ответственность клиента перед фактором
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие заверения о действительности требования.
+        2. Заверение о существовании требования.
+        3. Заверение о непогашенности.
+        4. Заверение об отсутствии оспаривания.
+        5. Возмещение при недействительности требования.
+        6. Полнота заверений.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined".
+        3. В evidence включай только текст договора.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Клиент гарантирует, что требование существует, действительно,
+        не погашено, не оспаривается, основной договор действует,
+        товар поставлен в полном объёме. При недействительности требования
+        Клиент возмещает Фактору все убытки."
+        Ответ:
+        {
+          "validity_warranty_present": "yes",
+          "existence_warranty": "present",
+          "not_discharged_warranty": "present",
+          "not_contested_warranty": "present",
+          "underlying_contract_validity": "present",
+          "delivery_completion_warranty": "present",
+          "indemnity_for_invalid_claim": "present",
+          "warranties_completeness": "comprehensive",
+          "evidence": [
+            {
+              "clause_ref": "п. 9.1",
+              "quote": "Клиент гарантирует, что требование существует, действительно, не погашено, не оспаривается."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Клиент уступает требование Фактору."
+        Ответ:
+        {
+          "validity_warranty_present": "no",
+          "existence_warranty": "not_defined",
+          "not_discharged_warranty": "not_defined",
+          "not_contested_warranty": "not_defined",
+          "underlying_contract_validity": "not_defined",
+          "delivery_completion_warranty": "not_defined",
+          "indemnity_for_invalid_claim": "not_defined",
+          "warranties_completeness": "absent",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о действительности.
+        2. Найди прямую цитату о непогашенности.
+        3. Найди прямую цитату об оспаривании.
+        4. Найди прямую цитату о возмещении.
+        5. Если прямой цитаты нет — верни "not_defined".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
         {
           "validity_warranty_present": "<yes / no>",
-          "existence_warranty": "<present / absent>",
-          "not_discharged_warranty": "<present / absent>",
-          "not_contested_warranty": "<present / absent>",
-          "underlying_contract_validity": "<present / absent>",
-          "delivery_completion_warranty": "<present / absent / not_applicable>",
-          "indemnity_for_invalid_claim": "<present / absent>",
-          "warranties_completeness": "<comprehensive / partial / minimal / absent>"
+          "existence_warranty": "<present / not_defined>",
+          "not_discharged_warranty": "<present / not_defined>",
+          "not_contested_warranty": "<present / not_defined>",
+          "underlying_contract_validity": "<present / not_defined>",
+          "delivery_completion_warranty": "<present / not_defined>",
+          "indemnity_for_invalid_claim": "<present / not_defined>",
+          "warranties_completeness": "<comprehensive / partial / minimal / absent>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      prompt_file: null
       context_k: 6
       temperature: 0.0
-      max_tokens: 400
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      retrieval_profile: "warranties_check"
-      boost_keywords:
-        - "гарантирует"
-        - "заверяет"
-        - "действительность"
-        - "существует"
-      rerank: true
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "validity_warranty_present"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Наличие заверения о действительности"
-        - name: "existence_warranty"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Заверение о существовании"
-        - name: "not_discharged_warranty"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Заверение о непогашенности"
-        - name: "indemnity_for_invalid_claim"
-          type: "string"
-          allowed_values: ["present", "absent"]
-          description: "Возмещение при недействительности"
-        - name: "warranties_completeness"
-          type: "string"
-          allowed_values: ["comprehensive", "partial", "minimal", "absent"]
-          description: "Полнота заверений"
-      store_payload: true
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "factor_status_required"
-    name: "Финансовый агент: идентификация и статус"
-    description: "Проверяет наличие идентификации финансового агента как допустимого субъекта факторинга"
-    legal_base: "ст. 825 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+      max_tokens: 600
+      retrieval:
+        retrieval_profile: "warranties_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "действительность требования клиент гарантирует клиент заверяет требование существует не погашено не оспорено возмещение при недействительности основной договор"
+        preferred_unit_types:
+          - warranty
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - obligations
+        negative_keywords:
+          - "регресс"
+          - "комиссия"
+          - "уведомление должника"
+          - "зачет"
+          - "банкротство"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.30, 0.80]
+          boost: 0.15
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "obligations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 900
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из текста договора факторинга заверения
+          клиента о действительности уступаемого требования.
+          Не анализируй регресс, финансирование или уведомление должника.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. validity_warranty_present — yes / no.
+          2. existence_warranty — present / not_defined.
+          3. not_discharged_warranty — present / not_defined.
+          4. not_contested_warranty — present / not_defined.
+          5. underlying_contract_validity — present / not_defined.
+          6. delivery_completion_warranty — present / not_defined.
+          7. indemnity_for_invalid_claim — present / not_defined.
+          8. warranties_completeness — comprehensive / partial / minimal / absent.
+          Если данные отсутствуют: используй "not_defined" или "no".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - warranties_completeness: "comprehensive" — все основные заверения;
+            "partial" — часть заверений; "minimal" — только общие формулировки;
+            "absent" — заверения отсутствуют.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "validity_warranty_present"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no"]
+            description: "Наличие заверения о действительности требования."
+            required: true
+          - name: "existence_warranty"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Заверение о существовании требования."
+            required: false
+          - name: "not_discharged_warranty"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Заверение о непогашенности."
+            required: false
+          - name: "not_contested_warranty"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Заверение об отсутствии оспаривания."
+            required: false
+          - name: "underlying_contract_validity"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Заверение о действительности основного договора."
+            required: false
+          - name: "delivery_completion_warranty"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Заверение о выполнении поставки/услуг."
+            required: false
+          - name: "indemnity_for_invalid_claim"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["present", "not_defined"]
+            description: "Возмещение при недействительности требования."
+            required: false
+          - name: "warranties_completeness"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["comprehensive", "partial", "minimal", "absent"]
+            description: "Полнота заверений клиента."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 12: Возврат излишка клиенту (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: excess_collection_return
+    name: "Возврат клиенту излишка, полученного от должника (ст. 831 ГК РФ)"
+    description: >
+      Проверяет наличие механизма возврата клиенту суммы сверх финансирования
+      и вознаграждения фактора.
     triggers: {}
-    rules:
-      keywords:
-        - "финансовый агент"
-        - "фактор"
-        - "банк"
-        - "коммерческая организация"
-        - "факторинговая компания"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(финансовый\\s+агент|фактор)"
-        - "(?i)(банк|коммерческ(ая|ой)\\s+организац)"
-
-  - id: "assigned_claim_description_required"
-    name: "Описание уступаемого денежного требования"
-    description: "Проверяет наличие описания требования, должника, суммы и основания"
-    legal_base: "ст. 826 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "денежное требование"
-        - "должник"
-        - "дебиторская задолженность"
-        - "основание требования"
-        - "реестр уступленных требований"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(денежн(ое|ого)\\s+требован|дебиторск(ая|ой)\\s+задолженн)"
-        - "(?i)(должник|дебитор)"
-
-  - id: "future_claim_identification_required"
-    name: "Будущее требование: достаточная определимость"
-    description: "Проверяет, можно ли определить будущее требование по условиям договора"
-    legal_base: "ст. 826 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["future_claim_assignment"]
-    rules:
-      keywords:
-        - "будущее требование"
-        - "должник"
-        - "договор поставки"
-        - "срок оплаты"
-        - "реестр"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)будущ(ее|его)\\s+требован"
-        - "(?i)договор\\s+поставк|срок\\s+оплат"
-
-  - id: "financing_amount_and_procedure"
-    name: "Размер финансирования и порядок выплаты"
-    description: "Проверяет наличие размера финансирования и процедуры его предоставления"
-    legal_base: "ст. 824 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "финансирование"
-        - "сумма финансирования"
-        - "выплата клиенту"
-        - "аванс"
-        - "порядок предоставления"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(сумма|размер)\\s+финансирован"
-        - "(?i)выплат[аы].{0,30}клиент"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
-
-  - id: "factor_remuneration_required"
-    name: "Вознаграждение фактора"
-    description: "Проверяет наличие комиссии, дисконта или иной модели вознаграждения фактора"
-    legal_base: "ст. 824 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "факторинговая комиссия"
-        - "вознаграждение"
-        - "дисконт"
-        - "комиссия за финансирование"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)факторингов(ая|ого)\\s+комисси"
-        - "(?i)вознаграждени|дисконт"
-        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
-
-  - id: "factoring_type_required"
-    name: "Вид факторинга: с регрессом или без регресса"
-    description: "Проверяет наличие явного указания на регрессность конструкции"
-    legal_base: "ст. 831 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "с регрессом"
-        - "без регресса"
-        - "безрегрессный"
-        - "регрессное требование"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(с\\s+регрессом|без\\s+регресса|безрегрессн)"
-
-  - id: "debtor_notification_procedure"
-    name: "Порядок уведомления должника"
-    description: "Проверяет наличие порядка уведомления должника об уступке"
-    legal_base: "ст. 830 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "уведомление должника"
-        - "об уступке"
-        - "должник обязан произвести платеж"
-        - "после уведомления"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)уведомлени[ея]\\s+должник"
-        - "(?i)об\\s+уступк"
-        - "(?i)после\\s+уведомлен"
-
-  - id: "claim_validity_warranty"
-    name: "Гарантия действительности уступаемого требования"
-    description: "Проверяет наличие гарантий клиента о действительности требования"
-    legal_base: "ст. 827 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "действительность требования"
-        - "клиент гарантирует"
-        - "требование существует"
-        - "обязательство не исполнено"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)клиент.*гарантирует.*действительность"
-        - "(?i)требовани[ея].*существ"
-
-  - id: "transparent_commission_structure"
-    name: "Прозрачность структуры вознаграждения"
-    description: "Проверяет раскрытие всех комиссий и отсутствие открытых тарифных ссылок"
-    legal_base: "ст. 824 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "полный перечень комиссий"
-        - "факторинговое вознаграждение"
-        - "иные платежи не взимаются"
-        - "тарифы"
-        - "дополнительные платежи"
-      keyword_mode: "any"
-      negative_keywords:
-        - "комиссии определяются фактором в одностороннем порядке"
-      regex_patterns:
-        - "(?i)перечень\\s+комисси"
-        - "(?i)дополнительн(ые|ых)\\s+платеж"
-
-  - id: "excess_collection_return"
-    name: "Возврат клиенту излишка, полученного от должника"
-    description: "Проверяет наличие механизма возврата клиенту суммы сверх финансирования и вознаграждения фактора"
-    legal_base: "ст. 831 ГК РФ"
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "возврат излишка"
@@ -1831,134 +3008,77 @@ doc_type_checks:
       regex_patterns:
         - "(?i)превыша(ет|ющая).*финансирован"
         - "(?i)возврат.*клиент"
-
-  - id: "recourse_limitation"
-    name: "Регресс: ограничения и лимит ответственности клиента"
-    description: "Проверяет наличие понятных условий регресса и ограничения ответственности клиента"
-    legal_base: "ст. 831 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["recourse_factoring"]
-    rules:
-      keywords:
-        - "регрессное требование"
-        - "максимальная сумма регресса"
-        - "лимит ответственности клиента"
-        - "не превышает сумму финансирования"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)регрессн(ое|ого)\\s+требован"
-        - "(?i)не\\s+превышает\\s+сумму\\s+финансирован"
-
-  - id: "non_recourse_confirmation"
-    name: "Безрегрессный факторинг: прямое подтверждение"
-    description: "Проверяет явное закрепление безрегрессного характера и принятия риска фактором"
-    legal_base: "ст. 831 ГК РФ"
+    retrieval:
+      retrieval_profile: "payment_terms_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "возврат излишка разница подлежит возврату клиенту сумма превышающая финансирование остаток перечисляется клиенту"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.70]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "obligations"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "excess_return_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие механизма возврата излишка клиенту."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Возврат излишка"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 13: Налоговые риски (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: tax_risk_allocation
+    name: "Налоговые последствия и распределение налоговых рисков (НК РФ ст. 155, 279)"
+    description: >
+      Проверяет наличие налоговых оговорок по уступке и факторинговому вознаграждению.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers:
-      any: ["non_recourse_factoring"]
-    rules:
-      keywords:
-        - "без регресса"
-        - "безрегрессный"
-        - "риск неплатежа несет фактор"
-        - "фактор не вправе требовать возврата финансирования"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(без\\s+регресса|безрегрессн)"
-        - "(?i)риск\\s+неплатежа\\s+несет\\s+фактор"
-
-  - id: "anti_dilution_and_setoff_protection"
-    name: "Защита от зачета встречных требований должника"
-    description: "Проверяет наличие гарантий и механизмов защиты от зачета"
-    legal_base: "ст. 832 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "встречные требования"
-        - "зачет"
-        - "отсутствие встречных требований"
-        - "компенсация при зачете"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)встречн(ые|ых)\\s+требован"
-        - "(?i)зачет"
-
-  - id: "prohibition_of_subsequent_assignment"
-    name: "Запрет повторной уступки того же требования"
-    description: "Проверяет наличие запрета клиенту повторно уступать уже проданное фактору требование"
-    legal_base: "ст. 829 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "запрет последующей уступки"
-        - "клиент не вправе уступать"
-        - "запрет повторной уступки"
-        - "исключительное право фактора"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)не\\s+вправе\\s+уступать"
-        - "(?i)повторн(ая|ой)\\s+уступк|последующ(ая|ей)\\s+уступк"
-
-  - id: "document_transfer_obligation"
-    name: "Передача подтверждающих документов по требованию"
-    description: "Проверяет обязанность клиента передать фактору комплект документов по уступаемому требованию"
-    legal_base: "ст. 826, 830 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "передача документов"
-        - "оригиналы документов"
-        - "накладные"
-        - "счета-фактуры"
-        - "акт приема-передачи документов"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)передач[аи]\\s+документ"
-        - "(?i)накладн|счет[а-]?фактур"
-        - "(?i)акт\\s+приема[- ]передачи\\s+документ"
-
-  - id: "bankruptcy_claw_back_protection"
-    name: "Банкротные заверения клиента"
-    description: "Проверяет наличие заверений клиента об отсутствии признаков банкротства и о рыночности сделки"
-    legal_base: "ст. 61.2, 61.3 ФЗ № 127-ФЗ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "отсутствие признаков банкротства"
-        - "не находится в процедуре банкротства"
-        - "рыночные условия сделки"
-        - "эквивалентность встречного предоставления"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)признак(ов)?\\s+банкротств"
-        - "(?i)рыночн(ые|ых)\\s+услови"
-        - "(?i)эквивалентност"
-
-  - id: "tax_risk_allocation"
-    name: "Налоговые последствия и распределение налоговых рисков"
-    description: "Проверяет наличие налоговых оговорок по уступке и факторинговому вознаграждению"
-    legal_base: "НК РФ ст. 155, 279"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "налоговые последствия"
@@ -1970,15 +3090,78 @@ doc_type_checks:
       regex_patterns:
         - "(?i)налогов(ые|ых)\\s+последств"
         - "(?i)\\bНДС\\b|налогов(ая|ой)\\s+баз"
-
-  - id: "assignment_prohibition_disclosure"
+    retrieval:
+      retrieval_profile: "compliance_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "налоговые последствия НДС налоговая база убыток от уступки стороны самостоятельно исполняют налоговые обязательства"
+      preferred_unit_types:
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.60, 1.0]
+        boost: 0.10
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "boilerplate"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "tax_allocation_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие налоговых оговорок."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Налоговые оговорки"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 14: Запрет уступки в основном договоре (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: assignment_prohibition_disclosure
     name: "Раскрытие запрета уступки в основном договоре (ст. 828 ГК РФ)"
-    description: "Проверяет наличие заверений об отсутствии запрета уступки или раскрытие такого запрета"
-    legal_base: "ст. 828 ГК РФ"
+    description: >
+      Проверяет наличие заверений об отсутствии запрета уступки
+      или раскрытие такого запрета.
+    triggers:
+      any: ["assignment_prohibition_in_underlying"]
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "запрет уступки"
@@ -1990,15 +3173,77 @@ doc_type_checks:
       regex_patterns:
         - "(?i)(отсутств|нет).*(запрет|ограничен).*уступк"
         - "(?i)клиент.*(заверяет|гарантирует).*запрет"
-
-  - id: "term_and_termination"
+    retrieval:
+      retrieval_profile: "assignment_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "запрет уступки уступка запрещена отсутствует запрет клиент заверяет согласие должника ограничение уступки"
+      preferred_unit_types:
+        - warranty
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.75]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "representations"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "assignment_prohibition_disclosure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие раскрытия запрета уступки."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Запрет уступки"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 15: Срок действия и расторжение (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: term_and_termination
     name: "Срок действия договора и порядок расторжения"
-    description: "Проверяет наличие срока действия и условий расторжения договора факторинга"
-    legal_base: "ГК РФ (общие положения)"
+    description: >
+      Проверяет наличие срока действия и условий расторжения договора факторинга.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "срок действия"
@@ -2012,15 +3257,79 @@ doc_type_checks:
         - "(?i)срок\\s+действи"
         - "(?i)расторжени[ея]"
         - "(?i)односторонн(ий|его)\\s+отказ"
-
-  - id: "governing_law_and_disputes"
+    retrieval:
+      retrieval_profile: "termination_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "срок действия вступает в силу расторжение прекращение договора односторонний отказ уведомление о расторжении"
+      preferred_unit_types:
+        - termination_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.60, 1.0]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "remedies"
+          - "boilerplate"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "term_termination_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие срока действия и условий расторжения."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Срок и расторжение"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 16: Применимое право и споры (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: governing_law_and_disputes
     name: "Применимое право и разрешение споров"
-    description: "Проверяет наличие арбитражной оговорки и применимого права"
-    legal_base: "ГК РФ, АПК РФ"
+    description: >
+      Проверяет наличие арбитражной оговорки и применимого права.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "применимое право"
@@ -2032,15 +3341,77 @@ doc_type_checks:
       regex_patterns:
         - "(?i)арбитражн(ый|ого)\\s+суд"
         - "(?i)применим(ое|ого)\\s+прав"
-
-  - id: "confidentiality_clause"
+    retrieval:
+      retrieval_profile: "dispute_resolution_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "применимое право арбитражный суд разрешение споров подсудность третейский суд"
+      preferred_unit_types:
+        - dispute_resolution
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.70, 1.0]
+        boost: 0.15
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "boilerplate"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "governing_law_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие арбитражной оговорки."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Применимое право и споры"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 17: Конфиденциальность (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: confidentiality_clause
     name: "Конфиденциальность условий договора"
-    description: "Проверяет наличие условий о конфиденциальности"
-    legal_base: "ст. 421 ГК РФ"
+    description: >
+      Проверяет наличие условий о конфиденциальности.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "low"
+    severity_if_pass: "pass"
+    severity_if_fail: "low"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "конфиденциальность"
@@ -2051,16 +3422,73 @@ doc_type_checks:
       regex_patterns:
         - "(?i)конфиденциал"
         - "(?i)не\\s+разглаш"
-
+    retrieval:
+      retrieval_profile: "compliance_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "конфиденциальность неразглашение коммерческая тайна не раскрывать третьим лицам"
+      preferred_unit_types:
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.75, 1.0]
+        boost: 0.10
+        scope: segment
+      context_k: 3
+      max_chunks: 4
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "boilerplate"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "confidentiality_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условий о конфиденциальности."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Конфиденциальность"
+    store_payload: false
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
-
 dd_request_templates:
-
+  factoring_parties_identification:
+    text: >
+      Просим предоставить по {doc_names}: полные реквизиты финансового агента
+      и клиента, подтверждение статуса фактора как допустимого субъекта
+      (банк / коммерческая организация / факторинговая компания),
+      полномочия подписантов.
+    addressee: "Фактор / Клиент"
   factoring_subject_extraction:
     text: >
       Просим предоставить по {doc_names}: базовую структуру сделки факторинга —
@@ -2068,210 +3496,50 @@ dd_request_templates:
       сумму финансирования, вознаграждение фактора, вид факторинга
       (с регрессом / без регресса) и порядок уведомления должника.
     addressee: "Фактор / Клиент"
-
-  factor_status_required:
-    text: >
-      Просим предоставить по {doc_names}: полные реквизиты финансового агента,
-      организационно-правовую форму, подтверждение статуса коммерческой организации,
-      а также сведения о лицензии, если фактором выступает банк или кредитная организация.
-    addressee: "Фактор"
-
-  factor_status_unclear:
-    text: >
-      В {doc_names} не выявлен достаточный статус финансового агента.
-      Просим предоставить документы, подтверждающие допустимость участия данного лица
-      в качестве фактора по договору факторинга.
-    addressee: "Фактор / Юридический советник"
-
   assigned_claim_identification_check:
     text: >
       Просим предоставить по {doc_names}: точное описание уступаемых требований,
       сведения о должниках, основаниях возникновения требований, суммах,
       сроках оплаты и реестр уступаемой дебиторской задолженности.
     addressee: "Клиент"
-
-  assigned_claim_description_required:
-    text: >
-      Просим уточнить в {doc_names}: предмет уступки, включая должника,
-      сумму требования, основание возникновения требования и документы,
-      подтверждающие это требование.
-    addressee: "Клиент"
-
-  future_claim_identification_required:
-    text: >
-      По {doc_names} с уступкой будущих требований просим предоставить:
-      идентификацию будущих должников, базовые договоры, сроки возникновения и оплаты требований,
-      а также механизм включения таких требований в реестр уступки.
-    addressee: "Клиент / Юридический советник"
-
-  future_claim_not_determinable:
-    text: >
-      В {doc_names} выявлен риск недостаточной определимости будущих требований.
-      Просим срочно конкретизировать должников, основания возникновения требований,
-      сроки оплаты и реестр требований.
-    addressee: "Клиент / Юридический советник"
-
   financing_and_fee_structure_check:
     text: >
-      Просим предоставить по {doc_names}: размер финансирования,
-      даты/условия его перечисления, полный перечень комиссий,
-      дисконтов и иных платежей, а также пример расчета чистой суммы,
-      подлежащей выплате клиенту.
+      Просим предоставить по {doc_names}: размер финансирования, даты/условия
+      его перечисления, полный перечень комиссий, дисконтов и иных платежей,
+      а также пример расчёта чистой суммы, подлежащей выплате клиенту.
     addressee: "Фактор"
-
-  financing_amount_and_procedure:
-    text: >
-      Просим уточнить в {doc_names}: сумму финансирования,
-      порядок и сроки его предоставления, условия удержаний и основания
-      для отказа в перечислении финансирования.
-    addressee: "Фактор"
-
-  factor_remuneration_required:
-    text: >
-      Просим раскрыть по {doc_names}: структуру вознаграждения фактора —
-      комиссию, дисконт, проценты, сервисные платежи, и подтвердить,
-      что иных платежей сверх указанных не взимается.
-    addressee: "Фактор"
-
-  transparent_commission_structure:
-    text: >
-      Просим предоставить по {doc_names}: исчерпывающий перечень комиссий и платежей
-      фактора, исключить открытые ссылки на тарифы/одностороннее изменение
-      и подтвердить итоговую стоимость факторингового обслуживания.
-    addressee: "Фактор / Юридический советник"
-
-  excess_collection_return:
-    text: >
-      Просим уточнить в {doc_names}: как распределяются суммы,
-      полученные фактором от должника сверх размера финансирования и вознаграждения,
-      и в какой срок излишек перечисляется клиенту.
-    addressee: "Фактор"
-
   recourse_allocation_check:
     text: >
-      Просим предоставить по {doc_names}: детальное описание того,
-      является ли факторинг регрессным или безрегрессным, кто несет риск неплатежа должника,
+      Просим предоставить по {doc_names}: детальное описание того, является ли
+      факторинг регрессным или безрегрессным, кто несёт риск неплатежа должника,
       при каких условиях возникает обязанность клиента вернуть финансирование
       и каков предел такой ответственности.
     addressee: "Фактор / Клиент"
-
-  factoring_type_required:
-    text: >
-      Просим прямо указать в {doc_names}, является ли факторинг
-      факторингом с регрессом или без регресса, и устранить любые двусмысленные формулировки.
-    addressee: "Юридический советник"
-
-  recourse_limitation:
-    text: >
-      По {doc_names} (регрессный факторинг) просим предоставить:
-      исчерпывающий перечень оснований регресса, лимит ответственности клиента,
-      сроки предъявления регрессного требования и порядок его расчета.
-    addressee: "Фактор / Юридический советник"
-
-  non_recourse_confirmation:
-    text: >
-      По {doc_names} (безрегрессный факторинг) просим предоставить:
-      прямое подтверждение отсутствия права регресса к клиенту
-      и закрепление того, что кредитный риск должника несет фактор.
-    addressee: "Фактор"
-
-  non_recourse_contradiction:
-    text: >
-      В {doc_names} выявлено возможное противоречие между безрегрессной формулой
-      и регрессными обязанностями клиента. Просим срочно привести договор
-      к однозначной модели распределения риска.
-    addressee: "Юридический советник / Фактор"
-
   debtor_notification_check:
     text: >
       Просим предоставить по {doc_names}: порядок уведомления должника об уступке,
-      форму уведомления, ответственную сторону, доказательства вручения
-      и указание, с какого момента должник обязан платить фактору.
+      форму уведомления, ответственную сторону, доказательства вручения и указание,
+      с какого момента должник обязан платить фактору.
     addressee: "Фактор / Клиент"
-
-  debtor_notification_procedure:
-    text: >
-      Просим уточнить в {doc_names}: кто уведомляет должника,
-      каким способом, в какие сроки и как подтверждается получение уведомления.
-    addressee: "Юридический советник"
-
-  debtor_payment_routing_unclear:
-    text: >
-      В {doc_names} неясно, кому и после какого уведомления должен платить должник.
-      Просим срочно уточнить маршрут платежа, форму уведомления
-      и последствия исполнения в пользу ненадлежащего получателя.
-    addressee: "Юридический советник / Фактор"
-
-  claim_validity_warranty:
-    text: >
-      Просим предоставить по {doc_names}: заверения клиента о действительности
-      уступаемого требования, отсутствии его погашения, оспаривания, прекращения
-      и иных обстоятельств, влияющих на взыскание.
-    addressee: "Клиент"
-
   setoff_and_double_assignment_risk_check:
     text: >
       Просим предоставить по {doc_names}: гарантии отсутствия встречных требований
-      должника к клиенту, условия компенсации убытков фактора при зачете,
+      должника к клиенту, условия компенсации убытков фактора при зачёте,
       а также запрет повторной уступки уже уступленного требования.
     addressee: "Клиент / Фактор"
-
-  anti_dilution_and_setoff_protection:
-    text: >
-      Просим включить/уточнить в {doc_names}: заверения клиента
-      об отсутствии оснований для зачета и механизм компенсации фактора
-      в случае уменьшения требования вследствие встречных требований должника.
-    addressee: "Юридический советник"
-
-  prohibition_of_subsequent_assignment:
-    text: >
-      Просим включить/уточнить в {doc_names}: прямой запрет повторной уступки
-      того же требования третьим лицам и последствия нарушения этого запрета.
-    addressee: "Юридический советник"
-
   document_transfer_and_bankruptcy_check:
     text: >
       Просим предоставить по {doc_names}: перечень первичных документов,
-      передаваемых фактору, форму акта приема-передачи документов,
+      передаваемых фактору, форму акта приёма-передачи документов,
       а также заверения клиента об отсутствии признаков банкротства
       и о рыночном характере сделки.
     addressee: "Клиент"
-
-  document_transfer_obligation:
-    text: >
-      Просим уточнить в {doc_names}: какие именно документы по уступаемому требованию
-      клиент обязан передать фактору, в какие сроки и в какой форме,
-      включая оригиналы/копии, электронные документы и подтверждение передачи.
-    addressee: "Клиент"
-
-  bankruptcy_claw_back_protection:
-    text: >
-      Просим предоставить по {doc_names}: заверения клиента об отсутствии признаков банкротства,
-      информации о поданных заявлениях о банкротстве, просроченной задолженности,
-      а также подтверждение рыночности и эквивалентности условий сделки.
-    addressee: "Клиент / Юридический советник"
-
-  tax_risk_allocation:
-    text: >
-      Просим предоставить по {doc_names}: налоговую квалификацию уступки,
-      порядок учета НДС и иных налогов, распределение налоговых рисков между сторонами
-      и подтверждение того, кто несет налоговые обязательства по факторинговому вознаграждению.
-    addressee: "Налоговый консультант / Юридический советник"
-
-  no_financing_element_red_flag:
-    text: >
-      В {doc_names} выявлен риск отсутствия самостоятельного элемента финансирования,
-      что может переквалифицировать сделку в простую цессию.
-      Просим уточнить размер, порядок и сроки финансирования клиента фактором.
-    addressee: "Юридический советник / Фактор"
-
   debtor_defenses_check:
     text: >
       Просим предоставить по {doc_names}: заверения клиента об отсутствии
-      оснований для возражений должника и встречных требований, а также
-      механизм компенсации фактору при успешном зачёте должником.
+      оснований для возражений должника и встречных требований,
+      а также механизм компенсации фактору при успешном зачёте должником.
     addressee: "Клиент / Юридический советник"
-
   hidden_factoring_protection_check:
     text: >
       По {doc_names} (скрытый факторинг) просим предоставить: порядок перечисления
@@ -2279,14 +3547,6 @@ dd_request_templates:
       требования к специальному счёту, отчётность клиента и право фактора
       уведомить должника при нарушении.
     addressee: "Фактор / Юридический советник"
-
-  hidden_factoring_double_payment_risk:
-    text: >
-      В {doc_names} выявлен риск двойного платежа при скрытом факторинге.
-      Просим срочно предусмотреть механизм перевода средств фактору,
-      специальный счёт и право фактора на уведомление должника.
-    addressee: "Юридический советник / Фактор"
-
   claim_validity_warranties_check:
     text: >
       Просим предоставить по {doc_names}: полный комплект заверений клиента
@@ -2294,58 +3554,45 @@ dd_request_templates:
       оспаривания, действительность основного договора, выполнение поставки/услуг,
       а также условие о возмещении при недействительности.
     addressee: "Клиент"
-
-  assignment_despite_prohibition_risk:
+  excess_collection_return:
     text: >
-      В {doc_names} выявлен риск наличия запрета уступки в основном договоре.
-      Просим предоставить: заверение клиента об отсутствии такого запрета
-      или раскрытие информации о запрете с распределением ответственности.
-    addressee: "Клиент / Юридический советник"
-
-  international_factoring_currency_control:
+      Просим уточнить в {doc_names}: как распределяются суммы, полученные фактором
+      от должника сверх размера финансирования и вознаграждения, и в какой срок
+      излишек перечисляется клиенту.
+    addressee: "Фактор"
+  tax_risk_allocation:
     text: >
-      По {doc_names} (международный факторинг) просим предоставить: указание валюты,
-      порядок соблюдения требований валютного контроля, обязательства по репатриации,
-      распределение ответственности за валютные нарушения.
-    addressee: "Юридический советник / Фактор"
-
-  pledge_priority_conflict:
-    text: >
-      В {doc_names} выявлен риск конфликта с залогом дебиторской задолженности.
-      Просим предоставить: заверение об отсутствии залога, раскрытие информации
-      о существующих залогах, порядок разрешения приоритета.
-    addressee: "Клиент / Юридический советник"
-
+      Просим предоставить по {doc_names}: налоговую квалификацию уступки,
+      порядок учёта НДС и иных налогов, распределение налоговых рисков
+      между сторонами и подтверждение того, кто несёт налоговые обязательства
+      по факторинговому вознаграждению.
+    addressee: "Налоговый консультант / Юридический советник"
   assignment_prohibition_disclosure:
     text: >
-      Просим предоставить по {doc_names}: заверение клиента об отсутствии
-      запрета уступки в договоре с должником или раскрытие такого запрета
-      с указанием, как распределяется риск ответственности.
+      Просим предоставить по {doc_names}: заверение клиента об отсутствии запрета
+      уступки в договоре с должником или раскрытие такого запрета с указанием,
+      как распределяется риск ответственности.
     addressee: "Клиент"
-
   term_and_termination:
     text: >
       Просим уточнить в {doc_names}: срок действия договора, условия пролонгации,
-      основания и порядок расторжения, последствия расторжения для
-      уже уступленных требований.
+      основания и порядок расторжения, последствия расторжения для уже уступленных
+      требований.
     addressee: "Юридический советник"
-
   governing_law_and_disputes:
     text: >
       Просим уточнить в {doc_names}: применимое право, компетентный суд
       для разрешения споров, порядок досудебного урегулирования.
     addressee: "Юридический советник"
-
   confidentiality_clause:
     text: >
-      Просим добавить в {doc_names} раздел о конфиденциальности:
-      перечень конфиденциальных сведений, срок неразглашения, исключения.
+      Просим добавить в {doc_names} раздел о конфиденциальности: перечень
+      конфиденциальных сведений, срок неразглашения, исключения.
     addressee: "Юридический советник"
-
-  # Generic fallback
   _default:
     text: >
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
-    
+
+

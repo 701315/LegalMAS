@@ -1,19 +1,15 @@
 type: contract_4.4_storage
 name: "Договор хранения"
-
+version: 6.0
+parent: class_4_service_provision
 description: |
   Соглашение, по которому хранитель обязуется хранить вещь, переданную ему поклажедателем,
   и возвратить эту вещь в сохранности (ст. 886 ГК РФ). Ключевой признак: цель — обеспечение
   сохранности, а не пользование (как в аренде). Хранитель не вправе пользоваться вещью
   без согласия поклажедателя. Может быть возмездным (товарный склад) или безвозмездным
-  (гардероб). Профессиональное хранение (осуществляемое как предпринимательская деятельность)
-  предполагает повышенную ответственность хранителя — независимо от вины, кроме непреодолимой
-  силы (ст. 901 ГК РФ). Особые виды: хранение в ломбарде, камерах хранения, банковских
-  ячейках, гостиницах, секвестр.
-
-version: 4.0
-parent: class_4_service_provision
-
+  (гардероб). Профессиональное хранение предполагает повышенную ответственность хранителя —
+  независимо от вины, кроме непреодолимой силы (ст. 901 ГК РФ). Особые виды: хранение
+  в ломбарде, камерах хранения, банковских ячейках, гостиницах, секвестр.
 metadata:
   category: contract
   subcategory: custodial_services
@@ -33,7 +29,6 @@ metadata:
     - "договор аренды банковской ячейки"
     - "договор секвестра"
     - "договор хранения на складе"
-
     - "warehousing agreement"
     - "warehouse services agreement"
     - "storekeeping agreement"
@@ -44,461 +39,342 @@ metadata:
     - "cold storage agreement"
     - "self-storage agreement"
     - "warehouse receipt agreement"
-
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
-
 classification_runtime_v1:
-
   scoring:
     accept_threshold: 0.79
     strong_signal_threshold: 0.88
     ambiguity_margin: 0.18
     input_quality_weight: 1.0
-
   rules:
-
     filename_patterns:
-      # Русский — явные договоры хранения / складского/ответственного хранения
-
       - pattern: "(?i)договор[_\\s-]*хранени[яия]"
         kind: specific_subject
         weight: 1.0
-        # Базовый договор хранения
-
       - pattern: "(?i)договор[_\\s-]*складск[огоого][_\\s-]*хранени[яия]"
         kind: specific_subject
         weight: 0.98
-        # Договор складского хранения
-
       - pattern: "(?i)договор[_\\s-]*ответственн[огоого][_\\s-]*хранени[яия]"
         kind: specific_subject
         weight: 0.98
-        # Договор ответственного хранения
-
       - pattern: "(?i)договор[_\\s-]*ответхранени[яия]"
         kind: specific_subject
         weight: 0.98
-        # Сокращение "ответхранение"
-
       - pattern: "(?i)договор[_\\s-]*хранени[яия][_\\s-]*товар[овы]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*хранени[яия][_\\s-]*на[_\\s-]*склад[еуа]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*хранени[яия][_\\s-]*в[_\\s-]*ломбард[еуа]"
         kind: specific_subject
-        weight: 0.9
-
-      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*банковск[ойой][_\\s-]*ячейк[ии]"
+        weight: 0.90
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_[\\s-]*банковск[ойой][_\\s-]*ячейк[ии]"
         kind: specific_subject
-        weight: 0.9
-        # Формально аренда ячейки, но по сути хранение ценностей
-
+        weight: 0.90
       - pattern: "(?i)договор[_\\s-]*секвестр[ауы]"
         kind: specific_subject
-        weight: 0.9
-
+        weight: 0.90
       - pattern: "(?i)хранени[яия][_\\s-]*товар[овы]"
         kind: specific_subject
-        weight: 0.9
-
+        weight: 0.90
       - pattern: "(?i)складск[ойая][_\\s-]*договор"
         kind: specific_subject
-        weight: 0.9
-
+        weight: 0.90
       - pattern: "(?i)договор[_\\s-]*хранени[яия][_\\s-]*в[_\\s-]*банковск[ойой][_\\s-]*ячейк[ееи]"
         kind: specific_subject
-        weight: 0.9
-
-      # Английский — warehousing / storage / safekeeping / custody / bailment
-
+        weight: 0.90
       - pattern: "(?i)warehous(?:e|ing)[_\\s-]*agreement"
         kind: specific_subject
         weight: 1.0
-        # Warehousing agreement
-
       - pattern: "(?i)warehouse[_\\s-]*services?[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.98
-
       - pattern: "(?i)storekeeping[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)safekeeping[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)custody[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)bailment[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)bonded[_\\s-]*storage[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)cold[_\\s-]*storage[_\\s-]*agreement"
         kind: specific_subject
-        weight: 0.9
-
+        weight: 0.90
       - pattern: "(?i)self[_\\s-]*storage[_\\s-]*agreement"
         kind: specific_subject
-        weight: 0.9
-
+        weight: 0.90
       - pattern: "(?i)warehouse[_\\s-]*receipt[_\\s-]*agreement"
         kind: specific_subject
-        weight: 0.9
-
-      # Более общие storage/custody — generic/context, чтобы не ловить, например, data storage
-
+        weight: 0.90
       - pattern: "(?i)storage[_\\s-]*agreement"
         kind: generic_form
-        weight: 0.6
-        # Может быть и data storage; нужен контекст L2/L3
-
+        weight: 0.60
       - pattern: "(?i)custody"
         kind: generic_form
         weight: 0.55
-        # Custody может быть и инвестиционным/клиринговым; всё равно усиливает хранение
-
       - pattern: "(?i)storage"
         kind: context
-        weight: 0.4
-
+        weight: 0.40
       - pattern: "(?i)складск"
         kind: context
-        weight: 0.4
-
+        weight: 0.40
       - pattern: "(?i)хранени[яия]"
         kind: generic_form
-        weight: 0.6
-        # "Хранение" без указания договора/обслуживания — поддерживающий сигнал, не решение
-
+        weight: 0.60
     folder_patterns:
       - pattern: "(?i)хранени[яия]"
         kind: specific_subject
-        weight: 0.8
-        # Папка по договорам хранения
-
+        weight: 0.80
       - pattern: "(?i)складск"
         kind: specific_subject
-        weight: 0.8
-        # Папка складского хранения / склада
-
+        weight: 0.80
       - pattern: "(?i)storage"
         kind: specific_subject
         weight: 0.75
-        # Папка storage в логистическом/хозяйственном контексте
-
       - pattern: "(?i)warehouse"
         kind: specific_subject
         weight: 0.75
-
       - pattern: "(?i)custody"
         kind: specific_subject
         weight: 0.75
-
       - pattern: "(?i)safekeeping"
         kind: specific_subject
         weight: 0.75
-
       - pattern: "(?i)bailment"
         kind: specific_subject
         weight: 0.75
-
     keywords:
-
       high:
         - pattern: "(?i)договор\\s+хранен[ияия]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное название договора хранения"
-
         - pattern: "(?i)договор\\s+складск[огоой]\\s+хранен[ияия]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Складское хранение на товарном складе"
-
         - pattern: "(?i)договор\\s+ответственн[огоой]\\s+хранен[ияия]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Типовая форма договора ответственного хранения"
-
         - pattern: "(?i)договор\\s+хранен[ияия]\\s+товар[аов]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Хранение товаров как предмет договора"
-
         - pattern: "(?i)договор\\s+ответхранен[ияия]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Сокращённая практика обозначения договора ответхранения"
-
         - pattern: "(?i)договор\\s+хранен[ияия]\\s+с\\s+выдач[ейеи]\\s+складск[огоой]\\s+свидетельств[а]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Хранение с выдачей складского свидетельства"
-
         - pattern: "(?i)договор\\s+хранен[ияия]\\s+в\\s+ломбард[еае]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Специальный вид хранения в ломбарде"
-
-        - pattern: "(?i)договор\\s+аренд[ыыу]\\s+банковск[ойого]\\s+ячейк[иыу]"
-          weight: 0.85
-          distinctiveness: medium
-          context: header
-          description: "Банковская ячейка — пограничный случай, который может тяготеть к хранению при наличии ответственности банка"
-
         - pattern: "(?i)договор\\s+секвестр[ауы]"
           weight: 0.95
           distinctiveness: high
           context: header
-          description: "Секвестр как специальный вид хранения спорного имущества"
-
+          description: "Секвестр как специальный вид хранения"
         - pattern: "(?i)хранител[ьяеи]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
-          description: "Хранитель как обязанная сторона по ст. 886 ГК РФ"
-
+          description: "Хранитель как обязанная сторона"
         - pattern: "(?i)поклажедател[ьяеи]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Поклажедатель как сторона, передающая вещь на хранение"
-
         - pattern: "(?i)принят[ьия]\\s+на\\s+хранен[иеия]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Принятие вещи на хранение"
-
         - pattern: "(?i)ответственн[оеая]\\s+хранен[иеия]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
-          description: "Ответственное хранение как устойчивая правовая формула"
-
+          description: "Ответственное хранение"
         - pattern: "(?i)возврат\\s+в\\s+сохранност[иью]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Обязанность возвратить вещь в сохранности"
-
         - pattern: "(?i)складск[оеая]\\s+свидетельств[оа]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
-          description: "Складское свидетельство как специальный документ хранения"
-
+          description: "Складское свидетельство"
         - pattern: "(?i)сохранн[аяое]\\s+расписк[аыу]"
           weight: 0.85
           distinctiveness: high
           context: any
-          description: "Сохранная расписка как подтверждение приёма на хранение"
-
+          description: "Сохранная расписка"
         - pattern: "(?i)хранен[иеия]"
           weight: 0.75
           distinctiveness: medium
           context: any
-          description: "Общее упоминание хранения; усиливается в сочетании с хранителем/поклажедателем"
-
+          description: "Общее упоминание хранения"
       medium:
         - pattern: "(?i)обеспечени[ея]\\s+сохранност[ии]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Цель хранения — обеспечение сохранности вещи"
-
         - pattern: "(?i)возврат\\s+в\\s+том\\s+же\\s+состояни[ии]"
           weight: 0.65
           distinctiveness: medium
           context: any
-          description: "Возврат вещи в том же состоянии с учётом нормального износа/убыли"
-
+          description: "Возврат вещи в том же состоянии"
         - pattern: "(?i)естественн[а-яё]+\\s+убыл[ья]"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Естественная убыль при хранении товара"
-
         - pattern: "(?i)товарн[ыо]й\\s+склад"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Профессиональный хранитель — товарный склад"
-
         - pattern: "(?i)услови[яя]\\s+хранени[яя]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
-          description: "Условия хранения (режим, температура, размещение)"
-
+          description: "Условия хранения"
         - pattern: "(?i)срок\\s+хранени[яя]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Срок хранения вещи"
-
         - pattern: "(?i)платн[оа]е\\s+хранени[ея]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Возмездное хранение"
-
         - pattern: "(?i)безвозмездн[оа]е\\s+хранени[ея]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
-          description: "Безвозмездное хранение (например, гардероб)"
-
+          description: "Безвозмездное хранение"
         - pattern: "(?i)акт\\s+при[её]ма-?передач[ии]"
-          weight: 0.5
+          weight: 0.50
           distinctiveness: low
           context: any
           description: "Акт приёма-передачи вещи на хранение"
-
         - pattern: "(?i)\\bМХ-1\\b"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Складская форма учёта при приёме на хранение"
-
         - pattern: "(?i)\\bМХ-3\\b"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Складская форма возврата/отпуска с хранения"
-
       low:
         - pattern: "(?i)\\bломбард\\b"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Ломбард как специальный субъект хранения"
-
         - pattern: "(?i)камера\\s+хранени[яя]"
           weight: 0.35
           distinctiveness: low
           context: any
-          description: "Камера хранения как частный вид договора хранения"
-
+          description: "Камера хранения"
         - pattern: "(?i)\\bгардероб\\b"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Гардероб как безвозмездное хранение"
-
         - pattern: "(?i)банковск[а-яё]+\\s+ячейк[аи]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
-          description: "Банковская ячейка — смежный режим хранения/аренды"
-
+          description: "Банковская ячейка — смежный режим"
         - pattern: "(?i)\\bсеквестр\\b"
           weight: 0.35
           distinctiveness: low
           context: any
-          description: "Секвестр как специальный вид хранения спорного имущества"
-
+          description: "Секвестр"
         - pattern: "(?i)иррегулярн[оа]е\\s+хранени[ея]"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Иррегулярное хранение родовых вещей"
-
         - pattern: "(?i)именн[а-яё]+\\s+складск[а-яё]+\\s+расписк[аа]"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Именная складская расписка"
-
         - pattern: "(?i)двойн[оа]е\\s+складск[оа]е\\s+свидетельств[оо]"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Двойное складское свидетельство"
-
     exclusions:
       - pattern: "(?i)\\bаренд[ааы]\\b"
         severity: hard
         weight: -1.0
         description: "Аренда направлена на пользование вещью, а не на её хранение"
-
       - pattern: "(?i)\\bпользовани[ея]\\b"
         severity: soft
         weight: -0.35
-        description: "Явный акцент на пользовании вещью снижает вероятность чистого договора хранения"
-
+        description: "Акцент на пользовании снижает вероятность хранения"
       - pattern: "(?i)\\bохран[ааы]\\b"
         severity: hard
         weight: -1.0
-        description: "Охрана объекта — иной договор, не предполагающий приём вещи на хранение"
-
+        description: "Охрана объекта — иной договор"
       - pattern: "(?i)доверительн[оа]е\\s+управлени[ея]"
         severity: hard
         weight: -1.0
-        description: "Доверительное управление предполагает управление имуществом, а не его хранение"
-
+        description: "Доверительное управление — не хранение"
       - pattern: "(?i)\\bзайм\\b"
         severity: hard
         weight: -1.0
-        description: "Займ предполагает передачу денег/родовых вещей в собственность, а не хранение"
-
+        description: "Займ — передача в собственность, не хранение"
       - pattern: "(?i)договор\\s+оказан[ияия]\\s+охранн[ыхые]\\s+услуг"
         severity: hard
         weight: -1.0
-        description: "Охранные услуги вместо хранения вещи"
-
+        description: "Охранные услуги вместо хранения"
       - pattern: "(?i)договор\\s+аренд[ыыу]\\s+склад[ао]"
         severity: hard
         weight: -1.0
-        description: "Аренда склада даёт право пользования помещением, а не режим хранения"
-
-      # ── Soft exclusions
-
+        description: "Аренда склада — не хранение"
       - pattern: "(?i)договор\\s+аренд[ыыу]\\s+банковск[ойого]\\s+ячейк[иыу]"
         severity: soft
-        weight: -0.3
-        description: "Банковская ячейка может оформляться как аренда, что снижает уверенность в чистом хранении"
-
+        weight: -0.30
+        description: "Банковская ячейка может оформляться как аренда"
       - pattern: "(?i)\\bперевозк[ааи]\\b"
         severity: soft
-        weight: -0.3
-        description: "Сам по себе транспортный контекст может сопровождать хранение, но чаще указывает на логистические договоры"
-
+        weight: -0.30
+        description: "Транспортный контекст чаще указывает на логистические договоры"
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
 # ════════════════════════════════════════════════════════════════════════════
-
 trigger_definitions:
-
   warehouse_storage:
     any_keywords:
       - "(?i)товарн[ыо]й\\s+склад"
@@ -506,7 +382,6 @@ trigger_definitions:
       - "(?i)складск[а-яё]+\\s+площадк[аа]"
       - "(?i)хранени[ея]\\s+на\\s+склад[ее]"
       - "(?i)складировани[ея]"
-
   pawnshop_storage:
     any_keywords:
       - "(?i)\\bломбард\\b"
@@ -514,8 +389,6 @@ trigger_definitions:
       - "(?i)\\bзалогодатель\\b"
       - "(?i)залогодержател[ья]\\s+ломбард"
       - "(?i)займ\\s+под\\s+залог"
-      - "(?i)ФЗ\\s+о\\s+ломбардах"
-
   bank_vault_storage:
     any_keywords:
       - "(?i)банковск[а-яё]+\\s+ячейк[аа]"
@@ -523,15 +396,12 @@ trigger_definitions:
       - "(?i)индивидуальн[ыо]й\\s+сейф"
       - "(?i)хранилищ[еа]\\s+банк[аа]"
       - "(?i)аренд[аа]\\s+ячейк[ии]"
-
   hotel_storage:
     any_keywords:
       - "(?i)\\bгостиниц[ааы]\\b"
       - "(?i)хранени[ея]\\s+в\\s+гостиниц[ее]"
       - "(?i)хранени[ея]\\s+багаж[аа]"
       - "(?i)ответственност[ьи]\\s+гостиниц[ыы]"
-      - "(?i)номер\\s+гостиниц[ыы]"
-
   cloakroom_storage:
     any_keywords:
       - "(?i)\\bгардероб\\b"
@@ -539,7 +409,6 @@ trigger_definitions:
       - "(?i)бесплатн[оа]е\\s+хранени[ея]"
       - "(?i)безвозмездн[оа]е\\s+хранени[ея]"
       - "(?i)\\bномерок\\b"
-
   irregular_storage:
     any_keywords:
       - "(?i)иррегулярн[оа]е\\s+хранени[ея]"
@@ -550,10 +419,7 @@ trigger_definitions:
       - "(?i)\\bрезервуар\\b"
       - "(?i)нефтехранилищ[еа]"
       - "(?i)\\bсилос\\b"
-      - "(?i)\\bбункер\\b"
       - "(?i)\\bзерн[оо]\\b"
-      - "(?i)\\bпес[оа]к\\b"
-
   dangerous_goods_storage:
     any_keywords:
       - "(?i)опасн[ыо]е\\s+веществ[аа]"
@@ -562,8 +428,6 @@ trigger_definitions:
       - "(?i)взрывоопасн[ыо]е"
       - "(?i)радиоактивн[ыо]е"
       - "(?i)химическ[иие]+\\s+веществ[аа]"
-      - "(?i)опасн[ыо]е\\s+свойств[аа]"
-
   perishable_goods_storage:
     any_keywords:
       - "(?i)скоропортящ[иие]+ся\\s+товар[ыа]"
@@ -571,8 +435,6 @@ trigger_definitions:
       - "(?i)холодильн[а-яё]+\\s+камер[ааы]"
       - "(?i)температурн[ыо]й\\s+режим"
       - "(?i)срок\\s+годност[ии]"
-      - "(?i)свежест[ьи]"
-
   livestock_storage:
     any_keywords:
       - "(?i)\\bживотн[ыое]+\\b"
@@ -580,8 +442,6 @@ trigger_definitions:
       - "(?i)жив[оа]й\\s+товар"
       - "(?i)ветеринарн[ыо]й\\s+контрол[ья]"
       - "(?i)содержани[ея]\\s+животн[ыо]х"
-      - "(?i)кормлени[ея]"
-
   vehicle_storage:
     any_keywords:
       - "(?i)\\bавтомобил[ьяею]\\b"
@@ -589,24 +449,18 @@ trigger_definitions:
       - "(?i)\\bстоянк[аа]\\b"
       - "(?i)\\bпаркинг\\b"
       - "(?i)хранени[ея]\\s+ТС"
-      - "(?i)парковочн[оа]е\\s+мест[оо]"
-
   document_archive:
     any_keywords:
       - "(?i)\\bархив\\b"
       - "(?i)хранени[ея]\\s+документ[оо]в"
       - "(?i)архивн[оа]е\\s+хранени[ея]"
-      - "(?i)документооборот"
       - "(?i)электронн[ыо]й\\s+архив"
-
   sequester_storage:
     any_keywords:
       - "(?i)\\bсеквестр\\b"
       - "(?i)судебн[ыо]й\\s+депозит"
       - "(?i)спорн[оа]е\\s+имуществ[оо]"
       - "(?i)хранени[ея]\\s+до\\s+разрешени[яя]\\s+спор[аа]"
-      - "(?i)нейтральн[ыо]й\\s+хранител[ья]"
-
   professional_custodian:
     any_keywords:
       - "(?i)профессиональн[ыо]й\\s+хранител[ья]"
@@ -614,15 +468,12 @@ trigger_definitions:
       - "(?i)предпринимательск[а-яё]+\\s+деятельност[ьи]"
       - "(?i)товарн[ыо]й\\s+склад"
       - "(?i)складск[оа]е\\s+хозяйств[оо]"
-
   consumer_custodian:
     any_keywords:
       - "(?i)\\bгражданин\\b"
       - "(?i)физическ[оеая]\\s+лиц[оа]"
       - "(?i)\\bпотребител[ьяи]\\b"
       - "(?i)для\\s+личн[ыо]х\\s+нужд"
-      - "(?i)закон\\s+о\\s+защит[ее]\\s+прав\\s+потребител[еей]"
-
   legal_entity_party:
     any_keywords:
       - "(?i)\\bооо\\b"
@@ -633,7 +484,6 @@ trigger_definitions:
       - "(?i)\\bинн\\b"
       - "(?i)\\bогрн\\b"
       - "(?i)\\bкпп\\b"
-
   individual_party:
     any_keywords:
       - "(?i)\\bпаспорт\\b"
@@ -641,7 +491,6 @@ trigger_definitions:
       - "(?i)физическ[оеая]\\s+лиц[оа]"
       - "(?i)\\bИП\\b"
       - "(?i)индивидуальн[ыо]й\\s+предпринимател[ья]"
-
   warehouse_certificate:
     any_keywords:
       - "(?i)складск[оа]е\\s+свидетельств[оо]"
@@ -649,14 +498,12 @@ trigger_definitions:
       - "(?i)\\bваррант\\b"
       - "(?i)залогов[оа]е\\s+свидетельств[оо]"
       - "(?i)именн[а-яё]+\\s+складск[а-яё]+\\s+расписк[аа]"
-
   temperature_controlled:
     any_keywords:
       - "(?i)температурн[ыо]й\\s+режим"
       - "(?i)\\bхолодильник\\b"
       - "(?i)морозильн[а-яё]+\\s+камер[ааы]"
       - "(?i)термоконтрол[ья]"
-
   security_seal:
     any_keywords:
       - "(?i)\\bпломб[ааы]\\b"
@@ -664,7 +511,6 @@ trigger_definitions:
       - "(?i)вскрыти[ея]\\s+пломб[ыы]"
       - "(?i)нарушени[ея]\\s+целостност[ии]"
       - "(?i)запечатывани[ея]"
-
   gratuitous_storage:
     any_keywords:
       - "(?i)безвозмездн[оа]е\\s+хранени[ея]"
@@ -672,7 +518,6 @@ trigger_definitions:
       - "(?i)без\\s+вознаграждени[яя]"
       - "(?i)\\bгардероб\\b"
       - "(?i)не\\s+взимаетс[яьа]\\s+плат[аа]"
-
   third_party_transfer:
     any_keywords:
       - "(?i)передач[аа]\\s+третьему\\s+лиц[уу]"
@@ -680,7 +525,6 @@ trigger_definitions:
       - "(?i)привлечени[ея]\\s+третьего\\s+лиц[аа]"
       - "(?i)передовери[ея]\\s+хранени[яя]"
       - "(?i)с\\s+согласием\\s+поклажедател[яя]"
-
   high_value_items:
     any_keywords:
       - "(?i)\\bценност[ии]\\b"
@@ -688,16 +532,12 @@ trigger_definitions:
       - "(?i)ювелирн[ыо]е\\s+издели[яя]"
       - "(?i)\\bантиквариат\\b"
       - "(?i)произведени[яя]\\s+искусств[аа]"
-      - "(?i)особо\\s+ценн[оа]е\\s+имуществ[оо]"
-
   customs_warehouse:
     any_keywords:
       - "(?i)таможенн[ыо]й\\s+склад"
       - "(?i)временн[оа]е\\s+хранени[ея]"
       - "(?i)таможенн[а-яё]+\\s+оформлени[ея]"
       - "(?i)\\bСВХ\\b"
-      - "(?i)склад\\s+временн[оа]го\\s+хранени[яя]"
-
   cold_chain:
     any_keywords:
       - "(?i)холодов[а-яё]+\\s+цеп[ььи]"
@@ -706,120 +546,338 @@ trigger_definitions:
       - "(?i)термоконтейнер"
       - "(?i)фармацевтическ[оа]е\\s+хранени[ея]"
       - "(?i)лекарственн[ыо]е\\s+средств[аа]"
-
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
 # ════════════════════════════════════════════════════════════════════════════
-
 shared_patterns:
-
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
   percentage: "(?i)\\b\\d{1,3}[,.]?\\d{0,2}\\s*%"
   weight_pattern: "(?i)\\b\\d[\\d\\s,.]*(?:кг|тонн|т\\b|kg|ton)"
   volume_pattern: "(?i)\\b\\d[\\d\\s,.]*(?:куб\\.?\\s*м|м[³3]|cbm|литр)"
   temperature_pattern: "(?i)(?:от\\s+)?[\\+\\-]?\\d+\\s*(?:°C|градус|до\\s+[\\+\\-]?\\d+)"
-
+  compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "unlawful_liability_limitation_professional"
-    name: "Незаконное ограничение ответственности профессионального хранителя (ст. 901 ГК РФ)"
-    description: |
-      Профессиональный хранитель отвечает за утрату, недостачу и повреждение вещи
-      независимо от вины, кроме непреодолимой силы (ст. 901 ГК РФ). Попытка
-      ограничить ответственность формулировками «только при наличии вины» — ничтожна.
-    legal_base: "ст. 901 ГК РФ"
-    required_triggers: ["professional_custodian"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "только при наличии вины"
-        - "отвечает только за виновные действия"
-        - "ограничение ответственности суммой вознаграждения"
-      keyword_mode: "any"
-      negative_keywords:
-        - "независимо от вины"
-        - "полная ответственность"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "ответственность хранителя"
-        - "независимо от вины"
-        - "ст. 901"
-      rerank: true
-
-  - id: "dangerous_goods_storage_without_license"
-    name: "Хранение опасных веществ без лицензии"
-    description: |
-      Хранение опасных веществ (взрывчатых, легковоспламеняющихся, токсичных,
-      радиоактивных) требует специальной лицензии. Отсутствие лицензии —
-      административная ответственность, риски для персонала и имущества.
-    legal_base: "ФЗ № 116-ФЗ «О промышленной безопасности», ФЗ № 99-ФЗ «О лицензировании»"
-    required_triggers: ["dangerous_goods_storage"]
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "опасные вещества"
-        - "легковоспламеняющиеся"
-        - "токсичные"
-        - "взрывоопасные"
-        - "лицензия"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "опасные вещества"
-        - "лицензия"
-        - "промышленная безопасность"
-      rerank: true
-
-  - id: "consumer_early_return_penalty"
-    name: "Штраф за досрочный возврат вещи потребителем — ничтожен (ст. 904 ГК РФ)"
-    description: |
-      Поклажедатель-потребитель вправе забрать вещь в любой момент (ст. 904 ГК РФ).
-      Любые штрафы за досрочный возврат ничтожны для потребителей.
-    legal_base: "ст. 904 ГК РФ, Закон о защите прав потребителей"
-    required_triggers: ["consumer_custodian"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "штраф за досрочный возврат"
-        - "неустойка за расторжение"
-        - "потребитель"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "досрочный возврат"
-        - "штраф"
-        - "потребитель"
-        - "ст. 904"
-      rerank: true
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
-
 checks_v8:
-
-  - id: storage_subject_extraction
-    name: "Хранение: извлечение предмета — описание вещи, количество, стоимость"
-    description: "Извлекает характеристики хранимой вещи, количество, заявленную стоимость"
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 1: Стороны договора — хранитель и поклажедатель
+# ──────────────────────────────────────────────────────────────────────────
+  - id: parties_identification
+    name: "Стороны договора: идентификация хранителя и поклажедателя"
+    description: >
+      Фактографическая проверка идентификации сторон договора хранения —
+      хранителя и поклажедателя, их реквизитов, подписантов и оснований полномочий.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "хранитель"
+        - "поклажедатель"
+        - "сдаёт на хранение"
+        - "принимает на хранение"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+        - "ИНН"
+        - "ОГРН"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(хранитель|поклажедатель).*именуем"
+        - "(?i)действующ[а-яё]+\\s+на\\s+основании"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (Глава 47 ГК РФ, ст. 886).
+        Проверяется только один вопрос: идентификация сторон — хранителя
+        и поклажедателя, их реквизиты, подписанты и основания полномочий.
+        Нормативный ориентир:
+        - ст. 886 ГК РФ
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наименование и реквизиты Хранителя (ИНН, ОГРН).
+        2. Тип Хранителя (юрлицо / ИП / физлицо / профессиональный).
+        3. Кто подписывает от Хранителя и на каком основании.
+        4. Наименование и реквизиты Поклажедателя.
+        5. Тип Поклажедателя.
+        6. Кто подписывает от Поклажедателя и на каком основании.
+        7. Указание на статус профессионального хранителя.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если данные не указаны прямо — "not_defined" или "Данные не определены".
+        3. Не используй "None", "null", "not_defined", пустые строки.
+        4. В evidence — только цитаты из документа.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "ООО «СкладЛогистик» (ИНН 7701234567, ОГРН 1027700123456), именуемое
+        «Хранитель», в лице генерального директора Иванова И.И., действующего
+        на основании Устава, и АО «ТоргСервис» (ИНН 7709876543), именуемое
+        «Поклажедатель», в лице директора Петрова П.П., действующего
+        на основании доверенности № 12 от 01.01.2026. Хранитель осуществляет
+        профессиональную деятельность по хранению."
+        Ответ:
+        {
+          "custodian_details_status": "defined",
+          "custodian_details_value": "ООО «СкладЛогистик», ИНН 7701234567, ОГРН 1027700123456",
+          "custodian_type": "legal_entity",
+          "custodian_signatory": "Иванов И.И., генеральный директор",
+          "custodian_signatory_basis": "charter",
+          "custodian_professional_status": "yes",
+          "depositor_details_status": "defined",
+          "depositor_details_value": "АО «ТоргСервис», ИНН 7709876543",
+          "depositor_type": "legal_entity",
+          "depositor_signatory": "Петров П.П., директор",
+          "depositor_signatory_basis": "poa",
+          "evidence": [
+            {
+              "clause_ref": "преамбула",
+              "quote": "ООО «СкладЛогистик» (ИНН 7701234567, ОГРН 1027700123456), именуемое «Хранитель», в лице генерального директора Иванова И.И., действующего на основании Устава."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Настоящий договор заключён между Хранителем и Поклажедателем."
+        Ответ:
+        {
+          "custodian_details_status": "not_defined",
+          "custodian_details_value": "Данные не определены",
+          "custodian_type": "not_defined",
+          "custodian_signatory": "Данные не определены",
+          "custodian_signatory_basis": "not_defined",
+          "custodian_professional_status": "not_defined",
+          "depositor_details_status": "not_defined",
+          "depositor_details_value": "Данные не определены",
+          "depositor_type": "not_defined",
+          "depositor_signatory": "Данные не определены",
+          "depositor_signatory_basis": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Разграничены ли поля хранителя и поклажедателя без смешения?
+        2. Есть ли ИНН/ОГРН для ЮЛ или паспортные данные для физлица?
+        3. Указан ли подписант и документ-основание?
+        4. Упомянут ли статус профессионального хранителя?
+        5. Если ничего нет — "not_defined" и "Данные не определены".
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "custodian_details_status": "<defined / not_defined>",
+          "custodian_details_value": "<реквизиты или 'Данные не определены'>",
+          "custodian_type": "<legal_entity / ip / individual / not_defined>",
+          "custodian_signatory": "<ФИО и должность или 'Данные не определены'>",
+          "custodian_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
+          "custodian_professional_status": "<yes / no / not_defined>",
+          "depositor_details_status": "<defined / not_defined>",
+          "depositor_details_value": "<реквизиты или 'Данные не определены'>",
+          "depositor_type": "<legal_entity / ip / individual / consumer / not_defined>",
+          "depositor_signatory": "<ФИО и должность или 'Данные не определены'>",
+          "depositor_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+      retrieval:
+        retrieval_profile: "party_identification_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "хранитель поклажедатель именуем в лице действующего на основании ИНН ОГРН устава доверенности профессиональный хранитель реквизиты"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - representations
+          - boilerplate
+        negative_keywords:
+          - "предмет хранения"
+          - "вознаграждение"
+          - "срок хранения"
+          - "ответственность за утрату"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.0, 0.20]
+          boost: 0.40
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "representations"
+            - "boilerplate"
+          confidence_bonus_on_match: 0.08
+          confidence_penalty_on_excluded_segment: 0.15
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 1300
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Твоя задача — извлечь из договора хранения
+          сведения о хранителе и поклажедателе: реквизиты, тип стороны,
+          подписанта, основание полномочий и статус профессионального хранителя.
+          Не анализируй предмет хранения, вознаграждение, сроки или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. custodian_details_status — "defined" или "not_defined".
+          2. custodian_details_value — реквизиты хранителя.
+          3. custodian_type — legal_entity / ip / individual / not_defined.
+          4. custodian_signatory — подписант хранителя.
+          5. custodian_signatory_basis — charter / poa / order / personal / other / not_defined.
+          6. custodian_professional_status — yes / no / not_defined.
+          7. depositor_details_status — "defined" или "not_defined".
+          8. depositor_details_value — реквизиты поклажедателя.
+          9. depositor_type — legal_entity / ip / individual / consumer / not_defined.
+          10. depositor_signatory — подписант поклажедателя.
+          11. depositor_signatory_basis — charter / poa / order / personal / other / not_defined.
+          Если данные отсутствуют в тексте:
+          - статус = "not_defined"
+          - текстовое поле = "Данные не определены"
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - custodian_professional_status: "yes" если прямо указано, что хранитель
+            осуществляет профессиональную/предпринимательскую деятельность по хранению;
+            "no" если прямо указано иное; "not_defined" если не упомянуто.
+          - depositor_type: "consumer" если прямо указано, что поклажедатель —
+            физическое лицо для личных нужд.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "custodian_details_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения реквизитов хранителя."
+            required: true
+          - name: "custodian_details_value"
+            type: "string"
+            presentation: "fact"
+            label: "Хранитель"
+            description: "Реквизиты хранителя."
+            required: true
+            display_in_grid: true
+            display_priority: 1
+          - name: "custodian_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["legal_entity", "ip", "individual", "not_defined"]
+            description: "Тип хранителя."
+            required: false
+          - name: "custodian_signatory"
+            type: "string"
+            presentation: "fact"
+            label: "Подписант хранителя"
+            description: "Подписант хранителя."
+            required: false
+            display_in_grid: false
+          - name: "custodian_signatory_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
+            description: "Основание полномочий подписанта хранителя."
+            required: false
+          - name: "custodian_professional_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Статус профессионального хранителя."
+            required: false
+          - name: "depositor_details_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения реквизитов поклажедателя."
+            required: true
+          - name: "depositor_details_value"
+            type: "string"
+            presentation: "fact"
+            label: "Поклажедатель"
+            description: "Реквизиты поклажедателя."
+            required: true
+            display_in_grid: true
+            display_priority: 2
+          - name: "depositor_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["legal_entity", "ip", "individual", "consumer", "not_defined"]
+            description: "Тип поклажедателя."
+            required: false
+          - name: "depositor_signatory"
+            type: "string"
+            presentation: "fact"
+            label: "Подписант поклажедателя"
+            description: "Подписант поклажедателя."
+            required: false
+            display_in_grid: false
+          - name: "depositor_signatory_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
+            description: "Основание полномочий подписанта поклажедателя."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 2: Предмет хранения — описание вещи, количество, стоимость
+# ──────────────────────────────────────────────────────────────────────────
+  - id: storage_subject_extraction
+    name: "Предмет хранения: описание вещи, количество, стоимость"
+    description: >
+      Фактографическая проверка предмета договора хранения: описание вещи,
+      её тип (индивидуально-определённая / родовая), количество, вес, объём,
+      заявленная стоимость, тип хранения и идентификационные признаки.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -843,152 +901,274 @@ checks_v8:
         - "(?i)стоимост(ь|и).*\\d"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Найди в тексте сведения о предмете хранения.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (Глава 47 ГК РФ, ст. 886).
+        Проверяется только один вопрос: предмет хранения — описание вещи,
+        её характеристики, тип, количество и заявленная стоимость.
+        Нормативный ориентир:
+        - ст. 886 ГК РФ — предмет договора хранения
+        - ст. 890 ГК РФ — иррегулярное хранение
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Описание хранимой вещи (наименование, характеристики).
+        2. Тип вещи (индивидуально-определённая / родовая).
+        3. Количество, вес или объём.
+        4. Заявленную или оценочную стоимость.
+        5. Тип хранения (обычное / иррегулярное).
+        6. Идентификационные признаки (серийный номер, маркировка, пломба).
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если данные не указаны прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "На хранение передаётся зерно пшеницы 3 класса в количестве 50 тонн,
+        влажностью не более 14%. Хранение иррегулярное: зерно хранится
+        в общей массе. Заявленная стоимость — 500 000 рублей."
+        Ответ:
         {
-          "item_description": "<описание вещи или not_found>",
-          "item_type": "<individual / generic / not_specified / not_found>",
-          "quantity": "<количество с единицей или not_found>",
-          "weight": "<вес с единицей или not_found>",
-          "volume": "<объём с единицей или not_found>",
-          "declared_value": "<заявленная стоимость или not_found>",
-          "storage_type": "<regular / irregular / not_specified / not_found>",
-          "identification_marks": "<серийный номер / маркировка / пломба или not_found>"
+          "item_description_status": "defined",
+          "item_description_value": "зерно пшеницы 3 класса, влажностью не более 14%",
+          "item_type": "generic",
+          "quantity_status": "defined",
+          "quantity_value": "50 тонн",
+          "declared_value_status": "defined",
+          "declared_value_value": "500 000 рублей",
+          "storage_type": "irregular",
+          "identification_marks_status": "not_defined",
+          "identification_marks_value": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.1",
+              "quote": "На хранение передаётся зерно пшеницы 3 класса в количестве 50 тонн, влажностью не более 14%."
+            }
+          ]
         }
 
-        - "individual" — индивидуально-определённая вещь (с уникальными признаками)
-        - "generic" — родовые вещи (зерно, песок, топливо)
-
-        ВАЖНО: Возвращай only_found_in_text. Если значение явно не указано — пиши "not_found".
-      prompt_file: null
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 512
-    retrieval:
-      retrieval_profile: "scope_of_work_check"
-      context_k: 6
-      max_chunks: 10
-      boost_keywords:
-        - "предмет хранения"
-        - "вещь"
-        - "количество"
-        - "стоимость"
-        - "родовые"
-        - "индивидуально"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 50
-      max_snippet_length: 800
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "item_description"
-          type: "string"
-          keyword_hints: ["наименование", "описание", "вещь"]
-          description: "Описание вещи"
-        - name: "item_type"
-          type: "string"
-          allowed_values: ["individual", "generic", "not_specified", "not_found"]
-          description: "Тип вещи"
-        - name: "declared_value"
-          type: "string"
-          keyword_hints: ["заявленная стоимость", "оценочная стоимость"]
-          description: "Заявленная стоимость"
-        - name: "storage_type"
-          type: "string"
-          allowed_values: ["regular", "irregular", "not_specified", "not_found"]
-          description: "Тип хранения (обычное/иррегулярное)"
-      store_payload: true
-
-  - id: professional_custodian_liability
-    name: "Ответственность профессионального хранителя (ст. 901 ГК РФ)"
-    description: |
-      Проверяет наличие условия о том, что профессиональный хранитель отвечает
-      за утрату, недостачу и повреждение независимо от вины, кроме непреодолимой
-      силы.
-    triggers:
-      any: ["professional_custodian"]
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "независимо от вины"
-        - "полная материальная ответственность"
-        - "профессиональный хранитель отвечает"
-        - "возмещение полной стоимости"
-        - "за исключением непреодолимой силы"
-        - "ст. 901"
-      keyword_mode: "any"
-      negative_keywords:
-        - "только при наличии вины"
-        - "отвечает только за виновные действия"
-      regex_patterns:
-        - "(?i)хранитель.*несёт.*ответственност.*независимо.*от.*вины"
-        - "(?i)ст\\.?\\s*901"
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Проверь условия ответственности профессионального хранителя (ст. 901 ГК РФ).
-
-        Ответь строго в JSON:
+        Пример 2:
+        Фрагмент:
+        "Хранитель принимает имущество Поклажедателя на хранение."
+        Ответ:
         {
-          "liability_basis": "<strict / fault_based / mixed / not_specified / not_found>",
-          "liability_scope": "<full_value / declared_value / limited / not_specified / not_found>",
-          "force_majeure_exception": "<yes / no / not_found>",
-          "liability_cap_present": "<yes / no / not_found>",
-          "liability_snippet": "<цитата или not_found>"
+          "item_description_status": "not_defined",
+          "item_description_value": "Данные не определены",
+          "item_type": "not_defined",
+          "quantity_status": "not_defined",
+          "quantity_value": "Данные не определены",
+          "declared_value_status": "not_defined",
+          "declared_value_value": "Данные не определены",
+          "storage_type": "not_defined",
+          "identification_marks_status": "not_defined",
+          "identification_marks_value": "Данные не определены",
+          "evidence": []
         }
 
-        - "strict" — ответственность независимо от вины (по ст. 901 ГК РФ)
-        - "fault_based" — только при наличии вины (НЕЗАКОННО для профессионального хранителя)
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли конкретное описание вещи, а не общее «имущество»?
+        2. Определён ли тип вещи — индивидуальная или родовая?
+        3. Указано ли количество/вес/объём с единицей измерения?
+        4. Указана ли заявленная стоимость?
+        5. Определён ли тип хранения — обычное или иррегулярное?
+        6. Есть ли идентификационные признаки?
+        Не выводи шаги проверки. Верни только JSON.
 
-        ВАЖНО: Если значение явно не указано — пиши "not_found".
-      prompt_file: null
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "item_description_status": "<defined / not_defined>",
+          "item_description_value": "<описание или 'Данные не определены'>",
+          "item_type": "<individual / generic / not_defined>",
+          "quantity_status": "<defined / not_defined>",
+          "quantity_value": "<количество или 'Данные не определены'>",
+          "declared_value_status": "<defined / not_defined>",
+          "declared_value_value": "<стоимость или 'Данные не определены'>",
+          "storage_type": "<regular / irregular / not_defined>",
+          "identification_marks_status": "<defined / not_defined>",
+          "identification_marks_value": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
-      max_tokens: 512
-    retrieval:
-      retrieval_profile: "liability_cap_check"
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "ответственность хранителя"
-        - "независимо от вины"
-        - "профессиональный"
-        - "ст. 901"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "liability_basis"
-          type: "string"
-          allowed_values: ["strict", "fault_based", "mixed", "not_specified", "not_found"]
-          description: "Основание ответственности"
-        - name: "force_majeure_exception"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Исключение для непреодолимой силы"
-      store_payload: true
-
+      max_tokens: 650
+      retrieval:
+        retrieval_profile: "scope_of_work_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "предмет хранения вещь товар имущество количество вес объём заявленная стоимость оценочная стоимость родовые вещи индивидуально-определённая иррегулярное хранение"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - definitions
+          - obligations
+        negative_keywords:
+          - "вознаграждение"
+          - "срок хранения"
+          - "ответственность"
+          - "возврат"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.0, 0.40]
+          boost: 0.20
+          scope: segment
+        context_k: 6
+        max_chunks: 10
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "definitions"
+            - "obligations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 50
+        max_snippet_length: 800
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 1100
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения о предмете:
+          описание вещи, тип, количество, стоимость, тип хранения, идентификационные признаки.
+          Не анализируй вознаграждение, ответственность или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. item_description_status — "defined" или "not_defined".
+          2. item_description_value — описание вещи.
+          3. item_type — individual / generic / not_defined.
+          4. quantity_status — "defined" или "not_defined".
+          5. quantity_value — количество с единицей.
+          6. declared_value_status — "defined" или "not_defined".
+          7. declared_value_value — заявленная стоимость.
+          8. storage_type — regular / irregular / not_defined.
+          9. identification_marks_status — "defined" или "not_defined".
+          10. identification_marks_value — идентификационные признаки.
+          Если данные отсутствуют: указывай "not_defined" или "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - item_type: "individual" — индивидуально-определённая вещь с уникальными
+            признаками; "generic" — родовые вещи (зерно, песок, топливо);
+            "not_defined" — тип не указан.
+          - storage_type: "regular" — обычное хранение конкретной вещи;
+            "irregular" — иррегулярное хранение с обезличиванием;
+            "not_defined" — тип не указан.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "item_description_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения предмета хранения."
+            required: true
+          - name: "item_description_value"
+            type: "string"
+            presentation: "fact"
+            label: "Описание вещи"
+            description: "Описание хранимой вещи."
+            required: true
+            display_in_grid: true
+            display_priority: 1
+          - name: "item_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["individual", "generic", "not_defined"]
+            description: "Тип вещи: индивидуально-определённая или родовая."
+            required: true
+          - name: "quantity_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания количества."
+            required: false
+          - name: "quantity_value"
+            type: "string"
+            presentation: "fact"
+            label: "Количество"
+            description: "Количество, вес или объём вещи."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "declared_value_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания заявленной стоимости."
+            required: false
+          - name: "declared_value_value"
+            type: "string"
+            presentation: "fact"
+            label: "Заявленная стоимость"
+            description: "Заявленная или оценочная стоимость вещи."
+            required: false
+            display_in_grid: true
+            display_priority: 3
+          - name: "storage_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["regular", "irregular", "not_defined"]
+            description: "Тип хранения: обычное или иррегулярное."
+            required: false
+          - name: "identification_marks_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания идентификационных признаков."
+            required: false
+          - name: "identification_marks_value"
+            type: "string"
+            presentation: "fact"
+            label: "Идентификация"
+            description: "Серийный номер, маркировка, пломба и т.п."
+            required: false
+            display_in_grid: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 3: Документальное подтверждение приёма вещи (ст. 887 ГК РФ)
+# ──────────────────────────────────────────────────────────────────────────
   - id: acceptance_documentation_check
     name: "Документальное подтверждение приёма вещи (ст. 887 ГК РФ, форма МХ-1)"
-    description: |
-      Проверяет наличие условия о документальном подтверждении приёма вещи:
-      акт приёма-передачи (форма МХ-1), сохранная расписка, складское свидетельство.
+    description: >
+      Фактографическая проверка наличия условия о документальном подтверждении
+      приёма вещи на хранение: акт приёма-передачи (форма МХ-1), сохранная расписка,
+      складское свидетельство, порядок и сроки выдачи документа.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1007,58 +1187,463 @@ checks_v8:
         - "(?i)сохранн(ая|ой)\\s+расписк"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Проверь наличие условия о документальном подтверждении приёма вещи (ст. 887 ГК РФ).
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (ст. 887 ГК РФ).
+        Проверяется только один вопрос: документальное подтверждение приёма вещи.
+        Нормативный ориентир:
+        - ст. 887 ГК РФ — форма договора хранения
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Упоминается ли документ о приёме вещи на хранение.
+        2. Вид документа (акт МХ-1 / расписка / свидетельство / иной).
+        3. Когда выдаётся документ (при приёме / в течение срока).
+        4. Указана ли форма документа или ссылка на Постановление Росстата.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Приём вещи на хранение оформляется актом приёма-передачи по форме
+        МХ-1, утверждённой Постановлением Росстата № 66. Акт составляется
+        в двух экземплярах при передаче вещи."
+        Ответ:
         {
-          "acceptance_doc_mentioned": "<yes / no>",
-          "doc_type": "<act_mh1 / custody_receipt / warehouse_certificate / other / not_specified / not_found>",
-          "when_issued": "<upon_acceptance / within_days / not_specified / not_found>",
-          "acceptance_snippet": "<цитата или not_found>"
+          "acceptance_doc_status": "defined",
+          "acceptance_doc_type": "act_mh1",
+          "when_issued": "upon_acceptance",
+          "form_reference_status": "defined",
+          "form_reference_value": "форма МХ-1, Постановление Росстата № 66",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "Приём вещи на хранение оформляется актом приёма-передачи по форме МХ-1, утверждённой Постановлением Росстата № 66."
+            }
+          ]
         }
 
-        ВАЖНО: Если значение явно не указано — пиши "not_found".
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Хранитель принимает вещь Поклажедателя."
+        Ответ:
+        {
+          "acceptance_doc_status": "not_defined",
+          "acceptance_doc_type": "not_defined",
+          "when_issued": "not_defined",
+          "form_reference_status": "not_defined",
+          "form_reference_value": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли прямое упоминание документа о приёме?
+        2. Определён ли вид документа?
+        3. Указан ли момент выдачи документа?
+        4. Есть ли ссылка на форму или Постановление Росстата?
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "acceptance_doc_status": "<defined / not_defined>",
+          "acceptance_doc_type": "<act_mh1 / custody_receipt / warehouse_certificate / other / not_defined>",
+          "when_issued": "<upon_acceptance / within_days / not_defined>",
+          "form_reference_status": "<defined / not_defined>",
+          "form_reference_value": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 4
       temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      retrieval_profile: "acceptance_check"
-      context_k: 4
-      max_chunks: 6
-      boost_keywords:
-        - "акт приёма"
-        - "МХ-1"
-        - "сохранная расписка"
-        - "складское свидетельство"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "acceptance_doc_mentioned"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Упоминание документа о приёме"
-        - name: "doc_type"
-          type: "string"
-          allowed_values: ["act_mh1", "custody_receipt", "warehouse_certificate", "other", "not_specified", "not_found"]
-          description: "Вид документа"
-      store_payload: true
+      max_tokens: 450
+      retrieval:
+        retrieval_profile: "acceptance_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "акт приёма-передачи форма МХ-1 сохранная расписка складское свидетельство документальное подтверждение приём на хранение"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - procedures
+          - obligations
+        negative_keywords:
+          - "вознаграждение"
+          - "ответственность"
+          - "возврат вещи"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.10, 0.50]
+          boost: 0.18
+          scope: segment
+        context_k: 4
+        max_chunks: 6
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "procedures"
+            - "obligations"
+          confidence_bonus_on_match: 0.08
+          confidence_penalty_on_excluded_segment: 0.10
+      evidence:
+        required: true
+        min_snippet_length: 30
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 550
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения
+          о документальном подтверждении приёма вещи.
+          Не анализируй иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. acceptance_doc_status — "defined" или "not_defined".
+          2. acceptance_doc_type — act_mh1 / custody_receipt / warehouse_certificate / other / not_defined.
+          3. when_issued — upon_acceptance / within_days / not_defined.
+          4. form_reference_status — "defined" или "not_defined".
+          5. form_reference_value — формулировка о форме документа.
+          Если данные отсутствуют: указывай "not_defined" или "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - acceptance_doc_type: "act_mh1" — акт по форме МХ-1;
+            "custody_receipt" — сохранная расписка;
+            "warehouse_certificate" — складское свидетельство;
+            "other" — иной документ; "not_defined" — не указан.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "acceptance_doc_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус упоминания документа о приёме."
+            required: true
+          - name: "acceptance_doc_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["act_mh1", "custody_receipt", "warehouse_certificate", "other", "not_defined"]
+            description: "Вид документа о приёме вещи."
+            required: false
+          - name: "when_issued"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["upon_acceptance", "within_days", "not_defined"]
+            description: "Момент выдачи документа."
+            required: false
+          - name: "form_reference_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус ссылки на форму документа."
+            required: false
+          - name: "form_reference_value"
+            type: "string"
+            presentation: "fact"
+            label: "Форма документа"
+            description: "Ссылка на форму или Постановление Росстата."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 4: Ответственность профессионального хранителя (ст. 901 ГК РФ)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: professional_custodian_liability
+    name: "Ответственность хранителя: основание, объём, лимит (ст. 901, 902 ГК РФ)"
+    description: >
+      Фактографическая проверка условий ответственности хранителя за утрату,
+      недостачу и повреждение вещи: основание ответственности (независимо от вины
+      для профессионального хранителя), объём (полная стоимость / заявленная / лимит),
+      исключение непреодолимой силы. Попытка ограничить ответственность
+      профессионального хранителя «только при наличии вины» противоречит ст. 901 ГК РФ.
+    triggers:
+      any: ["professional_custodian"]
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "независимо от вины"
+        - "полная материальная ответственность"
+        - "профессиональный хранитель отвечает"
+        - "возмещение полной стоимости"
+        - "за исключением непреодолимой силы"
+        - "ст. 901"
+        - "ответственность за утрату"
+        - "ответственность за повреждение"
+        - "только при наличии вины"
+        - "ограничение ответственности суммой вознаграждения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)хранитель.*несёт.*ответственност.*независимо.*от.*вины"
+        - "(?i)ст\\.?\\s*901"
+        - "(?i)ответственност.*за.*(утрат|поврежден|недостач)"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (ст. 901, 902 ГК РФ).
+        Проверяется только один вопрос: основание, объём и лимит ответственности
+        хранителя за утрату, недостачу и повреждение вещи.
+        Нормативный ориентир:
+        - ст. 901 ГК РФ — ответственность профессионального хранителя независимо от вины
+        - ст. 902 ГК РФ — размер ответственности
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
+        - Формулировки «отвечает только при наличии вины» для профессионального
+          хранителя противоречат ст. 901 ГК РФ и ничтожны.
 
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Основание ответственности (независимо от вины / только при вине / смешанная).
+        2. Объём ответственности (полная стоимость / заявленная / лимитированная).
+        3. Исключение для непреодолимой силы.
+        4. Наличие лимита (cap) ответственности.
+        5. Указание на ответственность за утрату, недостачу и повреждение.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Хранитель несёт ответственность за утрату, недостачу и повреждение
+        вещи независимо от вины, за исключением случаев непреодолимой силы.
+        Возмещение производится в размере полной стоимости вещи."
+        Ответ:
+        {
+          "liability_basis": "strict",
+          "liability_scope": "full_value",
+          "force_majeure_exception": "yes",
+          "liability_cap_present": "no",
+          "loss_damage_liability_status": "defined",
+          "loss_damage_liability_details": "ответственность за утрату, недостачу и повреждение независимо от вины",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.1",
+              "quote": "Хранитель несёт ответственность за утрату, недостачу и повреждение вещи независимо от вины, за исключением случаев непреодолимой силы."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Хранитель отвечает только при наличии вины."
+        Ответ:
+        {
+          "liability_basis": "fault_based",
+          "liability_scope": "not_defined",
+          "force_majeure_exception": "not_defined",
+          "liability_cap_present": "not_defined",
+          "loss_damage_liability_status": "defined",
+          "loss_damage_liability_details": "отвечает только при наличии вины",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.1",
+              "quote": "Хранитель отвечает только при наличии вины."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Определено ли основание ответственности — независимо от вины или по вине?
+        2. Есть ли формулировка «только при наличии вины» (незаконно для профессионального)?
+        3. Определён ли объём ответственности — полная стоимость или лимит?
+        4. Есть ли исключение для непреодолимой силы?
+        5. Есть ли cap на ответственность?
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "liability_basis": "<strict / fault_based / mixed / not_defined>",
+          "liability_scope": "<full_value / declared_value / limited / not_defined>",
+          "force_majeure_exception": "<yes / no / not_defined>",
+          "liability_cap_present": "<yes / no / not_defined>",
+          "loss_damage_liability_status": "<defined / not_defined>",
+          "loss_damage_liability_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+      retrieval:
+        retrieval_profile: "liability_cap_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "ответственность хранителя независимо от вины профессиональный хранитель возмещение полной стоимости за исключением непреодолимой силы ст. 901 ответственность за утрату повреждение недостачу"
+        preferred_unit_types:
+          - liability_provision
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - limitations
+          - remedies
+        negative_keywords:
+          - "вознаграждение"
+          - "срок хранения"
+          - "возврат вещи"
+          - "страхование"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.35, 0.85]
+          boost: 0.15
+          scope: segment
+        context_k: 6
+        max_chunks: 8
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "limitations"
+            - "remedies"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 40
+        max_snippet_length: 600
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 900
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения
+          об ответственности хранителя: основание, объём, лимит, исключения.
+          Не анализируй вознаграждение, сроки или иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. liability_basis — strict / fault_based / mixed / not_defined.
+             "strict" — независимо от вины (ст. 901 ГК РФ);
+             "fault_based" — только при наличии вины;
+             "mixed" — комбинация.
+          2. liability_scope — full_value / declared_value / limited / not_defined.
+          3. force_majeure_exception — yes / no / not_defined.
+          4. liability_cap_present — yes / no / not_defined.
+          5. loss_damage_liability_status — "defined" или "not_defined".
+          6. loss_damage_liability_details — формулировка об ответственности.
+          Если данные отсутствуют: указывай "not_defined" или "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - liability_basis = "fault_based" только если прямо сказано
+            «отвечает только при наличии вины» или аналогично.
+          - Не выводи ответственность из нормы ст. 901 ГК РФ — только из текста.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "liability_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["strict", "fault_based", "mixed", "not_defined"]
+            description: "Основание ответственности хранителя."
+            required: true
+          - name: "liability_scope"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["full_value", "declared_value", "limited", "not_defined"]
+            description: "Объём ответственности."
+            required: false
+          - name: "force_majeure_exception"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Исключение для непреодолимой силы."
+            required: false
+          - name: "liability_cap_present"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Наличие лимита ответственности."
+            required: false
+          - name: "loss_damage_liability_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания ответственности за утрату/повреждение."
+            required: true
+          - name: "loss_damage_liability_details"
+            type: "string"
+            presentation: "fact"
+            label: "Ответственность за утрату/повреждение"
+            description: "Формулировка об ответственности за утрату, недостачу и повреждение."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 5: Право на возврат по первому требованию (ст. 904 ГК РФ)
+# ──────────────────────────────────────────────────────────────────────────
   - id: return_on_first_demand_check
     name: "Право на возврат вещи по первому требованию (ст. 904 ГК РФ)"
-    description: |
-      Проверяет наличие условия о праве поклажедателя забрать вещь в любой момент,
-      даже если договор срочный. Штрафы за досрочный возврат ничтожны для потребителей.
+    description: >
+      Фактографическая проверка наличия условия о праве поклажедателя забрать вещь
+      в любой момент, даже если договор срочный, и наличия штрафов за досрочный возврат.
+      Штрафы за досрочный возврат ничтожны для потребителей (ст. 904 ГК РФ).
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1069,68 +1654,231 @@ checks_v8:
         - "право истребовать в любой момент"
         - "без уплаты штрафа"
         - "ст. 904"
-      keyword_mode: "any"
-      negative_keywords:
         - "штраф за досрочный возврат"
         - "неустойка за расторжение"
+      keyword_mode: "any"
       regex_patterns:
         - "(?i)поклажедатель.*вправе.*истребовать.*вещь.*в.*любое.*время"
         - "(?i)ст\\.?\\s*904"
+        - "(?i)штраф.*досрочн.*возврат"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Проверь наличие условия о праве на возврат вещи по первому требованию (ст. 904 ГК РФ).
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (ст. 904 ГК РФ).
+        Проверяется только один вопрос: право поклажедателя забрать вещь
+        по первому требованию и наличие штрафов за досрочный возврат.
+        Нормативный ориентир:
+        - ст. 904 ГК РФ — право поклажедателя на досрочный возврат
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Указано ли право поклажедателя забрать вещь в любой момент.
+        2. Установлен ли срок уведомления о досрочном возврате.
+        3. Есть ли штраф за досрочный возврат.
+        4. Есть ли указание на ничтожность штрафа для потребителей.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Поклажедатель вправе истребовать вещь в любое время по первому требованию.
+        Хранитель обязан возвратить вещь немедленно. Штраф за досрочный возврат
+        не взимается."
+        Ответ:
         {
-          "first_demand_right_present": "<yes / no / not_found>",
-          "early_return_penalty": "<yes / no / not_found>",
-          "notice_period": "<количество дней или not_found>",
-          "return_snippet": "<цитата или not_found>"
+          "first_demand_right_status": "defined",
+          "first_demand_right_details": "вправе истребовать вещь в любое время по первому требованию",
+          "notice_period_status": "not_defined",
+          "notice_period_value": "Данные не определены",
+          "early_return_penalty_status": "defined",
+          "early_return_penalty_value": "не взимается",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.1",
+              "quote": "Поклажедатель вправе истребовать вещь в любое время по первому требованию."
+            }
+          ]
         }
 
-        ВАЖНО: Если значение явно не указано — пиши "not_found".
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Хранитель хранит вещь до истечения срока договора."
+        Ответ:
+        {
+          "first_demand_right_status": "not_defined",
+          "first_demand_right_details": "Данные не определены",
+          "notice_period_status": "not_defined",
+          "notice_period_value": "Данные не определены",
+          "early_return_penalty_status": "not_defined",
+          "early_return_penalty_value": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли прямое указание на право забрать вещь по первому требованию?
+        2. Установлен ли срок уведомления?
+        3. Есть ли штраф за досрочный возврат?
+        4. Не выводи право из нормы ст. 904 ГК РФ — только из текста.
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "first_demand_right_status": "<defined / not_defined>",
+          "first_demand_right_details": "<текст или 'Данные не определены'>",
+          "notice_period_status": "<defined / not_defined>",
+          "notice_period_value": "<текст или 'Данные не определены'>",
+          "early_return_penalty_status": "<defined / not_defined>",
+          "early_return_penalty_value": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 4
       temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      retrieval_profile: "termination_check"
-      context_k: 4
-      max_chunks: 6
-      boost_keywords:
-        - "по первому требованию"
-        - "досрочный возврат"
-        - "ст. 904"
-        - "истребовать"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "first_demand_right_present"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие права на возврат по первому требованию"
-        - name: "early_return_penalty"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие штрафа за досрочный возврат"
-      store_payload: true
-
+      max_tokens: 450
+      retrieval:
+        retrieval_profile: "termination_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "по первому требованию досрочный возврат право истребовать вещь в любой момент штраф за досрочный возврат ст. 904 возврат вещи немедленно"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - remedies
+          - obligations
+        negative_keywords:
+          - "вознаграждение"
+          - "ответственность за утрату"
+          - "страхование"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.40, 0.80]
+          boost: 0.12
+          scope: segment
+        context_k: 4
+        max_chunks: 6
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "remedies"
+            - "obligations"
+          confidence_bonus_on_match: 0.08
+          confidence_penalty_on_excluded_segment: 0.10
+      evidence:
+        required: true
+        min_snippet_length: 30
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 550
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения
+          о праве поклажедателя забрать вещь по первому требованию и штрафах.
+          Не анализируй иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. first_demand_right_status — "defined" или "not_defined".
+          2. first_demand_right_details — формулировка о праве на возврат.
+          3. notice_period_status — "defined" или "not_defined".
+          4. notice_period_value — срок уведомления.
+          5. early_return_penalty_status — "defined" или "not_defined".
+          6. early_return_penalty_value — наличие/отсутствие штрафа.
+          Если данные отсутствуют: указывай "not_defined" или "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи право из нормы ст. 904 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "first_demand_right_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания права на возврат по первому требованию."
+            required: true
+          - name: "first_demand_right_details"
+            type: "string"
+            presentation: "fact"
+            label: "Право на возврат"
+            description: "Формулировка о праве забрать вещь по первому требованию."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "notice_period_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания срока уведомления."
+            required: false
+          - name: "notice_period_value"
+            type: "string"
+            presentation: "fact"
+            label: "Срок уведомления"
+            description: "Срок уведомления о досрочном возврате."
+            required: false
+            display_in_grid: false
+          - name: "early_return_penalty_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания штрафа за досрочный возврат."
+            required: false
+          - name: "early_return_penalty_value"
+            type: "string"
+            presentation: "fact"
+            label: "Штраф за досрочный возврат"
+            description: "Наличие и размер штрафа за досрочный возврат."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 6: Иррегулярное хранение (ст. 890 ГК РФ)
+# ──────────────────────────────────────────────────────────────────────────
   - id: irregular_storage_terms
     name: "Иррегулярное хранение: условия смешения вещей (ст. 890 ГК РФ)"
-    description: |
-      Проверяет условия иррегулярного хранения: смешение родовых вещей,
-      требования к качеству, порядок возврата того же рода и качества.
+    description: >
+      Фактографическая проверка условий иррегулярного хранения: разрешение
+      смешения родовых вещей, требования к качеству, порядок возврата того же
+      рода и качества, доля в общей массе.
     triggers:
       any: ["irregular_storage"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1150,59 +1898,242 @@ checks_v8:
         - "(?i)того\\s+же\\s+рода\\s+и\\s+качеств"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Проверь условия иррегулярного хранения (ст. 890 ГК РФ).
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (ст. 890 ГК РФ).
+        Проверяется только один вопрос: условия иррегулярного хранения.
+        Нормативный ориентир:
+        - ст. 890 ГК РФ — иррегулярное хранение
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Упоминается ли иррегулярное хранение.
+        2. Разрешено ли смешение вещей.
+        3. Указан ли сорт/класс/качество вещи.
+        4. Указан ли порядок возврата того же рода и качества.
+        5. Определена ли доля в общей массе.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Хранение иррегулярное: зерно Поклажедателя смешивается с зерном
+        других поклажедателей того же сорта и качества. Возврат осуществляется
+        зерном того же рода и качества в количестве, равном сданному.
+        Доля Поклажедателя в общей массе определяется пропорционально."
+        Ответ:
         {
-          "irregular_storage_mentioned": "<yes / no>",
-          "commingling_allowed": "<yes / no / not_found>",
-          "quality_grade_specified": "<yes / no / not_found>",
-          "return_same_grade": "<yes / no / not_found>",
-          "share_basis": "<yes / no / not_found>",
-          "irregular_snippet": "<цитата или not_found>"
+          "irregular_storage_status": "defined",
+          "commingling_allowed": "yes",
+          "quality_grade_status": "defined",
+          "quality_grade_value": "того же сорта и качества",
+          "return_same_grade_status": "defined",
+          "return_same_grade_details": "возврат зерном того же рода и качества в количестве, равном сданному",
+          "share_basis_status": "defined",
+          "share_basis_details": "доля определяется пропорционально",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.2",
+              "quote": "Хранение иррегулярное: зерно Поклажедателя смешивается с зерном других поклажедателей того же сорта и качества."
+            }
+          ]
         }
 
-        ВАЖНО: Если значение явно не указано — пиши "not_found".
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Хранитель хранит вещь Поклажедателя."
+        Ответ:
+        {
+          "irregular_storage_status": "not_defined",
+          "commingling_allowed": "not_defined",
+          "quality_grade_status": "not_defined",
+          "quality_grade_value": "Данные не определены",
+          "return_same_grade_status": "not_defined",
+          "return_same_grade_details": "Данные не определены",
+          "share_basis_status": "not_defined",
+          "share_basis_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли прямое упоминание иррегулярного хранения?
+        2. Разрешено ли смешение вещей?
+        3. Указан ли сорт/класс/качество?
+        4. Определён ли порядок возврата того же рода и качества?
+        5. Определена ли доля в общей массе?
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "irregular_storage_status": "<defined / not_defined>",
+          "commingling_allowed": "<yes / no / not_defined>",
+          "quality_grade_status": "<defined / not_defined>",
+          "quality_grade_value": "<текст или 'Данные не определены'>",
+          "return_same_grade_status": "<defined / not_defined>",
+          "return_same_grade_details": "<текст или 'Данные не определены'>",
+          "share_basis_status": "<defined / not_defined>",
+          "share_basis_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 400
-    retrieval:
-      context_k: 5
-      max_chunks: 6
-      boost_keywords:
-        - "иррегулярное хранение"
-        - "смешение"
-        - "родовые вещи"
-        - "того же качества"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "irregular_storage_mentioned"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Упоминание иррегулярного хранения"
-        - name: "commingling_allowed"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Разрешено ли смешение вещей"
-      store_payload: true
-
+      max_tokens: 500
+      retrieval:
+        retrieval_profile: "scope_of_work_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "иррегулярное хранение обезличенное хранение смешение вещей родовые вещи того же рода и качества доля в общей массе элеватор резервуар"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - definitions
+          - obligations
+        negative_keywords:
+          - "вознаграждение"
+          - "ответственность"
+          - "возврат вещи"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.10, 0.55]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "definitions"
+            - "obligations"
+          confidence_bonus_on_match: 0.08
+          confidence_penalty_on_excluded_segment: 0.10
+      evidence:
+        required: true
+        min_snippet_length: 30
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 700
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения
+          об условиях иррегулярного хранения.
+          Не анализируй иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. irregular_storage_status — "defined" или "not_defined".
+          2. commingling_allowed — yes / no / not_defined.
+          3. quality_grade_status — "defined" или "not_defined".
+          4. quality_grade_value — сорт/класс/качество.
+          5. return_same_grade_status — "defined" или "not_defined".
+          6. return_same_grade_details — порядок возврата того же рода и качества.
+          7. share_basis_status — "defined" или "not_defined".
+          8. share_basis_details — доля в общей массе.
+          Если данные отсутствуют: указывай "not_defined" или "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи условия из нормы ст. 890 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "irregular_storage_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус упоминания иррегулярного хранения."
+            required: true
+          - name: "commingling_allowed"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Разрешено ли смешение вещей."
+            required: false
+          - name: "quality_grade_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания сорта/класса/качества."
+            required: false
+          - name: "quality_grade_value"
+            type: "string"
+            presentation: "fact"
+            label: "Сорт / качество"
+            description: "Сорт, класс или качество вещи при иррегулярном хранении."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "return_same_grade_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания порядка возврата того же рода и качества."
+            required: false
+          - name: "return_same_grade_details"
+            type: "string"
+            presentation: "fact"
+            label: "Порядок возврата"
+            description: "Порядок возврата вещи того же рода и качества."
+            required: false
+            display_in_grid: true
+            display_priority: 2
+          - name: "share_basis_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус определения доли в общей массе."
+            required: false
+          - name: "share_basis_details"
+            type: "string"
+            presentation: "fact"
+            label: "Доля в общей массе"
+            description: "Порядок определения доли поклажедателя."
+            required: false
+            display_in_grid: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 7: Реализация невостребованной вещи (ст. 899 ГК РФ)
+# ──────────────────────────────────────────────────────────────────────────
   - id: uncollected_goods_disposal
     name: "Реализация невостребованной вещи (ст. 899 ГК РФ)"
-    description: |
-      Проверяет наличие процедуры реализации невостребованной вещи:
+    description: >
+      Фактографическая проверка процедуры реализации невостребованной вещи:
       уведомление поклажедателя, срок, порядок продажи, распределение выручки.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1222,62 +2153,221 @@ checks_v8:
         - "(?i)ст\\.?\\s*899"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Проверь наличие процедуры реализации невостребованной вещи (ст. 899 ГК РФ).
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (ст. 899 ГК РФ).
+        Проверяется только один вопрос: процедура реализации невостребованной вещи.
+        Нормативный ориентир:
+        - ст. 899 ГК РФ — реализация невостребованной вещи
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Предусмотрена ли процедура реализации невостребованной вещи.
+        2. Установлен ли срок уведомления поклажедателя.
+        3. Определён ли порядок продажи (рыночная цена / аукцион / иной).
+        4. Удерживаются ли расходы из выручки.
+        5. Возвращается ли остаток выручки поклажедателю.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Если вещь не востребована в течение 30 дней после письменного
+        предупреждения, Хранитель вправе реализовать её по цене, сложившейся
+        в месте хранения. Из выручки удерживаются расходы на хранение.
+        Остаток возвращается Поклажедателю."
+        Ответ:
         {
-          "disposal_procedure_present": "<yes / no / not_found>",
-          "notice_period_days": "<количество дней или not_found>",
-          "sale_basis": "<market_price / auction / other / not_specified / not_found>",
-          "expenses_deducted": "<yes / no / not_found>",
-          "remainder_returned": "<yes / no / not_found>",
-          "disposal_snippet": "<цитата или not_found>"
+          "disposal_procedure_status": "defined",
+          "notice_period_status": "defined",
+          "notice_period_value": "30 дней после письменного предупреждения",
+          "sale_basis": "market_price",
+          "expenses_deducted": "yes",
+          "remainder_returned": "yes",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.1",
+              "quote": "Если вещь не востребована в течение 30 дней после письменного предупреждения, Хранитель вправе реализовать её по цене, сложившейся в месте хранения."
+            }
+          ]
         }
 
-        ВАЖНО: Если значение явно не указано — пиши "not_found".
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Хранитель хранит вещь до востребования."
+        Ответ:
+        {
+          "disposal_procedure_status": "not_defined",
+          "notice_period_status": "not_defined",
+          "notice_period_value": "Данные не определены",
+          "sale_basis": "not_defined",
+          "expenses_deducted": "not_defined",
+          "remainder_returned": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли процедура реализации невостребованной вещи?
+        2. Установлен ли срок уведомления?
+        3. Определён ли порядок продажи?
+        4. Удерживаются ли расходы из выручки?
+        5. Возвращается ли остаток?
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "disposal_procedure_status": "<defined / not_defined>",
+          "notice_period_status": "<defined / not_defined>",
+          "notice_period_value": "<текст или 'Данные не определены'>",
+          "sale_basis": "<market_price / auction / other / not_defined>",
+          "expenses_deducted": "<yes / no / not_defined>",
+          "remainder_returned": "<yes / no / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 400
-    retrieval:
-      retrieval_profile: "termination_check"
-      context_k: 5
-      max_chunks: 6
-      boost_keywords:
-        - "невостребованная вещь"
-        - "реализация"
-        - "продажа"
-        - "уведомление"
-        - "ст. 899"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "disposal_procedure_present"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие процедуры реализации"
-        - name: "remainder_returned"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Возвращается ли остаток после покрытия расходов"
-      store_payload: true
-
+      max_tokens: 500
+      retrieval:
+        retrieval_profile: "termination_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "невостребованная вещь реализация продажа уведомление письменное предупреждение по цене сложившейся в месте хранения остаток возвращается ст. 899"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - procedures
+          - remedies
+        negative_keywords:
+          - "вознаграждение"
+          - "ответственность за утрату"
+          - "возврат вещи"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.50, 0.90]
+          boost: 0.12
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "procedures"
+            - "remedies"
+          confidence_bonus_on_match: 0.08
+          confidence_penalty_on_excluded_segment: 0.10
+      evidence:
+        required: true
+        min_snippet_length: 30
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 700
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения
+          о процедуре реализации невостребованной вещи.
+          Не анализируй иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. disposal_procedure_status — "defined" или "not_defined".
+          2. notice_period_status — "defined" или "not_defined".
+          3. notice_period_value — срок уведомления.
+          4. sale_basis — market_price / auction / other / not_defined.
+          5. expenses_deducted — yes / no / not_defined.
+          6. remainder_returned — yes / no / not_defined.
+          Если данные отсутствуют: указывай "not_defined" или "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи процедуру из нормы ст. 899 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "disposal_procedure_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус наличия процедуры реализации."
+            required: true
+          - name: "notice_period_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания срока уведомления."
+            required: false
+          - name: "notice_period_value"
+            type: "string"
+            presentation: "fact"
+            label: "Срок уведомления"
+            description: "Срок уведомления поклажедателя о реализации."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+          - name: "sale_basis"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["market_price", "auction", "other", "not_defined"]
+            description: "Порядок продажи невостребованной вещи."
+            required: false
+          - name: "expenses_deducted"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Удерживаются ли расходы из выручки."
+            required: false
+          - name: "remainder_returned"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Возвращается ли остаток выручки поклажедателю."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 8: Раскрытие опасных свойств вещи (ст. 893, 894 ГК РФ)
+# ──────────────────────────────────────────────────────────────────────────
   - id: dangerous_properties_disclosure
     name: "Раскрытие опасных свойств вещи (ст. 893, 894 ГК РФ)"
-    description: |
-      Проверяет наличие обязанности поклажедателя раскрыть опасные свойства вещи
-      и права хранителя уничтожить опасную вещь за счёт поклажедателя.
+    description: >
+      Фактографическая проверка обязанности поклажедателя раскрыть опасные свойства
+      вещи, права хранителя уничтожить опасную вещь за счёт поклажедателя
+      и ответственности за сокрытие опасных свойств.
     triggers:
       any: ["dangerous_goods_storage"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1292,6 +2382,7 @@ checks_v8:
         - "за счёт поклажедателя"
         - "ст. 893"
         - "ст. 894"
+        - "лицензия"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)опасн(ые|ых)\\s+свойств"
@@ -1299,60 +2390,211 @@ checks_v8:
         - "(?i)ст\\.?\\s*893|ст\\.?\\s*894"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Проверь условия раскрытия опасных свойств вещи (ст. 893, 894 ГК РФ).
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (ст. 893, 894 ГК РФ).
+        Проверяется только один вопрос: раскрытие опасных свойств вещи,
+        право хранителя уничтожить опасную вещь и ответственность за сокрытие.
+        Нормативный ориентир:
+        - ст. 893 ГК РФ — обязанность поклажедателя предупредить об опасности
+        - ст. 894 ГК РФ — право хранителя уничтожить опасную вещь
+        - ФЗ-116 — лицензирование хранения опасных веществ
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Обязанность поклажедателя раскрыть опасные свойства.
+        2. Перечислены ли конкретные опасные свойства.
+        3. Право хранителя уничтожить опасную вещь.
+        4. Ответственность поклажедателя за сокрытие.
+        5. Указание на лицензию на хранение опасных веществ.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Поклажедатель обязан письменно предупредить Хранителя об опасных
+        свойствах вещи до передачи на хранение. Хранитель вправе уничтожить
+        или обезвредить опасную вещь за счёт Поклажедателя без возмещения
+        её стоимости. Ответственность за сокрытие опасных свойств несёт Поклажедатель."
+        Ответ:
         {
-          "disclosure_obligation_present": "<yes / no / not_found>",
-          "dangerous_properties_listed": "<yes / no / not_found>",
-          "destruction_right": "<yes / no / not_found>",
-          "liability_for_non_disclosure": "<yes / no / not_found>",
-          "dangerous_snippet": "<цитата или not_found>"
+          "disclosure_obligation_status": "defined",
+          "dangerous_properties_listed": "no",
+          "destruction_right": "yes",
+          "liability_for_non_disclosure": "yes",
+          "license_mentioned": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "Поклажедатель обязан письменно предупредить Хранителя об опасных свойствах вещи до передачи на хранение."
+            }
+          ]
         }
 
-        ВАЖНО: Если значение явно не указано — пиши "not_found".
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Хранитель принимает вещь на хранение."
+        Ответ:
+        {
+          "disclosure_obligation_status": "not_defined",
+          "dangerous_properties_listed": "not_defined",
+          "destruction_right": "not_defined",
+          "liability_for_non_disclosure": "not_defined",
+          "license_mentioned": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли обязанность раскрыть опасные свойства?
+        2. Перечислены ли конкретные свойства?
+        3. Есть ли право хранителя уничтожить вещь?
+        4. Есть ли ответственность за сокрытие?
+        5. Упомянута ли лицензия?
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "disclosure_obligation_status": "<defined / not_defined>",
+          "dangerous_properties_listed": "<yes / no / not_defined>",
+          "destruction_right": "<yes / no / not_defined>",
+          "liability_for_non_disclosure": "<yes / no / not_defined>",
+          "license_mentioned": "<yes / no / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 400
-    retrieval:
-      context_k: 5
-      max_chunks: 6
-      boost_keywords:
-        - "опасные свойства"
-        - "предупреждение"
-        - "уничтожить"
-        - "ст. 893"
-        - "ст. 894"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "disclosure_obligation_present"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие обязанности раскрыть опасные свойства"
-        - name: "destruction_right"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Право хранителя уничтожить опасную вещь"
-      store_payload: true
-
+      max_tokens: 500
+      retrieval:
+        retrieval_profile: "compliance_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "опасные свойства предупреждение об опасности раскрытие свойств право уничтожить за счёт поклажедателя ст. 893 ст. 894 лицензия на хранение опасных веществ"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - representations
+        negative_keywords:
+          - "вознаграждение"
+          - "срок хранения"
+          - "страхование"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.15, 0.60]
+          boost: 0.15
+          scope: segment
+        context_k: 5
+        max_chunks: 7
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "representations"
+          confidence_bonus_on_match: 0.10
+          confidence_penalty_on_excluded_segment: 0.12
+      evidence:
+        required: true
+        min_snippet_length: 30
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 600
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения
+          о раскрытии опасных свойств вещи и праве хранителя на уничтожение.
+          Не анализируй иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. disclosure_obligation_status — "defined" или "not_defined".
+          2. dangerous_properties_listed — yes / no / not_defined.
+          3. destruction_right — yes / no / not_defined.
+          4. liability_for_non_disclosure — yes / no / not_defined.
+          5. license_mentioned — yes / no / not_defined.
+          Если данные отсутствуют: указывай "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи обязанности из норм ст. 893–894 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "disclosure_obligation_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус обязанности раскрыть опасные свойства."
+            required: true
+          - name: "dangerous_properties_listed"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Перечислены ли конкретные опасные свойства."
+            required: false
+          - name: "destruction_right"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Право хранителя уничтожить опасную вещь."
+            required: false
+          - name: "liability_for_non_disclosure"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Ответственность за сокрытие опасных свойств."
+            required: false
+          - name: "license_mentioned"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Упоминание лицензии на хранение опасных веществ."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 9: Складское свидетельство (ст. 912 ГК РФ)
+# ──────────────────────────────────────────────────────────────────────────
   - id: warehouse_certificate_issuance
     name: "Складское свидетельство: порядок выдачи и обращения (ст. 912 ГК РФ)"
-    description: |
-      Проверяет условия выдачи складского свидетельства, его вида (простое / двойное),
-      порядка передачи и залога.
+    description: >
+      Фактографическая проверка условий выдачи складского свидетельства,
+      его вида (простое / двойное), порядка передачи и залога по варранту.
     triggers:
       any: ["warehouse_certificate"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1373,61 +2615,210 @@ checks_v8:
         - "(?i)ст\\.?\\s*912"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Проверь условия выдачи складского свидетельства (ст. 912 ГК РФ).
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (ст. 912 ГК РФ).
+        Проверяется только один вопрос: условия выдачи и обращения
+        складского свидетельства.
+        Нормативный ориентир:
+        - ст. 912 ГК РФ — складское свидетельство
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Упоминается ли складское свидетельство.
+        2. Вид свидетельства (двойное / простое / именная расписка).
+        3. Когда выдаётся свидетельство.
+        4. Разрешена ли передача прав по свидетельству.
+        5. Разрешён ли залог товара по варранту.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Хранитель выдаёт Поклажедателю двойное складское свидетельство,
+        состоящее из складского свидетельства и залогового свидетельства
+        (варранта). Свидетельство может быть передано путём индоссамента.
+        Товар, находящийся на хранении, может быть предметом залога по варранту."
+        Ответ:
         {
-          "certificate_type": "<double / simple / not_specified / not_found>",
-          "issuance_timing": "<upon_acceptance / upon_request / not_specified / not_found>",
-          "transfer_allowed": "<yes / no / not_found>",
-          "pledge_allowed": "<yes / no / not_found>",
-          "certificate_snippet": "<цитата или not_found>"
+          "certificate_mentioned": "defined",
+          "certificate_type": "double",
+          "issuance_timing": "upon_acceptance",
+          "transfer_allowed": "yes",
+          "pledge_allowed": "yes",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.1",
+              "quote": "Хранитель выдаёт Поклажедателю двойное складское свидетельство, состоящее из складского свидетельства и залогового свидетельства (варранта)."
+            }
+          ]
         }
 
-        - "double" — двойное складское свидетельство (складское + залоговое)
-        - "simple" — простое складское свидетельство или именная расписка
+        Пример 2:
+        Фрагмент:
+        "Хранитель принимает товар на хранение."
+        Ответ:
+        {
+          "certificate_mentioned": "not_defined",
+          "certificate_type": "not_defined",
+          "issuance_timing": "not_defined",
+          "transfer_allowed": "not_defined",
+          "pledge_allowed": "not_defined",
+          "evidence": []
+        }
 
-        ВАЖНО: Если значение явно не указано — пиши "not_found".
-      prompt_file: null
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли упоминание складского свидетельства?
+        2. Определён ли вид — двойное, простое или именная расписка?
+        3. Указан ли момент выдачи?
+        4. Разрешена ли передача прав?
+        5. Разрешён ли залог по варранту?
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "certificate_mentioned": "<defined / not_defined>",
+          "certificate_type": "<double / simple / not_defined>",
+          "issuance_timing": "<upon_acceptance / upon_request / not_defined>",
+          "transfer_allowed": "<yes / no / not_defined>",
+          "pledge_allowed": "<yes / no / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 4
       temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      context_k: 4
-      max_chunks: 6
-      boost_keywords:
-        - "складское свидетельство"
-        - "двойное"
-        - "варрант"
-        - "ст. 912"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "certificate_type"
-          type: "string"
-          allowed_values: ["double", "simple", "not_specified", "not_found"]
-          description: "Вид складского свидетельства"
-        - name: "pledge_allowed"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Возможность залога по варранту"
-      store_payload: true
-
+      max_tokens: 400
+      retrieval:
+        retrieval_profile: "registration_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "складское свидетельство двойное складское свидетельство варрант залоговое свидетельство именная складская расписка передача прав залог товара ст. 912"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - obligations
+          - procedures
+        negative_keywords:
+          - "вознаграждение"
+          - "ответственность"
+          - "возврат вещи"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.20, 0.65]
+          boost: 0.12
+          scope: segment
+        context_k: 4
+        max_chunks: 6
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "obligations"
+            - "procedures"
+          confidence_bonus_on_match: 0.08
+          confidence_penalty_on_excluded_segment: 0.10
+      evidence:
+        required: true
+        min_snippet_length: 30
+        max_snippet_length: 500
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 550
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения
+          о складском свидетельстве.
+          Не анализируй иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. certificate_mentioned — "defined" или "not_defined".
+          2. certificate_type — double / simple / not_defined.
+          3. issuance_timing — upon_acceptance / upon_request / not_defined.
+          4. transfer_allowed — yes / no / not_defined.
+          5. pledge_allowed — yes / no / not_defined.
+          Если данные отсутствуют: указывай "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - certificate_type: "double" — двойное складское свидетельство
+            (складское + залоговое); "simple" — простое свидетельство
+            или именная расписка; "not_defined" — вид не указан.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "certificate_mentioned"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус упоминания складского свидетельства."
+            required: true
+          - name: "certificate_type"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["double", "simple", "not_defined"]
+            description: "Вид складского свидетельства."
+            required: false
+          - name: "issuance_timing"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["upon_acceptance", "upon_request", "not_defined"]
+            description: "Момент выдачи складского свидетельства."
+            required: false
+          - name: "transfer_allowed"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Разрешена ли передача прав по свидетельству."
+            required: false
+          - name: "pledge_allowed"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Разрешён ли залог товара по варранту."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 10: Право удержания вещи (ст. 359, 920 ГК РФ)
+# ──────────────────────────────────────────────────────────────────────────
   - id: lien_right_on_item
     name: "Право удержания вещи до оплаты (ст. 359, 920 ГК РФ)"
-    description: |
-      Проверяет наличие условия о праве хранителя удерживать вещь
+    description: >
+      Фактографическая проверка наличия условия о праве хранителя удерживать вещь
       до оплаты вознаграждения и возмещения расходов.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1445,52 +2836,172 @@ checks_v8:
         - "(?i)ст\\.?\\s*359|ст\\.?\\s*920"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Проверь наличие условия о праве удержания вещи (ст. 359, 920 ГК РФ).
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (ст. 359, 920 ГК РФ).
+        Проверяется только один вопрос: право хранителя удерживать вещь.
+        Нормативный ориентир:
+        - ст. 359 ГК РФ — удержание
+        - ст. 920 ГК РФ — право удержания хранителя
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Предусмотрено ли право удержания вещи.
+        2. Условия реализации права удержания.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Хранитель вправе удерживать вещь до уплаты вознаграждения
+        и возмещения расходов на хранение."
+        Ответ:
         {
-          "lien_right_present": "<yes / no / not_found>",
-          "lien_conditions": "<описание условий или not_found>",
-          "lien_snippet": "<цитата или not_found>"
+          "lien_right_status": "defined",
+          "lien_right_details": "вправе удерживать вещь до уплаты вознаграждения и возмещения расходов",
+          "evidence": [
+            {
+              "clause_ref": "п. 9.1",
+              "quote": "Хранитель вправе удерживать вещь до уплаты вознаграждения и возмещения расходов на хранение."
+            }
+          ]
         }
 
-        ВАЖНО: Если значение явно не указано — пиши "not_found".
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Хранитель хранит вещь Поклажедателя."
+        Ответ:
+        {
+          "lien_right_status": "not_defined",
+          "lien_right_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли прямое указание на право удержания?
+        2. Определены ли условия удержания?
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "lien_right_status": "<defined / not_defined>",
+          "lien_right_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 4
       temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      retrieval_profile: "security_check"
-      context_k: 4
-      max_chunks: 6
-      boost_keywords:
-        - "удержание вещи"
-        - "право удержания"
-        - "до оплаты"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 500
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "lien_right_present"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Наличие права удержания"
-      store_payload: true
-
+      max_tokens: 350
+      retrieval:
+        retrieval_profile: "security_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "право удержания удержание вещи до уплаты вознаграждения до возмещения расходов ст. 359 ст. 920"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - remedies
+        negative_keywords:
+          - "вознаграждение"
+          - "ответственность"
+          - "возврат вещи"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.40, 0.80]
+          boost: 0.10
+          scope: segment
+        context_k: 4
+        max_chunks: 6
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "remedies"
+          confidence_bonus_on_match: 0.06
+          confidence_penalty_on_excluded_segment: 0.08
+      evidence:
+        required: true
+        min_snippet_length: 30
+        max_snippet_length: 400
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 350
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения
+          о праве удержания вещи.
+          Не анализируй иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. lien_right_status — "defined" или "not_defined".
+          2. lien_right_details — условия удержания.
+          Если данные отсутствуют: указывай "not_defined" или "Данные не определены".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи право удержания из нормы ст. 920 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "lien_right_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус указания права удержания."
+            required: true
+          - name: "lien_right_details"
+            type: "string"
+            presentation: "fact"
+            label: "Право удержания"
+            description: "Условия права удержания вещи хранителем."
+            required: false
+            display_in_grid: true
+            display_priority: 1
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 11: Естественная убыль (ст. 903 ГК РФ)
+# ──────────────────────────────────────────────────────────────────────────
   - id: natural_loss_norms
-    name: "Естественная убыль: применение норм"
-    description: |
-      Проверяет наличие условия о естественной убыли и ссылки на утверждённые нормы.
+    name: "Естественная убыль: применение норм (ст. 903 ГК РФ)"
+    description: >
+      Фактографическая проверка наличия условия о естественной убыли,
+      ссылки на утверждённые нормы и освобождения от ответственности
+      в пределах норм естественной убыли.
     triggers:
       any: ["perishable_goods_storage", "irregular_storage"]
+    ui_mode: "field_extraction"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1507,65 +3018,182 @@ checks_v8:
         - "(?i)усушк(а|и)|утруск(а|и)"
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор хранения.
-        Проверь наличие условия о естественной убыли.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор хранения (ст. 903 ГК РФ).
+        Проверяется только один вопрос: естественная убыль и применение норм.
+        Нормативный ориентир:
+        - ст. 903 ГК РФ — естественная убыль
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
 
-        Ответь строго в JSON:
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Упоминается ли естественная убыль.
+        2. Есть ли ссылка на утверждённые нормы.
+        3. Предусмотрено ли освобождение от ответственности в пределах норм.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из документа.
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        Фрагмент:
+        "Стороны применяют нормы естественной убыли, утверждённые
+        Постановлением Правительства РФ. Убыль в пределах норм не является
+        основанием для ответственности Хранителя."
+        Ответ:
         {
-          "natural_loss_mentioned": "<yes / no>",
-          "norms_referenced": "<yes / no / not_found>",
-          "loss_within_norms_exempt": "<yes / no / not_found>",
-          "natural_loss_snippet": "<цитата или not_found>"
+          "natural_loss_status": "defined",
+          "norms_referenced": "yes",
+          "loss_within_norms_exempt": "yes",
+          "evidence": [
+            {
+              "clause_ref": "п. 10.1",
+              "quote": "Стороны применяют нормы естественной убыли, утверждённые Постановлением Правительства РФ."
+            }
+          ]
         }
 
-        ВАЖНО: Если значение явно не указано — пиши "not_found".
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Хранитель несёт ответственность за сохранность вещи."
+        Ответ:
+        {
+          "natural_loss_status": "not_defined",
+          "norms_referenced": "not_defined",
+          "loss_within_norms_exempt": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли упоминание естественной убыли?
+        2. Есть ли ссылка на конкретные нормы?
+        3. Предусмотрено ли освобождение в пределах норм?
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "natural_loss_status": "<defined / not_defined>",
+          "norms_referenced": "<yes / no / not_defined>",
+          "loss_within_norms_exempt": "<yes / no / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 4
       temperature: 0.0
-      max_tokens: 300
-    retrieval:
-      context_k: 4
-      max_chunks: 6
-      boost_keywords:
-        - "естественная убыль"
-        - "нормы"
-        - "усушка"
-        - "утруска"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 400
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "natural_loss_mentioned"
-          type: "string"
-          allowed_values: ["yes", "no"]
-          description: "Упоминание естественной убыли"
-        - name: "norms_referenced"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Ссылка на утверждённые нормы"
-      store_payload: true
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "remuneration_and_expenses"
-    name: "Вознаграждение хранителя и возмещение расходов"
-    description: "Проверяет наличие условий вознаграждения и порядка возмещения расходов"
-    legal_base: "ст. 896 ГК РФ"
+      max_tokens: 350
+      retrieval:
+        retrieval_profile: "warranties_check"
+        corpus_scope: "primary_segment"
+        levels:
+          - "legal_unit"
+          - "section"
+        required_kind: "legal_unit"
+        retrieval_query: "естественная убыль нормы естественной убыли усушка утруска нормативные потери в пределах норм ст. 903"
+        preferred_unit_types:
+          - obligation
+          - general_provision
+        excluded_unit_types:
+          - definition
+          - structural_anchor
+          - technical_fragment
+        preferred_clause_functions:
+          - limitations
+        negative_keywords:
+          - "вознаграждение"
+          - "срок хранения"
+          - "страхование"
+          - "означает"
+          - "в целях настоящего"
+        position_bias:
+          preferred_range: [0.30, 0.70]
+          boost: 0.10
+          scope: segment
+        context_k: 4
+        max_chunks: 6
+        rerank: true
+        enrichment_hints:
+          preferred_segment_types:
+            - "contract"
+            - "amendment"
+          excluded_segment_types:
+            - "technical_specification"
+            - "price_list"
+          preferred_clause_functions:
+            - "limitations"
+          confidence_bonus_on_match: 0.06
+          confidence_penalty_on_excluded_segment: 0.08
+      evidence:
+        required: true
+        min_snippet_length: 30
+        max_snippet_length: 400
+      extraction:
+        enabled: true
+        mode: "hybrid"
+        compact_output: false
+        llm_max_tokens: 350
+        llm_prompt_extraction: |
+          <role>
+          Ты — российский юрист. Извлеки из договора хранения сведения
+          о естественной убыли.
+          Не анализируй иные темы.
+          </role>
+          <context>
+          {context}
+          </context>
+          <task>
+          Заполни строго следующие поля:
+          1. natural_loss_status — "defined" или "not_defined".
+          2. norms_referenced — yes / no / not_defined.
+          3. loss_within_norms_exempt — yes / no / not_defined.
+          Если данные отсутствуют: указывай "not_defined".
+          </task>
+          <rules>
+          - Используй только текст договора.
+          - Не выводи нормы из ст. 903 ГК РФ.
+          - Верни только JSON.
+          </rules>
+        fields:
+          - name: "natural_loss_status"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["defined", "not_defined"]
+            description: "Статус упоминания естественной убыли."
+            required: true
+          - name: "norms_referenced"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Ссылка на утверждённые нормы естественной убыли."
+            required: false
+          - name: "loss_within_norms_exempt"
+            type: "string"
+            presentation: "signal"
+            allowed_values: ["yes", "no", "not_defined"]
+            description: "Освобождение от ответственности в пределах норм."
+            required: false
+    store_payload: true
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 12: Вознаграждение хранителя (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: remuneration_and_expenses
+    name: "Вознаграждение хранителя и возмещение расходов (ст. 896 ГК РФ)"
+    description: >
+      Проверяет наличие условий вознаграждения хранителя, безвозмездности
+      хранения и порядка возмещения расходов.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "вознаграждение"
@@ -1573,78 +3201,81 @@ doc_type_checks:
         - "стоимость хранения"
         - "безвозмездное"
         - "возмещение расходов"
-        - "рублей"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)вознагражден(ие|ия)\\s+хранител"
         - "(?i)плат(а|ы)\\s+за\\s+хранени"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс)"
+    retrieval:
+      retrieval_profile: "payment_terms_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "вознаграждение хранителя плата за хранение стоимость хранения безвозмездное возмещение расходов"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.55]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "obligations"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
     extraction:
       enabled: true
       mode: "rules"
       fields:
-        - name: "remuneration_amount"
-          type: "number"
-          keyword_hints: ["вознаграждение", "плата", "рублей"]
-          unit: "RUB"
-          description: "Размер вознаграждения"
-        - name: "gratuitous"
+        - name: "remuneration_presence_status"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          keyword_hints: ["безвозмездное", "бесплатное"]
-          description: "Является ли хранение безвозмездным"
-      store_payload: true
-
-  - id: "parties_identification"
-    name: "Стороны: хранитель и поклажедатель"
-    description: "Проверяет идентификацию сторон"
-    legal_base: "ст. 886 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условия о вознаграждении хранителя."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Вознаграждение хранителя"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 13: Срок хранения (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: storage_term
+    name: "Срок хранения или 'до востребования' (ст. 889 ГК РФ)"
+    description: >
+      Проверяет наличие срока хранения или условия «до востребования».
     triggers: {}
-    rules:
-      keywords:
-        - "хранитель"
-        - "поклажедатель"
-        - "сдаёт на хранение"
-        - "принимает на хранение"
-        - "именуем"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(хранитель|поклажедатель).*именуем"
-
-  - id: "storage_object_description"
-    name: "Предмет хранения: описание вещи (ст. 886 ГК РФ)"
-    description: "Проверяет наличие описания хранимой вещи"
-    legal_base: "ст. 886 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "предмет хранения"
-        - "вещь"
-        - "товар"
-        - "имущество"
-        - "количество"
-        - "вес"
-        - "объём"
-        - "стоимость"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)предмет\\s+хранени"
-        - "(?i)(вещь|товар).*передаётся.*на.*хранени"
-
-  - id: "storage_term"
-    name: "Срок хранения или 'до востребования'"
-    description: "Проверяет наличие срока хранения"
-    legal_base: "ст. 889 ГК РФ"
+    ui_mode: "clause_presence"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "срок хранения"
@@ -1655,15 +3286,78 @@ doc_type_checks:
       regex_patterns:
         - "(?i)срок\\s+хранени"
         - "(?i)до\\s+востребовани"
-
-  - id: "storage_conditions"
+    retrieval:
+      retrieval_profile: "completion_deadline_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "срок хранения период хранения до востребования дата окончания"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.10, 0.50]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "obligations"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "storage_term_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие срока хранения."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Срок хранения"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 14: Условия хранения (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: storage_conditions
     name: "Условия хранения: температура, влажность, режим (ст. 891 ГК РФ)"
-    description: "Проверяет наличие требований к условиям хранения"
-    legal_base: "ст. 891 ГК РФ"
+    description: >
+      Проверяет наличие требований к условиям хранения: температурный режим,
+      влажность, освещённость, вентиляция, специальные условия.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "условия хранения"
@@ -1677,35 +3371,78 @@ doc_type_checks:
         - "(?i)услови(я|ях)\\s+хранени"
         - "(?i)температур(а|ы|е).*режим"
         - "(?i)(?:от\\s+)?[\\+\\-]?\\d+\\s*°"
-
-  - id: "acceptance_procedure"
-    name: "Порядок приёма вещи на хранение"
-    description: "Проверяет процедуру приёма, осмотра, документирования"
-    legal_base: "ст. 887 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "приём на хранение"
-        - "осмотр вещи"
-        - "акт приёма"
-        - "форма МХ-1"
-        - "проверка при приёме"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)приём.*на.*хранени"
-        - "(?i)акт\\s+приёма"
-
-  - id: "return_procedure"
+    retrieval:
+      retrieval_profile: "technical_documentation_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "условия хранения температурный режим влажность освещённость вентиляция специальные условия"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.55]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "obligations"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "storage_conditions_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие требований к условиям хранения."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Условия хранения"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 15: Порядок выдачи вещи (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: return_procedure
     name: "Порядок выдачи вещи (ст. 900 ГК РФ)"
-    description: "Проверяет процедуру выдачи вещи, проверку правомочий получателя"
-    legal_base: "ст. 900 ГК РФ"
+    description: >
+      Проверяет процедуру выдачи вещи, проверку правомочий получателя,
+      форму акта выдачи (МХ-3).
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "выдача вещи"
@@ -1718,15 +3455,78 @@ doc_type_checks:
       regex_patterns:
         - "(?i)(выдач|возврат)(а|и)\\s+вещ"
         - "(?i)акт\\s+выдач"
-
-  - id: "inspection_upon_return"
+    retrieval:
+      retrieval_profile: "acceptance_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "выдача вещи возврат вещи акт выдачи форма МХ-3 проверка правомочий предъявление документа"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "procedures"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "return_procedure_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие порядка выдачи вещи."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Порядок выдачи"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 16: Проверка вещи при возврате (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: inspection_upon_return
     name: "Проверка вещи при возврате (ст. 900 ГК РФ)"
-    description: "Проверяет наличие условия о проверке вещи при возврате"
-    legal_base: "ст. 900 ГК РФ"
+    description: >
+      Проверяет наличие условия о проверке вещи при возврате, порядке
+      фиксации недостачи и повреждений, сроке предъявления претензий.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "проверка при возврате"
@@ -1736,34 +3536,78 @@ doc_type_checks:
       keyword_mode: "any"
       regex_patterns:
         - "(?i)проверк(а|и).*при.*(возврат|выдач)"
-
-  - id: "liability_for_loss_damage"
-    name: "Ответственность за утрату, недостачу, повреждение (ст. 901, 902 ГК РФ)"
-    description: "Проверяет условия ответственности хранителя"
-    legal_base: "ст. 901, 902 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "ответственность за утрату"
-        - "ответственность за повреждение"
-        - "независимо от вины"
-        - "возмещение стоимости"
-        - "полная материальная ответственность"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)ответственност.*за.*(утрат|поврежден|недостач)"
-
-  - id: "extraordinary_expenses"
+    retrieval:
+      retrieval_profile: "acceptance_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "проверка при возврате осмотр при выдаче претензии при выдаче подписание акта возврата"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.80]
+        boost: 0.10
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "procedures"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "inspection_return_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условия о проверке вещи при возврате."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Проверка при возврате"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 17: Чрезвычайные расходы (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: extraordinary_expenses
     name: "Чрезвычайные расходы на сохранность (ст. 898 ГК РФ)"
-    description: "Проверяет условия возмещения чрезвычайных расходов"
-    legal_base: "ст. 898 ГК РФ"
+    description: >
+      Проверяет условия возмещения чрезвычайных расходов на сохранность вещи,
+      лимит расходов без согласования и порядок согласования.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "чрезвычайные расходы"
@@ -1773,15 +3617,78 @@ doc_type_checks:
       keyword_mode: "any"
       regex_patterns:
         - "(?i)чрезвычайн(ые|ых)\\s+расход"
-
-  - id: "exclusions_from_liability"
-    name: "Обстоятельства, освобождающие от ответственности (ст. 901 ГК РФ)"
-    description: "Проверяет перечень обстоятельств, освобождающих хранителя"
-    legal_base: "ст. 901, 903 ГК РФ"
+    retrieval:
+      retrieval_profile: "payment_terms_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "чрезвычайные расходы неотложные меры согласие поклажедателя лимит расходов"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.65]
+        boost: 0.10
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "procedures"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "extraordinary_expenses_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условия о чрезвычайных расходах."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Чрезвычайные расходы"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 18: Освобождение от ответственности (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: exclusions_from_liability
+    name: "Обстоятельства, освобождающие от ответственности (ст. 901, 903 ГК РФ)"
+    description: >
+      Проверяет перечень обстоятельств, освобождающих хранителя от ответственности:
+      непреодолимая сила, свойства вещи, вина поклажедателя.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "непреодолимая сила"
@@ -1792,109 +3699,78 @@ doc_type_checks:
       keyword_mode: "any"
       regex_patterns:
         - "(?i)освобожда(ется|ться)\\s+от\\s+ответственност"
-
-  - id: "pretension_order"
-    name: "Претензионный порядок"
-    description: "Проверяет наличие претензионного порядка"
-    legal_base: "ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "претензионный порядок"
-        - "претензия"
-        - "досудебный порядок"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)претенз(ия|ионн)"
-
-  - id: "dispute_resolution"
-    name: "Подсудность и разрешение споров"
-    description: "Проверяет подсудность"
-    legal_base: "АПК РФ, ГПК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "разрешение споров"
-        - "подсудность"
-        - "арбитражный суд"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)арбитражн(ый|ого)\\s+суд"
-
-  - id: "insurance"
-    name: "Страхование хранимой вещи"
-    description: "Проверяет условия страхования"
-    legal_base: "ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "страхование"
-        - "страховой полис"
-        - "застраховать"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)страхован(ие|ия)"
+    retrieval:
+      retrieval_profile: "force_majeure_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "непреодолимая сила форс-мажор свойства вещи вина поклажедателя освобождается от ответственности"
+      preferred_unit_types:
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.45, 0.85]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "limitations"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
     extraction:
       enabled: true
       mode: "rules"
       fields:
-        - name: "insurance_required"
+        - name: "exclusions_presence_status"
           type: "string"
-          allowed_values: ["yes", "no", "unclear", "not_found"]
-          keyword_hints: ["обязан застраховать", "страхование обязательно"]
-          description: "Обязательность страхования"
-      store_payload: true
-
-  - id: "confidentiality"
-    name: "Конфиденциальность"
-    description: "Проверяет наличие условий о конфиденциальности"
-    legal_base: "ГК РФ"
-    severity: "low"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие перечня обстоятельств, освобождающих от ответственности."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Освобождение от ответственности"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 19: Требования третьих лиц (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: third_party_claims
+    name: "Требования третьих лиц к вещи (ст. 895 ГК РФ)"
+    description: >
+      Проверяет процедуру при предъявлении требований третьими лицами:
+      арест имущества, приостановление выдачи, уведомление поклажедателя.
     triggers: {}
-    rules:
-      keywords:
-        - "конфиденциальность"
-        - "неразглашение"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)конфиденциал"
-
-  - id: "vat_and_tax"
-    name: "НДС и налоговые оговорки"
-    description: "Проверяет налоговые аспекты"
-    legal_base: "НК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "НДС"
-        - "в том числе НДС"
-        - "без НДС"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)\\bНДС\\b"
-
-  - id: "third_party_claims"
-    name: "Требования третьих лиц к вещи (ст. 895, 896 ГК РФ)"
-    description: "Проверяет процедуру при предъявлении требований третьими лицами"
-    legal_base: "ст. 895, 896 ГК РФ"
+    ui_mode: "clause_presence"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
         - "требования третьих лиц"
@@ -1905,222 +3781,584 @@ doc_type_checks:
       regex_patterns:
         - "(?i)требовани(я|й)\\s+третьих\\s+лиц"
         - "(?i)арест\\s+имущества"
-
-  - id: "natural_loss"
-    name: "Естественная убыль (ст. 903 ГК РФ)"
-    description: "Проверяет применение норм естественной убыли"
-    legal_base: "ст. 903 ГК РФ"
+    retrieval:
+      retrieval_profile: "event_of_default_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "требования третьих лиц арест имущества приостановление выдачи уведомление поклажедателя"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - remedies
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.85]
+        boost: 0.10
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "procedures"
+        confidence_bonus_on_match: 0.08
+        confidence_penalty_on_excluded_segment: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "third_party_claims_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие процедуры при требованиях третьих лиц."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Требования третьих лиц"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 20: Страхование (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: insurance
+    name: "Страхование хранимой вещи"
+    description: >
+      Проверяет наличие условий страхования хранимой вещи, обязанность
+      застраховать и минимальную страховую сумму.
+    triggers: {}
+    ui_mode: "clause_presence"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
     origin: "DOCUMENT_TYPE"
     detector_type: "rules"
-    triggers: {}
     rules:
       keywords:
-        - "естественная убыль"
-        - "нормы естественной убыли"
-        - "усушка"
-        - "утруска"
+        - "страхование"
+        - "страховой полис"
+        - "застраховать"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)естественн(ая|ой)\\s+убыл"
-
+        - "(?i)страхован(ие|ия)"
+    retrieval:
+      retrieval_profile: "insurance_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "страхование страховой полис застраховать хранимая вещь"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.75]
+        boost: 0.10
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "obligations"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "insurance_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условия о страховании."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Страхование"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 21: Претензионный порядок (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: pretension_order
+    name: "Претензионный порядок"
+    description: >
+      Проверяет наличие обязательного претензионного порядка урегулирования споров.
+    triggers: {}
+    ui_mode: "clause_presence"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "претензионный порядок"
+        - "претензия"
+        - "досудебный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претенз(ия|ионн)"
+    retrieval:
+      retrieval_profile: "dispute_resolution_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "претензионный порядок претензия досудебный порядок"
+      preferred_unit_types:
+        - dispute_resolution
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.60, 1.0]
+        boost: 0.15
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "boilerplate"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "pretension_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие претензионного порядка."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Претензионный порядок"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 22: Подсудность (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: dispute_resolution
+    name: "Подсудность и разрешение споров"
+    description: >
+      Проверяет наличие условия о подсудности и порядке разрешения споров.
+    triggers: {}
+    ui_mode: "clause_presence"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "подсудность"
+        - "арбитражный суд"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+    retrieval:
+      retrieval_profile: "dispute_resolution_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "разрешение споров подсудность арбитражный суд"
+      preferred_unit_types:
+        - dispute_resolution
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.65, 1.0]
+        boost: 0.18
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "boilerplate"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "dispute_resolution_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условия о подсудности."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Подсудность"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 23: Конфиденциальность (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: confidentiality
+    name: "Конфиденциальность"
+    description: >
+      Проверяет наличие условий о конфиденциальности сведений о хранимой вещи.
+    triggers: {}
+    ui_mode: "clause_presence"
+    severity: "low"
+    severity_if_pass: "pass"
+    severity_if_fail: "low"
+    severity_if_unclear: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+    retrieval:
+      retrieval_profile: "compliance_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "конфиденциальность неразглашение"
+      preferred_unit_types:
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.65, 1.0]
+        boost: 0.12
+        scope: segment
+      context_k: 3
+      max_chunks: 4
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "boilerplate"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "confidentiality_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие условия о конфиденциальности."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Конфиденциальность"
+    store_payload: false
+# ──────────────────────────────────────────────────────────────────────────
+# CHECK 24: НДС и налоговые оговорки (rules-only)
+# ──────────────────────────────────────────────────────────────────────────
+  - id: vat_and_tax
+    name: "НДС и налоговые оговорки"
+    description: >
+      Проверяет наличие указаний на режим НДС и налоговые аспекты
+      вознаграждения хранителя.
+    triggers: {}
+    ui_mode: "clause_presence"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "НДС"
+        - "в том числе НДС"
+        - "без НДС"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bНДС\\b"
+    retrieval:
+      retrieval_profile: "payment_terms_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "НДС в том числе НДС без НДС налоговые оговорки"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.60]
+        boost: 0.10
+        scope: segment
+      context_k: 3
+      max_chunks: 5
+      rerank: true
+      enrichment_hints:
+        preferred_segment_types:
+          - "contract"
+          - "amendment"
+        excluded_segment_types:
+          - "technical_specification"
+          - "price_list"
+        preferred_clause_functions:
+          - "obligations"
+        confidence_bonus_on_match: 0.06
+        confidence_penalty_on_excluded_segment: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "vat_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие указания на НДС."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "НДС"
+    store_payload: false
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
-
 dd_request_templates:
-
+  parties_identification:
+    text: >
+      Просим подтвердить по {doc_names}: полные реквизиты хранителя и поклажедателя
+      (наименование, ИНН, ОГРН, адрес), полномочия подписантов,
+      а также статус профессионального хранителя.
+    addressee: "Обе стороны"
   storage_subject_extraction:
     text: >
       Просим подтвердить по {doc_names}: (а) описание вещи; (б) количество/вес/объём;
       (в) заявленную стоимость; (г) тип вещи (индивидуальная/родовая);
-      (д) тип хранения (обычное/иррегулярное).
+      (д) тип хранения (обычное/иррегулярное); (е) идентификационные признаки.
     addressee: "Обе стороны"
-
-  storage_object_description:
+  acceptance_documentation_check:
     text: >
-      Просим уточнить в {doc_names}: детальное описание вещи, количество,
-      идентификационные признаки, заявленную стоимость.
-    addressee: "Поклажедатель"
-
+      Просим уточнить в {doc_names}: (а) вид документа о приёме (акт МХ-1, расписка,
+      складское свидетельство); (б) порядок и сроки выдачи; (в) ссылку на Постановление Росстата № 66.
+    addressee: "Хранитель"
   professional_custodian_liability:
     text: >
       В {doc_names} хранитель осуществляет профессиональную деятельность.
       ОБЯЗАТЕЛЬНО: ответственность независимо от вины (ст. 901 ГК РФ),
       за исключением непреодолимой силы. Просим подтвердить/включить это условие.
     addressee: "Юридический советник"
-
-  unlawful_liability_limitation_professional:
-    text: >
-      КРИТИЧЕСКОЕ НАРУШЕНИЕ: в {doc_names} профессиональный хранитель ограничивает
-      ответственность формулировками «только при вине». Это противоречит ст. 901 ГК РФ
-      и ничтожно. Просим немедленно исправить.
-    addressee: "Юридический советник"
-
-  liability_for_loss_damage:
-    text: >
-      Просим уточнить в {doc_names}: условия ответственности за утрату/повреждение,
-      основание (независимо от вины / по вине), лимит, исключения.
-    addressee: "Юридический советник"
-
-  acceptance_documentation_check:
-    text: >
-      Просим уточнить в {doc_names}: (а) вид документа о приёме (акт МХ-1, расписка,
-      складское свидетельство); (б) порядок и сроки выдачи; (в) ссылку на
-      Постановление Росстата № 66.
-    addressee: "Хранитель"
-
-  acceptance_procedure:
-    text: >
-      Просим уточнить в {doc_names}: процедуру приёма вещи, осмотр, фиксация состояния,
-      форму акта.
-    addressee: "Обе стороны"
-
-  return_procedure:
-    text: >
-      Просим уточнить в {doc_names}: порядок выдачи вещи, проверка правомочий
-      получателя, форма акта выдачи (МХ-3).
-    addressee: "Обе стороны"
-
-  inspection_upon_return:
-    text: >
-      Просим включить в {doc_names}: обязательную проверку вещи при возврате,
-      порядок фиксации недостачи/повреждений, срок предъявления претензий.
-    addressee: "Поклажедатель"
-
   return_on_first_demand_check:
     text: >
-      Просим подтвердить в {doc_names}: право поклажедателя забрать вещь в любой момент
-      (ст. 904 ГК РФ), отсутствие штрафов за досрочный возврат.
+      Просим подтвердить в {doc_names}: право поклажедателя забрать вещь
+      в любой момент (ст. 904 ГК РФ), отсутствие штрафов за досрочный возврат.
     addressee: "Юридический советник"
-
-  consumer_early_return_penalty:
-    text: >
-      ВНИМАНИЕ: в {doc_names} установлен штраф за досрочный возврат вещи потребителем.
-      Это противоречит ст. 904 ГК РФ и ничтожно. Просим исключить.
-    addressee: "Юридический советник"
-
   irregular_storage_terms:
     text: >
       В {doc_names} предусмотрено иррегулярное хранение. Просим уточнить:
       (а) условия смешения вещей; (б) требования к качеству (сорт, класс);
       (в) порядок возврата того же рода и качества; (г) долю в общей массе.
     addressee: "Обе стороны"
-
   uncollected_goods_disposal:
     text: >
       Просим включить в {doc_names}: процедуру реализации невостребованной вещи
       (ст. 899 ГК РФ): уведомление, срок, порядок продажи, распределение выручки.
     addressee: "Хранитель"
-
   dangerous_properties_disclosure:
     text: >
       В {doc_names} хранится потенциально опасная вещь. Просим включить:
       (а) обязанность поклажедателя раскрыть опасные свойства (ст. 893 ГК РФ);
       (б) право хранителя уничтожить опасную вещь за счёт поклажедателя (ст. 894 ГК РФ);
-      (в) ответственность за сокрытие.
+      (в) подтверждение наличия лицензии на хранение опасных веществ.
     addressee: "Юридический советник"
-
-  dangerous_goods_storage_without_license:
-    text: >
-      ВНИМАНИЕ: в {doc_names} предусмотрено хранение опасных веществ.
-      Просим предоставить подтверждение наличия лицензии на данный вид деятельности.
-    addressee: "Хранитель"
-
   warehouse_certificate_issuance:
     text: >
       Просим уточнить в {doc_names}: (а) вид складского свидетельства (простое / двойное);
-      (б) порядок выдачи; (в) возможность передачи и залога;
-      (г) ссылку на ст. 912 ГК РФ.
+      (б) порядок выдачи; (в) возможность передачи и залога по варранту.
     addressee: "Хранитель"
-
   lien_right_on_item:
     text: >
       Просим уточнить в {doc_names}: право хранителя удерживать вещь до оплаты
       вознаграждения и возмещения расходов (ст. 359, 920 ГК РФ).
     addressee: "Юридический советник"
-
   natural_loss_norms:
     text: >
       Просим включить в {doc_names}: ссылку на утверждённые нормы естественной убыли,
       освобождение от ответственности в пределах норм (ст. 903 ГК РФ).
     addressee: "Юридический советник"
-
-  natural_loss:
-    text: >
-      Просим уточнить в {doc_names}: применение норм естественной убыли,
-      ответственность за недостачу сверх норм.
-    addressee: "Обе стороны"
-
-  parties_identification:
-    text: >
-      Просим подтвердить полные реквизиты сторон по {doc_names}: наименование,
-      ИНН, ОГРН, адрес.
-    addressee: "Обе стороны"
-
-  storage_term:
-    text: >
-      Просим уточнить в {doc_names}: срок хранения или условие «до востребования».
-    addressee: "Обе стороны"
-
   remuneration_and_expenses:
     text: >
       Просим подтвердить по {doc_names}: (а) размер вознаграждения;
       (б) является ли хранение безвозмездным; (в) порядок возмещения расходов.
     addressee: "Обе стороны"
-
+  storage_term:
+    text: >
+      Просим уточнить в {doc_names}: срок хранения или условие «до востребования».
+    addressee: "Обе стороны"
   storage_conditions:
     text: >
       Просим уточнить в {doc_names}: требования к условиям хранения
-      (температура, влажность, освещённость).
+      (температура, влажность, освещённость, вентиляция).
     addressee: "Хранитель"
-
+  return_procedure:
+    text: >
+      Просим уточнить в {doc_names}: порядок выдачи вещи, проверка правомочий
+      получателя, форма акта выдачи (МХ-3).
+    addressee: "Обе стороны"
+  inspection_upon_return:
+    text: >
+      Просим включить в {doc_names}: обязательную проверку вещи при возврате,
+      порядок фиксации недостачи/повреждений, срок предъявления претензий.
+    addressee: "Поклажедатель"
   extraordinary_expenses:
     text: >
       Просим включить в {doc_names}: условия возмещения чрезвычайных расходов
       на сохранность (ст. 898 ГК РФ), лимит расходов без согласования.
     addressee: "Юридический советник"
-
   exclusions_from_liability:
     text: >
       Просим согласовать в {doc_names}: перечень обстоятельств, освобождающих
       от ответственности (непреодолимая сила, свойства вещи, вина поклажедателя).
     addressee: "Юридический советник"
-
   third_party_claims:
     text: >
-      Просим включить в {doc_names}: процедуру при предъявлении требований
-      третьими лицами (арест, залог): уведомление поклажедателя, приостановление выдачи.
+      Просим включить в {doc_names}: процедуру при предъявлении требований третьими
+      лицами (арест, залог): уведомление поклажедателя, приостановление выдачи.
     addressee: "Юридический советник"
-
-  pretension_order:
-    text: >
-      Просим согласовать в {doc_names}: претензионный порядок, сроки претензий.
-    addressee: "Юридический советник"
-
-  dispute_resolution:
-    text: >
-      Просим согласовать в {doc_names}: подсудность, претензионный порядок.
-    addressee: "Юридический советник"
-
   insurance:
     text: >
       Просим уточнить в {doc_names}: условия страхования вещи, кто страхует,
       минимальную страховую сумму.
     addressee: "Обе стороны"
-
+  pretension_order:
+    text: >
+      Просим согласовать в {doc_names}: претензионный порядок, сроки претензий.
+    addressee: "Юридический советник"
+  dispute_resolution:
+    text: >
+      Просим согласовать в {doc_names}: подсудность, претензионный порядок.
+    addressee: "Юридический советник"
   confidentiality:
     text: >
       Просим включить в {doc_names}: условие о конфиденциальности сведений о вещи.
     addressee: "Юридический советник"
-
   vat_and_tax:
     text: >
       Просим уточнить в {doc_names}: режим НДС, порядок документооборота.
     addressee: "Бухгалтерия"
-
-  # Generic fallback
   _default:
     text: >
       Просим предоставить дополнительную информацию по вопросу «{check_name}»

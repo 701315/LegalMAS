@@ -1,6 +1,7 @@
 type: contract_6.1_mandate
 name: "Договор поручения"
-
+version: 6.0
+parent: class_6_intermediary
 description: |
   Фидуциарный (лично-доверительный) договор, по которому поверенный обязуется
   совершить от имени и за счет доверителя определенные юридические действия.
@@ -14,10 +15,6 @@ description: |
   недостаточная конкретизация юридических действий, отсутствие или дефекты
   доверенности, конфликт интересов, передоверие без контроля, споры о расходах,
   отчете и последствиях прекращения договора.
-
-version: 4.0
-parent: class_6_intermediary
-
 metadata:
   category: contract
   subcategory: intermediary
@@ -36,19 +33,11 @@ metadata:
     - "договор коммерческого представительства"
     - "договор поручения с передоверием"
     - "договор судебного представительства"
-
     - "mandate agreement"
     - "representation agreement"
     - "authority to act agreement"
     - "agency mandate"
     - "power of attorney with mandate"
-
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
@@ -56,7 +45,6 @@ engine_expectations:
 # ════════════════════════════════════════════════════════════════════════════
 
 classification_runtime_v1:
-
   scoring:
     accept_threshold: 0.81
     strong_signal_threshold: 0.89
@@ -64,228 +52,168 @@ classification_runtime_v1:
     input_quality_weight: 1.0
 
   rules:
-
     filename_patterns:
-      # Русский — явные договоры поручения / представительства
-
       - pattern: "(?i)договор[_\\s-]*поручени[яия]"
         kind: specific_subject
         weight: 1.0
-        # Базовое: договор поручения
-
       - pattern: "(?i)договор[_\\s-]*представител[ьствая]"
         kind: specific_subject
         weight: 0.95
-        # Договор представительства (в том числе судебного)
-
       - pattern: "(?i)договор[_\\s-]*на[_\\s-]*совершени[еия][_\\s-]*юридическ[ихие][_\\s-]*действи[йия]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*на[_\\s-]*представлени[еия][_\\s-]*интерес[оов][_\\s-]*в[_\\s-]*суд[еея]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*на[_\\s-]*представлени[еия][_\\s-]*интерес[оов]"
         kind: specific_subject
         weight: 0.9
-
       - pattern: "(?i)договор[_\\s-]*поручени[яия][_\\s-]*на[_\\s-]*заключени[еия][_\\s-]*сдел[оок]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*поручени[яия][_\\s-]*на[_\\s-]*судебн[оеые][_\\s-]*представител[ьствоя]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*коммерческ[огоой][_\\s-]*представител[ьствая]"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)договор[_\\s-]*поручени[яия][_\\s-]*с[_\\s-]*передовер[ииеям]"
         kind: specific_subject
         weight: 0.9
-
       - pattern: "(?i)договор[_\\s-]*судебн[огоой][_\\s-]*представител[ьствая]"
         kind: specific_subject
         weight: 0.9
-
-      # Русские краткие маркеры поручения/поверенного — как generic/context
-
       - pattern: "(?i)поручени[ея]"
         kind: generic_form
         weight: 0.6
-        # Без слова "договор" может быть просто поручение/инструкция
-
       - pattern: "(?i)поверенн[ыйогоая]"
         kind: context
         weight: 0.45
-        # "Поверенный" в тексте названия без "договор" – слабый контекст
-
       - pattern: "(?i)доверител[ь]"
         kind: context
         weight: 0.4
-        # Чтобы не путаться с доверительным управлением, оставляем как контекст
-
-      # Английский — mandate / representation / agency-like конструкции
-
       - pattern: "(?i)mandate[_\\s-]*agreement"
         kind: specific_subject
         weight: 1.0
-
       - pattern: "(?i)agency[_\\s-]*mandate"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)representation[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-
       - pattern: "(?i)authority[_\\s-]*to[_\\s-]*act[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.9
-
       - pattern: "(?i)legal[_\\s-]*representation[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.9
-
       - pattern: "(?i)power[_\\s-]*of[_\\s-]*attorney[_\\s-]*with[_\\s-]*mandate"
         kind: specific_subject
         weight: 0.9
-
-      # Более общие mandate/representation – generic/context
-
       - pattern: "(?i)mandate"
         kind: generic_form
         weight: 0.6
-        # Без "agreement/contract" может быть и банкомандат, и внутренний документ
-
       - pattern: "(?i)representation"
         kind: generic_form
         weight: 0.55
-
       - pattern: "(?i)power[_\\s-]*of[_\\s-]*attorney"
         kind: generic_form
         weight: 0.55
-        # Скорее самостоятельный тип доверенности, но полезен как контекст для поручения
 
     folder_patterns:
       - pattern: "(?i)поручени[ея]"
         kind: specific_subject
         weight: 0.8
-        # Папка с договорами поручения / поручениями
-
       - pattern: "(?i)представител[ьствая]"
         kind: specific_subject
         weight: 0.8
-        # Папка представительства
-
       - pattern: "(?i)mandate"
         kind: specific_subject
         weight: 0.8
-
       - pattern: "(?i)representation"
         kind: specific_subject
         weight: 0.75
-
       - pattern: "(?i)agency"
         kind: context
         weight: 0.4
-        # Общая "agency" папка – может включать и агентские договоры, и поручения
 
     keywords:
-
       high:
         - pattern: "(?i)договор\\s+поручен[ияи]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное название договора поручения"
-
         - pattern: "(?i)договор\\s+представительств[аы]"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "Договор представительства в модели поручения"
-
         - pattern: "(?i)договор\\s+на\\s+совершен[иеия]\\s+юридическ[ихие]\\s+действ[ийия]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Договор на совершение юридических действий от имени доверителя"
-
         - pattern: "(?i)договор\\s+на\\s+представлен[иеия]\\s+интерес[овы]"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "Договор на представление интересов"
-
         - pattern: "(?i)договор\\s+поручен[ияи]\\s+на\\s+заключен[иеия]\\s+сдел[окки]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Поручение на заключение сделок"
-
         - pattern: "(?i)договор\\s+поручен[ияи]\\s+на\\s+судебн[оеое\\s]*представительств[оа]"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "Поручение на судебное представительство"
-
         - pattern: "(?i)договор\\s+коммерческ[огоое]\\s+представительств[аы]"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "Коммерческое представительство по ст. 184 ГК РФ"
-
         - pattern: "(?i)договор\\s+поручен[ияи]\\s+с\\s+передовер[иемия]"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "Поручение с передоверием"
-
         - pattern: "(?i)mandate\\s+agreement"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "English title form for mandate agreement"
-
         - pattern: "(?i)representation\\s+agreement"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "English title form for representation agreement"
-
         - pattern: "(?i)поверенн[ыйое]\\b"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Поверенный как сторона договора поручения"
-
         - pattern: "(?i)доверител[ьяеи]"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Доверитель как сторона договора поручения"
-
         - pattern: "(?i)от\\s+имени\\s+доверител[яья]"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Ключевой маркер представительства от имени доверителя"
-
         - pattern: "(?i)за\\s+сч[её]т\\s+доверител[яья]"
           weight: 0.95
           distinctiveness: high
           context: any
           description: "Ключевой маркер действий за счет доверителя"
-
         - pattern: "(?i)доверенност[ьи]"
           weight: 0.85
           distinctiveness: medium
           context: any
           description: "Доверенность как типичный инструмент внешнего представительства"
-
         - pattern: "(?i)юридическ[иеих]\\s+действ[ияий]"
           weight: 0.9
           distinctiveness: high
@@ -298,49 +226,41 @@ classification_runtime_v1:
           distinctiveness: medium
           context: any
           description: "Отчет поверенного перед доверителем"
-
         - pattern: "(?i)возмещени[ея]\\s+расход[оо]в"
           weight: 0.6
           distinctiveness: medium
           context: any
           description: "Возмещение расходов поверенного"
-
         - pattern: "(?i)вознаграждени[ея]\\s+поверенн[оа]го"
           weight: 0.6
           distinctiveness: medium
           context: any
           description: "Вознаграждение поверенного"
-
         - pattern: "(?i)\\bпередовери[ея]\\b"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Передоверие полномочий"
-
         - pattern: "(?i)указани[яя]\\s+доверител[яя]"
           weight: 0.6
           distinctiveness: medium
           context: any
           description: "Указания доверителя для исполнения поручения"
-
         - pattern: "(?i)отмен[аа]\\s+поручени[яя]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Односторонняя отмена поручения доверителем"
-
         - pattern: "(?i)отказ\\s+от\\s+поручени[яя]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Отказ поверенного от исполнения поручения"
-
         - pattern: "(?i)\\bпредставительств[ооа]\\b"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Общий термин представительства"
-
         - pattern: "(?i)коммерческ[иоя]+\\s+представител[ья]"
           weight: 0.65
           distinctiveness: medium
@@ -353,25 +273,21 @@ classification_runtime_v1:
           distinctiveness: low
           context: any
           description: "Оправдательные документы к отчету поверенного"
-
         - pattern: "(?i)конфликт\\s+интерес[оо]в"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Конфликт интересов в представительской модели"
-
         - pattern: "(?i)возврат\\s+доверенност[ии]"
           weight: 0.3
           distinctiveness: low
           context: any
           description: "Возврат доверенности при прекращении поручения"
-
         - pattern: "(?i)судебн[оа]е\\s+представительств[оо]"
           weight: 0.3
           distinctiveness: low
           context: any
           description: "Судебное представительство как частный случай поручения"
-
         - pattern: "(?i)нотариальн[а-яё]+\\s+доверенност[ьи]"
           weight: 0.3
           distinctiveness: low
@@ -383,29 +299,22 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "Комиссия предполагает действия комиссионера от своего имени, а не от имени доверителя"
-
       - pattern: "(?i)агентск[иоя]+\\s+договор\\s+по\\s+модел[ии]\\s+комисси[ии]"
         severity: hard
         weight: -1.0
         description: "Агентская модель по типу комиссии ближе к договору комиссии, а не к поручению"
-
       - pattern: "(?i)трудов[оа]й\\s+договор"
         severity: hard
         weight: -1.0
         description: "Трудовой договор оформляет трудовую функцию, а не гражданско-правовое поручение"
-
-      # ── Soft exclusions
-
       - pattern: "(?i)договор\\s+оказани[яя]\\s+услуг"
         severity: soft
         weight: -0.35
         description: "Услуги могут сопровождать поручение, но сами по себе не образуют модель представительства"
-
       - pattern: "(?i)консультационн[ыо]е\\s+услуг[ии]"
         severity: soft
         weight: -0.3
         description: "Консультационные услуги указывают на advisory-модель без совершения юридических действий от имени доверителя"
-
       - pattern: "(?i)от\\s+своего\\s+имени"
         severity: soft
         weight: -0.4
@@ -417,7 +326,6 @@ classification_runtime_v1:
 # ════════════════════════════════════════════════════════════════════════════
 
 trigger_definitions:
-
   representation_required:
     any_keywords:
       - "(?i)заключени[ея]\\s+договор[аа]"
@@ -492,124 +400,38 @@ trigger_definitions:
 # ════════════════════════════════════════════════════════════════════════════
 
 shared_patterns:
-
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
   poa_pattern: "(?i)доверенн(ость|ости)\\s*(?:№|N|No\\.)?\\s*[A-ZА-Я0-9\\-\\/]*"
   deadline_pattern: "(?i)(?:в течение|не позднее)\\s+\\d+\\s+(?:календарн|рабоч|дн|дня|дней)"
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "acts_in_own_name_red_flag"
-    name: "Поверенный действует от своего имени"
-    description: "Если по тексту договора исполнитель действует от своего имени, это риск переквалификации в комиссию или иную модель"
-    legal_base: "ст. 971 ГК РФ, ст. 990 ГК РФ"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "от своего имени"
-        - "совершает сделки от своего имени"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 4
-      boost_keywords:
-        - "от своего имени"
-        - "от имени доверителя"
-        - "поверенный"
-      rerank: true
-
-  - id: "representation_without_poa_logic"
-    name: "Представительские действия без механики доверенности"
-    description: "Если договор предусматривает юридически значимые действия перед третьими лицами, но не содержит логики выдачи доверенности, конструкция рискованна"
-    legal_base: "ст. 182, 185, 975 ГК РФ"
-    required_triggers: ["representation_required"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "доверенность"
-        - "полномочия"
-        - "выдать доверенность"
-        - "нотариальная доверенность"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "доверенность"
-        - "полномочия"
-        - "представление интересов"
-      rerank: true
-
-  - id: "subdelegation_without_control"
-    name: "Передоверие без достаточного контроля"
-    description: "Передоверие без ясного режима согласия доверителя и контроля над заместителем создает повышенный фидуциарный риск"
-    legal_base: "ст. 976 ГК РФ"
-    required_triggers: ["subdelegation_allowed"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "передоверие"
-      negative_keywords:
-        - "письменное согласие доверителя"
-        - "запрет передоверия"
-        - "ответственность за выбор заместителя"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "передоверие"
-        - "согласие доверителя"
-        - "заместитель"
-      rerank: true
-
-  - id: "revocation_notice_gap"
-    name: "Нет механики отзыва доверенности и уведомления третьих лиц"
-    description: "При прекращении поручения отсутствие механики возврата доверенности и уведомления третьих лиц создает риск связывания доверителя сделками бывшего представителя"
-    legal_base: "ст. 188, 189, 977 ГК РФ"
-    required_triggers: ["termination_sensitive", "poa_required"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      negative_keywords:
-        - "возврат доверенности"
-        - "уведомление третьих лиц"
-        - "отмена доверенности"
-        - "реестр отмененных доверенностей"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "возврат доверенности"
-        - "уведомление третьих лиц"
-        - "отмена доверенности"
-      rerank: true
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 1: Базовое извлечение структуры договора поручения
+  # ──────────────────────────────────────────────────────────────────────────
   - id: mandate_subject_extraction
     name: "Базовое извлечение структуры договора поручения"
-    description: "Извлекает доверителя, поверенного, предмет поручения, доверенность, отчетность и условия прекращения"
+    description: >
+      Извлекает доверителя, поверенного, предмет поручения, модель действий
+      (от имени доверителя / от своего имени), статус доверенности,
+      возмездность, отчетность и условия прекращения.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "договор поручения"
@@ -624,91 +446,276 @@ checks_v8:
         - "(?i)(договор\\s+поручения|поверенн(ый|ого)|доверител(ь|я))"
         - "(?i)(от\\s+имени\\s+доверителя|за\\s+счет\\s+доверителя)"
         - "(?i)доверенн(ость|ости)"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор поручения.
-        Извлеки ключевые параметры строго по тексту договора.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения по Главе 49 ГК РФ (ст. 971-979).
+        Проверяется только один вопрос: ключевые параметры договора поручения.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 971 ГК РФ — договор поручения
+        - ст. 182 ГК РФ — представительство
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора,
+          а чего прямо нет.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Доверитель (наименование / ФИО).
+        2. Поверенный (наименование / ФИО).
+        3. Предмет поручения (перечень юридических действий).
+        4. От чьего имени действует поверенный.
+        5. Статус доверенности.
+        6. Статус возмездности.
+        7. Наличие отчётности.
+        8. Наличие условий прекращения.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если данные не указаны прямо — возвращай "not_defined".
+        4. Если текстового значения нет — возвращай строго "Данные не определены".
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        6. В evidence включай только текст договора.
+        7. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — параметры определены:
+        Фрагмент:
+        "Доверитель — ООО «Альфа» поручает, а Поверенный — Иванов И.И. обязуется
+        от имени и за счёт Доверителя заключить договор аренды. Доверитель выдаёт
+        нотариальную доверенность. Вознаграждение — 50 000 рублей. Поверенный
+        представляет отчёт по итогам исполнения."
+
+        Ответ:
         {
-          "principal": "<доверитель или not_found>",
-          "agent": "<поверенный или not_found>",
-          "mandated_actions": "<перечень действий или not_found>",
-          "acts_in_name_of": "<principal / agent / unclear / not_found>",
-          "poa_status": "<required_and_mentioned / mentioned / not_found>",
-          "remuneration_status": "<paid / free / unclear / not_found>",
-          "reporting_status": "<present / not_found>",
-          "termination_status": "<present / not_found>"
+          "principal": "ООО «Альфа»",
+          "agent": "Иванов И.И.",
+          "mandated_actions": "заключить договор аренды",
+          "acts_in_name_of": "principal",
+          "poa_status": "required_and_mentioned",
+          "remuneration_status": "paid",
+          "reporting_status": "present",
+          "termination_status": "not_defined"
         }
 
-        Используй только явно указанные в тексте сведения.
-        Если данных нет — пиши "not_found".
-      prompt_file: null
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Стороны заключили настоящий договор."
+
+        Ответ:
+        {
+          "principal": "Данные не определены",
+          "agent": "Данные не определены",
+          "mandated_actions": "Данные не определены",
+          "acts_in_name_of": "not_defined",
+          "poa_status": "not_defined",
+          "remuneration_status": "not_defined",
+          "reporting_status": "not_defined",
+          "termination_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о доверителе.
+        2. Найди прямую цитату о поверенном.
+        3. Найди прямую цитату о предмете поручения.
+        4. Найди прямую цитату о модели действий (от имени / от своего имени).
+        5. Если прямой цитаты нет — верни "not_defined" или "Данные не определены".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "principal": "<текст или 'Данные не определены'>",
+          "agent": "<текст или 'Данные не определены'>",
+          "mandated_actions": "<текст или 'Данные не определены'>",
+          "acts_in_name_of": "<principal / agent / unclear / not_defined>",
+          "poa_status": "<required_and_mentioned / mentioned / not_defined>",
+          "remuneration_status": "<paid / free / unclear / not_defined>",
+          "reporting_status": "<present / not_defined>",
+          "termination_status": "<present / not_defined>"
+        }
       context_k: 6
       temperature: 0.0
       max_tokens: 700
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "доверитель поверенный договор поручения от имени доверителя за счёт доверителя доверенность юридические действия предмет поручения отчёт поверенного отмена поручения вознаграждение"
       retrieval_profile: "scope_of_work_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "приложение"
+        - "индекс"
+      position_bias:
+        preferred_range: [0.0, 0.35]
+        boost: 0.20
+        scope: segment
       context_k: 6
       max_chunks: 10
-      boost_keywords:
-        - "поверенный"
-        - "доверитель"
-        - "доверенность"
-        - "отчет поверенного"
-        - "отмена поручения"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 50
       max_snippet_length: 700
+
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 1000
+      llm_max_tokens: 1100
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения ключевые
+        параметры: доверителя, поверенного, предмет поручения, модель действий,
+        статус доверенности, возмездность, отчётность и прекращение.
+        Не анализируй передоверие, конфликт интересов или конкретные лимиты полномочий.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. principal — доверитель.
+        2. agent — поверенный.
+        3. mandated_actions — предмет поручения.
+        4. acts_in_name_of — "principal" / "agent" / "unclear" / "not_defined".
+        5. poa_status — "required_and_mentioned" / "mentioned" / "not_defined".
+        6. remuneration_status — "paid" / "free" / "unclear" / "not_defined".
+        7. reporting_status — "present" / "not_defined".
+        8. termination_status — "present" / "not_defined".
+
+        Если данные отсутствуют:
+        - текстовое поле = "Данные не определены"
+        - статусное поле = "not_defined"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не делай предположений.
+        - acts_in_name_of: "principal" — если прямо указано "от имени доверителя";
+          "agent" — если прямо указано "от своего имени";
+          "unclear" — если формулировка неоднозначна;
+          "not_defined" — если не указано.
+        - poa_status: "required_and_mentioned" — если доверенность прямо предусмотрена
+          как обязательная; "mentioned" — если упомянута, но не как обязанность;
+          "not_defined" — если не упомянута.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "principal"
           type: "string"
-          keyword_hints: ["доверитель"]
-          description: "Доверитель"
+          presentation: "fact"
+          label: "Доверитель"
+          description: "Доверитель по договору поручения."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "agent"
           type: "string"
-          keyword_hints: ["поверенный"]
-          description: "Поверенный"
+          presentation: "fact"
+          label: "Поверенный"
+          description: "Поверенный по договору поручения."
+          required: true
+          display_in_grid: true
+          display_priority: 2
         - name: "mandated_actions"
           type: "string"
-          keyword_hints: ["совершить действия", "предмет договора", "юридические действия"]
-          description: "Предмет поручения"
+          presentation: "fact"
+          label: "Предмет поручения"
+          description: "Перечень юридических действий, составляющих предмет поручения."
+          required: true
+          display_in_grid: true
+          display_priority: 3
         - name: "acts_in_name_of"
           type: "string"
-          allowed_values: ["principal", "agent", "unclear", "not_found"]
-          description: "От чьего имени действует исполнитель"
+          presentation: "signal"
+          allowed_values: ["principal", "agent", "unclear", "not_defined"]
+          description: "От чьего имени действует поверенный."
+          required: true
         - name: "poa_status"
           type: "string"
-          allowed_values: ["required_and_mentioned", "mentioned", "not_found"]
-          description: "Статус доверенности"
+          presentation: "signal"
+          allowed_values: ["required_and_mentioned", "mentioned", "not_defined"]
+          description: "Статус доверенности в договоре."
+          required: false
         - name: "remuneration_status"
           type: "string"
-          allowed_values: ["paid", "free", "unclear", "not_found"]
-          description: "Статус возмездности"
+          presentation: "signal"
+          allowed_values: ["paid", "free", "unclear", "not_defined"]
+          description: "Статус возмездности договора."
+          required: false
         - name: "reporting_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли отчетность"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие отчётности поверенного."
+          required: false
         - name: "termination_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли условия прекращения"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие условий прекращения договора."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 2: Предмет поручения — конкретные юридические действия
+  # ──────────────────────────────────────────────────────────────────────────
   - id: subject_legal_actions_check
     name: "Предмет поручения: конкретные юридические действия"
-    description: "Проверяет, что предмет договора выражен в виде конкретных юридических, а не фактических/сервисных действий"
+    description: >
+      Проверяет, что предмет договора выражен в виде конкретных юридических,
+      а не фактических/сервисных действий, и степень их конкретизации.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "совершить юридические действия"
@@ -722,63 +729,194 @@ checks_v8:
         - "(?i)соверш(ить|ает).*юридическ(ие|их)\\s+действ"
         - "(?i)заключени[ея]\\s+договор|представлени[ея]\\s+интерес"
         - "(?i)подписани[ея]|подач[аи]\\s+документ"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор поручения.
-        Проверь предмет договора.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения по Главе 49 ГК РФ.
+        Проверяется только один вопрос: предмет поручения — конкретные
+        юридические действия.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 971 ГК РФ — предмет договора поручения
+        - ст. 432 ГК РФ — существенные условия
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Степень конкретизации действий (перечислены конкретно / общая формула).
+        2. Природу действий (юридические / смешанные / фактические).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если данные не указаны прямо — возвращай "not_defined".
+        4. Если текстового значения нет — возвращай строго "Данные не определены".
+        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        6. В evidence включай только текст договора.
+        7. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — действия конкретны:
+        Фрагмент:
+        "Поверенный обязуется: 1) заключить договор аренды от имени Доверителя;
+        2) подписать акт приёма-передачи; 3) подать документы на регистрацию."
+
+        Ответ:
         {
-          "actions_specificity": "<specific / generic / not_found>",
-          "actions_nature": "<legal / mixed / factual_or_service_like / unclear / not_found>",
-          "subject_risk": "<high / medium / low / not_found>"
+          "actions_specificity": "specific",
+          "actions_nature": "legal"
         }
 
-        - "specific" — если действия перечислены определенно и проверяемо.
-        - "generic" — если есть формулы вроде "любые необходимые действия".
-      prompt_file: null
+        Пример 2 — действия не конкретизированы:
+        Фрагмент:
+        "Поверенный совершает любые необходимые действия в интересах Доверителя."
+
+        Ответ:
+        {
+          "actions_specificity": "generic",
+          "actions_nature": "unclear"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с перечнем действий.
+        2. Определи, конкретны ли они или даны общей формулой.
+        3. Определи, являются ли действия юридическими или фактическими.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "actions_specificity": "<specific / generic / not_defined>",
+          "actions_nature": "<legal / mixed / factual_or_service_like / unclear / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 340
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "предмет договора юридические действия совершить действия заключение договоров представление интересов подача документов подписание государственная регистрация любые необходимые действия"
       retrieval_profile: "scope_of_work_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "отчёт поверенного"
+        - "вознаграждение"
+        - "передоверие"
+        - "отмена поручения"
+      position_bias:
+        preferred_range: [0.0, 0.40]
+        boost: 0.18
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "юридические действия"
-        - "предмет договора"
-        - "любые необходимые действия"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "definitions"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения сведения
+        о предмете: степень конкретизации действий и их юридическую природу.
+        Не анализируй доверенность, отчётность, вознаграждение или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. actions_specificity — "specific" / "generic" / "not_defined".
+        2. actions_nature — "legal" / "mixed" / "factual_or_service_like" / "unclear" / "not_defined".
+
+        "specific" — если действия перечислены определённо и проверяемо.
+        "generic" — если есть формулы вроде "любые необходимые действия".
+        "legal" — если действия порождают, изменяют или прекращают права.
+        "factual_or_service_like" — если действия не создают юридических последствий.
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не делай предположений.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "actions_specificity"
           type: "string"
-          allowed_values: ["specific", "generic", "not_found"]
-          description: "Степень конкретизации действий"
+          presentation: "signal"
+          allowed_values: ["specific", "generic", "not_defined"]
+          description: "Степень конкретизации действий."
+          required: true
         - name: "actions_nature"
           type: "string"
-          allowed_values: ["legal", "mixed", "factual_or_service_like", "unclear", "not_found"]
-          description: "Юридическая природа действий"
-        - name: "subject_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск дефектного предмета"
+          presentation: "signal"
+          allowed_values: ["legal", "mixed", "factual_or_service_like", "unclear", "not_defined"]
+          description: "Юридическая природа действий."
+          required: true
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 3: Доверенность и объём полномочий
+  # ──────────────────────────────────────────────────────────────────────────
   - id: poa_and_authority_check
-    name: "Доверенность и объем полномочий"
-    description: "Проверяет наличие обязанности выдать доверенность, соответствие полномочий предмету поручения и риски превышения полномочий"
+    name: "Доверенность и объём полномочий"
+    description: >
+      Проверяет наличие обязанности выдать доверенность, соответствие
+      полномочий предмету поручения и указание на нотариальную форму.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "доверенность"
@@ -792,67 +930,202 @@ checks_v8:
         - "(?i)доверенн(ость|ости)"
         - "(?i)предел(ы|ах)\\s+полномоч"
         - "(?i)нотариальн(ая|ой)\\s+доверенн"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор поручения.
-        Проверь механику доверенности и полномочий.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения по Главе 49 ГК РФ.
+        Проверяется только один вопрос: механика доверенности и полномочий.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 975 ГК РФ — обязанность выдать доверенность
+        - ст. 185 ГК РФ — доверенность
+        - ст. 183 ГК РФ — превышение полномочий
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли обязанность выдать доверенность.
+        2. Определён ли объём полномочий.
+        3. Есть ли указание на нотариальную форму доверенности.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Доверитель обязан выдать Поверенному нотариальную доверенность
+        на заключение договоров аренды в пределах полномочий, указанных в п. 1.1."
+
+        Ответ:
         {
-          "poa_clause_status": "<present / not_found>",
-          "authority_scope_clarity": "<clear / unclear / not_found>",
-          "notarial_poa_reference": "<present / not_found>",
-          "excess_authority_risk": "<high / medium / low / not_found>"
+          "poa_clause_status": "present",
+          "authority_scope_status": "defined",
+          "notarial_poa_reference": "present"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Поверенный действует на основании настоящего договора."
+
+        Ответ:
+        {
+          "poa_clause_status": "not_defined",
+          "authority_scope_status": "not_defined",
+          "notarial_poa_reference": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об обязанности выдать доверенность.
+        2. Найди прямую цитату об объёме полномочий.
+        3. Найди прямую цитату о нотариальной форме.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "poa_clause_status": "<present / not_defined>",
+          "authority_scope_status": "<defined / not_defined>",
+          "notarial_poa_reference": "<present / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 360
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "доверенность обязан выдать доверенность полномочия пределы полномочий нотариальная доверенность превышение полномочий объём полномочий"
+      retrieval_profile: "authority_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "отчёт поверенного"
+        - "вознаграждение"
+        - "передоверие"
+        - "отмена поручения"
+      position_bias:
+        preferred_range: [0.10, 0.50]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 8
-      retrieval_profile: "authority_check"
-      boost_keywords:
-        - "доверенность"
-        - "полномочия"
-        - "нотариальная доверенность"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "definitions"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения сведения
+        о доверенности и объёме полномочий поверенного.
+        Не анализируй предмет поручения, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. poa_clause_status — "present" / "not_defined".
+        2. authority_scope_status — "defined" / "not_defined".
+        3. notarial_poa_reference — "present" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - poa_clause_status = "present" только если обязанность выдать
+          доверенность прямо указана.
+        - authority_scope_status = "defined" только если объём полномочий
+          прямо определён.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "poa_clause_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли логика доверенности"
-        - name: "authority_scope_clarity"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие обязанности выдать доверенность."
+          required: true
+        - name: "authority_scope_status"
           type: "string"
-          allowed_values: ["clear", "unclear", "not_found"]
-          description: "Понятность полномочий"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Определённость объёма полномочий."
+          required: true
         - name: "notarial_poa_reference"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли указание на нотариальную доверенность"
-        - name: "excess_authority_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск превышения полномочий"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Указание на нотариальную форму доверенности."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 4: Пределы полномочий и конфликт интересов
+  # ──────────────────────────────────────────────────────────────────────────
   - id: authority_limits_and_conflict_check
     name: "Пределы полномочий и конфликт интересов"
-    description: "Проверяет ограничения на действия поверенного, двойное представительство и сделки в конфликте интересов"
+    description: >
+      Проверяет ограничения на действия поверенного, лимиты сумм/сделок,
+      запрет двойного представительства и антиконфликтные оговорки.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "пределы полномочий"
@@ -866,67 +1139,604 @@ checks_v8:
         - "(?i)максимальн(ая|ой)\\s+сумм[аы]\\s+сделк"
         - "(?i)конфликт\\s+интерес"
         - "(?i)не\\s+вправе\\s+совершать\\s+сделки\\s+с\\s+самим\\s+собой"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор поручения.
-        Проверь ограничения полномочий поверенного и защиту от конфликта интересов.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения по Главе 49 ГК РФ.
+        Проверяется только один вопрос: ограничения полномочий поверенного
+        и защита от конфликта интересов.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 182 ГК РФ — представительство
+        - ст. 10 ГК РФ — злоупотребление правом
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли ограничения полномочий (лимиты сумм, запрет отдельных действий).
+        2. Есть ли антиконфликтная оговорка.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Поверенный не вправе совершать сделки на сумму свыше 1 000 000 рублей
+        без письменного согласования. Поверенный не вправе совершать сделки
+        с самим собой или с аффилированными лицами."
+
+        Ответ:
         {
-          "authority_limits_status": "<present / partial / not_found>",
-          "conflict_of_interest_clause": "<present / not_found>",
-          "double_representation_risk": "<high / medium / low / not_found>",
-          "open_ended_authority_risk": "<high / medium / low / not_found>"
+          "authority_limits_status": "present",
+          "conflict_of_interest_clause": "present"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Поверенный действует в интересах Доверителя."
+
+        Ответ:
+        {
+          "authority_limits_status": "not_defined",
+          "conflict_of_interest_clause": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об ограничениях полномочий.
+        2. Найди прямую цитату о конфликте интересов.
+        3. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "authority_limits_status": "<present / partial / not_defined>",
+          "conflict_of_interest_clause": "<present / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 360
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "пределы полномочий максимальная сумма сделки предварительное письменное согласование конфликт интересов не вправе совершать сделки с самим собой аффилированные лица двойное представительство"
+      retrieval_profile: "authority_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "отчёт поверенного"
+        - "вознаграждение"
+        - "передоверие"
+        - "отмена поручения"
+      position_bias:
+        preferred_range: [0.15, 0.60]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 7
-      retrieval_profile: "authority_check"
-      boost_keywords:
-        - "пределы полномочий"
-        - "конфликт интересов"
-        - "сделки с самим собой"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 580
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения сведения
+        об ограничениях полномочий поверенного и антиконфликтных оговорках.
+        Не анализируй доверенность, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. authority_limits_status — "present" / "partial" / "not_defined".
+        2. conflict_of_interest_clause — "present" / "not_defined".
+
+        "present" — ограничения прямо установлены.
+        "partial" — есть лишь частичные ограничения.
+        "not_defined" — ограничения не установлены.
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "authority_limits_status"
           type: "string"
-          allowed_values: ["present", "partial", "not_found"]
-          description: "Статус ограничений полномочий"
+          presentation: "signal"
+          allowed_values: ["present", "partial", "not_defined"]
+          description: "Статус ограничений полномочий."
+          required: true
         - name: "conflict_of_interest_clause"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли антиконфликтная оговорка"
-        - name: "double_representation_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск двойного представительства"
-        - name: "open_ended_authority_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск чрезмерно широких полномочий"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие антиконфликтной оговорки."
+          required: true
       store_payload: true
 
-  - id: reporting_and_transfer_check
-    name: "Отчетность поверенного и передача всего полученного"
-    description: "Проверяет порядок отчетности, передачу документов и всего полученного доверителю"
-    triggers: {}
-    severity: "critical"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Указания доверителя и возмещение расходов
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: instructions_and_expenses_check
+    name: "Указания доверителя и возмещение расходов"
+    description: >
+      Проверяет наличие указаний доверителя, их обязательность для поверенного,
+      а также порядок возмещения расходов и авансирования.
+    triggers:
+      any:
+        - principal_instructions_present
+        - expense_reimbursement
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "указания доверителя"
+        - "в соответствии с указаниями"
+        - "инструкции доверителя"
+        - "согласование действий"
+        - "возместить расходы"
+        - "аванс на расходы"
+        - "смета расходов"
+        - "документально подтвержденные расходы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)указани[яе]\\s+доверител"
+        - "(?i)в\\s+соответствии\\s+с\\s+указаниями"
+        - "(?i)возместит[ья].{0,20}расход"
+        - "(?i)аванс\\s+на\\s+расход"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения по Главе 49 ГК РФ.
+        Проверяется только один вопрос: указания доверителя и возмещение расходов.
+
+        Нормативный ориентир:
+        - ст. 973 ГК РФ — исполнение поручения
+        - ст. 975 ГК РФ — возмещение расходов
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли указания доверителя и их обязательность.
+        2. Есть ли порядок возмещения расходов.
+        3. Есть ли авансирование расходов.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Поверенный обязан исполнять указания Доверителя. Расходы возмещаются
+        по документально подтверждённым затратам. Аванс на расходы — 100 000 рублей."
+
+        Ответ:
+        {
+          "instructions_status": "defined",
+          "expense_reimbursement_status": "defined",
+          "advance_status": "defined"
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Поверенный действует самостоятельно."
+
+        Ответ:
+        {
+          "instructions_status": "not_defined",
+          "expense_reimbursement_status": "not_defined",
+          "advance_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об указаниях доверителя.
+        2. Найди прямую цитату о возмещении расходов.
+        3. Найди прямую цитату об авансе.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "instructions_status": "<defined / not_defined>",
+          "expense_reimbursement_status": "<defined / not_defined>",
+          "advance_status": "<defined / not_defined>"
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 340
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "указания доверителя инструкции доверителя в соответствии с указаниями возместить расходы аванс на расходы смета расходов документально подтвержденные расходы"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "отчёт поверенного"
+        - "вознаграждение"
+        - "передоверие"
+        - "отмена поручения"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 540
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения сведения
+        об указаниях доверителя и порядке возмещения расходов.
+        Не анализируй доверенность, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. instructions_status — "defined" / "not_defined".
+        2. expense_reimbursement_status — "defined" / "not_defined".
+        3. advance_status — "defined" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "instructions_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие указаний доверителя."
+          required: true
+        - name: "expense_reimbursement_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие порядка возмещения расходов."
+          required: true
+        - name: "advance_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие авансирования расходов."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 6: Вознаграждение поверенного
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: remuneration_check
+    name: "Вознаграждение поверенного"
+    description: >
+      Проверяет наличие вознаграждения или ясной безвозмездности договора,
+      размер и порядок выплаты.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "вознаграждение поверенного"
+        - "безвозмездно"
+        - "размер вознаграждения"
+        - "порядок выплаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)вознаграждени[ея].{0,30}поверенн"
+        - "(?i)безвозмездн"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения по Главе 49 ГК РФ.
+        Проверяется только один вопрос: вознаграждение поверенного.
+
+        Нормативный ориентир:
+        - ст. 972 ГК РФ — доверенность
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Является ли договор возмездным или безвозмездным.
+        2. Есть ли размер вознаграждения.
+        3. Есть ли порядок выплаты.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Вознаграждение Поверенного составляет 50 000 рублей и выплачивается
+        в течение 5 рабочих дней после подписания отчёта."
+
+        Ответ:
+        {
+          "remuneration_model": "paid",
+          "remuneration_amount_status": "defined",
+          "payment_procedure_status": "defined"
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Настоящий договор является безвозмездным."
+
+        Ответ:
+        {
+          "remuneration_model": "free",
+          "remuneration_amount_status": "not_defined",
+          "payment_procedure_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о вознаграждении или безвозмездности.
+        2. Найди прямую цитату о размере.
+        3. Найди прямую цитату о порядке выплаты.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "remuneration_model": "<paid / free / unclear / not_defined>",
+          "remuneration_amount_status": "<defined / not_defined>",
+          "payment_procedure_status": "<defined / not_defined>"
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 340
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "вознаграждение поверенного безвозмездно размер вознаграждения порядок выплата вознаграждение"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "отчёт поверенного"
+        - "передоверие"
+        - "отмена поручения"
+        - "расходы"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 540
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения сведения
+        о вознаграждении поверенного: модель, размер и порядок выплаты.
+        Не анализируй расходы, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. remuneration_model — "paid" / "free" / "unclear" / "not_defined".
+        2. remuneration_amount_status — "defined" / "not_defined".
+        3. payment_procedure_status — "defined" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - remuneration_model: "paid" — если вознаграждение прямо предусмотрено;
+          "free" — если прямо указано "безвозмездно";
+          "unclear" — если формулировка неоднозначна;
+          "not_defined" — если не указано.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "remuneration_model"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["paid", "free", "unclear", "not_defined"]
+          description: "Модель возмездности договора."
+          required: true
+        - name: "remuneration_amount_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Определённость размера вознаграждения."
+          required: false
+        - name: "payment_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Определённость порядка выплаты."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 7: Отчётность поверенного и передача всего полученного
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: reporting_and_transfer_check
+    name: "Отчётность поверенного и передача всего полученного"
+    description: >
+      Проверяет порядок отчётности, передачу документов и всего полученного
+      доверителю по сделкам.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "отчет поверенного"
@@ -939,67 +1749,210 @@ checks_v8:
         - "(?i)отчет\\s+поверенн"
         - "(?i)оправдательн(ые|ых)\\s+документ"
         - "(?i)передат[ья].{0,40}все\\s+полученн"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор поручения.
-        Проверь порядок отчетности и передачи всего полученного доверителю.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения по Главе 49 ГК РФ.
+        Проверяется только один вопрос: отчётность поверенного и передача
+        всего полученного доверителю.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 974 ГК РФ — обязанности поверенного
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли обязанность представлять отчёт.
+        2. Требуются ли подтверждающие документы.
+        3. Есть ли обязанность передать всё полученное.
+        4. Есть ли порядок принятия/оспаривания отчёта.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Поверенный представляет отчёт с приложением оправдательных документов.
+        Всё полученное по сделкам передаётся Доверителю в течение 3 рабочих дней.
+        Доверитель вправе направить возражения в течение 5 дней."
+
+        Ответ:
         {
-          "reporting_clause_status": "<present / partial / not_found>",
-          "supporting_docs_required": "<yes / no / not_found>",
-          "transfer_of_proceeds_status": "<present / not_found>",
-          "report_acceptance_mechanism": "<present / not_found>"
+          "reporting_clause_status": "present",
+          "supporting_docs_required": "yes",
+          "transfer_of_proceeds_status": "present",
+          "report_acceptance_mechanism": "present"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Поверенный исполняет поручение."
+
+        Ответ:
+        {
+          "reporting_clause_status": "not_defined",
+          "supporting_docs_required": "not_defined",
+          "transfer_of_proceeds_status": "not_defined",
+          "report_acceptance_mechanism": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об отчёте.
+        2. Найди прямую цитату о подтверждающих документах.
+        3. Найди прямую цитату о передаче всего полученного.
+        4. Найди прямую цитату о порядке принятия отчёта.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "reporting_clause_status": "<present / partial / not_defined>",
+          "supporting_docs_required": "<yes / no / not_defined>",
+          "transfer_of_proceeds_status": "<present / not_defined>",
+          "report_acceptance_mechanism": "<present / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 360
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "отчёт поверенного оправдательные документы передать доверителю всё полученное по сделкам срок передачи порядок принятия отчёта возражения"
       retrieval_profile: "acceptance_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "вознаграждение"
+        - "передоверие"
+        - "отмена поручения"
+        - "расходы"
+      position_bias:
+        preferred_range: [0.25, 0.70]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "отчет поверенного"
-        - "оправдательные документы"
-        - "все полученное"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 580
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения сведения
+        об отчётности поверенного и передаче всего полученного доверителю.
+        Не анализируй доверенность, вознаграждение или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. reporting_clause_status — "present" / "partial" / "not_defined".
+        2. supporting_docs_required — "yes" / "no" / "not_defined".
+        3. transfer_of_proceeds_status — "present" / "not_defined".
+        4. report_acceptance_mechanism — "present" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "reporting_clause_status"
           type: "string"
-          allowed_values: ["present", "partial", "not_found"]
-          description: "Статус отчетности"
+          presentation: "signal"
+          allowed_values: ["present", "partial", "not_defined"]
+          description: "Статус отчётности поверенного."
+          required: true
         - name: "supporting_docs_required"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Требуются ли подтверждающие документы"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Требуются ли подтверждающие документы."
+          required: false
         - name: "transfer_of_proceeds_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли обязанность передать все полученное"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие обязанности передать всё полученное."
+          required: true
         - name: "report_acceptance_mechanism"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли порядок принятия/оспаривания отчета"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие порядка принятия/оспаривания отчёта."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 8: Прекращение поручения, отзыв доверенности
+  # ──────────────────────────────────────────────────────────────────────────
   - id: termination_and_revocation_check
     name: "Прекращение поручения, отзыв доверенности и уведомление третьих лиц"
-    description: "Проверяет порядок отмены поручения, отказа поверенного, возврата доверенности и уведомления третьих лиц"
+    description: >
+      Проверяет порядок отмены поручения, отказа поверенного, возврата
+      доверенности, уведомления третьих лиц и окончательного расчёта.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "отмена поручения"
@@ -1014,68 +1967,215 @@ checks_v8:
         - "(?i)отказ\\s+от\\s+поручен"
         - "(?i)возврат\\s+доверенн"
         - "(?i)уведомлени[ея]\\s+третьих\\s+лиц"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор поручения.
-        Проверь последствия прекращения поручения.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения по Главе 49 ГК РФ.
+        Проверяется только один вопрос: прекращение поручения, отзыв доверенности
+        и уведомление третьих лиц.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 977-979 ГК РФ — прекращение поручения
+        - ст. 188-189 ГК РФ — прекращение доверенности
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли порядок прекращения (отмена / отказ).
+        2. Есть ли возврат/отзыв доверенности.
+        3. Есть ли уведомление третьих лиц.
+        4. Есть ли окончательный расчёт при прекращении.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Доверитель вправе отменить поручение в любое время. Поверенный обязан
+        вернуть доверенность и уведомить третьих лиц в течение 3 дней.
+        Окончательный расчёт производится в течение 10 дней."
+
+        Ответ:
         {
-          "termination_mechanism_status": "<present / not_found>",
-          "poa_return_status": "<present / not_found>",
-          "third_party_notice_status": "<present / not_found>",
-          "settlement_upon_termination": "<present / not_found>"
+          "termination_mechanism_status": "present",
+          "poa_return_status": "present",
+          "third_party_notice_status": "present",
+          "settlement_upon_termination": "present"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Договор действует до полного исполнения поручения."
+
+        Ответ:
+        {
+          "termination_mechanism_status": "not_defined",
+          "poa_return_status": "not_defined",
+          "third_party_notice_status": "not_defined",
+          "settlement_upon_termination": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о порядке прекращения.
+        2. Найди прямую цитату о возврате доверенности.
+        3. Найди прямую цитату об уведомлении третьих лиц.
+        4. Найди прямую цитату об окончательном расчёте.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "termination_mechanism_status": "<present / not_defined>",
+          "poa_return_status": "<present / not_defined>",
+          "third_party_notice_status": "<present / not_defined>",
+          "settlement_upon_termination": "<present / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 340
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "отмена поручения отказ от поручения возврат доверенности уведомление третьих лиц реестр отменённых доверенностей последствия прекращения окончательный расчёт"
+      retrieval_profile: "termination_check"
+      preferred_unit_types:
+        - termination_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "отчёт поверенного"
+        - "вознаграждение"
+        - "передоверие"
+        - "расходы"
+      position_bias:
+        preferred_range: [0.50, 0.95]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 7
-      retrieval_profile: "termination_check"
-      boost_keywords:
-        - "отмена поручения"
-        - "возврат доверенности"
-        - "уведомление третьих лиц"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "remedies"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 560
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения сведения
+        о прекращении поручения, возврате доверенности, уведомлении третьих лиц
+        и окончательном расчёте.
+        Не анализируй предмет поручения, вознаграждение или отчётность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. termination_mechanism_status — "present" / "not_defined".
+        2. poa_return_status — "present" / "not_defined".
+        3. third_party_notice_status — "present" / "not_defined".
+        4. settlement_upon_termination — "present" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "termination_mechanism_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли порядок прекращения"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие порядка прекращения."
+          required: true
         - name: "poa_return_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли возврат/отзыв доверенности"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие возврата/отзыва доверенности."
+          required: true
         - name: "third_party_notice_status"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли уведомление третьих лиц"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие уведомления третьих лиц."
+          required: true
         - name: "settlement_upon_termination"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли окончательный расчет при прекращении"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие окончательного расчёта при прекращении."
+          required: false
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 9: Передоверие
+  # ──────────────────────────────────────────────────────────────────────────
   - id: subdelegation_check
     name: "Передоверие: допустимость, согласие и ответственность"
-    description: "Проверяет режим передоверия и контроль над заместителем"
+    description: >
+      Проверяет режим передоверия, необходимость согласия доверителя
+      и ответственность поверенного за заместителя.
     triggers:
-      any: ["subdelegation_allowed"]
+      any:
+        - subdelegation_allowed
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "передоверие"
@@ -1088,295 +2188,202 @@ checks_v8:
         - "(?i)передовери"
         - "(?i)письменн(ое|ого)\\s+согласи[ея]\\s+доверител"
         - "(?i)ответственност[ьи].{0,30}за\\s+выбор\\s+заместител"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор поручения с передоверием.
-        Проверь режим передоверия.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения с передоверием по Главе 49 ГК РФ.
+        Проверяется только один вопрос: режим передоверия.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 976 ГК РФ — передоверие
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Допускается или запрещено передоверие.
+        2. Требуется ли согласие доверителя.
+        3. Есть ли ответственность поверенного за заместителя.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Передоверие допускается с письменного согласия Доверителя.
+        Поверенный несёт ответственность за выбор заместителя."
+
+        Ответ:
         {
-          "subdelegation_status": "<allowed / prohibited / unclear / not_found>",
-          "principal_consent_required": "<yes / no / not_found>",
-          "agent_liability_for_subagent": "<present / not_found>",
-          "subdelegation_risk": "<high / medium / low / not_found>"
+          "subdelegation_status": "allowed",
+          "principal_consent_required": "yes",
+          "agent_liability_for_subagent": "present"
         }
 
-        Используй только текст договора.
-      prompt_file: null
+        Пример 2:
+        Фрагмент:
+        "Поверенный исполняет поручение лично."
+
+        Ответ:
+        {
+          "subdelegation_status": "prohibited",
+          "principal_consent_required": "not_defined",
+          "agent_liability_for_subagent": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о передоверии.
+        2. Найди прямую цитату о согласии доверителя.
+        3. Найди прямую цитату об ответственности за заместителя.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "subdelegation_status": "<allowed / prohibited / unclear / not_defined>",
+          "principal_consent_required": "<yes / no / not_defined>",
+          "agent_liability_for_subagent": "<present / not_defined>"
+        }
       context_k: 5
       temperature: 0.0
       max_tokens: 340
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "передоверие заместитель письменное согласие доверителя ответственность за выбор заместителя запрет передоверия субповеренный"
+      retrieval_profile: "consent_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "отчёт поверенного"
+        - "вознаграждение"
+        - "отмена поручения"
+        - "расходы"
+      position_bias:
+        preferred_range: [0.30, 0.75]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 7
-      retrieval_profile: "consent_check"
-      boost_keywords:
-        - "передоверие"
-        - "согласие доверителя"
-        - "заместитель"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
     evidence:
       required: true
       min_snippet_length: 35
       max_snippet_length: 540
+
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения сведения
+        о режиме передоверия: допустимость, согласие доверителя, ответственность.
+        Не анализируй доверенность, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. subdelegation_status — "allowed" / "prohibited" / "unclear" / "not_defined".
+        2. principal_consent_required — "yes" / "no" / "not_defined".
+        3. agent_liability_for_subagent — "present" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - subdelegation_status: "allowed" — если передоверие прямо разрешено;
+          "prohibited" — если прямо запрещено или указано "лично";
+          "unclear" — если формулировка неоднозначна;
+          "not_defined" — если не указано.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "subdelegation_status"
           type: "string"
-          allowed_values: ["allowed", "prohibited", "unclear", "not_found"]
-          description: "Статус передоверия"
+          presentation: "signal"
+          allowed_values: ["allowed", "prohibited", "unclear", "not_defined"]
+          description: "Статус передоверия."
+          required: true
         - name: "principal_consent_required"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Требуется ли согласие доверителя"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Требуется ли согласие доверителя."
+          required: false
         - name: "agent_liability_for_subagent"
           type: "string"
-          allowed_values: ["present", "not_found"]
-          description: "Есть ли ответственность поверенного за заместителя"
-        - name: "subdelegation_risk"
-          type: "string"
-          allowed_values: ["high", "medium", "low", "not_found"]
-          description: "Риск передоверия"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие ответственности поверенного за заместителя."
+          required: false
       store_payload: true
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "subject_legal_actions"
-    name: "Предмет поручения: конкретные юридические действия"
-    description: "Проверяет наличие четкого и определенного предмета договора поручения"
-    legal_base: "ст. 432, 971 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "совершить юридические действия"
-        - "от имени доверителя"
-        - "предмет договора"
-        - "заключение договора"
-        - "представление интересов"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)соверш(ить|ает).*юридическ(ие|их)\\s+действ"
-        - "(?i)от\\s+имени\\s+доверителя"
-
-  - id: "power_of_attorney_obligation"
-    name: "Обязанность доверителя выдать доверенность"
-    description: "Проверяет наличие обязанности доверителя выдать доверенность, соответствующую предмету поручения"
-    legal_base: "ст. 975 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["representation_required"]
-    rules:
-      keywords:
-        - "доверенность"
-        - "выдать доверенность"
-        - "полномочия поверенного"
-        - "представитель"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)выдат[ья].{0,20}доверенн"
-        - "(?i)доверенн(ость|ости)"
-
-  - id: "instructions_of_principal"
-    name: "Указания доверителя"
-    description: "Проверяет наличие указаний доверителя и их обязательность для поверенного"
-    legal_base: "ст. 973 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "указания доверителя"
-        - "в соответствии с указаниями"
-        - "инструкции доверителя"
-        - "согласование действий"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)указани[яе]\\s+доверител"
-        - "(?i)в\\s+соответствии\\s+с\\s+указаниями"
-
-  - id: "reporting_obligations"
-    name: "Отчетность поверенного"
-    description: "Проверяет обязанность поверенного представлять отчет и подтверждающие документы"
-    legal_base: "ст. 974 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "отчет поверенного"
-        - "оправдательные документы"
-        - "представить отчет"
-        - "подтверждающие документы"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)отчет\\s+поверенн"
-        - "(?i)оправдательн(ые|ых)\\s+документ"
-
-  - id: "scope_of_authority_limitation"
-    name: "Ограничение объема полномочий поверенного"
-    description: "Проверяет наличие лимитов и запретов в объеме полномочий поверенного"
-    legal_base: "ст. 971, 183 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "пределы полномочий"
-        - "максимальная сумма сделки"
-        - "предварительное письменное согласование"
-        - "запрещается совершать сделки"
-      keyword_mode: "any"
-      negative_keywords:
-        - "любые необходимые действия"
-      regex_patterns:
-        - "(?i)предел(ы|ах)\\s+полномоч"
-        - "(?i)максимальн(ая|ой)\\s+сумм[аы]\\s+сделк"
-        - "(?i)запрещаетс[яь]\\s+совершать\\s+сделки"
-
-  - id: "conflict_of_interest_prohibition"
-    name: "Запрет конфликта интересов и двойного представительства"
-    description: "Проверяет наличие ограничений на конфликт интересов поверенного"
-    legal_base: "ст. 10, 182 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "конфликт интересов"
-        - "не вправе совершать сделки с самим собой"
-        - "не может представлять интересы другой стороны"
-        - "аффилированные лица"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)конфликт\\s+интерес"
-        - "(?i)не\\s+вправе\\s+совершать\\s+сделки\\s+с\\s+самим\\s+собой"
-
-  - id: "expense_reimbursement_procedure"
-    name: "Возмещение расходов и авансирование"
-    description: "Проверяет порядок возмещения расходов поверенного"
-    legal_base: "ст. 975 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["expense_reimbursement"]
-    rules:
-      keywords:
-        - "возместить расходы"
-        - "аванс на расходы"
-        - "смета расходов"
-        - "документально подтвержденные расходы"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)возместит[ья].{0,20}расход"
-        - "(?i)аванс\\s+на\\s+расход"
-
-  - id: "remuneration_terms"
-    name: "Вознаграждение поверенного"
-    description: "Проверяет наличие вознаграждения или ясной беспвозмездности договора"
-    legal_base: "ст. 972 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "вознаграждение поверенного"
-        - "безвозмездно"
-        - "размер вознаграждения"
-        - "порядок выплаты"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)вознаграждени[ея].{0,30}поверенн"
-        - "(?i)безвозмездн"
-
-  - id: "transfer_of_proceeds_obligation"
-    name: "Передача доверителю всего полученного"
-    description: "Проверяет обязанность поверенного передать доверителю все полученное по сделкам"
-    legal_base: "ст. 974 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "передать доверителю все полученное"
-        - "все полученное по сделкам"
-        - "срок передачи денежных средств"
-        - "запрет удержания"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)передат[ья].{0,30}доверителю\\s+все\\s+полученн"
-        - "(?i)все\\s+полученн(ое|ого)\\s+по\\s+сделк"
-
-  - id: "subdelegation_control"
-    name: "Передоверие: контроль и согласие"
-    description: "Проверяет допустимость передоверия и необходимость согласия доверителя"
-    legal_base: "ст. 976 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["subdelegation_allowed"]
-    rules:
-      keywords:
-        - "передоверие"
-        - "письменное согласие доверителя"
-        - "запрет передоверия"
-        - "ответственность за выбор заместителя"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)передовери"
-        - "(?i)согласи[ея]\\s+доверител"
-
-  - id: "termination_settlement_procedure"
-    name: "Прекращение договора: возврат документов и окончательный расчет"
-    description: "Проверяет последствия прекращения поручения, возврат доверенности и документов, окончательный расчет"
-    legal_base: "ст. 977-979 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "последствия прекращения договора"
-        - "возврат доверенности"
-        - "возврат документов"
-        - "окончательный расчет"
-        - "отмена поручения"
-        - "отказ от поручения"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)прекращени[ея]\\s+договора"
-        - "(?i)возврат\\s+доверенн|возврат\\s+документ"
-        - "(?i)окончательн(ый|ого)\\s+расчет"
-
-  - id: "commercial_representation_specifics"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 10: Коммерческое представительство
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: commercial_representation_check
     name: "Коммерческое представительство: специальные условия"
-    description: "Проверяет наличие специальных условий, если поверенный действует как коммерческий представитель"
-    legal_base: "ст. 184 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    description: >
+      Проверяет наличие специальных условий, если поверенный действует
+      как коммерческий представитель (ст. 184 ГК РФ).
     triggers:
-      any: ["commercial_representation"]
+      any:
+        - commercial_representation
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "коммерческий представитель"
@@ -1387,175 +2394,261 @@ doc_type_checks:
       regex_patterns:
         - "(?i)коммерческ(ий|ого)\\s+представител"
         - "(?i)обе\\s+стороны\\s+сделки"
-        
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручения с признаками коммерческого представительства.
+        Проверяется только один вопрос: специальные условия коммерческого представительства.
+
+        Нормативный ориентир:
+        - ст. 184 ГК РФ — коммерческое представительство
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли указание на статус коммерческого представителя.
+        2. Есть ли условие о возможности представлять обе стороны сделки.
+        3. Есть ли указание на письменную форму.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Поверенный действует как коммерческий представитель и вправе
+        представлять обе стороны сделки с их письменного согласия."
+
+        Ответ:
+        {
+          "commercial_rep_status": "present",
+          "dual_representation_status": "present",
+          "written_form_status": "not_defined"
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Поверенный представляет интересы Доверителя."
+
+        Ответ:
+        {
+          "commercial_rep_status": "not_defined",
+          "dual_representation_status": "not_defined",
+          "written_form_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о коммерческом представителе.
+        2. Найди прямую цитату о представлении обеих сторон.
+        3. Найди прямую цитату о письменной форме.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "commercial_rep_status": "<present / not_defined>",
+          "dual_representation_status": "<present / not_defined>",
+          "written_form_status": "<present / not_defined>"
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 340
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "коммерческий представитель представлять обе стороны предпринимательская деятельность письменная форма ст. 184 ГК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - representations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "отчёт поверенного"
+        - "вознаграждение"
+        - "передоверие"
+        - "отмена поручения"
+      position_bias:
+        preferred_range: [0.10, 0.55]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "representations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 540
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 600
+      compact_output: false
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручения сведения
+        о коммерческом представительстве: статус, двойное представительство,
+        письменная форма.
+        Не анализируй доверенность, отчётность или прекращение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. commercial_rep_status — "present" / "not_defined".
+        2. dual_representation_status — "present" / "not_defined".
+        3. written_form_status — "present" / "not_defined".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "commercial_rep_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие статуса коммерческого представителя."
+          required: true
+        - name: "dual_representation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие условия о представлении обеих сторон."
+          required: false
+        - name: "written_form_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "not_defined"]
+          description: "Наличие указания на письменную форму."
+          required: false
+      store_payload: true
+
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
 
 dd_request_templates:
-
   mandate_subject_extraction:
     text: >
       Просим предоставить по {doc_names}: сведения о доверителе и поверенном,
-      точный предмет поручения, объем полномочий, доверенность, условия отчетности,
-      вознаграждение, расходы и порядок прекращения договора.
+      точный предмет поручения, объём полномочий, доверенность, условия
+      отчётности, вознаграждение, расходы и порядок прекращения договора.
     addressee: "Доверитель / Поверенный"
 
   subject_legal_actions_check:
     text: >
       Просим уточнить в {doc_names}: исчерпывающий перечень юридических действий,
       которые должен совершить поверенный, и исключить чрезмерно общие формулы
-      вроде "любые необходимые действия".
+      вроде «любые необходимые действия».
     addressee: "Юридический советник"
-
-  subject_legal_actions:
-    text: >
-      Просим конкретизировать по {doc_names} предмет поручения:
-      какие именно сделки/заявления/действия должен совершить поверенный,
-      в отношении каких лиц и в какие сроки.
-    addressee: "Доверитель"
 
   poa_and_authority_check:
     text: >
       Просим предоставить по {doc_names}: проект доверенности, перечень полномочий,
-      сведения о необходимости нотариальной формы и подтверждение того,
-      что объем доверенности соответствует предмету поручения.
+      сведения о необходимости нотариальной формы и подтверждение того, что объём
+      доверенности соответствует предмету поручения.
     addressee: "Доверитель / Юридический советник"
-
-  power_of_attorney_obligation:
-    text: >
-      Просим уточнить в {doc_names}: обязанность доверителя выдать доверенность,
-      ее форму, срок действия, объем полномочий и порядок отзыва.
-    addressee: "Доверитель"
-
-  representation_without_poa_logic:
-    text: >
-      В {doc_names} выявлены представительские действия без достаточной механики доверенности.
-      Просим срочно уточнить форму, объем и порядок выдачи доверенности.
-    addressee: "Юридический советник / Доверитель"
 
   authority_limits_and_conflict_check:
     text: >
-      Просим уточнить по {doc_names}: пределы полномочий поверенного,
-      лимиты сумм/сделок, необходимость предварительного согласования существенных действий,
-      а также ограничения, связанные с конфликтом интересов.
+      Просим уточнить по {doc_names}: пределы полномочий поверенного, лимиты
+      сумм/сделок, необходимость предварительного согласования существенных
+      действий, а также ограничения, связанные с конфликтом интересов.
     addressee: "Доверитель / Юридический советник"
 
-  scope_of_authority_limitation:
+  instructions_and_expenses_check:
     text: >
-      Просим включить/уточнить в {doc_names}: конкретные пределы полномочий поверенного,
-      запрет на совершение несанкционированных сделок и лимиты по сумме/видам действий.
-    addressee: "Юридический советник"
+      Просим уточнить по {doc_names}: какие указания доверителя обязательны
+      для поверенного, как они оформляются, а также порядок возмещения расходов,
+      авансирования и подтверждающих документов.
+    addressee: "Доверитель / Поверенный"
 
-  conflict_of_interest_prohibition:
+  remuneration_check:
     text: >
-      Просим включить/уточнить в {doc_names}: запрет на сделки с самим собой,
-      двойное представительство без согласия доверителя, а также обязанность
-      незамедлительно раскрывать конфликт интересов.
-    addressee: "Юридический советник"
-
-  acts_in_own_name_red_flag:
-    text: >
-      В {doc_names} выявлен риск того, что исполнитель действует от своего имени,
-      что противоречит модели поручения и может указывать на комиссию.
-      Просим скорректировать договорную модель или подтвердить верную квалификацию сделки.
-    addressee: "Юридический советник"
-
-  instructions_of_principal:
-    text: >
-      Просим уточнить по {doc_names}: какие указания доверителя обязательны для поверенного,
-      как они оформляются, как изменяются и как поверенный должен действовать
-      при неясных или противоречивых инструкциях.
-    addressee: "Доверитель / Юридический советник"
+      Просим уточнить в {doc_names}: является ли договор возмездным, каков размер
+      вознаграждения поверенного, база его расчёта и порядок выплаты при полном
+      и частичном исполнении поручения.
+    addressee: "Обе стороны"
 
   reporting_and_transfer_check:
     text: >
-      Просим предоставить по {doc_names}: форму и периодичность отчета поверенного,
-      перечень подтверждающих документов, порядок принятия/оспаривания отчета
+      Просим предоставить по {doc_names}: форму и периодичность отчёта поверенного,
+      перечень подтверждающих документов, порядок принятия/оспаривания отчёта
       и срок передачи доверителю всего полученного по сделкам.
     addressee: "Поверенный / Доверитель"
 
-  reporting_obligations:
+  termination_and_revocation_check:
     text: >
-      Просим уточнить в {doc_names}: сроки представления отчетов,
-      обязательные приложения к отчету и процедуру его согласования доверителем.
-    addressee: "Поверенный"
-
-  transfer_of_proceeds_obligation:
-    text: >
-      Просим уточнить в {doc_names}: срок и порядок передачи доверителю
-      всех денежных средств, имущества и документов, полученных поверенным
-      в связи с исполнением поручения.
-    addressee: "Поверенный"
-
-  expense_reimbursement_procedure:
-    text: >
-      Просим уточнить по {doc_names}: какие расходы поверенного возмещаются,
-      требуется ли предварительное согласование/авансирование,
-      и какие документы подтверждают такие расходы.
-    addressee: "Доверитель / Поверенный"
-
-  remuneration_terms:
-    text: >
-      Просим уточнить в {doc_names}: является ли договор возмездным,
-      каков размер вознаграждения поверенного, база его расчета
-      и порядок выплаты при полном и частичном исполнении поручения.
+      Просим уточнить по {doc_names}: порядок отмены поручения, отказа поверенного,
+      возврата доверенности, уведомления третьих лиц, завершения текущих дел
+      и окончательного расчёта между сторонами.
     addressee: "Обе стороны"
 
   subdelegation_check:
     text: >
-      По {doc_names} с передоверием просим предоставить:
-      условия допустимости передоверия, форму согласия доверителя,
-      требования к заместителю и распределение ответственности за его действия.
+      По {doc_names} с передоверием просим предоставить: условия допустимости
+      передоверия, форму согласия доверителя, требования к заместителю
+      и распределение ответственности за его действия.
     addressee: "Поверенный / Юридический советник"
 
-  subdelegation_control:
+  commercial_representation_check:
     text: >
-      Просим уточнить в {doc_names}: допускается ли передоверие,
-      нужно ли письменное согласие доверителя и как контролируется деятельность заместителя.
-    addressee: "Юридический советник"
-
-  subdelegation_without_control:
-    text: >
-      В {doc_names} выявлен риск передоверия без достаточного контроля.
-      Просим установить запрет либо четкий режим письменного согласия доверителя
-      и ответственности поверенного за выбор заместителя.
-    addressee: "Юридический советник"
-
-  termination_and_revocation_check:
-    text: >
-      Просим уточнить по {doc_names}: порядок отмены поручения,
-      отказа поверенного, возврата доверенности, уведомления третьих лиц,
-      завершения текущих дел и окончательного расчета между сторонами.
-    addressee: "Обе стороны"
-
-  termination_settlement_procedure:
-    text: >
-      Просим включить/уточнить в {doc_names}: последствия прекращения поручения,
-      возврат доверенности и документов, сроки передачи дел и порядок окончательных расчетов.
-    addressee: "Юридический советник"
-
-  revocation_notice_gap:
-    text: >
-      В {doc_names} отсутствует достаточный механизм отзыва доверенности
-      и уведомления третьих лиц. Просим срочно уточнить порядок возврата доверенности,
-      ее отмены и информирования контрагентов/госорганов.
-    addressee: "Юридический советник / Доверитель"
-
-  commercial_representation_specifics:
-    text: >
-      По {doc_names} с признаками коммерческого представительства просим предоставить:
-      обоснование статуса коммерческого представителя, специальные условия,
-      письменные согласия на возможное представление обеих сторон сделки
+      По {doc_names} с признаками коммерческого представительства просим
+      предоставить: обоснование статуса коммерческого представителя, специальные
+      условия, письменные согласия на возможное представление обеих сторон сделки
       и порядок раскрытия конфликта интересов.
     addressee: "Юридический советник / Поверенный"
 
-  # Generic fallback
   _default:
     text: >
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
+
+
+    

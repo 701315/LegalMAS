@@ -930,9 +930,9 @@ checks_v8:
         [ПРАВИЛА]
         1. Используй только текст договора.
         2. Не считай путевой лист или акт приёма-передачи транспортной накладной, если они прямо так не названы.
-        3. Если вид документа не назван — document_type = "not_found".
-        4. Если оформляющая сторона прямо не указана — who_prepares = "not_specified".
-        5. Не используй "None", "null", "not_specified" (кроме словаря who_prepares) или пустые строки — используй "not_found".
+        3. Если вид документа не назван — document_type = "not_defined".
+        4. Если оформляющая сторона прямо не указана — who_prepares = "not_defined".
+        5. Не используй "None", "null", "not_defined" (кроме словаря who_prepares) или пустые строки — используй "not_defined".
         6. В document_snippet включай только цитату из договора.
         7. Верни только один JSON-объект.
 
@@ -957,9 +957,9 @@ checks_v8:
         Ответ:
         {
           "transport_document_mentioned": "no",
-          "document_type": "not_found",
-          "who_prepares": "not_found",
-          "document_snippet": "not_found"
+          "document_type": "not_defined",
+          "who_prepares": "not_defined",
+          "document_snippet": "not_defined"
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
@@ -967,7 +967,7 @@ checks_v8:
         1. Есть ли в тексте прямое упоминание транспортного документа.
         2. Совпадает ли document_type с допустимым словарём.
         3. Взята ли цитата из договора, а не из закона.
-        4. Если прямого указания нет — не додумывай, верни "not_found".
+        4. Если прямого указания нет — не додумывай, верни "not_defined".
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -1049,7 +1049,7 @@ checks_v8:
         - transport_document_mentioned: yes / no
         - document_type: waybill / consignment_note / bill_of_lading / air_waybill / cmr / other / not_found
         - who_prepares: carrier / shipper / jointly / not_specified / not_found
-        - document_snippet: точная цитата из договора или "not_found"
+        - document_snippet: точная цитата из договора или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -1057,7 +1057,7 @@ checks_v8:
         <rules>
         - Используй только текст документа.
         - Не приравнивай путевой лист к транспортной накладной без прямого указания.
-        - Если документ упомянут, но вид не назван, document_type = "not_found", а transport_document_mentioned = "yes".
+        - Если документ упомянут, но вид не назван, document_type = "not_defined", а transport_document_mentioned = "yes".
         </rules>
       fields:
         - name: "transport_document_mentioned"
@@ -1069,13 +1069,13 @@ checks_v8:
         - name: "document_type"
           type: "string"
           presentation: "signal"
-          allowed_values: ["waybill", "consignment_note", "bill_of_lading", "air_waybill", "cmr", "other", "not_found"]
+          allowed_values: ["waybill", "consignment_note", "bill_of_lading", "air_waybill", "cmr", "other", "not_defined"]
           description: "Вид транспортного документа"
           required: true
         - name: "who_prepares"
           type: "string"
           presentation: "signal"
-          allowed_values: ["carrier", "shipper", "jointly", "not_specified", "not_found"]
+          allowed_values: ["carrier", "shipper", "jointly", "not_defined", "not_defined"]
           description: "Кто оформляет транспортный документ"
           required: true
         - name: "document_snippet"
@@ -1145,11 +1145,11 @@ checks_v8:
            - "strict" — ответственность независимо от вины (по ст. 796 ГК РФ)
            - "fault_based" — ответственность при наличии вины
            - "mixed" — сочетание обоих подходов
-           - "not_specified" — ответственность упомянута, основание не раскрыто
-           - "not_found" — условие об ответственности отсутствует
+           - "not_defined" — ответственность упомянута, основание не раскрыто
+           - "not_defined" — условие об ответственности отсутствует
         3. Не подставляй норму ст. 796 ГК РФ вместо текста договора.
-        4. Если лимит не указан — liability_limit_type и liability_limit_amount = "not_found".
-        5. Не используй "None", "null" или пустые строки — используй "not_found".
+        4. Если лимит не указан — liability_limit_type и liability_limit_amount = "not_defined".
+        5. Не используй "None", "null" или пустые строки — используй "not_defined".
         6. В liability_snippet включай только цитату из договора.
         7. Верни только один JSON-объект.
 
@@ -1165,7 +1165,7 @@ checks_v8:
           "liability_basis": "strict",
           "liability_limit_type": "declared_value",
           "liability_limit_amount": "объявленная стоимость — 500 000 руб.",
-          "indirect_damages_excluded": "not_found",
+          "indirect_damages_excluded": "not_defined",
           "liability_snippet": "Перевозчик несёт ответственность за утрату и повреждение груза независимо от вины в размере объявленной стоимости груза — 500 000 руб."
         }
 
@@ -1175,12 +1175,12 @@ checks_v8:
 
         Ответ:
         {
-          "carrier_liability_present": "not_found",
-          "liability_basis": "not_found",
-          "liability_limit_type": "not_found",
-          "liability_limit_amount": "not_found",
-          "indirect_damages_excluded": "not_found",
-          "liability_snippet": "not_found"
+          "carrier_liability_present": "not_defined",
+          "liability_basis": "not_defined",
+          "liability_limit_type": "not_defined",
+          "liability_limit_amount": "not_defined",
+          "indirect_damages_excluded": "not_defined",
+          "liability_snippet": "not_defined"
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
@@ -1188,7 +1188,7 @@ checks_v8:
         1. Есть ли прямая цитата об ответственности за утрату/недостачу/повреждение.
         2. Следует ли основание ответственности из текста, а не из закона.
         3. Соответствуют ли значения допустимым словарям.
-        4. Если прямой цитаты нет — верни "not_found".
+        4. Если прямой цитаты нет — верни "not_defined".
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -1274,9 +1274,9 @@ checks_v8:
         - carrier_liability_present: yes / no / not_found
         - liability_basis: strict / fault_based / mixed / not_specified / not_found
         - liability_limit_type: declared_value / actual_value / statutory / contract_cap / not_specified / not_found
-        - liability_limit_amount: сумма/описание или "not_found"
+        - liability_limit_amount: сумма/описание или "not_defined"
         - indirect_damages_excluded: yes / no / not_found
-        - liability_snippet: точная цитата из договора или "not_found"
+        - liability_snippet: точная цитата из договора или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -1290,25 +1290,25 @@ checks_v8:
         - name: "carrier_liability_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Условие об ответственности перевозчика за груз есть"
           required: true
         - name: "liability_basis"
           type: "string"
           presentation: "signal"
-          allowed_values: ["strict", "fault_based", "mixed", "not_specified", "not_found"]
+          allowed_values: ["strict", "fault_based", "mixed", "not_defined", "not_defined"]
           description: "Основание ответственности"
           required: true
         - name: "liability_limit_type"
           type: "string"
           presentation: "signal"
-          allowed_values: ["declared_value", "actual_value", "statutory", "contract_cap", "not_specified", "not_found"]
+          allowed_values: ["declared_value", "actual_value", "statutory", "contract_cap", "not_defined", "not_defined"]
           description: "Тип лимита ответственности"
           required: true
         - name: "indirect_damages_excluded"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Косвенные убытки исключены"
           required: true
         - name: "liability_limit_amount"
@@ -1385,9 +1385,9 @@ checks_v8:
         [ПРАВИЛА]
         1. Используй только текст договора.
         2. Категорию груза фиксируй только по прямому указанию в тексте.
-        3. Если категория не упомянута — соответствующее поле = "no", детали = "not_found".
+        3. Если категория не упомянута — соответствующее поле = "no", детали = "not_defined".
         4. Не выводи класс опасности из названия груза, если он прямо не указан.
-        5. Не используй "None", "null" или пустые строки — используй "not_found".
+        5. Не используй "None", "null" или пустые строки — используй "not_defined".
         6. В special_cargo_snippet включай только цитату из договора.
         7. Верни только один JSON-объект.
 
@@ -1403,10 +1403,10 @@ checks_v8:
           "dangerous_class": "3",
           "dopog_documents_mentioned": "yes",
           "perishable_cargo": "no",
-          "temperature_range": "not_found",
-          "monitoring_device": "not_found",
+          "temperature_range": "not_defined",
+          "monitoring_device": "not_defined",
           "oversized_cargo": "no",
-          "special_permit_mentioned": "not_found",
+          "special_permit_mentioned": "not_defined",
           "special_cargo_snippet": "Груз — ацетон, опасный груз, класс опасности 3. На каждое ТС оформляется аварийная карточка по ДОПОГ."
         }
 
@@ -1417,14 +1417,14 @@ checks_v8:
         Ответ:
         {
           "dangerous_cargo": "no",
-          "dangerous_class": "not_found",
-          "dopog_documents_mentioned": "not_found",
+          "dangerous_class": "not_defined",
+          "dopog_documents_mentioned": "not_defined",
           "perishable_cargo": "no",
-          "temperature_range": "not_found",
-          "monitoring_device": "not_found",
+          "temperature_range": "not_defined",
+          "monitoring_device": "not_defined",
           "oversized_cargo": "no",
-          "special_permit_mentioned": "not_found",
-          "special_cargo_snippet": "not_found"
+          "special_permit_mentioned": "not_defined",
+          "special_cargo_snippet": "not_defined"
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
@@ -1432,7 +1432,7 @@ checks_v8:
         1. Есть ли прямая цитата о категории груза.
         2. Взяты ли детали (класс, температура, разрешение) из текста, а не из практики.
         3. Соответствуют ли значения допустимым словарям.
-        4. Если прямого указания нет — верни "no" / "not_found".
+        4. Если прямого указания нет — верни "no" / "not_defined".
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -1517,14 +1517,14 @@ checks_v8:
         <task>
         Заполни:
         - dangerous_cargo: yes / no
-        - dangerous_class: класс опасности или "not_found"
+        - dangerous_class: класс опасности или "not_defined"
         - dopog_documents_mentioned: yes / no / not_found
         - perishable_cargo: yes / no
-        - temperature_range: диапазон температур или "not_found"
+        - temperature_range: диапазон температур или "not_defined"
         - monitoring_device: yes / no / not_found
         - oversized_cargo: yes / no
         - special_permit_mentioned: yes / no / not_found
-        - special_cargo_snippet: точная цитата из договора или "not_found"
+        - special_cargo_snippet: точная цитата из договора или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -1544,7 +1544,7 @@ checks_v8:
         - name: "dopog_documents_mentioned"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Документы ДОПОГ упоминаются"
           required: true
         - name: "perishable_cargo"
@@ -1556,7 +1556,7 @@ checks_v8:
         - name: "monitoring_device"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Средство контроля температуры предусмотрено"
           required: true
         - name: "oversized_cargo"
@@ -1568,7 +1568,7 @@ checks_v8:
         - name: "special_permit_mentioned"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Специальное разрешение упоминается"
           required: true
         - name: "dangerous_class"
@@ -1656,8 +1656,8 @@ checks_v8:
         1. Используй только текст договора.
         2. Перевозка считается международной только при прямом указании маршрута через границу или прямой характеристики "международная".
         3. Не путай таможенные обязанности с общими обязанностями по предоставлению документов.
-        4. Если конвенция не названа — applicable_convention = "not_found".
-        5. Не используй "None", "null" или пустые строки — используй "not_found".
+        4. Если конвенция не названа — applicable_convention = "not_defined".
+        5. Не используй "None", "null" или пустые строки — используй "not_defined".
         6. В international_snippet включай только цитату из договора.
         7. Верни только один JSON-объект.
 
@@ -1672,10 +1672,10 @@ checks_v8:
           "international_transport": "yes",
           "applicable_convention": "CMR",
           "customs_responsibility_shipper": "yes",
-          "customs_responsibility_carrier": "not_found",
-          "incoterms_term": "not_found",
-          "governing_law": "not_found",
-          "dispute_jurisdiction": "not_found",
+          "customs_responsibility_carrier": "not_defined",
+          "incoterms_term": "not_defined",
+          "governing_law": "not_defined",
+          "dispute_jurisdiction": "not_defined",
           "international_snippet": "Перевозка является международной, на неё распространяется конвенция CMR. Экспортные формальности выполняет грузоотправитель."
         }
 
@@ -1686,13 +1686,13 @@ checks_v8:
         Ответ:
         {
           "international_transport": "no",
-          "applicable_convention": "not_found",
-          "customs_responsibility_shipper": "not_found",
-          "customs_responsibility_carrier": "not_found",
-          "incoterms_term": "not_found",
-          "governing_law": "not_found",
-          "dispute_jurisdiction": "not_found",
-          "international_snippet": "not_found"
+          "applicable_convention": "not_defined",
+          "customs_responsibility_shipper": "not_defined",
+          "customs_responsibility_carrier": "not_defined",
+          "incoterms_term": "not_defined",
+          "governing_law": "not_defined",
+          "dispute_jurisdiction": "not_defined",
+          "international_snippet": "not_defined"
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
@@ -1700,7 +1700,7 @@ checks_v8:
         1. Есть ли прямое указание на международный характер перевозки.
         2. Взята ли конвенция из текста, а не из общей практики.
         3. Распределены ли таможенные обязанности именно в тексте договора.
-        4. Если прямого указания нет — верни "not_found".
+        4. Если прямого указания нет — верни "not_defined".
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -1789,10 +1789,10 @@ checks_v8:
         - applicable_convention: CMR / Montreal / Hamburg / Hague_Visby / other / not_found
         - customs_responsibility_shipper: yes / no / not_found
         - customs_responsibility_carrier: yes / no / not_found
-        - incoterms_term: термин Incoterms или "not_found"
-        - governing_law: страна/юрисдикция или "not_found"
-        - dispute_jurisdiction: суд/арбитраж или "not_found"
-        - international_snippet: точная цитата из договора или "not_found"
+        - incoterms_term: термин Incoterms или "not_defined"
+        - governing_law: страна/юрисдикция или "not_defined"
+        - dispute_jurisdiction: суд/арбитраж или "not_defined"
+        - international_snippet: точная цитата из договора или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -1812,19 +1812,19 @@ checks_v8:
         - name: "applicable_convention"
           type: "string"
           presentation: "signal"
-          allowed_values: ["CMR", "Montreal", "Hamburg", "Hague_Visby", "other", "not_found"]
+          allowed_values: ["CMR", "Montreal", "Hamburg", "Hague_Visby", "other", "not_defined"]
           description: "Применимая международная конвенция"
           required: true
         - name: "customs_responsibility_shipper"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Таможенные обязанности грузоотправителя установлены"
           required: true
         - name: "customs_responsibility_carrier"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Таможенные обязанности перевозчика установлены"
           required: true
         - name: "incoterms_term"
@@ -1908,8 +1908,8 @@ checks_v8:
         [ПРАВИЛА]
         1. Используй только текст договора.
         2. Не считай право удержания установленным по общей фразе о неустойке или залоге без прямого указания на удержание груза.
-        3. Если порядка реализации нет — realization_procedure = "not_found" даже при наличии права удержания.
-        4. Не используй "None", "null" или пустые строки — используй "not_found".
+        3. Если порядка реализации нет — realization_procedure = "not_defined" даже при наличии права удержания.
+        4. Не используй "None", "null" или пустые строки — используй "not_defined".
         5. В lien_snippet включай только цитату из договора.
         6. Верни только один JSON-объект.
 
@@ -1923,8 +1923,8 @@ checks_v8:
         {
           "lien_right_present": "yes",
           "lien_conditions": "удержание груза до уплаты провозных платежей и иных сумм по договору",
-          "realization_procedure": "not_found",
-          "storage_cost_allocation": "not_specified",
+          "realization_procedure": "not_defined",
+          "storage_cost_allocation": "not_defined",
           "lien_snippet": "До уплаты провозных платежей и иных сумм по договору перевозчик вправе удерживать груз."
         }
 
@@ -1934,18 +1934,18 @@ checks_v8:
 
         Ответ:
         {
-          "lien_right_present": "not_found",
-          "lien_conditions": "not_found",
-          "realization_procedure": "not_found",
-          "storage_cost_allocation": "not_found",
-          "lien_snippet": "not_found"
+          "lien_right_present": "not_defined",
+          "lien_conditions": "not_defined",
+          "realization_procedure": "not_defined",
+          "storage_cost_allocation": "not_defined",
+          "lien_snippet": "not_defined"
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         Перед ответом внутренне проверь:
         1. Есть ли прямая цитата о праве удержать груз.
         2. Описан ли порядок реализации отдельно от права удержания.
-        3. Если прямого указания нет — верни "not_found".
+        3. Если прямого указания нет — верни "not_defined".
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -2025,10 +2025,10 @@ checks_v8:
         <task>
         Заполни:
         - lien_right_present: yes / no / not_found
-        - lien_conditions: описание условий удержания или "not_found"
+        - lien_conditions: описание условий удержания или "not_defined"
         - realization_procedure: yes / no / not_found
         - storage_cost_allocation: shipper / carrier / not_specified / not_found
-        - lien_snippet: точная цитата из договора или "not_found"
+        - lien_snippet: точная цитата из договора или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -2042,19 +2042,19 @@ checks_v8:
         - name: "lien_right_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Право удержания груза закреплено"
           required: true
         - name: "realization_procedure"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Порядок реализации удержанного груза установлен"
           required: true
         - name: "storage_cost_allocation"
           type: "string"
           presentation: "signal"
-          allowed_values: ["shipper", "carrier", "not_specified", "not_found"]
+          allowed_values: ["shipper", "carrier", "not_defined", "not_defined"]
           description: "За чей счёт хранится удержанный груз"
           required: true
         - name: "lien_conditions"
@@ -2130,8 +2130,8 @@ checks_v8:
         1. Используй только текст договора.
         2. Не путай демередж (плату за простой при погрузке/выгрузке) с неустойкой за просрочку доставки.
         3. Не путай демередж со штрафом за неподачу транспорта или непредъявление груза.
-        4. Если ставка прямо не названа — demurrage_rate = "not_found" даже при наличии упоминания простоя.
-        5. Не используй "None", "null" или пустые строки — используй "not_found".
+        4. Если ставка прямо не названа — demurrage_rate = "not_defined" даже при наличии упоминания простоя.
+        5. Не используй "None", "null" или пустые строки — используй "not_defined".
         6. В demurrage_snippet включай только цитату из договора.
         7. Верни только один JSON-объект.
 
@@ -2146,7 +2146,7 @@ checks_v8:
           "normative_loading_time": "3 часа",
           "normative_unloading_time": "2 часа",
           "demurrage_rate": "1 500 руб. за каждый час простоя",
-          "demurrage_cap": "not_found",
+          "demurrage_cap": "not_defined",
           "who_pays_demurrage": "shipper",
           "demurrage_snippet": "Нормативное время погрузки — 3 часа, выгрузки — 2 часа. За каждый час сверхнормативного простоя грузоотправитель уплачивает 1 500 руб."
         }
@@ -2157,19 +2157,19 @@ checks_v8:
 
         Ответ:
         {
-          "normative_loading_time": "not_found",
-          "normative_unloading_time": "not_found",
-          "demurrage_rate": "not_found",
-          "demurrage_cap": "not_found",
-          "who_pays_demurrage": "not_found",
-          "demurrage_snippet": "not_found"
+          "normative_loading_time": "not_defined",
+          "normative_unloading_time": "not_defined",
+          "demurrage_rate": "not_defined",
+          "demurrage_cap": "not_defined",
+          "who_pays_demurrage": "not_defined",
+          "demurrage_snippet": "not_defined"
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         Перед ответом внутренне проверь:
         1. Есть ли прямая цитата о нормативном времени или ставке простоя.
         2. Не перепутан ли демередж с неустойкой за просрочку доставки.
-        3. Если прямых значений нет — верни "not_found".
+        3. Если прямых значений нет — верни "not_defined".
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -2250,12 +2250,12 @@ checks_v8:
 
         <task>
         Заполни:
-        - normative_loading_time: нормативное время погрузки или "not_found"
-        - normative_unloading_time: нормативное время выгрузки или "not_found"
-        - demurrage_rate: ставка за час/день простоя или "not_found"
-        - demurrage_cap: предельный размер или "not_found"
+        - normative_loading_time: нормативное время погрузки или "not_defined"
+        - normative_unloading_time: нормативное время выгрузки или "not_defined"
+        - demurrage_rate: ставка за час/день простоя или "not_defined"
+        - demurrage_cap: предельный размер или "not_defined"
         - who_pays_demurrage: shipper / consignee / not_specified / not_found
-        - demurrage_snippet: точная цитата из договора или "not_found"
+        - demurrage_snippet: точная цитата из договора или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -2263,13 +2263,13 @@ checks_v8:
         <rules>
         - Используй только текст документа.
         - Не смешивай простой при погрузке/выгрузке с просрочкой доставки.
-        - Если время указано только для одной операции, второе поле = "not_found".
+        - Если время указано только для одной операции, второе поле = "not_defined".
         </rules>
       fields:
         - name: "who_pays_demurrage"
           type: "string"
           presentation: "signal"
-          allowed_values: ["shipper", "consignee", "not_specified", "not_found"]
+          allowed_values: ["shipper", "consignee", "not_defined", "not_defined"]
           description: "Кто оплачивает простой"
           required: true
         - name: "normative_loading_time"
@@ -2368,7 +2368,7 @@ checks_v8:
         2. Не путай срок подачи ТС со сроком доставки груза.
         3. Не путай санкции за несвоевременную подачу с неустойкой за просрочку доставки.
         4. Если санкция упомянута, но ставка не названа — соответствующее поле = "yes", детали не додумывай.
-        5. Не используй "None", "null" или пустые строки — используй "not_found".
+        5. Не используй "None", "null" или пустые строки — используй "not_defined".
         6. В vehicle_supply_snippet включай только цитату из договора.
         7. Верни только один JSON-объект.
 
@@ -2381,9 +2381,9 @@ checks_v8:
         Ответ:
         {
           "vehicle_supply_deadline": "24 часа с момента подтверждения заявки",
-          "notification_procedure": "not_found",
+          "notification_procedure": "not_defined",
           "penalty_for_late_supply": "yes",
-          "penalty_for_non_presentation": "not_found",
+          "penalty_for_non_presentation": "not_defined",
           "application_procedure": "yes",
           "vehicle_supply_snippet": "Перевозчик обязан подать ТС под погрузку в течение 24 часов с момента подтверждения заявки. За несвоевременную подачу ТС — штраф 10 000 руб."
         }
@@ -2394,19 +2394,19 @@ checks_v8:
 
         Ответ:
         {
-          "vehicle_supply_deadline": "not_found",
-          "notification_procedure": "not_found",
-          "penalty_for_late_supply": "not_found",
-          "penalty_for_non_presentation": "not_found",
-          "application_procedure": "not_found",
-          "vehicle_supply_snippet": "not_found"
+          "vehicle_supply_deadline": "not_defined",
+          "notification_procedure": "not_defined",
+          "penalty_for_late_supply": "not_defined",
+          "penalty_for_non_presentation": "not_defined",
+          "application_procedure": "not_defined",
+          "vehicle_supply_snippet": "not_defined"
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         Перед ответом внутренне проверь:
         1. Есть ли прямая цитата о подаче ТС, заявке или санкции.
         2. Не перепутана ли подача ТС со сроком доставки.
-        3. Если прямых указаний нет — верни "not_found".
+        3. Если прямых указаний нет — верни "not_defined".
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -2486,12 +2486,12 @@ checks_v8:
 
         <task>
         Заполни:
-        - vehicle_supply_deadline: срок подачи ТС или "not_found"
+        - vehicle_supply_deadline: срок подачи ТС или "not_defined"
         - notification_procedure: yes / no / not_found
         - penalty_for_late_supply: yes / no / not_found
         - penalty_for_non_presentation: yes / no / not_found
         - application_procedure: yes / no / not_found
-        - vehicle_supply_snippet: точная цитата из договора или "not_found"
+        - vehicle_supply_snippet: точная цитата из договора или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -2505,25 +2505,25 @@ checks_v8:
         - name: "notification_procedure"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Порядок уведомления о подаче ТС установлен"
           required: true
         - name: "penalty_for_late_supply"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Санкция за несвоевременную подачу ТС"
           required: true
         - name: "penalty_for_non_presentation"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Санкция за непредъявление груза"
           required: true
         - name: "application_procedure"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Порядок подачи заявок установлен"
           required: true
         - name: "vehicle_supply_deadline"
@@ -2602,7 +2602,7 @@ checks_v8:
            - "minimal" — установлен 1 вид обязанностей
            - "absent" — обязанности грузоотправителя в тексте не установлены
         3. Не считай обязанности перевозчика обязанностями грузоотправителя.
-        4. Если ответственность за недостоверные данные описана без конкретики — false_data_liability = "not_specified", а не "specified".
+        4. Если ответственность за недостоверные данные описана без конкретики — false_data_liability = "not_defined", а не "specified".
         5. Не используй "None", "null" или пустые строки.
         6. Верни только один JSON-объект.
 
@@ -2619,7 +2619,7 @@ checks_v8:
           "shipper_document_provision_duty": "present",
           "shipper_packaging_duty": "present",
           "shipper_marking_duty": "absent",
-          "false_data_liability": "not_specified",
+          "false_data_liability": "not_defined",
           "shipper_obligations_completeness": "comprehensive"
         }
 
@@ -2634,7 +2634,7 @@ checks_v8:
           "shipper_document_provision_duty": "absent",
           "shipper_packaging_duty": "absent",
           "shipper_marking_duty": "absent",
-          "false_data_liability": "not_found",
+          "false_data_liability": "not_defined",
           "shipper_obligations_completeness": "absent"
         }
 
@@ -2643,7 +2643,7 @@ checks_v8:
         1. Относится ли каждая обязанность именно к грузоотправителю.
         2. Есть ли прямая цитата для каждого значения "present".
         3. Соответствуют ли значения допустимым словарям.
-        4. Если прямого указания нет — верни "absent" / "not_found".
+        4. Если прямого указания нет — верни "absent" / "not_defined".
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -2746,37 +2746,37 @@ checks_v8:
         - name: "shipper_cargo_preparation_duty"
           type: "string"
           presentation: "signal"
-          allowed_values: ["present", "absent", "not_found"]
+          allowed_values: ["present", "absent", "not_defined"]
           description: "Обязанность подготовить груз"
           required: true
         - name: "shipper_data_accuracy_warranty"
           type: "string"
           presentation: "signal"
-          allowed_values: ["present", "absent", "not_found"]
+          allowed_values: ["present", "absent", "not_defined"]
           description: "Заверение о достоверности сведений"
           required: true
         - name: "shipper_document_provision_duty"
           type: "string"
           presentation: "signal"
-          allowed_values: ["present", "absent", "not_found"]
+          allowed_values: ["present", "absent", "not_defined"]
           description: "Обязанность предоставить документы"
           required: true
         - name: "shipper_packaging_duty"
           type: "string"
           presentation: "signal"
-          allowed_values: ["present", "absent", "not_found"]
+          allowed_values: ["present", "absent", "not_defined"]
           description: "Обязанность по упаковке"
           required: true
         - name: "shipper_marking_duty"
           type: "string"
           presentation: "signal"
-          allowed_values: ["present", "absent", "not_found"]
+          allowed_values: ["present", "absent", "not_defined"]
           description: "Обязанность по маркировке"
           required: true
         - name: "false_data_liability"
           type: "string"
           presentation: "signal"
-          allowed_values: ["specified", "not_specified", "not_found"]
+          allowed_values: ["specified", "not_defined", "not_defined"]
           description: "Ответственность за недостоверные данные"
           required: true
         - name: "shipper_obligations_completeness"
@@ -2841,7 +2841,7 @@ checks_v8:
         [ПРАВИЛА]
         1. Используй только текст договора.
         2. Не делай предположений на основании обычая делового оборота.
-        3. Если условие прямо не сформулировано — возвращай "not_found".
+        3. Если условие прямо не сформулировано — возвращай "not_defined".
         4. Не заменяй отсутствие договорной цены ссылкой на "обычно взимаемую цену".
         5. Если в договоре есть несколько фрагментов, используй более конкретный и прямой.
         6. Если указано только "по тарифам перевозчика", это не является конкретной суммой, но является условием о порядке формирования цены.
@@ -2936,13 +2936,13 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
-        1. freight_amount — конкретная сумма, формула цены или "not_found".
+        1. freight_amount — конкретная сумма, формула цены или "not_defined".
         2. freight_currency — RUB / USD / EUR / other / not_found.
         3. price_includes_vat — yes / no / zero_rate / not_found.
-        4. payment_deadline — текстовое описание срока оплаты или "not_found".
+        4. payment_deadline — текстовое описание срока оплаты или "not_defined".
         5. payment_method — prepayment / postpayment / partial / tariff_based / other / not_found.
 
-        Если условие не указано прямо — не додумывай и ставь "not_found".
+        Если условие не указано прямо — не додумывай и ставь "not_defined".
         Ответ верни строго в JSON.
         </task>
 
@@ -2952,7 +2952,7 @@ checks_v8:
         - Если есть только "по тарифам перевозчика", то:
           - freight_amount = "по тарифам перевозчика"
           - payment_method = "tariff_based"
-        - Если НДС не упомянут, price_includes_vat = "not_found".
+        - Если НДС не упомянут, price_includes_vat = "not_defined".
         </rules>
       fields:
         - name: "freight_amount"
@@ -2966,13 +2966,13 @@ checks_v8:
         - name: "freight_currency"
           type: "string"
           presentation: "signal"
-          allowed_values: ["RUB", "USD", "EUR", "other", "not_found"]
+          allowed_values: ["RUB", "USD", "EUR", "other", "not_defined"]
           description: "Валюта расчётов"
           required: true
         - name: "price_includes_vat"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "zero_rate", "not_found"]
+          allowed_values: ["yes", "no", "zero_rate", "not_defined"]
           description: "НДС включён в цену"
           required: true
         - name: "payment_deadline"
@@ -2986,7 +2986,7 @@ checks_v8:
         - name: "payment_method"
           type: "string"
           presentation: "signal"
-          allowed_values: ["prepayment", "postpayment", "partial", "tariff_based", "other", "not_found"]
+          allowed_values: ["prepayment", "postpayment", "partial", "tariff_based", "other", "not_defined"]
           description: "Порядок оплаты"
           required: true
       store_payload: true
@@ -3041,8 +3041,8 @@ checks_v8:
         [ПРАВИЛА]
         1. Используй только текст договора.
         2. Не додумывай реквизиты, если они указаны частично.
-        3. Если сторона не определена прямо — верни "not_found".
-        4. Если грузополучатель не указан как сторона договора, это не ошибка — верни "not_found".
+        3. Если сторона не определена прямо — верни "not_defined".
+        4. Если грузополучатель не указан как сторона договора, это не ошибка — верни "not_defined".
         5. Основание полномочий нормализуй только в:
            - charter
            - poa
@@ -3133,12 +3133,12 @@ checks_v8:
 
         <task>
         Заполни поля:
-        1. carrier_details — наименование и реквизиты перевозчика или "not_found".
-        2. shipper_details — наименование и реквизиты грузоотправителя или "not_found".
-        3. consignee_details — наименование/описание грузополучателя или "not_found".
+        1. carrier_details — наименование и реквизиты перевозчика или "not_defined".
+        2. shipper_details — наименование и реквизиты грузоотправителя или "not_defined".
+        3. consignee_details — наименование/описание грузополучателя или "not_defined".
         4. signatory_basis — charter / poa / order / other / not_found.
 
-        Если в тексте основание полномочий не указано прямо, ставь "not_found".
+        Если в тексте основание полномочий не указано прямо, ставь "not_defined".
         Ответ верни строго в JSON.
         </task>
 
@@ -3175,7 +3175,7 @@ checks_v8:
         - name: "signatory_basis"
           type: "string"
           presentation: "signal"
-          allowed_values: ["charter", "poa", "order", "other", "not_found"]
+          allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта"
           required: true
       store_payload: true
@@ -3231,10 +3231,10 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст договора.
-        2. Если характеристика не указана явно — ставь "not_found".
+        2. Если характеристика не указана явно — ставь "not_defined".
         3. Не считай маршрут определённым только потому, что указан город одной стороны.
         4. Если есть только отправление или только назначение — route_defined = "partial".
-        5. Вид транспорта определяй только по прямым указаниям текста; если не следует прямо — "not_found".
+        5. Вид транспорта определяй только по прямым указаниям текста; если не следует прямо — "not_defined".
         6. Рамочность фиксируй только при прямом указании на организацию перевозок или разовый характер.
 
         [ФОРМАТ ОТВЕТА]
@@ -3314,10 +3314,10 @@ checks_v8:
 
         <task>
         Заполни:
-        - cargo_description — описание груза или "not_found"
-        - cargo_weight — вес/объём/количество мест или "not_found"
-        - origin_point — пункт отправления или "not_found"
-        - destination_point — пункт назначения или "not_found"
+        - cargo_description — описание груза или "not_defined"
+        - cargo_weight — вес/объём/количество мест или "not_defined"
+        - origin_point — пункт отправления или "not_defined"
+        - destination_point — пункт назначения или "not_defined"
         - route_defined: yes / no / partial
         - transport_mode: road / rail / sea / air / inland_water / multimodal / not_found
         - contract_type: single / framework / not_found
@@ -3372,13 +3372,13 @@ checks_v8:
         - name: "transport_mode"
           type: "string"
           presentation: "signal"
-          allowed_values: ["road", "rail", "sea", "air", "inland_water", "multimodal", "not_found"]
+          allowed_values: ["road", "rail", "sea", "air", "inland_water", "multimodal", "not_defined"]
           description: "Вид транспорта"
           required: true
         - name: "contract_type"
           type: "string"
           presentation: "signal"
-          allowed_values: ["single", "framework", "not_found"]
+          allowed_values: ["single", "framework", "not_defined"]
           description: "Тип договора (разовый/рамочный)"
           required: true
       store_payload: true
@@ -3431,7 +3431,7 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст договора.
-        2. Если срок прямо не указан — ставь "not_found".
+        2. Если срок прямо не указан — ставь "not_defined".
         3. Не подставляй обычный срок доставки по закону или практике.
 
         [ФОРМАТ ОТВЕТА]
@@ -3508,7 +3508,7 @@ checks_v8:
         <task>
         Заполни:
         - delivery_deadline_present: yes / no
-        - delivery_deadline_value: конкретная формулировка срока или "not_found"
+        - delivery_deadline_value: конкретная формулировка срока или "not_defined"
         - deadline_type: calendar_date / days_from_loading / transit_time / other / not_found
 
         Ответ верни строго в JSON.
@@ -3536,7 +3536,7 @@ checks_v8:
         - name: "deadline_type"
           type: "string"
           presentation: "signal"
-          allowed_values: ["calendar_date", "days_from_loading", "transit_time", "other", "not_found"]
+          allowed_values: ["calendar_date", "days_from_loading", "transit_time", "other", "not_defined"]
           description: "Тип срока доставки"
           required: true
       store_payload: true
@@ -3592,7 +3592,7 @@ checks_v8:
         [ПРАВИЛА]
         1. Используй только текст договора.
         2. Не подставляй типичную практику, если текст молчит.
-        3. Если ответственная сторона не названа прямо — ставь "not_specified".
+        3. Если ответственная сторона не названа прямо — ставь "not_defined".
         4. Если сказано только, что работы выполняются, но без указания стороны — это не значит, что сторона определена.
         5. Не смешивай погрузку и выгрузку.
 
@@ -3689,31 +3689,31 @@ checks_v8:
         - name: "loading_responsible"
           type: "string"
           presentation: "signal"
-          allowed_values: ["carrier", "shipper", "jointly", "not_specified", "not_found"]
+          allowed_values: ["carrier", "shipper", "jointly", "not_defined", "not_defined"]
           description: "Ответственный за погрузку"
           required: true
         - name: "unloading_responsible"
           type: "string"
           presentation: "signal"
-          allowed_values: ["carrier", "consignee", "jointly", "not_specified", "not_found"]
+          allowed_values: ["carrier", "consignee", "jointly", "not_defined", "not_defined"]
           description: "Ответственный за выгрузку"
           required: true
         - name: "normative_time_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Нормативное время установлено"
           required: true
         - name: "securing_responsible"
           type: "string"
           presentation: "signal"
-          allowed_values: ["carrier", "shipper", "not_specified", "not_found"]
+          allowed_values: ["carrier", "shipper", "not_defined", "not_defined"]
           description: "Ответственный за крепление груза"
           required: true
         - name: "cost_allocation_defined"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Распределение расходов определено"
           required: true
       store_payload: true
@@ -3843,8 +3843,8 @@ checks_v8:
         <task>
         Заполни:
         - delay_penalty_present: yes / no / not_found
-        - delay_penalty_rate: формула/ставка или "not_found"
-        - delay_penalty_cap: предел санкции или "not_found"
+        - delay_penalty_rate: формула/ставка или "not_defined"
+        - delay_penalty_cap: предел санкции или "not_defined"
         - penalty_type: contractual / statutory / not_specified / not_found
 
         Ответ верни строго в JSON.
@@ -3857,7 +3857,7 @@ checks_v8:
         - name: "delay_penalty_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Санкция за просрочку доставки предусмотрена"
           required: true
         - name: "delay_penalty_rate"
@@ -3879,7 +3879,7 @@ checks_v8:
         - name: "penalty_type"
           type: "string"
           presentation: "signal"
-          allowed_values: ["contractual", "statutory", "not_specified", "not_found"]
+          allowed_values: ["contractual", "statutory", "not_defined", "not_defined"]
           description: "Тип санкции"
           required: true
       store_payload: true
@@ -4002,8 +4002,8 @@ checks_v8:
         Заполни:
         - penalty_for_non_supply_present: yes / no / not_found
         - penalty_for_non_presentation_present: yes / no / not_found
-        - penalty_rate: ставка/формула штрафа или "not_found"
-        - release_conditions: основания освобождения или "not_found"
+        - penalty_rate: ставка/формула штрафа или "not_defined"
+        - release_conditions: основания освобождения или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -4011,13 +4011,13 @@ checks_v8:
         - name: "penalty_for_non_supply_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Штраф за неподачу ТС предусмотрен"
           required: true
         - name: "penalty_for_non_presentation_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Штраф за непредъявление груза предусмотрен"
           required: true
         - name: "penalty_rate"
@@ -4186,25 +4186,25 @@ checks_v8:
         - name: "commercial_act_mentioned"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Коммерческий акт упоминается"
           required: true
         - name: "damage_fixing_procedure"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Процедура фиксации повреждений"
           required: true
         - name: "shortage_fixing_procedure"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Процедура фиксации недостачи"
           required: true
         - name: "inspection_on_receipt"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Осмотр при получении предусмотрен"
           required: true
       store_payload: true
@@ -4332,7 +4332,7 @@ checks_v8:
         Заполни:
         - application_procedure_present: yes / no / not_found
         - application_form: written / electronic / any / not_specified / not_found
-        - application_deadline: срок подачи заявки или "not_found"
+        - application_deadline: срок подачи заявки или "not_defined"
         - confirmation_procedure: yes / no / not_found
         - change_or_cancellation_rules: yes / no / not_found
 
@@ -4342,13 +4342,13 @@ checks_v8:
         - name: "application_procedure_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Порядок подачи заявок установлен"
           required: true
         - name: "application_form"
           type: "string"
           presentation: "signal"
-          allowed_values: ["written", "electronic", "any", "not_specified", "not_found"]
+          allowed_values: ["written", "electronic", "any", "not_defined", "not_defined"]
           description: "Форма заявки"
           required: true
         - name: "application_deadline"
@@ -4362,13 +4362,13 @@ checks_v8:
         - name: "confirmation_procedure"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Порядок подтверждения заявки"
           required: true
         - name: "change_or_cancellation_rules"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Правила изменения/отмены заявки"
           required: true
       store_payload: true
@@ -4428,7 +4428,7 @@ checks_v8:
         1. Используй только текст договора.
         2. Не путай ограничение ответственности с полным освобождением от ответственности.
         3. Если в тексте только общая ссылка на закон без раскрытия лимита — это statutory, а не contract_amount.
-        4. Если лимит прямо не указан — ставь "not_found".
+        4. Если лимит прямо не указан — ставь "not_defined".
         5. Не додумывай СДР, если в тексте этого нет.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
@@ -4514,7 +4514,7 @@ checks_v8:
         Заполни:
         - liability_cap_present: yes / no / not_found
         - cap_type: declared_value / actual_value / statutory / contract_amount / not_specified / not_found
-        - cap_amount: конкретная сумма/формула/ссылка или "not_found"
+        - cap_amount: конкретная сумма/формула/ссылка или "not_defined"
         - statutory_reference: УАТ / УЖТ / КТМ / КВВТ / other / not_found
 
         Ответ верни строго в JSON.
@@ -4529,13 +4529,13 @@ checks_v8:
         - name: "liability_cap_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Лимит ответственности установлен"
           required: true
         - name: "cap_type"
           type: "string"
           presentation: "signal"
-          allowed_values: ["declared_value", "actual_value", "statutory", "contract_amount", "not_specified", "not_found"]
+          allowed_values: ["declared_value", "actual_value", "statutory", "contract_amount", "not_defined", "not_defined"]
           description: "Тип ограничения ответственности"
           required: true
         - name: "cap_amount"
@@ -4549,7 +4549,7 @@ checks_v8:
         - name: "statutory_reference"
           type: "string"
           presentation: "signal"
-          allowed_values: ["УАТ", "УЖТ", "КТМ", "КВВТ", "other", "not_found"]
+          allowed_values: ["УАТ", "УЖТ", "КТМ", "КВВТ", "other", "not_defined"]
           description: "Ссылка на устав/режим"
           required: true
       store_payload: true
@@ -4700,31 +4700,31 @@ checks_v8:
         - name: "force_majeure_included"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Форс-мажор включён"
           required: true
         - name: "shipper_fault_included"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Вина грузоотправителя включена"
           required: true
         - name: "cargo_properties_included"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Свойства груза включены"
           required: true
         - name: "packaging_defects_included"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Дефекты упаковки/тары включены"
           required: true
         - name: "exhaustive_list"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Перечень оснований закрытый"
           required: true
       store_payload: true
@@ -4785,7 +4785,7 @@ checks_v8:
         1. Есть ли прямое слово "претензия" или эквивалент.
         2. Есть ли прямой срок.
         3. Есть ли прямая связка "до обращения в суд".
-        4. Если нет — ставь "not_found".
+        4. Если нет — ставь "not_defined".
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -4866,12 +4866,12 @@ checks_v8:
         <task>
         Заполни:
         - claim_procedure_present: yes / no / not_found
-        - claim_deadline: срок предъявления претензии или "not_found"
-        - response_deadline: срок ответа на претензию или "not_found"
+        - claim_deadline: срок предъявления претензии или "not_defined"
+        - response_deadline: срок ответа на претензию или "not_defined"
         - claim_form: written / any / not_specified / not_found
         - mandatory_before_court: yes / no / not_found
-        - claim_deadline_for_loss: количество дней или "not_found"
-        - claim_deadline_for_delay: количество дней или "not_found"
+        - claim_deadline_for_loss: количество дней или "not_defined"
+        - claim_deadline_for_delay: количество дней или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -4885,7 +4885,7 @@ checks_v8:
         - name: "claim_procedure_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Претензионный порядок установлен"
           required: true
         - name: "claim_deadline"
@@ -4907,13 +4907,13 @@ checks_v8:
         - name: "claim_form"
           type: "string"
           presentation: "signal"
-          allowed_values: ["written", "any", "not_specified", "not_found"]
+          allowed_values: ["written", "any", "not_defined", "not_defined"]
           description: "Форма претензии"
           required: true
         - name: "mandatory_before_court"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Претензия обязательна до суда"
           required: true
         - name: "claim_deadline_for_loss"
@@ -5052,7 +5052,7 @@ checks_v8:
         <task>
         Заполни:
         - limitation_period_mentioned: yes / no
-        - limitation_period_value: конкретный срок или "not_found"
+        - limitation_period_value: конкретный срок или "not_defined"
         - statutory_reference: ст. 797 / other / not_found
 
         Ответ верни строго в JSON.
@@ -5079,7 +5079,7 @@ checks_v8:
         - name: "statutory_reference"
           type: "string"
           presentation: "signal"
-          allowed_values: ["ст. 797", "other", "not_found"]
+          allowed_values: ["ст. 797", "other", "not_defined"]
           description: "Ссылка на правовой источник"
           required: true
       store_payload: true
@@ -5211,7 +5211,7 @@ checks_v8:
         - insurance_coverage: all_risks / named_perils / not_specified / not_found
         - beneficiary_defined: yes / no / not_found
         - declared_value_present: yes / no / not_found
-        - declared_value_amount: сумма или "not_found"
+        - declared_value_amount: сумма или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -5219,37 +5219,37 @@ checks_v8:
         - name: "insurance_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Условие о страховании есть"
           required: true
         - name: "insurance_required"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "optional", "not_found"]
+          allowed_values: ["yes", "no", "optional", "not_defined"]
           description: "Обязательность страхования"
           required: true
         - name: "who_insures"
           type: "string"
           presentation: "signal"
-          allowed_values: ["shipper", "carrier", "either", "not_specified", "not_found"]
+          allowed_values: ["shipper", "carrier", "either", "not_defined", "not_defined"]
           description: "Кто страхует груз"
           required: true
         - name: "insurance_coverage"
           type: "string"
           presentation: "signal"
-          allowed_values: ["all_risks", "named_perils", "not_specified", "not_found"]
+          allowed_values: ["all_risks", "named_perils", "not_defined", "not_defined"]
           description: "Вид страхового покрытия"
           required: true
         - name: "beneficiary_defined"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Выгодоприобретатель определён"
           required: true
         - name: "declared_value_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Объявленная ценность установлена"
           required: true
         - name: "declared_value_amount"
@@ -5385,7 +5385,7 @@ checks_v8:
         Заполни:
         - vat_mentioned: yes / no
         - vat_included: yes / no / zero_rate / not_applicable / not_found
-        - vat_rate: текст ставки или "not_found"
+        - vat_rate: текст ставки или "not_defined"
         - international_tax_reference: yes / no / not_found
 
         Ответ верни строго в JSON.
@@ -5405,7 +5405,7 @@ checks_v8:
         - name: "vat_included"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "zero_rate", "not_applicable", "not_found"]
+          allowed_values: ["yes", "no", "zero_rate", "not_applicable", "not_defined"]
           description: "НДС включён в цену / применяется 0%"
           required: true
         - name: "vat_rate"
@@ -5419,7 +5419,7 @@ checks_v8:
         - name: "international_tax_reference"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Есть ссылка на международный налоговый режим"
           required: true
       store_payload: true
@@ -5540,9 +5540,9 @@ checks_v8:
         <task>
         Заполни:
         - auto_renewal_present: yes / no
-        - renewal_period: срок продления или "not_found"
+        - renewal_period: срок продления или "not_defined"
         - termination_notice_required: yes / no / not_found
-        - notice_period: срок уведомления или "not_found"
+        - notice_period: срок уведомления или "not_defined"
 
         Ответ верни строго в JSON.
         </task>
@@ -5564,7 +5564,7 @@ checks_v8:
         - name: "termination_notice_required"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Нужно уведомление для отказа от продления"
           required: true
         - name: "notice_period"
@@ -5694,7 +5694,7 @@ checks_v8:
         Заполни:
         - license_mentioned: yes / no
         - license_type: transport_license / permit / certificate / other / not_found
-        - license_number: номер или "not_found"
+        - license_number: номер или "not_defined"
         - maintenance_obligation: yes / no / not_found
 
         Ответ верни строго в JSON.
@@ -5709,7 +5709,7 @@ checks_v8:
         - name: "license_type"
           type: "string"
           presentation: "signal"
-          allowed_values: ["transport_license", "permit", "certificate", "other", "not_found"]
+          allowed_values: ["transport_license", "permit", "certificate", "other", "not_defined"]
           description: "Тип регуляторного документа"
           required: true
         - name: "license_number"
@@ -5723,7 +5723,7 @@ checks_v8:
         - name: "maintenance_obligation"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Обязанность поддерживать документ в силе"
           required: true
       store_payload: true
@@ -5856,25 +5856,25 @@ checks_v8:
         - name: "packaging_requirements_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Требования к упаковке есть"
           required: true
         - name: "marking_requirements_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Требования к маркировке есть"
           required: true
         - name: "sealing_mentioned"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Пломбирование упоминается"
           required: true
         - name: "responsible_party"
           type: "string"
           presentation: "signal"
-          allowed_values: ["shipper", "carrier", "not_specified", "not_found"]
+          allowed_values: ["shipper", "carrier", "not_defined", "not_defined"]
           description: "Ответственная сторона"
           required: true
       store_payload: true
@@ -6008,13 +6008,13 @@ checks_v8:
         - name: "monitoring_system"
           type: "string"
           presentation: "signal"
-          allowed_values: ["GPS", "GLONASS", "other", "not_specified", "not_found"]
+          allowed_values: ["GPS", "GLONASS", "other", "not_defined", "not_defined"]
           description: "Система мониторинга"
           required: true
         - name: "access_for_shipper"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Доступ к данным есть"
           required: true
       store_payload: true
@@ -6160,25 +6160,25 @@ checks_v8:
         - name: "accuracy_warranty_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Заверение о достоверности сведений есть"
           required: true
         - name: "liability_for_false_data"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Ответственность за ложные данные предусмотрена"
           required: true
         - name: "liable_party"
           type: "string"
           presentation: "signal"
-          allowed_values: ["shipper", "carrier", "not_specified", "not_found"]
+          allowed_values: ["shipper", "carrier", "not_defined", "not_defined"]
           description: "Ответственная сторона"
           required: true
         - name: "covered_data_scope"
           type: "string"
           presentation: "signal"
-          allowed_values: ["weight", "cargo_properties", "documents", "mixed", "not_found"]
+          allowed_values: ["weight", "cargo_properties", "documents", "mixed", "not_defined"]
           description: "Охват сведений"
           required: true
       store_payload: true
@@ -6329,37 +6329,37 @@ checks_v8:
         - name: "subcontracting_allowed"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "with_consent", "not_found"]
+          allowed_values: ["yes", "no", "with_consent", "not_defined"]
           description: "Субперевозка разрешена"
           required: true
         - name: "consent_required"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Требуется согласие"
           required: true
         - name: "carrier_liability_for_sub"
           type: "string"
           presentation: "signal"
-          allowed_values: ["full", "limited", "not_specified", "not_found"]
+          allowed_values: ["full", "limited", "not_defined", "not_defined"]
           description: "Ответственность перевозчика за субперевозчика"
           required: true
         - name: "substitution_restrictions"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Есть ограничения на замену перевозчика"
           required: true
         - name: "vehicle_substitution_clause"
           type: "string"
           presentation: "signal"
-          allowed_values: ["present", "absent", "not_found"]
+          allowed_values: ["present", "absent", "not_defined"]
           description: "Условие о замене транспортного средства"
           required: true
         - name: "driver_substitution_clause"
           type: "string"
           presentation: "signal"
-          allowed_values: ["present", "absent", "not_found"]
+          allowed_values: ["present", "absent", "not_defined"]
           description: "Условие о замене водителя"
           required: true
       store_payload: true
@@ -6498,25 +6498,25 @@ checks_v8:
         - name: "who_can_redirect"
           type: "string"
           presentation: "signal"
-          allowed_values: ["shipper", "consignee", "either", "not_specified", "not_found"]
+          allowed_values: ["shipper", "consignee", "either", "not_defined", "not_defined"]
           description: "Кто вправе переадресовать груз"
           required: true
         - name: "cost_allocation"
           type: "string"
           presentation: "signal"
-          allowed_values: ["shipper", "carrier", "not_specified", "not_found"]
+          allowed_values: ["shipper", "carrier", "not_defined", "not_defined"]
           description: "Кто несёт дополнительные расходы"
           required: true
         - name: "procedural_limitations"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Есть процедурные ограничения"
           required: true
         - name: "redirection_deadline"
           type: "string"
           presentation: "signal"
-          allowed_values: ["specified", "not_specified", "not_found"]
+          allowed_values: ["specified", "not_defined", "not_defined"]
           description: "Срок для требования о переадресовке"
           required: true
       store_payload: true
@@ -6653,19 +6653,19 @@ checks_v8:
         - name: "ewaybill_mandatory"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "optional", "not_found"]
+          allowed_values: ["yes", "no", "optional", "not_defined"]
           description: "ЭТрН обязательна"
           required: true
         - name: "platform_mentioned"
           type: "string"
           presentation: "signal"
-          allowed_values: ["ГИС ЭПД", "other", "not_found"]
+          allowed_values: ["ГИС ЭПД", "other", "not_defined"]
           description: "Указанная платформа"
           required: true
         - name: "edo_reference_present"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Есть ссылка на ЭДО"
           required: true
       store_payload: true
@@ -6796,25 +6796,25 @@ checks_v8:
         - name: "escort_required"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "optional", "not_found"]
+          allowed_values: ["yes", "no", "optional", "not_defined"]
           description: "Сопровождение требуется"
           required: true
         - name: "escort_type"
           type: "string"
           presentation: "signal"
-          allowed_values: ["shipper_representative", "armed_guard", "other", "not_specified", "not_found"]
+          allowed_values: ["shipper_representative", "armed_guard", "other", "not_defined", "not_defined"]
           description: "Тип сопровождения"
           required: true
         - name: "cost_allocation"
           type: "string"
           presentation: "signal"
-          allowed_values: ["shipper", "carrier", "not_specified", "not_found"]
+          allowed_values: ["shipper", "carrier", "not_defined", "not_defined"]
           description: "Кто оплачивает сопровождение"
           required: true
         - name: "special_cases_defined"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Есть специальные случаи обязательного сопровождения"
           required: true
       store_payload: true
@@ -6942,7 +6942,7 @@ checks_v8:
         - force_majeure_present: yes / no
         - examples_listed: yes / no / not_found
         - notification_required: yes / no / not_found
-        - notification_deadline: срок уведомления или "not_found"
+        - notification_deadline: срок уведомления или "not_defined"
         - termination_right: yes / no / not_found
 
         Ответ верни строго в JSON.
@@ -6957,13 +6957,13 @@ checks_v8:
         - name: "examples_listed"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Примеры форс-мажора перечислены"
           required: true
         - name: "notification_required"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Нужно уведомление"
           required: true
         - name: "notification_deadline"
@@ -6977,7 +6977,7 @@ checks_v8:
         - name: "termination_right"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Есть право прекращения/расторжения"
           required: true
       store_payload: true
@@ -7115,19 +7115,19 @@ checks_v8:
         - name: "responsible_party"
           type: "string"
           presentation: "signal"
-          allowed_values: ["carrier", "shipper", "not_specified", "not_found"]
+          allowed_values: ["carrier", "shipper", "not_defined", "not_defined"]
           description: "Ответственная сторона"
           required: true
         - name: "permits_mentioned"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Пропуска/разрешения упоминаются"
           required: true
         - name: "cost_allocation_defined"
           type: "string"
           presentation: "signal"
-          allowed_values: ["yes", "no", "not_found"]
+          allowed_values: ["yes", "no", "not_defined"]
           description: "Распределение расходов определено"
           required: true
       store_payload: true
