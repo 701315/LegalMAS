@@ -124,7 +124,7 @@ REQUIRED_ENUM_ATTRS = ["allowed_values"]
 VALID_PRESENTATIONS = ["signal", "fact"]
 
 # ── Допустимые значения severity ─────────────────────────────────────────────
-VALID_SEVERITIES = ["low", "medium", "high", "critical"]
+VALID_SEVERITIES = ["low", "medium", "high", "critical", "pass"]
 
 # ── Допустимые значения ui_mode ──────────────────────────────────────────────
 VALID_UI_MODES = ["field_extraction", "clause_presence", "risk_check"]
@@ -231,15 +231,17 @@ def load_yaml(filepath: str) -> Tuple[Optional[dict], Optional[str]]:
         return None, f"Ошибка чтения файла: {e}"
 
 
+SKIP_FILES = {"registry.yaml", "index.yaml", "_index.yaml"}
+
 def find_yaml_files(root_path: str) -> List[str]:
-    """Рекурсивно находит все YAML-файлы в подпапках."""
     yaml_files = []
     root = Path(root_path)
     if not root.exists():
         return []
     for path in sorted(root.rglob("*")):
         if path.is_file() and path.suffix in (".yaml", ".yml"):
-            yaml_files.append(str(path))
+            if path.name not in SKIP_FILES:
+                yaml_files.append(str(path))
     return yaml_files
 
 
