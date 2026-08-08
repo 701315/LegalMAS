@@ -1,7 +1,7 @@
 // frontend/src/marketing/components/shared/SiteHeader.tsx
 
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, Menu, ChevronDown, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import SteloomWordmark from "./primitives/SteloomWordmark";
@@ -36,7 +36,6 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
   variant = "default",
   hideLogin = false,
 }) => {
-  const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
   const { openContactModal } = useContactModal();
@@ -285,7 +284,9 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
             {!hideLogin && (
               <button
                 type="button"
-                onClick={() => navigate(SITE_CTA.login.href)}
+                onClick={() => {
+                  window.location.href = SITE_CTA.login.href;
+                }}
                 style={{ ...navItemStyle, color: desktopColorSecondary }}
               >
                 {SITE_CTA.login.label}

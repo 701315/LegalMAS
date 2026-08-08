@@ -196,12 +196,12 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ open, onClose }) => {
           >
             {SITE_CTA.demo.label}
           </button>
-          <Link
-            to={SITE_CTA.login.href}
+          <a
+            href={SITE_CTA.login.href}
             className="flex w-full items-center justify-center rounded-full border border-[#E8E4DD] bg-white px-5 py-3.5 text-[0.9375rem] font-medium text-[#1A1917] transition-colors hover:border-[#D6D0C7]"
           >
             {SITE_CTA.login.label}
-          </Link>
+          </a>
         </div>
       </div>
     </>

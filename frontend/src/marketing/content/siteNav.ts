@@ -30,7 +30,7 @@ export const SITE_NAV: NavItem[] = [
 
 export const SITE_CTA = {
   demo: { label: "Запросить демо", href: "/demo" },
-  login: { label: "Войти", href: "/login" },
+  login: { label: "Войти", href: "https://app.steloom.com/login" },
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
