@@ -1,6 +1,5 @@
 import React from "react";
 import { Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
-import "./App.css";
 
 // ── Marketing pages ───────────────────────────────────────────
 import HomePage from "./marketing/pages/HomePage";
@@ -190,7 +189,16 @@ function AuthenticatedAppShellLayout() {
 function App() {
   return (
     <ContactModalProvider>
-      <div className="min-h-screen w-full bg-[var(--bg-base)]">
+      {/* Wrapper is height-agnostic here — actual height contract is
+          managed via CSS in index.css based on html.app-shell-mode class.
+          
+          - Marketing mode: wrapper grows to content (min-h-screen from CSS)
+          - App-shell mode: wrapper = height 100% (from CSS), completing
+            the viewport-locked chain html → body → #root → wrapper → AppShell
+          
+          This class-based approach is the industry standard for SPAs that
+          host both marketing pages and app-shell UI in one bundle. */}
+      <div className="w-full bg-[var(--bg-base)]" data-app-root>
         <ScrollToAnchor />
 
         <Routes>

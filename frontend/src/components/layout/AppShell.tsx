@@ -1,3 +1,7 @@
+// =============================================================
+// frontend/src/components/layout/AppShell.tsx
+// =============================================================
+
 import React from "react";
 import {
   LayoutDashboard,
@@ -22,7 +26,7 @@ import Button from "../ui/Button";
 
 const MAX_PROJECTS_IN_SIDEBAR = 6;
 const DESKTOP_NAV_WIDTH_EXPANDED_CLASS = "lg:w-[248px] lg:min-w-[248px]";
-const DESKTOP_NAV_WIDTH_COLLAPSED_CLASS = "lg:w-[64px] lg:min-w-[64px]";
+const DESKTOP_NAV_WIDTH_COLLAPSED_CLASS = "lg:w-[80px] lg:min-w-[80px]";
 const MOBILE_DRAWER_WIDTH_CLASS = "w-[248px] max-w-[85vw]";
 
 const FOCUSABLE_SELECTOR = [
@@ -132,7 +136,7 @@ const NavItem: React.FC<NavItemProps> = ({
         .join(" ")
     }
   >
-    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
     {!collapsed && <span className="truncate">{label}</span>}
   </NavLink>
 );
@@ -242,7 +246,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 }) => (
   <div className="relative flex h-full min-h-0 flex-col bg-[var(--bg-card)]">
     {!isMobile && onToggleSidebar && (
-      <div className="absolute -right-[22px] top-4 z-20">
+      <div className="absolute -right-5 top-4 z-20">
         <Button
           type="button"
           variant="secondary"
@@ -250,7 +254,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
           onClick={onToggleSidebar}
           aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
           aria-pressed={collapsed}
-          className="h-11 min-h-0 w-11 rounded-full p-0 shadow-sm"
+          className="h-10 min-h-0 w-10 rounded-full p-0 shadow-sm"
         >
           {collapsed ? (
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -388,27 +392,25 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     </div>
 
     <div className="shrink-0 border-t border-[var(--border)] px-3 py-3">
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="sm"
         onClick={onOpenLogout}
         aria-label="Открыть окно выхода из профиля"
-        fullWidth
-        className={`h-auto rounded-xl bg-[var(--bg-elevated-soft)] px-3 py-2 text-left hover:bg-[var(--bg-card)] ${
-          collapsed ? "justify-center" : "justify-start"
-        }`}
-        leftIcon={
-          <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-            aria-hidden="true"
-          >
-            <Users className="h-4 w-4" />
-          </span>
-        }
+        className={[
+          "flex w-full items-center gap-3 rounded-xl bg-[var(--bg-elevated-soft)] px-3 py-2 transition hover:bg-[var(--bg-card)]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+          collapsed ? "justify-center" : "justify-start text-left",
+        ].join(" ")}
       >
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+          aria-hidden="true"
+        >
+          <Users className="h-4 w-4" />
+        </span>
+
         {!collapsed && (
-          <span className="min-w-0">
+          <span className="min-w-0 flex-1">
             <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold text-[var(--text-primary)]">
               {globalRole ?? "user"}
             </span>
@@ -417,7 +419,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
             </span>
           </span>
         )}
-      </Button>
+      </button>
     </div>
   </div>
 );
@@ -442,6 +444,28 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const wasMobileNavOpenRef = React.useRef(false);
   const logoutReturnFocusRef = React.useRef<HTMLElement | null>(null);
   const wasLogoutOpenRef = React.useRef(false);
+
+  // ────────────────────────────────────────────────────────────────────
+  // App-shell mode activation
+  //
+  // Activates .app-shell-mode class on <html> which switches CSS from
+  // marketing scroll model (body scrolls, min-heights, grain overlay)
+  // to app-shell contract (viewport-locked, fixed heights, no body scroll).
+  //
+  // See index.css "HTML / BODY / ROOT — DUAL MODE MODEL" for rationale.
+  //
+  // Critical: without this class, body may unexpectedly scroll when
+  // AppShell overflow chain reaches its limit, causing:
+  //   - Double scroll containers (body + AppShell)
+  //   - Fixed drawers detaching from viewport
+  //   - iOS Safari address bar layout thrashing
+  // ────────────────────────────────────────────────────────────────────
+  React.useEffect(() => {
+    document.documentElement.classList.add("app-shell-mode");
+    return () => {
+      document.documentElement.classList.remove("app-shell-mode");
+    };
+  }, []);
 
   const isSuperadmin = globalRole === "superadmin";
   const isTenantAdmin = globalRole === "tenant_admin";
@@ -593,7 +617,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
   }, [isLogoutOpen]);
 
   return (
-    <div className="flex h-[100dvh] min-h-0 w-full overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
       <aside
         className={[
           "relative hidden h-full min-h-0 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-card)] transition-[width] duration-200 lg:flex",
@@ -649,10 +673,8 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
           </div>
         </header>
 
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--bg-surface)] p-4 md:p-5">
-          <div className="h-full min-h-0 min-w-0 overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border-soft)] bg-[var(--bg-surface)]">
-            {children}
-          </div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--bg-surface)]">
+          {children}
         </div>
       </main>
 

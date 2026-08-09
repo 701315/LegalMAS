@@ -200,10 +200,18 @@ export const RequestsTab: React.FC<Props> = ({
 
   const { canManageRequests } = useDealPermissions(dealId);
 
+  // ── Selection state (persisted after panel close) ──────────
   const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
   const [selectedReviewReqKey, setSelectedReviewReqKey] = useState<string | null>(null);
+
+  // ── Panel visibility state (independent from selection) ────
+  const [isLegacyPanelOpen, setIsLegacyPanelOpen] = useState(false);
+  const [isReviewPanelOpen, setIsReviewPanelOpen] = useState(false);
+
+  // ── Inline message state ───────────────────────────────────
   const [inlineMessage, setInlineMessage] = useState<InlineMessageState | null>(null);
 
+  // ── Panel placement (desktop computed positioning) ─────────
   const [legacyPanelOffsetTop, setLegacyPanelOffsetTop] = useState(0);
   const [reviewPanelOffsetTop, setReviewPanelOffsetTop] = useState(0);
   const [legacyPanelMaxHeight, setLegacyPanelMaxHeight] = useState(MIN_PANEL_HEIGHT);
@@ -260,6 +268,40 @@ export const RequestsTab: React.FC<Props> = ({
     },
     [],
   );
+
+  // ── Derived visibility (panel is open only if both selection and visibility are set) ──
+  const hasLegacyPanel = isLegacyPanelOpen && !!selectedReq;
+  const hasReviewPanel = isReviewPanelOpen && !!selectedReviewReqKey && !!selectedReviewReq;
+
+  // ── Body overflow lock for mobile fullscreen panel ─────────
+  React.useEffect(() => {
+    const isAnyPanelOpen = hasLegacyPanel || hasReviewPanel;
+    if (!isAnyPanelOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [hasLegacyPanel, hasReviewPanel]);
+
+  // ── Escape key to close panels ─────────────────────────────
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (hasLegacyPanel) {
+          setIsLegacyPanelOpen(false);
+          return;
+        }
+        if (hasReviewPanel) {
+          setIsReviewPanelOpen(false);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [hasLegacyPanel, hasReviewPanel]);
 
   const handleSave = useCallback(
     async (reqId: string, data: Partial<DDRequest>) => {
@@ -351,6 +393,37 @@ export const RequestsTab: React.FC<Props> = ({
     });
   }, [canManageRequests]);
 
+  // ── Selection handlers (set selection AND open panel) ──────
+  const handleSelectLegacyRequest = useCallback(
+    (req: DDRequest, rowElement: HTMLElement | null) => {
+      setSelectedReq(req);
+      setIsLegacyPanelOpen(true);
+      requestAnimationFrame(() => updateLegacyPanelPlacement(rowElement));
+    },
+    [updateLegacyPanelPlacement],
+  );
+
+  const handleSelectReviewRequest = useCallback(
+    (req: DDRequestDTO, rowElement: HTMLElement | null) => {
+      const view = toRequestTableRowFromReview(req);
+      setSelectedReviewReqKey(view.id);
+      setIsReviewPanelOpen(true);
+      requestAnimationFrame(() => updateReviewPanelPlacement(rowElement));
+    },
+    [updateReviewPanelPlacement],
+  );
+
+  // ── Panel close handlers (close panel, keep selection) ─────
+  const handleCloseLegacyPanel = useCallback(() => {
+    setIsLegacyPanelOpen(false);
+    // НЕ сбрасываем selectedReq — строка остаётся активной
+  }, []);
+
+  const handleCloseReviewPanel = useCallback(() => {
+    setIsReviewPanelOpen(false);
+    // НЕ сбрасываем selectedReviewReqKey — строка остаётся активной
+  }, []);
+
   const isBusy =
     exportRequestsMutation.isPending ||
     updateMutation.isPending ||
@@ -366,9 +439,6 @@ export const RequestsTab: React.FC<Props> = ({
       </div>
     );
   }
-
-  const hasLegacyPanel = !!selectedReq;
-  const hasReviewPanel = !!selectedReviewReqKey && !!selectedReviewReq;
 
   return (
     <section
@@ -470,35 +540,57 @@ export const RequestsTab: React.FC<Props> = ({
                   <ReviewRequestsTable
                     requests={reviewRequests ?? []}
                     selectedRequestId={selectedReviewReqKey}
-                    onRowClick={(req, rowElement) => {
-                      const view = toRequestTableRowFromReview(req);
-                      setSelectedReviewReqKey(view.id);
-                      requestAnimationFrame(() =>
-                        updateReviewPanelPlacement(rowElement),
-                      );
-                    }}
+                    onRowClick={handleSelectReviewRequest}
                   />
                 </div>
 
+                {/* ── Review Panel ──────────────────────────── */}
                 {hasReviewPanel && selectedReviewReq && (
-                  <div
-                    className="min-w-0 self-start overflow-hidden pr-4"
-                    style={{
-                      marginTop: reviewPanelOffsetTop,
-                      maxHeight: reviewPanelMaxHeight,
-                    }}
-                  >
-                    <div
-                      ref={reviewPanelRef}
-                      className="min-h-0 rounded-2xl bg-[var(--bg-elevated-soft)]"
-                    >
-                      <ReviewRequestSidePanel
-                        request={selectedReviewReq}
-                        onClose={() => setSelectedReviewReqKey(null)}
-                        onOpenAtLocation={onOpenViewerAt}
-                      />
+                  <>
+                    {/* Mobile backdrop */}
+                    <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" />
+
+                    {/* Mobile fullscreen panel */}
+                    <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[var(--bg-card)] lg:hidden">
+                      <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4">
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">
+                          Детали запроса
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCloseReviewPanel}
+                          className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+                          aria-label="Закрыть панель деталей запроса"
+                        >
+                          ← Назад
+                        </button>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-elevated-soft)]">
+                        <ReviewRequestSidePanel
+                          request={selectedReviewReq}
+                          onClose={handleCloseReviewPanel}
+                          onOpenAtLocation={onOpenViewerAt}
+                        />
+                      </div>
                     </div>
-                  </div>
+
+                    {/* Desktop inline panel */}
+                    <div
+                      className="hidden min-w-0 self-start overflow-y-auto overscroll-contain rounded-2xl bg-[var(--bg-elevated-soft)] lg:block"
+                      style={{
+                        marginTop: reviewPanelOffsetTop,
+                        maxHeight: reviewPanelMaxHeight,
+                      }}
+                    >
+                      <div ref={reviewPanelRef}>
+                        <ReviewRequestSidePanel
+                          request={selectedReviewReq}
+                          onClose={handleCloseReviewPanel}
+                          onOpenAtLocation={onOpenViewerAt}
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             ) : (
@@ -514,12 +606,7 @@ export const RequestsTab: React.FC<Props> = ({
                   <RequestsTable
                     requests={requests ?? []}
                     selectedRequestId={selectedReq?.id ?? null}
-                    onRowClick={(req, rowElement) => {
-                      setSelectedReq(req);
-                      requestAnimationFrame(() =>
-                        updateLegacyPanelPlacement(rowElement),
-                      );
-                    }}
+                    onRowClick={handleSelectLegacyRequest}
                     onCreateClick={handleCreate}
                     onExportWord={handleExportWord}
                     onExportExcel={handleExportExcel}
@@ -527,28 +614,59 @@ export const RequestsTab: React.FC<Props> = ({
                   />
                 </div>
 
+                {/* ── Legacy (Manual) Panel ─────────────────── */}
                 {hasLegacyPanel && (
-                  <div
-                    className="min-w-0 self-start overflow-hidden pr-4 pb-4"
-                    style={{
-                      marginTop: legacyPanelOffsetTop,
-                      maxHeight: legacyPanelMaxHeight,
-                    }}
-                  >
-                    <div
-                      ref={legacyPanelRef}
-                      className="min-h-0 rounded-2xl bg-[var(--bg-elevated-soft)]"
-                    >
-                      <RequestSidePanel
-                        request={selectedReq}
-                        onClose={() => setSelectedReq(null)}
-                        onSave={handleSave}
-                        onDelete={handleDelete}
-                        isSaving={updateMutation.isPending}
-                        canManageRequests={canManageRequests}
-                      />
+                  <>
+                    {/* Mobile backdrop */}
+                    <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" />
+
+                    {/* Mobile fullscreen panel */}
+                    <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[var(--bg-card)] lg:hidden">
+                      <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4">
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">
+                          Детали запроса
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCloseLegacyPanel}
+                          className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+                          aria-label="Закрыть панель деталей запроса"
+                        >
+                          ← Назад
+                        </button>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-elevated-soft)]">
+                        <RequestSidePanel
+                          request={selectedReq}
+                          onClose={handleCloseLegacyPanel}
+                          onSave={handleSave}
+                          onDelete={handleDelete}
+                          isSaving={updateMutation.isPending}
+                          canManageRequests={canManageRequests}
+                        />
+                      </div>
                     </div>
-                  </div>
+
+                    {/* Desktop inline panel */}
+                    <div
+                      className="hidden min-w-0 self-start overflow-y-auto overscroll-contain rounded-2xl bg-[var(--bg-elevated-soft)] lg:block"
+                      style={{
+                        marginTop: legacyPanelOffsetTop,
+                        maxHeight: legacyPanelMaxHeight,
+                      }}
+                    >
+                      <div ref={legacyPanelRef}>
+                        <RequestSidePanel
+                          request={selectedReq}
+                          onClose={handleCloseLegacyPanel}
+                          onSave={handleSave}
+                          onDelete={handleDelete}
+                          isSaving={updateMutation.isPending}
+                          canManageRequests={canManageRequests}
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             )}

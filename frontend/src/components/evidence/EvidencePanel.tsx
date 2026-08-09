@@ -250,8 +250,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
       </div>
 
       {/* Основное содержимое */}
-      <div className="grid flex-1 grid-cols-3 gap-4 overflow-hidden px-5 py-4">
-        {/* Левая колонка */}
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto overflow-x-hidden px-5 py-4 md:grid-cols-3 md:overflow-hidden">        {/* Левая колонка */}
         <div className="col-span-1 space-y-4 overflow-y-auto border-r border-[var(--border-subtle)] pr-4">
           <div>
             <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">

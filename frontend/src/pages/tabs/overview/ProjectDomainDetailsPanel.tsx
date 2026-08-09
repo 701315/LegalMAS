@@ -26,6 +26,7 @@ import { useDealLLMUsage } from "../../../api/deals";
 import { useDocuments } from "../../../api/documents";
 import { DEMO_AGGREGATES } from "../CounterpartiesTab";
 import { DEMO_OBJECTS } from "../RealEstateTab";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 type DomainKey = "documents" | "counterparties" | "real_estate";
 
@@ -65,6 +66,9 @@ const ColumnShell: React.FC<ColumnShellProps> = ({ title, children }) => (
     <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
       {title}
     </p>
+    {/* Internal scroll колонки на xl+ (в 4-col grid).
+        На mobile колонки не рендерятся (grid xl-only),
+        поэтому overscroll-contain здесь не блокирует mobile scroll. */}
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
       {children}
     </div>
@@ -256,8 +260,27 @@ const DocumentsContent: React.FC<{
 
   return (
     <>
-      {/* ── xl+ : 4 колонки, одинаковая высота, скролл внутри каждой ── */}
-      <div className="hidden h-full min-h-0 grid-cols-4 gap-4 xl:grid">
+      {/* ── xl+ : 4 колонки, одинаковая высота, скролл внутри каждой ──
+          
+          КРИТИЧНО: grid-rows-[minmax(0,1fr)] обязателен.
+          
+          По умолчанию grid-template-rows: auto — каждая строка равна
+          размеру своего контента. Если один из ColumnShell содержит
+          длинный контент (например, AnalysisResultsWidget с 20+ checks),
+          grid row растёт до размера этого контента и превышает h-full.
+          
+          Тогда родительский overflow-hidden режет контент снизу,
+          и вложенный overflow-y-auto внутри ColumnShell не работает,
+          потому что ColumnShell уже "уплыл" за границы grid.
+          
+          minmax(0,1fr) заставляет row быть ровно 1 fraction высоты
+          grid контейнера, минимум 0. Это даёт ColumnShell точный
+          height budget, внутри которого overflow-y-auto может
+          корректно скроллиться.
+          
+          Без этой строки "Итог анализа" визуально обрезается снизу
+          и часть checks недоступна пользователю. */}
+      <div className="hidden h-full min-h-0 grid-cols-4 grid-rows-[minmax(0,1fr)] gap-4 xl:grid">
         <ColumnShell title="Пайплайн анализа">
           <DocumentsPipelinePanel runId={runId} />
         </ColumnShell>
@@ -334,13 +357,16 @@ const DocumentsContent: React.FC<{
 export const ProjectDomainDetailsPanel: React.FC<
   ProjectDomainDetailsPanelProps
 > = ({ activeDomain, onDomainChange: _onDomainChange, runId, deal }) => {
+  const isMobile = useIsMobile();
   const domainLabel = getDomainLabel(activeDomain);
   const isRunActive = !!runId;
 
   return (
     <section
       className={[
-        "flex h-full min-h-0 flex-col overflow-hidden",
+        isMobile
+          ? "flex flex-col"
+          : "flex h-full min-h-0 flex-col overflow-hidden",
         // Base border + rounded на всех размерах
         "rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm",
         // На xl+ убираем top-скругления и top-border —
@@ -375,7 +401,11 @@ export const ProjectDomainDetailsPanel: React.FC<
       </div>
 
       {/* Content */}
-      <div className="min-h-0 flex-1 overflow-hidden px-5 py-4">
+      <div
+        className={`px-5 py-4 ${
+          isMobile ? "" : "min-h-0 flex-1 overflow-hidden"
+        }`}
+      >
         {activeDomain === "documents" && (
           <DocumentsContent
             runId={runId}
@@ -383,13 +413,15 @@ export const ProjectDomainDetailsPanel: React.FC<
             isRunActive={isRunActive}
           />
         )}
+        {/* Mobile: контент в потоке (tabpanel скроллит).
+            xl+: internal scroll панели с overscroll-contain. */}
         {activeDomain === "counterparties" && (
-          <div className="h-full overflow-y-auto overscroll-contain">
+          <div className="min-h-0 xl:h-full xl:overflow-y-auto xl:overscroll-contain">
             <CounterpartiesSummary />
           </div>
         )}
         {activeDomain === "real_estate" && (
-          <div className="h-full overflow-y-auto overscroll-contain">
+          <div className="min-h-0 xl:h-full xl:overflow-y-auto xl:overscroll-contain">
             <RealEstateSummary />
           </div>
         )}

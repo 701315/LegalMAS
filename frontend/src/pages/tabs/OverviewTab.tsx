@@ -22,6 +22,7 @@ import {
 } from "../../utils/languageDiscovery";
 import { ProjectDomainsOverviewPanel } from "./overview/ProjectDomainsOverviewPanel";
 import { ProjectDomainDetailsPanel } from "./overview/ProjectDomainDetailsPanel";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 export type ChecksMode =
   | "global_only"
@@ -118,6 +119,7 @@ const DealInfoCard: React.FC<{
 // ---------------------------------------------------------------------------
 
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
+  const isMobile = useIsMobile();
   const qc = useQueryClient();
 
   const { data: currentRun } = useRun(currentRunId ?? null, false);
@@ -145,8 +147,26 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
   );
   const [dealPatch, setDealPatch] = React.useState<Partial<Deal>>({});
 
+  // ────────────────────────────────────────────────────────────────────
+  // Overlay width calculation
+  //
+  // LaunchWideOverlay позиционируется absolute относительно rail wrapper
+  // и торчит влево на ширину main column через right: calc(100% + 16px).
+  // Ширина overlay = ширина main column, которая вычисляется динамически.
+  //
+  // Retry mechanism через requestAnimationFrame обрабатывает case когда
+  // wrapper hidden при initial mount (railRect.width === 0). ResizeObserver
+  // покрывает последующие resize events (window resize, viewport transitions).
+  //
+  // Известное архитектурное ограничение: retry loop через rAF — workaround
+  // для CSS spec quirks с overflow-x visible + overflow-y hidden.
+  // Правильное решение через CSS Grid same-cell placement или React Portal —
+  // запланировано для future refactoring, но требует изменений в
+  // LaunchWideOverlay и proof-of-concept тестирования.
+  // ────────────────────────────────────────────────────────────────────
   const overviewRef = React.useRef<HTMLDivElement | null>(null);
   const railRef = React.useRef<HTMLDivElement | null>(null);
+  const mobileLaunchRef = React.useRef<HTMLDivElement | null>(null);
   const [overlayWidth, setOverlayWidth] = React.useState<number | null>(null);
 
   React.useLayoutEffect(() => {
@@ -154,9 +174,24 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
     const railEl = railRef.current;
     if (!overviewEl || !railEl) return;
 
+    let rafId: number | null = null;
+    let cancelled = false;
+
     const update = () => {
+      if (cancelled) return;
+
       const overviewRect = overviewEl.getBoundingClientRect();
       const railRect = railEl.getBoundingClientRect();
+
+      // Rail hidden (display: none на <xl viewport) → width = 0.
+      // Ставим overlayWidth = null (overlay не рендерится) и retry
+      // на следующем rAF — CSS уже должен примениться к этому моменту.
+      if (railRect.width === 0) {
+        setOverlayWidth(null);
+        rafId = window.requestAnimationFrame(update);
+        return;
+      }
+
       const styles = window.getComputedStyle(overviewEl);
       const gap = parseFloat(styles.columnGap || styles.gap || "0") || 0;
       const width = Math.max(0, overviewRect.width - railRect.width - gap);
@@ -171,6 +206,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
     window.addEventListener("resize", update);
 
     return () => {
+      cancelled = true;
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
       ro.disconnect();
       window.removeEventListener("resize", update);
     };
@@ -197,6 +236,20 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isLaunchPanelOpen]);
+
+  // Mobile/tablet (<xl): после открытия панели перезапуска скроллим к ней,
+  // чтобы пользователь сразу видел форму (in-flow под Actions-блоком).
+  // На xl+ ветка не рендерится → mobileLaunchRef === null → no-op.
+  React.useEffect(() => {
+    if (!isLaunchPanelOpen) return;
+    const rafId = window.requestAnimationFrame(() => {
+      mobileLaunchRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+    });
+    return () => window.cancelAnimationFrame(rafId);
   }, [isLaunchPanelOpen]);
 
   const effectiveDeal: Deal = { ...deal, ...dealPatch };
@@ -309,9 +362,19 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
   return (
     <div
       ref={overviewRef}
-      className="relative grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(0,2.2fr)_360px]"
+      className={`relative ${
+        isMobile
+          ? "flex min-h-0 flex-col gap-4"
+          : "grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(0,2.2fr)_minmax(320px,360px)] xl:grid-rows-[minmax(0,1fr)]"
+      }`}
     >
-      <div className="flex min-w-0 min-h-0 flex-col gap-4">
+      {/* Main content column — grid col 1 на xl+, full width на <xl.
+          shrink-0: в mobile flex-контексте запрещает схлопывание колонки
+          (min-h-0 отключает automatic minimum size, и дефолтный flex-shrink: 1
+          сжимал колонку до остатка высоты контейнера → контент overflow-ился
+          под следующий блок). В desktop grid-контексте flex-shrink игнорируется,
+          min-h-0 продолжает работать для internal scroll. */}
+      <div className="flex min-w-0 min-h-0 shrink-0 flex-col gap-4">
         <div className="shrink-0">
           <DealInfoCard
             deal={effectiveDeal}
@@ -327,7 +390,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
             — визуально единый блок. Убран gap между ними, чтобы активная
             карточка сверху "врастала" в панель деталей снизу на xl+.
             Общий gap с DealInfoCard остаётся 16px. */}
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div
+          className={`flex flex-col ${
+            isMobile ? "" : "min-h-0 flex-1"
+          }`}
+        >
           <div className="shrink-0">
             <ProjectDomainsOverviewPanel
               runId={currentRunId ?? null}
@@ -337,7 +404,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
             />
           </div>
 
-          <div className="min-h-0 flex-1">
+          <div
+            className={`${
+              isMobile ? "" : "min-h-0 flex-1"
+            }`}
+          >
             <ProjectDomainDetailsPanel
               activeDomain={activeDomain}
               onDomainChange={setActiveDomain}
@@ -348,26 +419,62 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
         </div>
       </div>
 
-      <div ref={railRef} className="relative hidden xl:block px-1 pb-2">
-        <AnalysisActionsPanel
-          deal={effectiveDeal}
-          hasCurrentRun={!!currentRun}
-          canStartRun={canLaunchRun}
-          onOpenRunPanel={handleOpenLaunchPanel}
-          showReclassBanner={showReclassBanner}
-        />
+      {/* Rail wrapper (grid col 2) — desktop only (xl+).
+          
+          АРХИТЕКТУРНОЕ РЕШЕНИЕ: разделение rail и overlay containing block.
+          
+          Wrapper выполняет две роли:
+          1. Grid item в overviewRef grid (получает 360px ширины и h-full)
+          2. Positioning context (relative) для LaunchWideOverlay,
+             который позиционируется через right: calc(100% + 16px)
+          
+          Почему НЕ делать это через сам aside:
+          - aside должен иметь overflow-hidden для vertical clipping
+            (action panel не должен вылезать за границы grid row)
+          - Но CSS spec запрещает overflow-x: visible + overflow-y: hidden
+            (visible принудительно computed как auto, что не работает
+            для overlay элементов торчащих наружу)
+          
+          Решение: wrapper без overflow — containing block для overlay;
+          aside внутри с overflow-hidden — clip только своё содержимое.
+          
+          Ref для useLayoutEffect (вычисление overlayWidth) на wrapper,
+          потому что overlayWidth считается от позиции wrapper в grid. */}
+      <div
+        ref={railRef}
+        className="relative hidden min-h-0 xl:block xl:h-full"
+      >
+        <aside
+          className="flex h-full min-h-0 w-full flex-col gap-4 overflow-hidden px-1"
+          aria-label="Действия проекта"
+        >
+          <div className="shrink-0">
+            <AnalysisActionsPanel
+              deal={effectiveDeal}
+              hasCurrentRun={!!currentRun}
+              canStartRun={canLaunchRun}
+              onOpenRunPanel={handleOpenLaunchPanel}
+              showReclassBanner={showReclassBanner}
+            />
+          </div>
 
-        {/* Декоративная иллюстрация под панелью действий (только на xl+) */}
-        <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-          <img
-            src="/overviewpicture.png"
-            alt=""
+          {/* ── Декоративная картинка ─────────────────────────────
+              flex-1 min-h-0: занимает всё пространство между низом
+              карточки «Действия» и низом rail (за вычетом pb-4 = 16px).
+              gap-4 на aside даёт стандартные 16px от низа карточки.
+              object-contain: картинка ВСЕГДА цельная — вписывается
+              в бокс пропорционально на любом разрешении экрана. */}
+          <div
             aria-hidden="true"
-            loading="lazy"
-            decoding="async"
-            className="pointer-events-none block w-full h-auto select-none opacity-90"
-          />
-        </div>
+            className="pointer-events-none min-h-0 flex-1 select-none"
+          >
+            <img
+              src="/overviewpicture.png"
+              alt=""
+              className="h-full w-full rounded-2xl border border-[var(--border)] object-cover shadow-sm"
+            />
+          </div>
+        </aside>
 
         {overlayWidth !== null && (
           <LaunchWideOverlay
@@ -391,7 +498,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
         )}
       </div>
 
-      <div className="xl:hidden">
+      {/* Mobile/tablet fallback — Action panel как обычный блок ниже
+          основного контента на viewport < xl (rail hidden).
+          shrink-0: блок всегда в конце, контентной высоты.
+          LaunchWideOverlay variant="inline": mobile render-path панели
+          перезапуска — in-flow под кнопкой, без absolute positioning. */}
+      <div className="flex shrink-0 flex-col gap-4 xl:hidden">
         <AnalysisActionsPanel
           deal={effectiveDeal}
           hasCurrentRun={!!currentRun}
@@ -399,11 +511,32 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
           onOpenRunPanel={handleOpenLaunchPanel}
           showReclassBanner={showReclassBanner}
         />
+        {isLaunchPanelOpen && (
+          <div ref={mobileLaunchRef}>
+            <LaunchWideOverlay
+              variant="inline"
+              open={isLaunchPanelOpen}
+              deal={effectiveDeal}
+              hasCurrentRun={!!currentRun}
+              documentsCount={documentsCount}
+              checksMode={checksMode}
+              onChecksModeChange={setChecksMode}
+              forceReclassify={forceReclassify}
+              onForceReclassifyChange={setForceReclassify}
+              canStartRun={canLaunchRun}
+              canUploadDocuments={canUploadDocuments}
+              isSubmitting={isSubmitting}
+              onPrimaryLanguageChange={handlePrimaryLanguageChange}
+              onSubmit={handleStartRun}
+              onClose={handleCloseLaunchPanel}
+              onDealPatched={handleDealPatched}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default OverviewTab;
-
 

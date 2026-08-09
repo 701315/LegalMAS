@@ -1081,8 +1081,9 @@ const IntroScreen: React.FC<{
   onOpenDemo: () => void;
 }> = ({ onOpenDemo }) => {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+    <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
+      {/* Internal scroll на desktop (lg+), на mobile tabpanel скроллит */}
+      <div className="min-h-0 flex-1 lg:overflow-y-auto pr-1">
         <div className="space-y-4">
           <CardShell
             eyebrow="Демонстрационный сценарий работы раздела"
@@ -1214,7 +1215,10 @@ const RealEstateTable: React.FC<{
   sort: SortState;
   onSort: (key: SortKey) => void;
 }> = ({ items, selectedId, onSelect, sort, onSort }) => (
-  <div className="h-full min-h-0 overflow-auto rounded-2xl border border-[var(--border)]">
+  // Dual-mode scroll contract:
+  // Mobile (<lg): content-driven height, таблица в потоке, tabpanel скроллит
+  // Desktop (lg+): h-full + overflow-auto, internal scroll внутри таблицы
+  <div className="rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
     <table className="min-w-full text-left text-sm">
       <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
         <tr>
@@ -1714,7 +1718,7 @@ const DemoScreen: React.FC<{
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
       <div className="mb-4 shrink-0 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">
@@ -1728,7 +1732,7 @@ const DemoScreen: React.FC<{
         <SecondaryButton onClick={onBack}>Назад к описанию</SecondaryButton>
       </div>
 
-      <div className="mb-4 shrink-0 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mb-4 shrink-0 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           label="Объектов выявлено"
           value={`${totalObjects}`}
@@ -1772,9 +1776,8 @@ const DemoScreen: React.FC<{
             bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
             className="h-full min-h-0"
           >
-            <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden xl:grid-cols-2">
-              <div className="min-h-0 overflow-hidden border-b border-[var(--border-subtle)] xl:border-b-0 xl:border-r">
-                <div className="flex h-full min-h-0 flex-col p-5">
+            <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,560px)]">
+              <div className="min-h-0 lg:overflow-hidden border-b border-[var(--border-subtle)] xl:border-b-0 xl:border-r">                <div className="flex h-full min-h-0 flex-col p-5">
                   <div className="mb-4 shrink-0">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">
                       Реестр объектов
@@ -1784,7 +1787,8 @@ const DemoScreen: React.FC<{
                     </p>
                   </div>
 
-                  <div className="min-h-0 flex-1 overflow-hidden">
+                  {/* overflow-hidden на desktop для internal scroll, на mobile таблица в потоке */}
+                  <div className="min-h-0 flex-1 lg:overflow-hidden">
                     <RealEstateTable
                       items={sortedObjects}
                       selectedId={selectedId}
@@ -1796,7 +1800,7 @@ const DemoScreen: React.FC<{
                 </div>
               </div>
 
-              <div className="min-h-0 overflow-hidden">
+              <div className="min-h-0 lg:overflow-hidden">
                 <div className="h-full min-h-0 overflow-y-auto p-5">
                   <RealEstateDetailPanel
                     object={selectedObject}
@@ -1881,7 +1885,10 @@ const RealEstateTab: React.FC<RealEstateTabProps> = ({
   const [mode, setMode] = React.useState<PreviewMode>("intro");
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    // Dual-mode scroll contract:
+    // Mobile (<lg): no height constraint, content-driven, tabpanel scrolls
+    // Desktop (lg+): h-full + overflow-hidden, internal scroll
+    <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
       {mode === "intro" ? (
         <IntroScreen onOpenDemo={() => setMode("demo")} />
       ) : (

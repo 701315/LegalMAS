@@ -71,6 +71,7 @@ import {
 
 import { selectDDGridV1DerivedModel } from "./ddGridV1.selectors";
 import { adaptDDGridV1ToLegacyReview } from "./ddGridV1.legacyAdapter";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 // -------------------------------------------------------------
 // Local types
@@ -437,7 +438,9 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   // gridMode теперь читается из zustand store (format)
   const format = useDDGridV1UIStore((state) => state.format);
-  const gridMode: GridMode = format === "list" ? "list" : "matrix";
+  const isMobile = useIsMobile();
+  const gridMode: GridMode =
+    isMobile ? "list" : format === "list" ? "list" : "matrix";
 
   // checksScope из store — используется для фильтрации в list mode
   const checksScope = useDDGridV1UIStore((state) => state.checksScope);

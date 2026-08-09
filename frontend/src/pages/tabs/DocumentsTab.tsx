@@ -2,7 +2,7 @@
 // src/pages/tabs/DocumentsTab.tsx
 // =============================================================
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useDocuments,
@@ -19,17 +19,18 @@ import type {
 } from "../../types";
 import { ALL_DOCUMENT_COLUMNS } from "../../types";
 import type { DocumentColumnDef, DocumentColumnId } from "../../types";
-import { ChevronRight, Download } from "lucide-react";
 
 import DocumentDetailsContainer from "../../components/documents/DocumentDetailsContainer";
 import PipelineStagePreviewPane from "../../components/documents/pipeline/PipelineStagePreviewPane";
-import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
 import {
-  DOCUMENT_STATUS_CONFIG,
-  getErrorStageLabel,
-} from "../../utils/statusConfig";
-import { getCompositionCellValue } from "../../utils/compositionHelpers";
+  getDocumentsCountLabel,
+  resolveDocumentCellValue,
+  resolveDocumentCellTitle,
+} from "./documents/utils";
 import Button from "../../components/ui/Button";
+import ClassificationWarningBanner from "./documents/components/ClassificationWarningBanner";
+import ColumnSelectorInlinePanel from "./documents/components/ColumnSelectorInlinePanel";
+import ExportMenu from "./documents/components/ExportMenu";
 
 interface DocumentsTabProps {
   deal: Deal;
@@ -42,263 +43,6 @@ interface PipelinePreviewState {
   stages: PipelineStageViewDTO[];
 }
 
-function formatRiskLevel(risk: string | null | undefined): string {
-  if (!risk) return "";
-  switch (risk) {
-    case "low":      return "Низкий";
-    case "medium":   return "Средний";
-    case "high":     return "Высокий";
-    case "critical": return "Критический";
-    default:         return risk;
-  }
-}
-
-function formatDateTime(value: string | undefined | null): string {
-  if (!value) return "";
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
-}
-
-function hasProcessingError(doc: DocumentListItem): boolean {
-  if (doc.status === "failed" || doc.status === "quarantine") return true;
-  const details = doc.processing_error_details;
-  if (!details) return false;
-  return Boolean(details.message || details.type);
-}
-
-function getDocumentsCountLabel(count: number): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return "документ";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "документа";
-  return "документов";
-}
-
-// -------------------------------------------------------------
-// ClassificationWarningBanner
-// -------------------------------------------------------------
-
-const ClassificationWarningBanner: React.FC<{
-  count: number;
-  docs: DocumentListItem[];
-  isExpanded: boolean;
-  onToggle: () => void;
-  onSelectDoc: (id: string) => void;
-}> = ({ count, docs, isExpanded, onToggle, onSelectDoc }) => (
-  <div className="border-b border-[var(--border-subtle)]">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center justify-between gap-3 px-5 py-2 text-left transition hover:bg-[var(--bg-elevated-soft)]"
-    >
-      <div className="flex items-center gap-2">
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-warning-bg)] text-[10px] font-semibold text-[var(--color-warning-text)]">
-          {count}
-        </span>
-        <span className="text-xs font-medium text-[var(--color-warning-text)]">
-          Требуют проверки классификации
-        </span>
-      </div>
-      <span className="text-[11px] text-[var(--text-muted)]">
-        {isExpanded ? "Скрыть ▲" : "Показать ▼"}
-      </span>
-    </button>
-
-    {isExpanded && (
-      <div className="border-t border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-5 py-2">
-        <div className="max-h-48 space-y-0.5 overflow-y-auto">
-          {docs.map((doc) => (
-            <button
-              key={doc.id}
-              type="button"
-              onClick={() => onSelectDoc(doc.id)}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-[var(--bg-elevated-soft)]"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-[var(--text-primary)]">
-                  {doc.filename}
-                </p>
-                <p className="truncate text-[11px] text-[var(--text-muted)]">
-                  {doc.doc_type || "Тип не определён"}
-                </p>
-              </div>
-              <ClassificationBadge
-                level={doc.classification_level}
-                confidence={doc.classification_confidence}
-                showConfidence={false}
-                className="shrink-0"
-              />
-            </button>
-          ))}
-        </div>
-      </div>
-    )}
-  </div>
-);
-
-// -------------------------------------------------------------
-// ColumnSelectorInlinePanel
-// -------------------------------------------------------------
-
-const ColumnSelectorInlinePanel: React.FC<{
-  tempSelectedIds: DocumentColumnId[];
-  hasChanges: boolean;
-  onToggle: (id: DocumentColumnId) => void;
-  onApply: () => void;
-  onReset: () => void;
-  onCancel: () => void;
-}> = ({ tempSelectedIds, hasChanges, onToggle, onApply, onReset, onCancel }) => (
-  <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3">
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
-      <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">
-          Отображаемые колонки
-        </p>
-        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-          Нажмите на поле, чтобы показать или скрыть его в таблице
-        </p>
-      </div>
-
-      <div className="px-4 py-4">
-        <div className="flex flex-wrap gap-2">
-          {ALL_DOCUMENT_COLUMNS.map((col) => {
-            const isSelected = tempSelectedIds.includes(col.id);
-            return (
-              <Button
-                key={col.id}
-                type="button"
-                size="sm"
-                variant={isSelected ? "outline" : "secondary"}
-                onClick={() => onToggle(col.id)}
-                aria-pressed={isSelected}
-                title={col.description}
-                className={
-                  isSelected
-                    ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--text-primary)] shadow-sm hover:bg-[var(--accent-muted)]"
-                    : ""
-                }
-              >
-                {col.label}
-              </Button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
-        <Button size="sm" variant="ghost" onClick={onReset}>
-          По умолчанию
-        </Button>
-        <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={onCancel}>
-            Отмена
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onApply}
-            disabled={!hasChanges}
-            title={
-              hasChanges
-                ? "Применить изменения отображаемых колонок"
-                : "Сначала измените набор отображаемых колонок"
-            }
-            className={
-              hasChanges
-                ? ""
-                : "disabled:opacity-100 disabled:border-[var(--border-subtle)] disabled:bg-[var(--bg-elevated-soft)] disabled:text-[var(--text-muted)] disabled:shadow-none disabled:ring-0"
-            }
-          >
-            Применить
-          </Button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// -------------------------------------------------------------
-// ExportMenu
-// -------------------------------------------------------------
-
-const ExportMenu: React.FC<{
-  isOpen: boolean;
-  onToggle: () => void;
-  onClose: () => void;
-  onExportExcel: () => void;
-  onExportWord: () => void;
-  onExportPDF: () => void;
-}> = ({ isOpen, onToggle, onClose, onExportExcel, onExportWord, onExportPDF }) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  React.useEffect(() => {
-    if (!isOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(event.target as Node)) onClose();
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, onClose]);
-
-  return (
-    <div ref={containerRef} className="relative flex items-center">
-      <Button
-        type="button"
-        size="sm"
-        variant={isOpen ? "outline" : "secondary"}
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        aria-controls="documents-export-slideout"
-        leftIcon={<Download className="h-4 w-4" />}
-        rightIcon={
-          <ChevronRight
-            className={`h-4 w-4 transition-transform duration-200 ${
-              isOpen ? "rotate-90" : "rotate-0"
-            }`}
-          />
-        }
-        className={
-          isOpen
-            ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--text-primary)] shadow-sm hover:bg-[var(--accent-muted)]"
-            : ""
-        }
-      >
-        Сохранить список документов
-      </Button>
-
-      <div
-        id="documents-export-slideout"
-        className={`ml-2 flex origin-left items-center gap-2 overflow-hidden transition-all duration-300 ease-out ${
-          isOpen
-            ? "max-w-[340px] translate-x-0 opacity-100"
-            : "pointer-events-none max-w-0 -translate-x-2 opacity-0"
-        }`}
-        aria-hidden={!isOpen}
-      >
-        <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-2 py-1.5 shadow-sm">
-          <Button size="sm" variant="secondary" onClick={onExportExcel}>Excel</Button>
-          <Button size="sm" variant="secondary" onClick={onExportWord}>Word</Button>
-          <Button size="sm" variant="secondary" onClick={onExportPDF}>PDF</Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // -------------------------------------------------------------
 // DocumentsTab
 // -------------------------------------------------------------
@@ -310,16 +54,20 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 }) => {
   const navigate = useNavigate();
 
+  // ── Data fetching ──────────────────────────────────────────
   const [page] = useState(1);
   const { data, isLoading, error } = useDocuments(deal.id, page);
   const { data: classifiedPage } = useDocumentsWithClassification(deal.id);
 
+  // ── UI state ───────────────────────────────────────────────
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [pipelinePreview, setPipelinePreview] = useState<PipelinePreviewState | null>(null);
   const [isBannerExpanded, setIsBannerExpanded] = useState(false);
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
+  // ── Computed values ────────────────────────────────────────
   const documents = useMemo<DocumentListItem[]>(
     () => data?.items ?? [],
     [data?.items],
@@ -361,11 +109,18 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     [classifiedDocs],
   );
 
+  const isDetailsPanelOpen = isPanelOpen && selectedDocId !== null;
+  const isPipelinePreviewOpen = pipelinePreview !== null;
+
+  // ── Effects ────────────────────────────────────────────────
   React.useEffect(() => {
     if (!selectedDocId) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (pipelinePreview) { setPipelinePreview(null); return; }
+        if (pipelinePreview) {
+          setPipelinePreview(null);
+          return;
+        }
         setSelectedDocId(null);
       }
     };
@@ -373,14 +128,29 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedDocId, pipelinePreview]);
 
-  React.useEffect(() => { setPipelinePreview(null); }, [selectedDocId]);
+  React.useEffect(() => {
+    setPipelinePreview(null);
+  }, [selectedDocId]);
 
   React.useEffect(() => {
     if (!openViewerAt) return;
     setSelectedDocId(openViewerAt.documentId);
+    setIsPanelOpen(true);
     onViewerLocationConsumed?.();
   }, [openViewerAt, onViewerLocationConsumed]);
 
+  React.useEffect(() => {
+    if (!isDetailsPanelOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isDetailsPanelOpen]);
+
+  // ── Event handlers ─────────────────────────────────────────
   const handleToggleColumnSelection = (colId: DocumentColumnId) => {
     setTempSelectedIds((prev) =>
       prev.includes(colId) ? prev.filter((id) => id !== colId) : [...prev, colId],
@@ -404,28 +174,45 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   };
 
   const handleExportExcel = async () => {
-    try { await exportDocumentsExcel(deal.id, visibleColumnIds); setIsExportMenuOpen(false); }
-    catch (err) { console.error(err); alert("Не удалось экспортировать в Excel"); }
+    try {
+      await exportDocumentsExcel(deal.id, visibleColumnIds);
+      setIsExportMenuOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Не удалось экспортировать в Excel");
+    }
   };
 
   const handleExportWord = async () => {
-    try { await exportDocumentsWord(deal.id, visibleColumnIds); setIsExportMenuOpen(false); }
-    catch (err) { console.error(err); alert("Не удалось экспортировать в Word"); }
+    try {
+      await exportDocumentsWord(deal.id, visibleColumnIds);
+      setIsExportMenuOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Не удалось экспортировать в Word");
+    }
   };
 
   const handleExportPDF = async () => {
-    try { await exportDocumentsPDF(deal.id, visibleColumnIds); setIsExportMenuOpen(false); }
-    catch (err) { console.error(err); alert("Не удалось экспортировать в PDF"); }
+    try {
+      await exportDocumentsPDF(deal.id, visibleColumnIds);
+      setIsExportMenuOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Не удалось экспортировать в PDF");
+    }
   };
 
   const handleSelectDocument = (docId: string) => {
     setPipelinePreview(null);
     setSelectedDocId(docId);
+    setIsPanelOpen(true);
   };
 
   const handleCloseDetails = () => {
     setPipelinePreview(null);
-    setSelectedDocId(null);
+    setIsPanelOpen(false);
+    // НЕ сбрасываем selectedDocId — строка остаётся активной
   };
 
   const handleOpenPipelineStagePreview = (
@@ -459,9 +246,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     return String(value);
   };
 
-  const isDetailsPanelOpen = selectedDocId !== null;
-  const isPipelinePreviewOpen = pipelinePreview !== null;
-
+  // ── Render ─────────────────────────────────────────────────
   return (
     <section
       className="flex h-full min-h-0 flex-col"
@@ -610,67 +395,17 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                   onClick={() => handleSelectDocument(doc.id)}
                                 >
                                   {visibleColumns.map((col) => {
-                                    let value: unknown;
+                                    const value = resolveDocumentCellValue(
+                                      col.id,
+                                      col.field,
+                                      doc,
+                                    );
 
-                                    if (
-                                      col.id === "composition_type" ||
-                                      col.id === "segment_count" ||
-                                      col.id === "primary_segment_label" ||
-                                      col.id === "is_composite_file"
-                                    ) {
-                                      value = getCompositionCellValue(col.id, doc);
-                                    } else {
-                                      switch (col.field) {
-                                        case "applicable_triggers_count":
-                                          value = doc.applicable_triggers?.length ?? 0;
-                                          break;
-                                        case "status": {
-                                          const baseLabel =
-                                            doc.status && DOCUMENT_STATUS_CONFIG[doc.status]
-                                              ? DOCUMENT_STATUS_CONFIG[doc.status].label
-                                              : doc.status || "";
-                                          value = hasProcessingError(doc)
-                                            ? `${baseLabel} ⚠`
-                                            : baseLabel;
-                                          break;
-                                        }
-                                        case "risk_level":
-                                          value = formatRiskLevel(doc.risk_level);
-                                          break;
-                                        case "created_at":
-                                          value = formatDateTime(doc.created_at);
-                                          break;
-                                        case "updated_at":
-                                          value = formatDateTime(doc.updated_at);
-                                          break;
-                                        default: {
-                                          type DocumentKey = keyof DocumentListItem;
-                                          value = doc[col.field as DocumentKey];
-                                          break;
-                                        }
-                                      }
-                                    }
-
-                                    let title: string | undefined;
-
-                                    if (col.field === "status" && hasProcessingError(doc)) {
-                                      const details = doc.processing_error_details;
-                                      const stageLabel = getErrorStageLabel(details);
-                                      const message = details?.message;
-                                      if (message && stageLabel !== "Неизвестная стадия") {
-                                        title = `${stageLabel}: ${message}`;
-                                      } else if (message) {
-                                        title = message;
-                                      } else {
-                                        title = typeof value === "string" ? value : undefined;
-                                      }
-                                    } else if (col.field === "status" && doc.status) {
-                                      title =
-                                        DOCUMENT_STATUS_CONFIG[doc.status]?.tooltip ??
-                                        (typeof value === "string" ? value : undefined);
-                                    } else if (typeof value === "string") {
-                                      title = value;
-                                    }
+                                    const title = resolveDocumentCellTitle(
+                                      col.field,
+                                      value,
+                                      doc,
+                                    );
 
                                     const isPrimaryCell = col.id === "filename";
 
@@ -684,7 +419,11 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                         }`}
                                         title={title}
                                       >
-                                        {renderCellValue(value, isPrimaryCell, showReviewFlag)}
+                                        {renderCellValue(
+                                          value,
+                                          isPrimaryCell,
+                                          showReviewFlag,
+                                        )}
                                       </td>
                                     );
                                   })}
@@ -719,46 +458,65 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 
           {/* ── Панель деталей документа ────────────────────── */}
           {isDetailsPanelOpen && (
-            <aside className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[3px] bg-[var(--accent-primary)]" />
+            <>
+              {/* Mobile backdrop */}
+              <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" />
 
-              <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                    Детали документа
-                  </span>
-                  <span className="text-[var(--text-faint)]">·</span>
-                  <span
-                    className="truncate text-sm font-medium text-[var(--text-primary)]"
-                    title={selectedDocument?.filename ?? selectedDocId ?? ""}
+              <aside
+                className="
+                  fixed inset-0 z-50
+                  flex min-h-0 flex-col
+                  bg-[var(--bg-card)]
+                  lg:relative lg:inset-auto
+                  lg:rounded-2xl lg:border lg:border-[var(--border)] lg:shadow-sm
+                  overflow-hidden
+                "
+              >
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[3px] bg-[var(--accent-primary)]" />
+
+                <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                      Детали документа
+                    </span>
+                    <span className="text-[var(--text-faint)]">·</span>
+                    <span
+                      className="truncate text-sm font-medium text-[var(--text-primary)]"
+                      title={selectedDocument?.filename ?? selectedDocId ?? ""}
+                    >
+                      {selectedDocument?.filename ?? selectedDocId}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCloseDetails}
+                    className="
+                      shrink-0 rounded-lg p-2
+                      text-[var(--text-muted)]
+                      transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]
+                    "
+                    aria-label="Закрыть панель деталей документа"
                   >
-                    {selectedDocument?.filename ?? selectedDocId}
-                  </span>
+                    <span className="lg:hidden">← Назад</span>
+                    <span className="hidden lg:inline">✕</span>
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleCloseDetails}
-                  className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-                  aria-label="Закрыть панель деталей документа"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-hidden bg-[var(--bg-elevated-soft)]">
-                <DocumentDetailsContainer
-                  docId={selectedDocId!}
-                  dealId={deal.id}
-                  onNavigateToGrid={(dealId, docName) => {
-                    navigate(
-                      `/projects/${dealId}?tab=dd_grid&document=${encodeURIComponent(docName)}`,
-                    );
-                  }}
-                  onOpenPipelineStagePreview={handleOpenPipelineStagePreview}
-                />
-              </div>
-            </aside>
+                <div className="min-h-0 flex-1 overflow-hidden bg-[var(--bg-elevated-soft)]">
+                  <DocumentDetailsContainer
+                    docId={selectedDocId!}
+                    dealId={deal.id}
+                    onNavigateToGrid={(dealId, docName) => {
+                      navigate(
+                        `/projects/${dealId}?tab=dd_grid&document=${encodeURIComponent(docName)}`,
+                      );
+                    }}
+                    onOpenPipelineStagePreview={handleOpenPipelineStagePreview}
+                  />
+                </div>
+              </aside>
+            </>
           )}
         </div>
       </div>

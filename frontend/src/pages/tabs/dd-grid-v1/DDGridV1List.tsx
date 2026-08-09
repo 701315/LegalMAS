@@ -67,13 +67,13 @@ import DDGridV1Drawer from "./DDGridV1Drawer";
 
 import "ag-grid-community/styles/ag-grid.css";
 import "../../../styles/ag-theme-legalmas.css";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 // -------------------------------------------------------------
 // Constants
 // -------------------------------------------------------------
 
 const GRID_MIN_HEIGHT_PX = 240;
-const GRID_MIN_WIDTH_PX = 1000;
 const SELECTION_COLUMN_WIDTH_PX = 52;
 
 // -------------------------------------------------------------
@@ -579,20 +579,23 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
   const closeDrawer = useCallback(() => {
     const previousActiveRowId = activeRowIdRef.current;
 
+    // Закрываем drawer
     setSelectedDrawer({ open: false, row: null });
-    setActiveRowId(null);
-    activeRowIdRef.current = null;
 
     if (!gridApi || !previousActiveRowId) return;
 
     requestAnimationFrame(() => {
       const node = gridApi.getRowNode(previousActiveRowId);
-      if (node) {
-        try {
-          gridApi.redrawRows({ rowNodes: [node] });
-        } catch {
-          /* noop */
-        }
+      if (!node) return;
+
+      try {
+        // ✅ 1. Прокручиваем к строке
+        gridApi.ensureNodeVisible(node, "middle");
+
+        // ✅ 2. Перерисовываем её (чтобы сохранить подсветку)
+        gridApi.redrawRows({ rowNodes: [node] });
+      } catch {
+        /* noop */
       }
     });
   }, [gridApi]);
@@ -1178,6 +1181,7 @@ const openDrawerForRow = useCallback(
     );
   }
 
+  const isMobile = useIsMobile();
   const isDrawerOpen = selectedDrawer.open && selectedDrawer.row !== null;
 
   return (
@@ -1193,7 +1197,6 @@ const openDrawerForRow = useCallback(
             className="ag-theme-legalmas h-full w-full"
             style={{
               minHeight: GRID_MIN_HEIGHT_PX,
-              minWidth: GRID_MIN_WIDTH_PX,
             }}
           >
             <AgGridReact<V1ListRow>
@@ -1229,7 +1232,39 @@ const openDrawerForRow = useCallback(
 
       {/* Блок Drawer: появляется справа только когда открыт */}
       {isDrawerOpen && (
-        <div className="flex h-full min-h-0 min-w-[320px] flex-[1_1_0%] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        <div
+          className={
+            isMobile
+              ? "fixed inset-0 z-50 flex flex-col bg-[var(--bg-card)]"
+              : "flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
+          }
+          style={
+            isMobile
+              ? undefined
+              : { width: "clamp(360px, 38%, 640px)" }
+          }
+        >
+          {/* ✅ MOBILE HEADER */}
+          {isMobile && (
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+              <button
+                type="button"
+                onClick={closeDrawer}
+                className="text-sm font-medium text-[var(--accent-primary)]"
+              >
+                Назад
+              </button>
+
+              <div className="text-sm font-semibold text-[var(--text-primary)]">
+                Детали
+              </div>
+
+              {/* Балансирующий элемент для центрирования */}
+              <div className="w-12" />
+            </div>
+          )}
+
+          {/* ✅ ORIGINAL DRAWER CONTENT */}
           <DDGridV1Drawer
             open={true}
             onClose={closeDrawer}
@@ -1237,8 +1272,6 @@ const openDrawerForRow = useCallback(
             documentId={selectedDrawer.row?.v1Row.documentId ?? null}
             documentName={selectedDrawer.row?.documentName ?? null}
             drawerContent={selectedDrawer.row?.drawerContent ?? null}
-            currentQcStatus={selectedDrawer.row?.legacyCellQcStatus ?? null}
-            currentQcComment={selectedDrawer.row?.legacyCellQcComment ?? null}
             onOpenInViewer={
               onOpenAtLocation
                 ? (payload) =>
@@ -1261,5 +1294,4 @@ const openDrawerForRow = useCallback(
 };
 
 export default DDGridV1List;
-
 
