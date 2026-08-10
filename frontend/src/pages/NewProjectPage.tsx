@@ -25,6 +25,7 @@ import type { RunChecksMode } from "../types";
 import FlowBlock from "../components/new-project/FlowBlock";
 import type { FlowBlockStatus } from "../components/new-project/FlowBlock";
 import ReadinessRail from "../components/new-project/ReadinessRail";
+import FlowVisualRail from "../components/new-project/FlowVisualRail";
 import type { FlowSummaryData } from "../components/new-project/FlowSummary";
 
 import Block1ProjectInfo from "../components/new-project/Block1ProjectInfo";
@@ -86,6 +87,9 @@ const NewProjectPage: React.FC = () => {
     React.useState<string | null>(null);
   const [modelConfigSummary, setModelConfigSummary] =
     React.useState<string | null>(null);
+
+  const [block4Done, setBlock4Done] = React.useState(false);
+
   const [languageSummary, setLanguageSummary] =
     React.useState<string | null>(null);
 
@@ -156,12 +160,14 @@ const NewProjectPage: React.FC = () => {
 
   const handleModelConfigApplied = (_: string, label: string) => {
     setModelConfigSummary(label);
+    setBlock4Done(true);
     refetchDeal();
     setEditingStep(null);
   };
 
   const handleModelConfigSkipped = () => {
     setModelConfigSummary("По умолчанию");
+    setBlock4Done(true);
     setEditingStep(null);
   };
 
@@ -209,7 +215,8 @@ const NewProjectPage: React.FC = () => {
     hasPlaybook ? "done" : "active";
 
   const block4BaseStatus: FlowBlockStatus =
-    !hasPlaybook ? "disabled" : "done";
+    !hasPlaybook ? "disabled" :
+    block4Done ? "done" : "active";
 
   const block5BaseStatus: FlowBlockStatus =
     !hasPlaybook ? "disabled" :
@@ -324,9 +331,8 @@ const NewProjectPage: React.FC = () => {
           </div>
         </header>
 
-        {/* 2 COLUMNS */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
-
+        {/* 3 COLUMNS */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr_1fr]">
           {/* FLOW */}
           <div className="space-y-4">
             <FlowBlock
@@ -460,12 +466,17 @@ const NewProjectPage: React.FC = () => {
             </FlowBlock>
           </div>
 
-          {/* RIGHT RAIL */}
+          {/* RIGHT RAIL — готовность + сводка */}
           <div className="hidden xl:block">
             <ReadinessRail
               readiness={readinessData}
               summary={summaryData}
             />
+          </div>
+
+          {/* FAR-RIGHT RAIL — визуал */}
+          <div className="hidden xl:block">
+            <FlowVisualRail />
           </div>
         </div>
       </div>
