@@ -1,9 +1,9 @@
 // =============================================================
 // src/pages/NewProjectPage.tsx
-// 3 колонки:
-// 50% — Flow
-// 25% — Инструкция
-// 25% — Визуал (картинка во весь блок)
+//
+// 2 колонки:
+// ~60% — Flow
+// ~40% — Готовность + сводка
 // =============================================================
 
 import React from "react";
@@ -16,13 +16,13 @@ import { useStartRun } from "../api/runs";
 import { useAuth } from "../hooks/useAuth";
 import { useUIStore } from "../stores/uiStore";
 import { shouldPollDealLanguageDiscovery } from "../utils/languageDiscovery";
+import { formatLangLabel } from "../utils/languageDiscovery";
 
 import type { RunChecksMode } from "../types";
 
 import FlowBlock from "../components/new-project/FlowBlock";
 import type { FlowBlockStatus } from "../components/new-project/FlowBlock";
-import FlowInstructionRail from "../components/new-project/FlowInstructionRail";
-import FlowVisualRail from "../components/new-project/FlowVisualRail";
+import ReadinessRail from "../components/new-project/ReadinessRail";
 import type { FlowSummaryData } from "../components/new-project/FlowSummary";
 
 import Block1ProjectInfo from "../components/new-project/Block1ProjectInfo";
@@ -193,14 +193,22 @@ const NewProjectPage: React.FC = () => {
   const block6Status: FlowBlockStatus =
     !hasLanguage ? "disabled" : "active";
 
-  const activeStep =
-    block1Status === "active" ? 1 :
-    block2Status === "active" ? 2 :
-    block3Status === "active" ? 3 :
-    block4Status === "active" ? 4 :
-    block5Status === "active" ? 5 :
-    block6Status === "active" ? 6 :
-    null;
+  // ───────────── SUMMARY ─────────────
+
+  const documentsSummary =
+    documentsCount > 0
+      ? `${documentsCount} ${
+          documentsCount === 1
+            ? "документ"
+            : documentsCount < 5
+              ? "документа"
+              : "документов"
+        }`
+      : null;
+
+  const normalizedPrimaryLanguage =
+    languageSummary ??
+    (deal?.primary_language ? formatLangLabel(deal.primary_language) : null);
 
   const summaryData: FlowSummaryData = {
     projectName: projectName.trim() || null,
@@ -208,16 +216,24 @@ const NewProjectPage: React.FC = () => {
     documentsCount,
     playbookLabel: playbookSummary,
     modelConfigLabel: modelConfigSummary,
-    primaryLanguage: languageSummary,
+    primaryLanguage: normalizedPrimaryLanguage,
   };
 
-  const doneCount = [
-    block1Status === "done",
-    block2Status === "done",
-    block3Status === "done",
-    block4Status === "done",
-    block5Status === "done",
+  const readinessData = {
+    hasProject: !!createdDealId && block1bDone,
+    hasDocuments,
+    hasPlaybook,
+    hasLanguage,
+  };
+
+  const requiredStepsDone = [
+    readinessData.hasProject,
+    readinessData.hasDocuments,
+    readinessData.hasPlaybook,
+    readinessData.hasLanguage,
   ].filter(Boolean).length;
+
+  const requiredStepsTotal = 4;
 
   if (!canCreate) return null;
 
@@ -239,22 +255,27 @@ const NewProjectPage: React.FC = () => {
               </p>
             </div>
 
-            {doneCount > 0 && (
+            {requiredStepsDone > 0 && (
               <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1.5">
                 <span className="text-[11px] font-semibold text-[var(--text-muted)]">
-                  {doneCount} из 6
+                  {requiredStepsDone} из {requiredStepsTotal} готово
                 </span>
               </div>
             )}
           </div>
         </header>
 
-        {/* 3 COLUMNS */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        {/* 2 COLUMNS */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
 
-          {/* 50% FLOW */}
+          {/* FLOW */}
           <div className="space-y-4">
-            <FlowBlock step={1} title="Информация о проекте" status={block1Status}>
+            <FlowBlock
+              step={1}
+              title="Информация о проекте"
+              status={block1Status}
+              summary={projectName.trim() || undefined}
+            >
               <Block1ProjectInfo
                 projectName={projectName}
                 onProjectNameChange={setProjectName}
@@ -271,7 +292,12 @@ const NewProjectPage: React.FC = () => {
               )}
             </FlowBlock>
 
-            <FlowBlock step={2} title="Загрузка документов" status={block2Status}>
+            <FlowBlock
+              step={2}
+              title="Загрузка документов"
+              status={block2Status}
+              summary={documentsSummary ?? undefined}
+            >
               {createdDealId && (
                 <Block2Upload
                   dealId={createdDealId}
@@ -282,7 +308,12 @@ const NewProjectPage: React.FC = () => {
               )}
             </FlowBlock>
 
-            <FlowBlock step={3} title="Выбор playbook" status={block3Status}>
+            <FlowBlock
+              step={3}
+              title="Выбор playbook"
+              status={block3Status}
+              summary={playbookSummary ?? undefined}
+            >
               {createdDealId && (
                 <Block3Playbook
                   dealId={createdDealId}
@@ -292,7 +323,12 @@ const NewProjectPage: React.FC = () => {
               )}
             </FlowBlock>
 
-            <FlowBlock step={4} title="Профиль модели" status={block4Status}>
+            <FlowBlock
+              step={4}
+              title="Профиль модели"
+              status={block4Status}
+              summary={modelConfigSummary ?? undefined}
+            >
               {createdDealId && (
                 <Block4ModelConfig
                   dealId={createdDealId}
@@ -304,7 +340,12 @@ const NewProjectPage: React.FC = () => {
               )}
             </FlowBlock>
 
-            <FlowBlock step={5} title="Основной язык анализа" status={block5Status}>
+            <FlowBlock
+              step={5}
+              title="Основной язык анализа"
+              status={block5Status}
+              summary={normalizedPrimaryLanguage ?? undefined}
+            >
               {createdDealId && deal && (
                 <Block5Language
                   dealId={createdDealId}
@@ -316,7 +357,11 @@ const NewProjectPage: React.FC = () => {
               )}
             </FlowBlock>
 
-            <FlowBlock step={6} title="Запуск анализа" status={block6Status}>
+            <FlowBlock
+              step={6}
+              title="Запуск анализа"
+              status={block6Status}
+            >
               <Block6Launch
                 checksMode={checksMode}
                 onChecksModeChange={setChecksMode}
@@ -338,19 +383,13 @@ const NewProjectPage: React.FC = () => {
             </FlowBlock>
           </div>
 
-          {/* 25% INSTRUCTION (описание сверху, сводка ниже) */}
+          {/* RIGHT RAIL */}
           <div className="hidden xl:block">
-            <FlowInstructionRail
-              activeStep={activeStep}
+            <ReadinessRail
+              readiness={readinessData}
               summary={summaryData}
             />
           </div>
-
-          {/* 25% VISUAL — картинка во весь блок */}
-          <div className="hidden xl:block">
-            <FlowVisualRail />
-          </div>
-
         </div>
       </div>
     </div>
