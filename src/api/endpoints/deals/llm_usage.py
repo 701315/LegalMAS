@@ -47,5 +47,7 @@ async def get_deal_llm_usage_summary(
 
     recorder = LLMUsageRecorder(db)
     summary = await recorder.get_deal_summary(deal_id)
+    by_document = await recorder.get_deal_summary_by_document(deal_id)
+    summary["by_document"] = by_document
     return summary
 

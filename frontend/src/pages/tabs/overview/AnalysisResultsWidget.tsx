@@ -124,25 +124,6 @@ function pluralizeCheckTypes(count: number): string {
   return "типов проверки";
 }
 
-
-// ---------------------------------------------------------------------------
-// Helpers — checks_mode label
-// ---------------------------------------------------------------------------
-
-function formatChecksModeLabel(mode: string | null | undefined): string {
-  if (!mode) return "Не указан";
-  switch (mode) {
-    case "global_and_doc_type":
-      return "Playbook + типы документов";
-    case "global_only":
-      return "Только Playbook";
-    case "doc_type_only":
-      return "Только типы документов";
-    default:
-      return mode;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Helpers — worst status
 // ---------------------------------------------------------------------------
@@ -450,49 +431,52 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
         />
       </button>
 
-      {/* Счётчик "типов проверки" — объясняет что именно считаем */}
-      <p
-        className="mt-1 text-[11px] font-medium text-[var(--text-primary)]"
-        title={`В этой группе ${typesCounterText}. Каждая проверка может применяться к одному или нескольким документам.`}
-      >
-        {typesCounterText}
-      </p>
+      {/* Строка "N типов проверки" + inline-счётчики worst-status справа.
+          Счётчики (pass / fail / unclear) выровнены к правому краю блока
+          и находятся на той же горизонтальной линии, что и текст слева. */}
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <p
+          className="min-w-0 truncate text-[11px] font-medium text-[var(--text-primary)]"
+          title={`В этой группе ${typesCounterText}. Каждая проверка может применяться к одному или нескольким документам.`}
+        >
+          {typesCounterText}
+        </p>
 
-      {/* Компактные счётчики по worst status */}
-      <div className="mt-1 flex items-center gap-2 text-[10px] tabular-nums">
-        {summary.passedChecksCount > 0 && (
-          <span
-            className="flex items-center gap-0.5 text-[var(--color-success-text)]"
-            title={`${summary.passedChecksCount} ${pluralizeCheckTypes(
-              summary.passedChecksCount,
-            )} без замечаний`}
-          >
-            <CheckCircle2 className="h-2.5 w-2.5" aria-hidden />
-            {summary.passedChecksCount}
-          </span>
-        )}
-        {summary.failedChecksCount > 0 && (
-          <span
-            className="flex items-center gap-0.5 text-[var(--color-error-text)]"
-            title={`${summary.failedChecksCount} ${pluralizeCheckTypes(
-              summary.failedChecksCount,
-            )} с замечаниями (хотя бы в одном документе)`}
-          >
-            <XCircle className="h-2.5 w-2.5" aria-hidden />
-            {summary.failedChecksCount}
-          </span>
-        )}
-        {summary.unclearChecksCount > 0 && (
-          <span
-            className="flex items-center gap-0.5 text-[var(--color-warning-text)]"
-            title={`${summary.unclearChecksCount} ${pluralizeCheckTypes(
-              summary.unclearChecksCount,
-            )} требуют уточнения (хотя бы в одном документе)`}
-          >
-            <HelpCircle className="h-2.5 w-2.5" aria-hidden />
-            {summary.unclearChecksCount}
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-2 text-[10px] tabular-nums">
+          {summary.passedChecksCount > 0 && (
+            <span
+              className="flex items-center gap-0.5 text-[var(--color-success-text)]"
+              title={`${summary.passedChecksCount} ${pluralizeCheckTypes(
+                summary.passedChecksCount,
+              )} без замечаний`}
+            >
+              <CheckCircle2 className="h-2.5 w-2.5" aria-hidden />
+              {summary.passedChecksCount}
+            </span>
+          )}
+          {summary.failedChecksCount > 0 && (
+            <span
+              className="flex items-center gap-0.5 text-[var(--color-error-text)]"
+              title={`${summary.failedChecksCount} ${pluralizeCheckTypes(
+                summary.failedChecksCount,
+              )} с замечаниями (хотя бы в одном документе)`}
+            >
+              <XCircle className="h-2.5 w-2.5" aria-hidden />
+              {summary.failedChecksCount}
+            </span>
+          )}
+          {summary.unclearChecksCount > 0 && (
+            <span
+              className="flex items-center gap-0.5 text-[var(--color-warning-text)]"
+              title={`${summary.unclearChecksCount} ${pluralizeCheckTypes(
+                summary.unclearChecksCount,
+              )} требуют уточнения (хотя бы в одном документе)`}
+            >
+              <HelpCircle className="h-2.5 w-2.5" aria-hidden />
+              {summary.unclearChecksCount}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Топ-5 чеков */}
@@ -692,8 +676,6 @@ export const AnalysisResultsWidget: React.FC<
 
   const canOpenDDGrid = isTerminal;
 
-  const checksModeLabel = formatChecksModeLabel(run.checks_mode);
-
   const visibleUnclearFindings = unclearFindingsItems.slice(0, MAX_ITEMS_IN_LIST);
   const hiddenUnclearFindingsCount =
     unclearFindingsItems.length - visibleUnclearFindings.length;
@@ -708,7 +690,9 @@ export const AnalysisResultsWidget: React.FC<
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] text-[var(--text-muted)]">
+            {/* Заголовок в едином стиле с "GLOBAL CHECKS" / "DOC-TYPE CHECKS":
+                uppercase, tracking-[0.10em], font-semibold, text-muted. */}
+            <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
               Выполнено проверок
             </p>
             <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--text-primary)]">
@@ -727,7 +711,8 @@ export const AnalysisResultsWidget: React.FC<
           )}
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar. Числовая подпись "N% готово" не рендерится,
+            потому что прогресс дублируется счётчиком выше (completed / total). */}
         {totalChecks > 0 && (
           <div className="mt-3">
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-elevated-soft)]">
@@ -736,21 +721,8 @@ export const AnalysisResultsWidget: React.FC<
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            <p className="mt-1 text-[10px] text-[var(--text-muted)]">
-              {progressPercent}% готово
-            </p>
           </div>
         )}
-      </div>
-
-      {/* Режим проверки */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-          Режим проверки
-        </p>
-        <p className="mt-0.5 text-[11px] font-medium text-[var(--text-primary)]">
-          {checksModeLabel}
-        </p>
       </div>
 
       {/* Проблемы */}

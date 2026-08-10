@@ -4,7 +4,10 @@
 // =============================================================
 
 import React from "react";
+import { Loader2 } from "lucide-react";
 import type { PipelineStep, PipelineStepStatus, PipelineSubProgress } from "../../../types";
+import { PipelineStepIcon } from "./pipelineStepIcons";
+import { usePipelineStepCardRegistration } from "./pipelineLayoutContext";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,42 +34,75 @@ function formatRelativeTime(iso: string | undefined | null): string {
 // Status icon
 // ---------------------------------------------------------------------------
 
-const StatusIcon: React.FC<{ status: PipelineStepStatus }> = ({ status }) => {
+/**
+ * Единый визуальный бейдж этапа:
+ *   [ круг цвета статуса ] с иконкой этапа внутри.
+ *
+ * Цвет круга кодирует статус (pending / running / completed / failed).
+ * Иконка внутри — тип этапа (см. pipelineStepIcons.tsx).
+ *
+ * running переопределяет иконку на Loader2 (spinner),
+ * чтобы визуально показать "в работе прямо сейчас".
+ */
+const StepBadge: React.FC<{
+  code: string;
+  status: PipelineStepStatus;
+}> = ({ code, status }) => {
+  const baseClass =
+    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full";
+
   if (status === "completed") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-success)] text-[10px] text-white">
-        ✓
+      <span
+        className={`${baseClass} bg-[var(--color-success)] text-white`}
+        aria-label="Завершён"
+      >
+        <PipelineStepIcon code={code} className="h-3.5 w-3.5" strokeWidth={2.25} />
       </span>
     );
   }
 
   if (status === "completed_with_errors") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-warning)] text-[10px] text-white">
-        ⚠
+      <span
+        className={`${baseClass} bg-[var(--color-warning)] text-white`}
+        aria-label="Завершён с ошибками"
+      >
+        <PipelineStepIcon code={code} className="h-3.5 w-3.5" strokeWidth={2.25} />
       </span>
     );
   }
 
   if (status === "failed") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-error)] text-[10px] text-white">
-        ✕
+      <span
+        className={`${baseClass} bg-[var(--color-error)] text-white`}
+        aria-label="Ошибка"
+      >
+        <PipelineStepIcon code={code} className="h-3.5 w-3.5" strokeWidth={2.25} />
       </span>
     );
   }
 
   if (status === "running") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--accent-primary)] border-t-transparent" />
+      <span
+        className={`${baseClass} bg-[var(--accent-primary)] text-white`}
+        aria-label="Идёт"
+      >
+        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} aria-hidden />
       </span>
     );
   }
 
   // pending
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-[var(--border)] bg-[var(--bg-elevated-soft)]" />
+    <span
+      className={`${baseClass} border border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]`}
+      aria-label="Ожидание"
+    >
+      <PipelineStepIcon code={code} className="h-3.5 w-3.5" strokeWidth={2} />
+    </span>
   );
 };
 
@@ -165,14 +201,22 @@ export const PipelineStepCard: React.FC<{
           ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]"
           : "border-[var(--border)] bg-[var(--bg-card)]";
 
+  // Ref используется в PipelineStepsList для батч-измерения
+  // всех карточек одновременно (см. useCardsRef ниже).
+  const cardRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Регистрируем ref в родительском провайдере списка.
+  usePipelineStepCardRegistration(step.code, cardRef);
+
   return (
     <div
+      ref={cardRef}
       className={`rounded-2xl border px-4 py-3 shadow-sm transition-colors ${borderClass}`}
     >
       {/* Header row */}
       <div className="flex items-start gap-3">
         <div className="mt-0.5">
-          <StatusIcon status={step.status} />
+          <StepBadge code={step.code} status={step.status} />
         </div>
 
         <div className="min-w-0 flex-1">

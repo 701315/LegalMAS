@@ -16,7 +16,12 @@
 // =============================================================
 
 import React from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
+import { PipelineStepIcon } from "./pipelineStepIcons";
+import {
+  PipelineLayoutProvider,
+  usePipelineLayout,
+} from "./pipelineLayoutContext";
 import type { Deal } from "../../../types";
 import DocumentsPipelinePanel from "./DocumentsPipelinePanel";
 import { LLMUsageWidget } from "./LLMUsageWidget";
@@ -24,6 +29,7 @@ import { DocumentsOverviewWidget } from "./DocumentsOverviewWidget";
 import { AnalysisResultsWidget } from "./AnalysisResultsWidget";
 import { useDealLLMUsage } from "../../../api/deals";
 import { useDocuments } from "../../../api/documents";
+import { useRunProgress } from "../../../api/runs";
 import { DEMO_AGGREGATES } from "../CounterpartiesTab";
 import { DEMO_OBJECTS } from "../RealEstateTab";
 import { useIsMobile } from "../../../hooks/useIsMobile";
@@ -237,11 +243,297 @@ const RealEstateSummary: React.FC = () => {
 // DocumentsContent — 4-колоночный layout на xl+, fallback на меньших
 // ---------------------------------------------------------------------------
 
+function isTerminalRunStatus(status: string | undefined): boolean {
+  return (
+    status === "completed" ||
+    status === "completed_with_errors" ||
+    status === "failed"
+  );
+}
+
+type StepBadgeStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "completed_with_errors"
+  | "failed";
+
+interface CollapsedStep {
+  code: string;
+  title: string;
+  status: StepBadgeStatus;
+  duration_seconds?: number | null;
+}
+
+function formatCollapsedStepTooltip(step: CollapsedStep): string {
+  const statusLabel: Record<StepBadgeStatus, string> = {
+    completed: "завершён",
+    completed_with_errors: "завершён с ошибками",
+    failed: "ошибка",
+    running: "идёт",
+    pending: "ожидание",
+  };
+
+  const parts = [step.title, statusLabel[step.status]];
+
+  if (
+    typeof step.duration_seconds === "number" &&
+    step.duration_seconds > 0 &&
+    step.status !== "pending"
+  ) {
+    if (step.duration_seconds < 60) {
+      parts.push(`${step.duration_seconds} сек`);
+    } else {
+      const m = Math.floor(step.duration_seconds / 60);
+      const s = step.duration_seconds % 60;
+      parts.push(s > 0 ? `${m} мин ${s} сек` : `${m} мин`);
+    }
+  }
+
+  return parts.join(" · ");
+}
+
+/**
+ * Одна иконка этапа в rail collapsed pipeline.
+ *
+ * Визуал такой же как StepBadge в PipelineStepCard:
+ * цветной круг + иконка этапа внутри. Это обеспечивает
+ * визуальную связь между collapsed rail и expanded view.
+ */
+const CollapsedStepBadge: React.FC<{ step: CollapsedStep }> = ({ step }) => {
+  const baseClass =
+    "flex h-8 w-8 items-center justify-center rounded-full";
+
+  const tooltip = formatCollapsedStepTooltip(step);
+
+  if (step.status === "completed") {
+    return (
+      <span
+        className={`${baseClass} bg-[var(--color-success)] text-white`}
+        title={tooltip}
+        aria-label={tooltip}
+      >
+        <PipelineStepIcon code={step.code} className="h-4 w-4" strokeWidth={2.25} />
+      </span>
+    );
+  }
+
+  if (step.status === "completed_with_errors") {
+    return (
+      <span
+        className={`${baseClass} bg-[var(--color-warning)] text-white`}
+        title={tooltip}
+        aria-label={tooltip}
+      >
+        <PipelineStepIcon code={step.code} className="h-4 w-4" strokeWidth={2.25} />
+      </span>
+    );
+  }
+
+  if (step.status === "failed") {
+    return (
+      <span
+        className={`${baseClass} bg-[var(--color-error)] text-white`}
+        title={tooltip}
+        aria-label={tooltip}
+      >
+        <PipelineStepIcon code={step.code} className="h-4 w-4" strokeWidth={2.25} />
+      </span>
+    );
+  }
+
+  if (step.status === "running") {
+    return (
+      <span
+        className={`${baseClass} bg-[var(--accent-primary)] text-white`}
+        title={tooltip}
+        aria-label={tooltip}
+      >
+        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} aria-hidden />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`${baseClass} border border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]`}
+      title={tooltip}
+      aria-label={tooltip}
+    >
+      <PipelineStepIcon code={step.code} className="h-4 w-4" strokeWidth={2} />
+    </span>
+  );
+};
+
+/**
+ * Приблизительная высота круглого badge (h-8 = 32px).
+ * Используется для расчёта высоты подложки и fallback-ритма.
+ */
+const COLLAPSED_BADGE_HEIGHT_PX = 32;
+
+/**
+ * Fallback-ритм, используется когда pipeline layout store пустой
+ * (например, пользователь ни разу не открывал expanded в этой сессии).
+ */
+const COLLAPSED_FALLBACK_STEP_GAP_PX = 60;
+const COLLAPSED_FALLBACK_TOP_OFFSET_PX = 8;
+
+/**
+ * Вертикальный отступ сверху внутри карточки-обёртки collapsed rail
+ * до первой иконки. Стрелка "развернуть" центрируется в этом
+ * пространстве и всегда стоит над первой иконкой.
+ */
+const COLLAPSED_RAIL_TOP_PADDING_PX = 36;
+
+/**
+ * Collapsed rail pipeline.
+ *
+ * Структура колонки повторяет ColumnShell:
+ *   [ header "Пайплайн" ]
+ *   [ карточка ]
+ *     [ стрелка "развернуть" по центру ]
+ *     [ иконки этапов, абсолютно позиционированные ]
+ *
+ * Иконки этапов позиционируются на тех же y-координатах, что
+ * и шапки карточек PipelineStepCard в expanded режиме. Координаты
+ * берутся из PipelineLayoutContext, куда их записывают сами
+ * PipelineStepCard через ResizeObserver. Если store пуст —
+ * используется равномерный fallback-ритм.
+ *
+ * Клик по стрелке или по любой иконке разворачивает pipeline.
+ */
+const CollapsedPipelineSummary: React.FC<{
+  runId: string | null;
+  onExpand: () => void;
+}> = ({ runId, onExpand }) => {
+  const { data: progress } = useRunProgress(runId);
+  const { layout } = usePipelineLayout();
+
+  const steps = (progress?.steps ?? []) as CollapsedStep[];
+
+  const stepByCode = React.useMemo(() => {
+    const map = new Map<string, CollapsedStep>();
+    for (const s of steps) map.set(s.code, s);
+    return map;
+  }, [steps]);
+
+  // Порядок иконок: приоритет — order из expanded (сохранён в store).
+  const orderedCodes = React.useMemo(() => {
+    if (layout.order.length > 0) return layout.order;
+    return steps.map((s) => s.code);
+  }, [layout.order, steps]);
+
+  // Полная требуемая высота подложки под иконки.
+  const iconsAreaHeightPx = React.useMemo(() => {
+    let maxBottom = 0;
+    for (const code of orderedCodes) {
+      const entry = layout.entries[code];
+      if (entry) {
+        const bottom = entry.top + entry.height;
+        if (bottom > maxBottom) maxBottom = bottom;
+      }
+    }
+    if (maxBottom > 0) return maxBottom;
+
+    const n = orderedCodes.length;
+    if (n === 0) return 0;
+    return (
+      COLLAPSED_FALLBACK_TOP_OFFSET_PX +
+      (n - 1) * COLLAPSED_FALLBACK_STEP_GAP_PX +
+      COLLAPSED_BADGE_HEIGHT_PX
+    );
+  }, [layout.entries, orderedCodes]);
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-col">
+      {/* Header в том же стиле, что заголовки соседних ColumnShell. */}
+      <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+        Пайплайн
+      </p>
+
+      {/* Вся карточка — один большой кликабельный блок.
+          Клик или hover в любой её точке разворачивает pipeline.
+          Тот же визуал rounded-xl / border / bg-card, что у соседних
+          карточек "Документы в проекте" и др. */}
+      <button
+        type="button"
+        onClick={onExpand}
+        title="Нажмите, чтобы развернуть детали пайплайна"
+        aria-label="Развернуть детали пайплайна"
+        className="group min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-0 text-left transition-colors hover:border-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)]"
+      >
+        {orderedCodes.length === 0 ? (
+          <p className="px-3 py-3 text-[10px] text-[var(--text-muted)]">—</p>
+        ) : (
+          <div className="relative w-full">
+            {/* Стрелка "развернуть" по центру карточки над первой иконкой.
+                Не имеет собственного onClick — реагирует на клик всей
+                карточки. group-hover обеспечивает синхронную реакцию
+                с остальным контентом при наведении. */}
+            <span
+              className="absolute left-1/2 top-2 -translate-x-1/2 rounded-md p-1 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]"
+              aria-hidden
+            >
+              <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </span>
+
+            {/* Подложка с иконками этапов. Верхний padding резервирует
+                место под стрелку. Иконки позиционируются абсолютно
+                по координатам из layout store — на тех же y, что
+                шапки карточек PipelineStepCard в expanded (координаты
+                хранятся как дельты от первой карточки). */}
+            <div
+              className="relative w-full"
+              style={{
+                height: `${iconsAreaHeightPx + COLLAPSED_RAIL_TOP_PADDING_PX}px`,
+              }}
+            >
+              {orderedCodes.map((code, index) => {
+                const step = stepByCode.get(code);
+                if (!step) return null;
+
+                const entry = layout.entries[code];
+
+                const topPx = entry
+                  ? entry.top + COLLAPSED_RAIL_TOP_PADDING_PX
+                  : COLLAPSED_RAIL_TOP_PADDING_PX +
+                    COLLAPSED_FALLBACK_TOP_OFFSET_PX +
+                    index * COLLAPSED_FALLBACK_STEP_GAP_PX;
+
+                return (
+                  <span
+                    key={code}
+                    className="absolute left-1/2 -translate-x-1/2"
+                    style={{ top: `${topPx}px` }}
+                  >
+                    <CollapsedStepBadge step={step} />
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </button>
+    </div>
+  );
+};
+
 const DocumentsContent: React.FC<{
   runId: string | null;
   dealId: string;
-  isRunActive: boolean;
-}> = ({ runId, dealId, isRunActive }) => {
+}> = ({ runId, dealId }) => {
+  const [isPipelineExpanded, setIsPipelineExpanded] = React.useState(false);
+
+  const { data: progress } = useRunProgress(runId);
+  const isTerminal = isTerminalRunStatus(progress?.run_status);
+  const isRunActive = !!runId && !isTerminal;
+
+  React.useEffect(() => {
+    if (!isTerminal) {
+      setIsPipelineExpanded(false);
+    }
+  }, [isTerminal]);
+
   const {
     data: llmUsage,
     isLoading: llmLoading,
@@ -258,55 +550,94 @@ const DocumentsContent: React.FC<{
 
   const documents = documentsPage?.items;
 
+  // Карта document_id → filename для блока "Использование LLM / По документам".
+  // Передаётся во все инстансы LLMUsageWidget ниже.
+  const documentNames = React.useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    for (const doc of documents ?? []) {
+      if (doc.id && doc.filename) {
+        map[doc.id] = doc.filename;
+      }
+    }
+    return map;
+  }, [documents]);
+
   return (
     <>
-      {/* ── xl+ : 4 колонки, одинаковая высота, скролл внутри каждой ──
-          
-          КРИТИЧНО: grid-rows-[minmax(0,1fr)] обязателен.
-          
-          По умолчанию grid-template-rows: auto — каждая строка равна
-          размеру своего контента. Если один из ColumnShell содержит
-          длинный контент (например, AnalysisResultsWidget с 20+ checks),
-          grid row растёт до размера этого контента и превышает h-full.
-          
-          Тогда родительский overflow-hidden режет контент снизу,
-          и вложенный overflow-y-auto внутри ColumnShell не работает,
-          потому что ColumnShell уже "уплыл" за границы grid.
-          
-          minmax(0,1fr) заставляет row быть ровно 1 fraction высоты
-          grid контейнера, минимум 0. Это даёт ColumnShell точный
-          height budget, внутри которого overflow-y-auto может
-          корректно скроллиться.
-          
-          Без этой строки "Итог анализа" визуально обрезается снизу
-          и часть checks недоступна пользователю. */}
-      <div className="hidden h-full min-h-0 grid-cols-4 grid-rows-[minmax(0,1fr)] gap-4 xl:grid">
-        <ColumnShell title="Пайплайн анализа">
-          <DocumentsPipelinePanel runId={runId} />
-        </ColumnShell>
+      {/* ── xl+ : активный run → pipeline на всю ширину ── */}
+      {!isTerminal && (
+        <div className="hidden h-full min-h-0 xl:block">
+          <div className="flex h-full min-h-0 flex-col">
+            <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+              Пайплайн анализа
+            </p>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+              <DocumentsPipelinePanel runId={runId} />
+            </div>
+          </div>
+        </div>
+      )}
 
-        <ColumnShell title="Обзор документов">
-          <DocumentsOverviewWidget
-            documents={documents}
-            isLoading={documentsLoading}
-            isError={documentsError}
+      {/* ── xl+ : terminal + expanded → pipeline на всю ширину ── */}
+      {isTerminal && isPipelineExpanded && (
+        <div className="hidden h-full min-h-0 xl:flex xl:flex-col">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+              Пайплайн анализа · подробности
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsPipelineExpanded(false)}
+              className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-[11px] text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+            >
+              Свернуть пайплайн
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+            <DocumentsPipelinePanel runId={runId} />
+          </div>
+        </div>
+      )}
+
+      {/* ── xl+ : terminal + collapsed → узкая pipeline + 3 summary колонки ── */}
+      {isTerminal && !isPipelineExpanded && (
+        <div
+          className="hidden h-full min-h-0 grid-rows-[minmax(0,1fr)] gap-4 xl:grid"
+          style={{
+            gridTemplateColumns:
+              "minmax(72px,72px) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
+          }}
+        >
+          <CollapsedPipelineSummary
+            runId={runId}
+            onExpand={() => setIsPipelineExpanded(true)}
           />
-        </ColumnShell>
 
-        <ColumnShell title="Итог анализа">
-          <AnalysisResultsWidget dealId={dealId} runId={runId} />
-        </ColumnShell>
+          <ColumnShell title="Обзор документов">
+            <DocumentsOverviewWidget
+              documents={documents}
+              isLoading={documentsLoading}
+              isError={documentsError}
+            />
+          </ColumnShell>
 
-        <ColumnShell title="Использование LLM">
-          <LLMUsageWidget
-            data={llmUsage}
-            isLoading={llmLoading}
-            isError={llmError}
-          />
-        </ColumnShell>
-      </div>
+          <ColumnShell title="Итог анализа">
+            <AnalysisResultsWidget dealId={dealId} runId={runId} />
+          </ColumnShell>
 
-      {/* ── < xl : fallback — двухколоночный layout с новыми виджетами ── */}
+          <ColumnShell title="Использование LLM">
+            <LLMUsageWidget
+              data={llmUsage}
+              isLoading={llmLoading}
+              isError={llmError}
+              documentNames={documentNames}
+            />
+          </ColumnShell>
+        </div>
+      )}
+
+      {/* ── < xl : stacked fallback ── */}
       <div className="grid min-h-0 grid-cols-1 gap-4 xl:hidden lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="min-w-0">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
@@ -315,36 +646,39 @@ const DocumentsContent: React.FC<{
           <DocumentsPipelinePanel runId={runId} />
         </div>
 
-        <div className="min-w-0 space-y-4">
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-              Обзор документов
-            </p>
-            <DocumentsOverviewWidget
-              documents={documents}
-              isLoading={documentsLoading}
-              isError={documentsError}
-            />
-          </div>
+        {isTerminal && (
+          <div className="min-w-0 space-y-4">
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+                Обзор документов
+              </p>
+              <DocumentsOverviewWidget
+                documents={documents}
+                isLoading={documentsLoading}
+                isError={documentsError}
+              />
+            </div>
 
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-              Итог анализа
-            </p>
-            <AnalysisResultsWidget dealId={dealId} runId={runId} />
-          </div>
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+                Итог анализа
+              </p>
+              <AnalysisResultsWidget dealId={dealId} runId={runId} />
+            </div>
 
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-              Использование LLM
-            </p>
-            <LLMUsageWidget
-              data={llmUsage}
-              isLoading={llmLoading}
-              isError={llmError}
-            />
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+                Использование LLM
+              </p>
+              <LLMUsageWidget
+                data={llmUsage}
+                isLoading={llmLoading}
+                isError={llmError}
+                documentNames={documentNames}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </>
   );
@@ -359,7 +693,6 @@ export const ProjectDomainDetailsPanel: React.FC<
 > = ({ activeDomain, onDomainChange: _onDomainChange, runId, deal }) => {
   const isMobile = useIsMobile();
   const domainLabel = getDomainLabel(activeDomain);
-  const isRunActive = !!runId;
 
   return (
     <section
@@ -407,11 +740,12 @@ export const ProjectDomainDetailsPanel: React.FC<
         }`}
       >
         {activeDomain === "documents" && (
-          <DocumentsContent
-            runId={runId}
-            dealId={deal.id}
-            isRunActive={isRunActive}
-          />
+          <PipelineLayoutProvider>
+            <DocumentsContent
+              runId={runId}
+              dealId={deal.id}
+            />
+          </PipelineLayoutProvider>
         )}
         {/* Mobile: контент в потоке (tabpanel скроллит).
             xl+: internal scroll панели с overscroll-contain. */}

@@ -253,11 +253,8 @@ export const DocumentsOverviewWidget: React.FC<
         <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
           Документы в проекте
         </p>
-        <p className="mt-1 text-xl font-semibold tracking-tight tabular-nums text-[var(--text-primary)]">
-          {data.total}
-        </p>
 
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-3 gap-2">
           <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 py-1.5">
             <p className="text-[10px] text-[var(--text-muted)]">Готовы</p>
             <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--color-success-text)]">

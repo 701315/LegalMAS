@@ -3,6 +3,7 @@
 import React from "react";
 import { useRunProgress } from "../../../api/runs";
 import { PipelineStepCard } from "./PipelineStepCard";
+import { usePipelineLayout } from "./pipelineLayoutContext";
 
 function formatElapsed(seconds: number | undefined | null): string {
   if (seconds == null) return "";
@@ -145,9 +146,7 @@ export const DocumentsPipelinePanel: React.FC<{
       )}
 
       {/* Steps */}
-      {data.steps.map((step) => (
-        <PipelineStepCard key={step.code} step={step} />
-      ))}
+      <PipelineStepsList steps={data.steps} />
 
       {/* Summary footer for terminal */}
       {isTerminal && (data.documents_failed > 0 || data.documents_quarantine > 0) && (
@@ -172,6 +171,42 @@ export const DocumentsPipelinePanel: React.FC<{
     </div>
   );
 };
+
+/**
+ * Список карточек этапов с явным position: relative на контейнере.
+ *
+ * Явный relative критичен: PipelineStepCard измеряет свою позицию
+ * через offsetTop, который считается относительно ближайшего
+ * offsetParent. Без relative-обёртки offsetParent мог бы стать
+ * произвольным родителем выше по дереву, и координаты, сохранённые
+ * в PipelineLayoutContext, стали бы бесполезны для collapsed rail.
+ *
+ * Также здесь регистрируется порядок этапов — collapsed rail
+ * использует его как fallback (если store ещё пустой) и для
+ * стабильной сортировки при рендере.
+ */
+const PipelineStepsList: React.FC<{
+  steps: RunPipelineProgressStep[];
+}> = ({ steps }) => {
+  const { reportOrder } = usePipelineLayout();
+
+  React.useEffect(() => {
+    reportOrder(steps.map((s) => s.code));
+  }, [reportOrder, steps]);
+
+  return (
+    <div className="relative space-y-2">
+      {steps.map((step) => (
+        <PipelineStepCard key={step.code} step={step} />
+      ))}
+    </div>
+  );
+};
+
+// Локальный alias для типа, чтобы не тянуть внешний импорт в мелкий helper.
+type RunPipelineProgressStep = React.ComponentProps<
+  typeof PipelineStepCard
+>["step"];
 
 export default DocumentsPipelinePanel;
 
