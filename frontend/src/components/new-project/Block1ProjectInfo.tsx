@@ -1,13 +1,11 @@
 // =============================================================
 // src/components/new-project/Block1ProjectInfo.tsx
 //
-// Первый подэтап нового flow:
+// Шаг 1 нового flow:
 // - ввод названия проекта
 // - создание deal
 //
-// После успешного создания блок становится read-only,
-// а выбор ответственного будет показан отдельным подблоком
-// в составе того же шага.
+// После успешного создания блок становится read-only.
 // =============================================================
 
 import React from "react";
@@ -89,23 +87,12 @@ const Block1ProjectInfo: React.FC<Block1ProjectInfoProps> = ({
                   Проект создан
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Теперь можно выбрать ответственного пользователя и перейти к
-                  следующему шагу настройки проекта.
+                  Теперь можно перейти к следующему шагу настройки проекта.
                 </p>
               </div>
             </div>
           </div>
-        ) : (
-          <div className="subtle-panel px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Что будет дальше
-            </p>
-            <p className="mt-1 text-sm text-[var(--text-primary)]">
-              Сначала создадим карточку проекта, после этого в этом же шаге
-              появится выбор ответственного пользователя из базы.
-            </p>
-          </div>
-        )}
+        ) : null}
 
         {!isCreated ? (
           <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] pt-4">

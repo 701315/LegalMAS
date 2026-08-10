@@ -15,8 +15,10 @@ import { useDocuments } from "../api/documents";
 import { useStartRun } from "../api/runs";
 import { useAuth } from "../hooks/useAuth";
 import { useUIStore } from "../stores/uiStore";
-import { shouldPollDealLanguageDiscovery } from "../utils/languageDiscovery";
-import { formatLangLabel } from "../utils/languageDiscovery";
+import {
+  formatLangLabel,
+  shouldPollDealLanguageDiscovery,
+} from "../utils/languageDiscovery";
 
 import type { RunChecksMode } from "../types";
 
@@ -26,7 +28,6 @@ import ReadinessRail from "../components/new-project/ReadinessRail";
 import type { FlowSummaryData } from "../components/new-project/FlowSummary";
 
 import Block1ProjectInfo from "../components/new-project/Block1ProjectInfo";
-import Block1bResponsibleUser from "../components/new-project/Block1bResponsibleUser";
 import Block2Upload from "../components/new-project/Block2Upload";
 import Block3Playbook from "../components/new-project/Block3Playbook";
 import Block4ModelConfig from "../components/new-project/Block4ModelConfig";
@@ -38,6 +39,27 @@ interface DealCreateResponse {
 }
 
 const DEAL_POLL_INTERVAL = 4000;
+
+function formatCountLabel(
+  count: number,
+  one: string,
+  few: string,
+  many: string,
+): string | null {
+  if (count <= 0) {
+    return null;
+  }
+
+  if (count === 1) {
+    return `1 ${one}`;
+  }
+
+  if (count < 5) {
+    return `${count} ${few}`;
+  }
+
+  return `${count} ${many}`;
+}
 
 const NewProjectPage: React.FC = () => {
   const navigate = useNavigate();
@@ -60,18 +82,23 @@ const NewProjectPage: React.FC = () => {
   const [isCreating, setIsCreating] = React.useState(false);
   const [createError, setCreateError] = React.useState<string | null>(null);
 
-  const [block1bDone, setBlock1bDone] = React.useState(false);
-  const [responsibleUserName, setResponsibleUserName] = React.useState<string | null>(null);
-
-  const [playbookSummary, setPlaybookSummary] = React.useState<string | null>(null);
-  const [modelConfigSummary, setModelConfigSummary] = React.useState<string | null>(null);
-  const [block4Done, setBlock4Done] = React.useState(false);
-  const [languageSummary, setLanguageSummary] = React.useState<string | null>(null);
+  const [playbookSummary, setPlaybookSummary] =
+    React.useState<string | null>(null);
+  const [modelConfigSummary, setModelConfigSummary] =
+    React.useState<string | null>(null);
+  const [languageSummary, setLanguageSummary] =
+    React.useState<string | null>(null);
 
   const [checksMode, setChecksMode] =
     React.useState<RunChecksMode>("global_and_doc_type");
   const [forceReclassify, setForceReclassify] = React.useState(false);
   const [launchError, setLaunchError] = React.useState<string | null>(null);
+
+  /**
+   * Какой завершённый шаг сейчас открыт на редактирование.
+   * null = обычный flow без ручного редактирования.
+   */
+  const [editingStep, setEditingStep] = React.useState<number | null>(null);
 
   // ───────────── DATA ─────────────
 
@@ -121,30 +148,27 @@ const NewProjectPage: React.FC = () => {
 
   // ───────────── CALLBACKS ─────────────
 
-  const handleResponsibleCompleted = (user: string | null) => {
-    setBlock1bDone(true);
-    setResponsibleUserName(user);
-  };
-
   const handlePlaybookApplied = (_: string, label: string) => {
     setPlaybookSummary(label);
     refetchDeal();
+    setEditingStep(null);
   };
 
   const handleModelConfigApplied = (_: string, label: string) => {
     setModelConfigSummary(label);
-    setBlock4Done(true);
     refetchDeal();
+    setEditingStep(null);
   };
 
   const handleModelConfigSkipped = () => {
     setModelConfigSummary("По умолчанию");
-    setBlock4Done(true);
+    setEditingStep(null);
   };
 
   const handleLanguageSet = (_: string, label: string) => {
     setLanguageSummary(label);
     refetchDeal();
+    setEditingStep(null);
   };
 
   const handleLaunch = () => {
@@ -170,57 +194,84 @@ const NewProjectPage: React.FC = () => {
   const hasDocuments = documentsCount > 0;
   const hasPlaybook = !!deal?.playbook_version_id;
   const hasLanguage = !!deal?.primary_language;
+  const block1Done = !!createdDealId;
+  const isEditMode = editingStep !== null;
 
-  const block1Status: FlowBlockStatus =
-    createdDealId && block1bDone ? "done" : "active";
+  const block1BaseStatus: FlowBlockStatus =
+    block1Done ? "done" : "active";
 
-  const block2Status: FlowBlockStatus =
+  const block2BaseStatus: FlowBlockStatus =
     !createdDealId ? "disabled" :
     hasDocuments ? "done" : "active";
 
-  const block3Status: FlowBlockStatus =
+  const block3BaseStatus: FlowBlockStatus =
     !hasDocuments ? "disabled" :
     hasPlaybook ? "done" : "active";
 
-  const block4Status: FlowBlockStatus =
-    !hasPlaybook ? "disabled" :
-    block4Done ? "done" : "active";
+  const block4BaseStatus: FlowBlockStatus =
+    !hasPlaybook ? "disabled" : "done";
 
-  const block5Status: FlowBlockStatus =
+  const block5BaseStatus: FlowBlockStatus =
     !hasPlaybook ? "disabled" :
     hasLanguage ? "done" : "active";
 
-  const block6Status: FlowBlockStatus =
+  const block6BaseStatus: FlowBlockStatus =
     !hasLanguage ? "disabled" : "active";
+
+  const resolveStatus = (
+    step: number,
+    baseStatus: FlowBlockStatus,
+  ): FlowBlockStatus => {
+    if (editingStep === null) {
+      return baseStatus;
+    }
+
+    if (step > editingStep) {
+      return "disabled";
+    }
+
+    if (step === editingStep) {
+      return baseStatus === "disabled" ? "disabled" : "active";
+    }
+
+    return baseStatus === "disabled" ? "disabled" : "done";
+  };
+
+  const block1Status = resolveStatus(1, block1BaseStatus);
+  const block2Status = resolveStatus(2, block2BaseStatus);
+  const block3Status = resolveStatus(3, block3BaseStatus);
+  const block4Status = resolveStatus(4, block4BaseStatus);
+  const block5Status = resolveStatus(5, block5BaseStatus);
+  const block6Status = resolveStatus(6, block6BaseStatus);
 
   // ───────────── SUMMARY ─────────────
 
-  const documentsSummary =
-    documentsCount > 0
-      ? `${documentsCount} ${
-          documentsCount === 1
-            ? "документ"
-            : documentsCount < 5
-              ? "документа"
-              : "документов"
-        }`
-      : null;
+  const documentsSummary = formatCountLabel(
+    documentsCount,
+    "документ",
+    "документа",
+    "документов",
+  );
 
   const normalizedPrimaryLanguage =
     languageSummary ??
     (deal?.primary_language ? formatLangLabel(deal.primary_language) : null);
 
+  const effectiveModelConfigSummary =
+    modelConfigSummary ??
+    deal?.model_config_name ??
+    (hasPlaybook ? "По умолчанию" : null);
+
   const summaryData: FlowSummaryData = {
     projectName: projectName.trim() || null,
-    responsibleUser: responsibleUserName,
     documentsCount,
     playbookLabel: playbookSummary,
-    modelConfigLabel: modelConfigSummary,
+    modelConfigLabel: effectiveModelConfigSummary,
     primaryLanguage: normalizedPrimaryLanguage,
   };
 
   const readinessData = {
-    hasProject: !!createdDealId && block1bDone,
+    hasProject: block1Done,
     hasDocuments,
     hasPlaybook,
     hasLanguage,
@@ -234,6 +285,14 @@ const NewProjectPage: React.FC = () => {
   ].filter(Boolean).length;
 
   const requiredStepsTotal = 4;
+
+  const getBackProps = (step: number) =>
+    editingStep === step
+      ? {
+          onBackRequest: () => setEditingStep(null),
+          backLabel: "Закрыть редактирование",
+        }
+      : {};
 
   if (!canCreate) return null;
 
@@ -272,7 +331,7 @@ const NewProjectPage: React.FC = () => {
           <div className="space-y-4">
             <FlowBlock
               step={1}
-              title="Информация о проекте"
+              title="Название проекта"
               status={block1Status}
               summary={projectName.trim() || undefined}
             >
@@ -284,12 +343,6 @@ const NewProjectPage: React.FC = () => {
                 isCreated={!!createdDealId}
                 errorText={createError}
               />
-              {createdDealId && !block1bDone && (
-                <Block1bResponsibleUser
-                  dealId={createdDealId}
-                  onCompleted={handleResponsibleCompleted}
-                />
-              )}
             </FlowBlock>
 
             <FlowBlock
@@ -297,6 +350,12 @@ const NewProjectPage: React.FC = () => {
               title="Загрузка документов"
               status={block2Status}
               summary={documentsSummary ?? undefined}
+              onEditRequest={
+                !isEditMode && hasDocuments
+                  ? () => setEditingStep(2)
+                  : undefined
+              }
+              {...getBackProps(2)}
             >
               {createdDealId && (
                 <Block2Upload
@@ -313,6 +372,12 @@ const NewProjectPage: React.FC = () => {
               title="Выбор playbook"
               status={block3Status}
               summary={playbookSummary ?? undefined}
+              onEditRequest={
+                !isEditMode && hasPlaybook
+                  ? () => setEditingStep(3)
+                  : undefined
+              }
+              {...getBackProps(3)}
             >
               {createdDealId && (
                 <Block3Playbook
@@ -327,7 +392,13 @@ const NewProjectPage: React.FC = () => {
               step={4}
               title="Профиль модели"
               status={block4Status}
-              summary={modelConfigSummary ?? undefined}
+              summary={effectiveModelConfigSummary ?? undefined}
+              onEditRequest={
+                !isEditMode && hasPlaybook
+                  ? () => setEditingStep(4)
+                  : undefined
+              }
+              {...getBackProps(4)}
             >
               {createdDealId && (
                 <Block4ModelConfig
@@ -345,6 +416,12 @@ const NewProjectPage: React.FC = () => {
               title="Основной язык анализа"
               status={block5Status}
               summary={normalizedPrimaryLanguage ?? undefined}
+              onEditRequest={
+                !isEditMode && hasLanguage
+                  ? () => setEditingStep(5)
+                  : undefined
+              }
+              {...getBackProps(5)}
             >
               {createdDealId && deal && (
                 <Block5Language
