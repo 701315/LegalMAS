@@ -1,0 +1,17 @@
+[Unit]
+Description=Steloom Demo Celery Worker
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=steloom
+WorkingDirectory=/srv/steloom-demo
+Environment=PYTHONPATH=/srv/steloom-demo/src
+EnvironmentFile=/srv/steloom-demo/.env
+ExecStart=/srv/steloom-demo/.venv/bin/celery -A mas_queue.celery_app:celery_app worker --loglevel=info --concurrency=2 -Q high_priority,default,system,low_priority,heavy_llm_enrichment,heavy_llm_segment_classification,heavy_llm_checks
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
