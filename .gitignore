@@ -71,3 +71,8 @@ celerybeat-schedule
 # Stray files
 =
 frontend/audit-output/
+
+# Local scripts dependencies
+scripts/node_modules/
+scripts/package-lock.json
+
