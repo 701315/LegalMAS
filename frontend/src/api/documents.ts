@@ -133,10 +133,8 @@ export const documentApi = {
       .get<DocumentFamilyDto>(`/api/v1/documents/${docId}/family`)
       .then((response) => response.data),
 
-  getPdfUrl: (docId: string) =>
-    client
-      .get<{ url: string }>(`/api/v1/documents/${docId}/pdf-url`)
-      .then((r) => r.data),
+  getPdfUrl: (docId: string): Promise<{ url: string }> =>
+    Promise.resolve({ url: `/api/v1/documents/${docId}/converted-pdf-content` }),
 
   getChunkViewUrl: (docId: string) =>
     client

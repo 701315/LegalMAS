@@ -14,7 +14,7 @@ from api.schemas.document_pipeline_view import (
     PipelineStageViewDTO,
     StageMetaDTO,
 )
-from core.exceptions import PermanentError, TransientError
+from core.exceptions import TransientError
 from storage.artifact_store import ArtifactStore
 
 
@@ -43,20 +43,11 @@ def build_primary_stage(
             preview=None,
         )
 
+    # Проверяем существование артефакта без генерации presigned URL.
+    # Browser-facing URL строится как backend streaming endpoint —
+    # MinIO остаётся приватным, браузер не ходит в storage напрямую.
     try:
-        url = store.get_presigned_get_url(artifact_ref)
-    except PermanentError:
-        return PipelineStageViewDTO(
-            code=PipelineStageCode.PRIMARY,
-            title="PRIMARY: одноязычный source",
-            description="Primary-source PDF ожидается, но отсутствует в сторедже.",
-            available=False,
-            kind=PipelineStageKind.pdf,
-            status=PipelineStageStatus.missing,
-            artifact_ref=artifact_ref,
-            meta=base_meta,
-            preview=None,
-        )
+        artifact_exists = store.exists(artifact_ref)
     except TransientError:
         return PipelineStageViewDTO(
             code=PipelineStageCode.PRIMARY,
@@ -70,10 +61,27 @@ def build_primary_stage(
             preview=None,
         )
 
+    if not artifact_exists:
+        return PipelineStageViewDTO(
+            code=PipelineStageCode.PRIMARY,
+            title="PRIMARY: одноязычный source",
+            description="Primary-source PDF ожидается, но отсутствует в сторедже.",
+            available=False,
+            kind=PipelineStageKind.pdf,
+            status=PipelineStageStatus.missing,
+            artifact_ref=artifact_ref,
+            meta=base_meta,
+            preview=None,
+        )
+
+    doc_id = doc.id
+    inline_url = f"/api/v1/documents/{doc_id}/primary-pdf-content"
+    download_url = f"/api/v1/documents/{doc_id}/primary-pdf-content"
+
     preview = PdfPreviewDTO(
         type="pdf",
-        inline_url=url,
-        download_url=url,
+        inline_url=inline_url,
+        download_url=download_url,
     )
 
     return PipelineStageViewDTO(

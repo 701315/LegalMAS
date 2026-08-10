@@ -30,6 +30,7 @@ import { PdfPreviewModal } from "./DocumentDetails/PdfPreviewModal";
 import { Section, InfoRow, FamilyRow } from "./DocumentDetails/shared";
 import { HeaderSection } from "./DocumentDetails/sections/HeaderSection";
 import { ReviewSection } from "./DocumentDetails/sections/ReviewSection";
+import client from "../../api/client";
 
 // =============================================================
 // Типы для view-контракта (container → view)
@@ -342,31 +343,31 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       : structuredSegments[0]?.segmentKey ?? null;
 
   const handleOpenOriginalFile = () => {
-    if (!pdfUrl || !canOpenPdf) return;
+    if (!canOpenPdf) return;
     setIsPdfPreviewOpen(true);
   };
 
   const handleDownloadOriginalFile = async () => {
-    if (!pdfUrl || !canDownload || isDownloadingOriginal) return;
+    if (!canDownload || isDownloadingOriginal) return;
 
     try {
       setIsDownloadingOriginal(true);
 
-      const response = await fetch(pdfUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      // Скачиваем через axios — Authorization header добавляется автоматически.
+      // Backend стримит оригинальный файл из приватного MinIO.
+      const response = await client.get<Blob>(
+        `/api/v1/documents/${documentId}/original-file`,
+        { responseType: "blob" },
+      );
 
-      const blob = await response.blob();
+      const blob = response.data;
       const objectUrl = window.URL.createObjectURL(blob);
-
       const link = document.createElement("a");
       link.href = objectUrl;
-      link.download = doc.filename || "document.pdf";
+      link.download = doc.filename || "document";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
       window.URL.revokeObjectURL(objectUrl);
     } catch (downloadError) {
       console.error("Failed to download original file", downloadError);
@@ -820,7 +821,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
       <PdfPreviewModal
         open={isPdfPreviewOpen}
-        pdfUrl={pdfUrl}
+        documentId={documentId}
         filename={doc.filename}
         isDownloading={isDownloadingOriginal}
         onDownload={handleDownloadOriginalFile}
