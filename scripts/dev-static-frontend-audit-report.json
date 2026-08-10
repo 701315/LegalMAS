@@ -1,0 +1,2391 @@
+{
+  "findings": [
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/ConfirmDialog.tsx",
+      "line": 100,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/admin/AlertsPanel.tsx",
+      "line": 91,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/admin/AlertsPanel.tsx",
+      "line": 305,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/admin/ExternalToolsBar.tsx",
+      "line": 67,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/admin/TenantsTable.tsx",
+      "line": 181,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/admin/TenantsTable.tsx",
+      "line": 52,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/admin/TenantsTable.tsx",
+      "line": 139,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/admin/TenantsTable.tsx",
+      "line": 335,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/admin/TenantsTable.tsx",
+      "line": 345,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/admin/TenantsTable.tsx",
+      "line": 354,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/DocumentChunksModal.tsx",
+      "line": 80,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/DocumentDetails/PdfPreviewModal.tsx",
+      "line": 46,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/DocumentDetails/PdfPreviewModal.tsx",
+      "line": 83,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/DocumentDetails/sections/StructuredDataSection.tsx",
+      "line": 234,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/DocumentTree.tsx",
+      "line": 152,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/DocumentTree.tsx",
+      "line": 210,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/DocumentTree.tsx",
+      "line": 315,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/LayoutDebugModal.tsx",
+      "line": 504,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/ReviewCheckCard.tsx",
+      "line": 50,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/ReviewCheckCard.tsx",
+      "line": 51,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ChunksStageViewer.tsx",
+      "line": 376,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ChunksStageViewer.tsx",
+      "line": 917,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ChunksStageViewer.tsx",
+      "line": 491,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ChunksStageViewer.tsx",
+      "line": 858,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ChunksStageViewer.tsx",
+      "line": 963,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ChunksStageViewer.tsx",
+      "line": 1191,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ChunksStageViewer.tsx",
+      "line": 1204,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ClassificationDecisionPanel.tsx",
+      "line": 301,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/LayoutStageViewer.tsx",
+      "line": 176,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/LayoutStageViewer.tsx",
+      "line": 178,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/LayoutStageViewer.tsx",
+      "line": 81,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/LayoutStageViewer.tsx",
+      "line": 101,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/PdfStageViewer.tsx",
+      "line": 39,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/PipelineStageModal.tsx",
+      "line": 229,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/PipelineStageModal.tsx",
+      "line": 309,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/PipelineStagePreviewPane.tsx",
+      "line": 216,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/PipelineStagePreviewPane.tsx",
+      "line": 291,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/PipelineStagePreviewPane.tsx",
+      "line": 273,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ProcessingTracePanel.tsx",
+      "line": 244,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/ProcessingTracePanel.tsx",
+      "line": 77,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "INLINE_PX",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/StructureStageViewer.tsx",
+      "line": 458,
+      "message": "Inline px размер — проверить адаптивность"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/StructureStageViewer.tsx",
+      "line": 322,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/StructureStageViewer.tsx",
+      "line": 376,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/StructureStageViewer.tsx",
+      "line": 395,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/StructureStageViewer.tsx",
+      "line": 529,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/StructureStageViewer.tsx",
+      "line": 691,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/StructureStageViewer.tsx",
+      "line": 448,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/StructureStageViewer.tsx",
+      "line": 642,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/documents/pipeline/StructureStageViewer.tsx",
+      "line": 741,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "GRID_NOT_MOBILE_FIRST",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/components/evidence/EvidencePanel.tsx",
+      "line": 253,
+      "message": "grid-cols-3 без mobile-first или breakpoint"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/evidence/EvidencePanel.tsx",
+      "line": 253,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/evidence/EvidencePanel.tsx",
+      "line": 343,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/evidence/EvidencePanel.tsx",
+      "line": 396,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/evidence/EvidencePanel.tsx",
+      "line": 518,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/evidence/EvidencePanel.tsx",
+      "line": 628,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/instructions/GlobalInstructionEditor.tsx",
+      "line": 354,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/instructions/GlobalInstructionEditor.tsx",
+      "line": 837,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/instructions/ImportYamlDialog.tsx",
+      "line": 203,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/instructions/ImportYamlDialog.tsx",
+      "line": 250,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/layout/AppShell.tsx",
+      "line": 190,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/layout/AppShell.tsx",
+      "line": 364,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/layout/AppShell.tsx",
+      "line": 378,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/layout/AppShell.tsx",
+      "line": 379,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/model-config/ModelConfigManagerPanel.tsx",
+      "line": 1047,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/model-config/ModelConfigManagerPanel.tsx",
+      "line": 1122,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/new-project/Block3Playbook.tsx",
+      "line": 261,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/new-project/Block3Playbook.tsx",
+      "line": 331,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/new-project/Block4ModelConfig.tsx",
+      "line": 252,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/new-project/FlowBlock.tsx",
+      "line": 95,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/new-project/FlowBlock.tsx",
+      "line": 181,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "IMG_NO_ALT",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/components/new-project/FlowVisualRail.tsx",
+      "line": 14,
+      "message": "img без alt"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/new-project/FlowVisualRail.tsx",
+      "line": 13,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/playbook/DealPlaybookSelectorPanel.tsx",
+      "line": 606,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/playbook/DealPlaybookSelectorPanel.tsx",
+      "line": 665,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/playbook/DealPlaybookSelectorPanel.tsx",
+      "line": 775,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/qc/BulkQCBar.tsx",
+      "line": 96,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/qc/BulkQCBar.tsx",
+      "line": 111,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/qc/BulkQCBar.tsx",
+      "line": 127,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/qc/BulkQCBar.tsx",
+      "line": 187,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/qc/BulkQCBar.tsx",
+      "line": 200,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/qc/QCCellRenderer.tsx",
+      "line": 83,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/qc/QCCellRenderer.tsx",
+      "line": 100,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/requests/RequestSidePanel.tsx",
+      "line": 125,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/requests/RequestsTable.tsx",
+      "line": 121,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/requests/RequestsTable.tsx",
+      "line": 194,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/requests/RequestsTable.tsx",
+      "line": 217,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/requests/ReviewRequestSidePanel.tsx",
+      "line": 121,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/requests/ReviewRequestsTable.tsx",
+      "line": 77,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/requests/ReviewRequestsTable.tsx",
+      "line": 96,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/settings/ProjectMembersPanel.tsx",
+      "line": 263,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/ui/Button.tsx",
+      "line": 89,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/ui/Tabs.tsx",
+      "line": 276,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "HIGH_ZINDEX_POSITIONED",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/components/viewer/DocumentViewerModal.tsx",
+      "line": 238,
+      "message": "absolute/fixed с высоким z-index — риск перекрытия"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/viewer/DocumentViewerModal.tsx",
+      "line": 267,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/viewer/DocumentViewerModal.tsx",
+      "line": 280,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/components/viewer/DocumentViewerModal.tsx",
+      "line": 292,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPage.tsx",
+      "line": 306,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPage.tsx",
+      "line": 411,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPage.tsx",
+      "line": 172,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPage.tsx",
+      "line": 199,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPage.tsx",
+      "line": 214,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPage.tsx",
+      "line": 423,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPage.tsx",
+      "line": 500,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPlaybookLinesPage.tsx",
+      "line": 543,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPlaybookVersionsPage.tsx",
+      "line": 195,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminPlaybookVersionsPage.tsx",
+      "line": 265,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminTenantDetailPage.tsx",
+      "line": 270,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminTenantDetailPage.tsx",
+      "line": 374,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminTenantDetailPage.tsx",
+      "line": 510,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminTenantNewPage.tsx",
+      "line": 86,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/AdminTenantProjectsPage.tsx",
+      "line": 195,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/DashboardPage.tsx",
+      "line": 135,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/DealPage.tsx",
+      "line": 267,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/DealPage.tsx",
+      "line": 290,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/DealPage.tsx",
+      "line": 382,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/DealPage.tsx",
+      "line": 470,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/DealPage.tsx",
+      "line": 505,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/DealPage.tsx",
+      "line": 556,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/DealPlaybookSelectorPage.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/LoginPage.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/LoginPage.tsx",
+      "line": 168,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/ModelConfigsAdminPage.tsx",
+      "line": 21,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/PlaybooksRegistryPage.tsx",
+      "line": 136,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/PlaybooksRegistryPage.tsx",
+      "line": 448,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/PlaybooksRegistryPage.tsx",
+      "line": 561,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/ProjectUploadPage.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "IMG_NO_ALT",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1856,
+      "message": "img без alt"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 211,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 396,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1331,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1524,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1549,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1568,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1602,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1866,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1933,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 2393,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 2547,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 2576,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 2594,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 2628,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 212,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 223,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 249,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 272,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 505,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1339,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1485,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 1907,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/TenantAdminPage.tsx",
+      "line": 2398,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/deal-instructions/DealInstructionsPage.tsx",
+      "line": 25,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/deal-instructions/DealOverridesPage.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/deal-instructions/DealOverridesPage.tsx",
+      "line": 23,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "GRID_NOT_MOBILE_FIRST",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/DocTypeDetailPage.tsx",
+      "line": 101,
+      "message": "grid-cols-3 без mobile-first или breakpoint"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/DocTypeDetailPage.tsx",
+      "line": 826,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/DocTypeDetailPage.tsx",
+      "line": 221,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/DocTypeDetailPage.tsx",
+      "line": 284,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/DocTypeDetailPage.tsx",
+      "line": 832,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/DocTypeInstructionsPage.tsx",
+      "line": 91,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/DocTypeInstructionsPage.tsx",
+      "line": 122,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/DocTypeInstructionsPage.tsx",
+      "line": 218,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/DocTypeInstructionsPage.tsx",
+      "line": 423,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "GRID_NOT_MOBILE_FIRST",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionDetailPage.tsx",
+      "line": 141,
+      "message": "grid-cols-3 без mobile-first или breakpoint"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionDetailPage.tsx",
+      "line": 883,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionDetailPage.tsx",
+      "line": 260,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionDetailPage.tsx",
+      "line": 323,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionDetailPage.tsx",
+      "line": 889,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionVersionDetailPage.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionsPage.tsx",
+      "line": 83,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionsPage.tsx",
+      "line": 114,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionsPage.tsx",
+      "line": 208,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalInstructionsPage.tsx",
+      "line": 409,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalPlaybookDetailPage.tsx",
+      "line": 49,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalPlaybookDetailPage.tsx",
+      "line": 120,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/GlobalPlaybooksPage.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/PlaybookVersionDetailPage.tsx",
+      "line": 101,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/PlaybookVersionDetailPage.tsx",
+      "line": 187,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/instructions/PlaybookVersionDetailPage.tsx",
+      "line": 210,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/playbooks/PlaybookStudioPage.tsx",
+      "line": 408,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/playbooks/PlaybookStudioPage.tsx",
+      "line": 767,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/playbooks/PlaybookStudioPage.tsx",
+      "line": 845,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/playbooks/PlaybookStudioPage.tsx",
+      "line": 1072,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/AuditTab.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/AuditTab.tsx",
+      "line": 249,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 822,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 867,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 896,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 1038,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 1074,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 1521,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 1582,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 1689,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 672,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 688,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 739,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 908,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 1127,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/CounterpartiesTab.tsx",
+      "line": 1191,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 285,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 479,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 556,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 558,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 568,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 580,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 722,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 749,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 92,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 114,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/DocumentsTab.tsx",
+      "line": 739,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/GridTab.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "IMG_NO_ALT",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/OverviewTab.tsx",
+      "line": 362,
+      "message": "img без alt"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/OverviewTab.tsx",
+      "line": 361,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/OverviewTab.tsx",
+      "line": 54,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 841,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 886,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 915,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1084,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1120,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1717,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1775,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1776,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1787,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1799,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1832,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1884,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 691,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 707,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 758,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 927,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RealEstateTab.tsx",
+      "line": 1192,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RequestsTab.tsx",
+      "line": 378,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RequestsTab.tsx",
+      "line": 469,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RequestsTab.tsx",
+      "line": 485,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RequestsTab.tsx",
+      "line": 513,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/RequestsTab.tsx",
+      "line": 532,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/audit/ClassificationAuditView.tsx",
+      "line": 195,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/audit/ClassificationInvestigationDrawer.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/audit/ClassificationInvestigationDrawer.tsx",
+      "line": 142,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/audit/ClassificationInvestigationDrawer.tsx",
+      "line": 365,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/audit/ClassificationInvestigationDrawer.tsx",
+      "line": 161,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx",
+      "line": 357,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1ExportButtons.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1ExportLayoutPicker.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1InstructionDrawer.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1InstructionDrawer.tsx",
+      "line": 34,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1InstructionDrawer.tsx",
+      "line": 114,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1List.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1List.tsx",
+      "line": 1187,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1List.tsx",
+      "line": 1191,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1List.tsx",
+      "line": 1232,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1List.tsx",
+      "line": 850,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx",
+      "line": 1325,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx",
+      "line": 1353,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx",
+      "line": 328,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx",
+      "line": 498,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx",
+      "line": 892,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx",
+      "line": 1005,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx",
+      "line": 1080,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx",
+      "line": 366,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx",
+      "line": 404,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx",
+      "line": 728,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx",
+      "line": 877,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx",
+      "line": 1015,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx",
+      "line": 964,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx",
+      "line": 976,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1TypedGroups.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1ViewModeToggle.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1ViewModeToggle.tsx",
+      "line": 53,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1ViewSettings.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/DDGridV1ViewSettings.tsx",
+      "line": 115,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.cellSummary.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.collapseStore.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.docTypeGroups.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.drawer.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.exportBuilder.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.exportRunners.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.formatters.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.legacyAdapter.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.selectors.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/dd-grid-v1/ddGridV1.types.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/grid/ReviewQcBulkActions.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/grid/gridTab.constants.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/grid/gridTab.types.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/grid/gridTab.utils.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/grid/reviewGrid.filters.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/grid/reviewGrid.qc.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/grid/reviewGrid.selectors.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/grid/reviewGrid.types.ts",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/AnalysisResultsWidget.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/AnalysisResultsWidget.tsx",
+      "line": 733,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/AnalysisResultsWidget.tsx",
+      "line": 384,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/AnalysisResultsWidget.tsx",
+      "line": 438,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/AnalysisResultsWidget.tsx",
+      "line": 832,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "GRID_NOT_MOBILE_FIRST",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/DocumentsOverviewWidget.tsx",
+      "line": 147,
+      "message": "grid-cols-3 без mobile-first или breakpoint"
+    },
+    {
+      "rule": "GRID_NOT_MOBILE_FIRST",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/DocumentsOverviewWidget.tsx",
+      "line": 260,
+      "message": "grid-cols-3 без mobile-first или breakpoint"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/DocumentsOverviewWidget.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/DocumentsOverviewWidget.tsx",
+      "line": 171,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/DocumentsOverviewWidget.tsx",
+      "line": 349,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/DocumentsPipelinePanel.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/LLMUsageWidget.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/LaunchWideOverlay.tsx",
+      "line": 383,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/LaunchWideOverlay.tsx",
+      "line": 398,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/PipelinePreviewPanel.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/PipelineStepCard.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/PipelineStepCard.tsx",
+      "line": 124,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "GRID_NOT_MOBILE_FIRST",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx",
+      "line": 260,
+      "message": "grid-cols-4 без mobile-first или breakpoint"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx",
+      "line": 378,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx",
+      "line": 56,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tabs/overview/shared.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "GRID_NOT_MOBILE_FIRST",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx",
+      "line": 125,
+      "message": "grid-cols-3 без mobile-first или breakpoint"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx",
+      "line": 423,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx",
+      "line": 174,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx",
+      "line": 427,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx",
+      "line": 80,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx",
+      "line": 103,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx",
+      "line": 202,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx",
+      "line": 338,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx",
+      "line": 390,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "GRID_NOT_MOBILE_FIRST",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx",
+      "line": 86,
+      "message": "grid-cols-3 без mobile-first или breakpoint"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx",
+      "line": 387,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx",
+      "line": 135,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx",
+      "line": 391,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx",
+      "line": 75,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx",
+      "line": 98,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx",
+      "line": 180,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx",
+      "line": 317,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx",
+      "line": 369,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "NO_RESPONSIVE_CLASSES",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantBasePlaybooksPage.tsx",
+      "line": 1,
+      "message": "В файле нет sm:/md:/lg: классов"
+    },
+    {
+      "rule": "IMG_NO_ALT",
+      "severity": "error",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantInstructionsPage.tsx",
+      "line": 186,
+      "message": "img без alt"
+    },
+    {
+      "rule": "OVERFLOW_HIDDEN_RISK",
+      "severity": "warn",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantInstructionsPage.tsx",
+      "line": 185,
+      "message": "overflow-hidden — риск ломки mobile scroll"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantInstructionsPage.tsx",
+      "line": 25,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantOverrideCreatePage.tsx",
+      "line": 241,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantOverrideDetailPage.tsx",
+      "line": 168,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantOverridesPage.tsx",
+      "line": 38,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantOverridesPage.tsx",
+      "line": 109,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx",
+      "line": 56,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx",
+      "line": 76,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx",
+      "line": 151,
+      "message": "button без type — лучше явно указать"
+    },
+    {
+      "rule": "BUTTON_NO_TYPE",
+      "severity": "info",
+      "file": "/srv/steloom-dev/frontend/src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx",
+      "line": 208,
+      "message": "button без type — лучше явно указать"
+    }
+  ]
+}

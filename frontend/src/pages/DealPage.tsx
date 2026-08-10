@@ -268,27 +268,36 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
     return (
       <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg-card)]">
-        <header className="hidden shrink-0 border-b border-[var(--border)] bg-[var(--accent-subtle)] lg:block">
-        <div className="px-6 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-                {deal.name}
-              </h1>
-            </div>
+        <header
+          className="hidden shrink-0 border-b border-[var(--border)] lg:block"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.45)), url('/projectpicture.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="px-6 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-semibold tracking-tight text-white">
+                  {deal.name}
+                </h1>
+              </div>
 
-            <div className="shrink-0">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleBackToProjects}
-              >
-                Вернуться к списку проектов
-              </Button>
+              <div className="shrink-0">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleBackToProjects}
+                >
+                  Вернуться к списку проектов
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="hidden min-h-0 shrink-0 lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-[var(--border)] lg:bg-[var(--bg-card)]">
