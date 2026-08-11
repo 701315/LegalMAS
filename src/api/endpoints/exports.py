@@ -39,9 +39,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps.auth import CurrentUser, get_current_user
+from api.deps.security import require_project_role
 from api.schemas.export import ExportRecord
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
+from db.models.deal import Deal
 from db.models.export import Export
 from db.session import get_db
 from storage.artifact_store import ArtifactStore
@@ -64,24 +67,33 @@ _EXPORT_CONTENT_TYPES = {
 }
 
 
-async def get_tenant_id() -> str:
-    """
-    Временная заглушка для tenant_id.
-
-    Сейчас возвращает константу "default".
-    Позже здесь можно подключить:
-    - чтение tenant_id из токена,
-    - чтение tenant_id из middleware / request state,
-    - или multi-tenant routing по домену / заголовкам.
-    """
-    return "default"
-
-
-async def _get_export_or_404(
+async def _get_scoped_export_or_404(
     db: AsyncSession,
     export_id: UUID,
+    user: CurrentUser,
 ) -> Export:
-    stmt = select(Export).where(Export.id == export_id)
+    """
+    Вернуть Export только если он доступен в tenant scope текущего пользователя.
+
+    Правила:
+    - superadmin   → может видеть export любого tenant'а
+    - tenant_admin → только exports своего tenant'а
+    - member       → только exports своего tenant'а
+
+    ВАЖНО:
+    - этот helper проверяет только tenant isolation;
+    - deal-level RBAC (viewer/editor/admin membership) проверяется отдельно
+      через require_project_role().
+    """
+    stmt = (
+        select(Export)
+        .join(Deal, Export.deal_id == Deal.id)
+        .where(Export.id == export_id)
+    )
+
+    if user.global_role != "superadmin":
+        stmt = stmt.where(Deal.tenant_id == user.tenant_id)
+
     result = await db.execute(stmt)
     export: Export | None = result.scalars().first()
 
@@ -170,7 +182,7 @@ def _iter_storage_response(storage_response: Any):
 async def get_export_status(
     export_id: UUID,
     db: AsyncSession = Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
+    user: CurrentUser = Depends(get_current_user),
 ) -> ExportRecord:
     """
     Получить статус экспорта и базовую информацию по одной записи Export.
@@ -182,9 +194,14 @@ async def get_export_status(
 
     Поле download_url заполняется только если экспорт завершён и file_ref существует.
     """
-    export = await _get_export_or_404(db, export_id)
+    export = await _get_scoped_export_or_404(db, export_id, user)
 
-    _ = tenant_id
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=export.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
 
     record = ExportRecord.model_validate(export)
     record.download_url = _build_download_url(export)
@@ -199,6 +216,9 @@ async def get_export_status(
         file_ref=export.file_ref,
         file_size_bytes=export.file_size_bytes,
         has_download_url=bool(record.download_url),
+        actor_user_id=user.id,
+        actor_tenant_id=str(user.tenant_id),
+        actor_role=user.global_role,
     )
 
     if export.status in {"pending", "processing"}:
@@ -229,7 +249,7 @@ async def get_export_status(
 async def download_export_file(
     export_id: UUID,
     db: AsyncSession = Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Скачать файл экспорта через backend streaming.
@@ -247,9 +267,14 @@ async def download_export_file(
     - dev/demo работают одинаково независимо от сетевой topology;
     - приложение сохраняет контроль доступа на своём уровне.
     """
-    export = await _get_export_or_404(db, export_id)
+    export = await _get_scoped_export_or_404(db, export_id, user)
 
-    _ = tenant_id
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=export.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
 
     file_ref = (export.file_ref or "").strip()
 
@@ -367,6 +392,9 @@ async def download_export_file(
         filename=filename,
         content_type=content_type,
         size=size,
+        actor_user_id=user.id,
+        actor_tenant_id=str(user.tenant_id),
+        actor_role=user.global_role,
     )
 
     return StreamingResponse(
