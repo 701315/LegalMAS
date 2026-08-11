@@ -126,13 +126,39 @@ from ..playbook.models import LLMConfig
 from ..prompts.loader import get_promptloader
 from .models import DetectionResult, EvidenceChunk, RetrievedChunk
 
+import re
+
 logger = get_logger(__name__)
+
+# Нормализованная токенизация для grounding score.
+# Использует \w+ вместо split() чтобы:
+# - "договора." и "договора" были одним токеном
+# - "покупатель," и "покупатель" совпадали
+# - Работало корректно для русского и английского текста
+_WORD_RE = re.compile(r"\w+", re.UNICODE)
+
+
+def _tokenize_for_grounding(text: str) -> set[str]:
+    """Нормализованная токенизация текста для расчёта grounding score."""
+    return {m.group(0).lower() for m in _WORD_RE.finditer(text or "")}
 
 
 DEFAULT_PROMPT_FILE = "detection/genericclause"
 
 # Количество повторных попыток при временных ошибках LLM.
 LLM_MAX_RETRIES = getattr(settings, "LLM_MAX_RETRIES", 2)
+
+# Пороги grounding для evidence от LLM.
+# Exact substring match → 1.0
+# Token overlap / длина evidence → 0.0-1.0
+# При grounding ниже GROUNDING_WARN_THRESHOLD — понижаем confidence.
+# При grounding ниже GROUNDING_UNCLEAR_THRESHOLD — evidence считается ненадёжным.
+_GROUNDING_WARN_THRESHOLD: float = 0.3
+_GROUNDING_UNCLEAR_THRESHOLD: float = 0.1
+_GROUNDING_CONFIDENCE_CAP_WEAK: float = 0.7    # cap при grounding < WARN
+_GROUNDING_CONFIDENCE_CAP_VERY_WEAK: float = 0.5  # cap при grounding < UNCLEAR
+
+
 
 # Все переменные, которые LLMDetector умеет подставлять в промпты.
 # Если нужно добавить новую переменную — добавь её сюда и передавай
@@ -629,24 +655,88 @@ class LLMDetector:
         context_chunks: list[RetrievedChunk],
     ) -> DetectionResult:
         """
-        Превратить LLMResponse в DetectionResult.
+        Превратить LLMResponse в DetectionResult с grounding-проверкой evidence.
 
-        Если LLM дал текст evidence, пытаемся найти подходящий chunk,
-        иначе создаём evidence без привязки к конкретному элементу документа.
+        Grounding-логика (порядок применения):
+        1. Рассчитываем grounding_score для evidence из LLM.
+        2. Если grounding < UNCLEAR_THRESHOLD (0.1) — evidence почти наверняка
+           hallucinated: гасим found=False, confidence cap до 0.5.
+        3. Если grounding < WARN_THRESHOLD (0.3) — слабое grounding:
+           confidence cap до 0.7, anchor в UI не проставляем.
+        4. Если grounding >= WARN_THRESHOLD — evidence достаточно заземлён:
+           confidence не трогаем, ищем лучший chunk для anchor.
+
+        Это предотвращает попадание LLM-галлюцинаций в risk findings
+        и ложную привязку несуществующих цитат к страницам документа.
         """
         evidence_chunks: list[EvidenceChunk] = []
 
-        if response.found and response.evidence:
-            best_chunk = self._find_evidence_chunk(response.evidence, context_chunks)
+        # --- Шаг 1: Grounding score ---
+        # Рассчитываем ДО любых решений по found/confidence/anchor.
+        # grounding_score = 0.0 когда found=False или evidence пустой —
+        # в этом случае он не влияет на результат.
+        grounding_score: float = 0.0
+        raw_found = bool(response.found) if response.found is not None else False
+
+        if raw_found and response.evidence:
+            grounding_score = self._calculate_grounding_score(
+                response.evidence, context_chunks
+            )
+
+        # --- Шаг 2: adjusted_found ---
+        # Если grounding очень слабый — evidence почти наверняка hallucinated.
+        # Гасим found, чтобы это не стало полноценным fail в executor.
+        # Порог _GROUNDING_UNCLEAR_THRESHOLD (0.1): менее 10% слов evidence
+        # встречается в реальном тексте — это не цитата, это выдумка.
+        if raw_found and response.evidence and grounding_score < _GROUNDING_UNCLEAR_THRESHOLD:
+            adjusted_found = False
+            logger.debug(
+                "LLMDetector._build_result: evidence suppressed due to very low grounding",
+                extra={
+                    "grounding_score": grounding_score,
+                    "threshold": _GROUNDING_UNCLEAR_THRESHOLD,
+                    "evidence_preview": (response.evidence or "")[:100],
+                },
+            )
+        else:
+            adjusted_found = raw_found
+
+        # --- Шаг 3: adjusted_confidence ---
+        # Корректируем confidence на основе grounding.
+        # Если evidence найдено, но слабо заземлено — понижаем cap.
+        # Если found был suppressed (adjusted_found=False) — confidence
+        # понижается независимо, но это не критично т.к. found=False.
+        raw_confidence = response.confidence if response.confidence is not None else 0.0
+
+        if raw_found and response.evidence:
+            if grounding_score < _GROUNDING_UNCLEAR_THRESHOLD:
+                adjusted_confidence = min(raw_confidence, _GROUNDING_CONFIDENCE_CAP_VERY_WEAK)
+            elif grounding_score < _GROUNDING_WARN_THRESHOLD:
+                adjusted_confidence = min(raw_confidence, _GROUNDING_CONFIDENCE_CAP_WEAK)
+            else:
+                adjusted_confidence = raw_confidence
+        else:
+            adjusted_confidence = raw_confidence
+
+        # --- Шаг 4: EvidenceChunk с защитой anchor ---
+        # Якорим в документ (page/element_id/clause_uid) ТОЛЬКО если:
+        # - adjusted_found=True (evidence не suppressed)
+        # - grounding >= WARN_THRESHOLD (evidence достаточно заземлён)
+        # При слабом grounding — EvidenceChunk создаётся без anchor,
+        # чтобы UI не показывал ложную ссылку на страницу/клаузу.
+        if adjusted_found and response.evidence:
+            # Ищем chunk для anchor только при достаточном grounding
+            best_chunk = None
+            if grounding_score >= _GROUNDING_WARN_THRESHOLD:
+                best_chunk = self._find_evidence_chunk(response.evidence, context_chunks)
+
             if best_chunk:
+                # Хорошее grounding + найден matching chunk → полный anchor
                 evidence_chunks.append(
                     EvidenceChunk(
                         element_id=best_chunk.element_id,
                         text=response.evidence[:500],
                         page=best_chunk.page,
-                        # Приоритет: best_chunk.clause_uid (effective_uid после нашей правки
-                        # в executor.py) > response.clause (то что LLM написал в ответе,
-                        # может быть raw_uid "5.2" вместо "main_contract:5.2").
                         clause_uid=best_chunk.clause_uid or response.clause,
                         bbox=best_chunk.bbox,
                         score=best_chunk.combined_score,
@@ -657,6 +747,8 @@ class LLMDetector:
                     )
                 )
             else:
+                # Слабый grounding или chunk не найден → evidence без anchor.
+                # page=0, element_id="" сигнализируют UI что привязки нет.
                 evidence_chunks.append(
                     EvidenceChunk(
                         element_id="",
@@ -676,7 +768,10 @@ class LLMDetector:
             logger.debug(
                 "LLMDetector._build_result",
                 extra={
-                    "found": bool(response.found),
+                    "raw_found": raw_found,
+                    "adjusted_found": adjusted_found,
+                    "grounding_score": grounding_score,
+                    "adjusted_confidence": adjusted_confidence,
                     "evidence_preview": (response.evidence or "")[:200],
                     "clause": response.clause,
                     "context_chunks_count": len(context_chunks),
@@ -684,7 +779,9 @@ class LLMDetector:
                     "best_chunk_element_id": (
                         evidence_chunks[0].element_id if evidence_chunks else None
                     ),
-                    "best_chunk_page": (evidence_chunks[0].page if evidence_chunks else None),
+                    "best_chunk_page": (
+                        evidence_chunks[0].page if evidence_chunks else None
+                    ),
                     "best_chunk_clause_uid": (
                         evidence_chunks[0].clause_uid if evidence_chunks else None
                     ),
@@ -703,9 +800,9 @@ class LLMDetector:
             logger.debug("LLMDetector._build_result: debug logging failed")
 
         return DetectionResult(
-            found=bool(response.found) if response.found is not None else False,
+            found=adjusted_found,
             evidence_chunks=evidence_chunks,
-            confidence=response.confidence,
+            confidence=adjusted_confidence,
             detector_type="llm",
             details={
                 "provider": response.provider,
@@ -717,6 +814,13 @@ class LLMDetector:
                 "llm_clause": response.clause,
                 "reason": getattr(response, "reasoning", None),
                 "raw_response": response.raw_response,
+                # Grounding metadata — используется downstream в extraction.py
+                # для решения: брать detection["evidence"] или fallback на contexts.
+                # evidence_grounded=True означает grounding >= WARN_THRESHOLD (0.3).
+                "grounding_score": grounding_score,
+                "evidence_grounded": grounding_score >= _GROUNDING_WARN_THRESHOLD,
+                # raw_found для диагностики: было ли found до grounding-коррекции
+                "raw_found_before_grounding": raw_found,
             },
         )
 
@@ -787,3 +891,63 @@ class LLMDetector:
         )
 
         return best_chunk if best_overlap >= 3 else None
+
+    @staticmethod
+    def _calculate_grounding_score(
+        evidence_text: str,
+        chunks: list[RetrievedChunk],
+    ) -> float:
+        """
+        Рассчитать насколько evidence_text заземлён в реальном тексте чанков.
+
+        Возвращает float от 0.0 до 1.0:
+        - 1.0 — точное вхождение evidence в один из чанков (substring match)
+        - 0.5-0.99 — сильное пересечение нормализованных токенов
+        - 0.1-0.49 — слабое пересечение токенов
+        - 0.0 — нет совпадений или evidence пустой
+
+        Алгоритм:
+        1. Exact substring match → 1.0 (самый надёжный сигнал)
+        2. Нормализованный token overlap: overlap / len(evidence_tokens)
+           Нормируем по числу токенов evidence, чтобы
+           короткие evidence с несколькими общими словами не давали
+           ложно высокий score.
+           Используем _tokenize_for_grounding() а не split() чтобы
+           "договора." и "договора" считались одним токеном.
+        """
+        if not evidence_text or not chunks:
+            return 0.0
+
+        evidence_lower = evidence_text.lower().strip()
+        if not evidence_lower:
+            return 0.0
+
+        # 1. Exact substring match → максимальный score
+        for chunk in chunks:
+            chunk_text = chunk.text.lower() if hasattr(chunk, "text") else ""
+            if evidence_lower in chunk_text:
+                return 1.0
+
+        # 2. Нормализованный token overlap ratio
+        evidence_tokens = _tokenize_for_grounding(evidence_text)
+        if not evidence_tokens:
+            return 0.0
+
+        best_ratio = 0.0
+        for chunk in chunks:
+            chunk_tokens = _tokenize_for_grounding(
+                chunk.text if hasattr(chunk, "text") else ""
+            )
+            if not chunk_tokens:
+                continue
+            overlap = len(evidence_tokens & chunk_tokens)
+            # Нормируем по длине evidence: насколько evidence покрыт реальным текстом
+            ratio = overlap / len(evidence_tokens)
+            if ratio > best_ratio:
+                best_ratio = ratio
+
+        return round(min(1.0, best_ratio), 4)
+
+
+
+

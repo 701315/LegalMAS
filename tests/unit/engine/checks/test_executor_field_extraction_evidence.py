@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from engine.checks.executor import CheckExecutor
+from engine.checks.extraction import ExtractionExecutionResult
 from engine.playbook.models import (
     CheckDefinition,
     DetectorType,
@@ -98,24 +99,30 @@ class TestFieldExtractionEvidencePassthrough:
 
         captured_detection: dict[str, Any] = {}
 
-        original_run = None
-
         class CapturingExtractor:
-            """Captures the detection dict passed to ExtractionExecutor.run()."""
+            """Captures detection dict passed to ExtractionExecutor.run_with_telemetry()."""
 
-            def run(self, doc, check, contexts, detection):
+            def run_with_telemetry(self, doc, check, contexts, detection):
                 captured_detection.update(detection)
-                return {
-                    "details": {
-                        "value": "Объект 1 | кадастр | площадь | адрес",
-                        "confidence": 0.9,
-                        "source": "llm",
-                        "found": True,
-                        "unit": None,
-                        "location": None,
-                        "qc": {"status": "pending", "by": None, "comment": None, "at": None},
-                    }
-                }
+                return ExtractionExecutionResult(
+                    structured_data={
+                        "details": {
+                            "value": "Объект 1 | кадастр | площадь | адрес",
+                            "confidence": 0.9,
+                            "source": "llm",
+                            "found": True,
+                            "unit": None,
+                            "location": None,
+                            "qc": {
+                                "status": "pending",
+                                "by": None,
+                                "comment": None,
+                                "at": None,
+                            },
+                        }
+                    },
+                    telemetry=None,
+                )
 
         doc = MagicMock()
         doc.id = "test-doc-id"
@@ -169,9 +176,12 @@ class TestFieldExtractionEvidencePassthrough:
         captured_detection: dict[str, Any] = {}
 
         class CapturingExtractor:
-            def run(self, doc, check, contexts, detection):
+            def run_with_telemetry(self, doc, check, contexts, detection):
                 captured_detection.update(detection)
-                return None  # empty extraction → unclear result
+                return ExtractionExecutionResult(
+                    structured_data=None,
+                    telemetry=None,
+                )  # empty extraction → unclear result
 
         doc = MagicMock()
         doc.id = "test-doc-id"

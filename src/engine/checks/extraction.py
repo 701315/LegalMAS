@@ -37,6 +37,15 @@ LLM_DEFAULT_CONFIDENCE: float = settings.LLM_DEFAULT_CONFIDENCE
 _EXTRACTION_RULES_REGEX_CONFIDENCE: float = 0.8
 _EXTRACTION_RULES_KEYWORD_CONFIDENCE: float = 0.5
 
+# Минимальный grounding score для использования LLM evidence в extraction.
+# Если LLMDetector вернул grounding_score ниже этого порога —
+# evidence считается недостаточно заземлённым в реальном тексте.
+# В этом случае extraction игнорирует detection["evidence"] и использует
+# context-based fallback (чанки из contexts).
+# Значение 0.1: хотя бы 10% токенов evidence должно встречаться в чанках.
+# Для rules-based detection grounding_score отсутствует — evidence всегда используется.
+_EXTRACTION_MIN_GROUNDING_SCORE: float = 0.1
+
 @dataclass(slots=True)
 class ExtractionExecutionResult:
     """
@@ -449,15 +458,49 @@ class ExtractionExecutor:
         Сформировать текст, по которому будем делать extraction.
 
         Приоритет:
-          1) detection["evidence"], если есть.
+          1) detection["evidence"], если есть И grounding_score достаточный.
+             Grounding score читается из detection["raw"]["llm_details"]["grounding_score"],
+             куда его пишет LLMDetector._build_result().
+             Если grounding_score отсутствует (rules-detection) — evidence надёжен
+             по определению (rules детерминированы, не галлюцинируют).
+             Если grounding_score есть, но ниже _EXTRACTION_MIN_GROUNDING_SCORE —
+             evidence игнорируется: extraction на выдуманном тексте хуже чем на
+             реальных чанках.
           2) иначе текст из наиболее релевантных чанков из contexts.
              Сначала пробуем сузить список по location (element_id / clause_uid / page),
              если это не получилось — используем весь контекст.
         """
-        # 1. Если LLM/Rules уже вернули готовый evidence-текст — используем его.
+        # 1. Evidence с grounding-проверкой.
         evidence = detection.get("evidence") or ""
         if isinstance(evidence, str) and evidence.strip():
-            return evidence
+            # Читаем grounding_score из raw.llm_details если он там есть.
+            # LLMDetector._build_result() пишет его в details,
+            # HybridDetector._flatten_llm_result() прокидывает через raw["llm_details"].
+            raw = detection.get("raw") or {}
+            llm_details = raw.get("llm_details") or {}
+            grounding_score: float | None = (
+                llm_details.get("grounding_score")
+                if isinstance(llm_details, dict)
+                else None
+            )
+
+            # Логика выбора:
+            # - grounding_score отсутствует → detection от rules или field_extraction_only
+            #   → evidence надёжен, используем его
+            # - grounding_score >= порога → evidence достаточно заземлён → используем
+            # - grounding_score < порога → evidence слабо заземлён → игнорируем,
+            #   идём к context-based fallback ниже
+            if grounding_score is None or grounding_score >= _EXTRACTION_MIN_GROUNDING_SCORE:
+                return evidence
+            else:
+                logger.debug(
+                    "ExtractionExecutor._build_extraction_text: "
+                    "skipping ungrounded LLM evidence, using context fallback",
+                    grounding_score=grounding_score,
+                    threshold=_EXTRACTION_MIN_GROUNDING_SCORE,
+                    evidence_preview=evidence[:100],
+                )
+                # Не возвращаем — падаем ниже на context-based логику
 
         if not contexts:
             return ""
