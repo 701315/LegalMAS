@@ -75,3 +75,8 @@ frontend/audit-output/
 # Local scripts dependencies (не относятся к продукту)
 scripts/node_modules/
 scripts/package-lock.json
+
+# Автогенерируемые отчёты аудит-скриптов
+scripts/dev-static-frontend-audit-report.json
+scripts/frontend-scope-report.json
+scripts/frontend-scope-report.md
