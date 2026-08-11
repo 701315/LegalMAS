@@ -67,6 +67,8 @@ celerybeat-schedule
 # Environment files with suffixes (keep only .env.example if needed)
 .env.*
 !.env.example
+!.env.monitoring.example
+
 
 # Stray files
 =
@@ -80,3 +82,12 @@ scripts/package-lock.json
 scripts/dev-static-frontend-audit-report.json
 scripts/frontend-scope-report.json
 scripts/frontend-scope-report.md
+
+# Frontend production env (собирается локально из шаблона)
+frontend/.env.production
+
+# Contour-specific monitoring configs — только на диске demo,
+# в git не тащим, deploy не переносит.
+docker-compose.monitoring.yml
+prometheus.yml
+monitoring/promtail/promtail-config.yml
