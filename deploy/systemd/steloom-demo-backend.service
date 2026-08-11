@@ -1,0 +1,17 @@
+[Unit]
+Description=Steloom Demo Backend API
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=steloom
+WorkingDirectory=/srv/steloom-demo
+Environment=PYTHONPATH=/srv/steloom-demo/src
+EnvironmentFile=/srv/steloom-demo/.env
+ExecStart=/srv/steloom-demo/.venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8001 --workers 2 --log-level info
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

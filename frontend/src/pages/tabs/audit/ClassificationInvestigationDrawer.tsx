@@ -169,7 +169,7 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
       </div>
 
       {/* Scrollable content */}
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--bg-elevated-soft)]">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-elevated-soft)]">
         {isLoading ? (
           <div className="flex items-center gap-3 px-5 py-6">
             <Loader2

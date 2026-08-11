@@ -2,6 +2,11 @@
 // src/pages/tabs/audit/ClassificationAuditView.tsx
 // Экран "Аудит классификации документов" внутри вкладки Audit.
 // Layout: master (таблица) + detail (side panel справа), как в Документах.
+//
+// Mobile (< 1024px): drawer открывается fullscreen поверх таблицы.
+// Desktop (≥ 1024px): drawer inline в grid рядом с таблицей.
+//
+// Selection persists после закрытия drawer — строка остаётся активной.
 // =============================================================
 
 import React from "react";
@@ -98,10 +103,16 @@ function getRowBadges(row: ClassificationInvestigationRow): string[] {
 const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
   dealId,
 }) => {
+  // ── Pagination ─────────────────────────────────────────────
   const [page, setPage] = React.useState(1);
+
+  // ── Selection state (persisted after drawer close) ─────────
   const [selectedDocumentId, setSelectedDocumentId] = React.useState<
     string | null
   >(null);
+
+  // ── Drawer visibility (independent from selection) ─────────
+  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
 
   const { data, isLoading, isFetching, isError, error } =
     useClassificationInvestigation(dealId, {
@@ -143,10 +154,10 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
     }
   }, [items, selectedDocumentId]);
 
+  // ── Row click handler: set selection + open drawer ─────────
   const toggleRow = React.useCallback((documentId: string) => {
-    setSelectedDocumentId((current) =>
-      current === documentId ? null : documentId,
-    );
+    setSelectedDocumentId(documentId);
+    setIsDrawerOpen(true);
   }, []);
 
   const handleRowKeyDown = React.useCallback(
@@ -159,9 +170,27 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
     [toggleRow],
   );
 
+  // ── Close drawer only, keep selection active ───────────────
   const handleCloseDrawer = React.useCallback(() => {
-    setSelectedDocumentId(null);
+    setIsDrawerOpen(false);
+    // НЕ сбрасываем selectedDocumentId — строка остаётся активной
   }, []);
+
+  // ── Body overflow lock для mobile fullscreen drawer ────────
+  React.useEffect(() => {
+    const hasAnyDrawerOpen = isDrawerOpen && selectedDocumentId !== null;
+    if (!hasAnyDrawerOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isDrawerOpen, selectedDocumentId]);
+
+  // ── Derived visibility (drawer open only if both flags set) ─
+  const hasDrawerOpen = isDrawerOpen && selectedDocumentId !== null;
 
   if (isError) {
     return (
@@ -180,13 +209,11 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
     );
   }
 
-  const isDrawerOpen = selectedDocumentId !== null;
-
   return (
     <div
       className={cn(
         "grid min-h-0 flex-1 gap-4",
-        isDrawerOpen
+        hasDrawerOpen
           ? "lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]"
           : "grid-cols-1",
       )}
@@ -232,7 +259,7 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
         ) : (
           <>
             {/* Scrollable table area */}
-            <div className="min-h-0 flex-1 overflow-auto">
+            <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
               <table className="w-full min-w-[1120px] border-collapse">
                 <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
                   <tr>
@@ -463,12 +490,29 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
       </section>
 
       {/* ── Side panel: explainability drawer ────────────────── */}
-      {isDrawerOpen && selectedDocumentId ? (
-        <ClassificationInvestigationDrawer
-          documentId={selectedDocumentId}
-          filename={selectedRow?.filename ?? null}
-          onClose={handleCloseDrawer}
-        />
+      {hasDrawerOpen && selectedDocumentId ? (
+        <>
+          {/* Mobile backdrop */}
+          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" />
+
+          {/* Mobile fullscreen drawer */}
+          <div className="fixed inset-0 z-50 flex min-h-0 flex-col lg:hidden">
+            <ClassificationInvestigationDrawer
+              documentId={selectedDocumentId}
+              filename={selectedRow?.filename ?? null}
+              onClose={handleCloseDrawer}
+            />
+          </div>
+
+          {/* Desktop inline drawer (already styled as <aside> in drawer component) */}
+          <div className="hidden lg:block">
+            <ClassificationInvestigationDrawer
+              documentId={selectedDocumentId}
+              filename={selectedRow?.filename ?? null}
+              onClose={handleCloseDrawer}
+            />
+          </div>
+        </>
       ) : null}
     </div>
   );

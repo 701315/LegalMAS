@@ -232,7 +232,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
             <InlineAlert tone="error" message={lastError} />
           ) : null}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <ExportCard
               title="DD Grid"
               description="Полная таблица результатов проверок с цветовым кодированием severity."

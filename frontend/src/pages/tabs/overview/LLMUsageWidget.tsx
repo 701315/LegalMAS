@@ -5,7 +5,11 @@
 // =============================================================
 
 import React from "react";
-import type { LLMUsageSummary, LLMStageUsage } from "../../../api/deals";
+import type {
+  LLMUsageSummary,
+  LLMStageUsage,
+  LLMDocumentUsage,
+} from "../../../api/deals";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,6 +85,57 @@ const StageRow: React.FC<{ stage: LLMStageUsage }> = ({ stage }) => {
 };
 
 // ---------------------------------------------------------------------------
+// DocumentRow
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// DocumentRow
+// ---------------------------------------------------------------------------
+
+/**
+ * Fallback-название документа, если имя не найдено в documentNames map.
+ * Показываем короткий префикс UUID — стабильный человеко-различимый идентификатор.
+ */
+function formatFallbackDocumentLabel(documentId: string): string {
+  return `${documentId.slice(0, 8)}…`;
+}
+
+const DocumentRow: React.FC<{
+  doc: LLMDocumentUsage;
+  filename: string | null;
+}> = ({ doc, filename }) => {
+  const displayName = filename ?? formatFallbackDocumentLabel(doc.document_id);
+
+  return (
+    <div className="flex items-start justify-between gap-2 py-1.5">
+      <div className="min-w-0 flex-1">
+        <p
+          className="truncate text-[11px] text-[var(--text-secondary)]"
+          title={filename ? `${filename}\n${doc.document_id}` : doc.document_id}
+        >
+          {displayName}
+        </p>
+        <p className="text-[10px] text-[var(--text-muted)]">
+          {doc.calls} вызовов
+          {doc.parse_failures > 0 && (
+            <span
+              className="ml-1 cursor-help text-[var(--color-warning-text)]"
+              title={PARSE_ERROR_TOOLTIP}
+            >
+              · {doc.parse_failures}{" "}
+              {pluralizeParseErrors(doc.parse_failures)}
+            </span>
+          )}
+        </p>
+      </div>
+      <span className="shrink-0 text-[12px] font-semibold tabular-nums text-[var(--text-primary)]">
+        {formatTokens(doc.total_tokens)}
+      </span>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Skeleton
 // ---------------------------------------------------------------------------
 
@@ -122,12 +177,20 @@ interface LLMUsageWidgetProps {
   data: LLMUsageSummary | undefined;
   isLoading: boolean;
   isError: boolean;
+  /**
+   * Опциональная карта document_id → filename.
+   * Если передана — блок "По документам" покажет реальные имена файлов
+   * вместо коротких префиксов UUID. Если для конкретного document_id
+   * имени нет — используется fallback (первые 8 символов UUID).
+   */
+  documentNames?: Record<string, string>;
 }
 
 export const LLMUsageWidget: React.FC<LLMUsageWidgetProps> = ({
   data,
   isLoading,
   isError,
+  documentNames,
 }) => {
   if (isLoading) return <LLMUsageWidgetSkeleton />;
 
@@ -179,6 +242,24 @@ export const LLMUsageWidget: React.FC<LLMUsageWidgetProps> = ({
           ))}
         </div>
       </div>
+
+      {/* По документам */}
+      {data.by_document.length > 0 && (
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2">
+          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+            По документам
+          </p>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {data.by_document.map((doc) => (
+              <DocumentRow
+                key={doc.document_id}
+                doc={doc}
+                filename={documentNames?.[doc.document_id] ?? null}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

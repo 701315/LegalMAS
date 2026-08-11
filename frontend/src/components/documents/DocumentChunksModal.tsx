@@ -1,11 +1,17 @@
 // =============================================================
 // src/components/documents/DocumentChunksModal.tsx
 // Модалка для просмотра документа в виде чанков (Markdown).
+//
+// Архитектура:
+// - chunkViewUrl указывает на backend endpoint, а не на MinIO;
+// - файл загружается authenticated axios client-ом;
+// - Authorization header добавляется автоматически interceptor-ом.
 // =============================================================
 
 import React, { useEffect, useState } from "react";
 import { X, Loader2, AlertTriangle } from "lucide-react";
 import Button from "../ui/Button";
+import client from "../../api/client";
 
 interface Props {
   isOpen: boolean;
@@ -37,14 +43,15 @@ export const DocumentChunksModal: React.FC<Props> = ({
     const load = async () => {
       setIsLoading(true);
       setLoadError(null);
+      setContent(null);
+
       try {
-        const resp = await fetch(chunkViewUrl);
-        if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status}`);
-        }
-        const text = await resp.text();
+        const resp = await client.get<string>(chunkViewUrl, {
+          responseType: "text",
+        });
+
         if (!aborted) {
-          setContent(text);
+          setContent(resp.data);
         }
       } catch (e) {
         if (!aborted) {
@@ -78,7 +85,6 @@ export const DocumentChunksModal: React.FC<Props> = ({
       onClick={handleBackdropClick}
     >
       <div className="flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
-        {/* header */}
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">
@@ -104,7 +110,6 @@ export const DocumentChunksModal: React.FC<Props> = ({
           </Button>
         </div>
 
-        {/* пояснение */}
         <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-2">
           <p className="text-[11px] leading-5 text-[var(--text-muted)]">
             Этот просмотр показывает документ так, как его «видит» система
@@ -113,7 +118,6 @@ export const DocumentChunksModal: React.FC<Props> = ({
           </p>
         </div>
 
-        {/* body */}
         <div className="flex-1 p-4">
           {isLoading && (
             <div className="flex h-[70vh] items-center justify-center text-sm text-[var(--text-muted)]">
@@ -154,7 +158,6 @@ export const DocumentChunksModal: React.FC<Props> = ({
           )}
         </div>
 
-        {/* footer */}
         <div className="flex justify-end border-t border-[var(--border-subtle)] px-4 py-3">
           <Button
             type="button"

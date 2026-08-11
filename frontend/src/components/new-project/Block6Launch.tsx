@@ -4,6 +4,7 @@
 // Блок 6 — Режим проверки + кнопка «Запустить проект».
 //
 // Содержит:
+//   - описание двух видов проверок
 //   - radio-выбор режима проверки (3 варианта)
 //   - checkbox force reclassify (если применимо)
 //   - кнопка «Запустить проект»
@@ -37,21 +38,23 @@ const CHECKS_MODE_OPTIONS: Array<{
   value: RunChecksMode;
   title: string;
   hint: string;
+  badge?: string;
 }> = [
   {
     value: "global_and_doc_type",
-    title: "Playbook и типы документов",
-    hint: "Рекомендуемый режим. Включает все проверки playbook и проверки по типам документов.",
+    title: "Полная проверка",
+    hint: "Глобальные проверки из playbook + специфические проверки по типу каждого загруженного документа. Это максимально полный анализ.",
+    badge: "Рекомендуемый",
   },
   {
     value: "global_only",
-    title: "Только Playbook",
-    hint: "Только правила playbook. Проверки по типам документов не выполняются.",
+    title: "Только глобальные проверки",
+    hint: "Анализ только по рискам из playbook, которые применимы ко всем документам независимо от их типа. Специфические проверки по типам документов не выполняются.",
   },
   {
     value: "doc_type_only",
-    title: "Только типы документов",
-    hint: "Только проверки по типам документов. Правила playbook не применяются.",
+    title: "Только по типам документов",
+    hint: "Анализ только по рискам, характерным для конкретного типа каждого документа. Глобальные проверки из playbook не применяются.",
   },
 ];
 
@@ -86,12 +89,24 @@ const Block6Launch: React.FC<Block6LaunchProps> = ({
           Режим проверки
         </p>
 
-        <p className="mb-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-          Выберите набор проверок для запуска анализа.
-        </p>
+        <div className="mb-4 subtle-panel px-4 py-3">
+          <p className="text-sm font-medium text-[var(--text-primary)]">
+            Какие риски проверять в документах
+          </p>
+          <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+            Система проверяет два вида рисков. Первый — глобальные риски
+            из playbook (Global Checks), которые анализируются по всем
+            документам проекта вне зависимости от их типа. Второй —
+            специфические риски, характерные только для конкретного типа
+            документа (например, договор аренды, устав, корпоративное решение).
+          </p>
+          <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+            Выберите, какой набор проверок применить при анализе.
+          </p>
+        </div>
 
         <div className="space-y-2">
-          {CHECKS_MODE_OPTIONS.map(({ value, title, hint }) => {
+          {CHECKS_MODE_OPTIONS.map(({ value, title, hint, badge }) => {
             const isChecked = checksMode === value;
 
             return (
@@ -121,8 +136,15 @@ const Block6Launch: React.FC<Block6LaunchProps> = ({
                 />
 
                 <span>
-                  <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                    {title}
+                  <span className="flex items-center gap-2">
+                    <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                      {title}
+                    </span>
+                    {badge ? (
+                      <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]">
+                        {badge}
+                      </span>
+                    ) : null}
                   </span>
                   <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
                     {hint}

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import client from "./client";
+import { useAuth } from "../hooks/useAuth";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -96,9 +97,19 @@ export function useTenantAlerts() {
 }
 
 export function useExternalTools() {
+  // Auth-scoped cache key: при смене пользователя / роли автоматически
+  // будет выполнен новый запрос. Это защищает от stale-cache между
+  // сессиями разных пользователей в одном браузере.
+  const { userId, globalRole } = useAuth();
+
   return useQuery({
-    queryKey: ["external-tools"],
+    queryKey: ["external-tools", userId ?? "anon", globalRole ?? "none"],
     queryFn: () => alertsApi.getTools(),
-    staleTime: 60 * 60_000,
+    enabled: !!userId,
+    staleTime: 5 * 60_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 }
+
+

@@ -244,6 +244,39 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
     <div className="space-y-4">
       {applyError ? <InlineAlert tone="error" message={applyError} /> : null}
 
+      {/* ── Описание playbook ────────────────────────────── */}
+      <div className="subtle-panel px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div
+            className="mt-0.5 shrink-0 text-[var(--text-muted)]"
+            aria-hidden="true"
+          >
+            <BookOpen className="h-4 w-4" />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-[var(--text-primary)]">
+              Playbook определяет, какие глобальные риски будут проверяться в проекте
+            </p>
+            <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Глобальные проверки (Global Checks) — это риски, которые
+              анализируются по всем документам проекта независимо от их типа.
+              Ниже доступны готовые playbook, заранее созданные администратором
+              или подготовленные в системе.
+            </p>
+            <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Если для вашего проекта нужны специфические глобальные проверки,
+              создайте собственный playbook в разделе{" "}
+              <span className="font-medium text-[var(--text-primary)]">
+                Инструкции → Playbook Studio
+              </span>
+              . После публикации он появится в списке ниже, и его можно будет
+              выбрать для запуска проекта.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* ── Шаблоны ────────────────────────────────────── */}
         <div>

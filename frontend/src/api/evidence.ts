@@ -36,16 +36,17 @@ export const evidenceApi = {
       .get<EvidenceDetail>(`/api/v1/results/${resultId}/evidence`)
       .then((r) => r.data),
 
-  /**
-   * Получить временный URL для PDF-документа.
-   * GET /api/v1/documents/{document_id}/pdf-url
-   */
-  getPdfUrl: (documentId: string) =>
-    client
-      .get<{ url: string; filename: string }>(
-        `/api/v1/documents/${documentId}/pdf-url`,
-      )
-      .then((r) => r.data),
+/**
+ * Получить стабильный backend URL для PDF-просмотра.
+ * Браузер не ходит в MinIO напрямую.
+ * Используется streaming endpoint:
+ * GET /api/v1/documents/{document_id}/converted-pdf-content
+ */
+  getPdfUrl: (documentId: string): Promise<{ url: string; filename: string }> =>
+    Promise.resolve({
+      url: `/api/v1/documents/${documentId}/converted-pdf-content`,
+      filename: "",
+    }),
 };
 
 /**

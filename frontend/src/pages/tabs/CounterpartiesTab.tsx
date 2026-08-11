@@ -1035,8 +1035,8 @@ const IntroScreen: React.FC<{
   onOpenDemo: () => void;
 }> = ({ onOpenDemo }) => {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto pr-1">
+    <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
+      <div className="flex-1 lg:overflow-y-auto pr-1">
         <div className="space-y-4">
           <CardShell
             eyebrow="Демонстрационный сценарий работы раздела"
@@ -1149,7 +1149,7 @@ const CounterpartiesTable: React.FC<{
   sort: SortState;
   onSort: (key: SortKey) => void;
 }> = ({ items, selectedId, onSelect, sort, onSort }) => (
-  <div className="h-full min-h-0 overflow-auto rounded-2xl border border-[var(--border)]">
+  <div className="rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
     <table className="min-w-full text-left text-sm">
       <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
         <tr>
@@ -1518,7 +1518,7 @@ const DemoScreen: React.FC<{
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">Выявленные контрагенты</h2>
@@ -1578,8 +1578,8 @@ const DemoScreen: React.FC<{
             bodyClassName="h-full p-0"
             className="h-full"
           >
-            <div className="grid h-full min-h-0 grid-cols-1 xl:grid-cols-2">
-              <div className="min-h-0 overflow-hidden border-b border-[var(--border-subtle)] xl:border-b-0 xl:border-r">
+            <div className="grid min-h-0 grid-cols-1 lg:h-full xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,560px)]">
+              <div className="min-h-0 lg:overflow-hidden border-b border-[var(--border-subtle)] xl:border-b-0 xl:border-r">
                 <div className="flex h-full min-h-0 flex-col p-5">
                   <div className="mb-4 shrink-0">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -1602,7 +1602,7 @@ const DemoScreen: React.FC<{
                 </div>
               </div>
 
-              <div className="min-h-0 overflow-auto">
+              <div className="min-h-0 lg:overflow-y-auto">
                 <div className="p-5">
                   <DetailPanel
                     aggregate={selectedAggregate}
@@ -1634,7 +1634,7 @@ const DemoScreen: React.FC<{
                   В демонстрационном списке добавлено больше компаний, чтобы таблица имела собственную внутреннюю прокрутку.
                 </p>
               </div>
-              <div className="min-h-0 flex-1">
+              <div className="min-h-0 flex-1 lg:overflow-hidden">
                 <CounterpartiesTable
                   items={sortedAggregates}
                   selectedId={selectedId}
@@ -1686,7 +1686,7 @@ const CounterpartiesTab: React.FC<CounterpartiesTabProps> = ({
   const [mode, setMode] = React.useState<PreviewMode>("intro");
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
       {mode === "intro" ? (
         <IntroScreen onOpenDemo={() => setMode("demo")} />
       ) : (

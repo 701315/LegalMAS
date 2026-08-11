@@ -68,7 +68,6 @@ export const DD_GRID_V1_TOP_LEVEL_KEYS = {
 // -------------------------------------------------------------
 
 const MATRIX_MIN_HEIGHT_PX = 240;
-const MATRIX_MIN_WIDTH_PX = 1200;
 const RUNTIME_COLUMN_MIN_WIDTH_PX = 220;
 
 const NO_COLLAPSED_KEYS: ReadonlySet<string> = new Set<string>();
@@ -1328,7 +1327,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
             className="ag-theme-legalmas h-full w-full"
             style={{
               minHeight: MATRIX_MIN_HEIGHT_PX,
-              minWidth: MATRIX_MIN_WIDTH_PX,
             }}
           >
             <AgGridReact<V1MatrixGridRow>
@@ -1394,6 +1392,5 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
 };
 
 export default DDGridV1Matrix;
-
 
 

@@ -275,3 +275,51 @@ class LLMUsageRecorder:
             "by_stage": stages,
         }
 
+    async def get_deal_summary_by_document(self, deal_id: uuid.UUID) -> list[dict]:
+        """
+        Агрегат потребления токенов по сделке, сгруппированный по документу.
+
+        Возвращает список документов, отсортированных по убыванию
+        total_tokens. Документы без document_id пропускаются.
+        """
+        stmt = (
+            select(
+                LLMUsageEvent.document_id,
+                func.count().label("calls"),
+                func.coalesce(
+                    func.sum(LLMUsageEvent.prompt_tokens), 0
+                ).label("prompt_tokens"),
+                func.coalesce(
+                    func.sum(LLMUsageEvent.completion_tokens), 0
+                ).label("completion_tokens"),
+                func.coalesce(
+                    func.sum(LLMUsageEvent.total_tokens), 0
+                ).label("total_tokens"),
+                func.count(1)
+                .filter(LLMUsageEvent.parse_success.is_(False))
+                .label("parse_failures"),
+            )
+            .where(
+                LLMUsageEvent.deal_id == deal_id,
+                LLMUsageEvent.document_id.is_not(None),
+            )
+            .group_by(LLMUsageEvent.document_id)
+            .order_by(func.sum(LLMUsageEvent.total_tokens).cast(Integer).desc())
+        )
+
+        rows = (await self._session.execute(stmt)).all()
+
+        return [
+            {
+                "document_id": str(row.document_id),
+                "calls": int(row.calls or 0),
+                "prompt_tokens": int(row.prompt_tokens or 0),
+                "completion_tokens": int(row.completion_tokens or 0),
+                "total_tokens": int(row.total_tokens or 0),
+                "parse_failures": int(row.parse_failures or 0),
+            }
+            for row in rows
+        ]
+
+
+        

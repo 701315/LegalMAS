@@ -27,7 +27,14 @@ import {
 
 interface LaunchWideOverlayProps {
   open: boolean;
-  overlayWidth: number;
+  /**
+   * "overlay" (default, xl+): absolute относительно rail wrapper,
+   * width = overlayWidth, торчит влево на main column.
+   * "inline" (<xl): in-flow панель в mobile-ветке OverviewTab:
+   * full width, вертикальный стек (форма первая), overlayWidth игнорируется.
+   */
+  variant?: "overlay" | "inline";
+  overlayWidth?: number | null;
   deal: Deal;
   hasCurrentRun: boolean;
   documentsCount?: number;
@@ -58,6 +65,14 @@ const leftPaneBodyClass =
 
 const rightPaneClass =
   "min-w-0 min-h-0 overflow-y-auto bg-[var(--bg-card)]";
+
+// inline (<xl): panes стекуются вертикально. Форма (right pane) — первая
+// через order, т.к. это primary task; preview/subpanes ниже.
+// Разделитель горизонтальный (border-t) вместо вертикального (border-r).
+const leftPaneShellInlineClass =
+  "order-2 flex min-w-0 min-h-0 flex-col border-t border-[var(--border-soft)] bg-[var(--bg-elevated-soft)]";
+
+const rightPaneInlineClass = "order-1 min-w-0 min-h-0 bg-[var(--bg-card)]";
 
 function getReadinessLabel(params: {
   hasCurrentRun: boolean;
@@ -153,6 +168,7 @@ const LeftPaneHeader: React.FC<LeftPaneHeaderProps> = ({
 
 const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   open,
+  variant = "overlay",
   overlayWidth,
   deal,
   hasCurrentRun,
@@ -251,9 +267,20 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
     await onDealPatched?.({});
   }, [handleBackToPipeline, onDealPatched]);
 
-  if (!open || overlayWidth <= 0) {
+  if (!open) {
     return null;
   }
+
+  const isOverlay = variant === "overlay";
+
+  // overlay-variant бессмысленен без вычисленной ширины;
+  // inline игнорирует overlayWidth.
+  if (isOverlay && (overlayWidth ?? 0) <= 0) {
+    return null;
+  }
+
+  const shellClass = isOverlay ? leftPaneShellClass : leftPaneShellInlineClass;
+  const rightPaneCls = isOverlay ? rightPaneClass : rightPaneInlineClass;
 
   const overlayCategory = hasCurrentRun ? "Повторный анализ" : "Новый анализ";
   const overlayTitle = hasCurrentRun ? "Перезапуск анализа" : "Запуск анализа";
@@ -265,7 +292,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
     : "Запустить анализ";
 
   const renderUploadPane = () => (
-    <div className={leftPaneShellClass}>
+    <div className={shellClass}>
       <LeftPaneHeader
         category="Upload"
         title="Загрузка документов"
@@ -377,10 +404,20 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 
   return (
     <div
-      className="absolute bottom-0 top-0 z-30 hidden xl:block right-[calc(100%+16px)]"
-      style={{ width: overlayWidth }}
+      className={
+        isOverlay
+          ? "absolute bottom-0 top-0 z-30 hidden xl:block right-[calc(100%+16px)]"
+          : "relative w-full"
+      }
+      style={isOverlay ? { width: overlayWidth ?? undefined } : undefined}
     >
-      <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
+      <section
+        className={
+          isOverlay
+            ? "flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl"
+            : "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl"
+        }
+      >
         <div className="shrink-0 border-b border-[var(--border-soft)] px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -407,12 +444,13 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
         </div>
 
         <div
-          className="grid min-h-0 flex-1"
-          style={{ gridTemplateColumns: "3fr 2fr" }}
+          className={
+            isOverlay ? "grid min-h-0 flex-1" : "grid min-h-0 grid-cols-1"
+          }
+          style={isOverlay ? { gridTemplateColumns: "3fr 2fr" } : undefined}
         >
           {renderLeftPane()}
-
-          <div className={rightPaneClass}>
+          <div className={rightPaneCls}>
             <LaunchFormPanel
               deal={deal}
               hasCurrentRun={hasCurrentRun}
@@ -461,5 +499,3 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 };
 
 export default LaunchWideOverlay;
-
-

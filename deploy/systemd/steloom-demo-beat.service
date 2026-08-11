@@ -1,0 +1,17 @@
+[Unit]
+Description=Steloom Demo Celery Beat
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=steloom
+WorkingDirectory=/srv/steloom-demo
+Environment=PYTHONPATH=/srv/steloom-demo/src
+EnvironmentFile=/srv/steloom-demo/.env
+ExecStart=/srv/steloom-demo/.venv/bin/celery -A mas_queue.celery_app:celery_app beat --loglevel=info
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

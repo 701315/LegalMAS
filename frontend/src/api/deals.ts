@@ -187,11 +187,21 @@ export interface LLMStageUsage {
   parse_failures: number;
 }
 
+export interface LLMDocumentUsage {
+  document_id: string;
+  calls: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  parse_failures: number;
+}
+
 export interface LLMUsageSummary {
   deal_id: string;
   total_tokens: number;
   total_calls: number;
   by_stage: LLMStageUsage[];
+  by_document: LLMDocumentUsage[];
 }
 
 export const dealUsageApi = {

@@ -22,6 +22,8 @@ import CounterpartiesTab from "./tabs/CounterpartiesTab";
 import RealEstateTab from "./tabs/RealEstateTab";
 import { useEnsureProjectRole } from "../hooks/useEnsureProjectRole";
 import Button from "../components/ui/Button";
+import { useIsMobile } from "../hooks/useIsMobile";
+
 
 interface DealPageProps {
   deal: Deal;
@@ -80,6 +82,7 @@ function getTabPanelId(tabKey: TabKey) {
 }
 
 const DealPage: React.FC<DealPageProps> = ({ deal }) => {
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -263,34 +266,43 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
   };
 
-  return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[20px] bg-[var(--bg-card)]">
-      <header className="hidden shrink-0 border-b border-[var(--border)] bg-[var(--bg-card)] md:block">
-        <div className="px-6 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-                {deal.name}
-              </h1>
-            </div>
+    return (
+      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg-card)]">
+        <header
+          className="hidden shrink-0 border-b border-[var(--border)] lg:block"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.45)), url('/projectpicture.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="px-6 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-semibold tracking-tight text-white">
+                  {deal.name}
+                </h1>
+              </div>
 
-            <div className="shrink-0">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleBackToProjects}
-              >
-                Вернуться к списку проектов
-              </Button>
+              <div className="shrink-0">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleBackToProjects}
+                >
+                  Вернуться к списку проектов
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="hidden min-h-0 shrink-0 md:flex md:w-60 md:flex-col md:border-r md:border-[var(--border)] md:bg-[var(--bg-card)]">
+        <aside className="hidden min-h-0 shrink-0 lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-[var(--border)] lg:bg-[var(--bg-card)]">
           <nav
-            className="flex h-full flex-col overflow-y-auto px-3 py-4"
+            className="flex h-full flex-col overflow-y-auto overscroll-contain px-3 py-4"
             aria-label="Навигация по проекту"
           >
             {/* ── Обзор — отдельно вверху ── */}
@@ -380,7 +392,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="shrink-0 border-b border-[var(--border)] bg-[var(--bg-card)] md:hidden">
+          <header className="shrink-0 border-b border-[var(--border)] bg-[var(--accent-subtle)] lg:hidden">
             <div className="px-4 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -467,10 +479,12 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             id={getTabPanelId(activeTab)}
             role="tabpanel"
             aria-labelledby={getTabId(activeTab)}
-            className="min-h-0 min-w-0 flex-1 overflow-hidden px-4 py-4 md:px-6 md:py-6"
+            className={`flex min-h-0 min-w-0 flex-1 flex-col ${
+              isMobile ? "overflow-y-auto" : "overflow-hidden"
+            } p-4 lg:p-6`}
             tabIndex={0}
           >
-            <div className="flex h-full min-h-0 flex-col">{renderActiveTabPanel()}</div>
+            {renderActiveTabPanel()}
           </section>
         </main>
       </div>

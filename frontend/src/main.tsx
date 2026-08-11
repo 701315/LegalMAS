@@ -1,12 +1,16 @@
 // =============================================================
 // src/main.tsx
 // Точка входа: Router + QueryClientProvider + AppRoutes.
+//
+// queryClient вынесен в отдельный модуль (./queryClient), чтобы его
+// мог импортировать не только React, но и Zustand-store (для clear()
+// на logout).
 // =============================================================
 
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import "./index.css";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -17,18 +21,12 @@ import {
   provideGlobalGridOptions,
 } from "ag-grid-community";
 
+import { queryClient } from "./queryClient";
+
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 provideGlobalGridOptions({
   theme: "legacy",
-});
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-    },
-  },
 });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -40,4 +38,5 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     </BrowserRouter>
   </React.StrictMode>,
 );
+
 

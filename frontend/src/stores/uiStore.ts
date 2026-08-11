@@ -6,6 +6,7 @@
 import { create } from "zustand";
 import type { UserRole } from "../types";
 import type { ProjectRole } from "../api/auth";
+import { queryClient } from "../queryClient";
 
 export type GlobalRole =
   | "superadmin"
@@ -130,6 +131,16 @@ export const useUIStore = create<UIState>((set) => ({
       globalRole: null,
       projectRoles: {},
     });
+
+    // Универсальный fix cross-user cache: полностью очищаем React Query
+    // при logout, чтобы новый пользователь не видел данные предыдущего.
+    // Это защищает не только /admin/monitoring, а весь класс auth-sensitive
+    // запросов (dashboard, tenant admin, projects, alerts и т.д.).
+    try {
+      queryClient.clear();
+    } catch {
+      // Никогда не блокируем logout из-за ошибок cache-очистки.
+    }
   },
 }));
 

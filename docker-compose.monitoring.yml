@@ -3,19 +3,17 @@ services:
     image: prom/prometheus:v2.51.0
     container_name: mas_prometheus
     restart: unless-stopped
+    network_mode: host
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/alerts:/etc/prometheus/alerts:ro
       - prometheus_data:/prometheus
-    ports:
-      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "--web.listen-address=127.0.0.1:${PROMETHEUS_PORT:-9090}"
 
   loki:
     image: grafana/loki:2.9.4
@@ -38,13 +36,11 @@ services:
     image: grafana/promtail:2.9.4
     container_name: mas_promtail
     restart: unless-stopped
+    network_mode: host
     volumes:
       - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
       - ./logs:/var/log/legalmas:ro
     command: -config.file=/etc/promtail/config.yml
-    depends_on:
-      loki:
-        condition: service_healthy
 
   alertmanager:
     image: prom/alertmanager:v0.27.0

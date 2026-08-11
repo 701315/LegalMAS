@@ -583,14 +583,18 @@ class Settings(BaseSettings):
     METRICS_ENABLED: bool = True
     METRICS_PREFIX: str = "mas_dd"
 
-    # ── External monitoring tool URLs (для admin panel) ─────────────────────
-    # Отображаются в TenantAdminPage → dropdown "Внешние инструменты".
-    # Видны только superadmin (проверка в get_external_tools endpoint).
-    # Backend proxy к Alertmanager использует ALERTMANAGER_INTERNAL_URL.
+    # ── Monitoring URLs (admin / observability) ──────────────────────────────
+    # Internal URLs — backend ходит по ним к локальным сервисам внутри контура.
+    # В dev задаются в .env, в demo — свои значения в /srv/steloom-demo/.env.
+    PROMETHEUS_INTERNAL_URL: str = "http://127.0.0.1:9090"
+    LOKI_INTERNAL_URL: str = "http://127.0.0.1:3100"
+    ALERTMANAGER_INTERNAL_URL: str = "http://127.0.0.1:9093"
+
+    # External URLs — открываются в браузере из admin UI.
+    # Могут отличаться от internal в reverse-proxy / multi-contour deployment.
     GRAFANA_EXTERNAL_URL: str = "http://localhost:3000"
     PROMETHEUS_EXTERNAL_URL: str = "http://localhost:9090"
     ALERTMANAGER_EXTERNAL_URL: str = "http://localhost:9093"
-    ALERTMANAGER_INTERNAL_URL: str = "http://localhost:9093"
     LOKI_EXTERNAL_URL: str = "http://localhost:3100"
     TEMPO_EXTERNAL_URL: str = "http://localhost:3200"
     MINIO_CONSOLE_EXTERNAL_URL: str = "http://localhost:9001"
@@ -663,9 +667,6 @@ class Settings(BaseSettings):
 
     # Вероятность записи трейса: 1.0 = 100% для dev, снижайте в production.
     OTEL_TRACES_SAMPLER_ARG: float = 1.0
-
-    # Адрес Tempo для ссылок в admin panel.
-    TEMPO_EXTERNAL_URL: str = "http://localhost:3200"
 
     # ---------------------------------------------------------------------------
     # Список "шумных" Celery задач, для которых НЕ создаётся span в Tempo.

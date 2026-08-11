@@ -282,8 +282,37 @@
 
 
 /* ════════════════════════════════════════════════════════════════════════
-   HTML / BODY / ROOT
+   HTML / BODY / ROOT — DUAL MODE MODEL
+
+   Steloom hosts two fundamentally different UI paradigms in one SPA:
+
+   1. MARKETING MODE (default)
+      - Document-style pages (HomePage, SecurityPage, DemoPage, etc)
+      - Body scrolls naturally
+      - Long-form content with anchors, smooth scroll
+      - Editorial grain overlay for warm visual texture
+      - Contract: html/body use min-height, body has overflow-y: auto
+
+   2. APP-SHELL MODE (authenticated app pages)
+      - Fixed viewport-locked SaaS shell (Notion/Linear/Harvey pattern)
+      - Body does NOT scroll — all scroll is managed inside AppShell
+      - Fixed height contract: html/body/#root = height 100%, overflow hidden
+      - No grain overlay — pure surfaces for data readability
+      - No smooth scroll — instant keyboard navigation for productivity
+      - Activated by AppShell via:
+          document.documentElement.classList.add('app-shell-mode')
+
+   Mixing these two contracts on the same html/body caused:
+      - Unpredictable body scroll when AppShell overflow chain broke
+      - iOS Safari layout thrashing on address bar movement
+      - GPU cost from grain + backdrop-blur combinations in app drawers
+      - Marketing scroll-padding-top interfering with app tab focus
+
+   Separating them via a class on <html> is the industry-standard fix
+   for SaaS apps that also serve marketing pages from the same SPA.
    ════════════════════════════════════════════════════════════════════════ */
+
+/* ── SHARED (both modes) ─────────────────────────────────────────────── */
 
 html,
 body,
@@ -291,17 +320,24 @@ body,
   width: 100%;
   max-width: 100vw;
   min-width: 0;
-  min-height: 100%;
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
 }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ── MARKETING MODE (default) ────────────────────────────────────────── */
 
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
   scroll-padding-top: 4rem;
+  min-height: 100%;
 }
 
 body {
@@ -316,7 +352,13 @@ body {
   overflow-y: auto;
 }
 
-/* Декоративный grain-оверлей (очень лёгкий) */
+#root {
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+}
+
+/* Декоративный grain-оверлей (marketing only) */
 body::after {
   content: "";
   position: fixed;
@@ -327,18 +369,45 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
-#root {
-  position: relative;
-  z-index: 1;
-  min-height: 100%;
+/* ── APP-SHELL MODE (activated by AppShell) ──────────────────────────── */
+
+html.app-shell-mode,
+html.app-shell-mode body,
+html.app-shell-mode #root,
+html.app-shell-mode [data-app-root] {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+/* Marketing mode: wrapper grows naturally to accommodate long marketing
+   content. This preserves the pre-refactor behavior where App.tsx used
+   min-h-screen on the wrapper. */
+html:not(.app-shell-mode) [data-app-root] {
+  min-height: 100vh;
 }
 
+html.app-shell-mode {
+  scroll-behavior: auto;
+  scroll-padding-top: 0;
+}
+
+/* iOS Safari: position fixed on body prevents scroll bounce and
+   address bar viewport recalculation during touch gestures */
+html.app-shell-mode body {
+  position: fixed;
+  inset: 0;
+}
+
+/* Remove decorative grain overlay in app-shell mode.
+   Reasons:
+     - Legal document data requires maximum readability
+     - Grain + backdrop-blur (in drawers) is GPU-expensive on low-end mobile
+     - Notion/Linear/Harvey use pure surfaces without texture in app mode */
+html.app-shell-mode body::after {
+  display: none;
+}
 
 /* ════════════════════════════════════════════════════════════════════════
    BASE ELEMENT STYLES

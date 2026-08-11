@@ -1,7 +1,7 @@
 // =============================================================
 // src/components/new-project/Block4ModelConfig.tsx
 //
-// Блок 4 — Лёгкий ModelPickerBlock.
+// Блок 4 — Выбор профиля модели.
 //
 // Только выбор существующего профиля модели и применение к deal.
 // Без создания/редактирования/удаления — полный
@@ -189,23 +189,32 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
   if (configs.length === 0) {
     return (
       <div className="space-y-3">
-        <div className="subtle-panel px-4 py-6 text-center">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--bg-elevated-soft)]">
-            <Cpu className="h-5 w-5 text-[var(--text-muted)]" />
+        <div className="subtle-panel px-4 py-3">
+          <div className="flex items-start gap-3">
+            <div
+              className="mt-0.5 shrink-0 text-[var(--text-muted)]"
+              aria-hidden="true"
+            >
+              <Cpu className="h-4 w-4" />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[var(--text-primary)]">
+                Профили моделей не настроены
+              </p>
+              <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+                Будет использован профиль по умолчанию. Базовые настройки
+                подходят для большинства проектов. Создать профили можно в
+                административном разделе.
+              </p>
+            </div>
           </div>
-          <p className="text-sm font-medium text-[var(--text-primary)]">
-            Профили моделей не настроены
-          </p>
-          <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-            Будет использован профиль по умолчанию. Создать профили можно в
-            административном разделе.
-          </p>
         </div>
 
         <div className="flex justify-end">
           <Button
             type="button"
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={onSkipped}
           >
@@ -220,6 +229,34 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
   return (
     <div className="space-y-4">
       {applyError ? <InlineAlert tone="error" message={applyError} /> : null}
+
+      {/* ── Описание шага ────────────────────────────────── */}
+      <div className="subtle-panel px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div
+            className="mt-0.5 shrink-0 text-[var(--text-muted)]"
+            aria-hidden="true"
+          >
+            <Cpu className="h-4 w-4" />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-[var(--text-primary)]">
+              Профиль модели определяет параметры семантического анализа
+            </p>
+            <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Базовые настройки уже установлены в системе и подходят для
+              большинства проектов. Вы можете продолжить с профилем по
+              умолчанию без дополнительных действий.
+            </p>
+            <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Если для вашего проекта нужны специфические настройки поиска и
+              retrieval — выберите существующий профиль ниже или создайте новый
+              в административном разделе.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Текущий профиль */}
       {currentConfigName ? (
@@ -292,7 +329,7 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
           onClick={onSkipped}
           disabled={isApplying}
         >
-          Пропустить
+          Продолжить с профилем по умолчанию
         </Button>
 
         <Button
@@ -311,6 +348,5 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
 };
 
 export default Block4ModelConfig;
-
 
 

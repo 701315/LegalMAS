@@ -3,9 +3,8 @@
 //
 // Компактная сводка проекта для правой колонки.
 //
-// Показывает 6 параметров с текущими значениями:
+// Показывает 5 параметров с текущими значениями:
 //   - Название проекта
-//   - Ответственный
 //   - Документы
 //   - Playbook
 //   - Профиль модели
@@ -20,7 +19,6 @@ import { Check, Circle } from "lucide-react";
 
 export interface FlowSummaryData {
   projectName: string | null;
-  responsibleUser: string | null;
   documentsCount: number;
   playbookLabel: string | null;
   modelConfigLabel: string | null;
@@ -105,12 +103,6 @@ const FlowSummary: React.FC<FlowSummaryProps> = ({ data }) => {
           label="Название"
           value={data.projectName}
           isSet={!!data.projectName}
-        />
-
-        <SummaryRow
-          label="Ответственный"
-          value={data.responsibleUser}
-          isSet={!!data.responsibleUser}
         />
 
         <SummaryRow
