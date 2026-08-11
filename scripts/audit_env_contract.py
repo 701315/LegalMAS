@@ -118,23 +118,51 @@ BACKEND_SHOULD_MATCH_BUT_CONTOUR_SPECIFIC = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 BACKEND_KNOWN_CONTOUR_SPECIFIC = {
+    # Logging (dev/demo пишут по-разному)
     "LOG_LEVEL",
     "LOG_FORMAT",
     "LOG_TO_STDOUT",
     "LOG_TO_FILE",
+    "LOG_FILE_DIR",
+    "LOG_FILE_NAME",
+
+    # MinIO / storage local creds
     "MINIO_ACCESS_KEY",
     "MINIO_SECRET_KEY",
     "MINIO_SECURE",
+
+    # CORS
     "CORS_ALLOW_CREDENTIALS",
     "CORS_ALLOW_METHODS",
     "CORS_ALLOW_HEADERS",
+
+    # JWT
     "JWT_ALGORITHM",
     "JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
+
+    # OTEL
     "OTEL_ENABLED",
     "OTEL_EXPORTER_OTLP_ENDPOINT",
     "OTEL_TRACES_SAMPLER",
     "OTEL_TRACES_SAMPLER_ARG",
     "OTEL_NOISY_TASKS",
+
+    # Monitoring stack — internal URLs (backend -> local observability)
+    # dev и demo имеют свои порты, значения могут различаться.
+    "PROMETHEUS_INTERNAL_URL",
+    "LOKI_INTERNAL_URL",
+    "ALERTMANAGER_INTERNAL_URL",
+
+    # Monitoring stack — external URLs (для admin UI)
+    # dev открывает через IP/tailscale, demo — через Caddy/loopback.
+    "GRAFANA_EXTERNAL_URL",
+    "PROMETHEUS_EXTERNAL_URL",
+    "ALERTMANAGER_EXTERNAL_URL",
+    "LOKI_EXTERNAL_URL",
+    "TEMPO_EXTERNAL_URL",
+    "MINIO_CONSOLE_EXTERNAL_URL",
+    "API_DOCS_EXTERNAL_URL",
+    "OLLAMA_EXTERNAL_URL",
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
