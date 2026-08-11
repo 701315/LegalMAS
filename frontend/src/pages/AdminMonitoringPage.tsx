@@ -1,7 +1,15 @@
-// src/pages/AdminMonitoringPage.tsx
-// Страница мониторинга для superadmin.
-// Плашки с ссылками на внешние инструменты наблюдаемости.
-// Все ссылки открываются в новой вкладке.
+// frontend/src/pages/AdminMonitoringPage.tsx
+//
+// Superadmin monitoring page — backend-driven.
+//
+// Источник истины для ссылок: GET /api/v1/tenant/tools (useExternalTools).
+// Frontend не строит localhost URL самостоятельно — это неправильно для
+// multi-contour deployment (dev/demo имеют разные настройки в .env).
+//
+// Отображает:
+// - секцию Grafana Dashboards (deep links из backend)
+// - секцию Сервисов (Grafana, Prometheus, Loki, MinIO, ...)
+// Скелетон рендера: Loading → Error → Not superadmin → Groups
 
 import React from "react";
 import {
@@ -17,36 +25,47 @@ import {
   BookOpen,
   Cpu,
   ExternalLink,
+  Loader2,
+  RefreshCw,
+  XCircle,
 } from "lucide-react";
+import { useExternalTools } from "../api/alerts";
+import Button from "../components/ui/Button";
 
-// ─────────────────────────────────────────────────────────────
-// Конфигурация URL
-// ─────────────────────────────────────────────────────────────
+// ─── Icon maps ────────────────────────────────────────────────────────────────
 
-const GRAFANA_BASE =
-  import.meta.env.VITE_GRAFANA_URL ?? "http://localhost:3000";
-const PROMETHEUS_URL =
-  import.meta.env.VITE_PROMETHEUS_URL ?? "http://localhost:9090";
-const ALERTMANAGER_URL =
-  import.meta.env.VITE_ALERTMANAGER_URL ?? "http://localhost:9093";
-const MINIO_URL =
-  import.meta.env.VITE_MINIO_CONSOLE_URL ?? "http://localhost:9001";
-const API_DOCS_URL =
-  import.meta.env.VITE_API_DOCS_URL ?? "http://localhost:8000/docs";
-const OLLAMA_URL =
-  import.meta.env.VITE_OLLAMA_URL ?? "http://localhost:11434";
+type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
-// ─────────────────────────────────────────────────────────────
-// Типы
-// ─────────────────────────────────────────────────────────────
+/** Иконки для Grafana dashboard deep links. Ключ — uid из backend. */
+const DASHBOARD_ICONS: Record<string, IconComponent> = {
+  "operations-overview": Activity,
+  "legalmas-pipeline": GitBranch,
+  "slo-overview": CheckCircle,
+  "logs-explorer": Search,
+};
+
+/** Иконки для сервисов. Ключ — service.key из backend. */
+const SERVICE_ICONS: Record<string, IconComponent> = {
+  grafana: BarChart2,
+  prometheus: Activity,
+  alertmanager: AlertTriangle,
+  tempo: Layers,
+  loki: FileText,
+  minio: Box,
+  api_docs: BookOpen,
+  ollama: Cpu,
+};
+
+const FALLBACK_ICON: IconComponent = Activity;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ToolItem {
   id: string;
   title: string;
   description: string;
   href: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  badge?: string;
+  icon: IconComponent;
 }
 
 interface ToolGroup {
@@ -56,134 +75,7 @@ interface ToolGroup {
   tools: ToolItem[];
 }
 
-// ─────────────────────────────────────────────────────────────
-// Данные
-// ─────────────────────────────────────────────────────────────
-
-const TOOL_GROUPS: ToolGroup[] = [
-  {
-    id: "dashboards",
-    title: "Обзорные дашборды",
-    description:
-      "Готовые визуализации по ключевым областям системы: работа платформы, конвейер обработки документов, качество сервиса и быстрый поиск по логам.",
-    tools: [
-      {
-        id: "operations",
-        title: "Operations Overview",
-        description: "HTTP, LLM, DLQ, active runs",
-        href: `${GRAFANA_BASE}/d/operations-overview`,
-        icon: Activity,
-      },
-      {
-        id: "pipeline",
-        title: "Pipeline Overview",
-        description: "Стадии обработки документов",
-        href: `${GRAFANA_BASE}/d/pipeline-overview`,
-        icon: GitBranch,
-      },
-      {
-        id: "slo",
-        title: "SLO Overview",
-        description: "Метрики качества и SLO",
-        href: `${GRAFANA_BASE}/d/slo-overview`,
-        icon: CheckCircle,
-      },
-      {
-        id: "logs-explorer",
-        title: "Log Explorer",
-        description: "Поиск и анализ логов Loki",
-        href: `${GRAFANA_BASE}/explore`,
-        icon: Search,
-      },
-    ],
-  },
-  {
-    id: "metrics",
-    title: "Метрики и алерты",
-    description:
-      "Первичные источники метрик и управление уведомлениями. Используются для глубокой диагностики инцидентов и настройки правил алертинга.",
-    tools: [
-      {
-        id: "grafana",
-        title: "Grafana",
-        description: "Dashboards, alerts, explore",
-        href: GRAFANA_BASE,
-        icon: BarChart2,
-      },
-      {
-        id: "prometheus",
-        title: "Prometheus",
-        description: "Метрики, alert rules, targets",
-        href: PROMETHEUS_URL,
-        icon: Activity,
-      },
-      {
-        id: "alertmanager",
-        title: "Alertmanager",
-        description: "Активные алерты, silences",
-        href: ALERTMANAGER_URL,
-        icon: AlertTriangle,
-      },
-    ],
-  },
-  {
-    id: "traces-logs",
-    title: "Логи и трейсы",
-    description:
-      "Детальный разбор инцидентов: структурированные логи через Loki и распределённые трейсы запросов через Tempo. Открываются в Grafana Explore.",
-    tools: [
-      {
-        id: "loki",
-        title: "Loki",
-        description: "Structured logs через Grafana Explore",
-        href: `${GRAFANA_BASE}/explore?orgId=1&left=%5B%22now-1h%22,%22now%22,%22Loki%22,%7B%7D%5D`,
-        icon: FileText,
-        badge: "через Grafana",
-      },
-      {
-        id: "tempo",
-        title: "Tempo",
-        description: "Distributed traces через Grafana Explore",
-        href: `${GRAFANA_BASE}/explore?orgId=1&left=%5B%22now-1h%22,%22now%22,%22Tempo%22,%7B%7D%5D`,
-        icon: Layers,
-        badge: "через Grafana",
-      },
-    ],
-  },
-  {
-    id: "infrastructure",
-    title: "Инфраструктура и API",
-    description:
-      "Внутренние сервисы платформы: object storage с артефактами, документация backend API и статус LLM inference.",
-    tools: [
-      {
-        id: "minio",
-        title: "MinIO Console",
-        description: "Object storage: артефакты, экспорты",
-        href: MINIO_URL,
-        icon: Box,
-      },
-      {
-        id: "api-docs",
-        title: "API Docs",
-        description: "OpenAPI Swagger для backend",
-        href: API_DOCS_URL,
-        icon: BookOpen,
-      },
-      {
-        id: "ollama",
-        title: "Ollama API",
-        description: "LLM inference status и модели",
-        href: `${OLLAMA_URL}/api/tags`,
-        icon: Cpu,
-      },
-    ],
-  },
-];
-
-// ─────────────────────────────────────────────────────────────
-// ToolCard
-// ─────────────────────────────────────────────────────────────
+// ─── ToolCard ─────────────────────────────────────────────────────────────────
 
 const ToolCard: React.FC<{ tool: ToolItem }> = ({ tool }) => (
   <a
@@ -192,8 +84,7 @@ const ToolCard: React.FC<{ tool: ToolItem }> = ({ tool }) => (
     rel="noopener noreferrer"
     className={[
       "group rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm",
-      "transition-all duration-200",
-      "hover:border-[var(--border-strong)] hover:shadow-md",
+      "transition-all duration-200 hover:shadow-md",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35",
       "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]",
     ].join(" ")}
@@ -209,16 +100,9 @@ const ToolCard: React.FC<{ tool: ToolItem }> = ({ tool }) => (
     </div>
 
     <div className="mt-3 min-w-0">
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
-          {tool.title}
-        </h3>
-        {tool.badge && (
-          <span className="shrink-0 rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
-            {tool.badge}
-          </span>
-        )}
-      </div>
+      <h3 className="text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
+        {tool.title}
+      </h3>
       <p className="mt-0.5 text-xs text-[var(--text-muted)]">
         {tool.description}
       </p>
@@ -226,19 +110,14 @@ const ToolCard: React.FC<{ tool: ToolItem }> = ({ tool }) => (
   </a>
 );
 
-// ─────────────────────────────────────────────────────────────
-// ToolGroupSection
-// ─────────────────────────────────────────────────────────────
+// ─── ToolGroupSection ─────────────────────────────────────────────────────────
 
 const ToolGroupSection: React.FC<{ group: ToolGroup }> = ({ group }) => (
-  <section
-    id={group.id}
-    className="scroll-mt-20 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm"
-  >
+  <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
     <div className="mb-4">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
         {group.title}
-      </div>
+      </p>
       <p className="mt-2 text-xs text-[var(--text-secondary)]">
         {group.description}
       </p>
@@ -252,31 +131,147 @@ const ToolGroupSection: React.FC<{ group: ToolGroup }> = ({ group }) => (
   </section>
 );
 
-// ─────────────────────────────────────────────────────────────
-// AdminMonitoringPage
-// ─────────────────────────────────────────────────────────────
+// ─── AdminMonitoringPage ──────────────────────────────────────────────────────
 
-const AdminMonitoringPage: React.FC = () => (
-  <div className="h-full overflow-y-auto overscroll-contain">
-    <div className="animate-fadein space-y-4 p-4 md:p-5">
-      <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-            Мониторинг
-          </h1>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            Инструменты наблюдаемости платформы: дашборды, метрики, логи,
-            трейсы и инфраструктура.
-          </p>
+const AdminMonitoringPage: React.FC = () => {
+  const toolsQ = useExternalTools();
+
+  // Собираем ToolGroup[] из backend response.
+  // Мемоизация: пересчёт только когда меняется data.
+  const groups = React.useMemo<ToolGroup[]>(() => {
+    const data = toolsQ.data;
+    // Доступ к странице уже гарантирован guard'ом RequireSuperadmin
+    // в App.tsx — здесь не проверяем роль повторно.
+    if (!data) return [];
+
+    const dashboardTools: ToolItem[] = data.dashboards.map((d) => ({
+      id: d.uid,
+      title: d.label,
+      description: d.description,
+      href: d.url,
+      icon: DASHBOARD_ICONS[d.uid] ?? FALLBACK_ICON,
+    }));
+
+    const serviceTools: ToolItem[] = data.services.map((s) => ({
+      id: s.key,
+      title: s.label,
+      description: s.description,
+      href: s.url,
+      icon: SERVICE_ICONS[s.key] ?? FALLBACK_ICON,
+    }));
+
+    const result: ToolGroup[] = [];
+
+    if (dashboardTools.length > 0) {
+      result.push({
+        id: "dashboards",
+        title: "Обзорные дашборды",
+        description:
+          "Deep links в Grafana. URL берутся из backend-конфигурации текущего контура.",
+        tools: dashboardTools,
+      });
+    }
+
+    if (serviceTools.length > 0) {
+      result.push({
+        id: "services",
+        title: "Сервисы observability",
+        description:
+          "Прямые ссылки на Grafana, Prometheus, Alertmanager, Loki, Tempo, MinIO, API docs и Ollama.",
+        tools: serviceTools,
+      });
+    }
+
+    return result;
+  }, [toolsQ.data]);
+
+  // ── Loading state ───────────────────────────────────────────────────────
+  if (toolsQ.isLoading && !toolsQ.data) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="flex items-center gap-3 text-[var(--text-muted)]">
+          <Loader2 size={20} className="animate-spin" />
+          <span className="text-sm">Загружаем monitoring links…</span>
         </div>
-      </header>
+      </div>
+    );
+  }
 
-      {TOOL_GROUPS.map((group) => (
-        <ToolGroupSection key={group.id} group={group} />
-      ))}
+  // ── Error state ─────────────────────────────────────────────────────────
+  if (toolsQ.error && !toolsQ.data) {
+    return (
+      <div className="flex h-full items-center justify-center px-4">
+        <div className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-6 text-center shadow-sm">
+          <XCircle
+            size={24}
+            className="mx-auto mb-3 text-[var(--color-error-text)]"
+          />
+          <p className="text-sm font-semibold text-[var(--color-error-text)]">
+            Не удалось загрузить ссылки мониторинга
+          </p>
+          <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+            Проверьте backend config и доступность admin API
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => toolsQ.refetch()}
+            className="mt-4"
+          >
+            Попробовать снова
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!toolsQ.data) return null;
+
+  // ── Main render ─────────────────────────────────────────────────────────
+  return (
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
+        {/* Header */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                Мониторинг
+              </h1>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Инструменты наблюдаемости платформы. Ссылки берутся из
+                backend-конфигурации контура и не зависят от browser localhost.
+              </p>
+            </div>
+
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => toolsQ.refetch()}
+              isLoading={toolsQ.isFetching}
+              leftIcon={<RefreshCw size={14} />}
+            >
+              Обновить ссылки
+            </Button>
+          </div>
+        </header>
+
+        {/* Groups */}
+        {groups.length === 0 ? (
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+            <p className="text-sm text-[var(--text-secondary)]">
+              Backend не вернул доступных monitoring links для текущего контура.
+            </p>
+          </section>
+        ) : (
+          groups.map((group) => (
+            <ToolGroupSection key={group.id} group={group} />
+          ))
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default AdminMonitoringPage;
 

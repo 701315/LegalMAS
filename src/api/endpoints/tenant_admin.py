@@ -50,8 +50,6 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/tenant", tags=["tenant-admin"])
 
-PROMETHEUS_URL = "http://localhost:9090"
-LOKI_URL = "http://localhost:3100"
 PROMETHEUS_TIMEOUT_SECONDS = 10.0
 LOKI_TIMEOUT_SECONDS = 15.0
 ALERTMANAGER_TIMEOUT_SECONDS = 5.0
@@ -121,6 +119,148 @@ def _observe_admin_logs_query_duration(since_minutes: int, duration_seconds: flo
     except Exception:
         # Метрики не должны ломать response pipeline.
         pass
+
+
+def _strip_trailing_slash(url: str) -> str:
+    """Нормализовать base URL без завершающего /."""
+    return str(url or "").rstrip("/")
+
+
+def _prometheus_base_url() -> str:
+    """Internal base URL Prometheus для backend-to-backend запросов."""
+    return _strip_trailing_slash(settings.PROMETHEUS_INTERNAL_URL)
+
+
+def _loki_base_url() -> str:
+    """Internal base URL Loki для backend-to-backend запросов."""
+    return _strip_trailing_slash(settings.LOKI_INTERNAL_URL)
+
+
+def _alertmanager_base_url() -> str:
+    """Internal base URL Alertmanager для backend-to-backend запросов."""
+    return _strip_trailing_slash(settings.ALERTMANAGER_INTERNAL_URL)
+
+
+def _build_external_tools_response(*, is_superadmin: bool) -> ExternalToolsDTO:
+    """
+    Собрать response для /tenant/tools из backend settings.
+
+    Важно:
+    - internal URLs используются только backend'ом и сюда не попадают;
+    - external URLs должны быть реально достижимы браузером;
+    - superadmin получает расширенный список deep links;
+    - tenant_admin получает только legacy-поля для обратной совместимости.
+    """
+    grafana_url = settings.GRAFANA_EXTERNAL_URL
+    prometheus_url = settings.PROMETHEUS_EXTERNAL_URL
+    alertmanager_url = settings.ALERTMANAGER_EXTERNAL_URL
+
+    if not is_superadmin:
+        return ExternalToolsDTO(
+            grafana_url=grafana_url,
+            prometheus_url=prometheus_url,
+            alertmanager_url=alertmanager_url,
+            is_superadmin=False,
+            services=[],
+            dashboards=[],
+        )
+
+    grafana_base = _strip_trailing_slash(grafana_url)
+    ollama_base = _strip_trailing_slash(settings.OLLAMA_EXTERNAL_URL)
+
+    dashboards = [
+        ExternalDashboardDTO(
+            uid="operations-overview",
+            label="Operations Overview",
+            description="HTTP, LLM, DLQ, active runs",
+            url=f"{grafana_base}/d/operations-overview",
+        ),
+        ExternalDashboardDTO(
+            uid="legalmas-pipeline",
+            label="Pipeline Overview",
+            description="Стадии обработки документов",
+            url=f"{grafana_base}/d/legalmas-pipeline",
+        ),
+        ExternalDashboardDTO(
+            uid="slo-overview",
+            label="SLO Overview",
+            description="Метрики качества и SLO",
+            url=f"{grafana_base}/d/slo-overview",
+        ),
+        ExternalDashboardDTO(
+            uid="logs-explorer",
+            label="Log Explorer",
+            description="Поиск и анализ логов Loki",
+            url=f"{grafana_base}/explore",
+        ),
+    ]
+
+    services = [
+        ExternalServiceDTO(
+            key="grafana",
+            label="Grafana",
+            url=settings.GRAFANA_EXTERNAL_URL,
+            description="Dashboards, alerts, explore",
+        ),
+        ExternalServiceDTO(
+            key="prometheus",
+            label="Prometheus",
+            url=settings.PROMETHEUS_EXTERNAL_URL,
+            description="Метрики, alert rules, targets",
+        ),
+        ExternalServiceDTO(
+            key="alertmanager",
+            label="Alertmanager",
+            url=settings.ALERTMANAGER_EXTERNAL_URL,
+            description="Активные алерты, silences",
+        ),
+        ExternalServiceDTO(
+            key="tempo",
+            label="Tempo (через Grafana)",
+            url=(
+                f"{grafana_base}/explore?"
+                'left=%7B%22datasource%22:%22tempo%22%7D'
+            ),
+            description="Distributed traces через Grafana Explore",
+        ),
+        ExternalServiceDTO(
+            key="loki",
+            label="Loki (через Grafana)",
+            url=(
+                f"{grafana_base}/explore?"
+                'left=%7B%22datasource%22:%22loki%22%7D'
+            ),
+            description="Structured logs через Grafana Explore",
+        ),
+        ExternalServiceDTO(
+            key="minio",
+            label="MinIO Console",
+            url=settings.MINIO_CONSOLE_EXTERNAL_URL,
+            description="Object storage: артефакты, экспорты",
+        ),
+        ExternalServiceDTO(
+            key="api_docs",
+            label="API Docs",
+            url=settings.API_DOCS_EXTERNAL_URL,
+            description="OpenAPI Swagger для backend",
+        ),
+        ExternalServiceDTO(
+            key="ollama",
+            label="Ollama API",
+            url=f"{ollama_base}/api/tags",
+            description="LLM inference status и модели",
+        ),
+    ]
+
+    return ExternalToolsDTO(
+        grafana_url=grafana_url,
+        prometheus_url=prometheus_url,
+        alertmanager_url=alertmanager_url,
+        is_superadmin=True,
+        services=services,
+        dashboards=dashboards,
+    )
+
 
 
 # ── Guards ──────────────────────────────────────────────────────────────────
@@ -540,7 +680,7 @@ async def _prometheus_query(
     query: str,
 ) -> list[dict[str, Any]]:
     response = await client.get(
-        f"{PROMETHEUS_URL}/api/v1/query",
+        f"{_prometheus_base_url()}/api/v1/query",
         params={"query": query},
     )
     response.raise_for_status()
@@ -1529,7 +1669,7 @@ async def get_tenant_logs(
     try:
         async with httpx.AsyncClient(timeout=LOKI_TIMEOUT_SECONDS) as client:
             response = await client.get(
-                f"{LOKI_URL}/loki/api/v1/query_range",
+                f"{_loki_base_url()}/loki/api/v1/query_range",
                 params={
                     "query": query,
                     "limit": fetch_limit,
@@ -1726,7 +1866,7 @@ async def get_tenant_alerts(
     try:
         async with httpx.AsyncClient(timeout=ALERTMANAGER_TIMEOUT_SECONDS) as client:
             response = await client.get(
-                f"{settings.ALERTMANAGER_INTERNAL_URL}/api/v2/alerts",
+                f"{_alertmanager_base_url()}/api/v2/alerts",
             )
             response.raise_for_status()
             payload = response.json()
@@ -1821,125 +1961,13 @@ async def get_external_tools(
     Вернуть URLs Grafana / Prometheus / Alertmanager + расширенный
     список сервисов и Grafana dashboards для admin panel.
 
-    Frontend использует эти URLs для dropdown "Внешние инструменты".
-    Расширенные списки (services, dashboards) наполняются только для
-    superadmin — обычный tenant_admin получает is_superadmin=False и
-    пустые списки, компонент во frontend сам скрывает панель.
+    Источник истины — backend settings текущего контура.
+    Frontend не должен угадывать URLs самостоятельно.
 
-    Обоснование role check:
-    Grafana / Prometheus / Alertmanager показывают cross-tenant данные.
-    Tenant_admin не должен иметь прямого доступа к чужим метрикам,
-    он получает свои данные через API вашего backend (уже tenant-scoped).
+    Расширенные списки (services, dashboards) заполняются только для
+    superadmin — tenant_admin получает is_superadmin=False и пустые списки.
     """
     _require_tenant_admin(user)
-
-    is_superadmin = user.global_role == "superadmin"
-
-    # Для не-superadmin возвращаем минимум для обратной совместимости
-    # (AlertsPanel может использовать поля grafana_url и т.д.)
-    if not is_superadmin:
-        return ExternalToolsDTO(
-            grafana_url=settings.GRAFANA_EXTERNAL_URL,
-            prometheus_url=settings.PROMETHEUS_EXTERNAL_URL,
-            alertmanager_url=settings.ALERTMANAGER_EXTERNAL_URL,
-            is_superadmin=False,
-            services=[],
-            dashboards=[],
-        )
-
-    # ─── Grafana dashboards с deep links ────────────────────────────
-    grafana_base = settings.GRAFANA_EXTERNAL_URL.rstrip("/")
-    dashboards = [
-        ExternalDashboardDTO(
-            uid="operations-overview",
-            label="Operations Overview",
-            description="HTTP, LLM, DLQ, active runs",
-            url=f"{grafana_base}/d/operations-overview",
-        ),
-        ExternalDashboardDTO(
-            uid="legalmas-pipeline",
-            label="Pipeline Overview",
-            description="Стадии обработки документов",
-            url=f"{grafana_base}/d/legalmas-pipeline",
-        ),
-        ExternalDashboardDTO(
-            uid="slo-overview",
-            label="SLO Overview",
-            description="Метрики качества и SLO",
-            url=f"{grafana_base}/d/slo-overview",
-        ),
-        ExternalDashboardDTO(
-            uid="logs-explorer",
-            label="Log Explorer",
-            description="Поиск и анализ логов Loki",
-            url=f"{grafana_base}/d/logs-explorer",
-        ),
-    ]
-
-    # ─── Инфраструктурные сервисы ───────────────────────────────────
-    services = [
-        ExternalServiceDTO(
-            key="grafana",
-            label="Grafana",
-            url=settings.GRAFANA_EXTERNAL_URL,
-            description="Dashboards, alerts, explore",
-        ),
-        ExternalServiceDTO(
-            key="prometheus",
-            label="Prometheus",
-            url=settings.PROMETHEUS_EXTERNAL_URL,
-            description="Метрики, alert rules, targets",
-        ),
-        ExternalServiceDTO(
-            key="alertmanager",
-            label="Alertmanager",
-            url=settings.ALERTMANAGER_EXTERNAL_URL,
-            description="Активные алерты, silences",
-        ),
-        ExternalServiceDTO(
-            key="tempo",
-            label="Tempo (через Grafana)",
-            url=(
-                f"{grafana_base}/explore?"
-                'left=%7B%22datasource%22:%22tempo%22%7D'
-            ),
-            description="Distributed traces через Grafana Explore",
-        ),
-        ExternalServiceDTO(
-            key="loki",
-            label="Loki (через Grafana)",
-            url=(
-                f"{grafana_base}/explore?"
-                'left=%7B%22datasource%22:%22loki%22%7D'
-            ),
-            description="Structured logs через Grafana Explore",
-        ),
-        ExternalServiceDTO(
-            key="minio",
-            label="MinIO Console",
-            url=settings.MINIO_CONSOLE_EXTERNAL_URL,
-            description="Object storage: артефакты, экспорты",
-        ),
-        ExternalServiceDTO(
-            key="api_docs",
-            label="API Docs",
-            url=settings.API_DOCS_EXTERNAL_URL,
-            description="OpenAPI Swagger для backend",
-        ),
-        ExternalServiceDTO(
-            key="ollama",
-            label="Ollama API",
-            url=settings.OLLAMA_EXTERNAL_URL,
-            description="LLM inference status и модели",
-        ),
-    ]
-
-    return ExternalToolsDTO(
-        grafana_url=settings.GRAFANA_EXTERNAL_URL,
-        prometheus_url=settings.PROMETHEUS_EXTERNAL_URL,
-        alertmanager_url=settings.ALERTMANAGER_EXTERNAL_URL,
-        is_superadmin=True,
-        services=services,
-        dashboards=dashboards,
+    return _build_external_tools_response(
+        is_superadmin=user.global_role == "superadmin"
     )
-
