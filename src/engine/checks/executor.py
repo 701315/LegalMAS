@@ -1198,8 +1198,32 @@ class CheckExecutor:
                 result = "unclear"
                 severity = check.severity_if_unclear or check.severity
         elif found:
-            result = "fail"
-            severity = check.severity_if_fail or check.severity
+            # Confidence-based fail→unclear downgrade (P0-3b).
+            # Если detector нашёл что-то (found=True), но уверенность низкая —
+            # это не полноценный fail, это "возможный риск требующий проверки".
+            # Порог берём из config: FAIL_CONFIDENCE_UNCLEAR_THRESHOLD (0.50).
+            # Это мягче чем CONFIDENCE_MANUAL_REVIEW_THRESHOLD (0.55) —
+            # сначала даём шанс остаться fail, если confidence чуть выше нуля,
+            # и только при совсем слабом сигнале переводим в unclear.
+            _fail_unclear_thr = float(
+                getattr(settings, "FAIL_CONFIDENCE_UNCLEAR_THRESHOLD", 0.50)
+            )
+            if confidence < _fail_unclear_thr:
+                result = "unclear"
+                severity = check.severity_if_unclear or check.severity
+                raw_details.setdefault("low_confidence_fail_flag", True)
+                logger.debug(
+                    "CheckExecutor: low-confidence positive detection downgraded to unclear",
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "check_id": getattr(check, "id", None),
+                        "confidence": confidence,
+                        "threshold": _fail_unclear_thr,
+                    },
+                )
+            else:
+                result = "fail"
+                severity = check.severity_if_fail or check.severity
         elif is_presence_not_found:
             result = "missing_required_clause"
             severity = check.severity_if_fail or check.severity

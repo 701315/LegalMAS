@@ -43,6 +43,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from core.config import settings
 from core.constants import CheckExecutionStatus
 from core.logging import get_logger
 
@@ -161,6 +162,33 @@ def build_user_explanation(
     # --- 5. Явный провал проверки ---
 
     if result == "fail":
+        # Проверяем confidence: если низкая — помечаем needs_manual_review=True.
+        # Это позволяет юристу видеть разницу между "подтверждённый риск"
+        # и "возможный риск с низкой уверенностью".
+        confidence = float(exec_result.get("confidence", 1.0) or 0.0)
+        severity = str(exec_result.get("severity") or "").strip().lower()
+
+        if severity in ("critical", "high"):
+            conf_threshold = float(
+                getattr(settings, "CONFIDENCE_MANUAL_REVIEW_THRESHOLD_HIGH_SEVERITY", 0.65)
+            )
+        else:
+            conf_threshold = float(
+                getattr(settings, "CONFIDENCE_MANUAL_REVIEW_THRESHOLD", 0.55)
+            )
+
+        is_low_confidence = confidence < conf_threshold
+
+        if is_low_confidence:
+            return {
+                "user_status": "issue_detected",
+                "user_message": (
+                    "Обнаружено условие или формулировка, требующие внимания. "
+                    "Проверьте соответствующий фрагмент договора и оцените правовые последствия."
+                ),
+                "needs_manual_review": True,
+            }
+
         return {
             "user_status": "issue_detected",
             "user_message": (

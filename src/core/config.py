@@ -564,6 +564,20 @@ class Settings(BaseSettings):
     CHECK_PASS_THRESHOLD: float = 0.6
     CHECK_UNCLEAR_THRESHOLD: float = 0.3
 
+    # Пороги confidence для принятия решения о needs_manual_review.
+    # Если confidence detection ниже порога — fail помечается как
+    # требующий ручной проверки, даже при наличии evidence/structured_data.
+    # Для critical/high severity порог выше — мы строже к важным рискам.
+    CONFIDENCE_MANUAL_REVIEW_THRESHOLD: float = 0.55
+    CONFIDENCE_MANUAL_REVIEW_THRESHOLD_HIGH_SEVERITY: float = 0.65
+
+    # Порог confidence ниже которого found=True positive detection
+    # переводится из "fail" в "unclear" на уровне business result mapping.
+    # Мягче чем CONFIDENCE_MANUAL_REVIEW_THRESHOLD — сначала даём шанс
+    # остаться fail, и только при совсем слабом сигнале переводим в unclear.
+    # Это применяется только к не-presence и не-field_extraction checks.
+    FAIL_CONFIDENCE_UNCLEAR_THRESHOLD: float = 0.50
+
     # --- Aggregator & Exporter ---
     EXPORT_TOP_RISKS_COUNT: int = 20
     EXPORT_EVIDENCE_MAX_LENGTH: int = 300

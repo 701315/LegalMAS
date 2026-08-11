@@ -32,6 +32,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from core.config import settings
 from core.constants import CheckExecutionStatus
 from core.logging import get_logger
 
@@ -949,7 +950,12 @@ def _derive_needs_manual_review(
     True when:
     - Technical failure.
     - Unclear result.
+    - Fail with low confidence (below severity-adjusted threshold).
     - Fail with critical/high severity but no factual extraction and no evidence.
+
+    Confidence thresholds (from config):
+    - CONFIDENCE_MANUAL_REVIEW_THRESHOLD_HIGH_SEVERITY (0.65) for critical/high
+    - CONFIDENCE_MANUAL_REVIEW_THRESHOLD (0.55) for medium/low
     """
     # Technical failure → always needs review
     if execution_status in _TECHNICAL_FAILURE_STATUSES:
@@ -967,15 +973,32 @@ def _derive_needs_manual_review(
     if result in ("pass", "missing_required_clause"):
         return False
 
-    # Fail → depends on whether we have supporting data
+    # Fail → depends on confidence and supporting data
     if result == "fail":
+        # Confidence-based check: low confidence fail → needs review
+        # regardless of whether we have evidence or structured_data.
+        # This is the key addition for P0-3.
+        confidence = float(exec_result.get("confidence", 1.0) or 0.0)
+        if severity in ("critical", "high"):
+            conf_threshold = float(
+                getattr(settings, "CONFIDENCE_MANUAL_REVIEW_THRESHOLD_HIGH_SEVERITY", 0.65)
+            )
+        else:
+            conf_threshold = float(
+                getattr(settings, "CONFIDENCE_MANUAL_REVIEW_THRESHOLD", 0.55)
+            )
+
+        if confidence < conf_threshold:
+            return True
+
+        # High-confidence fail: check if we have supporting data
         has_fact = _has_factual_extraction(structured_data, check=check)
         has_evidence = _extract_meaningful_evidence(exec_result) is not None
 
         if has_fact or has_evidence:
             return False
 
-        # No supporting data: critical/high need manual review
+        # High-confidence fail, no supporting data: critical/high need manual review
         return severity in ("critical", "high")
 
     # Unknown result → conservative
@@ -1029,6 +1052,9 @@ def _build_review_message(
 
     Uses build_user_explanation as internal helper, with deterministic
     fallback messages by review_status.
+
+    For low-confidence fail results, prepends a confidence warning
+    so the lawyer sees why manual review is recommended.
     """
     # Import here to avoid circular dependency issues at module level.
     # build_user_explanation is a stable internal helper.
@@ -1043,7 +1069,36 @@ def _build_review_message(
         )
         message = explanation.get("user_message")
         if message and str(message).strip():
-            return str(message).strip()
+            base_message = str(message).strip()
+
+            # Если fail с низкой уверенностью — добавляем предупреждение.
+            # Это единственное место где confidence виден юристу в review message.
+            result = str(exec_result.get("result") or "").strip().lower()
+            if result == "fail" and explanation.get("needs_manual_review"):
+                confidence = float(exec_result.get("confidence", 1.0) or 0.0)
+                severity = str(exec_result.get("severity") or "").strip().lower()
+                if severity in ("critical", "high"):
+                    conf_threshold = float(
+                        getattr(
+                            settings,
+                            "CONFIDENCE_MANUAL_REVIEW_THRESHOLD_HIGH_SEVERITY",
+                            0.65,
+                        )
+                    )
+                else:
+                    conf_threshold = float(
+                        getattr(settings, "CONFIDENCE_MANUAL_REVIEW_THRESHOLD", 0.55)
+                    )
+
+                if confidence < conf_threshold:
+                    confidence_pct = int(round(confidence * 100))
+                    base_message = (
+                        f"Уверенность системы: {confidence_pct}% "
+                        f"(рекомендуется ручная проверка). "
+                        f"{base_message}"
+                    )
+
+            return base_message
     except Exception:
         logger.debug(
             "result_semantics: build_user_explanation failed, using fallback",
