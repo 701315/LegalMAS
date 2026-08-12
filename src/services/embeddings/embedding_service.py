@@ -89,18 +89,23 @@ class EmbeddingService:
         max_items = int(max(1, int(getattr(settings, "EMBEDDING_CACHE_MAX_ITEMS", 50000))))
         return ttl, max_items
 
-    def encode(self, texts: list[str]) -> np.ndarray:
+    def encode(self, texts: list[str], role: str = "passage") -> np.ndarray:
         """
-        Синхронная кодировка с optional cache.
+        Синхронная кодировка с E5-prefix и optional cache.
+
+        role: "passage" для корпуса/прототипов, "query" для поисковых запросов.
+        E5-модели семейства (multilingual-e5-small, multilingual-e5-large)
+        требуют префиксов "passage: " и "query: " по спецификации модели.
+        Без префиксов модель работает ниже своего потенциального качества.
 
         Если cache включён:
-        1. Построить keys для всех texts.
+        1. Построить keys для всех texts (с учётом role).
         2. Batch lookup cached vectors.
-        3. Кодировать только uncached.
+        3. Добавить префикс и кодировать только uncached.
         4. Сохранить новые vectors в cache.
         5. Собрать результат в правильном порядке.
 
-        Если cache выключён — прямой вызов model.encode().
+        Если cache выключён — прямой вызов model.encode() с префиксами.
         """
         if not self.model:
             raise RuntimeError(
@@ -111,27 +116,35 @@ class EmbeddingService:
         if not texts:
             return np.array([], dtype=np.float32).reshape(0, self.embedding_dim)
 
+        # E5-prefix: добавляем роль-специфический префикс перед кодированием.
+        # Это обязательное требование семейства E5 (intfloat/multilingual-e5-*).
+        # "query: " — для поисковых запросов
+        # "passage: " — для документов, корпуса, прототипов классификатора
+        prefix = "query: " if role == "query" else "passage: "
+        prefixed_texts = [prefix + t for t in texts]
+
         if not self._is_cache_enabled():
-            return self.model.encode(texts, show_progress_bar=False)
+            return self.model.encode(prefixed_texts, show_progress_bar=False)
 
         from services.embeddings._cache import build_embedding_cache_key
 
         cache = self._get_cache()
         ttl, max_items = self._get_cache_settings()
 
-        keys = [build_embedding_cache_key(t, self._model_name) for t in texts]
+        # Cache key включает role чтобы query и passage векторы не перезаписывали друг друга.
+        keys = [build_embedding_cache_key(t, self._model_name, role) for t in texts]
         cached = cache.get_many(keys)
 
         uncached_indices: list[int] = []
-        uncached_texts: list[str] = []
+        uncached_prefixed: list[str] = []
 
         for i, key in enumerate(keys):
             if cached.get(key) is None:
                 uncached_indices.append(i)
-                uncached_texts.append(texts[i])
+                uncached_prefixed.append(prefixed_texts[i])
 
-        if uncached_texts:
-            fresh_vectors = self.model.encode(uncached_texts, show_progress_bar=False)
+        if uncached_prefixed:
+            fresh_vectors = self.model.encode(uncached_prefixed, show_progress_bar=False)
             fresh_vectors = np.asarray(fresh_vectors, dtype=np.float32)
 
             to_store: dict[str, np.ndarray] = {}
@@ -157,10 +170,12 @@ class EmbeddingService:
 
         return result
 
-    async def encode_async(self, texts: list[str]) -> np.ndarray:
+    async def encode_async(self, texts: list[str], role: str = "passage") -> np.ndarray:
         """
         Async-safe кодировка. Запускает encode() в executor.
-        Cache работает через тот же encode().
+        Cache и E5-prefix работают через тот же encode().
+
+        role: "passage" для корпуса/документов, "query" для поисковых запросов.
         """
         if not self.model:
             raise RuntimeError(
@@ -170,7 +185,7 @@ class EmbeddingService:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             _ENCODE_EXECUTOR,
-            lambda: self.encode(texts),
+            lambda: self.encode(texts, role=role),
         )
 
     @property

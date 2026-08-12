@@ -60,7 +60,11 @@ async def test_build_safe_chunks_for_segment_passes_sidecar_to_reader() -> None:
         )
 
     assert captured_kwargs.get("enrichment_sidecar") is sidecar
-    assert len(result) == 1
+    # build_safe_chunks_for_segment теперь возвращает (safe_chunks, chunks_metadata)
+    safe_chunks, chunks_metadata = result
+    assert len(safe_chunks) == 1
+    assert isinstance(chunks_metadata, dict)
+    assert "truncated" in chunks_metadata
 
 
 @pytest.mark.asyncio
@@ -91,7 +95,11 @@ async def test_build_safe_chunks_for_segment_none_sidecar_no_error() -> None:
             enrichment_sidecar=None,
         )
 
-    assert isinstance(result, list)
+    # build_safe_chunks_for_segment теперь возвращает (safe_chunks, chunks_metadata)
+    safe_chunks, chunks_metadata = result
+    assert isinstance(safe_chunks, list)
+    assert isinstance(chunks_metadata, dict)
+    assert chunks_metadata["truncated"] is False
 
 
 @pytest.mark.asyncio
@@ -111,8 +119,12 @@ async def test_build_safe_chunks_for_segment_empty_segment_id_returns_empty() ->
             enrichment_sidecar={"enrichments": []},
         )
 
-    assert result == []
+    # build_safe_chunks_for_segment теперь возвращает (safe_chunks, chunks_metadata)
+    safe_chunks, chunks_metadata = result
+    assert safe_chunks == []
+    assert chunks_metadata["truncated"] is False
+    assert chunks_metadata["original_count"] == 0
+    assert chunks_metadata["kept_count"] == 0
     mock_reader.assert_not_called()
-
 
     

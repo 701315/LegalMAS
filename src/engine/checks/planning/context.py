@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 CheckScope = Literal["document", "segment"]
+ClassificationConfidenceZone = Literal["confident", "low", "unknown"]
 
 
 @dataclass(frozen=True)
@@ -47,12 +48,17 @@ class CheckContext:
     # document-level профиль
     document_type: str | None
 
+    # classification confidence / review flags
+    classification_confidence: float | None = None
+    classification_confidence_zone: ClassificationConfidenceZone | None = None
+    classification_requires_manual_review: bool = False
+
     # segment-level профиль
-    segment_id: str | None
-    segment_doc_type: str | None
+    segment_id: str | None = None
+    segment_doc_type: str | None = None
 
     # применимые триггеры (doc- или segment-level)
-    triggers: frozenset[str]
+    triggers: frozenset[str] = frozenset()
 
     @property
     def effective_doc_type(self) -> str | None:
@@ -77,6 +83,21 @@ class CheckContext:
         """Удобный helper: контекст относится к отдельному сегменту."""
         return self.scope == "segment"
 
+    @property
+    def is_low_confidence_classification(self) -> bool:
+        """
+        True если тип документа/сегмента определён с низкой уверенностью.
+
+        Используется planner'ом для добавления generic fallback checks.
+        """
+        return self.classification_confidence_zone == "low"
+
+    @property
+    def is_unknown_confidence_classification(self) -> bool:
+        """
+        True если классификация попала в unknown corridor.
+        """
+        return self.classification_confidence_zone == "unknown"
 
 @dataclass(frozen=True)
 class SegmentInfo:
@@ -96,6 +117,9 @@ class SegmentInfo:
     segment_id: str
     segment_doc_type: str | None
     triggers: tuple[str, ...]
+    classification_confidence: float | None = None
+    classification_confidence_zone: ClassificationConfidenceZone | None = None
+    classification_requires_manual_review: bool = False
 
     @property
     def has_doc_type(self) -> bool:

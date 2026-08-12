@@ -105,11 +105,20 @@ def _mock_embed_service(vectors: dict[str, np.ndarray]):
 
     vectors: {title_substring: vector} — матчит по вхождению в текст ноды.
     Если текст не совпал ни с одним ключом — возвращает нулевой вектор.
+
+    role принимается для совместимости с новым контрактом EmbeddingService.encode():
+    encode(texts, role="passage"|"query").
+    В recovery path всегда должен передаваться role="passage".
     """
     svc = MagicMock()
     svc.is_enabled = True
 
-    def _encode(texts: list[str]) -> np.ndarray:
+    def _encode(texts: list[str], role: str = "passage") -> np.ndarray:
+        # Проверяем что recovery использует правильную роль.
+        # Nodes иерархии — это passage corpus, не query.
+        assert role == "passage", (
+            f"EmbeddingRecoveryEngine should encode nodes as 'passage', got '{role}'"
+        )
         result = []
         for text in texts:
             vec = None

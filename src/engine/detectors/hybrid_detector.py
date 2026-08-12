@@ -43,7 +43,9 @@ logger = get_logger(__name__)
 
 RULES_CONFIDENCE_THRESHOLD = settings.RULES_CONFIDENCE_THRESHOLD
 
-RUN_LLM_ON_RULES_CLEAN_NEGATIVE = bool(getattr(settings, "RUN_LLM_ON_RULES_CLEAN_NEGATIVE", False))
+# Читаем оба флага из typed fields — значение из .env теперь корректно подхватывается.
+RUN_LLM_ON_RULES_CLEAN_NEGATIVE: bool = settings.RUN_LLM_ON_RULES_CLEAN_NEGATIVE
+RUN_LLM_ON_HIGH_SEVERITY_CLEAN_NEGATIVE: bool = settings.RUN_LLM_ON_HIGH_SEVERITY_CLEAN_NEGATIVE
 
 
 class HybridDetector:
@@ -450,10 +452,14 @@ class HybridDetector:
         - need_llm: bool
         - decision_reason: str
 
-        Политика по умолчанию:
-        - confident positive rules  -> LLM не нужен;
-        - clean negative rules      -> LLM не нужен (для экономии ресурсов);
-        - всё остальное             -> unclear, вызываем LLM.
+        Политика:
+        - confident positive rules  → LLM не нужен
+        - clean negative rules      → зависит от severity и флагов конфига:
+            * если RUN_LLM_ON_RULES_CLEAN_NEGATIVE=True → всегда вызываем LLM
+            * если severity_if_fail=critical|high и RUN_LLM_ON_HIGH_SEVERITY_CLEAN_NEGATIVE=True
+              → вызываем LLM (защита от ложноотрицательных на важных рисках)
+            * иначе → LLM не вызываем (экономия ресурсов)
+        - всё остальное             → unclear, вызываем LLM
         """
         found_rules = bool(rules_result.get("found", False))
         conf_rules = float(rules_result.get("confidence", 0.0) or 0.0)
@@ -465,8 +471,30 @@ class HybridDetector:
         if (
             not found_rules
             and reason_rules == "no_keywords_or_patterns_matched"
-            and not RUN_LLM_ON_RULES_CLEAN_NEGATIVE
         ):
+            # Глобальный флаг включён — вызываем LLM всегда
+            if RUN_LLM_ON_RULES_CLEAN_NEGATIVE:
+                return True, "clean_negative_llm_enabled"
+
+            # High/critical severity — вызываем LLM даже при clean negative
+            # чтобы не пропустить важный риск из-за ограничений rules
+            if RUN_LLM_ON_HIGH_SEVERITY_CLEAN_NEGATIVE:
+                severity = str(
+                    getattr(check, "severity_if_fail", None)
+                    or getattr(check, "severity", None)
+                    or ""
+                ).lower()
+                if severity in ("critical", "high"):
+                    logger.debug(
+                        "HybridDetector._should_run_llm: "
+                        "high/critical severity clean negative → invoking LLM",
+                        extra={
+                            "check_id": getattr(check, "id", None),
+                            "severity": severity,
+                        },
+                    )
+                    return True, "high_severity_clean_negative_requires_llm"
+
             return False, "rules_clean_negative"
 
         if not found_rules and reason_rules == "negative_keywords_matched":

@@ -564,6 +564,25 @@ class Settings(BaseSettings):
     CHECK_PASS_THRESHOLD: float = 0.6
     CHECK_UNCLEAR_THRESHOLD: float = 0.3
 
+    # Политика запуска LLM при "чистом негативе" rules (no_keywords_or_patterns_matched).
+    #
+    # RUN_LLM_ON_RULES_CLEAN_NEGATIVE — глобальный флаг.
+    #   False (default): экономим LLM-вызовы, rules clean negative → нет риска.
+    #   True: всегда проверяем LLM даже если rules ничего не нашли.
+    #   Может быть переопределён из .env.
+    #
+    # RUN_LLM_ON_HIGH_SEVERITY_CLEAN_NEGATIVE — переопределение для high/critical checks.
+    #   True (default): для checks с severity_if_fail=critical или high —
+    #   всегда вызываем LLM на clean negative, даже если глобальный флаг False.
+    #   Это защита от ложноотрицательных на самых важных рисках.
+    #
+    # ВАЖНО: ранее RUN_LLM_ON_RULES_CLEAN_NEGATIVE читался через
+    #   getattr(settings, "RUN_LLM_ON_RULES_CLEAN_NEGATIVE", False)
+    # что делало его "phantom setting" — значение из .env молча игнорировалось.
+    # Теперь оба поля являются полноценными typed fields Pydantic.
+    RUN_LLM_ON_RULES_CLEAN_NEGATIVE: bool = False
+    RUN_LLM_ON_HIGH_SEVERITY_CLEAN_NEGATIVE: bool = True
+
     # Пороги confidence для принятия решения о needs_manual_review.
     # Если confidence detection ниже порога — fail помечается как
     # требующий ручной проверки, даже при наличии evidence/structured_data.

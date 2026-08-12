@@ -611,6 +611,7 @@ class CheckExecutor:
         check: CheckDefinition,
         chunks: list[dict],
         semantic_context: "SemanticEnrichmentContext | None" = None,
+        chunks_metadata: dict[str, Any] | None = None,
     ) -> dict:
         """
         Выполнить один check для одного документа.
@@ -618,6 +619,14 @@ class CheckExecutor:
         Args:
             doc:    ORM Document.
             chunks: список чанков [{"id": ..., "text": "...", "metadata": {...}}, ...].
+            chunks_metadata:
+                {
+                    "truncated": bool,
+                    "original_count": int,
+                    "kept_count": int,
+                }
+                Метаданные подготовки chunks из ChunksPreparer.
+                Если truncated=True — документ был обработан по частичному corpus.
 
         Возвращает словарь, пригодный для записи в CheckResult.
         Никогда не выбрасывает исключение: при любых внутренних ошибках
@@ -1020,6 +1029,21 @@ class CheckExecutor:
 
         raw_details.setdefault("context_truncated", bool(context_truncated))
         raw_details.setdefault("context_tokens", int(context_tokens))
+
+        # Честно пробрасываем truncation уровня corpus, а не только truncation
+        # LLM prompt context. Это отдельный сигнал качества:
+        # - context_truncated = обрезали prompt под токен-бюджет
+        # - chunks_truncated  = ChunksPreparer обрезал corpus по MAX_CHUNKS_PER_DOC
+        if isinstance(chunks_metadata, dict) and chunks_metadata.get("truncated") is True:
+            raw_details.setdefault("chunks_truncated", True)
+            raw_details.setdefault(
+                "chunks_original_count",
+                int(chunks_metadata.get("original_count", len(chunks))),
+            )
+            raw_details.setdefault(
+                "chunks_kept_count",
+                int(chunks_metadata.get("kept_count", len(chunks))),
+            )
 
         reason = detection.get("reason")
         if reason is None:

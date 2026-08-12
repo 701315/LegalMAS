@@ -27,16 +27,20 @@ from threading import RLock
 import numpy as np
 
 
-def build_embedding_cache_key(text: str, model_name: str) -> str:
+def build_embedding_cache_key(text: str, model_name: str, role: str = "passage") -> str:
     """
     Построить cache key для одного текста.
 
     Безопасность:
     - raw text не используется как открытый key;
-    - key = sha256(model_name + normalized_text).
+    - key = sha256(model_name + role + normalized_text).
+
+    role включён в key потому что E5-модели добавляют разные префиксы
+    ("query: " или "passage: ") перед кодированием. Векторы для одного текста
+    в роли query и passage отличаются — они не должны делить один cache key.
     """
     normalized = text.strip()
-    payload = f"{model_name}::{normalized}"
+    payload = f"{model_name}::{role}::{normalized}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

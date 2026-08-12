@@ -345,8 +345,9 @@ class RetrievalEngine:
         # и мы не хотим сильно менять длину/структуру текста для модели.
         if settings.RUNNER_EMBEDDINGS_ENABLED:
             original_texts = [ch["text"] for ch in self.chunks]
+            # Corpus chunks кодируются как "passage" — это требование E5-модели.
             # embedding_service.encode возвращает np.ndarray (N, D)
-            self.emb_vectors = embedding_service.encode(original_texts)
+            self.emb_vectors = embedding_service.encode(original_texts, role="passage")
         else:
             self.emb_vectors = None
 
@@ -381,7 +382,9 @@ class RetrievalEngine:
 
         # 2. Dense scores (cosine similarity), если включены
         if self.emb_vectors is not None:
-            q_vec = embedding_service.encode([query])[0].astype(np.float32)
+            # Query кодируется как "query" — это требование E5-модели.
+            # Поисковый запрос и корпус должны использовать разные префиксы.
+            q_vec = embedding_service.encode([query], role="query")[0].astype(np.float32)
             q_norm = np.linalg.norm(q_vec) + 1e-9
             q_vec = q_vec / q_norm
 

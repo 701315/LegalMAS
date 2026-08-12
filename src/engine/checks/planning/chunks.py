@@ -60,9 +60,18 @@ class ChunksPreparer:
         doc,
         checks: list[Any],
         enrichment_sidecars_by_segment: dict[str, dict[str, Any]] | None = None,
-    ) -> list[dict]:
+    ) -> tuple[list[dict], dict]:
         """
         Собрать safe_chunks для одного документа и набора checks.
+
+        Возвращает кортеж:
+        - list[dict]: список safe_chunks готовый для CheckExecutor
+        - dict: метаданные о подготовке чанков (chunks_metadata):
+            {
+                "truncated": bool,         # был ли список обрезан по MAX_CHUNKS_PER_DOC
+                "original_count": int,     # число чанков до обрезки
+                "kept_count": int,         # число чанков после обрезки
+            }
 
         Общий helper для:
         - batched _run_checks_for_document(...)
@@ -91,16 +100,20 @@ class ChunksPreparer:
         )
 
         # Защита от аномально большого числа чанков.
-        if len(chunks) > MAX_CHUNKS_PER_DOC:
+        # Фиксируем truncation metadata для проброски в exec_result/quality_flags.
+        original_count = len(chunks)
+        truncated = False
+        if original_count > MAX_CHUNKS_PER_DOC:
             logger.warning(
                 "ChunksPreparer: too many chunks, truncating",
                 extra={
                     "doc_id": str(getattr(doc, "id", None)),
-                    "chunk_count": len(chunks),
+                    "chunk_count": original_count,
                     "max_chunks": MAX_CHUNKS_PER_DOC,
                 },
             )
             chunks = chunks[:MAX_CHUNKS_PER_DOC]
+            truncated = True
 
         safe_chunks = self._sanitize_chunks(chunks, doc=doc)
 
@@ -110,7 +123,13 @@ class ChunksPreparer:
                 extra={"doc_id": str(getattr(doc, "id", None))},
             )
 
-        return safe_chunks
+        chunks_metadata = {
+            "truncated": truncated,
+            "original_count": original_count,
+            "kept_count": len(safe_chunks),
+        }
+
+        return safe_chunks, chunks_metadata
 
     async def build_safe_chunks_for_segment(
         self,
@@ -120,7 +139,7 @@ class ChunksPreparer:
         segment_id: str,
         max_chars: int = MAX_CHUNK_TEXT_CHARS,
         enrichment_sidecar: dict | None = None,
-    ) -> list[dict]:
+    ) -> tuple[list[dict], dict[str, Any]]:
         """
         Собрать safe_chunks для одного логического документа-сегмента.
 
@@ -145,7 +164,11 @@ class ChunksPreparer:
                 "ChunksPreparer: build_safe_chunks_for_segment called without segment_id",
                 extra={"doc_id": str(getattr(doc, "id", None))},
             )
-            return []
+            return [], {
+                "truncated": False,
+                "original_count": 0,
+                "kept_count": 0,
+            }
 
         levels_for_segment = self._resolve_levels(checks, default=["legal_unit", "section"])
 
@@ -170,20 +193,28 @@ class ChunksPreparer:
                     "levels": levels_for_segment,
                 },
             )
-            return []
+            return [], {
+                "truncated": False,
+                "original_count": 0,
+                "kept_count": 0,
+            }
 
         # Защита от аномально большого числа чанков одного сегмента.
-        if len(chunks) > MAX_CHUNKS_PER_DOC:
+        # Фиксируем truncation metadata для проброски в exec_result/quality_flags.
+        original_count = len(chunks)
+        truncated = False
+        if original_count > MAX_CHUNKS_PER_DOC:
             logger.warning(
                 "ChunksPreparer: too many segment chunks, truncating",
                 extra={
                     "doc_id": str(getattr(doc, "id", None)),
                     "segment_id": segment_id,
-                    "chunk_count": len(chunks),
+                    "chunk_count": original_count,
                     "max_chunks": MAX_CHUNKS_PER_DOC,
                 },
             )
             chunks = chunks[:MAX_CHUNKS_PER_DOC]
+            truncated = True
 
         safe_chunks = self._sanitize_chunks(chunks, doc=doc, max_chars=max_chars)
 
@@ -196,7 +227,13 @@ class ChunksPreparer:
                 },
             )
 
-        return safe_chunks
+        chunks_metadata = {
+            "truncated": truncated,
+            "original_count": original_count,
+            "kept_count": len(safe_chunks),
+        }
+
+        return safe_chunks, chunks_metadata
 
     # ──────────────────────────────────────────────────────────────
     # ВНУТРЕННИЕ МЕТОДЫ

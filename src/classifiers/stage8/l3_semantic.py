@@ -184,8 +184,9 @@ class L3SemanticClassifier(BaseClassifier):
         )
 
         try:
-            pos_vecs = embedding_service.encode(positive_texts)
-            neg_vecs = embedding_service.encode(negative_texts)
+            # Прототипы кодируются как "passage" — они представляют документы/корпус.
+            pos_vecs = embedding_service.encode(positive_texts, role="passage")
+            neg_vecs = embedding_service.encode(negative_texts, role="passage")
         except Exception as e:
             logger.warning(
                 "L3SemanticClassifier: failed to encode prototypes",
@@ -298,13 +299,20 @@ class L3SemanticClassifier(BaseClassifier):
         Кодирует окна документа и возвращает нормализованную взвешенную сумму.
 
         Веса окон управляются через settings.
+
+        Документ при классификации кодируется как "query" — он является
+        "поисковым запросом" относительно prototype corpus.
+        Прототипы кодируются как "passage" в _load_prototypes().
+        Это соответствует inference contract модели E5.
         """
         if len(windows) == 1:
-            vec = embedding_service.encode(windows)[0]
+            # Документ = query относительно прототипов-passages
+            vec = embedding_service.encode(windows, role="query")[0]
             vec = np.asarray(vec, dtype=np.float32)
             return vec / (np.linalg.norm(vec) + _L3_VECTOR_NORM_EPSILON)
 
-        vecs = embedding_service.encode(windows)
+        # Документ = query относительно прототипов-passages
+        vecs = embedding_service.encode(windows, role="query")
         vecs = [np.asarray(v, dtype=np.float32) for v in vecs]
 
         weights = [

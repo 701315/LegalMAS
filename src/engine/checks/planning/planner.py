@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
 from core.logging import get_logger
 from core.pipeline_snapshots import DocumentSnapshot, snapshot_document
 from db.repositories.document_repo import DocumentRepository
@@ -58,6 +59,48 @@ def _normalize_triggers(raw: Any) -> list[str]:
         return [t for t in raw if isinstance(t, str)]
     return []
 
+def _normalize_confidence_zone(raw: Any) -> str | None:
+    """
+    Нормализовать confidence_zone в одно из:
+    - confident
+    - low
+    - unknown
+
+    Любое другое значение -> None
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip().lower()
+    if text in {"confident", "low", "unknown"}:
+        return text
+    return None
+
+
+def _derive_confidence_zone_from_confidence(confidence: float | None) -> tuple[str | None, bool]:
+    """
+    Вывести confidence zone из числовой confidence, если зона не пришла явно.
+
+    Использует те же пороги что и ResultBuilder:
+    - confident  : >= CLASSIFICATION_HYBRID_ACCEPT
+    - unknown    : <= CLASSIFICATION_UNKNOWN_MAX
+    - low        : между ними
+
+    Возвращает:
+    - zone_name
+    - requires_manual_review
+    """
+    if confidence is None:
+        return None, False
+
+    hybrid_accept = float(getattr(settings, "CLASSIFICATION_HYBRID_ACCEPT", 0.45))
+    unknown_max = float(getattr(settings, "CLASSIFICATION_UNKNOWN_MAX", 0.40))
+
+    if confidence >= hybrid_accept:
+        return "confident", False
+    if confidence <= unknown_max:
+        return "unknown", True
+    return "low", True
+
 
 class CheckPlanner:
     """
@@ -91,12 +134,17 @@ class CheckPlanner:
         """
         Построить CheckContext для документа (scope="document").
 
-        Принимает любой duck-typed объект с полями id / doc_type / applicable_triggers:
-        - ORM Document,
-        - DocumentSnapshot из core.pipeline_snapshots.
+        Принимает любой duck-typed объект с полями:
+        - id
+        - doc_type / doctype
+        - applicable_triggers
+        - classification_confidence (если есть)
+        - classification_confidence_zone (если есть)
+        - classification_requires_manual_review (если есть)
 
-        document_version_id можно получить заранее через
-        DocumentVersionRepository.get_latest(doc.id).
+        Если classification_confidence_zone не передан явно, planner сам
+        выводит его из classification_confidence по тем же порогам,
+        что и классификатор.
         """
         raw_doc_type = (
             getattr(doc, "doc_type", None)
@@ -106,11 +154,39 @@ class CheckPlanner:
         raw_triggers = getattr(doc, "applicable_triggers", None) or []
         trigger_list = _normalize_triggers(raw_triggers)
 
+        raw_confidence = getattr(doc, "classification_confidence", None)
+        try:
+            classification_confidence = (
+                float(raw_confidence) if raw_confidence is not None else None
+            )
+        except (TypeError, ValueError):
+            classification_confidence = None
+
+        explicit_zone = _normalize_confidence_zone(
+            getattr(doc, "classification_confidence_zone", None)
+        )
+        if explicit_zone is None:
+            derived_zone, derived_requires_review = _derive_confidence_zone_from_confidence(
+                classification_confidence
+            )
+        else:
+            derived_zone = explicit_zone
+            derived_requires_review = explicit_zone != "confident"
+
+        explicit_requires_review = bool(
+            getattr(doc, "classification_requires_manual_review", False)
+        )
+
         return CheckContext(
             scope="document",
             document_id=_to_uuid(getattr(doc, "id", None)),
             document_version_id=document_version_id,
             document_type=raw_doc_type or None,
+            classification_confidence=classification_confidence,
+            classification_confidence_zone=derived_zone,
+            classification_requires_manual_review=(
+                explicit_requires_review or derived_requires_review
+            ),
             segment_id=None,
             segment_doc_type=None,
             triggers=frozenset(trigger_list),
@@ -129,19 +205,51 @@ class CheckPlanner:
         segment_info должен иметь поля:
         - segment_id
         - segment_doc_type
-        - triggers (list[str])
-        Это идеально ложится на dataclass SegmentInfo.
+        - triggers
+        - classification_confidence (optional)
+        - classification_confidence_zone (optional)
+        - classification_requires_manual_review (optional)
+
+        Если зона не передана — выводим её из classification_confidence.
         """
         raw_triggers = getattr(segment_info, "triggers", None) or []
         trigger_list = _normalize_triggers(raw_triggers)
 
         seg_doc_type = getattr(segment_info, "segment_doc_type", None)
 
+        raw_confidence = getattr(segment_info, "classification_confidence", None)
+        try:
+            classification_confidence = (
+                float(raw_confidence) if raw_confidence is not None else None
+            )
+        except (TypeError, ValueError):
+            classification_confidence = None
+
+        explicit_zone = _normalize_confidence_zone(
+            getattr(segment_info, "classification_confidence_zone", None)
+        )
+        if explicit_zone is None:
+            derived_zone, derived_requires_review = _derive_confidence_zone_from_confidence(
+                classification_confidence
+            )
+        else:
+            derived_zone = explicit_zone
+            derived_requires_review = explicit_zone != "confident"
+
+        explicit_requires_review = bool(
+            getattr(segment_info, "classification_requires_manual_review", False)
+        )
+
         return CheckContext(
             scope="segment",
             document_id=_to_uuid(getattr(doc, "id", None)),
             document_version_id=document_version_id,
             document_type=None,  # для сегмента используем segment_doc_type
+            classification_confidence=classification_confidence,
+            classification_confidence_zone=derived_zone,
+            classification_requires_manual_review=(
+                explicit_requires_review or derived_requires_review
+            ),
             segment_id=getattr(segment_info, "segment_id", None),
             segment_doc_type=seg_doc_type or None,
             triggers=frozenset(trigger_list),
@@ -165,6 +273,11 @@ class CheckPlanner:
         - triggers — список применимых триггеров из контекста
         - global_checks — чеки из playbook
         - doc_type_checks — чеки из YAML doc-type
+
+        Новое поведение:
+        - при classification_confidence_zone == "low" planner добавляет
+          generic fallback checks из playbook.get_conditional_checks("", triggers),
+          чтобы уменьшить риск неверного чеклиста при шаткой классификации.
         """
         triggers = sorted(ctx.triggers)
 
@@ -185,13 +298,42 @@ class CheckPlanner:
                 applicable_triggers=triggers,
             )
 
+        # Если классификация low-confidence — добавляем generic fallback checks.
+        # Это не отменяет основной doc_type, а расширяет чеклист для safety-net.
+        # Дубликаты будут сняты ниже по check_id.
+        generic_fallback_checks: list[Any] = []
+        if ctx.is_low_confidence_classification:
+            try:
+                generic_fallback_checks = playbook.get_conditional_checks("", triggers)
+                logger.info(
+                    "CheckPlanner: adding generic fallback checks due to low-confidence classification",
+                    extra={
+                        "document_id": str(ctx.document_id),
+                        "scope": ctx.scope,
+                        "effective_doc_type": effective_doc_type,
+                        "classification_confidence": ctx.classification_confidence,
+                        "classification_confidence_zone": ctx.classification_confidence_zone,
+                        "generic_fallback_checks": len(generic_fallback_checks),
+                    },
+                )
+            except Exception as e:
+                logger.warning(
+                    "CheckPlanner: failed to load generic fallback checks",
+                    extra={
+                        "document_id": str(ctx.document_id),
+                        "scope": ctx.scope,
+                        "error": str(e),
+                    },
+                )
+                generic_fallback_checks = []
+
         mode = self.checks_mode
         if mode == "global_only":
-            raw_checks = global_checks
+            raw_checks = global_checks + generic_fallback_checks
         elif mode == "doc_type_only":
-            raw_checks = doc_type_checks
+            raw_checks = doc_type_checks + generic_fallback_checks
         else:
-            raw_checks = global_checks + doc_type_checks
+            raw_checks = global_checks + doc_type_checks + generic_fallback_checks
 
         seen_ids: set[str] = set()
         checks: list[Any] = []
@@ -292,16 +434,7 @@ class CheckPlanner:
         Внутри просто строим document-context и делегируем в select_checks_for_context.
         """
         doc_type, applicable_triggers = self.get_document_profile(doc)
-
-        ctx = CheckContext(
-            scope="document",
-            document_id=_to_uuid(getattr(doc, "id", None)),
-            document_version_id=None,
-            document_type=doc_type or None,
-            segment_id=None,
-            segment_doc_type=None,
-            triggers=frozenset(applicable_triggers),
-        )
+        ctx = self.build_context_for_document(doc, None)
 
         checks, mode, effective_doc_type, triggers, global_checks, doc_type_checks = (
             self.select_checks_for_context(ctx, playbook)
@@ -328,18 +461,7 @@ class CheckPlanner:
 
         Принимает любой duck-typed объект (ORM или DocumentSnapshot).
         """
-        doc_type, applicable_triggers = self.get_document_profile(doc)
-
-        ctx = CheckContext(
-            scope="document",
-            document_id=_to_uuid(getattr(doc, "id", None)),
-            document_version_id=None,
-            document_type=doc_type or None,
-            segment_id=None,
-            segment_doc_type=None,
-            triggers=frozenset(applicable_triggers),
-        )
-
+        ctx = self.build_context_for_document(doc, None)
         return self.find_check_for_context(ctx, playbook, check_id)
 
     # ── Planning для Run (пока только document-level) ──────────────
@@ -398,16 +520,7 @@ class CheckPlanner:
         for doc_snap in doc_snaps:
             try:
                 doc_type, applicable_triggers = self.get_document_profile(doc_snap)
-
-                ctx = CheckContext(
-                    scope="document",
-                    document_id=doc_snap.id,
-                    document_version_id=None,
-                    document_type=doc_type or None,
-                    segment_id=None,
-                    segment_doc_type=None,
-                    triggers=frozenset(applicable_triggers),
-                )
+                ctx = self.build_context_for_document(doc_snap, None)
 
                 (
                     checks,

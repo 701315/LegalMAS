@@ -228,15 +228,30 @@ class CheckRunner:
             _, segments = await self._iter_segments_for_document(
                 session, doc_snap.document_id
             )
-            safe_chunks = await self._build_corpus_for_check(
+            safe_chunks, chunks_metadata = await self._build_corpus_for_check(
                 session=session,
                 doc=doc_snap,
                 check=check,
                 segments=segments,
                 current_segment=None,
             )
+        else:
+            # Внешний caller передал safe_chunks напрямую.
+            # В этом случае честно считаем, что truncation metadata неизвестен,
+            # и используем нейтральные значения.
+            chunks_metadata = {
+                "truncated": False,
+                "original_count": len(safe_chunks),
+                "kept_count": len(safe_chunks),
+            }
 
-        exec_result = self.executor.execute(doc_snap, check, safe_chunks)
+        exec_result = self.executor.execute(
+            doc_snap,
+            check,
+            safe_chunks,
+            chunks_metadata=chunks_metadata,
+        )
+
         await save_check_result(
             repo=repo,
             run_id=run_id,
@@ -269,7 +284,7 @@ class CheckRunner:
                 ctx = self._planner.build_context_for_document(doc_snap, None)
                 checks, *_ = self._planner.select_checks_for_context(ctx, playbook)
 
-                async def doc_builder(chk: Any) -> list[dict]:
+                async def doc_builder(chk: Any) -> tuple[list[dict], dict[str, Any]]:
                     return await self._build_corpus_for_check(
                         session=uow.session,
                         doc=doc_snap,
@@ -318,7 +333,7 @@ class CheckRunner:
                         chk: Any,
                         _seg: Any = segment,
                         _segs: list = segments,
-                    ) -> list[dict]:
+                    ) -> tuple[list[dict], dict[str, Any]]:
                         return await self._build_corpus_for_check(
                             session=uow.session,
                             doc=doc_snap,
@@ -374,7 +389,7 @@ class CheckRunner:
 
         self._log_skipped_conditionals_for_context(ctx, checks, run_id)
 
-        corpus_cache: dict[tuple, list[dict]] = {}
+        corpus_cache: dict[tuple, tuple[list[dict], dict[str, Any]]] = {}
 
         for check in checks:
             retr_cfg = getattr(check, "retrieval", None)
@@ -385,11 +400,14 @@ class CheckRunner:
             if cache_key not in corpus_cache:
                 corpus_cache[cache_key] = await corpus_builder_fn(check)
 
+            safe_chunks, chunks_metadata = corpus_cache[cache_key]
+
             exec_result = self.executor.execute(
                 doc_snap,
                 check,
-                corpus_cache[cache_key],
+                safe_chunks,
                 semantic_context=semantic_context,
+                chunks_metadata=chunks_metadata,
             )
 
             if segment_provenance and corpus_scope != RetrievalCorpusScope.DOCUMENT:
@@ -445,8 +463,14 @@ class CheckRunner:
         check: Any,
         segments: list[Any] | None,
         current_segment: Any | None,
-    ) -> list[dict]:
-        """Логика выбора политики retrieval corpus."""
+    ) -> tuple[list[dict], dict[str, Any]]:
+        """
+        Логика выбора политики retrieval corpus.
+
+        Возвращает:
+        - safe_chunks
+        - chunks_metadata (truncated/original_count/kept_count)
+        """
         scope = getattr(
             getattr(check, "retrieval", None),
             "corpus_scope",

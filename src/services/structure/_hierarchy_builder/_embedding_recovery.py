@@ -248,7 +248,9 @@ class EmbeddingRecoveryEngine:
         uid_to_idx = {uid: i for i, uid in enumerate(all_uids)}
 
         try:
-            all_embeddings: np.ndarray = emb_service.encode(all_texts)
+            # Nodes иерархии кодируются как "passage" —
+            # они являются документными фрагментами для поиска parent.
+            all_embeddings: np.ndarray = emb_service.encode(all_texts, role="passage")
         except Exception as exc:
             logger.warning(
                 "STRUCTURE embedding_recovery_encode_failed",
