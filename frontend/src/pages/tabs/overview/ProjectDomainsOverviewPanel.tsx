@@ -16,8 +16,8 @@
 import React from "react";
 import type { Deal } from "../../../types";
 import { useRunProgress } from "../../../api/runs";
-import { DEMO_AGGREGATES } from "../CounterpartiesTab";
-import { DEMO_OBJECTS } from "../RealEstateTab";
+import { DEMO_AGGREGATES } from "../counterparties/constants";
+import { DEMO_OBJECTS } from "../real-estate/constants";
 
 type DomainKey = "documents" | "counterparties" | "real_estate";
 

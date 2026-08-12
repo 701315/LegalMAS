@@ -16,7 +16,7 @@
 // =============================================================
 
 import React from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight, ChevronDown, Loader2 } from "lucide-react";
 import { PipelineStepIcon } from "./pipelineStepIcons";
 import {
   PipelineLayoutProvider,
@@ -30,8 +30,8 @@ import { AnalysisResultsWidget } from "./AnalysisResultsWidget";
 import { useDealLLMUsage } from "../../../api/deals";
 import { useDocuments } from "../../../api/documents";
 import { useRunProgress } from "../../../api/runs";
-import { DEMO_AGGREGATES } from "../CounterpartiesTab";
-import { DEMO_OBJECTS } from "../RealEstateTab";
+import { DEMO_AGGREGATES } from "../counterparties/constants";
+import { DEMO_OBJECTS } from "../real-estate/constants";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 
 type DomainKey = "documents" | "counterparties" | "real_estate";
@@ -524,6 +524,12 @@ const DocumentsContent: React.FC<{
 }> = ({ runId, dealId }) => {
   const [isPipelineExpanded, setIsPipelineExpanded] = React.useState(false);
 
+  // Collapsible state для stacked fallback (< xl).
+  // По умолчанию свёрнут на мобильных, пользователь раскрывает по клику.
+  // На xl+ этот state не используется — там своя логика (isPipelineExpanded).
+  const [isMobilePipelineOpen, setIsMobilePipelineOpen] =
+    React.useState(false);
+
   const { data: progress } = useRunProgress(runId);
   const isTerminal = isTerminalRunStatus(progress?.run_status);
   const isRunActive = !!runId && !isTerminal;
@@ -640,10 +646,39 @@ const DocumentsContent: React.FC<{
       {/* ── < xl : stacked fallback ── */}
       <div className="grid min-h-0 grid-cols-1 gap-4 xl:hidden lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="min-w-0">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-            Пайплайн анализа
-          </p>
-          <DocumentsPipelinePanel runId={runId} />
+          {/* Collapsible-обёртка для мобильного stacked fallback.
+              По умолчанию свёрнут — снижает визуальный шум на узком экране
+              и приоритезирует блоки "Обзор документов" / "Итог анализа" /
+              "Использование LLM" ниже. Паттерн аналогичен DealInfoCard. */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+            <button
+              type="button"
+              onClick={() => setIsMobilePipelineOpen((prev) => !prev)}
+              aria-expanded={isMobilePipelineOpen}
+              aria-controls="mobile-pipeline-content"
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-[var(--bg-elevated-soft)]"
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+                Пайплайн анализа
+              </span>
+              <ChevronDown
+                className={[
+                  "h-4 w-4 shrink-0 text-[var(--text-muted)] transition-transform duration-200",
+                  isMobilePipelineOpen ? "rotate-180" : "",
+                ].join(" ")}
+                aria-hidden
+              />
+            </button>
+
+            {isMobilePipelineOpen && (
+              <>
+                <div className="mx-4 border-t border-[var(--border-subtle)]" />
+                <div id="mobile-pipeline-content" className="px-4 py-3">
+                  <DocumentsPipelinePanel runId={runId} />
+                </div>
+              </>
+            )}
+          </section>
         </div>
 
         {isTerminal && (
