@@ -39,7 +39,7 @@ class DealRepository:
         """Создать новую сделку."""
         deal = Deal(
             tenant_id=tenant_id,
-            name=name,
+            name=name.strip(),
             summary=summary,
             deal_type=deal_type,
             jurisdiction=jurisdiction,
@@ -52,6 +52,26 @@ class DealRepository:
         self.session.add(deal)
         await self.session.flush()
         return deal
+
+    async def exists_by_name(
+        self,
+        tenant_id: uuid.UUID,
+        name: str,
+    ) -> bool:
+        normalized_name = name.strip()
+        if not normalized_name:
+            return False
+
+        stmt = (
+            select(Deal.id)
+            .where(
+                Deal.tenant_id == tenant_id,
+                func.lower(func.btrim(Deal.name)) == normalized_name.lower(),
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
 
     async def get_by_id(self, deal_id: uuid.UUID, tenant_id: uuid.UUID) -> Deal | None:
         """

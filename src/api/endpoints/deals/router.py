@@ -105,6 +105,15 @@ async def create_deal(
     """
     repo = DealRepository(db)
 
+    if await repo.exists_by_name(
+        tenant_id=user.tenant_id,
+        name=payload.name,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Проект с таким названием уже существует. Укажите другое имя.",
+        )
+
     deal = await repo.create(
         tenant_id=user.tenant_id,
         name=payload.name,

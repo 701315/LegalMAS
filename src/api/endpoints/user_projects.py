@@ -13,9 +13,12 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
+from db.models.document import Document
+from db.models.run import Run
 from db.repositories.deal_repo import DealRepository
 from db.repositories.project_role_repo import ProjectRoleRepository
 from db.session import get_db
@@ -29,6 +32,8 @@ class UserProject(BaseModel):
     role: Literal["admin", "editor", "viewer"]
     created_at: str
     contact_person: str | None = None
+    needs_setup: bool = False
+    analysis_completed: bool = False
 
 
 def _contact_person(deal) -> str | None:
@@ -37,6 +42,42 @@ def _contact_person(deal) -> str | None:
     if meta is None:
         return None
     return meta.get("contact_person")
+
+
+async def _analysis_completed(db: AsyncSession, deal) -> bool:
+    """
+    Вернуть True если последний Run по проекту имеет статус completed.
+    """
+    last_run_id = getattr(deal, "last_run_id", None)
+    if not last_run_id:
+        return False
+
+    result = await db.execute(
+        select(Run.status).where(Run.id == last_run_id)
+    )
+    run_status = result.scalar_one_or_none()
+    return run_status == "completed"
+
+
+async def _needs_setup(db: AsyncSession, deal) -> bool:
+    """
+    Вернуть True если проект не готов к запуску анализа.
+
+    Проект считается незавершённым если хотя бы одно из:
+    - нет загруженных документов
+    - не выбран playbook
+    - не выбран основной язык анализа
+    """
+    if not deal.playbook_version_id or not deal.primary_language:
+        return True
+
+    result = await db.execute(
+        select(func.count(Document.id)).where(
+            Document.deal_id == deal.id
+        )
+    )
+    documents_count = result.scalar_one()
+    return documents_count == 0
 
 
 @router.get("/{user_id}/projects", response_model=list[UserProject])
@@ -67,29 +108,37 @@ async def list_user_projects(
 
     if current_user.global_role == "superadmin":
         deals = await deal_repo.unsafe_get_all_platform_admin_only()
-        return [
-            UserProject(
-                deal_id=str(d.id),
-                deal_name=d.name,
-                role="admin",
-                created_at=d.created_at.isoformat(),
-                contact_person=_contact_person(d),
+        projects = []
+        for d in deals:
+            projects.append(
+                UserProject(
+                    deal_id=str(d.id),
+                    deal_name=d.name,
+                    role="admin",
+                    created_at=d.created_at.isoformat(),
+                    contact_person=_contact_person(d),
+                    needs_setup=await _needs_setup(db, d),
+                    analysis_completed=await _analysis_completed(db, d),
+                )
             )
-            for d in deals
-        ]
+        return projects
 
     if current_user.global_role == "tenant_admin":
         deals = await deal_repo.get_by_tenant(current_user.tenant_id)
-        return [
-            UserProject(
-                deal_id=str(d.id),
-                deal_name=d.name,
-                role="admin",
-                created_at=d.created_at.isoformat(),
-                contact_person=_contact_person(d),
+        projects = []
+        for d in deals:
+            projects.append(
+                UserProject(
+                    deal_id=str(d.id),
+                    deal_name=d.name,
+                    role="admin",
+                    created_at=d.created_at.isoformat(),
+                    contact_person=_contact_person(d),
+                    needs_setup=await _needs_setup(db, d),
+                    analysis_completed=await _analysis_completed(db, d),
+                )
             )
-            for d in deals
-        ]
+        return projects
 
     # member: только проекты через deal_members
     memberships = await role_repo.list_deals_for_user(current_user.id)
@@ -110,6 +159,8 @@ async def list_user_projects(
                 role=membership.role,
                 created_at=deal.created_at.isoformat(),
                 contact_person=_contact_person(deal),
+                needs_setup=await _needs_setup(db, deal),
+                analysis_completed=await _analysis_completed(db, deal),
             )
         )
 
