@@ -23,10 +23,7 @@ from sentence_transformers import SentenceTransformer
 from core.config import settings
 from core.logging import get_logger
 from ops.metrics import METRICS
-from services.embeddings._preprocess import (
-    apply_embedding_role_prefix,
-    truncate_text_to_token_limit,
-)
+from services.embeddings._preprocess import apply_embedding_role_prefix
 
 logger = get_logger(__name__)
 
@@ -109,43 +106,52 @@ class EmbeddingService:
         role: str,
     ) -> list[str]:
         """
-        Apply E5 role prefix and explicit token truncation.
+        Apply E5 role prefix and detect over-limit texts.
 
-        Steps:
-        1. Add role prefix ("query: " / "passage: ")
-        2. Truncate explicitly to EMBEDDING_MAX_INPUT_TOKENS using tokenizer
-        3. Increment metric and log if truncation happened
+        ВАЖНО:
+        - этот helper БОЛЬШЕ НЕ обрезает текст явно;
+        - он только добавляет role prefix и измеряет, сколько текстов
+          превышают safe token limit;
+        - реальное truncation behaviour остаётся у SentenceTransformer,
+          как было до P1-5A, чтобы не менять семантику retrieval.
+
+        Это observability-only fix:
+        - мы получаем metric/log о проблеме,
+        - но не меняем представление текста перед model.encode().
         """
         prefixed_texts = [apply_embedding_role_prefix(t, role=role) for t in texts]
 
         tokenizer = getattr(self.model, "tokenizer", None) if self.model is not None else None
         if tokenizer is None:
             logger.warning(
-                "EmbeddingService: tokenizer unavailable, explicit truncation skipped",
+                "EmbeddingService: tokenizer unavailable, token-length observability skipped",
                 role=role,
             )
             return prefixed_texts
 
         max_input_tokens = self._get_embedding_max_input_tokens()
-        prepared: list[str] = []
-        truncated_count = 0
+        over_limit_count = 0
         max_original_tokens_seen = 0
 
         for text in prefixed_texts:
-            truncated_text, was_truncated, original_token_count = truncate_text_to_token_limit(
-                tokenizer=tokenizer,
-                text=text,
-                max_tokens=max_input_tokens,
+            encoded = tokenizer(
+                text,
+                add_special_tokens=False,
+                truncation=False,
+                return_attention_mask=False,
             )
-            prepared.append(truncated_text)
-            if was_truncated:
-                truncated_count += 1
-            if original_token_count > max_original_tokens_seen:
-                max_original_tokens_seen = original_token_count
+            input_ids = encoded.get("input_ids") or []
+            token_count = len(input_ids)
 
-        if truncated_count > 0:
+            if token_count > max_original_tokens_seen:
+                max_original_tokens_seen = token_count
+
+            if token_count > max_input_tokens:
+                over_limit_count += 1
+
+        if over_limit_count > 0:
             try:
-                METRICS.embedding_text_truncated_total.labels(role=role).inc(truncated_count)
+                METRICS.embedding_text_truncated_total.labels(role=role).inc(over_limit_count)
             except Exception:
                 logger.debug(
                     "EmbeddingService: failed to increment embedding truncation metric",
@@ -153,15 +159,17 @@ class EmbeddingService:
                 )
 
             logger.warning(
-                "EmbeddingService: input texts explicitly truncated before encode",
+                "EmbeddingService: texts exceed safe embedding token limit "
+                "(SentenceTransformer will truncate internally)",
                 role=role,
-                truncated_count=truncated_count,
+                over_limit_count=over_limit_count,
                 total_texts=len(texts),
                 max_input_tokens=max_input_tokens,
                 max_original_tokens_seen=max_original_tokens_seen,
             )
 
-        return prepared
+        # Возвращаем исходные prefixed texts без явной модификации длины.
+        return prefixed_texts
 
     def encode(self, texts: list[str], role: str = "passage") -> np.ndarray:
         """
@@ -173,10 +181,11 @@ class EmbeddingService:
 
         ВАЖНО:
         - E5 требует role prefix ("query:" / "passage:")
-        - длинные тексты теперь ЯВНО обрезаются по token limit до model.encode(),
-          чтобы не полагаться на silent truncation внутри SentenceTransformer
-        - truncation является observability-first fix: мы не меняем общую идею
-          "вектор по префиксу текста", но делаем это явно и измеримо
+        - длинные тексты теперь ЯВНО детектируются как over-limit до model.encode()
+        - реальное truncation behaviour остаётся у SentenceTransformer,
+          чтобы не менять retrieval semantics в hot path
+        - observability-first fix: мы измеряем и логируем проблему,
+          не меняя представление текста перед model.encode()
 
         Cache key включает:
         - model_name
