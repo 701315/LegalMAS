@@ -6,6 +6,11 @@
 // 1) Intro screen — короткое описание раздела
 // 2) Demo screen  — overview + shared split-view workspace
 //
+// Архитектура после Wave 1 refactoring:
+// - types    → ./real-estate/types.ts
+// - constants + demo data → ./real-estate/constants.ts
+// - pure utils / sort helpers → ./real-estate/utils.ts
+//
 // TODO при подключении API:
 // - подключить useRealEstate(dealId, currentRunId)
 // - заменить demo-данные на backend DTO
@@ -14,629 +19,90 @@
 // =============================================================
 
 import React from "react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronUp,
+  ChevronsUpDown,
+} from "lucide-react";
+
+import Button from "../../components/ui/Button";
+import PageSection from "../../components/ui/PageSection";
+
+import {
+  COVERAGE_ROWS,
+  DEMO_DETAILS,
+  DEMO_OBJECTS,
+} from "./real-estate/constants";
+import type {
+  DrilldownKind,
+  ExportFormat,
+  ExportMenuKind,
+  PreviewMode,
+  RealEstateObjectAggregate,
+  RealEstateObjectDetail,
+  RealEstateTabProps,
+  SortKey,
+  SortState,
+} from "./real-estate/types";
+import {
+  buildCriticalObjects,
+  buildEncumberedObjects,
+  buildRealEstateTotals,
+  buildRegionStructure,
+  buildRiskMeta,
+  buildTopByArea,
+  checkLabel,
+  checkTone,
+  getAriaSort,
+  getNextSortState,
+  objectTypeLabel,
+  objectTypeShortLabel,
+  riskBadgeLabel,
+  riskBadgeTone,
+  sortRealEstateObjects,
+} from "./real-estate/utils";
 
 // ---------------------------------------------------------------------------
-// Types
+// Shared UI primitives
 // ---------------------------------------------------------------------------
 
-export type RealEstateObjectType =
-  | "land"
-  | "building"
-  | "premises"
-  | "construction"
-  | "unfinished"
-  | "unknown";
-
-export type RealEstateRisk = "high" | "medium" | "low" | "unknown";
-
-type PreviewMode = "intro" | "demo";
-type DrilldownKind = "geography" | "encumbrances" | "area_top" | "critical" | null;
-type ExportMenuKind = "list" | null;
-type ExportFormat = "excel" | "docx" | "pdf";
-type SortDirection = "asc" | "desc";
-type SortKey =
-  | "index"
-  | "address"
-  | "region"
-  | "objectType"
-  | "area"
-  | "documentCount"
-  | "encumbrance"
-  | "risk";
-
-interface SortState {
-  key: SortKey;
-  direction: SortDirection;
-}
-
-export interface RealEstateObject {
-  id: string;
-  address?: string | null;
-  cadastral_number?: string | null;
-  object_type: RealEstateObjectType;
-  risk: RealEstateRisk;
-  document_count: number;
-  area_sqm?: number | null;
-  encumbrance?: boolean | null;
-  first_mentioned_at?: string | null;
-}
-
-export interface RealEstateObjectAggregate extends RealEstateObject {
-  region: string;
-  market: "RU" | "UAE" | "EU";
-  ownership_status: "registered" | "review" | "not_confirmed";
-  usage_type: "office" | "warehouse" | "land_plot" | "industrial" | "retail" | "mixed";
-}
-
-interface MentionedDocument {
-  id: string;
-  title: string;
-  documentType: string;
-  section: string;
-  mentionRole: string;
-}
-
-interface RealEstateObjectDetail {
-  id: string;
-  shortDescription: string;
-  documents: MentionedDocument[];
-  registry: {
-    registrySource: string;
-    ownershipStatus: string;
-    ownerName: string;
-    cadastralNumber: string;
-    objectTypeLabel: string;
-    areaLabel: string;
-    addressLabel: string;
-  };
-  encumbrances: {
-    hasEncumbrances: "yes" | "no" | "review";
-    mortgage: "yes" | "no" | "review";
-    arrest: "yes" | "no" | "review";
-    easement: "yes" | "no" | "review";
-    notes: string[];
-  };
-  legalChecks: {
-    titleChain: "ok" | "review" | "issue";
-    registryMatch: "ok" | "review" | "issue";
-    zoning: "ok" | "review" | "issue";
-    notes: string[];
-  };
-  mapContext: {
-    region: string;
-    district: string;
-    geoNote: string;
-  };
-}
-
-interface CoverageRow {
-  jurisdiction: string;
-  registrySources: string;
-  whatChecked: string;
-  remarks: string;
-}
-
-interface RealEstateTabProps {
-  dealId: string;
-  currentRunId: string | null;
-}
-
-// ---------------------------------------------------------------------------
-// Demo data
-// ---------------------------------------------------------------------------
-
-const COVERAGE_ROWS: CoverageRow[] = [
-  {
-    jurisdiction: "Россия",
-    registrySources: "ЕГРН, публичная кадастровая карта",
-    whatChecked: "Право, кадастровый номер, площадь, обременения",
-    remarks: "Основной сценарий для RU real estate due diligence",
-  },
-  {
-    jurisdiction: "UAE",
-    registrySources: "Dubai Land Department / emirate land registries",
-    whatChecked: "Title, ownership, plot/building registration",
-    remarks: "По эмирату требуется отдельный локальный источник",
-  },
-  {
-    jurisdiction: "Европа",
-    registrySources: "Национальные land / property registries",
-    whatChecked: "Ownership, encumbrances, title data",
-    remarks: "Источник зависит от страны и локального регистра",
-  },
-  {
-    jurisdiction: "Внутренние базы компании",
-    registrySources: "Asset register, lease register, legal archive",
-    whatChecked: "Внутренний статус актива, исторические документы, usage",
-    remarks: "Используется для cross-check с внешними регистрами",
-  },
-];
-
-const BASE_OBJECTS: RealEstateObjectAggregate[] = [
-  {
-    id: "1",
-    address: "Москва, ул. Лесная, д. 12, стр. 3",
-    cadastral_number: "77:01:0004012:1456",
-    object_type: "building",
-    risk: "medium",
-    document_count: 6,
-    area_sqm: 12450,
-    encumbrance: true,
-    first_mentioned_at: "SPA § 2.1",
-    region: "Москва",
-    market: "RU",
-    ownership_status: "registered",
-    usage_type: "office",
-  },
-  {
-    id: "2",
-    address: "Московская область, Химки, Логистический проезд, 8",
-    cadastral_number: "50:10:0010203:884",
-    object_type: "building",
-    risk: "low",
-    document_count: 4,
-    area_sqm: 28700,
-    encumbrance: false,
-    first_mentioned_at: "Disclosure Letter § 4",
-    region: "Московская область",
-    market: "RU",
-    ownership_status: "registered",
-    usage_type: "warehouse",
-  },
-  {
-    id: "3",
-    address: "Санкт-Петербург, Пулковское шоссе, участок 17",
-    cadastral_number: "78:14:0007689:31",
-    object_type: "land",
-    risk: "high",
-    document_count: 5,
-    area_sqm: 45200,
-    encumbrance: true,
-    first_mentioned_at: "Asset Schedule #3",
-    region: "Санкт-Петербург",
-    market: "RU",
-    ownership_status: "review",
-    usage_type: "land_plot",
-  },
-  {
-    id: "4",
-    address: "Казань, ул. Техническая, 25",
-    cadastral_number: "16:50:090201:442",
-    object_type: "premises",
-    risk: "low",
-    document_count: 3,
-    area_sqm: 3180,
-    encumbrance: false,
-    first_mentioned_at: "Lease Memo",
-    region: "Татарстан",
-    market: "RU",
-    ownership_status: "registered",
-    usage_type: "industrial",
-  },
-  {
-    id: "5",
-    address: "Dubai Industrial City, Plot A-114",
-    cadastral_number: "DLD-IC-22119",
-    object_type: "land",
-    risk: "medium",
-    document_count: 4,
-    area_sqm: 19100,
-    encumbrance: null,
-    first_mentioned_at: "Regional Asset Note",
-    region: "Dubai",
-    market: "UAE",
-    ownership_status: "review",
-    usage_type: "land_plot",
-  },
-  {
-    id: "6",
-    address: "Варшава, ul. Prosta 18",
-    cadastral_number: "PL-WA-77821",
-    object_type: "premises",
-    risk: "medium",
-    document_count: 2,
-    area_sqm: 2140,
-    encumbrance: false,
-    first_mentioned_at: "Subsidiary Property Note",
-    region: "Warsaw",
-    market: "EU",
-    ownership_status: "review",
-    usage_type: "office",
-  },
-  {
-    id: "7",
-    address: "Екатеринбург, ул. Промышленная, 41",
-    cadastral_number: "66:41:0203004:778",
-    object_type: "construction",
-    risk: "high",
-    document_count: 5,
-    area_sqm: 16800,
-    encumbrance: true,
-    first_mentioned_at: "Capex Addendum",
-    region: "Свердловская область",
-    market: "RU",
-    ownership_status: "review",
-    usage_type: "industrial",
-  },
-  {
-    id: "8",
-    address: "Новосибирск, ул. Станционная, 59",
-    cadastral_number: "54:35:101235:64",
-    object_type: "building",
-    risk: "low",
-    document_count: 4,
-    area_sqm: 9800,
-    encumbrance: false,
-    first_mentioned_at: "Property Register",
-    region: "Новосибирская область",
-    market: "RU",
-    ownership_status: "registered",
-    usage_type: "warehouse",
-  },
-];
-
-const EXTRA_OBJECTS: RealEstateObjectAggregate[] = Array.from({ length: 20 }).map((_, index) => {
-  const regions = [
-    "Москва",
-    "Московская область",
-    "Санкт-Петербург",
-    "Татарстан",
-    "Краснодарский край",
-    "Свердловская область",
-    "Самарская область",
-    "Dubai",
-    "Abu Dhabi",
-    "Warsaw",
-  ];
-  const objectTypes: RealEstateObjectType[] = [
-    "land",
-    "building",
-    "premises",
-    "construction",
-    "unfinished",
-  ];
-  const usageTypes: RealEstateObjectAggregate["usage_type"][] = [
-    "office",
-    "warehouse",
-    "land_plot",
-    "industrial",
-    "retail",
-    "mixed",
-  ];
-
-  const id = String(index + 9);
-  const region = regions[index % regions.length];
-  const object_type = objectTypes[index % objectTypes.length];
-  const area = 1200 + index * 850;
-  const hasEncumbrance = index % 4 === 0 ? true : index % 5 === 0 ? null : false;
-  const risk: RealEstateRisk =
-    hasEncumbrance === true ? "high" : index % 3 === 0 ? "medium" : "low";
-
-  return {
-    id,
-    address: `${region}, Demo Property ${id}`,
-    cadastral_number: `DEMO-RE-${id}`,
-    object_type,
-    risk,
-    document_count: 2 + (index % 5),
-    area_sqm: area,
-    encumbrance: hasEncumbrance,
-    first_mentioned_at: "Demo Asset Register",
-    region,
-    market:
-      region === "Dubai" || region === "Abu Dhabi"
-        ? "UAE"
-        : region === "Warsaw"
-          ? "EU"
-          : "RU",
-    ownership_status:
-      index % 6 === 0 ? "review" : index % 11 === 0 ? "not_confirmed" : "registered",
-    usage_type: usageTypes[index % usageTypes.length],
-  };
-});
-
-export const DEMO_OBJECTS: RealEstateObjectAggregate[] = [...BASE_OBJECTS, ...EXTRA_OBJECTS];
-
-const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
-  "1": {
-    id: "1",
-    shortDescription:
-      "Офисное здание, выявленное в основном пакете документов сделки; присутствуют признаки залога и требуется сопоставление с регистрационными записями.",
-    documents: [
-      {
-        id: "d-1",
-        title: "SPA",
-        documentType: "Transaction agreement",
-        section: "§ 2.1 / Property perimeter",
-        mentionRole: "Core asset",
-      },
-      {
-        id: "d-2",
-        title: "Disclosure Letter",
-        documentType: "Disclosure",
-        section: "Real estate schedule",
-        mentionRole: "Disclosed encumbered asset",
-      },
-      {
-        id: "d-3",
-        title: "Mortgage Agreement",
-        documentType: "Security document",
-        section: "Object description",
-        mentionRole: "Pledged property",
-      },
-    ],
-    registry: {
-      registrySource: "ЕГРН",
-      ownershipStatus: "Право зарегистрировано",
-      ownerName: "ООО «Демо Недвижимость»",
-      cadastralNumber: "77:01:0004012:1456",
-      objectTypeLabel: "Здание",
-      areaLabel: "12 450 кв. м",
-      addressLabel: "Москва, ул. Лесная, д. 12, стр. 3",
-    },
-    encumbrances: {
-      hasEncumbrances: "yes",
-      mortgage: "yes",
-      arrest: "no",
-      easement: "review",
-      notes: [
-        "В документах сделки присутствует ипотечный документ.",
-        "Требуется проверить объём обеспеченного обязательства и актуальный статус записи.",
-        "По сервитуту требуется ручная верификация по реестровой выписке.",
-      ],
-    },
-    legalChecks: {
-      titleChain: "review",
-      registryMatch: "ok",
-      zoning: "review",
-      notes: [
-        "Цепочка титула требует проверки по историческим документам.",
-        "Параметры объекта по площади и адресу в целом совпадают с раскрытием.",
-      ],
-    },
-    mapContext: {
-      region: "Москва",
-      district: "ЦАО",
-      geoNote: "Актив находится в деловом районе, используется как офисный объект.",
-    },
-  },
-  "2": {
-    id: "2",
-    shortDescription:
-      "Складской объект с понятным профилем использования и без явных признаков зарегистрированных ограничений в demo-сценарии.",
-    documents: [
-      {
-        id: "d-4",
-        title: "Asset Schedule",
-        documentType: "Annex",
-        section: "Warehouse assets",
-        mentionRole: "Owned asset",
-      },
-      {
-        id: "d-5",
-        title: "Operational Memo",
-        documentType: "Internal memo",
-        section: "Logistics footprint",
-        mentionRole: "Distribution center",
-      },
-    ],
-    registry: {
-      registrySource: "ЕГРН",
-      ownershipStatus: "Право зарегистрировано",
-      ownerName: "ООО «Логистика Парк»",
-      cadastralNumber: "50:10:0010203:884",
-      objectTypeLabel: "Здание",
-      areaLabel: "28 700 кв. м",
-      addressLabel: "Московская область, Химки, Логистический проезд, 8",
-    },
-    encumbrances: {
-      hasEncumbrances: "no",
-      mortgage: "no",
-      arrest: "no",
-      easement: "no",
-      notes: [
-        "В раскрытии сделки не выявлены явные указания на ограничения права.",
-        "Для production-проверки требуется подтверждение по реестровой выписке.",
-      ],
-    },
-    legalChecks: {
-      titleChain: "ok",
-      registryMatch: "ok",
-      zoning: "ok",
-      notes: [
-        "Основные атрибуты объекта согласуются между disclosure и реестровым контуром.",
-      ],
-    },
-    mapContext: {
-      region: "Московская область",
-      district: "Химки",
-      geoNote: "Объект относится к логистической инфраструктуре компании.",
-    },
-  },
-  "3": {
-    id: "3",
-    shortDescription:
-      "Земельный участок с повышенным уровнем риска: требуется отдельная проверка ограничений права и полноты правоустанавливающих документов.",
-    documents: [
-      {
-        id: "d-6",
-        title: "Asset Schedule #3",
-        documentType: "Asset annex",
-        section: "Land plots",
-        mentionRole: "Land asset",
-      },
-      {
-        id: "d-7",
-        title: "Encumbrance Note",
-        documentType: "Legal note",
-        section: "Registry remarks",
-        mentionRole: "Potentially encumbered plot",
-      },
-    ],
-    registry: {
-      registrySource: "ЕГРН",
-      ownershipStatus: "Требуется верификация",
-      ownerName: "АО «Северный Девелопмент»",
-      cadastralNumber: "78:14:0007689:31",
-      objectTypeLabel: "Земельный участок",
-      areaLabel: "45 200 кв. м",
-      addressLabel: "Санкт-Петербург, Пулковское шоссе, участок 17",
-    },
-    encumbrances: {
-      hasEncumbrances: "review",
-      mortgage: "review",
-      arrest: "no",
-      easement: "yes",
-      notes: [
-        "Есть признаки ограничений использования участка.",
-        "Требуется проверить сервитуты и допустимое использование по градостроительному контуру.",
-      ],
-    },
-    legalChecks: {
-      titleChain: "review",
-      registryMatch: "review",
-      zoning: "issue",
-      notes: [
-        "По категории и разрешённому использованию нужен отдельный юридический анализ.",
-        "В описании объекта есть риск неполного совпадения с реестровой записью.",
-      ],
-    },
-    mapContext: {
-      region: "Санкт-Петербург",
-      district: "Московский район",
-      geoNote: "Участок связан с развитием производственной площадки.",
-    },
-  },
-};
-
-const generateFallbackDetail = (
-  object: RealEstateObjectAggregate
-): RealEstateObjectDetail => ({
-  id: object.id,
-  shortDescription:
-    "Демонстрационная карточка объекта недвижимости. В production-режиме здесь будет собираться описание из документов сделки, реестровых данных и внутренних баз компании.",
-  documents: [
-    {
-      id: `doc-${object.id}-1`,
-      title: "Asset Register",
-      documentType: "Internal register",
-      section: "Property list",
-      mentionRole: "Identified object",
-    },
-    {
-      id: `doc-${object.id}-2`,
-      title: "Disclosure Note",
-      documentType: "Disclosure",
-      section: "Property references",
-      mentionRole: "Referenced asset",
-    },
-  ],
-  registry: {
-    registrySource:
-      object.market === "RU"
-        ? "ЕГРН"
-        : object.market === "UAE"
-          ? "Local land registry"
-          : "National property registry",
-    ownershipStatus:
-      object.ownership_status === "registered"
-        ? "Право подтверждено"
-        : object.ownership_status === "review"
-          ? "Требуется верификация"
-          : "Не подтверждено",
-    ownerName: "Demo Property Owner",
-    cadastralNumber: object.cadastral_number ?? "—",
-    objectTypeLabel:
-      object.object_type === "land"
-        ? "Земельный участок"
-        : object.object_type === "building"
-          ? "Здание"
-          : object.object_type === "premises"
-            ? "Помещение"
-            : object.object_type === "construction"
-              ? "Сооружение"
-              : object.object_type === "unfinished"
-                ? "Объект незавершённого строительства"
-                : "Неопределённый объект",
-    areaLabel: object.area_sqm ? `${object.area_sqm.toLocaleString("ru-RU")} кв. м` : "—",
-    addressLabel: object.address ?? "—",
-  },
-  encumbrances: {
-    hasEncumbrances:
-      object.encumbrance === true ? "yes" : object.encumbrance === false ? "no" : "review",
-    mortgage: object.encumbrance === true ? "review" : "no",
-    arrest: "no",
-    easement: object.object_type === "land" ? "review" : "no",
-    notes: [
-      "Карточка сформирована из demo-данных для проверки split-view и внутреннего скролла.",
-      "В боевом режиме здесь будут результаты реестровой проверки и анализ ограничений права.",
-    ],
-  },
-  legalChecks: {
-    titleChain: object.risk === "high" ? "review" : "ok",
-    registryMatch: object.ownership_status === "registered" ? "ok" : "review",
-    zoning:
-      object.object_type === "land" || object.object_type === "unfinished" ? "review" : "ok",
-    notes: [
-      "Требуется сопоставление данных disclosure с внешним registry source и внутренним реестром активов.",
-    ],
-  },
-  mapContext: {
-    region: object.region,
-    district: object.region,
-    geoNote:
-      "Демо-геоконтекст. В production-режиме может использоваться карта, кластеризация и сверка по адресным данным.",
-  },
-});
-
-const DEMO_DETAILS: Record<string, RealEstateObjectDetail> = DEMO_OBJECTS.reduce(
-  (acc, item) => {
-    acc[item.id] = BASE_DETAILS[item.id] ?? generateFallbackDetail(item);
-    return acc;
-  },
-  {} as Record<string, RealEstateObjectDetail>
-);
-
-// ---------------------------------------------------------------------------
-// Shared UI
-// ---------------------------------------------------------------------------
-
-const CardShell: React.FC<{
-  title: string;
-  eyebrow?: string;
+/**
+ * Badge — семантические тоны:
+ *   neutral — нейтральный тэг (регион, тип объекта)
+ *   success — accent-статус (Preview badge)
+ *   high    — критичный / negative signal (красный)
+ *   medium  — требует внимания (жёлтый)
+ *   low     — позитивный статус (зелёный)
+ */
+const Badge: React.FC<{
   children: React.ReactNode;
-  rightSlot?: React.ReactNode;
-  bodyClassName?: string;
-  className?: string;
-}> = ({ title, eyebrow, children, rightSlot, bodyClassName = "", className = "" }) => (
-  <section
-    className={[
-      "flex min-h-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm",
-      className,
-    ].join(" ")}
-  >
-    <div className="shrink-0 px-5">
-      <div className="flex items-start justify-between gap-4 py-4">
-        <div className="min-w-0">
-          {eyebrow ? (
-            <>
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">{eyebrow}</h2>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">{title}</p>
-            </>
-          ) : (
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
-          )}
-        </div>
-        {rightSlot}
-      </div>
-      <div className="border-t border-[var(--border-subtle)]" />
-    </div>
+  tone?: "neutral" | "success" | "high" | "medium" | "low";
+}> = ({ children, tone = "neutral" }) => {
+  const toneClass = {
+    neutral:
+      "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
+    success:
+      "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-primary)]",
+    high:
+      "status-border-error status-bg-error status-text-error",
+    medium:
+      "status-border-warning status-bg-warning status-text-warning",
+    low:
+      "status-border-success status-bg-success status-text-success",
+  }[tone];
 
-    <div className={["min-h-0 flex-1 px-5 py-4", bodyClassName].join(" ")}>
+  return (
+    <span
+      className={[
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium",
+        toneClass,
+      ].join(" ")}
+    >
       {children}
-    </div>
-  </section>
-);
+    </span>
+  );
+};
 
 const FeatureCard: React.FC<{
   icon: React.ReactNode;
@@ -652,67 +118,6 @@ const FeatureCard: React.FC<{
       <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{description}</p>
     </div>
   </div>
-);
-
-const Badge: React.FC<{
-  children: React.ReactNode;
-  tone?: "neutral" | "success" | "high" | "medium" | "low";
-}> = ({ children, tone = "neutral" }) => {
-  const toneClass = {
-    neutral:
-      "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
-    success:
-      "border-[color:color-mix(in_srgb,var(--accent-primary)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--accent-primary)_10%,transparent)] text-[var(--accent-primary)]",
-    high:
-      "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
-    medium:
-      "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
-    low:
-      "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
-  }[tone];
-
-  return (
-    <span
-      className={[
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium",
-        toneClass,
-      ].join(" ")}
-    >
-      {children}
-    </span>
-  );
-};
-
-const PrimaryButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({
-  className = "",
-  children,
-  ...props
-}) => (
-  <button
-    {...props}
-    className={[
-      "inline-flex items-center justify-center rounded-xl bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95",
-      className,
-    ].join(" ")}
-  >
-    {children}
-  </button>
-);
-
-const SecondaryButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({
-  className = "",
-  children,
-  ...props
-}) => (
-  <button
-    {...props}
-    className={[
-      "inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-elevated-soft)]",
-      className,
-    ].join(" ")}
-  >
-    {children}
-  </button>
 );
 
 const KpiCard: React.FC<{
@@ -891,7 +296,9 @@ const DrilldownModal: React.FC<{
               Демонстрационный drilldown по выбранному показателю
             </p>
           </div>
-          <SecondaryButton onClick={onClose}>Закрыть</SecondaryButton>
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            Закрыть
+          </Button>
         </div>
         <div className="max-h-[calc(85vh-84px)] overflow-y-auto px-5 py-4">{children}</div>
       </div>
@@ -906,10 +313,23 @@ const ExportMenuButton: React.FC<{
   onSelect: (format: ExportFormat) => void;
 }> = ({ label, open, onToggle, onSelect }) => (
   <div className="relative">
-    <SecondaryButton onClick={onToggle} className="gap-2">
-      <span>{label}</span>
-      <span className="text-[10px] text-[var(--text-muted)]">▼</span>
-    </SecondaryButton>
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={onToggle}
+      rightIcon={
+        <ChevronDown
+          className={`h-4 w-4 transition-transform duration-200 ${
+            open ? "rotate-180" : "rotate-0"
+          }`}
+          aria-hidden
+        />
+      }
+      aria-expanded={open}
+      aria-haspopup="menu"
+    >
+      {label}
+    </Button>
 
     {open ? (
       <div className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[160px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl">
@@ -940,99 +360,6 @@ const ExportMenuButton: React.FC<{
 );
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const objectTypeLabel = (value: RealEstateObjectType): string => {
-  switch (value) {
-    case "land":
-      return "Земельный участок";
-    case "building":
-      return "Здание";
-    case "premises":
-      return "Помещение";
-    case "construction":
-      return "Сооружение";
-    case "unfinished":
-      return "Незавершённое строительство";
-    default:
-      return "Неопределённо";
-  }
-};
-
-const objectTypeShortLabel = (value: RealEstateObjectType): string => {
-  switch (value) {
-    case "land":
-      return "Земля";
-    case "building":
-      return "Здание";
-    case "premises":
-      return "Помещение";
-    case "construction":
-      return "Сооружение";
-    case "unfinished":
-      return "Незавершёнка";
-    default:
-      return "Unknown";
-  }
-};
-
-const riskBadgeTone = (value: "yes" | "no" | "review"): "high" | "low" | "medium" => {
-  if (value === "yes") return "high";
-  if (value === "review") return "medium";
-  return "low";
-};
-
-const riskBadgeLabel = (value: "yes" | "no" | "review"): string => {
-  if (value === "yes") return "Yes";
-  if (value === "review") return "Review";
-  return "No";
-};
-
-const buildRiskMeta = (
-  item: RealEstateObjectAggregate
-): { label: string; tone: "high" | "medium" | "low"; rank: number } => {
-  if (
-    item.risk === "high" ||
-    item.encumbrance === true ||
-    item.ownership_status === "not_confirmed"
-  ) {
-    return { label: "Высокий", tone: "high", rank: 3 };
-  }
-
-  if (item.risk === "medium" || item.ownership_status === "review") {
-    return { label: "Средний", tone: "medium", rank: 2 };
-  }
-
-  return { label: "Низкий", tone: "low", rank: 1 };
-};
-
-const checkTone = (value: "ok" | "review" | "issue"): "low" | "medium" | "high" => {
-  if (value === "issue") return "high";
-  if (value === "review") return "medium";
-  return "low";
-};
-
-const checkLabel = (value: "ok" | "review" | "issue"): string => {
-  if (value === "issue") return "Issue";
-  if (value === "review") return "Review";
-  return "OK";
-};
-
-const getAriaSort = (
-  sort: SortState,
-  key: SortKey
-): "ascending" | "descending" | "none" => {
-  if (sort.key !== key) return "none";
-  return sort.direction === "asc" ? "ascending" : "descending";
-};
-
-const sortIcon = (sort: SortState, key: SortKey): string => {
-  if (sort.key !== key) return "↕";
-  return sort.direction === "asc" ? "↑" : "↓";
-};
-
-// ---------------------------------------------------------------------------
 // Icons
 // ---------------------------------------------------------------------------
 
@@ -1041,7 +368,12 @@ const IconBuilding = () => (
     <rect x="3" y="5" width="14" height="13" rx="1" stroke="currentColor" strokeWidth="1.5" />
     <path d="M3 8h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     <path d="M7 18v-5h6v5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-    <path d="M7 11.5h1.5M11.5 11.5H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <path
+      d="M7 11.5h1.5M11.5 11.5H13"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
     <path d="M10 2v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
@@ -1051,7 +383,15 @@ const IconCadaster = () => (
     <rect x="3" y="3" width="14" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
     <path d="M3 10h14M10 3v14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     <rect x="5.5" y="5.5" width="3" height="3" rx="0.5" stroke="currentColor" strokeWidth="1" />
-    <rect x="11.5" y="11.5" width="3" height="3" rx="0.5" stroke="currentColor" strokeWidth="1" />
+    <rect
+      x="11.5"
+      y="11.5"
+      width="3"
+      height="3"
+      rx="0.5"
+      stroke="currentColor"
+      strokeWidth="1"
+    />
   </svg>
 );
 
@@ -1080,102 +420,126 @@ const IconEncumbrance = () => (
 const IntroScreen: React.FC<{
   onOpenDemo: () => void;
 }> = ({ onOpenDemo }) => {
+  /*
+    Dual-mode scroll contract:
+    
+    Mobile (<lg): плоский document flow.
+      - НЕТ flex column на root — flex column с несколькими детьми
+        и вложенными flex-1 контейнерами (PageSection body) вызывает
+        нестабильный layout: браузер интерпретирует flex-1 без height
+        chain по-разному, и кнопка визуально "уплывает" вверх.
+      - Обычный <div> с контентом и кнопкой один за другим → tabpanel
+        (DealPage) скроллит страницу естественно.
+    
+    Desktop (lg+): flex column + internal scroll.
+      - Content area scrollable, кнопка pinned внизу через shrink-0.
+  */
   return (
-    <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
-      {/* Internal scroll на desktop (lg+), на mobile tabpanel скроллит */}
-      <div className="min-h-0 flex-1 lg:overflow-y-auto pr-1">
-        <div className="space-y-4">
-          <CardShell
-            eyebrow="Демонстрационный сценарий работы раздела"
-            title="Как будет выглядеть анализ недвижимого имущества"
-            rightSlot={<Badge tone="success">Preview</Badge>}
-          >
-            <p className="max-w-4xl text-sm leading-6 text-[var(--text-secondary)]">
-              Этот раздел будет автоматически выявлять объекты недвижимого имущества в документах
-              сделки, сопоставлять их с реестровыми и внутренними источниками, а затем формировать
-              рабочую область для юридического анализа прав, обременений и реестрового статуса.
-            </p>
-          </CardShell>
+    <div className="lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
+      {/* Content */}
+      <div className="space-y-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+        <PageSection
+          title="Демонстрационный сценарий работы раздела"
+          subtitle="Как будет выглядеть анализ недвижимого имущества"
+          rightSlot={<Badge tone="success">Preview</Badge>}
+        >
+          <p className="max-w-4xl text-sm leading-6 text-[var(--text-secondary)]">
+            Этот раздел будет автоматически выявлять объекты недвижимого имущества в документах
+            сделки, сопоставлять их с реестровыми и внутренними источниками, а затем формировать
+            рабочую область для юридического анализа прав, обременений и реестрового статуса.
+          </p>
+        </PageSection>
 
-          <CardShell eyebrow="Как это будет работать" title="Основной сценарий обработки объектов">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <FeatureCard
-                icon={<IconBuilding />}
-                title="Выявление объектов"
-                description="Система извлекает адреса, кадастровые номера, площади и описания объектов из документов сделки."
-              />
-              <FeatureCard
-                icon={<IconCadaster />}
-                title="Реестровая верификация"
-                description="Выявленные объекты сопоставляются с внешними registry sources и внутренним реестром активов."
-              />
-              <FeatureCard
-                icon={<IconEncumbrance />}
-                title="Юридическая проверка"
-                description="Интерфейс показывает ownership status, encumbrances, title issues и документные ссылки по каждому объекту."
-              />
-            </div>
-          </CardShell>
+        <PageSection
+          title="Как это будет работать"
+          subtitle="Основной сценарий обработки объектов"
+        >
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <FeatureCard
+              icon={<IconBuilding />}
+              title="Выявление объектов"
+              description="Система извлекает адреса, кадастровые номера, площади и описания объектов из документов сделки."
+            />
+            <FeatureCard
+              icon={<IconCadaster />}
+              title="Реестровая верификация"
+              description="Выявленные объекты сопоставляются с внешними registry sources и внутренним реестром активов."
+            />
+            <FeatureCard
+              icon={<IconEncumbrance />}
+              title="Юридическая проверка"
+              description="Интерфейс показывает ownership status, encumbrances, title issues и документные ссылки по каждому объекту."
+            />
+          </div>
+        </PageSection>
 
-          <CardShell eyebrow="Источники данных" title="Внешние и внутренние источники по недвижимости">
-            <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-[var(--bg-elevated-soft)]">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                        Юрисдикция
-                      </th>
-                      <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                        Источники
-                      </th>
-                      <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                        Что проверяется
-                      </th>
-                      <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                        Комментарий
-                      </th>
+        <PageSection
+          title="Источники данных"
+          subtitle="Внешние и внутренние источники по недвижимости"
+        >
+          <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-[var(--bg-elevated-soft)]">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                      Юрисдикция
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                      Источники
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                      Что проверяется
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                      Комментарий
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COVERAGE_ROWS.map((row) => (
+                    <tr
+                      key={row.jurisdiction}
+                      className="border-t border-[var(--border-subtle)] align-top"
+                    >
+                      <td className="px-4 py-3 text-[var(--text-primary)]">
+                        {row.jurisdiction}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--text-secondary)]">
+                        {row.registrySources}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--text-secondary)]">
+                        {row.whatChecked}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--text-secondary)]">
+                        {row.remarks}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {COVERAGE_ROWS.map((row) => (
-                      <tr
-                        key={row.jurisdiction}
-                        className="border-t border-[var(--border-subtle)] align-top"
-                      >
-                        <td className="px-4 py-3 text-[var(--text-primary)]">
-                          {row.jurisdiction}
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
-                          {row.registrySources}
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
-                          {row.whatChecked}
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
-                          {row.remarks}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </CardShell>
-        </div>
+          </div>
+        </PageSection>
       </div>
 
-      <div className="mt-4 shrink-0 border-t border-[var(--border-subtle)] pt-4">
-        <PrimaryButton onClick={onOpenDemo} className="w-full sm:w-auto">
+      {/* Sticky CTA (desktop) / natural block (mobile) */}
+      <div className="mt-4 border-t border-[var(--border-subtle)] pt-4 lg:shrink-0">
+        <Button
+          variant="primary"
+          size="md"
+          onClick={onOpenDemo}
+          className="w-full sm:w-auto"
+        >
           Перейти на демостраницу работы блока
-        </PrimaryButton>
+        </Button>
       </div>
     </div>
   );
 };
 
 // ---------------------------------------------------------------------------
-// Table header
+// Table — sortable header
 // ---------------------------------------------------------------------------
 
 const SortableHeader: React.FC<{
@@ -1184,28 +548,47 @@ const SortableHeader: React.FC<{
   currentSort: SortState;
   onSort: (key: SortKey) => void;
   className?: string;
-}> = ({ label, sortKey, currentSort, onSort, className = "" }) => (
-  <th
-    scope="col"
-    className={["px-4 py-3 font-semibold text-[var(--text-primary)]", className].join(" ")}
-    aria-sort={getAriaSort(currentSort, sortKey)}
-  >
-    <button
-      type="button"
-      onClick={() => onSort(sortKey)}
-      className="inline-flex items-center gap-2 text-left transition hover:text-[var(--accent-primary)]"
-      title={`Сортировать по колонке ${label}`}
+}> = ({ label, sortKey, currentSort, onSort, className = "" }) => {
+  const isActive = currentSort.key === sortKey;
+  const isAscending = isActive && currentSort.direction === "asc";
+  const isDescending = isActive && currentSort.direction === "desc";
+
+  /*
+    Иконка отражает текущее состояние сортировки:
+    - ChevronsUpDown — колонка не отсортирована
+    - ChevronUp      — активна сортировка по возрастанию
+    - ChevronDown    — активна сортировка по убыванию
+    Иконки помечены aria-hidden — их роль сугубо визуальная,
+    фактический sort state доступен screen reader через aria-sort на <th>.
+  */
+  const SortIcon = isAscending ? ChevronUp : isDescending ? ChevronDown : ChevronsUpDown;
+
+  return (
+    <th
+      scope="col"
+      className={["px-4 py-3 font-semibold text-[var(--text-primary)]", className].join(" ")}
+      aria-sort={getAriaSort(currentSort, sortKey)}
     >
-      <span>{label}</span>
-      <span className="text-[11px] text-[var(--text-muted)]" aria-hidden="true">
-        {sortIcon(currentSort, sortKey)}
-      </span>
-    </button>
-  </th>
-);
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-2 text-left transition hover:text-[var(--accent-primary)]"
+        title={`Сортировать по колонке ${label}`}
+      >
+        <span>{label}</span>
+        <SortIcon
+          className={`h-3 w-3 ${
+            isActive ? "text-[var(--accent-primary)]" : "text-[var(--text-muted)]"
+          }`}
+          aria-hidden
+        />
+      </button>
+    </th>
+  );
+};
 
 // ---------------------------------------------------------------------------
-// Registry table
+// Real estate table
 // ---------------------------------------------------------------------------
 
 const RealEstateTable: React.FC<{
@@ -1215,12 +598,21 @@ const RealEstateTable: React.FC<{
   sort: SortState;
   onSort: (key: SortKey) => void;
 }> = ({ items, selectedId, onSelect, sort, onSort }) => (
-  // Dual-mode scroll contract:
-  // Mobile (<lg): content-driven height, таблица в потоке, tabpanel скроллит
-  // Desktop (lg+): h-full + overflow-auto, internal scroll внутри таблицы
-  <div className="rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
+  /*
+    Dual-mode scroll contract:
+    Mobile (<lg):  overflow-x-auto обеспечивает горизонтальный скролл
+                   для 8-колоночной таблицы. Вертикальный скролл —
+                   страничный через tabpanel. Sticky header на mobile
+                   НЕ применяется: wrapper не создаёт scroll context
+                   (нет overflow-y), поэтому sticky привязался бы к
+                   следующему выше scrollable ancestor и визуально
+                   ломал бы таблицу.
+    Desktop (lg+): h-full + overflow-auto → internal scroll context.
+                   Sticky header корректно привязывается к wrapper.
+  */
+  <div className="overflow-x-auto rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
     <table className="min-w-full text-left text-sm">
-      <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+      <thead className="bg-[var(--bg-elevated-soft)] lg:sticky lg:top-0 lg:z-10">
         <tr>
           <SortableHeader
             label="№"
@@ -1290,7 +682,11 @@ const RealEstateTable: React.FC<{
             >
               <td className="px-4 py-3 tabular-nums text-[var(--text-muted)]">{index + 1}</td>
               <td className="px-4 py-3">
-                <button type="button" onClick={() => onSelect(item.id)} className="text-left">
+                <button
+                  type="button"
+                  onClick={() => onSelect(item.id)}
+                  className="text-left"
+                >
                   <span className="block text-sm font-medium text-[var(--accent-primary)] underline decoration-transparent transition hover:decoration-current">
                     {item.address ?? "Без адреса"}
                   </span>
@@ -1319,7 +715,11 @@ const RealEstateTable: React.FC<{
                         : "medium"
                   }
                 >
-                  {item.encumbrance === true ? "Да" : item.encumbrance === false ? "Нет" : "Проверка"}
+                  {item.encumbrance === true
+                    ? "Да"
+                    : item.encumbrance === false
+                      ? "Нет"
+                      : "Проверка"}
                 </Badge>
               </td>
               <td className="px-4 py-3">
@@ -1343,239 +743,301 @@ const RealEstateTable: React.FC<{
 const RealEstateDetailPanel: React.FC<{
   object: RealEstateObjectAggregate;
   detail: RealEstateObjectDetail;
-  onClose: () => void;
-}> = ({ object, detail, onClose }) => (
-  <div className="space-y-4 pb-2">
-    <CardShell
-      eyebrow="Карточка объекта"
-      title="Детальная информация по объекту недвижимости"
-      rightSlot={
-        <div className="flex items-center gap-2">
-          <Badge tone={buildRiskMeta(object).tone}>{buildRiskMeta(object).label}</Badge>
-          <SecondaryButton onClick={onClose} className="px-3 py-2">
-            Закрыть
-          </SecondaryButton>
+}> = ({ object, detail }) => {
+  const risk = buildRiskMeta(object);
+
+  return (
+    <div className="space-y-4 pb-2">
+      <PageSection
+        title="Карточка объекта"
+        subtitle="Детальная информация по объекту недвижимости"
+        rightSlot={<Badge tone={risk.tone}>{risk.label}</Badge>}
+      >
+        <div className="space-y-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-base font-semibold text-[var(--text-primary)]">
+                {detail.registry.addressLabel}
+              </p>
+              <Badge>{object.region}</Badge>
+              <Badge>{objectTypeLabel(object.object_type)}</Badge>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+              {detail.shortDescription}
+            </p>
+          </div>
         </div>
-      }
-    >
-      <div className="space-y-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-base font-semibold text-[var(--text-primary)]">
+      </PageSection>
+
+      <PageSection
+        title="Упоминания в документах"
+        subtitle="Документы сделки, в которых фигурирует объект"
+      >
+        <div className="space-y-3">
+          {detail.documents.map((doc) => (
+            <div
+              key={doc.id}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{doc.title}</p>
+                <Badge>{doc.documentType}</Badge>
+                <Badge>{doc.section}</Badge>
+              </div>
+              <div className="mt-2 text-sm text-[var(--text-secondary)]">
+                <span className="font-medium text-[var(--text-primary)]">Role:</span>{" "}
+                {doc.mentionRole}
+              </div>
+            </div>
+          ))}
+        </div>
+      </PageSection>
+
+      <PageSection
+        title="Registry snapshot"
+        subtitle="Ключевые атрибуты объекта по реестровому и документному контуру"
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Registry source
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+              {detail.registry.registrySource}
+            </p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              {detail.registry.ownershipStatus}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Owner
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+              {detail.registry.ownerName}
+            </p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              {detail.registry.cadastralNumber}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Object type
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+              {detail.registry.objectTypeLabel}
+            </p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              {detail.registry.areaLabel}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Address
+            </p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-primary)]">
               {detail.registry.addressLabel}
             </p>
-            <Badge>{object.region}</Badge>
-            <Badge>{objectTypeLabel(object.object_type)}</Badge>
           </div>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-            {detail.shortDescription}
-          </p>
         </div>
-      </div>
-    </CardShell>
+      </PageSection>
 
-    <CardShell
-      eyebrow="Упоминания в документах"
-      title="Документы сделки, в которых фигурирует объект"
-    >
-      <div className="space-y-3">
-        {detail.documents.map((doc) => (
-          <div
-            key={doc.id}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm"
+      <PageSection
+        title="Обременения"
+        subtitle="Ипотека, аресты, сервитуты и иные ограничения"
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(
+            [
+              { label: "Encumbrances", key: "hasEncumbrances" },
+              { label: "Mortgage", key: "mortgage" },
+              { label: "Arrest", key: "arrest" },
+              { label: "Easement", key: "easement" },
+            ] as const
+          ).map(({ label, key }) => (
+            <div key={key} className="rounded-2xl border border-[var(--border)] px-4 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                {label}
+              </p>
+              <div className="mt-2">
+                <Badge tone={riskBadgeTone(detail.encumbrances[key])}>
+                  {riskBadgeLabel(detail.encumbrances[key])}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Encumbrance notes</p>
+          <ul className="mt-2 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
+            {detail.encumbrances.notes.map((note) => (
+              <li key={note} className="flex gap-2">
+                <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warning)]" />
+                <span>{note}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </PageSection>
+
+      <PageSection
+        title="Legal checks"
+        subtitle="Title chain, registry match и zoning / land use"
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {(
+            [
+              { label: "Title chain", key: "titleChain" },
+              { label: "Registry match", key: "registryMatch" },
+              { label: "Zoning / use", key: "zoning" },
+            ] as const
+          ).map(({ label, key }) => (
+            <div key={key} className="rounded-2xl border border-[var(--border)] px-4 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                {label}
+              </p>
+              <div className="mt-2">
+                <Badge tone={checkTone(detail.legalChecks[key])}>
+                  {checkLabel(detail.legalChecks[key])}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Legal notes</p>
+          <ul className="mt-2 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
+            {detail.legalChecks.notes.map((note) => (
+              <li key={note} className="flex gap-2">
+                <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]" />
+                <span>{note}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </PageSection>
+
+      <PageSection
+        title="Карта / контекст"
+        subtitle="Региональный и географический контур объекта"
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Region
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+              {detail.mapContext.region}
+            </p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              {detail.mapContext.district}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Geo note
+            </p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
+              {detail.mapContext.geoNote}
+            </p>
+          </div>
+        </div>
+      </PageSection>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Mobile fullscreen drawer
+// ---------------------------------------------------------------------------
+
+/**
+ * Fullscreen drawer для отображения RealEstateDetailPanel на мобильных
+ * viewport.
+ *
+ * Паттерн повторяет CounterpartiesTab и DocumentsTab:
+ * fixed inset-0 z-50 + затемнение фона + body scroll lock + Escape close.
+ * Отображается только на < lg; компонент помечен lg:hidden, поэтому
+ * даже если случайно отрендерится на десктопе — визуально не появится.
+ *
+ * Body scroll lock критичен для мобильного UX: без него страница под
+ * drawer'ом продолжит скроллиться при инерционном touch scroll внутри
+ * drawer'а, что визуально ломает immersion.
+ */
+const MobileDetailDrawer: React.FC<{
+  object: RealEstateObjectAggregate;
+  detail: RealEstateObjectDetail;
+  onClose: () => void;
+}> = ({ object, detail, onClose }) => {
+  // Escape close
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  // Body scroll lock — предотвращает прокрутку страницы под drawer'ом
+  React.useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  return (
+    <div className="lg:hidden">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+
+      {/* Drawer */}
+      <aside
+        className="fixed inset-0 z-50 flex flex-col bg-[var(--bg-card)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="re-mobile-drawer-title"
+      >
+        {/* Header */}
+        <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onClose}
+            leftIcon={<ChevronLeft className="h-4 w-4" aria-hidden />}
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">{doc.title}</p>
-              <Badge>{doc.documentType}</Badge>
-              <Badge>{doc.section}</Badge>
-            </div>
-            <div className="mt-2 text-sm text-[var(--text-secondary)]">
-              <span className="font-medium text-[var(--text-primary)]">Role:</span> {doc.mentionRole}
-            </div>
+            Назад к реестру
+          </Button>
+
+          <div
+            id="re-mobile-drawer-title"
+            className="truncate text-sm font-semibold text-[var(--text-primary)]"
+          >
+            {object.address ?? "Без адреса"}
           </div>
-        ))}
-      </div>
-    </CardShell>
 
-    <CardShell
-      eyebrow="Registry snapshot"
-      title="Ключевые атрибуты объекта по реестровому и документному контуру"
-    >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Registry source
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-            {detail.registry.registrySource}
-          </p>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            {detail.registry.ownershipStatus}
-          </p>
+          {/* Балансирующий spacer для центрирования title */}
+          <div className="w-[100px] shrink-0" aria-hidden />
         </div>
 
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Owner
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-            {detail.registry.ownerName}
-          </p>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            {detail.registry.cadastralNumber}
-          </p>
+        {/* Body — scrollable detail panel */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-base)] p-4">
+          <RealEstateDetailPanel object={object} detail={detail} />
         </div>
-
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Object type
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-            {detail.registry.objectTypeLabel}
-          </p>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{detail.registry.areaLabel}</p>
-        </div>
-
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Address
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[var(--text-primary)]">
-            {detail.registry.addressLabel}
-          </p>
-        </div>
-      </div>
-    </CardShell>
-
-    <CardShell eyebrow="Обременения" title="Ипотека, аресты, сервитуты и иные ограничения">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Encumbrances
-          </p>
-          <div className="mt-2">
-            <Badge tone={riskBadgeTone(detail.encumbrances.hasEncumbrances)}>
-              {riskBadgeLabel(detail.encumbrances.hasEncumbrances)}
-            </Badge>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Mortgage
-          </p>
-          <div className="mt-2">
-            <Badge tone={riskBadgeTone(detail.encumbrances.mortgage)}>
-              {riskBadgeLabel(detail.encumbrances.mortgage)}
-            </Badge>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Arrest
-          </p>
-          <div className="mt-2">
-            <Badge tone={riskBadgeTone(detail.encumbrances.arrest)}>
-              {riskBadgeLabel(detail.encumbrances.arrest)}
-            </Badge>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Easement
-          </p>
-          <div className="mt-2">
-            <Badge tone={riskBadgeTone(detail.encumbrances.easement)}>
-              {riskBadgeLabel(detail.encumbrances.easement)}
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">Encumbrance notes</p>
-        <ul className="mt-2 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
-          {detail.encumbrances.notes.map((note) => (
-            <li key={note} className="flex gap-2">
-              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warning)]" />
-              <span>{note}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </CardShell>
-
-    <CardShell eyebrow="Legal checks" title="Title chain, registry match и zoning / land use">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Title chain
-          </p>
-          <div className="mt-2">
-            <Badge tone={checkTone(detail.legalChecks.titleChain)}>
-              {checkLabel(detail.legalChecks.titleChain)}
-            </Badge>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Registry match
-          </p>
-          <div className="mt-2">
-            <Badge tone={checkTone(detail.legalChecks.registryMatch)}>
-              {checkLabel(detail.legalChecks.registryMatch)}
-            </Badge>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Zoning / use
-          </p>
-          <div className="mt-2">
-            <Badge tone={checkTone(detail.legalChecks.zoning)}>
-              {checkLabel(detail.legalChecks.zoning)}
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">Legal notes</p>
-        <ul className="mt-2 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
-          {detail.legalChecks.notes.map((note) => (
-            <li key={note} className="flex gap-2">
-              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]" />
-              <span>{note}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </CardShell>
-
-    <CardShell eyebrow="Карта / контекст" title="Региональный и географический контур объекта">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Region
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-            {detail.mapContext.region}
-          </p>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            {detail.mapContext.district}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Geo note
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-            {detail.mapContext.geoNote}
-          </p>
-        </div>
-      </div>
-    </CardShell>
-  </div>
-);
+      </aside>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Demo screen
@@ -1592,109 +1054,26 @@ const DemoScreen: React.FC<{
     direction: "asc",
   });
 
-  const totalObjects = DEMO_OBJECTS.length;
-  const totalLand = DEMO_OBJECTS.filter((item) => item.object_type === "land").length;
-  const totalBuildingsAndPremises = DEMO_OBJECTS.filter(
-    (item) => item.object_type === "building" || item.object_type === "premises"
-  ).length;
-  const totalEncumbered = DEMO_OBJECTS.filter((item) => item.encumbrance === true).length;
+  // Все derive-вычисления вынесены в utils.ts и мемоизированы.
+  // DEMO_OBJECTS статичен → зависимостей нет, пересчёт не нужен.
+  const { totalObjects, totalLand, totalBuildingsAndPremises, totalEncumbered } =
+    React.useMemo(() => buildRealEstateTotals(DEMO_OBJECTS), []);
 
-  const topByArea = [...DEMO_OBJECTS]
-    .sort((a, b) => (b.area_sqm ?? 0) - (a.area_sqm ?? 0))
-    .slice(0, 5)
-    .map((item) => ({
-      name: item.address ?? "Без адреса",
-      subtitle: item.region,
-      value: item.area_sqm ? `${item.area_sqm.toLocaleString("ru-RU")} м²` : "—",
-    }));
+  const topByArea = React.useMemo(() => buildTopByArea(DEMO_OBJECTS), []);
+  const encumberedObjects = React.useMemo(() => buildEncumberedObjects(DEMO_OBJECTS), []);
+  const regionStructure = React.useMemo(() => buildRegionStructure(DEMO_OBJECTS), []);
+  const criticalObjects = React.useMemo(() => buildCriticalObjects(DEMO_OBJECTS), []);
 
-  const encumberedObjects = DEMO_OBJECTS.filter((item) => item.encumbrance === true).map((item) => ({
-    name: item.address ?? "Без адреса",
-    subtitle: item.cadastral_number ?? "Нет номера",
-    value: buildRiskMeta(item).label,
-  }));
-
-  const regionMap = new Map<string, number>();
-  for (const item of DEMO_OBJECTS) {
-    regionMap.set(item.region, (regionMap.get(item.region) ?? 0) + 1);
-  }
-
-  const regionStructure = [...regionMap.entries()]
-    .map(([region, count]) => ({ region, count }))
-    .sort((a, b) => b.count - a.count);
-
-  const criticalObjects = DEMO_OBJECTS
-    .map((item) => {
-      const reasons: string[] = [];
-      if (item.encumbrance === true) reasons.push("Выявлены признаки обременения.");
-      if (item.risk === "high") reasons.push("Объект имеет высокий уровень риска.");
-      if (item.ownership_status === "not_confirmed") {
-        reasons.push("Право собственности не подтверждено.");
-      }
-      if (item.object_type === "unfinished") {
-        reasons.push("Объект незавершённого строительства требует отдельной проверки.");
-      }
-
-      return reasons.length > 0
-        ? {
-            name: item.address ?? "Без адреса",
-            region: item.region,
-            reasons,
-          }
-        : null;
-    })
-    .filter(Boolean) as Array<{ name: string; region: string; reasons: string[] }>;
-
-  const sortedObjects = React.useMemo(() => {
-    const withIndex = DEMO_OBJECTS.map((item, index) => ({
-      ...item,
-      originalIndex: index + 1,
-      riskMeta: buildRiskMeta(item),
-    }));
-
-    const sorted = [...withIndex].sort((a, b) => {
-      let comparison = 0;
-
-      switch (sort.key) {
-        case "index":
-          comparison = a.originalIndex - b.originalIndex;
-          break;
-        case "address":
-          comparison = (a.address ?? "").localeCompare(b.address ?? "");
-          break;
-        case "region":
-          comparison = a.region.localeCompare(b.region);
-          break;
-        case "objectType":
-          comparison = objectTypeLabel(a.object_type).localeCompare(objectTypeLabel(b.object_type));
-          break;
-        case "area":
-          comparison = (a.area_sqm ?? 0) - (b.area_sqm ?? 0);
-          break;
-        case "documentCount":
-          comparison = a.document_count - b.document_count;
-          break;
-        case "encumbrance":
-          comparison = Number(a.encumbrance === true) - Number(b.encumbrance === true);
-          break;
-        case "risk":
-          comparison = a.riskMeta.rank - b.riskMeta.rank;
-          break;
-        default:
-          comparison = 0;
-      }
-
-      return sort.direction === "asc" ? comparison : -comparison;
-    });
-
-    return sorted.map(({ originalIndex: _originalIndex, riskMeta: _riskMeta, ...item }) => item);
-  }, [sort]);
+  const sortedObjects = React.useMemo(
+    () => sortRealEstateObjects(DEMO_OBJECTS, sort),
+    [sort]
+  );
 
   const selectedObject = selectedId
     ? DEMO_OBJECTS.find((item) => item.id === selectedId) ?? null
     : null;
 
-  const selectedDetail = selectedObject ? DEMO_DETAILS[selectedObject.id] : null;
+  const selectedDetail = selectedObject ? DEMO_DETAILS[selectedObject.id] ?? null : null;
 
   const handleExport = (format: ExportFormat) => {
     setOpenExportMenu(null);
@@ -1702,23 +1081,21 @@ const DemoScreen: React.FC<{
   };
 
   const handleSort = (key: SortKey) => {
-    setSort((prev) => {
-      if (prev.key === key) {
-        return {
-          key,
-          direction: prev.direction === "asc" ? "desc" : "asc",
-        };
-      }
-
-      return {
-        key,
-        direction: "asc",
-      };
-    });
+    setSort((prev) => getNextSortState(prev, key));
   };
+
+  const drilldownTitle =
+    drilldown === "geography"
+      ? "География выявленных объектов"
+      : drilldown === "encumbrances"
+        ? "Объекты с признаками обременений"
+        : drilldown === "area_top"
+          ? "Топ-5 объектов по площади"
+          : "Критические объекты недвижимости";
 
   return (
     <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
+      {/* Header */}
       <div className="mb-4 shrink-0 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">
@@ -1729,9 +1106,12 @@ const DemoScreen: React.FC<{
             юридическому контуру
           </p>
         </div>
-        <SecondaryButton onClick={onBack}>Назад к описанию</SecondaryButton>
+        <Button variant="secondary" size="sm" onClick={onBack}>
+          Назад к описанию
+        </Button>
       </div>
 
+      {/* KPI row */}
       <div className="mb-4 shrink-0 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           label="Объектов выявлено"
@@ -1739,7 +1119,11 @@ const DemoScreen: React.FC<{
           hint="Нажмите, чтобы открыть географию"
           onClick={() => setDrilldown("geography")}
         />
-        <KpiCard label="Земельных участков" value={`${totalLand}`} hint="В составе реестра" />
+        <KpiCard
+          label="Земельных участков"
+          value={`${totalLand}`}
+          hint="В составе реестра"
+        />
         <KpiCard
           label="Зданий и помещений"
           value={`${totalBuildingsAndPremises}`}
@@ -1755,85 +1139,112 @@ const DemoScreen: React.FC<{
         />
       </div>
 
+      {/* Main workspace */}
       <div className="min-h-0 flex-1">
-        {selectedObject && selectedDetail ? (
-          <CardShell
-            eyebrow="Рабочая область анализа"
-            title="Реестр объектов и карточка выбранного объекта"
-            rightSlot={
-              <div className="flex items-center gap-2">
-                <ExportMenuButton
-                  label="Сохранить список объектов"
-                  open={openExportMenu === "list"}
-                  onToggle={() => setOpenExportMenu((prev) => (prev === "list" ? null : "list"))}
-                  onSelect={handleExport}
-                />
-                <SecondaryButton onClick={() => setSelectedId(null)}>
-                  Закрыть карточку
-                </SecondaryButton>
-              </div>
-            }
-            bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
-            className="h-full min-h-0"
-          >
-            <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,560px)]">
-              <div className="min-h-0 lg:overflow-hidden border-b border-[var(--border-subtle)] xl:border-b-0 xl:border-r">                <div className="flex h-full min-h-0 flex-col p-5">
-                  <div className="mb-4 shrink-0">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Реестр объектов
-                    </p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">
-                      Выберите объект в таблице, чтобы просмотреть детальную карточку справа
-                    </p>
-                  </div>
+        {/*
+          ═══════════════════════════════════════════════════════════════
+          Desktop render-path (lg+): split-view при выбранном объекте,
+          обычная таблица без выбранного.
 
-                  {/* overflow-hidden на desktop для internal scroll, на mobile таблица в потоке */}
-                  <div className="min-h-0 flex-1 lg:overflow-hidden">
-                    <RealEstateTable
-                      items={sortedObjects}
-                      selectedId={selectedId}
-                      onSelect={setSelectedId}
-                      sort={sort}
-                      onSort={handleSort}
+          Mobile render-path (< lg): всегда обычная таблица;
+          RealEstateDetailPanel рендерится отдельно как fullscreen
+          drawer ниже.
+          ═══════════════════════════════════════════════════════════════
+        */}
+
+        {/* Desktop: split-view при selectedObject */}
+        {selectedObject && selectedDetail ? (
+          <div className="hidden lg:block lg:h-full">
+            <PageSection
+              title="Рабочая область анализа"
+              subtitle="Реестр объектов и карточка выбранного объекта"
+              rightSlot={
+                <div className="flex items-center gap-2">
+                  <ExportMenuButton
+                    label="Сохранить список объектов"
+                    open={openExportMenu === "list"}
+                    onToggle={() =>
+                      setOpenExportMenu((prev) => (prev === "list" ? null : "list"))
+                    }
+                    onSelect={handleExport}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setSelectedId(null)}
+                  >
+                    Закрыть карточку
+                  </Button>
+                </div>
+              }
+              className="h-full"
+              contentClassName="p-0"
+              bodyClassName="h-full min-h-0"
+            >
+              <div className="grid min-h-0 grid-cols-1 lg:h-full xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,560px)]">
+                {/* Left: table */}
+                <div className="min-h-0 lg:overflow-hidden border-b border-[var(--border-subtle)] xl:border-b-0 xl:border-r">
+                  <div className="flex h-full min-h-0 flex-col p-5">
+                    <div className="mb-4 shrink-0">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">
+                        Реестр объектов
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--text-muted)]">
+                        Выберите объект в таблице, чтобы просмотреть детальную карточку справа
+                      </p>
+                    </div>
+                    <div className="min-h-0 flex-1 lg:overflow-hidden">
+                      <RealEstateTable
+                        items={sortedObjects}
+                        selectedId={selectedId}
+                        onSelect={setSelectedId}
+                        sort={sort}
+                        onSort={handleSort}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: detail panel */}
+                <div className="min-h-0 lg:overflow-hidden">
+                  <div className="min-h-0 p-5 lg:h-full lg:overflow-y-auto">
+                    <RealEstateDetailPanel
+                      object={selectedObject}
+                      detail={selectedDetail}
                     />
                   </div>
                 </div>
               </div>
+            </PageSection>
+          </div>
+        ) : null}
 
-              <div className="min-h-0 lg:overflow-hidden">
-                <div className="h-full min-h-0 overflow-y-auto p-5">
-                  <RealEstateDetailPanel
-                    object={selectedObject}
-                    detail={selectedDetail}
-                    onClose={() => setSelectedId(null)}
-                  />
-                </div>
-              </div>
-            </div>
-          </CardShell>
-        ) : (
-          <CardShell
-            eyebrow="Реестр объектов"
-            title="Недвижимое имущество, выявленное в документах сделки"
-            rightSlot={
-              <ExportMenuButton
-                label="Сохранить список объектов"
-                open={openExportMenu === "list"}
-                onToggle={() => setOpenExportMenu((prev) => (prev === "list" ? null : "list"))}
-                onSelect={handleExport}
-              />
-            }
-            bodyClassName="min-h-0 flex-1 overflow-hidden"
-            className="h-full min-h-0"
-          >
-            <div className="flex h-full min-h-0 flex-col">
+        {/* Desktop: fallback — plain table без выбранного объекта */}
+        {(!selectedObject || !selectedDetail) && (
+          <div className="hidden lg:block lg:h-full">
+            <PageSection
+              title="Реестр объектов"
+              subtitle="Недвижимое имущество, выявленное в документах сделки"
+              rightSlot={
+                <ExportMenuButton
+                  label="Сохранить список объектов"
+                  open={openExportMenu === "list"}
+                  onToggle={() =>
+                    setOpenExportMenu((prev) => (prev === "list" ? null : "list"))
+                  }
+                  onSelect={handleExport}
+                />
+              }
+              className="h-full"
+              bodyClassName="flex h-full min-h-0 flex-col"
+            >
               <div className="mb-3 shrink-0">
                 <p className="text-sm text-[var(--text-secondary)]">
                   В демонстрационном реестре добавлено больше объектов, чтобы таблица имела
                   собственную внутреннюю прокрутку.
                 </p>
               </div>
-              <div className="min-h-0 flex-1 overflow-hidden">
+              <div className="min-h-0 flex-1 lg:overflow-hidden">
                 <RealEstateTable
                   items={sortedObjects}
                   selectedId={selectedId}
@@ -1842,23 +1253,67 @@ const DemoScreen: React.FC<{
                   onSort={handleSort}
                 />
               </div>
-            </div>
-          </CardShell>
+            </PageSection>
+          </div>
         )}
+
+        {/* Mobile: всегда plain table */}
+        <div className="lg:hidden">
+          <PageSection
+            title="Реестр объектов"
+            subtitle="Недвижимое имущество, выявленное в документах сделки"
+            rightSlot={
+              <ExportMenuButton
+                label="Сохранить список объектов"
+                open={openExportMenu === "list"}
+                onToggle={() =>
+                  setOpenExportMenu((prev) => (prev === "list" ? null : "list"))
+                }
+                onSelect={handleExport}
+              />
+            }
+          >
+            <div className="mb-3">
+              <p className="text-sm text-[var(--text-secondary)]">
+                В демонстрационном реестре добавлено больше объектов. Нажмите на адрес объекта,
+                чтобы открыть детальную карточку.
+              </p>
+            </div>
+            <RealEstateTable
+              items={sortedObjects}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              sort={sort}
+              onSort={handleSort}
+            />
+          </PageSection>
+        </div>
       </div>
 
+      {/*
+        ═══════════════════════════════════════════════════════════════
+        Mobile fullscreen drawer с RealEstateDetailPanel.
+
+        Активируется только на < lg при selectedObject.
+        На lg+ этот блок не рендерится (lg:hidden в MobileDetailDrawer).
+
+        Паттерн — аналог CounterpartiesTab и DocumentsTab:
+        fixed inset-0 z-50 + backdrop + body scroll lock + Escape close.
+        ═══════════════════════════════════════════════════════════════
+      */}
+      {selectedObject && selectedDetail ? (
+        <MobileDetailDrawer
+          object={selectedObject}
+          detail={selectedDetail}
+          onClose={() => setSelectedId(null)}
+        />
+      ) : null}
+
+      {/* Drilldown modal */}
       <DrilldownModal
         open={drilldown !== null}
         onClose={() => setDrilldown(null)}
-        title={
-          drilldown === "geography"
-            ? "География выявленных объектов"
-            : drilldown === "encumbrances"
-              ? "Объекты с признаками обременений"
-              : drilldown === "area_top"
-                ? "Топ-5 объектов по площади"
-                : "Критические объекты недвижимости"
-        }
+        title={drilldownTitle}
       >
         {drilldown === "geography" ? (
           <RegionStructureCard items={regionStructure} />
@@ -1875,7 +1330,7 @@ const DemoScreen: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// Main
+// Main export
 // ---------------------------------------------------------------------------
 
 const RealEstateTab: React.FC<RealEstateTabProps> = ({
@@ -1885,9 +1340,11 @@ const RealEstateTab: React.FC<RealEstateTabProps> = ({
   const [mode, setMode] = React.useState<PreviewMode>("intro");
 
   return (
-    // Dual-mode scroll contract:
-    // Mobile (<lg): no height constraint, content-driven, tabpanel scrolls
-    // Desktop (lg+): h-full + overflow-hidden, internal scroll
+    /*
+      Dual-mode scroll contract (root):
+      Mobile (<lg): no height constraint, content-driven, tabpanel scrolls
+      Desktop (lg+): h-full + overflow-hidden, internal scroll per section
+    */
     <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
       {mode === "intro" ? (
         <IntroScreen onOpenDemo={() => setMode("demo")} />
