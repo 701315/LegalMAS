@@ -6,7 +6,7 @@ Prompt Loader.
 Задачи:
 - Найти корневую папку с промптами (по settings.PROMPTSDIR или ./prompts)
 - Загружать .txt шаблоны по имени
-- Подставлять переменные в шаблон через .format(**variables)
+- Подставлять переменные в шаблон безопасной replace-подстановкой
 - Давать доступ к "сырому" тексту без форматирования
 - Кешировать загруженные шаблоны в памяти
 
@@ -67,7 +67,7 @@ class PromptLoader:
     Загрузчик промптов (.txt) с поддержкой кеша и подстановки переменных.
 
     Формат промпта: обычный текст, внутри которого могут быть плейсхолдеры
-    вида {variable_name} для .format(**variables).
+    вида {variable_name} для безопасной replace-подстановки.
     """
 
     def __init__(self, prompts_root: Path | None = None) -> None:
@@ -78,33 +78,46 @@ class PromptLoader:
 
     def load(self, prompt_name: str, variables: dict[str, object]) -> str:
         """
-        Загрузить промпт и подставить переменные.
+        Загрузить промпт и безопасно подставить переменные.
 
         Args:
             prompt_name: имя промпта без .txt, например:
                 "detection/genericpresence" или "classification/classifydocument"
-            variables: словарь для .format(**variables)
+            variables:
+                словарь переменных, где ключ может быть:
+                - "context"
+                - "{context}"
 
         Returns:
             Строка с подставленными переменными.
 
         Raises:
             FileNotFoundError: если файл промпта не найден
-            KeyError: если в шаблоне есть плейсхолдер, которого нет в variables
+
+        ВАЖНО:
+        Используем последовательный .replace(), а не str.format(),
+        потому что промпты могут содержать JSON-примеры с фигурными скобками:
+            {"found": true, "evidence": "..."}
+        str.format() ломается на таких шаблонах, интерпретируя JSON-ключи
+        как Python placeholders.
         """
         template = self._load_template(prompt_name)
 
         if not variables:
             return template
 
-        try:
-            return template.format(**variables)
-        except KeyError as e:
-            missing = str(e).strip("'")
-            raise KeyError(
-                f"Prompt '{prompt_name}' requires variable '{missing}', "
-                f"but it was not provided. Provided: {list(variables.keys())}"
-            ) from e
+        result = template
+        for key, value in variables.items():
+            key_str = str(key)
+            placeholder = (
+                key_str
+                if key_str.startswith("{") and key_str.endswith("}")
+                else f"{{{key_str}}}"
+            )
+            replacement = "" if value is None else str(value)
+            result = result.replace(placeholder, replacement)
+
+        return result
 
     def load_raw(self, prompt_name: str) -> str:
         """
@@ -216,9 +229,20 @@ class PromptLoader:
         """
         Нормализовать имя промпта для использования в кеше.
 
-        Сейчас просто заменяем обратные слэши на прямые.
+        Правила:
+        - заменяем обратные слэши на прямые;
+        - если имя оканчивается ровно на ".txt" — снимаем только этот суффикс;
+        - никаких rstrip(".txt"), потому что он удаляет любые хвостовые
+          символы из множества {'.', 't', 'x'}, а не точный суффикс.
+
+        Пример:
+            "test_prompt.txt" -> "test_prompt"
+            "test_prompt"     -> "test_prompt"
         """
-        return prompt_name.replace("\\", "/").rstrip(".txt")
+        normalized = prompt_name.replace("\\", "/")
+        if normalized.endswith(".txt"):
+            return normalized[:-4]
+        return normalized
 
 
 # --- глобальный singleton для удобства ---

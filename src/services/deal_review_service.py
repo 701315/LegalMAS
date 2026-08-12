@@ -37,7 +37,7 @@ from services.export.models import AggregatedResults
 
 # Новые специализированные компоненты
 from services import review_presenter
-from services.dd_matrix_builder import build_dd_matrix
+from services.dd_matrix_builder import build_dd_matrix as build_dd_matrix_response
 
 # Engine
 from classifiers.yaml_registry import YAMLRegistry
@@ -180,7 +180,7 @@ def build_dd_matrix(
     Делегирует построение матрицы рисков в dd_matrix_builder.
     Используется эндпоинтом GET /deals/{deal_id}/runs/{run_id}/dd-matrix.
     """
-    return build_dd_matrix(agg, documents)
+    return build_dd_matrix_response(agg, documents)
 
 
 # ---------------------------------------------------------------------------
@@ -579,16 +579,9 @@ async def build_dd_grid_v1_response(
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
-        # Загрузка результатов и документов
-        check_results = await runner_repo.load_check_results_for_run(run_uuid)
-        documents = await runner_repo.load_documents_for_run(run_uuid)
-        
-        # НОВОЕ: Загрузка execution ledger (источник истины о запланированных проверках)
+        # Execution ledger (источник истины о запланированных проверках)
         plan_item_repo = RunCheckPlanItemRepository(uow.session)
         plan_items = await plan_item_repo.list_by_run_id(run_uuid)
-
-        # Валидация deal
-        deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
 
         # Валидация deal
         deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)

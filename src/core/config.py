@@ -118,7 +118,12 @@ class Settings(BaseSettings):
     CLASSIFICATION_TRACE_INCLUDE_CANDIDATES: bool = True
 
     # --- Classification & Embeddings (общие) ---
+    # DEPRECATED:
+    # Это поле больше не является runtime source of truth для embedding model.
+    # Реально используемая модель задаётся через RUNNER_EMBEDDINGS_MODEL.
+    # Оставлено временно для backward compatibility внешних env/config references.
     EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-large"
+
     CLASSIFICATION_REGISTRY_PATH: str = "playbooks/document_types/registry.yaml"
 
     # --- LLM Providers (общий верхнеуровневый) ---
