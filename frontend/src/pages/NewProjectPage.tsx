@@ -7,11 +7,13 @@
 // =============================================================
 
 import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import client from "../api/client";
 import { useDeal } from "../api/deals";
 import { useDocuments } from "../api/documents";
+import { queryKeys } from "../api/queryKeys";
 import { useStartRun } from "../api/runs";
 import { useAuth } from "../hooks/useAuth";
 import { useUIStore } from "../stores/uiStore";
@@ -34,6 +36,9 @@ import Block3Playbook from "../components/new-project/Block3Playbook";
 import Block4ModelConfig from "../components/new-project/Block4ModelConfig";
 import Block5Language from "../components/new-project/Block5Language";
 import Block6Launch from "../components/new-project/Block6Launch";
+
+import ConfirmDialog from "../components/ConfirmDialog";
+import Button from "../components/ui/Button";
 
 interface DealCreateResponse {
   id: string;
@@ -64,7 +69,8 @@ function formatCountLabel(
 
 const NewProjectPage: React.FC = () => {
   const navigate = useNavigate();
-  const { globalRole } = useAuth();
+  const queryClient = useQueryClient();
+  const { globalRole, userId } = useAuth();
   const setProjectRole = useUIStore((s) => s.setProjectRole);
 
   const canCreate =
@@ -103,6 +109,22 @@ const NewProjectPage: React.FC = () => {
    * null = обычный flow без ручного редактирования.
    */
   const [editingStep, setEditingStep] = React.useState<number | null>(null);
+
+  const [showExitConfirm, setShowExitConfirm] = React.useState(false);
+
+  // Защита от случайного закрытия вкладки браузера (F5 или крестик)
+  React.useEffect(() => {
+    const isDirty = projectName.trim().length > 0 || createdDealId !== null;
+    if (!isDirty) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [projectName, createdDealId]);
 
   // ───────────── DATA ─────────────
 
@@ -143,6 +165,11 @@ const NewProjectPage: React.FC = () => {
 
       setCreatedDealId(res.data.id);
       setProjectRole(res.data.id, "admin");
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.userProjects(userId ?? "anonymous"),
+      });
+
     } catch (err: any) {
       setCreateError(err?.detail || "Ошибка создания проекта.");
     } finally {
@@ -321,13 +348,23 @@ const NewProjectPage: React.FC = () => {
               </p>
             </div>
 
-            {requiredStepsDone > 0 && (
-              <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1.5">
-                <span className="text-[11px] font-semibold text-[var(--text-muted)]">
-                  {requiredStepsDone} из {requiredStepsTotal} готово
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-4">
+              {requiredStepsDone > 0 && (
+                <div className="hidden rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1.5 md:block">
+                  <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+                    {requiredStepsDone} из {requiredStepsTotal} готово
+                  </span>
+                </div>
+              )}
+              
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowExitConfirm(true)}
+              >
+                {createdDealId ? "Отложить настройку" : "Отмена"}
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -345,6 +382,7 @@ const NewProjectPage: React.FC = () => {
                 projectName={projectName}
                 onProjectNameChange={setProjectName}
                 onCreateProject={handleCreateProject}
+                onCancel={() => setShowExitConfirm(true)}
                 isSubmitting={isCreating}
                 isCreated={!!createdDealId}
                 errorText={createError}
@@ -480,6 +518,20 @@ const NewProjectPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showExitConfirm}
+        title={createdDealId ? "Отложить настройку?" : "Прервать создание?"}
+        description={
+          createdDealId
+            ? "Проект уже сохранён в системе. Вы сможете вернуться к загрузке документов и выбору настроек позже из списка проектов на дашборде."
+            : "Проект ещё не создан. Если вы выйдете сейчас, введённые данные не сохранятся."
+        }
+        confirmLabel={createdDealId ? "Выйти на дашборд" : "Прервать"}
+        cancelLabel="Остаться"
+        onConfirm={() => navigate("/dashboard")}
+        onCancel={() => setShowExitConfirm(false)}
+      />
     </div>
   );
 };

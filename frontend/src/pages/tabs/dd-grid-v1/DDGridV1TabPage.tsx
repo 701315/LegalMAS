@@ -728,7 +728,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       : "Плоский список findings из V1 review dataset с фильтрацией и экспортом.";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0 lg:overflow-hidden">
       {/* Warning об отсутствии run metadata — если есть, показываем над секцией */}
       {runError ? (
         <div className="shrink-0">
@@ -736,8 +736,11 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
         </div>
       ) : null}
 
-      {/* ── Grid section, flex-1, scroll внутри AG Grid ── */}
-      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+      {/* ── Grid section.
+          Desktop: flex-1 + min-h-0 → AG Grid скроллится внутри.
+          Mobile: натуральная высота → таблица растёт по всем строкам,
+          скроллится страница целиком. */}
+      <section className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm lg:min-h-0 lg:flex-1">
         {/* Toolbar — shrink-0 */}
         <div className="shrink-0">
           <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-3">
@@ -770,14 +773,20 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
           </div>
 
           <div className="px-5 pb-3">
-            {/* Настройки отображения + кнопка "Экспорт данных" в правом углу */}
+            {/* Настройки отображения + кнопки действий.
+                Desktop: горизонтальный layout — settings слева, кнопки справа.
+                Mobile: вертикальный стек — settings сверху (info-баннер +
+                сегменты на всю ширину), кнопки под ними в один ряд с wrap. */}
             <div className="mb-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-4">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <DDGridV1ViewSettings />
+              <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
+                <div className="min-w-0 lg:flex-1">
+                  <DDGridV1ViewSettings
+                    hideFormatToggle={isMobile}
+                    stretch={isMobile}
+                  />
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2 pt-[22px]">
+                <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:pt-[22px]">
                   {gridMode === "list" && (
                     <>
                       <Button
@@ -1014,8 +1023,11 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
           </div>
         </div>
 
-        {/* Grid viewport — flex-1, AG Grid scroll inside */}
-        <div className="min-h-0 flex-1 overflow-hidden px-5 py-5 relative">
+        {/* Grid viewport.
+            Desktop: flex-1 + overflow-hidden → AG Grid scroll внутри.
+            Mobile: натуральная высота → таблица занимает столько, сколько
+            нужно, скроллится страница целиком. */}
+        <div className="relative px-5 py-5 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           {gridMode === "matrix" ? (
             <DDGridV1TypedGroups
               runId={runId}

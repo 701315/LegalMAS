@@ -225,6 +225,16 @@ const DashboardPage: React.FC = () => {
                       Роль в проекте: {p.role}
                     </p>
                   </div>
+
+                  {p.needs_setup ? (
+                    <span className="shrink-0 rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-warning-text)]">
+                      Не настроен
+                    </span>
+                  ) : p.analysis_completed ? (
+                    <span className="shrink-0 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success-text)]">
+                      Анализ выполнен
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3">

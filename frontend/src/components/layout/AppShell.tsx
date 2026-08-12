@@ -60,6 +60,8 @@ type SidebarProject = {
   deal_id: string;
   deal_name: string;
   role: string;
+  needs_setup?: boolean;
+  analysis_completed?: boolean;
 };
 
 function getFocusableElements(container: HTMLElement | null): HTMLElement[] {
@@ -332,29 +334,42 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                         currentPath === `/projects/${project.deal_id}` ||
                         currentPath.startsWith(`/projects/${project.deal_id}/`);
 
-                      return (
-                        <NavLink
-                          key={project.deal_id}
-                          to={`/projects/${project.deal_id}`}
-                          className={() =>
-                            [
-                              "block rounded-xl border px-3 py-2 transition-all duration-150",
-                              "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
-                              isActive
-                                ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--text-primary)]"
-                                : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
-                            ].join(" ")
-                          }
-                        >
-                          <div className="truncate font-medium">
-                            {project.deal_name}
-                          </div>
-                          <div className="mt-0.5 truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-                            {project.role}
-                          </div>
-                        </NavLink>
-                      );
+                        return (
+                          <NavLink
+                            key={project.deal_id}
+                            to={`/projects/${project.deal_id}`}
+                            className={() =>
+                              [
+                                "block rounded-xl border px-3 py-2 transition-all duration-150",
+                                "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+                                isActive
+                                  ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--text-primary)]"
+                                  : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
+                              ].join(" ")
+                            }
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="truncate font-medium">
+                                {project.deal_name}
+                              </div>
+
+                              {project.needs_setup ? (
+                                <span className="shrink-0 rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-warning-text)]">
+                                  !
+                                </span>
+                              ) : project.analysis_completed ? (
+                                <span className="shrink-0 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]">
+                                  ✓
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <div className="mt-0.5 truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                              {project.role}
+                            </div>
+                          </NavLink>
+                        );
                     })
                   ) : (
                     <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">

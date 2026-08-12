@@ -147,7 +147,12 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    // Desktop (lg+): h-full + min-h-0 → PageSection получает высоту
+    // родителя и внутри может создать flex-скролл-контейнер для таблицы.
+    // Mobile: натуральная высота → PageSection не получает "распорки",
+    // его внутренний flex-1 не создаёт скролла, таблица растёт по всем
+    // строкам, скроллится страница целиком.
+    <div className="flex flex-col lg:h-full lg:min-h-0">
       <PageSection
         title={
           viewMode === "audit_log"
@@ -206,16 +211,24 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
             </Button>
           </div>
         }
-        className="flex-1 min-h-0"
-        contentClassName="flex min-h-0 flex-1 flex-col"
-        bodyClassName="flex h-full min-h-0 flex-col"
+        // Desktop: PageSection занимает всю высоту родителя, внутри
+        // создаёт flex-скролл для таблицы. Mobile: те же самые
+        // классы применяются только на lg+, а на мобильном PageSection
+        // растёт по натуральному содержимому.
+        //
+        // Примечание: сам PageSection жёстко имеет "flex flex-col min-h-0"
+        // и "flex-1 min-h-0" на content-div, но эти классы безвредны,
+        // если родитель не даёт h-full — flex-1 просто ничего не растягивает.
+        className="lg:flex-1 lg:min-h-0"
+        contentClassName="flex flex-col lg:min-h-0 lg:flex-1"
+        bodyClassName="flex flex-col lg:h-full lg:min-h-0"
       >
         {viewMode === "classification_audit" ? (
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex flex-col lg:min-h-0 lg:flex-1">
             <ClassificationAuditView dealId={dealId} />
           </div>
         ) : (
-          <div className="flex h-full min-h-0 flex-col">
+          <div className="flex flex-col lg:h-full lg:min-h-0">
             {isActionFilterOpen && (
               <div id="audit-action-filter-panel" className="mb-4 shrink-0">
                 <AuditActionFilterInlinePanel
@@ -233,9 +246,12 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
               </div>
             )}
 
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex flex-col lg:min-h-0 lg:flex-1">
               {isLoading ? (
-                <div className="flex flex-1 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-16">
+                /* Loading state — на мобильном без flex-1 (натуральная
+                   высота с py-16), на десктопе занимает всю доступную
+                   высоту для centered. */
+                <div className="flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-16 lg:flex-1">
                   <Loader2
                     className="mr-3 animate-spin text-[var(--accent-primary)]"
                     size={20}
@@ -246,9 +262,19 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                 </div>
               ) : (
                 <>
-                  <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
+                  {/* Table container.
+                      Desktop: min-h-0 + flex-1 + overflow-hidden → создаёт
+                      фиксированную высоту для внутреннего scroll viewport.
+                      Mobile: натуральная высота → таблица растёт по всем
+                      строкам, страница скроллит целиком. */}
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
                     {items.length > 0 ? (
-                      <div className="h-full overflow-y-auto overflow-x-auto">
+                      /* Scroll viewport.
+                         Desktop: h-full + overflow-y-auto + overflow-x-auto
+                         → внутренний вертикальный и горизонтальный скролл.
+                         Mobile: только overflow-x-auto для широкой таблицы
+                         (5 колонок ~700px+), вертикальный скролл — страничный. */
+                      <div className="overflow-x-auto lg:h-full lg:overflow-y-auto">
                         <table className="w-full table-fixed border-collapse">
                           <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
                             <tr>
@@ -364,7 +390,10 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                         </table>
                       </div>
                     ) : (
-                      <div className="flex h-full items-center justify-center px-4 py-10 text-center">
+                      /* Empty state — на мобильном без h-full, растёт
+                         по натуральной высоте контента. На десктопе
+                         занимает высоту table container для centered. */
+                      <div className="flex items-center justify-center px-4 py-10 text-center lg:h-full">
                         <div>
                           <p className="mb-1 text-sm text-[var(--text-secondary)]">
                             Записи не найдены

@@ -249,19 +249,19 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   // ── Render ─────────────────────────────────────────────────
   return (
     <section
-      className="flex h-full min-h-0 flex-col"
+      className="flex flex-col lg:h-full lg:min-h-0"
       aria-labelledby="documents-tab-title"
     >
-      <div className="relative flex min-h-0 flex-1 flex-col text-[var(--text-primary)]">
+      <div className="relative flex flex-col text-[var(--text-primary)] lg:min-h-0 lg:flex-1">
         <div
-          className={`grid min-h-0 flex-1 gap-4 ${
+          className={`grid gap-4 lg:min-h-0 lg:flex-1 ${
             isDetailsPanelOpen
               ? "lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]"
               : "grid-cols-1"
           }`}
         >
           {/* ── Основная секция ─────────────────────────────── */}
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+          <section className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm lg:min-h-0 lg:overflow-hidden">
             {!isPipelinePreviewOpen && (
               <div className="px-5">
                 {/* Заголовок — выровнен с PageSection */}
@@ -338,7 +338,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
             )}
 
             {!isLoading && !error && (
-              <div className="flex min-h-0 flex-1 overflow-hidden">
+              <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:flex-row lg:overflow-hidden">
                 {isPipelinePreviewOpen ? (
                   <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-card)]">
                     <PipelineStagePreviewPane
@@ -350,20 +350,26 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                     />
                   </div>
                 ) : (
-                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                  <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
                     {isColumnSelectorOpen && (
-                      <ColumnSelectorInlinePanel
-                        tempSelectedIds={tempSelectedIds}
-                        hasChanges={hasColumnSelectionChanges}
-                        onToggle={handleToggleColumnSelection}
-                        onApply={handleApplyColumns}
-                        onReset={handleResetColumns}
-                        onCancel={() => setIsColumnSelectorOpen(false)}
-                      />
+                      // lg:shrink-0: на десктопе панель не сжимается
+                      // flex-родителем и не отдаёт высоту таблице.
+                      // На мобильном обёртка не имеет ограничений —
+                      // панель занимает натуральную высоту в потоке.
+                      <div className="lg:shrink-0">
+                        <ColumnSelectorInlinePanel
+                          tempSelectedIds={tempSelectedIds}
+                          hasChanges={hasColumnSelectionChanges}
+                          onToggle={handleToggleColumnSelection}
+                          onApply={handleApplyColumns}
+                          onReset={handleResetColumns}
+                          onCancel={() => setIsColumnSelectorOpen(false)}
+                        />
+                      </div>
                     )}
 
-                    <div className="flex-1 overflow-hidden bg-[var(--bg-card)] px-5 pb-5 pt-4">
-                      <div className="h-full overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
+                    <div className="bg-[var(--bg-card)] px-5 pb-5 pt-4 lg:flex-1 lg:overflow-hidden">
+                      <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] lg:h-full lg:overflow-auto">
                         <table className="w-full border-collapse">
                           <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
                             <tr className="border-b border-[var(--border-subtle)]">

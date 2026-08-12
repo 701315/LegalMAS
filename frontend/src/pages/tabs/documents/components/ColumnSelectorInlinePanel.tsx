@@ -26,9 +26,22 @@ const ColumnSelectorInlinePanel: React.FC<
   onReset,
   onCancel,
 }) => (
+  // Внешний wrapper — только визуальные отступы. Не участвует в скролле.
   <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3">
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
-      <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+    {/* Основной контейнер панели:
+        - flex flex-col — вертикальный стек header / body / footer;
+        - min-h-0 — разрешает внутреннему flex-child со скроллом
+          корректно сжиматься;
+        - max-height ограничивает высоту панели, чтобы она не
+          "съедала" таблицу под ней. Используется min() от 60vh
+          и абсолютного 480px — на большом экране 480px, на низком
+          мобильном viewport 60vh (что меньше). */}
+    <div
+      className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] lg:overflow-hidden lg:[max-height:min(60vh,480px)]"
+    >
+      {/* Header — на десктопе фиксирован сверху (shrink-0), не скроллится.
+          На мобильном занимает натуральную высоту в общем потоке. */}
+      <div className="border-b border-[var(--border-subtle)] px-4 py-3 lg:shrink-0">
         <p className="text-sm font-semibold text-[var(--text-primary)]">
           Отображаемые колонки
         </p>
@@ -37,7 +50,11 @@ const ColumnSelectorInlinePanel: React.FC<
         </p>
       </div>
 
-      <div className="px-4 py-4">
+      {/* Body — на десктопе единственная скроллируемая секция
+          (min-h-0 + overflow-y-auto). На мобильном — натуральная высота,
+          без внутреннего скролла: панель полностью раскрывается вниз,
+          и скроллится вся страница. */}
+      <div className="px-4 py-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
         <div className="flex flex-wrap gap-2">
           {ALL_DOCUMENT_COLUMNS.map((col) => {
             const isSelected = tempSelectedIds.includes(col.id);
@@ -64,7 +81,9 @@ const ColumnSelectorInlinePanel: React.FC<
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
+      {/* Footer — на десктопе фиксирован снизу (shrink-0), всегда виден.
+          На мобильном — в потоке под списком колонок. */}
+      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3 lg:shrink-0">
         <Button size="sm" variant="ghost" onClick={onReset}>
           По умолчанию
         </Button>

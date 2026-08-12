@@ -485,6 +485,18 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             tabIndex={0}
           >
             {renderActiveTabPanel()}
+            {/* Bottom spacer (mobile only).
+                Гарантирует визуальный отступ от нижней границы viewport
+                и учитывает safe-area на iOS/Android. Реализован как
+                дочерний элемент (не padding-bottom скролл-контейнера),
+                чтобы обойти баг рендера padding у flex + overflow
+                в Chromium/WebKit. На десктопе (lg:) скрыт — там работает
+                стандартный p-6. */}
+            <div
+              aria-hidden="true"
+              className="shrink-0 lg:hidden"
+              style={{ height: "var(--app-safe-bottom)" }}
+            />
           </section>
         </main>
       </div>

@@ -15,6 +15,8 @@ export interface UserProject {
   role: ProjectRole;
   created_at: string;
   contact_person?: string | null;
+  needs_setup?: boolean;
+  analysis_completed?: boolean;
 }
 
 /**

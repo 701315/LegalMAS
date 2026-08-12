@@ -525,6 +525,12 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
   onSelectionChange,
   clearSelectionToken,
 }) => {
+  // useIsMobile должен вызываться ДО любого условного return —
+  // React Rules of Hooks. В прошлой версии хук стоял после
+  // early-return `if (!rowData.length)`, что нарушало порядок хуков
+  // при переходе между "есть данные" ↔ "нет данных".
+  const isMobile = useIsMobile();
+
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [rootWidth, setRootWidth] = useState<number>(0);
   const [gridApi, setGridApi] = useState<GridApi<V1ListRow> | null>(null);
@@ -1181,23 +1187,31 @@ const openDrawerForRow = useCallback(
     );
   }
 
-  const isMobile = useIsMobile();
   const isDrawerOpen = selectedDrawer.open && selectedDrawer.row !== null;
 
   return (
-    <div ref={rootRef} className="flex h-full min-h-0 gap-4">
-      {/* Блок грида: сужается, когда drawer открыт */}
+    <div
+      ref={rootRef}
+      className={`flex gap-4 ${isMobile ? "" : "h-full min-h-0"}`}
+    >
+      {/* Блок грида.
+          Desktop: h-full + overflow-hidden → AG Grid scroll внутри.
+          Mobile: натуральная высота (autoHeight AG Grid + отсутствие
+          overflow-hidden) → таблица занимает столько, сколько нужно
+          для всех строк, скроллится страница целиком. */}
       <div
-        className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm transition-all duration-200 ${
-          isDrawerOpen ? "flex-[2_2_0%]" : "flex-1"
-        }`}
+        className={`flex min-w-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm transition-all duration-200 ${
+          isMobile ? "w-full" : "h-full min-h-0 overflow-hidden"
+        } ${isDrawerOpen && !isMobile ? "flex-[2_2_0%]" : "flex-1"}`}
       >
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div
+          className={
+            isMobile ? "" : "min-h-0 flex-1 overflow-hidden"
+          }
+        >
           <div
-            className="ag-theme-legalmas h-full w-full"
-            style={{
-              minHeight: GRID_MIN_HEIGHT_PX,
-            }}
+            className={`ag-theme-legalmas w-full ${isMobile ? "" : "h-full"}`}
+            style={isMobile ? undefined : { minHeight: GRID_MIN_HEIGHT_PX }}
           >
             <AgGridReact<V1ListRow>
               theme="legacy"
@@ -1224,7 +1238,7 @@ const openDrawerForRow = useCallback(
                   : ""
               }
               getRowId={(params) => params.data.rowId}
-              domLayout="normal"
+              domLayout={isMobile ? "autoHeight" : "normal"}
             />
           </div>
         </div>
