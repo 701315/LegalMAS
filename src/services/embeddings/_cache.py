@@ -27,20 +27,28 @@ from threading import RLock
 import numpy as np
 
 
-def build_embedding_cache_key(text: str, model_name: str, role: str = "passage") -> str:
+def build_embedding_cache_key(
+    text: str,
+    model_name: str,
+    role: str = "passage",
+    max_input_tokens: int | None = None,
+) -> str:
     """
     Построить cache key для одного текста.
 
     Безопасность:
     - raw text не используется как открытый key;
-    - key = sha256(model_name + role + normalized_text).
+    - key = sha256(model_name + role + max_input_tokens + normalized_text).
 
-    role включён в key потому что E5-модели добавляют разные префиксы
-    ("query: " или "passage: ") перед кодированием. Векторы для одного текста
-    в роли query и passage отличаются — они не должны делить один cache key.
+    Почему max_input_tokens входит в key:
+    - после P1-5A EmbeddingService явно обрезает текст до token limit;
+    - при изменении EMBEDDING_MAX_INPUT_TOKENS векторы для одного и того же текста
+      могут измениться;
+    - старый cache key без token limit привёл бы к возврату stale vectors.
     """
     normalized = text.strip()
-    payload = f"{model_name}::{role}::{normalized}"
+    token_limit_part = str(max_input_tokens) if max_input_tokens is not None else "none"
+    payload = f"{model_name}::{role}::{token_limit_part}::{normalized}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

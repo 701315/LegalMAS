@@ -6,7 +6,7 @@ Singleton service for text embeddings used by retrieval, classification, recover
 Phase 14.3.B — Embedding Vector Cache:
 - in-memory per-text vector cache;
 - batch-aware: encode() разделяет cached/uncached, кодирует только uncached;
-- cache key = sha256(text + model_name) — raw text не хранится;
+- cache key = sha256(text + model_name + role + token_limit) — raw text не хранится;
 - включается через EMBEDDING_CACHE_ENABLED=true;
 - thread-safe через RLock в cache;
 - async encode_async() тоже через cache.
@@ -22,6 +22,11 @@ from sentence_transformers import SentenceTransformer
 
 from core.config import settings
 from core.logging import get_logger
+from ops.metrics import METRICS
+from services.embeddings._preprocess import (
+    apply_embedding_role_prefix,
+    truncate_text_to_token_limit,
+)
 
 logger = get_logger(__name__)
 
@@ -89,23 +94,95 @@ class EmbeddingService:
         max_items = int(max(1, int(getattr(settings, "EMBEDDING_CACHE_MAX_ITEMS", 50000))))
         return ttl, max_items
 
+    def _get_embedding_max_input_tokens(self) -> int:
+        """
+        Safe token limit before model.encode().
+
+        Явно ограничиваем размер входа, чтобы убрать silent truncation
+        внутри SentenceTransformer и сделать его наблюдаемым через metrics/logs.
+        """
+        return int(max(1, int(getattr(settings, "EMBEDDING_MAX_INPUT_TOKENS", 500))))
+
+    def _prepare_texts_for_encoding(
+        self,
+        texts: list[str],
+        role: str,
+    ) -> list[str]:
+        """
+        Apply E5 role prefix and explicit token truncation.
+
+        Steps:
+        1. Add role prefix ("query: " / "passage: ")
+        2. Truncate explicitly to EMBEDDING_MAX_INPUT_TOKENS using tokenizer
+        3. Increment metric and log if truncation happened
+        """
+        prefixed_texts = [apply_embedding_role_prefix(t, role=role) for t in texts]
+
+        tokenizer = getattr(self.model, "tokenizer", None) if self.model is not None else None
+        if tokenizer is None:
+            logger.warning(
+                "EmbeddingService: tokenizer unavailable, explicit truncation skipped",
+                role=role,
+            )
+            return prefixed_texts
+
+        max_input_tokens = self._get_embedding_max_input_tokens()
+        prepared: list[str] = []
+        truncated_count = 0
+        max_original_tokens_seen = 0
+
+        for text in prefixed_texts:
+            truncated_text, was_truncated, original_token_count = truncate_text_to_token_limit(
+                tokenizer=tokenizer,
+                text=text,
+                max_tokens=max_input_tokens,
+            )
+            prepared.append(truncated_text)
+            if was_truncated:
+                truncated_count += 1
+            if original_token_count > max_original_tokens_seen:
+                max_original_tokens_seen = original_token_count
+
+        if truncated_count > 0:
+            try:
+                METRICS.embedding_text_truncated_total.labels(role=role).inc(truncated_count)
+            except Exception:
+                logger.debug(
+                    "EmbeddingService: failed to increment embedding truncation metric",
+                    exc_info=True,
+                )
+
+            logger.warning(
+                "EmbeddingService: input texts explicitly truncated before encode",
+                role=role,
+                truncated_count=truncated_count,
+                total_texts=len(texts),
+                max_input_tokens=max_input_tokens,
+                max_original_tokens_seen=max_original_tokens_seen,
+            )
+
+        return prepared
+
     def encode(self, texts: list[str], role: str = "passage") -> np.ndarray:
         """
-        Синхронная кодировка с E5-prefix и optional cache.
+        Синхронная кодировка с E5-prefix, explicit truncation и optional cache.
 
-        role: "passage" для корпуса/прототипов, "query" для поисковых запросов.
-        E5-модели семейства (multilingual-e5-small, multilingual-e5-large)
-        требуют префиксов "passage: " и "query: " по спецификации модели.
-        Без префиксов модель работает ниже своего потенциального качества.
+        role:
+        - "passage" для корпуса/прототипов/документных фрагментов
+        - "query"   для поисковых запросов и document-as-query сценариев
 
-        Если cache включён:
-        1. Построить keys для всех texts (с учётом role).
-        2. Batch lookup cached vectors.
-        3. Добавить префикс и кодировать только uncached.
-        4. Сохранить новые vectors в cache.
-        5. Собрать результат в правильном порядке.
+        ВАЖНО:
+        - E5 требует role prefix ("query:" / "passage:")
+        - длинные тексты теперь ЯВНО обрезаются по token limit до model.encode(),
+          чтобы не полагаться на silent truncation внутри SentenceTransformer
+        - truncation является observability-first fix: мы не меняем общую идею
+          "вектор по префиксу текста", но делаем это явно и измеримо
 
-        Если cache выключён — прямой вызов model.encode() с префиксами.
+        Cache key включает:
+        - model_name
+        - role
+        - token_limit
+        - original text
         """
         if not self.model:
             raise RuntimeError(
@@ -116,35 +193,38 @@ class EmbeddingService:
         if not texts:
             return np.array([], dtype=np.float32).reshape(0, self.embedding_dim)
 
-        # E5-prefix: добавляем роль-специфический префикс перед кодированием.
-        # Это обязательное требование семейства E5 (intfloat/multilingual-e5-*).
-        # "query: " — для поисковых запросов
-        # "passage: " — для документов, корпуса, прототипов классификатора
-        prefix = "query: " if role == "query" else "passage: "
-        prefixed_texts = [prefix + t for t in texts]
+        prepared_texts = self._prepare_texts_for_encoding(texts, role)
 
         if not self._is_cache_enabled():
-            return self.model.encode(prefixed_texts, show_progress_bar=False)
+            return self.model.encode(prepared_texts, show_progress_bar=False)
 
         from services.embeddings._cache import build_embedding_cache_key
 
         cache = self._get_cache()
         ttl, max_items = self._get_cache_settings()
+        max_input_tokens = self._get_embedding_max_input_tokens()
 
-        # Cache key включает role чтобы query и passage векторы не перезаписывали друг друга.
-        keys = [build_embedding_cache_key(t, self._model_name, role) for t in texts]
+        keys = [
+            build_embedding_cache_key(
+                t,
+                self._model_name,
+                role=role,
+                max_input_tokens=max_input_tokens,
+            )
+            for t in texts
+        ]
         cached = cache.get_many(keys)
 
         uncached_indices: list[int] = []
-        uncached_prefixed: list[str] = []
+        uncached_prepared_texts: list[str] = []
 
         for i, key in enumerate(keys):
             if cached.get(key) is None:
                 uncached_indices.append(i)
-                uncached_prefixed.append(prefixed_texts[i])
+                uncached_prepared_texts.append(prepared_texts[i])
 
-        if uncached_prefixed:
-            fresh_vectors = self.model.encode(uncached_prefixed, show_progress_bar=False)
+        if uncached_prepared_texts:
+            fresh_vectors = self.model.encode(uncached_prepared_texts, show_progress_bar=False)
             fresh_vectors = np.asarray(fresh_vectors, dtype=np.float32)
 
             to_store: dict[str, np.ndarray] = {}

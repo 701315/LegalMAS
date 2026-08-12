@@ -263,6 +263,13 @@ class MetricsRegistry:
             registry=r,
         )
 
+        self.embedding_text_truncated_total = Counter(
+            f"{_P}_embedding_text_truncated_total",
+            "Total texts explicitly truncated before embedding encoding to fit model token limit.",
+            labelnames=["role"],  # role: query | passage
+            registry=r,
+        )
+
         self.relation_traversal_latency = Histogram(
             f"{_P}_relation_traversal_latency_seconds",
             "Time to traverse document relations.",
