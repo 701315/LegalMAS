@@ -230,6 +230,15 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   );
 
   const selectedPrimaryLanguage = normalizeLang(deal.primary_language);
+
+  // ────────────────────────────────────────────────────────────────────
+  // Collapsible state для блоков "Основной язык" и "Режим проверки".
+  // По умолчанию свёрнуты — показывают краткое превью текущего значения.
+  // Клик по заголовку раскрывает полный контент с формой выбора.
+  // ────────────────────────────────────────────────────────────────────
+  const [isLanguageOpen, setIsLanguageOpen] = React.useState(false);
+  const [isChecksModeOpen, setIsChecksModeOpen] = React.useState(false);
+
   const discoveryStatus = normalizeDiscoveryStatus(
     deal.language_discovery_status,
   );
@@ -431,142 +440,201 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
             </p>
           </section>
 
-          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
-            <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-              Основной язык анализа
-            </h4>
-
-            <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              Сначала система определит языки документов. После этого можно
-              выбрать основной язык анализа.
-            </p>
-
-            {discoveryBanner ? (
-              <p
-                className={`mt-3 rounded-xl px-3 py-2 text-[11px] leading-5 ${getBannerClassName(
-                  discoveryBanner.tone,
-                )}`}
-              >
-                {discoveryBanner.text}
-              </p>
-            ) : null}
-
-            <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
-              {primaryLanguageHelperText}
-            </p>
-
-            {hasLanguages ? (
-              <>
-                <div className="mt-3 space-y-2">
-                  {normalizedDocumentLanguages.map((lang) => {
-                    const checked = selectedPrimaryLanguage === lang;
-                    const disabled = !canSelectPrimaryLanguage;
-
-                    return (
-                      <label
-                        key={lang}
-                        className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${
-                          checked
-                            ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
-                            : "border-[var(--border-subtle)] bg-[var(--bg-card)]"
-                        } ${
-                          disabled
-                            ? "cursor-not-allowed opacity-70"
-                            : "cursor-pointer hover:bg-[var(--bg-elevated-soft)]"
-                        }`}
-                        aria-disabled={disabled}
-                      >
-                        <input
-                          type="radio"
-                          name="primary_language"
-                          className="mt-[2px]"
-                          value={lang}
-                          checked={checked}
-                          onChange={() => handleLanguageSelect(lang)}
-                          disabled={disabled}
-                        />
-
-                        <span>
-                          <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                            {formatLangLabel(lang)}
-                          </span>
-                          <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                            {formatLangHint(lang)}
-                          </span>
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                {!primaryLanguageSelected && !isDiscoveryInProgress && (
-                  <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning-text)]">
-                    Перед запуском выберите основной язык анализа.
+          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)]">
+            <button
+              type="button"
+              onClick={() => setIsLanguageOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-[var(--bg-elevated-soft)]"
+            >
+              <div className="min-w-0">
+                <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                  Основной язык анализа
+                </h4>
+                {!isLanguageOpen && (
+                  <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                    {selectedPrimaryLanguage
+                      ? formatLangLabel(selectedPrimaryLanguage)
+                      : "Не выбран"}
                   </p>
                 )}
+              </div>
+              <span
+                className={[
+                  "shrink-0 text-[var(--text-muted)] transition-transform duration-200",
+                  isLanguageOpen ? "rotate-180" : "",
+                ].join(" ")}
+              >
+                ▾
+              </span>
+            </button>
 
-                <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                  Автоопределённые языки документов: {autoDetectedLanguagesText}.
-                </p>
+            {isLanguageOpen && (
+              <>
+                <div className="mx-4 border-t border-[var(--border-subtle)]" />
+                <div className="p-4">
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Сначала система определит языки документов. После этого можно
+                    выбрать основной язык анализа.
+                  </p>
+
+                  {discoveryBanner ? (
+                    <p
+                      className={`mt-3 rounded-xl px-3 py-2 text-[11px] leading-5 ${getBannerClassName(
+                        discoveryBanner.tone,
+                      )}`}
+                    >
+                      {discoveryBanner.text}
+                    </p>
+                  ) : null}
+
+                  <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
+                    {primaryLanguageHelperText}
+                  </p>
+
+                  {hasLanguages ? (
+                    <>
+                      <div className="mt-3 space-y-2">
+                        {normalizedDocumentLanguages.map((lang) => {
+                          const checked = selectedPrimaryLanguage === lang;
+                          const disabled = !canSelectPrimaryLanguage;
+
+                          return (
+                            <label
+                              key={lang}
+                              className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${
+                                checked
+                                  ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
+                                  : "border-[var(--border-subtle)] bg-[var(--bg-card)]"
+                              } ${
+                                disabled
+                                  ? "cursor-not-allowed opacity-70"
+                                  : "cursor-pointer hover:bg-[var(--bg-elevated-soft)]"
+                              }`}
+                              aria-disabled={disabled}
+                            >
+                              <input
+                                type="radio"
+                                name="primary_language"
+                                className="mt-[2px]"
+                                value={lang}
+                                checked={checked}
+                                onChange={() => handleLanguageSelect(lang)}
+                                disabled={disabled}
+                              />
+
+                              <span>
+                                <span className="block text-[13px] font-medium text-[var(--text-primary)]">
+                                  {formatLangLabel(lang)}
+                                </span>
+                                <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
+                                  {formatLangHint(lang)}
+                                </span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      {!primaryLanguageSelected && !isDiscoveryInProgress && (
+                        <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning-text)]">
+                          Перед запуском выберите основной язык анализа.
+                        </p>
+                      )}
+
+                      <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                        Автоопределённые языки документов: {autoDetectedLanguagesText}.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-xs text-[var(--text-secondary)]">
+                      {discoveryStatus === "failed"
+                        ? "Список языков недоступен: автоопределение завершилось ошибкой."
+                        : "Языки документов ещё не определены. После обработки файлов вы сможете выбрать основной язык."}
+                    </p>
+                  )}
+                </div>
               </>
-            ) : (
-              <p className="mt-3 text-xs text-[var(--text-secondary)]">
-                {discoveryStatus === "failed"
-                  ? "Список языков недоступен: автоопределение завершилось ошибкой."
-                  : "Языки документов ещё не определены. После обработки файлов вы сможете выбрать основной язык."}
-              </p>
             )}
           </section>
 
-          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
-            <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-              Режим проверки
-            </h4>
+          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)]">
+            <button
+              type="button"
+              onClick={() => setIsChecksModeOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-[var(--bg-elevated-soft)]"
+            >
+              <div className="min-w-0">
+                <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                  Режим проверки
+                </h4>
+                {!isChecksModeOpen && (
+                  <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                    {CHECKS_MODE_OPTIONS.find((o) => o.value === checksMode)?.title ??
+                      "Не выбран"}
+                  </p>
+                )}
+              </div>
+              <span
+                className={[
+                  "shrink-0 text-[var(--text-muted)] transition-transform duration-200",
+                  isChecksModeOpen ? "rotate-180" : "",
+                ].join(" ")}
+              >
+                ▾
+              </span>
+            </button>
 
-            <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
-              {checksModeHelperText}
-            </p>
+            {isChecksModeOpen && (
+              <>
+                <div className="mx-4 border-t border-[var(--border-subtle)]" />
+                <div className="p-4">
+                  <p className="text-xs leading-5 text-[var(--text-secondary)]">
+                    {checksModeHelperText}
+                  </p>
 
-            <div className="mt-3 space-y-2">
-              {CHECKS_MODE_OPTIONS.map(({ value, title, hint }) => {
-                const checked = checksMode === value;
-                const disabled = !canSelectChecksMode;
+                  <div className="mt-3 space-y-2">
+                    {CHECKS_MODE_OPTIONS.map(({ value, title, hint }) => {
+                      const checked = checksMode === value;
+                      const disabled = !canSelectChecksMode;
 
-                return (
-                  <label
-                    key={value}
-                    className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${
-                      checked
-                        ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
-                        : "border-[var(--border-subtle)] bg-[var(--bg-card)]"
-                    } ${
-                      disabled
-                        ? "cursor-not-allowed opacity-70"
-                        : "cursor-pointer hover:bg-[var(--bg-elevated-soft)]"
-                    }`}
-                    aria-disabled={disabled}
-                  >
-                    <input
-                      type="radio"
-                      className="mt-[2px]"
-                      value={value}
-                      checked={checked}
-                      onChange={() => onChecksModeChange(value)}
-                      disabled={disabled}
-                    />
+                      return (
+                        <label
+                          key={value}
+                          className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${
+                            checked
+                              ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
+                              : "border-[var(--border-subtle)] bg-[var(--bg-card)]"
+                          } ${
+                            disabled
+                              ? "cursor-not-allowed opacity-70"
+                              : "cursor-pointer hover:bg-[var(--bg-elevated-soft)]"
+                          }`}
+                          aria-disabled={disabled}
+                        >
+                          <input
+                            type="radio"
+                            className="mt-[2px]"
+                            value={value}
+                            checked={checked}
+                            onChange={() => onChecksModeChange(value)}
+                            disabled={disabled}
+                          />
 
-                    <span>
-                      <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                        {title}
-                      </span>
-                      <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                        {hint}
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
+                          <span>
+                            <span className="block text-[13px] font-medium text-[var(--text-primary)]">
+                              {title}
+                            </span>
+                            <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
+                              {hint}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </section>
 
           {deal.has_pending_manual_reclassifications ? (
