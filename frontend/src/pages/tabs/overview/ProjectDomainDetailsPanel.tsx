@@ -483,32 +483,22 @@ const CollapsedPipelineSummary: React.FC<{
                 шапки карточек PipelineStepCard в expanded (координаты
                 хранятся как дельты от первой карточки). */}
             <div
-              className="relative w-full"
+              className="flex w-full flex-col items-center justify-between"
               style={{
-                height: `${iconsAreaHeightPx + COLLAPSED_RAIL_TOP_PADDING_PX}px`,
+                paddingTop: `${COLLAPSED_RAIL_TOP_PADDING_PX}px`,
+                paddingBottom: `${COLLAPSED_RAIL_TOP_PADDING_PX}px`,
+                minHeight: `${Math.max(
+                  iconsAreaHeightPx + COLLAPSED_RAIL_TOP_PADDING_PX * 2,
+                  orderedCodes.length * COLLAPSED_BADGE_HEIGHT_PX +
+                    (orderedCodes.length - 1) * 16,
+                )}px`,
               }}
             >
-              {orderedCodes.map((code, index) => {
+              {orderedCodes.map((code) => {
                 const step = stepByCode.get(code);
                 if (!step) return null;
 
-                const entry = layout.entries[code];
-
-                const topPx = entry
-                  ? entry.top + COLLAPSED_RAIL_TOP_PADDING_PX
-                  : COLLAPSED_RAIL_TOP_PADDING_PX +
-                    COLLAPSED_FALLBACK_TOP_OFFSET_PX +
-                    index * COLLAPSED_FALLBACK_STEP_GAP_PX;
-
-                return (
-                  <span
-                    key={code}
-                    className="absolute left-1/2 -translate-x-1/2"
-                    style={{ top: `${topPx}px` }}
-                  >
-                    <CollapsedStepBadge step={step} />
-                  </span>
-                );
+                return <CollapsedStepBadge key={code} step={step} />;
               })}
             </div>
           </div>
