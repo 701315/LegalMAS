@@ -26,6 +26,8 @@ from typing import Any
 from core.constants import CheckExecutionStatus
 from core.logging import get_logger
 
+from engine.checks.extraction_semantics import is_machine_code_token
+
 logger = get_logger(__name__)
 
 # Legacy UI explanation keys, которые больше НЕ являются canonical частью quality_flags.
@@ -62,11 +64,13 @@ def normalize_check_result(
     raw = exec_result.get("raw") or {}
 
     # value_text — secondary raw summary / legacy helper.
-    # В Spec v2 он НЕ является canonical UI text.
-    # Сохраняем старую semantics:
-    #   если reason есть — берём reason,
-    #   иначе — укороченный evidence.
-    value_text = reason or (evidence[:500] if evidence else None)
+    # Human-readable reason wins; machine code falls back to evidence.
+    if reason and not is_machine_code_token(reason):
+        value_text = reason
+    elif evidence:
+        value_text = evidence[:500]
+    else:
+        value_text = None
 
     # evidence_ref — полная строка evidence.
     evidence_ref = evidence or None

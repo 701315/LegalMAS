@@ -367,8 +367,8 @@ const ExportMenuButton: React.FC<{
 const IntroScreen: React.FC<{
   onOpenDemo: () => void;
 }> = ({ onOpenDemo }) => (
-  <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
-    <div className="flex-1 lg:overflow-y-auto pr-1">
+  <div className="flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden">
+    <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto pr-1">
       <div className="space-y-4">
         <PageSection
           title="Демонстрационный сценарий работы раздела"
@@ -452,7 +452,7 @@ const IntroScreen: React.FC<{
       </div>
     </div>
 
-    <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
+    <div className="mt-4 shrink-0 border-t border-[var(--border-subtle)] pb-2 pt-4">
       <Button
         variant="primary"
         size="md"
@@ -1157,7 +1157,7 @@ const CounterpartiesTab: React.FC<CounterpartiesTabProps> = ({
   const [mode, setMode] = React.useState<PreviewMode>("intro");
 
   return (
-    <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
+    <div className="flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden">
       {mode === "intro" ? (
         <IntroScreen onOpenDemo={() => setMode("demo")} />
       ) : (

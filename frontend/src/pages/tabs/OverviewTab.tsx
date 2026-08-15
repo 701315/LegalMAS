@@ -8,7 +8,6 @@ import { useUpdateDeal } from "../../api/deals";
 import Button from "../../components/ui/Button";
 import { ProjectDomainsOverviewPanel } from "./overview/ProjectDomainsOverviewPanel";
 import { ProjectDomainDetailsPanel } from "./overview/ProjectDomainDetailsPanel";
-import { useIsMobile } from "../../hooks/useIsMobile";
 
 export type ChecksMode =
   | "global_only"
@@ -105,8 +104,6 @@ const DealInfoCard: React.FC<{
 // ---------------------------------------------------------------------------
 
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
-  const isMobile = useIsMobile();
-
   const updateDeal = useUpdateDeal(deal.id);
 
   const [activeDomain, setActiveDomain] = React.useState<
@@ -134,47 +131,37 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
   }, [isSummaryDirty, normalizedDraftSummary, updateDeal]);
 
   return (
-    <div
-      className={`relative ${
-        isMobile
-          ? "flex min-h-0 flex-col gap-4"
-          : "flex h-full min-h-0 flex-col gap-4"
-      }`}
-    >
-      <div className="flex min-w-0 min-h-0 shrink-0 flex-col gap-4">
-        {/* Баннер про ручную переклассификацию */}
-        {deal.has_pending_manual_reclassifications && currentRunId && (
-          <div className="shrink-0 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
-            <p className="text-xs font-semibold text-[var(--color-warning-text)]">
-              Обновите результаты
-            </p>
-            <p className="mt-1 text-xs leading-5 text-[var(--color-warning-text)]">
-              Вы изменили типы документов вручную. Рекомендуем перезапустить
-              анализ, чтобы обновить результаты проекта.
-            </p>
-          </div>
-        )}
+    <section className="flex flex-col lg:h-full lg:min-h-0">
+      <div className="relative flex flex-col text-[var(--text-primary)] lg:min-h-0 lg:flex-1 gap-4">
+        
+        {/* Верхняя часть: shrink-0 */}
+        <div className="shrink-0 flex flex-col gap-4">
+          {deal.has_pending_manual_reclassifications && currentRunId && (
+            <div className="shrink-0 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
+              <p className="text-xs font-semibold text-[var(--color-warning-text)]">
+                Обновите результаты
+              </p>
+              <p className="mt-1 text-xs leading-5 text-[var(--color-warning-text)]">
+                Вы изменили типы документов вручную. Рекомендуем перезапустить
+                анализ, чтобы обновить результаты проекта.
+              </p>
+            </div>
+          )}
 
-        <div className="shrink-0">
-          <DealInfoCard
-            deal={deal}
-            projectSummary={projectSummary}
-            isSaving={updateDeal.isPending}
-            isDirty={isSummaryDirty}
-            onChangeSummary={setProjectSummary}
-            onSaveSummary={handleSaveSummary}
-          />
+          <div className="shrink-0">
+            <DealInfoCard
+              deal={deal}
+              projectSummary={projectSummary}
+              isSaving={updateDeal.isPending}
+              isDirty={isSummaryDirty}
+              onChangeSummary={setProjectSummary}
+              onSaveSummary={handleSaveSummary}
+            />
+          </div>
         </div>
 
-        {/* Связка "Состояние направлений" + "Детали результатов анализа"
-            — визуально единый блок. Убран gap между ними, чтобы активная
-            карточка сверху "врастала" в панель деталей снизу на xl+.
-            Общий gap с DealInfoCard остаётся 16px. */}
-        <div
-          className={`flex flex-col ${
-            isMobile ? "" : "min-h-0 flex-1"
-          }`}
-        >
+        {/* Основная часть */}
+        <div className="flex flex-col lg:min-h-0 lg:flex-1">
           <div className="shrink-0">
             <ProjectDomainsOverviewPanel
               runId={currentRunId ?? null}
@@ -184,11 +171,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
             />
           </div>
 
-          <div
-            className={`${
-              isMobile ? "" : "min-h-0 flex-1"
-            }`}
-          >
+          <div className="min-h-0 flex-1 lg:min-h-0 lg:flex-1">
             <ProjectDomainDetailsPanel
               activeDomain={activeDomain}
               onDomainChange={setActiveDomain}
@@ -198,7 +181,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

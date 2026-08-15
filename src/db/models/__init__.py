@@ -24,6 +24,7 @@ from .run import Job, Run
 from .instruction_override import InstructionOverride
 from .run_check_plan_item import RunCheckPlanItem
 from .llm_usage import LLMUsageEvent
+from .run_summary import RunSummary
 
 __all__ = [
     "AuditLog",
@@ -57,4 +58,5 @@ __all__ = [
     "InstructionOverride",
     "RunCheckPlanItem",
     "LLMUsageEvent",
+    "RunSummary",
 ]

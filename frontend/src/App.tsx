@@ -28,6 +28,7 @@ import NewProjectPage from "./pages/NewProjectPage";
 import ProjectUploadPage from "./pages/ProjectUploadPage";
 import ProjectMembersPage from "./pages/ProjectMembersPage";
 import DealPlaybookSelectorPage from "./pages/DealPlaybookSelectorPage";
+import RelaunchPage from "./pages/RelaunchPage";
 import AdminPlaybookLinesPage from "./pages/AdminPlaybookLinesPage";
 import ModelConfigsAdminPage from "./pages/ModelConfigsAdminPage";
 import PlaybooksRegistryPage from "./pages/PlaybooksRegistryPage";
@@ -354,6 +355,15 @@ function App() {
                   </ProjectRouteGuard>
                 }
               />
+
+            <Route
+              path="/projects/:dealId/relaunch"
+              element={
+                <ProjectRouteGuard requiredCapability="canStartRun">
+                  <RelaunchPage />
+                </ProjectRouteGuard>
+              }
+            />
 
               <Route
                 path="/admin/model-configs"

@@ -1342,10 +1342,12 @@ const RealEstateTab: React.FC<RealEstateTabProps> = ({
   return (
     /*
       Dual-mode scroll contract (root):
-      Mobile (<lg): no height constraint, content-driven, tabpanel scrolls
+      Mobile (<lg): no flex, no height constraint — content-driven,
+      tabpanel (DealPage) скроллит страницу естественно. flex появляется
+      только на lg:, синхронно с IntroScreen/DemoScreen contract.
       Desktop (lg+): h-full + overflow-hidden, internal scroll per section
     */
-    <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
+    <div className="lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
       {mode === "intro" ? (
         <IntroScreen onOpenDemo={() => setMode("demo")} />
       ) : (

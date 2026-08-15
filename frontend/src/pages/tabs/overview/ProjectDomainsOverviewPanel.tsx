@@ -57,7 +57,7 @@ const DomainCard: React.FC<{
     type="button"
     onClick={onClick}
     className={[
-      "relative flex min-h-[4.5rem] w-full flex-col px-3 py-2 text-left shadow-sm transition",
+      "relative flex min-h-[4rem] w-full min-w-0 flex-col px-2 py-1.5 text-left shadow-sm transition sm:min-h-[4.5rem] sm:px-3 sm:py-2",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
       // Базовые скругления — на mobile всегда полные
       "rounded-2xl",
@@ -91,17 +91,17 @@ const DomainCard: React.FC<{
       />
     )}
 
-    <div className="mb-0.5 flex items-center gap-1.5">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+    <div className="mb-0.5 flex min-w-0 items-center gap-1">
+      <p className="min-w-0 truncate text-[9px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] sm:text-[10px] sm:tracking-[0.12em]">
         {title}
       </p>
       {isRunning && (
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-primary)]" />
+        <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[var(--accent-primary)]" />
       )}
     </div>
 
     <p
-      className={`text-xs font-semibold ${
+      className={`truncate text-[11px] font-semibold sm:text-xs ${
         isActive
           ? "text-[var(--accent-primary)]"
           : "text-[var(--text-primary)]"
@@ -111,11 +111,11 @@ const DomainCard: React.FC<{
     </p>
 
     {lines.length > 0 && (
-      <div className="mt-0.5 space-y-0">
+      <div className="mt-0.5 min-w-0 space-y-0">
         {lines.slice(0, 2).map((line, i) => (
           <p
             key={i}
-            className="truncate text-[10px] leading-4 text-[var(--text-muted)]"
+            className="min-w-0 truncate text-[9px] leading-3.5 text-[var(--text-muted)] sm:text-[10px] sm:leading-4"
           >
             {line}
           </p>
@@ -212,7 +212,7 @@ export const ProjectDomainsOverviewPanel: React.FC<
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 px-5 pb-3 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-1.5 px-3 pb-3 sm:gap-2 sm:px-5">
         {/* Документы */}
         <DomainCard
           isActive={activeDomain === "documents"}

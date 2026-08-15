@@ -46,7 +46,10 @@ from ..detectors.models import RetrievedChunk
 from ..playbook.models import CheckDefinition, DetectorType
 from ..retrieval.engine import RetrievalEngine
 from .extraction import ExtractionExecutor
-from .result_semantics import _NOT_FOUND_VALUES, _RESERVED_METADATA_FIELDS
+from .extraction_semantics import (
+    RESERVED_METADATA_FIELDS as _RESERVED_METADATA_FIELDS,
+    iter_meaningful_fields,
+)
 
 logger = get_logger(__name__)
 
@@ -566,40 +569,22 @@ class CheckExecutor:
         check: CheckDefinition | None = None,
     ) -> bool:
         """
-        Return True when structured_data contains at least one meaningful
-        factual value.
+        Canonical business-level success predicate for field_extraction checks.
 
-        Reserved metadata fields, explicit not-found markers, and fields
-        with presentation='signal' or 'diagnostic' do not count.
+        Delegates meaningful-field semantics to extraction_semantics.iter_meaningful_fields()
+        so that executor and result_semantics use one shared rule-set.
         """
         if not isinstance(structured_data, dict) or not structured_data:
             return False
 
-        for field_name, field_payload in structured_data.items():
-            if field_name in _RESERVED_METADATA_FIELDS:
-                continue
-
-            # Skip signal/diagnostic fields — they are machine routing,
-            # not factual extraction for DD Grid display.
-            presentation = _get_field_presentation_from_check(check, field_name)
-            if presentation in ("signal", "diagnostic"):
-                continue
-
-            value = (
-                field_payload.get("value")
-                if isinstance(field_payload, dict) and "value" in field_payload
-                else field_payload
+        return bool(
+            iter_meaningful_fields(
+                structured_data,
+                presentation_resolver=lambda field_name: _get_field_presentation_from_check(
+                    check, field_name
+                ),
             )
-
-            if value is None:
-                continue
-
-            if isinstance(value, str) and value.strip().lower() in _NOT_FOUND_VALUES:
-                continue
-
-            return True
-
-        return False
+        )
 
     # ------------------------------------------------------------------
     # Main entry point
