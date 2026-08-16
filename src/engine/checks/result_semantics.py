@@ -369,7 +369,15 @@ def _get_field_presentation(check: Any | None, field_name: str) -> str:
             return str(presentation).strip()
     return "fact"
 
+def _is_grid_display_presentation(check: Any | None, field_name: str) -> bool:
+    """
+    Return True only for extraction fields that are safe for human DD Grid display.
 
+    Grid / display_text must never expose internal signal or diagnostic fields,
+    even if they are accidentally marked with display_in_grid=True.
+    """
+    presentation = _get_field_presentation(check, field_name)
+    return presentation in {"fact", "summary"}
 
 def _get_field_unit(check: Any | None, field_name: str) -> str | None:
     """Get unit for an extraction field (e.g. 'days', 'RUB')."""
@@ -451,7 +459,10 @@ def _iter_grid_factual_fields(
 
     Rules:
     - Only fields with display_in_grid=True are included.
-    - signal/diagnostic fields are already excluded by _iter_factual_fields().
+    - Only human-displayable fields are allowed:
+      presentation in {"fact", "summary"}.
+    - signal/diagnostic fields are never included in compact DD Grid summary,
+      even if misconfigured with display_in_grid=True.
     """
     factual = _iter_factual_fields(structured_data, check=check)
     if not factual:
@@ -461,6 +472,7 @@ def _iter_grid_factual_fields(
         (field_name, value)
         for field_name, value in factual
         if _get_field_display_in_grid(check, field_name)
+        and _is_grid_display_presentation(check, field_name)
     ]
 
 
@@ -539,10 +551,17 @@ def _select_primary_factual_field(
     2. *_details fields
     3. everything else
 
+    Only fields with presentation in {"fact", "summary"} are eligible.
+    signal/diagnostic fields are never used as primary display text.
+
     Inside each group, extraction config field order remains canonical priority.
     Returns (field_name, scalar_value) or None.
     """
-    factual = _iter_factual_fields(structured_data, check=check)
+    factual = [
+        (field_name, value)
+        for field_name, value in _iter_factual_fields(structured_data, check=check)
+        if _is_grid_display_presentation(check, field_name)
+    ]
     if not factual:
         return None
 
