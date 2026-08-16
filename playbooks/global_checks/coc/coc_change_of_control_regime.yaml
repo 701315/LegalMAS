@@ -152,15 +152,36 @@ extraction:
 
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по коммерческим договорам.
+    Ты — юрист по M&A и коммерческим договорам.
     Твоя задача — точно извлечь только общий режим смены контроля
     (Change of Control, CoC) из текста договора.
+
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" из общих норм права.
+    - НЕ додумывай условия, которых нет в тексте.
+    - Если информация отсутствует — ставь "missing"
+      или "not_specified", а не предполагай вариант.
+    - Если текст неоднозначен — ставь "unclear".
 
     Не оценивай риск.
     Не анализируй уступку прав и перевод долга.
     Не анализируй детальную механику согласия, сроки ответа,
-    deemed consent, reasonableness standard или другие procedural details.
+    deemed consent, reasonableness standard.
     </role>
+
+    <context_rules>
+    - Ниже приведены фрагменты, отобранные автоматически.
+    - Некоторые фрагменты могут быть нерелевантны данному
+      check — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Если ни один фрагмент не содержит информации по теме —
+      используй значения для случая "тема не урегулирована".
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
+    </context_rules>
 
     <context>
     Ниже приведены релевантные фрагменты договора:
@@ -190,7 +211,8 @@ extraction:
     - "present" — если договор прямо регулирует change of control /
       смену контроля.
     - "missing" — если таких положений нет.
-    - "unclear" — если формулировки есть, но режим надёжно определить нельзя.
+    - "unclear" — если формулировки есть, но режим надёжно
+      определить нельзя.
 
     Шаг 2 — ТИП РЕЖИМА
 
@@ -212,6 +234,12 @@ extraction:
 
     Заполни "coc_display".
 
+    Это поле — краткий итог для таблицы.
+    Сформируй его на основе уже заполненных полей:
+    - coc_status
+    - coc_regime_type
+    Не добавляй информацию, которой нет в этих полях.
+
     Базовые шаблоны:
     - status = "missing":
       "Положения о смене контроля не установлены"
@@ -226,7 +254,8 @@ extraction:
     - regime = "notice_required":
       "При смене контроля требуется уведомление"
     - regime = "termination_right":
-      "При смене контроля у другой стороны возникает право на расторжение"
+      "При смене контроля у другой стороны возникает
+      право на расторжение"
     - regime = "mixed":
       "Режим смены контроля смешанный"
 
@@ -234,58 +263,91 @@ extraction:
 
     Заполни "reason".
 
-    Правила:
-    - 1 короткое предложение, максимум 2.
-    - Укажи общий вывод по режиму.
-    - Приведи короткую цитату в кавычках.
-    - Не анализируй риск и не делай правовых выводов сверх текста.
+    Формат:
+    - Первое предложение: краткий вывод по режиму CoC.
+    - Второе предложение: цитата из текста в кавычках
+      (самый релевантный фрагмент, до 100 символов).
+
+    Примеры:
+    - "Договор требует предварительного письменного согласия
+      при смене контроля.
+      «A change of control shall require prior written consent»."
+    - "Положения о смене контроля не обнаружены
+      в представленных фрагментах."
     </instructions>
 
     <edge_cases>
     - "A change of control shall require prior written consent":
       * coc_status = "present"
       * coc_regime_type = "consent_required"
-      * coc_display = "Смена контроля — только с предварительного согласия"
+      * coc_display =
+        "Смена контроля — только с предварительного согласия"
 
-    - "Upon a change of control, the other party may terminate this Agreement":
+    - "Upon a change of control, the other party may terminate":
       * coc_status = "present"
       * coc_regime_type = "termination_right"
       * coc_display =
-        "При смене контроля у другой стороны возникает право на расторжение"
+        "При смене контроля у другой стороны возникает
+        право на расторжение"
 
-    - "The party shall notify the counterparty of any change of control":
+    - "The party shall notify of any change of control":
       * coc_status = "present"
       * coc_regime_type = "notice_required"
-      * coc_display = "При смене контроля требуется уведомление"
+      * coc_display =
+        "При смене контроля требуется уведомление"
+
+    - Тема CoC вообще не урегулирована:
+      * coc_status = "missing"
+      * coc_regime_type = "not_specified"
+      * coc_display =
+        "Положения о смене контроля не установлены"
 
     - Нет релевантных фрагментов:
       * coc_status = "missing"
       * coc_regime_type = "not_specified"
-      * coc_display = "Положения о смене контроля не установлены"
+      * coc_display =
+        "Положения о смене контроля не установлены"
 
     - Формулировки есть, но режим не ясен:
       * coc_status = "unclear"
       * coc_regime_type = "unclear"
-      * coc_display = "Не удалось определить режим смены контроля"
+      * coc_display =
+        "Не удалось определить режим смены контроля"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения в DD Grid.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай в markdown-блоки (без ```).
+    - Не добавляй комментариев вне JSON.
+    - Все значения полей с allowed_values — на английском
+      (как указано в списке).
+    - Свободные текстовые поля (coc_display, reason) —
+      на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "coc_display": "Смена контроля — только с предварительного согласия",
+      "coc_status": "present",
+      "coc_regime_type": "consent_required",
+      "reason": "Договор требует согласия при смене контроля. «A change of control requires...»."
+    }
     </output_expectations>
 
   fields:
     - name: "coc_display"
       type: "string"
       presentation: "fact"
-      label: "Смена контроля"
+      label: "Режим CoC"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "coc_status"
       type: "string"
       presentation: "signal"
       description: "Наличие положений о смене контроля"
+      display_in_grid: false
       allowed_values:
         - "present"
         - "missing"
@@ -295,6 +357,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Тип режима смены контроля"
+      display_in_grid: false
       allowed_values:
         - "prohibited"
         - "consent_required"
@@ -308,6 +371,7 @@ extraction:
       type: "string"
       presentation: "diagnostic"
       description: "Краткое обоснование"
+      display_in_grid: false
 
   store_payload: true
 
