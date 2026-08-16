@@ -438,15 +438,18 @@ class DDGridCellValueDTO(BaseModel):
     """
     Значение одной ячейки DD Grid V1.
 
-    Ячейка = пересечение (document_id, column_id).
+    Ячейка = пересечение (document_id, segment_id, column_id).
     column_id формат: '{check_id}__{field_key}'.
 
     cell_state:
-      defined         — значение найдено, display_value форматировано по column.format.
-      not_defined     — check выполнен, но значение не найдено.
-      not_applicable  — check не применим к doc_type документа.
-      not_executed    — check не выполнялся для этого документа.
-      error           — техническая ошибка выполнения check.
+      defined      — значение найдено, display_value форматировано по column.format.
+      not_defined  — check выполнен, значение не найдено.
+      not_executed — check не выполнялся для этого документа/сегмента.
+      error        — техническая ошибка выполнения check.
+
+    Применимость чека гарантируется планировщиком:
+    ячейка создаётся только если check был запланирован (plan_item существует).
+    not_applicable как состояние не используется.
 
     Location:
       has_location_fallback=false + clause_ref/page → exact pinpoint.
@@ -456,7 +459,7 @@ class DDGridCellValueDTO(BaseModel):
     """
 
     cell_state: str
-    """defined | not_defined | not_applicable | not_executed | error"""
+    """defined | not_defined | not_executed | error"""
 
     display_value: str
     """Готовый текст для отображения в ячейке. Форматирован по column.format."""
@@ -762,13 +765,28 @@ class DDGridInstructionSnapshotDTO(BaseModel):
 
 
 class DDGridDocumentMetaDTO(BaseModel):
-    """Метаданные документа для DD Grid V1."""
+    """
+    Метаданные документа для DD Grid V1.
+
+    segment_id/type/title заполняются для multi-segment документов.
+    Для single-segment документов все три поля = None.
+    """
 
     document_id: str
     filename: str
     doc_type: str | None = None
     status: str
     folder_path: str | None = None
+
+    segment_id: str | None = None
+    """ID логического сегмента. None для single-segment документов."""
+
+    segment_type: str | None = None
+    """Тип сегмента (напр. 'main_contract', 'annex'). None для single-segment."""
+
+    segment_title: str | None = None
+    """Человекочитаемое название сегмента. None для single-segment."""
+
     instruction_snapshot: DDGridInstructionSnapshotDTO | None = None
     """
     Снапшот инструкции для doc_type этого документа.
@@ -789,18 +807,23 @@ class DDGridV1ResponseDTO(BaseModel):
       (registry group → type → checks). Пустые ветки скрыты.
     - column_registry: все runtime-колонки (column_id → spec).
       column_id формат: '{check_id}__{field_key}'.
-    - cell_values: {doc_id: {column_id: CellValueDTO}}.
-      Ячейка = пересечение документа и runtime-колонки.
-    - drawer_contents: {doc_id: {check_id: DrawerDTO}}.
+    - cell_values: {doc_id: {segment_id: {column_id: CellValueDTO}}}.
+      Ячейка = пересечение (документ, сегмент, runtime-колонка).
+      segment_id = "_default" для single-segment документов.
+    - drawer_contents: {doc_id: {segment_id: {check_id: DrawerDTO}}}.
       Drawer = детальная панель при клике на ячейку.
+      segment_id = "_default" для single-segment документов.
     - documents_meta: метаданные документов, отсортированы по filename.
 
     Cell states:
-      defined         — значение найдено, display_value форматировано.
-      not_defined     — check выполнен, значение не найдено.
-      not_applicable  — check не применим к doc_type документа.
-      not_executed    — check не выполнялся для этого документа.
-      error           — техническая ошибка выполнения.
+      defined      — значение найдено, display_value форматировано.
+      not_defined  — check выполнен, значение не найдено.
+      not_executed — check не выполнялся (план есть, результата нет).
+      error        — техническая ошибка выполнения.
+
+    Применимость чека гарантируется планировщиком:
+    ячейка создаётся только если check был запланирован (plan_item существует).
+    not_applicable как состояние не используется.
 
     Location contract:
       has_location_fallback=false + clause_ref/page → exact pinpoint.
@@ -816,8 +839,8 @@ class DDGridV1ResponseDTO(BaseModel):
     global_groups: list[DDGridGlobalGroupDTO]
     doc_type_classes: list[DDGridDocTypeClassDTO]
     column_registry: dict[str, DDGridColumnDTO]
-    cell_values: dict[str, dict[str, DDGridCellValueDTO]]
-    drawer_contents: dict[str, dict[str, DDGridDrawerDTO]]
+    cell_values: dict[str, dict[str, dict[str, DDGridCellValueDTO]]]
+    drawer_contents: dict[str, dict[str, dict[str, DDGridDrawerDTO]]]
     documents_meta: list[DDGridDocumentMetaDTO]
 
 

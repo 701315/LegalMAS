@@ -233,8 +233,16 @@ extraction:
     4) механизмы whistleblowing;
     5) регулирование сделок с аффилированными лицами.
 
-    Не считай достаточным общие фразы "соблюдать применимое
-    законотельство" без конкретики по антикоррупции.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ считай достаточными общие фразы типа
+      "соблюдать применимое законодательство" без конкретики
+      по антикоррупции.
+    - НЕ додумывай ссылки на FCPA, UK Bribery Act, ФЗ-273,
+      если они прямо не упомянуты.
+    - Если информация отсутствует — используй "no" или "unclear"
+      согласно allowed_values.
+    - Если текст неоднозначен — используй "unclear".
     </role>
 
     <context>
@@ -242,6 +250,19 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и кратко объясни это в reason.
+    - Различай:
+      * явные антикоррупционные положения;
+      * общие compliance-фразы без антикоррупционной конкретики.
+    - Не используй внешние знания о структуре группы компаний
+      или типовых корпоративных approval-практиках.
+    - Если related party transaction упоминается, но режим его
+      регулирования неясен, используй "unclear", а не "yes".
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -254,9 +275,6 @@ extraction:
     - requires_arms_length
     - requires_corporate_approvals
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -265,13 +283,13 @@ extraction:
     Заполни "has_anti_corruption_clauses".
 
     Значения:
-    - "yes" — явные антикоррупционные нормы:
+    - "yes" — есть явные антикоррупционные нормы:
       прямые запреты взяток, откатов, коррупционных платежей;
       ссылки на FCPA, UK Bribery Act, ФЗ-273;
       representations о соблюдении с конкретикой.
     - "no" — нет.
-    - "unclear" — только декларативные формулировки
-      "соблюдать законодательство" без конкретики.
+    - "unclear" — только общие compliance-формулировки
+      без антикоррупционной конкретики или вывод неоднозначен.
 
     Шаг 2 — КОДЕКСЫ ЭТИКИ И ПОЛИТИКИ
 
@@ -281,103 +299,126 @@ extraction:
     - "yes" — упоминается code of conduct / code of ethics /
       антикоррупционная политика с обязательством соблюдения.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя надёжно определить.
 
     Шаг 3 — ПРАВА АУДИТА КОМПЛАЕНСА
 
     Заполни "has_audit_rights".
 
     Значения:
-    - "yes" — явное право проводить аудит соблюдения
-      антикоррупционных требований / инспектировать документы.
+    - "yes" — есть право проводить аудит соблюдения
+      антикоррупционных требований / проверять документы.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — WHISTLEBLOWING
 
     Заполни "has_whistleblowing_mechanism".
 
     Значения:
-    - "yes" — есть: hotline, механизм сообщения о нарушениях,
-      защита информаторов.
+    - "yes" — есть hotline, механизм сообщения о нарушениях
+      или иная whistleblowing-процедура.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
-    Шаг 5 — РЕГУЛИРОВАНИЕ RELATED PARTY TRANSACTIONS
+    Шаг 5 — RELATED PARTY REGULATION
 
     Заполни "has_related_party_regulation".
 
     Значения:
-    - "yes" — специальные правила: disclosure, ограничения,
-      запреты для related party / affiliate / interested party.
+    - "yes" — есть специальные правила для related party /
+      affiliate / interested party transactions.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
-    Шаг 6 — ТРЕБОВАНИЕ ARM'S LENGTH
+    Шаг 6 — ARM'S LENGTH
 
     Заполни "requires_arms_length".
 
     Значения:
     - "yes" — сделки с аффилированными лицами должны быть
-      на рыночных условиях (arm's length, fair market value).
+      на рыночных условиях / fair market terms.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 7 — КОРПОРАТИВНЫЕ ОДОБРЕНИЯ ДЛЯ RPT
 
     Заполни "requires_corporate_approvals".
 
     Значения:
-    - "yes" — требуется одобрение СД / ОСА / независимых
-      директоров для related party transactions.
+    - "yes" — требуется одобрение СД / ОСА / независимых директоров.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "anti_corruption_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовый случай:
-    - все поля unclear:
+    Возможные состояния:
+    1. Есть зрелый контур:
+       "Антикоррупционные положения; код этики; аудит; RPT на рыночных условиях"
+    2. Частичный контур:
+       "Антикоррупционные положения; нет аудита; RPT-контроль не предусмотрен"
+    3. Положений нет:
+       "Антикоррупционные положения не обнаружены; RPT-контроль не предусмотрен"
+    4. Не удалось определить:
+       "Не удалось определить антикоррупционный комплаенс"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить антикоррупционный комплаенс"
-
-    Если данные есть — комбинируй через ";":
-    - has_anti_corruption_clauses (yes: "Антикоррупционные положения"; no: "Нет")
-    - has_code_of_conduct_reference (если "yes": "код этики")
-    - has_audit_rights (если "yes": "аудит")
-    - has_related_party_regulation (если "no": "нет контроля RPT")
-
-    Примеры:
-    - "Антикоррупционные положения (FCPA / UK Bribery Act); код этики; аудит; RPT на рыночных условиях"
-    - "Декларативные положения; нет аудита; нет контроля RPT"
-    - "Антикоррупционных положений нет; нет контроля аффилированных сделок"
-    - "Не удалось определить антикоррупционный комплаенс"
-
-    Ограничение: не более 4 фактов через ";".
+    - Если has_anti_corruption_clauses = "no"
+      и has_related_party_regulation = "no":
+      "Антикоррупционные положения не обнаружены; RPT-контроль не предусмотрен"
+    - Иначе комбинируй через ";":
+      * если has_anti_corruption_clauses = "yes":
+        "Антикоррупционные положения"
+      * если has_anti_corruption_clauses = "unclear":
+        "Антикоррупические положения не удалось определить"
+      * если has_code_of_conduct_reference = "yes":
+        "код этики"
+      * если has_audit_rights = "yes":
+        "аудит"
+      * если has_whistleblowing_mechanism = "yes":
+        "whistleblowing"
+      * если has_related_party_regulation = "yes" и requires_arms_length = "yes":
+        "RPT на рыночных условиях"
+      * если has_related_party_regulation = "yes" и requires_corporate_approvals = "yes":
+        "одобрение RPT"
+      * если has_related_party_regulation = "no":
+        "RPT-контроль не предусмотрен"
+    - Не более 4 коротких фактов через ";".
 
     Шаг 9 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: ключевые положения, ссылки на законы, аудит,
-      RPT regulation.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Можно упомянуть FCPA / UK Bribery Act / ФЗ-273 в reason,
+      если они прямо названы в тексте.
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
     - "Компания соблюдает законодательство" без конкретики:
       * has_anti_corruption_clauses = "unclear"
 
-    - Anti-bribery + FCPA + code of conduct + audit + whistleblowing:
+    - Anti-bribery + code of conduct + audit + whistleblowing:
       * has_anti_corruption_clauses = "yes"
 
-    - Нет RPT-регулирования при групповой структуре:
+    - Нет RPT-регулирования:
       * has_related_party_regulation = "no"
+
+    - Related party rules есть, но arm's length не указан:
+      * has_related_party_regulation = "yes"
+      * requires_arms_length = "no" или "unclear"
+      * requires_corporate_approvals = "yes" или "no" по тексту
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
@@ -386,8 +427,27 @@ extraction:
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (anti_corruption_display, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "anti_corruption_display": "Антикоррупционные положения; код этики; аудит; RPT на рыночных условиях",
+      "has_anti_corruption_clauses": "yes",
+      "has_code_of_conduct_reference": "yes",
+      "has_audit_rights": "yes",
+      "has_whistleblowing_mechanism": "no",
+      "has_related_party_regulation": "yes",
+      "requires_arms_length": "yes",
+      "requires_corporate_approvals": "yes",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -396,6 +456,8 @@ extraction:
       presentation: "fact"
       label: "Антикоррупция и related party"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "has_anti_corruption_clauses"
       type: "string"
@@ -405,6 +467,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_code_of_conduct_reference"
       type: "string"
@@ -414,6 +477,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_audit_rights"
       type: "string"
@@ -423,6 +487,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_whistleblowing_mechanism"
       type: "string"
@@ -432,6 +497,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_related_party_regulation"
       type: "string"
@@ -441,6 +507,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "requires_arms_length"
       type: "string"
@@ -450,6 +517,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "requires_corporate_approvals"
       type: "string"
@@ -459,11 +527,13 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

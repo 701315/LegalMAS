@@ -256,9 +256,11 @@ function buildCheckGroupSummary(
   >();
 
   for (const row of model.rows) {
-    const drawerByCheck = model.drawerContents[row.documentId] ?? {};
+    // 3-уровневый lookup: doc_id → segment_id → check_id
+    const segmentId = row.segmentId ?? "_default";
+    const drawerBySegment = model.drawerContents[row.documentId]?.[segmentId] ?? {};
 
-    for (const [checkId, drawer] of Object.entries(drawerByCheck)) {
+    for (const [checkId, drawer] of Object.entries(drawerBySegment)) {
       if (!checkIds.has(checkId)) continue;
       if (!drawer) continue;
 
@@ -273,8 +275,6 @@ function buildCheckGroupSummary(
       } else if (status === "unclear") {
         bucket = "unclear";
       }
-      // status === "not_applicable" → пропускаем
-      // status === null / undefined / other → пропускаем
 
       if (!bucket) continue;
 
@@ -558,9 +558,11 @@ export const AnalysisResultsWidget: React.FC<
     >();
 
     for (const row of ddGridModel.rows) {
-      const drawerByCheck = ddGridModel.drawerContents[row.documentId] ?? {};
+      // 3-уровневый lookup: doc_id → segment_id → check_id
+      const segmentId = row.segmentId ?? "_default";
+      const drawerBySegment = ddGridModel.drawerContents[row.documentId]?.[segmentId] ?? {};
 
-      for (const drawer of Object.values(drawerByCheck)) {
+      for (const drawer of Object.values(drawerBySegment)) {
         if (!drawer) continue;
         if (drawer.review_status === "unclear") {
           const existing = documentMap.get(row.documentId);

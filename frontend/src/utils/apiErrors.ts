@@ -7,7 +7,16 @@ export function getApiErrorMessage(
   fallback = "Произошла ошибка.",
 ): string {
   const apiError = error as ApiError | null | undefined;
-  return apiError?.detail || fallback;
+  const rawDetail: unknown = apiError?.detail;
+  if (typeof rawDetail === "string") return rawDetail;
+  if (
+    typeof rawDetail === "object" &&
+    rawDetail !== null &&
+    "message" in rawDetail
+  ) {
+    return String((rawDetail as Record<string, unknown>).message);
+  }
+  return fallback;
 }
 
 export function getApiErrorStatus(error: unknown): number | undefined {

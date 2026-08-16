@@ -76,8 +76,6 @@ function getReviewStatusLabel(
     case "no_issue_detected":
     case "ok":
       return "Проверка завершена без замечаний";
-    case "not_applicable":
-      return "Неприменимо";
     case "unclear":
       return "Результат не определён";
     default:
@@ -97,8 +95,6 @@ function getCellStateLabel(
       return "Определено";
     case "not_defined":
       return "Не найдено";
-    case "not_applicable":
-      return "Неприменимо";
     case "not_executed":
       return "Не выполнялось";
     case "error":
@@ -307,9 +303,7 @@ const FieldRow: React.FC<{
               ? "success"
               : field.cellState === "error"
                 ? "error"
-                : field.cellState === "not_applicable"
-                  ? "muted"
-                  : "neutral"
+                : "neutral"
           }
         >
           {getCellStateLabel(field.cellState)}
@@ -579,14 +573,12 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                   {drawerContent?.review_status === "no_issue_detected" ||
                   drawerContent?.review_status === "ok"
                     ? "Нарушений не выявлено."
-                    : drawerContent?.review_status === "not_applicable"
-                      ? "Проверка не применима к данному документу."
-                      : drawerContent?.review_status === "unclear"
-                        ? "Результат не определён — требуется ручная проверка."
-                        : drawerContent?.execution_status === "FAILED" ||
-                            drawerContent?.execution_status === "TIMEOUT"
-                          ? "Ошибка при выполнении проверки."
-                          : "Текст результата не сформирован."}
+                    : drawerContent?.review_status === "unclear"
+                      ? "Результат не определён — требуется ручная проверка."
+                      : drawerContent?.execution_status === "FAILED" ||
+                          drawerContent?.execution_status === "TIMEOUT"
+                        ? "Ошибка при выполнении проверки."
+                        : "Текст результата не сформирован."}
                 </div>
               )}
 

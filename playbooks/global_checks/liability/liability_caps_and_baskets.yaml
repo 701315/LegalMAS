@@ -207,13 +207,19 @@ extraction:
 
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по M&A и коммерческим контрактам.
-    Твоя задача — точно извлечь структуру ограничений
-    ответственности: caps, basket / de minimis, механику basket,
-    carve-out для ключевых рисков.
+    Ты — юрист по коммерческим договорам и ограничениям ответственности.
+    Твоя задача — точно извлечь структуру ограничений ответственности:
+    cap, basket / de minimis, механику basket и carve-out
+    для ключевых рисков.
 
-    Не анализируй общий объём ответственности и indemnity.
-    Не анализируй виды исключённых убытков (indirect, loss of profit).
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ додумывай cap, basket, de minimis или carve-out,
+      если они не указаны.
+    - НЕ смешивай этот check с общим анализом indemnity
+      и не подменяй его анализом исключённых видов убытков.
+    - Если фрагментов недостаточно для уверенного вывода —
+      ставь "unclear".
     </role>
 
     <context>
@@ -221,6 +227,17 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если есть противоречия между фрагментами — используй "unclear"
+      и опиши это в reason.
+    - Используй "no" только если текст по существу показывает
+      отсутствие cap / basket / carve-out, а не просто не содержит
+      упоминания в коротком фрагменте.
+    - Если релевантной информации недостаточно — используй "unclear".
+    - Не опирайся на рыночную практику и не восстанавливай пропущенные условия.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -233,9 +250,6 @@ extraction:
     - has_key_carveouts
     - carveouts_summary
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -244,34 +258,39 @@ extraction:
     Заполни "has_liability_cap" и "cap_description".
 
     Значения для has_liability_cap:
-    - "yes" / "no" / "unclear"
+    - "yes" — cap прямо установлен.
+    - "no" — cap отсутствует по тексту.
+    - "unclear" — нельзя определить.
 
     Правила для cap_description:
-    - Если есть: "Стоимость договора", "12 мес. платежей",
-      "USD 1M", "50% от суммы"
-    - Нет: "Не установлен"
-    - Неясно: "Не удалось определить"
+    - Если cap есть: "USD 1M", "50% от суммы", "стоимость договора",
+      "12 мес. платежей"
+    - Если cap нет: "Не установлен"
+    - Если нельзя определить: "Не удалось определить"
 
     Шаг 2 — BASKET
 
     Заполни "has_basket" и "basket_type".
 
     Значения для has_basket:
-    - "yes" / "no" / "unclear"
+    - "yes" — basket / aggregate threshold есть.
+    - "no" — basket нет.
+    - "unclear" — нельзя определить.
 
     Значения для basket_type:
-    - "tipping" — первый доллар с момента превышения порога.
-    - "deductible" — только сумма превышения.
+    - "tipping" — после порога возмещается весь ущерб.
+    - "deductible" — возмещается только превышение порога.
     - "not_applicable" — basket нет.
-    - "unclear" — тип неясен.
+    - "unclear" — тип нельзя определить.
 
     Шаг 3 — DE MINIMIS
 
     Заполни "has_de_minimis".
 
     Значения:
-    - "yes" — минимальный порог отдельной претензии установлен.
-    - "no" / "unclear"
+    - "yes" — минимальный размер отдельной претензии установлен.
+    - "no" — нет.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — CARVE-OUT ДЛЯ КЛЮЧЕВЫХ РИСКОВ
 
@@ -280,72 +299,108 @@ extraction:
     Значения для has_key_carveouts:
     - "yes" — ключевые риски выведены из-под cap / basket.
     - "no" — carve-out нет.
-    - "partial" — часть выведена, часть нет.
-    - "unclear" — неясно.
+    - "partial" — carve-out есть только для части ключевых категорий.
+    - "unclear" — нельзя определить.
 
     Правила для carveouts_summary:
-    - Перечисли выведенные категории через ";":
-      "fraud; willful misconduct; gross negligence"
-      "fraud; sanctions; IP; data breach"
-    - Нет: "Не предусмотрено"
-    - Неясно: "Не удалось определить"
+    - Если есть или partial — перечисли категории через ";"
+      и не более 4 категорий:
+      "fraud; gross negligence; sanctions"
+      "fraud; IP; data breach"
+    - Если carve-out нет: "Не предусмотрено"
+    - Если нельзя определить: "Не удалось определить"
 
     Шаг 5 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "caps_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовые случаи:
-    - все поля unclear:
+    Возможные состояния:
+    1. Конкретная структура известна:
+       "Cap: стоимость договора; tipping basket; carve-out: fraud; sanctions"
+       "Cap: USD 1M; de minimis есть; carve-out: fraud; IP"
+    2. Ограничений нет:
+       "Нет cap; нет basket; нет carve-out"
+    3. Не удалось определить:
+       "Не удалось определить структуру ограничений"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить структуру ограничений"
-    - нет ни cap, ни basket, ни carve-out:
+    - Если has_liability_cap = "no"
+      и has_basket = "no"
+      и has_key_carveouts = "no":
       "Нет cap; нет basket; нет carve-out"
+    - Иначе:
+      * если cap есть — "Cap: {cap_description}"
+      * если basket есть — "tipping basket" / "deductible basket"
+      * если de minimis есть — "de minimis есть"
+      * если carve-out есть или partial —
+        "carve-out: {краткий перечень}"
+    - Не более 4 коротких фактов через ";".
 
-    Если есть данные — комбинируй через ";":
-    - cap (если есть): "Cap: {cap_description}"
-    - basket (если есть): "tipping basket" / "deductible basket"
-    - de minimis (если есть): "de minimis есть"
-    - carve-out (если есть): "carve-out: {краткий перечень}"
-
-    Примеры:
-    - "Cap: стоимость договора; tipping basket 1%; carve-out: fraud, sanctions"
-    - "Нет cap; нет basket; нет carve-out"
-    - "Cap: 12 мес. платежей; deductible basket; carve-out: fraud, IP"
-    - "Не удалось определить структуру ограничений"
-
-    Ограничение: не более 4 фактов через ";".
-
-    Шаг 6 — КРАТКОЕ ОБОСНОВАНИЕ
+    Шаг 6 — ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: cap, basket, de minimis, carve-out.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
-    - Нет cap:
+    - Cap отсутствует:
       * has_liability_cap = "no"
+      * cap_description = "Не установлен"
 
-    - Carve-out только для fraud, но не для sanctions:
+    - Basket нет:
+      * has_basket = "no"
+      * basket_type = "not_applicable"
+
+    - Carve-out только для fraud:
       * has_key_carveouts = "partial"
       * carveouts_summary = "fraud"
 
-    - Basket механика не уточнена:
-      * basket_type = "unclear"
+    - Нет cap, basket и carve-out:
+      * caps_display = "Нет cap; нет basket; нет carve-out"
 
     - Нет релевантных фрагментов:
-      * все поля = "unclear"
+      * has_liability_cap = "unclear"
+      * cap_description = "Не удалось определить"
+      * has_basket = "unclear"
+      * basket_type = "unclear"
+      * has_de_minimis = "unclear"
+      * has_key_carveouts = "unclear"
+      * carveouts_summary = "Не удалось определить"
       * caps_display = "Не удалось определить структуру ограничений"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (caps_display, cap_description, carveouts_summary, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "caps_display": "Cap: стоимость договора; tipping basket; carve-out: fraud; sanctions",
+      "has_liability_cap": "yes",
+      "cap_description": "стоимость договора",
+      "has_basket": "yes",
+      "basket_type": "tipping",
+      "has_de_minimis": "no",
+      "has_key_carveouts": "yes",
+      "carveouts_summary": "fraud; sanctions",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -354,6 +409,8 @@ extraction:
       presentation: "fact"
       label: "Caps / basket / carve-out"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "has_liability_cap"
       type: "string"
@@ -363,12 +420,15 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "cap_description"
       type: "string"
       presentation: "fact"
       label: "Размер и база cap"
       description: "Размер и база лимита ответственности"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "has_basket"
       type: "string"
@@ -378,6 +438,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "basket_type"
       type: "string"
@@ -388,6 +449,7 @@ extraction:
         - "deductible"
         - "not_applicable"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_de_minimis"
       type: "string"
@@ -397,6 +459,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_key_carveouts"
       type: "string"
@@ -407,17 +470,21 @@ extraction:
         - "no"
         - "partial"
         - "unclear"
+      display_in_grid: false
 
     - name: "carveouts_summary"
       type: "string"
       presentation: "fact"
       label: "Carve-out категории"
       description: "Перечень выведенных категорий рисков"
+      display_in_grid: true
+      display_priority: 3
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

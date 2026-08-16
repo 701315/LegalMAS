@@ -37,17 +37,13 @@ import DDGridV1Drawer from "./DDGridV1Drawer";
 import DDGridV1InstructionDrawer from "./DDGridV1InstructionDrawer";
 
 import type {
-  ReviewGridRow,
-  ReviewCheckColumn,
-  ReviewSelectionItem,
-} from "../grid/reviewGrid.types";
-
-import type {
-  DDGridV1CellView,
+  DDGridV1MatrixRow,
   DDGridV1CheckNode,
   DDGridV1DerivedModel,
   DDGridV1RuntimeColumn,
+  DDGridV1CellView,
 } from "./ddGridV1.types";
+import type { ReviewSelectionItem } from "./ddGridV1.types";
 import { resolveDDGridV1CellView } from "./ddGridV1.selectors";
 import { useDDGridV1UIStore } from "./ddGridV1.collapseStore";
 
@@ -76,21 +72,15 @@ const NO_COLLAPSED_KEYS: ReadonlySet<string> = new Set<string>();
 // Row model
 // -------------------------------------------------------------
 
-type V1MatrixGridRow = ReviewGridRow & {
+type V1MatrixGridRow = DDGridV1MatrixRow & {
   [key: `check_${string}`]: MatrixCellDTO | undefined;
 };
 
-function toV1MatrixGridRow(row: ReviewGridRow): V1MatrixGridRow {
-  const checkCells = Object.entries(row.cellsByCheckId).reduce<
-    Record<`check_${string}`, MatrixCellDTO | undefined>
-  >((acc, [checkId, cell]) => {
-    acc[`check_${checkId}`] = cell;
-    return acc;
-  }, {} as Record<`check_${string}`, MatrixCellDTO | undefined>);
-
+function toV1MatrixGridRow(row: DDGridV1MatrixRow): V1MatrixGridRow {
+  // V1 rows не имеют cellsByCheckId — используем пустой объект
+  // Drawer lookup происходит через model.drawerContents (3-level)
   return {
     ...row,
-    ...checkCells,
   };
 }
 
@@ -207,12 +197,10 @@ function cellStateSortRank(
       return 1;
     case "not_executed":
       return 2;
-    case "not_applicable":
-      return 3;
     case "error":
-      return 4;
+      return 3;
     default:
-      return 5;
+      return 4;
   }
 }
 
@@ -239,8 +227,6 @@ function cellStateToneClass(state: DDGridV1CellState): string {
   switch (state) {
     case "defined":
       return "text-[var(--text-primary)]";
-    case "not_applicable":
-      return "text-[var(--text-muted)] italic";
     case "error":
       return "text-[var(--color-error-text)]";
     case "not_defined":
@@ -273,8 +259,8 @@ function buildSelectionItems(
 export interface DDGridV1MatrixProps {
   runId: string;
   model: DDGridV1DerivedModel;
-  rows: ReviewGridRow[];
-  columns: ReviewCheckColumn[];
+  rows: DDGridV1MatrixRow[];
+  columns: DDGridV1CheckNode[];
 
   title?: string;
   visibleCheckIds?: readonly string[];
@@ -598,7 +584,7 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
   const collapsedGroupSet = collapsedGroupKeys ?? NO_COLLAPSED_KEYS;
 
   const columnLookup = useMemo(() => {
-    const map = new Map<string, ReviewCheckColumn>();
+    const map = new Map<string, DDGridV1CheckNode>();
     for (const c of columns) map.set(c.checkId, c);
     return map;
   }, [columns]);
@@ -693,12 +679,14 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
 
   const openDetailsForCell = useCallback(
     (params: {
-      row: ReviewGridRow;
+      row: DDGridV1MatrixRow;
       checkId: string;
       cell?: MatrixCellDTO;
     }) => {
+      // 3-уровневый lookup: doc_id → segment_id → check_id
+      const segmentId = params.row.segmentId ?? "_default";
       const drawerContent =
-        model.drawerContents[params.row.documentId]?.[params.checkId] ?? null;
+        model.drawerContents[params.row.documentId]?.[segmentId]?.[params.checkId] ?? null;
 
       if (!drawerContent) return;
 
@@ -714,7 +702,7 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         open: true,
         rowId: params.row.rowId,
         documentId: params.row.documentId,
-        documentName: params.row.documentName ?? null,
+        documentName: params.row.filename ?? null,  // ← ИСПРАВЛЕНО: documentName → filename
         checkId: params.checkId,
         drawerContent,
         currentQcStatus: legacyCell?.qc_status ?? null,
@@ -742,7 +730,7 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
   ]);
 
   const getV1RowForReviewRow = useCallback(
-    (row: ReviewGridRow | V1MatrixGridRow | null | undefined) => {
+    (row: DDGridV1MatrixRow | V1MatrixGridRow | null | undefined) => {
       if (!row) return null;
       return model.rowsByDocumentId[row.documentId] ?? null;
     },
@@ -767,7 +755,7 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
 
       setSelectedInstruction({
         open: true,
-        documentName: row.documentName ?? null,
+        documentName: row.filename ?? null,
         snapshot: v1Row?.instructionSnapshot ?? null,
       });
 
@@ -824,14 +812,14 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
       },
       {
         headerName: "Документ",
-        field: "documentName",
+        field: "filename",  // ← ИСПРАВЛЕНО: documentName → filename
         width: 320,
         minWidth: 260,
         maxWidth: 400,
         pinned: "left",
         headerClass: "ag-center-header",
         cellRenderer: (params: ICellRendererParams<V1MatrixGridRow>) => {
-          const name = params.data?.documentName || "[no name]";
+          const name = params.data?.filename || "[no name]";  // ← ИСПРАВЛЕНО
           return (
             <span className="text-xs text-[var(--text-primary)]">{name}</span>
           );
@@ -914,7 +902,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
       check: DDGridV1CheckNode,
       runtimeColumn: DDGridV1RuntimeColumn,
     ): ColDef<V1MatrixGridRow> => {
-      const meta = columnLookup.get(check.checkId);
       const label = runtimeColumn.column.label;
 
       return {
@@ -980,10 +967,8 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
             );
           }
 
-          const cellForDrawer = row.cellsByCheckId[check.checkId];
-          const canOpen = Boolean(meta && cellForDrawer);
-          const wrapperTone =
-            cellView.cellState === "not_applicable" ? "opacity-70" : "";
+          // cellsByCheckId больше нет — drawer lookup через model.drawerContents
+          const wrapperTone = "";
 
           const content = (
             <div className="py-0" style={{ lineHeight: 1.2 }}>
@@ -996,10 +981,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
             </div>
           );
 
-          if (!canOpen || !cellForDrawer) {
-            return <div className={wrapperTone}>{content}</div>;
-          }
-
           return (
             <button
               type="button"
@@ -1009,7 +990,7 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
                 openDetailsForCell({
                   row,
                   checkId: check.checkId,
-                  cell: cellForDrawer,
+                  cell: undefined,  // cellsByCheckId больше не используется
                 });
               }}
             >
@@ -1063,9 +1044,10 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
             const row = params.data;
             if (!row) return null;
 
-            const cellForDrawer = row.cellsByCheckId[check.checkId];
+            // 3-уровневый lookup: doc_id → segment_id → check_id
+            const segmentId = row.segmentId ?? "_default";
             const hasDrawer =
-              model.drawerContents[row.documentId]?.[check.checkId] != null;
+              model.drawerContents[row.documentId]?.[segmentId]?.[check.checkId] != null;
 
             if (!hasDrawer) {
               return (
@@ -1084,7 +1066,7 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
                   openDetailsForCell({
                     row,
                     checkId: check.checkId,
-                    cell: cellForDrawer,
+                    cell: undefined,  // cellsByCheckId больше не используется
                   });
                 }}
               >

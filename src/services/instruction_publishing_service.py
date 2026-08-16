@@ -412,7 +412,11 @@ class InstructionPublishingService:
             owner_scope=version.owner_scope,
             tenant_id=version.tenant_id,
         )
-        if duplicate is not None and duplicate.id != version.id:
+        if (
+            duplicate is not None
+            and duplicate.id != version.id
+            and duplicate.id != version.parent_version_id
+        ):
             raise DuplicateInstructionContentError(
                 "Cannot update draft: identical instruction snapshot already exists "
                 f"for doc_type_code='{compiled.doc_type_code}' "
@@ -481,7 +485,11 @@ class InstructionPublishingService:
             owner_scope=version.owner_scope,
             tenant_id=version.tenant_id,
         )
-        if duplicate is not None and duplicate.id != version.id:
+        if (
+            duplicate is not None
+            and duplicate.id != version.id
+            and duplicate.id != version.parent_version_id
+        ):
             raise DuplicateInstructionContentError(
                 "Cannot validate draft: identical instruction snapshot already exists "
                 f"for doc_type_code='{compiled.doc_type_code}' "

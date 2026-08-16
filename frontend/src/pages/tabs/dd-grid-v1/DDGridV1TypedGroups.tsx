@@ -32,12 +32,11 @@ import React from "react";
 import type { OpenViewerAtFn } from "../../../types";
 
 import type {
-  ReviewCheckColumn,
-  ReviewGridRow,
-  ReviewSelectionItem,
-} from "../grid/reviewGrid.types";
-
-import type { DDGridV1DerivedModel } from "./ddGridV1.types";
+  DDGridV1MatrixRow,
+  DDGridV1CheckNode,
+  DDGridV1DerivedModel,
+} from "./ddGridV1.types";
+import type { ReviewSelectionItem } from "./ddGridV1.types";
 import {
   buildDDGridV1AllDocumentsGroup,
   buildDDGridV1TypedGroups,
@@ -57,7 +56,7 @@ import DDGridV1Matrix, {
 // -------------------------------------------------------------
 
 interface RenderableGroup extends DDGridV1DocTypeGroupView {
-  reviewRows: ReviewGridRow[];
+  reviewRows: DDGridV1MatrixRow[];
 }
 
 /**
@@ -97,9 +96,9 @@ function filterCheckIdsByScope(
 }
 
 function buildReviewRowsByDocumentId(
-  rows: ReviewGridRow[],
-): Map<string, ReviewGridRow[]> {
-  const map = new Map<string, ReviewGridRow[]>();
+  rows: DDGridV1MatrixRow[],
+): Map<string, DDGridV1MatrixRow[]> {
+  const map = new Map<string, DDGridV1MatrixRow[]>();
 
   for (const row of rows) {
     const arr = map.get(row.documentId);
@@ -198,8 +197,8 @@ function flattenSelectionMap(
 export interface DDGridV1TypedGroupsProps {
   runId: string;
   model: DDGridV1DerivedModel;
-  rows: ReviewGridRow[];
-  columns: ReviewCheckColumn[];
+  rows: DDGridV1MatrixRow[];
+  columns: DDGridV1CheckNode[];
   onOpenAtLocation?: OpenViewerAtFn;
   onSelectionChange?: (selection: ReviewSelectionItem[]) => void;
   clearSelectionToken?: number;

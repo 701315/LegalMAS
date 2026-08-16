@@ -137,8 +137,9 @@ export function useUpdateReviewQc() {
   return useMutation({
     mutationFn: reviewQcApi.updateReviewQc,
     onSuccess: async (data) => {
+      // V1 Grid — основной source of truth
       await qc.invalidateQueries({
-        queryKey: dealReviewKeys.ddMatrix(data.deal_id, data.run_id),
+        queryKey: dealReviewKeys.ddGridV1(data.deal_id, data.run_id),
       });
     },
   });
@@ -153,8 +154,9 @@ export function useBulkUpdateReviewQc() {
   return useMutation({
     mutationFn: reviewQcApi.bulkUpdateReviewQc,
     onSuccess: async (data) => {
+      // V1 Grid — основной source of truth
       await qc.invalidateQueries({
-        queryKey: dealReviewKeys.ddMatrix(data.deal_id, data.run_id),
+        queryKey: dealReviewKeys.ddGridV1(data.deal_id, data.run_id),
       });
     },
   });

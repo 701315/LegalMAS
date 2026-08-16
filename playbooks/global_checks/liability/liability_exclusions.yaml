@@ -178,14 +178,19 @@ extraction:
 
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по коммерческим контрактам.
+    Ты — юрист по коммерческим договорам и исключениям из ответственности.
     Твоя задача — точно извлечь:
     1) исключена ли ответственность за indirect / consequential damages;
-    2) исключена ли ответственность за loss of profit / business;
+    2) исключена ли ответственность за loss of profit / business / revenue;
     3) в чью пользу работают исключения.
 
-    Не анализируй caps / basket / carve-out.
-    Не анализируй общий объём indemnity.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ додумывай симметричность или односторонность исключений.
+    - НЕ смешивай этот check с cap / basket / carve-out
+      и не подменяй его общим анализом indemnity.
+    - Если из фрагментов нельзя уверенно сделать вывод —
+      ставь "unclear".
     </role>
 
     <context>
@@ -194,6 +199,16 @@ extraction:
     {context}
     </context>
 
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни это в reason.
+    - Используй "no" только если из релевантного блока ответственности
+      видно, что соответствующее исключение не предусмотрено.
+    - Если релевантной информации недостаточно — используй "unclear".
+    - Не используй рыночные предположения о стандартности таких исключений.
+    </context_rules>
+
     <task>
     Заполни только следующие поля:
     - exclusions_display
@@ -201,9 +216,6 @@ extraction:
     - excludes_loss_of_profit
     - exclusions_beneficiary
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -212,66 +224,77 @@ extraction:
     Заполни "excludes_indirect_or_consequential".
 
     Значения:
-    - "yes" — явно исключены: indirect, consequential,
-      special, punitive, incidental, exemplary damages.
-    - "no" — исключений нет.
-    - "unclear" — неясно.
+    - "yes" — явно исключены indirect, consequential,
+      special, punitive, incidental или аналогичные damages.
+    - "no" — такого исключения нет по тексту.
+    - "unclear" — нельзя определить.
 
-    Шаг 2 — ИСКЛЮЧЕНИЕ УПУЩЕННОЙ ВЫГОДЫ
+    Шаг 2 — ИСКЛЮЧЕНИЕ УПУЩЕННОЙ ВЫГОДЫ И ПОХОЖИХ КАТЕГОРИЙ
 
     Заполни "excludes_loss_of_profit".
 
     Значения:
-    - "yes" — явно исключены: loss of profit, loss of business,
-      loss of revenue, loss of anticipated savings, loss of goodwill.
-    - "no" — исключений нет.
-    - "unclear" — неясно.
+    - "yes" — явно исключены loss of profit, loss of business,
+      loss of revenue, anticipated savings, goodwill и т.п.
+    - "no" — такого исключения нет по тексту.
+    - "unclear" — нельзя определить.
 
     Шаг 3 — НАПРАВЛЕННОСТЬ ИСКЛЮЧЕНИЙ
 
     Заполни "exclusions_beneficiary".
 
     Значения:
-    - "mutual" — симметрично ("neither party shall be liable").
-    - "counterparty" — преимущественно защищает контрагента
-      (Target несёт ответственность, контрагент нет).
-    - "target" — преимущественно защищает Target.
-    - "unclear" — невозможно определить.
+    - "mutual" — исключения работают симметрично для обеих сторон.
+    - "counterparty" — исключения преимущественно защищают контрагента.
+    - "target" — исключения преимущественно защищают Target.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "exclusions_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовые случаи:
-    - excludes_indirect = "no" и excludes_loss = "no":
+    Возможные состояния:
+    1. Исключения установлены:
+       "Симметричное исключение indirect и loss of profit"
+       "Исключение loss of profit в пользу контрагента"
+       "Исключение indirect damages в пользу Target"
+    2. Исключений нет:
+       "Исключений из ответственности не обнаружено"
+    3. Не удалось определить:
+       "Не удалось определить исключения из ответственности"
+
+    Правила:
+    - Если excludes_indirect_or_consequential = "no"
+      и excludes_loss_of_profit = "no":
       "Исключений из ответственности не обнаружено"
-    - все поля unclear:
+    - Если все поля unclear:
       "Не удалось определить исключения из ответственности"
+    - Если есть исключения:
+      * если оба поля = "yes":
+        - "Исключение indirect и loss of profit"
+      * если только excludes_indirect_or_consequential = "yes":
+        - "Исключение indirect damages"
+      * если только excludes_loss_of_profit = "yes":
+        - "Исключение loss of profit"
+      * если exclusions_beneficiary определён и не unclear —
+        добавь:
+        - "симметричное"
+        - "в пользу контрагента"
+        - "в пользу Target"
+    - Не более 3 коротких фактов.
 
-    Если исключения есть — комбинируй через ";":
-    - тип исключения (indirect / loss of profit)
-    - направленность если асимметричная
-
-    Примеры:
-    - "Симметричное исключение indirect и loss of profit"
-    - "Контрагент исключил loss of profit; Target не защищена"
-    - "Target исключила indirect damages; loss of profit сохранена"
-    - "Исключений из ответственности не обнаружено"
-    - "Не удалось определить исключения из ответственности"
-
-    Ограничение: не более 2–3 фактов через ";".
-
-    Шаг 5 — КРАТКОЕ ОБОСНОВАНИЕ
+    Шаг 5 — ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: какие категории исключены, в чью пользу.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
@@ -279,28 +302,40 @@ extraction:
       * excludes_indirect_or_consequential = "yes"
       * exclusions_beneficiary = "mutual"
 
-    - "Including but not limited to loss of profit" только
-      для контрагента:
+    - Исключение только loss of profit в пользу контрагента:
       * excludes_loss_of_profit = "yes"
       * exclusions_beneficiary = "counterparty"
 
-    - Исключения только для контрагента, Target подвержена:
-      * exclusions_beneficiary = "counterparty"
-
-    - Нет упоминаний исключений:
+    - Исключения отсутствуют:
       * excludes_indirect_or_consequential = "no"
       * excludes_loss_of_profit = "no"
       * exclusions_display = "Исключений из ответственности не обнаружено"
 
     - Нет релевантных фрагментов:
-      * все поля = "unclear"
+      * excludes_indirect_or_consequential = "unclear"
+      * excludes_loss_of_profit = "unclear"
+      * exclusions_beneficiary = "unclear"
       * exclusions_display =
         "Не удалось определить исключения из ответственности"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля (exclusions_display, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "exclusions_display": "Симметричное исключение indirect и loss of profit",
+      "excludes_indirect_or_consequential": "yes",
+      "excludes_loss_of_profit": "yes",
+      "exclusions_beneficiary": "mutual",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -309,6 +344,8 @@ extraction:
       presentation: "fact"
       label: "Исключения из ответственности"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "excludes_indirect_or_consequential"
       type: "string"
@@ -318,6 +355,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "excludes_loss_of_profit"
       type: "string"
@@ -327,6 +365,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "exclusions_beneficiary"
       type: "string"
@@ -337,11 +376,13 @@ extraction:
         - "counterparty"
         - "target"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

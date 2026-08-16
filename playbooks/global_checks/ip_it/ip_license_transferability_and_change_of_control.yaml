@@ -1,0 +1,412 @@
+id: "ip_license_transferability_and_change_of_control"
+name: "Передаваемость лицензии и смена контроля"
+group: "IP"
+description: >
+  Анализирует передаваемость лицензии при внутригрупповых
+  передачах и M&A-событиях: допустимость передачи аффилированным
+  лицам, передаваемость при реорганизации / слиянии / поглощении,
+  поведение лицензии при смене контроля (CoC), необходимость
+  согласия лицензиара, право на прекращение лицензии при CoC.
+
+  Параметры лицензии (тип, территория, срок, field of use,
+  сублицензирование) анализируются чеком ip_license_scope_and_usage.
+
+doc_types: []
+
+severity: "high"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+ui_mode: "field_extraction"
+
+rules:
+  keyword_mode: any
+
+  keywords:
+    high:
+      - "(?i)non[-\\s]?transferable"
+      - "(?i)не\\s+подлежит\\s+передаче"
+      - "(?i)consent\\s+of\\s+(the\\s+)?licensor"
+      - "(?i)согласие\\s+лицензиара"
+      - "(?i)transfer\\s+of\\s+(the\\s+)?license"
+      - "(?i)передач[аеи]\\s+лицензи"
+      - "(?i)assignment\\s+of\\s+(the\\s+)?license"
+      - "(?i)уступк[аеи]\\s+лицензи"
+      - "(?i)change\\s+of\\s+control[\\s\\S]{0,40}(license|лицензи)"
+      - "(?i)смен[аы]\\s+контрол[яю][\\s\\S]{0,40}лицензи"
+      - "(?i)deemed\\s+assignment[\\s\\S]{0,30}(license|лицензи)"
+      - "(?i)считается\\s+уступкой[\\s\\S]{0,30}лицензи"
+      - "(?i)affiliate[\\s\\S]{0,30}(license|use|sublicense)"
+      - "(?i)intra[-\\s]?group[\\s\\S]{0,30}(license|use)"
+      - "(?i)successor[\\s\\S]{0,30}(license|лицензи)"
+      - "(?i)правопреемник[\\s\\S]{0,30}лицензи"
+      - "(?i)merger[\\s\\S]{0,20}(license|лицензи)"
+      - "(?i)purchaser\\s+of\\s+(all|substantially\\s+all)"
+
+    medium:
+      - "(?i)licensor\\s+may\\s+terminate[\\s\\S]{0,30}(transfer|assign|change)"
+      - "(?i)лицензиар\\s+вправе\\s+прекратить[\\s\\S]{0,30}(передач|смен)"
+      - "(?i)prior\\s+(written\\s+)?consent[\\s\\S]{0,30}(transfer|assign|лицензи)"
+      - "(?i)предварительн[оое]\\s+согласи[ея][\\s\\S]{0,30}(передач|лицензи)"
+
+    low:
+      - "(?i)non[-\\s]?transferable"
+      - "(?i)consent\\s+of\\s+licensor"
+      - "(?i)change\\s+of\\s+control[\\s\\S]{0,20}license"
+      - "(?i)deemed\\s+assignment"
+      - "(?i)successor"
+      - "(?i)affiliate[\\s\\S]{0,20}license"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 700
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  retrieval_profile: "license_scope_check"
+  context_k: 5
+  max_chunks: 10
+
+  retrieval_query: >
+    передача лицензии non-transferable согласие лицензиара смена контроля 
+    change of control аффилированные лица правопреемник merger assignment лицензии
+
+  boost_keywords:
+    - "non-transferable"
+    - "не подлежит передаче"
+    - "transfer of license"
+    - "передача лицензии"
+    - "consent of licensor"
+    - "согласие лицензиара"
+    - "change of control"
+    - "смена контроля"
+    - "deemed assignment"
+    - "считается уступкой"
+    - "affiliate license"
+    - "intra-group license"
+    - "successor"
+    - "правопреемник"
+    - "merger"
+    - "purchaser of substantially all"
+    - "licensor may terminate"
+
+  negative_keywords:
+    - "field of use"
+    - "sublicense"
+    - "term of license"
+    - "срок лицензии"
+    - "territory"
+    - "условия оплаты"
+    - "форс-мажор"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+
+  excluded_unit_types:
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "rights"
+    - "procedures"
+    - "limitations"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
+  rerank: true
+  filters: {}
+
+conditional: null
+
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "annex"
+    - "appendix"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 850
+
+  llm_prompt_extraction: |
+    <role>
+    Ты — юрист по IP, лицензированию и M&A.
+    Твоя задача — точно извлечь из текста:
+    1) передаваемость лицензии аффилированным лицам;
+    2) передаваемость при M&A / реорганизации;
+    3) поведение лицензии при смене контроля (CoC);
+    4) необходимость согласия лицензиара.
+
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ предполагай разрешение или запрет передачи,
+      если они не указаны явно.
+    - НЕ анализируй тип, срок, территорию и field of use —
+      это задача ip_license_scope_and_usage.
+    - Если информация отсутствует — используй "unclear"
+      или "not_addressed".
+    </role>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни в reason.
+    - "non-transferable" без исключений = запрет передачи в любом
+      сценарии, включая M&A.
+    - "deemed assignment" при CoC = смена контроля считается
+      уступкой лицензии и требует согласия или прекращает её.
+    - Affiliate carve-out = передача аффилированным лицам без
+      согласия разрешена.
+    </context_rules>
+
+    <task>
+    Заполни только следующие поля:
+    - license_transfer_display
+    - is_transferable_to_affiliates
+    - is_transferable_on_mna
+    - change_of_control_treatment
+    - consent_requirement
+    - reason
+    </task>
+
+    <instructions>
+    Шаг 1 — ПЕРЕДАЧА АФФИЛИРОВАННЫМ ЛИЦАМ
+
+    Заполни "is_transferable_to_affiliates".
+
+    Значения:
+    - "yes" — передача аффилированным лицам / intra-group
+      прямо разрешена без дополнительного согласия.
+    - "no" — передача аффилированным лицам требует согласия
+      или прямо запрещена.
+    - "not_addressed" — вопрос не урегулирован.
+    - "unclear" — нельзя определить.
+
+    Шаг 2 — ПЕРЕДАЧА ПРИ M&A / РЕОРГАНИЗАЦИИ
+
+    Заполни "is_transferable_on_mna".
+
+    Значения:
+    - "yes" — передача при M&A / merger / acquisition /
+      reorganization / successor прямо разрешена.
+    - "conditional" — разрешена при выполнении условий
+      (уведомление, согласие, ограничения).
+    - "no" — передача при M&A запрещена / требует согласия
+      лицензиара без гарантий его получения.
+    - "not_addressed" — вопрос не урегулирован.
+    - "unclear" — нельзя определить.
+
+    Шаг 3 — ПОВЕДЕНИЕ ЛИЦЕНЗИИ ПРИ CoC
+
+    Заполни "change_of_control_treatment".
+
+    Значения:
+    - "survives" — лицензия сохраняется при CoC
+      без условий или только с уведомлением.
+    - "consent_required" — CoC требует согласия лицензиара.
+    - "terminable" — лицензиар вправе прекратить лицензию
+      при CoC.
+    - "prohibited_assignment" — CoC = запрещённая уступка
+      (deemed assignment).
+    - "not_addressed" — CoC не урегулирован.
+    - "unclear" — нельзя определить.
+
+    Шаг 4 — ТРЕБОВАНИЕ СОГЛАСИЯ
+
+    Заполни "consent_requirement".
+
+    Значения:
+    - "always_required" — согласие лицензиара нужно
+      при любой передаче.
+    - "required_for_mna_only" — согласие нужно только
+      при M&A, но не при передаче аффилированным лицам.
+    - "not_required" — согласие не требуется.
+    - "not_addressed" — вопрос не урегулирован.
+    - "unclear" — нельзя определить.
+
+    Шаг 5 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
+
+    Заполни "license_transfer_display".
+
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
+
+    Возможные состояния:
+    1. Конкретные данные:
+       "Non-transferable; CoC — прекращение; согласие лицензиара"
+    2. Разрешено с условиями:
+       "Аффилированные: да; M&A: с согласием; CoC не урегулирован"
+    3. Не урегулировано:
+       "Передаваемость не урегулирована; CoC не урегулирован"
+    4. Не удалось определить:
+       "Не удалось определить условия передачи лицензии"
+
+    Правила:
+    - Если все поля unclear:
+      "Не удалось определить условия передачи лицензии"
+    - Если всё not_addressed:
+      "Передаваемость не урегулирована; CoC не урегулирован"
+    - Иначе комбинируй через ";":
+      * is_transferable_to_affiliates (кратко, если значимо)
+      * is_transferable_on_mna (кратко)
+      * change_of_control_treatment (кратко)
+      * consent_requirement (если always_required)
+    - Не более 4 коротких фактов через ";".
+
+    Шаг 6 — КРАТКОЕ ОБОСНОВАНИЕ
+
+    Заполни "reason".
+
+    Правила:
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    </instructions>
+
+    <edge_cases>
+    - Non-transferable + CoC = запрещённая передача:
+      * is_transferable_on_mna = "no"
+      * change_of_control_treatment = "prohibited_assignment"
+      * consent_requirement = "always_required"
+
+    - Аффилированные разрешены, M&A — нет:
+      * is_transferable_to_affiliates = "yes"
+      * is_transferable_on_mna = "no"
+
+    - CoC требует только уведомления, не согласия:
+      * change_of_control_treatment = "survives"
+      * consent_requirement = "not_required"
+
+    - Ничего не урегулировано:
+      * is_transferable_to_affiliates = "not_addressed"
+      * is_transferable_on_mna = "not_addressed"
+      * change_of_control_treatment = "not_addressed"
+      * license_transfer_display =
+        "Передаваемость не урегулирована; CoC не урегулирован"
+
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * license_transfer_display =
+        "Не удалось определить условия передачи лицензии"
+    </edge_cases>
+
+    <output_expectations>
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (license_transfer_display, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "license_transfer_display": "Non-transferable; CoC — прекращение; согласие лицензиара",
+      "is_transferable_to_affiliates": "no",
+      "is_transferable_on_mna": "no",
+      "change_of_control_treatment": "terminable",
+      "consent_requirement": "always_required",
+      "reason": "..."
+    }
+    </output_expectations>
+
+  fields:
+    - name: "license_transfer_display"
+      type: "string"
+      presentation: "fact"
+      label: "Передаваемость и CoC"
+      description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
+
+    - name: "is_transferable_to_affiliates"
+      type: "string"
+      presentation: "signal"
+      description: "Передача аффилированным лицам"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "not_addressed"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "is_transferable_on_mna"
+      type: "string"
+      presentation: "signal"
+      description: "Передача при M&A / реорганизации"
+      allowed_values:
+        - "yes"
+        - "conditional"
+        - "no"
+        - "not_addressed"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "change_of_control_treatment"
+      type: "string"
+      presentation: "signal"
+      description: "Поведение лицензии при CoC"
+      allowed_values:
+        - "survives"
+        - "consent_required"
+        - "terminable"
+        - "prohibited_assignment"
+        - "not_addressed"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "consent_requirement"
+      type: "string"
+      presentation: "signal"
+      description: "Требование согласия лицензиара"
+      allowed_values:
+        - "always_required"
+        - "required_for_mna_only"
+        - "not_required"
+        - "not_addressed"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "reason"
+      type: "string"
+      presentation: "diagnostic"
+      description: "Обоснование"
+      display_in_grid: false
+
+  store_payload: true
+
+
+  

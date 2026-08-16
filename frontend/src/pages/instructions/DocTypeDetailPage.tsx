@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Copy, Eye, GitBranch, Plus } from "lucide-react";
+import { ArrowLeft, Copy, Eye, GitBranch, Plus, Archive } from "lucide-react";
 
 import {
   useDocTypeVersions,
@@ -16,11 +16,14 @@ import {
   useCloneInstructionDraft,
   useValidateInstructionDraft,
   usePublishInstructionDraft,
+  useArchiveInstructionVersion,
 } from "../../hooks/instructions/useInstructionVersions";
 import VersionStatusBadge from "../../components/instructions/VersionStatusBadge";
 import DraftEditForm from "../../components/instructions/DraftEditForm";
 import ValidationResultPanel from "../../components/instructions/ValidationResultPanel";
 import PublishConfirmDialog from "../../components/instructions/PublishConfirmDialog";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+
 import LoadingBlock from "../../components/ui/LoadingBlock";
 import EmptyState from "../../components/ui/EmptyState";
 import InlineAlert from "../../components/InlineAlert";
@@ -452,15 +455,18 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
   const cloneDraft = useCloneInstructionDraft();
   const validateDraft = useValidateInstructionDraft();
   const publishDraft = usePublishInstructionDraft();
+  const archiveVersion = useArchiveInstructionVersion();
 
   const [validationResult, setValidationResult] =
     useState<InstructionVersionValidationResponse | null>(null);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     setValidationResult(null);
     setActionError(null);
+    setShowArchiveDialog(false);
   }, [versionId]);
 
   useEffect(() => {
@@ -545,6 +551,18 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
     );
   }
 
+  const handleArchiveConfirm = async () => {
+    setActionError(null);
+    try {
+      await archiveVersion.mutateAsync({ versionId });
+      setShowArchiveDialog(false);
+      await refetch();
+    } catch {
+      setShowArchiveDialog(false);
+      setActionError("Не удалось архивировать версию. Попробуйте ещё раз.");
+    }
+  };
+
   const alerts = actionError ? (
     <InlineAlert tone="error" message={actionError} />
   ) : null;
@@ -567,42 +585,68 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                     : "Published-версия immutable. Создайте черновик на основе этой версии, чтобы внести изменения."}
                 </p>
               </div>
-              {hasAnyDraft ? (
+              <div className="flex shrink-0 items-center gap-2">
+                {hasAnyDraft ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onDraftCreated("__navigate_to_draft__")}
+                    leftIcon={<Eye className="h-3.5 w-3.5" />}
+                  >
+                    Открыть черновик
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void handleCloneDraft()}
+                    isLoading={cloneDraft.isPending}
+                    disabled={cloneDraft.isPending}
+                    leftIcon={<Copy className="h-3.5 w-3.5" />}
+                  >
+                    Создать черновик
+                  </Button>
+                )}
+
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => onDraftCreated("__navigate_to_draft__")}
-                  leftIcon={<Eye className="h-3.5 w-3.5" />}
-                  className="shrink-0"
+                  onClick={() => setShowArchiveDialog(true)}
+                  isLoading={archiveVersion.isPending}
+                  disabled={archiveVersion.isPending}
+                  leftIcon={<Archive className="h-3.5 w-3.5" />}
                 >
-                  Открыть черновик
+                  Архивировать
                 </Button>
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => void handleCloneDraft()}
-                  isLoading={cloneDraft.isPending}
-                  disabled={cloneDraft.isPending}
-                  leftIcon={<Copy className="h-3.5 w-3.5" />}
-                  className="shrink-0"
-                >
-                  Создать черновик
-                </Button>
-              )}
+              </div>
             </div>
           </section>
         )}
 
         {isArchived && (
           <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-5">
-            <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
-              Archived-версия
-            </h3>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-              Эта версия выведена из активного использования. Можно просмотреть
-              YAML ниже.
-            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
+                  Archived-версия
+                </h3>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  Эта версия выведена из активного использования. При необходимости можно создать новый черновик на её основе.
+                </p>
+              </div>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleCloneDraft()}
+                isLoading={cloneDraft.isPending}
+                disabled={cloneDraft.isPending}
+                leftIcon={<Copy className="h-3.5 w-3.5" />}
+                className="shrink-0"
+              >
+                Восстановить как черновик
+              </Button>
+            </div>
           </section>
         )}
 
@@ -622,6 +666,17 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             </pre>
           </section>
         )}
+        <ConfirmDialog
+          open={showArchiveDialog}
+          title="Архивировать эту версию?"
+          description={`Инструкция "${version.name ?? version.doc_type_code}" перестанет быть доступной клиентам для нового использования. Исторические данные не изменятся.`}
+          confirmLabel="Архивировать"
+          cancelLabel="Отмена"
+          confirmVariant="danger"
+          isLoading={archiveVersion.isPending}
+          onConfirm={() => void handleArchiveConfirm()}
+          onCancel={() => setShowArchiveDialog(false)}
+        />
       </div>
     );
   }

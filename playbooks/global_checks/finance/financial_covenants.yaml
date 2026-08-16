@@ -209,6 +209,14 @@ extraction:
     и новые заимствования (кроме залогов), cure mechanism,
     cross-default.
 
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" из общих норм права.
+    - НЕ додумывай пороговые значения, которых нет в тексте.
+    - Если информация отсутствует — используй "no", "unclear"
+      или соответствующее состояние согласно allowed_values.
+    - Если текст неоднозначен — ставь "unclear".
+
     Не анализируй залоговые конструкции, negative pledge и
     ограничения на отчуждение активов — это задача чека
     security_and_encumbrances_general.
@@ -222,6 +230,17 @@ extraction:
     {context}
     </context>
 
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Если ни один фрагмент не содержит информации о финансовых
+      ковенантах — используй "no" или "unclear" согласно логике
+      каждого поля.
+    - Не используй информацию из definitions/преамбулы/приложений,
+      если они не содержат substantive условий по теме check.
+    </context_rules>
+
     <task>
     Заполни только следующие поля:
     - covenants_display
@@ -234,12 +253,6 @@ extraction:
     - has_cure_mechanism
     - has_cross_default
     - reason
-
-    Важно:
-    - negative pledge и залоговые ограничения не анализируй —
-      только запрет на привлечение нового долга как такового;
-    - не придумывай пороговые значения;
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -258,11 +271,12 @@ extraction:
     Заполни "covenant_thresholds_summary".
 
     Правила:
-    - Если пороги указаны: кратко через ";":
+    - Если пороги указаны — кратко через ";":
       "Net Debt/EBITDA ≤ 3.5x; ICR ≥ 2.0x"
     - Если ковенанты есть, но пороги не указаны:
       "Пороговые значения не указаны"
     - Если ковенантов нет: "Не применимо"
+    - Если неясно: "Не удалось определить"
 
     Шаг 3 — ТИП КОВЕНАНТОВ
 
@@ -294,9 +308,7 @@ extraction:
     НЕ negative pledge — их анализирует отдельный check.
 
     Значения:
-    - "yes" — ограничения на привлечение нового долга:
-      limitation on incurrence of indebtedness,
-      запрет на новые заимствования без согласия.
+    - "yes" — ограничения на привлечение нового долга.
     - "no" — нет.
     - "unclear" — неясно.
 
@@ -332,35 +344,36 @@ extraction:
 
     Заполни "covenants_display".
 
-    Базовые случаи:
-    - has_leverage_or_coverage_covenants = "no":
-      "Финансовых ковенантов не обнаружено"
-    - все поля unclear:
-      "Не удалось определить финансовые ковенанты"
+    Это итоговое поле для таблицы. Строй его ТОЛЬКО на основе
+    уже заполненных полей выше. Не добавляй информацию сверх них.
 
-    Если ковенанты есть — комбинируй через ";":
-    - тип ковенанта + пороги (если есть)
+    Возможные состояния:
+    1. Конкретные ковенанты с порогами:
+       "Maintenance: Net Debt/EBITDA ≤ 3.5x, ICR ≥ 2.0x;
+        запрет дивидендов; equity cure"
+    2. Ковенанты есть, пороги не указаны:
+       "Incurrence ковенанты; пороги не указаны; permitted indebtedness"
+    3. Ковенантов нет:
+       "Финансовых ковенантов не обнаружено"
+    4. Тема не урегулирована:
+       "Финансовых ковенантов не обнаружено"
+    5. Не удалось определить:
+       "Не удалось определить финансовые ковенанты"
+
+    Правила построения (если ковенанты есть):
+    - тип + пороги (если есть)
     - ограничения на дивиденды (если есть)
     - cure mechanism (если есть)
     - cross-default (если есть)
-
-    Примеры:
-    - "Maintenance ковенанты: Net Debt/EBITDA ≤ 3.5x, ICR ≥ 2.0x; запрет дивидендов; equity cure"
-    - "Incurrence ковенанты; пороги не указаны; permitted indebtedness"
-    - "Финансовых ковенантов не обнаружено"
-    - "Не удалось определить финансовые ковенанты"
-
-    Ограничение: не более 4 фактов через ";".
+    Не более 4 фактов через ";".
 
     Шаг 10 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: тип ковенантов, пороги, дивиденды, долг,
-      cure, cross-default.
-    - Приведи короткую цитату в кавычках.
+    - Первое предложение — краткий вывод по ковенантам.
+    - Второе — короткая цитата из текста (до 100 символов).
     </instructions>
 
     <edge_cases>
@@ -371,23 +384,42 @@ extraction:
     - "Поддерживать удовлетворительное финансовое состояние":
       * has_leverage_or_coverage_covenants = "unclear"
       * covenant_type = "unclear"
-
-    - Equity cure есть, но пороги жёсткие:
-      * has_cure_mechanism = "yes"
+      * covenant_thresholds_summary = "Не удалось определить"
 
     - Нет ковенантов:
       * has_leverage_or_coverage_covenants = "no"
       * covenant_type = "not_applicable"
+      * covenant_thresholds_summary = "Не применимо"
       * covenants_display = "Финансовых ковенантов не обнаружено"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
+      * covenant_thresholds_summary = "Не удалось определить"
       * covenants_display = "Не удалось определить финансовые ковенанты"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай в markdown-блоки (без ```).
+    - Не добавляй комментариев вне JSON.
+    - Значения allowed_values полей — строго из списка (на английском).
+    - Свободные текстовые поля (covenants_display,
+      covenant_thresholds_summary, reason) — на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "covenants_display": "...",
+      "has_leverage_or_coverage_covenants": "yes",
+      "covenant_type": "maintenance",
+      "covenant_thresholds_summary": "Net Debt/EBITDA ≤ 3.5x; ICR ≥ 2.0x",
+      "has_dividend_restrictions": "yes",
+      "has_new_debt_limitations": "no",
+      "has_baskets_or_exceptions": "yes",
+      "has_cure_mechanism": "yes",
+      "has_cross_default": "no",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -396,59 +428,71 @@ extraction:
       presentation: "fact"
       label: "Финансовые ковенанты"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "has_leverage_or_coverage_covenants"
       type: "string"
       presentation: "signal"
       description: "Ковенанты по коэффициентам"
       allowed_values: ["yes", "no", "unclear"]
+      display_in_grid: false
 
     - name: "covenant_type"
       type: "string"
       presentation: "signal"
       description: "Тип ковенантов"
       allowed_values: ["maintenance", "incurrence", "both", "not_applicable", "unclear"]
+      display_in_grid: false
 
     - name: "covenant_thresholds_summary"
       type: "string"
       presentation: "fact"
       label: "Пороговые значения"
       description: "Пороговые значения ковенантов"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "has_dividend_restrictions"
       type: "string"
       presentation: "signal"
       description: "Ограничения на дивиденды"
       allowed_values: ["yes", "no", "unclear"]
+      display_in_grid: false
 
     - name: "has_new_debt_limitations"
       type: "string"
       presentation: "signal"
       description: "Ограничения на новый долг (не залоги)"
       allowed_values: ["yes", "no", "unclear"]
+      display_in_grid: false
 
     - name: "has_baskets_or_exceptions"
       type: "string"
       presentation: "signal"
       description: "Baskets / permitted exceptions"
       allowed_values: ["yes", "no", "unclear"]
+      display_in_grid: false
 
     - name: "has_cure_mechanism"
       type: "string"
       presentation: "signal"
       description: "Cure period / equity cure"
       allowed_values: ["yes", "no", "unclear"]
+      display_in_grid: false
 
     - name: "has_cross_default"
       type: "string"
       presentation: "signal"
       description: "Cross-default / cross-acceleration"
       allowed_values: ["yes", "no", "unclear"]
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
-
+      display_in_grid: false
+      
   store_payload: true
 

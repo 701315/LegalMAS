@@ -215,6 +215,9 @@ function buildMatrixRow(meta: DDGridV1DocumentMetaDTO): DDGridV1MatrixRow {
     docType: meta.doc_type,
     status: meta.status,
     folderPath: meta.folder_path,
+    segmentId: meta.segment_id,
+    segmentType: meta.segment_type,
+    segmentTitle: meta.segment_title,
     instructionSnapshot: meta.instruction_snapshot ?? null,
     meta,
   };
@@ -227,27 +230,29 @@ function buildMatrixRow(meta: DDGridV1DocumentMetaDTO): DDGridV1MatrixRow {
 function computeStats(
   documents: DDGridV1DocumentMetaDTO[],
   runtimeColumns: DDGridV1RuntimeColumn[],
-  cellValues: Record<string, Record<string, DDGridV1CellValueDTO>>,
+  cellValues: Record<string, Record<string, Record<string, DDGridV1CellValueDTO>>>,
   checksCount: number,
 ): DDGridV1Stats {
   let definedCount = 0;
   let notDefinedCount = 0;
   let errorCount = 0;
 
-  for (const docCells of Object.values(cellValues ?? {})) {
-    for (const cell of Object.values(docCells ?? {})) {
-      switch (cell.cell_state) {
-        case "defined":
-          definedCount += 1;
-          break;
-        case "not_defined":
-          notDefinedCount += 1;
-          break;
-        case "error":
-          errorCount += 1;
-          break;
-        default:
-          break;
+  for (const segmentCells of Object.values(cellValues ?? {})) {
+    for (const columnCells of Object.values(segmentCells ?? {})) {
+      for (const cell of Object.values(columnCells ?? {})) {
+        switch (cell.cell_state) {
+          case "defined":
+            definedCount += 1;
+            break;
+          case "not_defined":
+            notDefinedCount += 1;
+            break;
+          case "error":
+            errorCount += 1;
+            break;
+          default:
+            break;
+        }
       }
     }
   }
@@ -378,27 +383,26 @@ export function selectDDGridV1DerivedModel(
 export function resolveDDGridV1CellView(
   row: DDGridV1MatrixRow,
   runtimeColumn: DDGridV1RuntimeColumn,
-  cellValues: Record<string, Record<string, DDGridV1CellValueDTO>>,
+  cellValues: Record<string, Record<string, Record<string, DDGridV1CellValueDTO>>>,
 ): DDGridV1CellView {
   const cellKey = `${row.rowId}::${runtimeColumn.runtimeKey}`;
+  
+  // 3-уровневый lookup: doc_id → segment_id → column_id
+  // segment_id берём из row, для single-segment = "_default"
+  const segmentId = row.segmentId ?? "_default";
   const perDoc = cellValues[row.documentId];
-  const rawCell = perDoc ? perDoc[runtimeColumn.column.column_id] ?? null : null;
+  const perSegment = perDoc ? perDoc[segmentId] : undefined;
+  const rawCell = perSegment ? perSegment[runtimeColumn.column.column_id] ?? null : null;
 
   let effectiveState: DDGridV1CellState;
   let effectiveRawCell: DDGridV1CellValueDTO | null = rawCell;
 
   if (rawCell) {
     effectiveState = rawCell.cell_state;
-  } else if (
-    runtimeColumn.applicableDocTypeCodes.length > 0 &&
-    (row.docType === null ||
-      !runtimeColumn.applicableDocTypeCodes.includes(row.docType))
-  ) {
-    // Документ без doc_type не может быть applicable ни к одной
-    // docType-scoped колонке — по определению applicableDocTypeCodes.
-    effectiveState = "not_applicable";
-    effectiveRawCell = null;
   } else {
+    // Применимость check гарантируется планировщиком на бэкенде.
+    // Если plan_item отсутствует — ячейка не создаётся.
+    // Для docType-scoped колонок которые не применимы к doc_type — not_executed.
     effectiveState = "not_executed";
     effectiveRawCell = null;
   }
@@ -438,13 +442,16 @@ export function resolveDDGridV1CellView(
  * Никогда не бросает.
  */
 export function getDDGridV1DrawerContent(
-  drawerContents: Record<string, Record<string, DDGridV1DrawerContentDTO>>,
+  drawerContents: Record<string, Record<string, Record<string, DDGridV1DrawerContentDTO>>>,
   documentId: string,
+  segmentId: string,
   checkId: string,
 ): DDGridV1DrawerContentDTO | null {
   const perDoc = drawerContents[documentId];
   if (!perDoc) return null;
-  return perDoc[checkId] ?? null;
+  const perSegment = perDoc[segmentId];
+  if (!perSegment) return null;
+  return perSegment[checkId] ?? null;
 }
 
 

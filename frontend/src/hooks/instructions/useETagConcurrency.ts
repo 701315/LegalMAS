@@ -102,10 +102,18 @@ export function useETagConcurrency(
         return data.item;
       } catch (err) {
         const apiErr = err as ApiError;
+        const rawDetail: unknown = apiErr.detail;
+        const errorMessage =
+          typeof rawDetail === "string"
+            ? rawDetail
+            : typeof rawDetail === "object" &&
+                rawDetail !== null &&
+                "message" in rawDetail
+              ? String((rawDetail as Record<string, unknown>).message)
+              : "Не удалось загрузить версию инструкции.";
         setConcurrencyState({
           status: "error",
-          errorMessage:
-            apiErr.detail ?? "Не удалось загрузить версию инструкции.",
+          errorMessage,
         });
         return null;
       }
@@ -162,8 +170,15 @@ export function useETagConcurrency(
           return false;
         }
 
+        const rawDetail: unknown = apiErr.detail;
         const message =
-          apiErr.detail ?? "Не удалось сохранить черновик инструкции.";
+          typeof rawDetail === "string"
+            ? rawDetail
+            : typeof rawDetail === "object" &&
+                rawDetail !== null &&
+                "message" in rawDetail
+              ? String((rawDetail as Record<string, unknown>).message)
+              : "Не удалось сохранить черновик инструкции.";
         setConcurrencyState({ status: "error", errorMessage: message });
         options?.onError?.(message);
         return false;

@@ -160,19 +160,19 @@ export interface DDGridV1GlobalGroupNode {
  * через resolveCellView() для (row × runtimeColumn) пары.
  */
 export interface DDGridV1MatrixRow {
-  /** Стабильный row id для ag-grid и React. */
   rowId: string;
-
   documentId: string;
   filename: string;
-  /** null если документ не классифицирован (doc_type не определён). */
   docType: string | null;
   status: string;
   folderPath: string | null;
-
+  
+  // Segment-aware fields
+  segmentId: string | null;
+  segmentType: string | null;
+  segmentTitle: string | null;
+  
   instructionSnapshot: DDGridV1InstructionSnapshotDTO | null;
-
-  /** Исходный DTO (для drawer и служебных колонок). */
   meta: DDGridV1DocumentMetaDTO;
 }
 
@@ -255,10 +255,12 @@ export interface DDGridV1DerivedModel {
    * Быстрый lookup drawer-контента по (documentId, checkId).
    * Хранит ссылку на исходный DTO без интерпретации.
    */
-  drawerContents: Record<string, Record<string, DDGridV1DrawerContentDTO>>;
+  // 3-уровневая структура: doc_id → segment_id → check_id
+  drawerContents: Record<string, Record<string, Record<string, DDGridV1DrawerContentDTO>>>;
 
   /** Cell values как в response, для быстрого lookup по (documentId, columnId). */
-  cellValues: Record<string, Record<string, DDGridV1CellValueDTO>>;
+  // 3-уровневая структура: doc_id → segment_id → column_id
+  cellValues: Record<string, Record<string, Record<string, DDGridV1CellValueDTO>>>;
 
   /** Сводная статистика для header. */
   stats: DDGridV1Stats;
@@ -292,4 +294,37 @@ export interface DDGridV1Stats {
   errorCellsCount: number;
 }
 
+// =============================================================
+// Legacy-compatible types for selection tracking
+// =============================================================
 
+/**
+ * Один элемент selection в review grid.
+ * 
+ * Сохранён для совместимости с AG Grid selection state.
+ * Не содержит legacy данных — только идентификаторы.
+ */
+export interface ReviewSelectionItem {
+  /**
+   * Stable row identifier for AG Grid.
+   *
+   * Matrix mode:  rowId === documentId
+   * List mode:    rowId === `${documentId}::${checkId}` (flat finding key)
+   *
+   * Do not parse this string — use matrixRowId and checkId fields instead.
+   */
+  rowId: string;
+
+  /**
+   * Original matrix row id (document-level).
+   * Populated in list mode; undefined in matrix mode.
+   */
+  matrixRowId?: string | null;
+
+  /**
+   * Exact check id this selection item refers to.
+   * Populated in list mode; undefined in matrix mode.
+   * When present, QC helpers match by (matrixRowId + checkId) instead of rowId.
+   */
+  checkId?: string | null;
+}

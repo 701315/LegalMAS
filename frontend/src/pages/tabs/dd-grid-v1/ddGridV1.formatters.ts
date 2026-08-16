@@ -27,7 +27,6 @@ import type { DDGridV1LocationAvailability } from "./ddGridV1.types";
  * Централизованы, чтобы UI и export/QC потенциально могли переиспользовать.
  */
 export const DD_GRID_V1_FALLBACK_LABELS = {
-  not_applicable: "н/о",
   error: "⚠ Ошибка",
 } as const;
 
@@ -76,9 +75,7 @@ export function formatDDGridV1CellText(
   column: DDGridV1ColumnDTO,
 ): string {
   // Нестандартные состояния — не читаем raw/display, возвращаем fallback.
-  if (cellState === "not_applicable") {
-    return DD_GRID_V1_FALLBACK_LABELS.not_applicable;
-  }
+// not_applicable удалён из типа DDGridV1CellState
   if (cellState === "error") {
     return DD_GRID_V1_FALLBACK_LABELS.error;
   }
@@ -194,7 +191,6 @@ export function classifyDDGridV1LocationAvailability(input: {
 export type DDGridV1CellTone =
   | "defined"
   | "muted"
-  | "not_applicable"
   | "error";
 
 export function getDDGridV1CellTone(state: DDGridV1CellState): DDGridV1CellTone {
@@ -204,8 +200,6 @@ export function getDDGridV1CellTone(state: DDGridV1CellState): DDGridV1CellTone 
     case "not_defined":
     case "not_executed":
       return "muted";
-    case "not_applicable":
-      return "not_applicable";
     case "error":
       return "error";
     default:

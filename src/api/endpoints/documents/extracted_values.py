@@ -2,6 +2,8 @@
 
 """
 Document extracted values endpoints.
+
+Прямое чтение из check_results — без aggregator.
 """
 
 from __future__ import annotations
@@ -18,10 +20,65 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.run_repo import RunRepository
 from db.repositories.runner_repo import RunnerRepository
 from db.session import get_db
-from services.export.aggregator import aggregate_results
-from services.export.models import StructuredValueRow
 
 router = APIRouter()
+
+
+def _extract_structured_values_from_check_results(
+    check_results: list[dict],
+    document_id: str,
+) -> list[ExtractedValue]:
+    """
+    Извлечь structured values напрямую из check_results для одного документа.
+    
+    Аналог aggregate_results().structured_value_rows — но без агрегатора.
+    """
+    extracted_values: list[ExtractedValue] = []
+    
+    for cr in check_results:
+        if cr.get("document_id") != document_id:
+            continue
+        
+        structured_data = cr.get("structured_data") or {}
+        if not structured_data:
+            continue
+        
+        for field_name, field_value in structured_data.items():
+            # Нормализация значения
+            if isinstance(field_value, dict) and "value" in field_value:
+                raw_display_value = field_value.get("value")
+            else:
+                raw_display_value = field_value
+            
+            if raw_display_value is None or str(raw_display_value) in ("not_found", "not_defined", "None", ""):
+                continue
+            
+            display_value = str(raw_display_value)
+            
+            # Infer format
+            name_lower = field_name.lower()
+            if any(x in name_lower for x in ("amount", "price", "sum", "cost")):
+                field_format = "money"
+            elif any(x in name_lower for x in ("date", "expiry", "term")):
+                field_format = "date"
+            elif any(x in name_lower for x in ("party", "parties", "entity")):
+                field_format = "entity_name"
+            else:
+                field_format = "text"
+            
+            extracted_values.append(
+                ExtractedValue(
+                    check_id=cr.get("check_id", ""),
+                    check_name=cr.get("check_name", ""),
+                    field_name=field_name,
+                    field_value=display_value,
+                    field_format=field_format,
+                    page=cr.get("page"),
+                    clause_uid=cr.get("clause_uid", ""),
+                )
+            )
+    
+    return extracted_values
 
 
 @router.get(
@@ -50,45 +107,16 @@ async def get_document_extracted_values(
     run = await run_repo.get_latest_for_deal(doc.deal_id)
 
     if not run:
-        rows: list[StructuredValueRow] = []
+        extracted_values: list[ExtractedValue] = []
     else:
         runner_repo = RunnerRepository(db)
-        documents_dict = await runner_repo.load_documents_for_run(run.id)
         check_results = await runner_repo.load_check_results_for_run(run.id)
-
-        deal_name = ""
-
-        agg = aggregate_results(
-            deal_id=str(doc.deal_id),
-            deal_name=deal_name,
-            run_id=str(run.id),
-            check_results=check_results,
-            documents=documents_dict,
+        
+        # Прямое извлечение structured values — без aggregator
+        extracted_values = _extract_structured_values_from_check_results(
+            check_results,
+            str(doc_id),
         )
-
-        rows = [r for r in agg.structured_value_rows if r.document_id == str(doc_id)]
-
-    if not rows:
-        return DocumentExtractedValuesResponse(
-            document_id=str(doc_id),
-            filename=doc.filename,
-            doc_type=doc.doc_type,
-            extracted_values=[],
-            total_extracted=0,
-        )
-
-    extracted_values = [
-        ExtractedValue(
-            check_id=r.check_id,
-            check_name=r.check_name,
-            field_name=r.field_name,
-            field_value=r.field_value,
-            field_format=r.field_format,
-            page=r.page,
-            clause_uid=r.clause_uid or "",
-        )
-        for r in rows
-    ]
 
     return DocumentExtractedValuesResponse(
         document_id=str(doc_id),
@@ -97,3 +125,6 @@ async def get_document_extracted_values(
         extracted_values=extracted_values,
         total_extracted=len(extracted_values),
     )
+
+
+    

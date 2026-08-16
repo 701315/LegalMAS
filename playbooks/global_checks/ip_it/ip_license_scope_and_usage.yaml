@@ -1,0 +1,422 @@
+id: "ip_license_scope_and_usage"
+name: "Условия и объём лицензии"
+group: "IP"
+description: >
+  Анализирует параметры предоставляемой лицензии на ПО, технологии
+  и иные IP-права: тип лицензии (exclusive / non-exclusive / sole),
+  территорию, срок, field of use и функциональные ограничения,
+  право на сублицензирование.
+
+  Передаваемость лицензии при внутригрупповых передачах, M&A
+  и поведение при смене контроля анализируются отдельным чеком
+  ip_license_transferability_and_change_of_control.
+
+doc_types: []
+
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+ui_mode: "field_extraction"
+
+rules:
+  keyword_mode: any
+
+  keywords:
+    high:
+      - "(?i)\\blicen[cs]e\\b"
+      - "(?i)лицензи[яеию]"
+      - "(?i)license\\s+agreement"
+      - "(?i)лицензионн(ое|ого)\\s+соглашени"
+      - "(?i)technology\\s+license"
+      - "(?i)software\\s+license"
+      - "(?i)non[-\\s]?exclusive\\s+license"
+      - "(?i)exclusive\\s+license"
+      - "(?i)sole\\s+license"
+      - "(?i)исключительн(ая|ого)\\s+лицензи"
+      - "(?i)неисключительн(ая|ого)\\s+лицензи"
+      - "(?i)term\\s+of\\s+(the\\s+)?license"
+      - "(?i)срок\\s+действия\\s+лицензи"
+      - "(?i)perpetual\\s+license"
+      - "(?i)бессрочн(ая|ого)\\s+лицензи"
+      - "(?i)worldwide\\s+license"
+      - "(?i)field\\s+of\\s+use"
+      - "(?i)internal\\s+use\\s+only"
+      - "(?i)только\\s+для\\s+внутреннего\\s+использовани"
+      - "(?i)no\\s+right\\s+to\\s+(sublicense|resell|distribute)"
+      - "(?i)reverse\\s+engineering"
+      - "(?i)sublicen[cs]e"
+      - "(?i)сублицензи[яеию]"
+
+    medium:
+      - "(?i)auto(matic)?\\s+renewal[\\s\\S]{0,20}license"
+      - "(?i)автоматическ[оея]\\s+продлени[ея]\\s+лицензи"
+      - "(?i)licensor\\s+may\\s+terminate"
+      - "(?i)terminate\\s+(the\\s+)?license"
+      - "(?i)прекращени[ея]\\s+лицензи"
+
+    low:
+      - "(?i)exclusive\\s+license"
+      - "(?i)non[-\\s]?exclusive"
+      - "(?i)field\\s+of\\s+use"
+      - "(?i)sublicen[cs]e"
+      - "(?i)perpetual\\s+license"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 700
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  retrieval_profile: "license_scope_check"
+  context_k: 5
+  max_chunks: 10
+
+  retrieval_query: >
+    лицензия лицензионное соглашение тип лицензии исключительная неисключительная
+    срок лицензии field of use ограничения использования сублицензия
+
+  boost_keywords:
+    - "license"
+    - "лицензия"
+    - "non-exclusive license"
+    - "exclusive license"
+    - "sole license"
+    - "term of the license"
+    - "срок действия лицензии"
+    - "perpetual license"
+    - "бессрочная лицензия"
+    - "worldwide"
+    - "field of use"
+    - "internal use only"
+    - "только для внутреннего использования"
+    - "sublicense"
+    - "сублицензия"
+    - "no right to sublicense"
+    - "reverse engineering"
+
+  negative_keywords:
+    - "change of control"
+    - "смена контроля"
+    - "assignment"
+    - "transfer of license"
+    - "non-transferable"
+    - "условия оплаты"
+    - "форс-мажор"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+
+  excluded_unit_types:
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "rights"
+    - "limitations"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
+  rerank: true
+  filters: {}
+
+conditional: null
+
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "annex"
+    - "appendix"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 900
+
+  llm_prompt_extraction: |
+    <role>
+    Ты — юрист по IP и лицензированию.
+    Твоя задача — точно извлечь из текста параметры лицензии:
+    тип, территорию, срок, ограничения field of use,
+    право на сублицензирование.
+
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ предполагай тип лицензии, если он не указан явно.
+    - НЕ анализируй передаваемость лицензии, M&A и CoC —
+      это задача отдельного чека
+      ip_license_transferability_and_change_of_control.
+    - Если информация отсутствует — используй "unclear".
+    </role>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни в reason.
+    - "Exclusive" = только один лицензиат, licensor не может
+      выдавать другим. "Sole" = licensor тоже может использовать.
+      "Non-exclusive" = без ограничений для licensor.
+    - Field of use restrictions: "internal use only", запрет SaaS /
+      resale / embedding / modification / reverse engineering.
+    - Сублицензирование: только если есть явное право.
+    </context_rules>
+
+    <task>
+    Заполни только следующие поля:
+    - license_scope_display
+    - license_type
+    - territory_scope
+    - term_type
+    - term_value
+    - field_of_use_restrictions
+    - has_sublicense_rights
+    - reason
+    </task>
+
+    <instructions>
+    Шаг 1 — ТИП ЛИЦЕНЗИИ
+
+    Заполни "license_type".
+
+    Значения:
+    - "exclusive" — исключительная лицензия.
+    - "non_exclusive" — неисключительная лицензия.
+    - "sole" — единоличная (sole) лицензия.
+    - "unclear" — тип прямо не указан.
+
+    Шаг 2 — ТЕРРИТОРИЯ
+
+    Заполни "territory_scope".
+
+    Значения:
+    - "worldwide" — по всему миру.
+    - "limited" — ограничена: конкретными странами, регионами.
+    - "unclear" — нельзя определить.
+
+    Шаг 3 — СРОК ЛИЦЕНЗИИ
+
+    Заполни "term_type" и "term_value".
+
+    Значения для term_type:
+    - "fixed_term" — фиксированный конкретный срок.
+    - "perpetual" — бессрочная.
+    - "tied_to_master_agreement" — пока действует основной договор.
+    - "auto_renewable" — с автопродлением.
+    - "unclear" — нельзя определить.
+
+    Правила для term_value:
+    - fixed_term: "5 лет", "до 31.12.2028"
+    - perpetual: "Бессрочная"
+    - tied_to_master_agreement: "Срок основного договора"
+    - auto_renewable: "Автопродление"
+    - unclear: "Не удалось определить"
+
+    Шаг 4 — FIELD OF USE
+
+    Заполни "field_of_use_restrictions".
+
+    Значения:
+    - "yes" — есть ограничения: internal use only,
+      запрет SaaS / resale / white-label / embedding /
+      modification / reverse engineering; ограничение
+      по продукту / сегменту.
+    - "no" — существенных ограничений нет.
+    - "unclear" — нельзя определить.
+
+    Шаг 5 — СУБЛИЦЕНЗИРОВАНИЕ
+
+    Заполни "has_sublicense_rights".
+
+    Значения:
+    - "yes" — есть явное право на сублицензирование.
+    - "no" — сублицензирование запрещено или не предусмотрено.
+    - "unclear" — нельзя определить.
+
+    Шаг 6 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
+
+    Заполни "license_scope_display".
+
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
+
+    Возможные состояния:
+    1. Конкретные параметры:
+       "Non-exclusive; worldwide; бессрочная; internal use only"
+    2. Частичные данные:
+       "Exclusive; ограниченная территория; срок не удалось определить"
+    3. Не удалось определить:
+       "Не удалось определить условия лицензии"
+
+    Правила:
+    - Если все поля unclear:
+      "Не удалось определить условия лицензии"
+    - Иначе комбинируй через ";":
+      * license_type (кратко)
+      * territory_scope (если "limited": "ограниченная территория")
+      * term_value
+      * если field_of_use_restrictions = "yes": "ограничения use"
+      * если has_sublicense_rights = "no": "без сублицензии"
+    - Не более 4 коротких фактов через ";".
+
+    Шаг 7 — КРАТКОЕ ОБОСНОВАНИЕ
+
+    Заполни "reason".
+
+    Правила:
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    </instructions>
+
+    <edge_cases>
+    - Internal-use-only:
+      * field_of_use_restrictions = "yes"
+
+    - Срок = срок основного договора:
+      * term_type = "tied_to_master_agreement"
+      * term_value = "Срок основного договора"
+
+    - Тип не указан:
+      * license_type = "unclear"
+
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * term_value = "Не удалось определить"
+      * license_scope_display =
+        "Не удалось определить условия лицензии"
+    </edge_cases>
+
+    <output_expectations>
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (license_scope_display, term_value, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "license_scope_display": "Non-exclusive; worldwide; бессрочная; internal use only",
+      "license_type": "non_exclusive",
+      "territory_scope": "worldwide",
+      "term_type": "perpetual",
+      "term_value": "Бессрочная",
+      "field_of_use_restrictions": "yes",
+      "has_sublicense_rights": "no",
+      "reason": "..."
+    }
+    </output_expectations>
+
+  fields:
+    - name: "license_scope_display"
+      type: "string"
+      presentation: "fact"
+      label: "Условия лицензии"
+      description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
+
+    - name: "license_type"
+      type: "string"
+      presentation: "signal"
+      description: "Тип лицензии"
+      allowed_values:
+        - "exclusive"
+        - "non_exclusive"
+        - "sole"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "territory_scope"
+      type: "string"
+      presentation: "signal"
+      description: "Территория действия лицензии"
+      allowed_values:
+        - "worldwide"
+        - "limited"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "term_type"
+      type: "string"
+      presentation: "signal"
+      description: "Тип срока лицензии"
+      allowed_values:
+        - "fixed_term"
+        - "perpetual"
+        - "tied_to_master_agreement"
+        - "auto_renewable"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "term_value"
+      type: "string"
+      presentation: "fact"
+      label: "Срок лицензии"
+      description: "Конкретный срок лицензии"
+      display_in_grid: true
+      display_priority: 2
+
+    - name: "field_of_use_restrictions"
+      type: "string"
+      presentation: "signal"
+      description: "Ограничения field of use"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "has_sublicense_rights"
+      type: "string"
+      presentation: "signal"
+      description: "Право на сублицензирование"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "reason"
+      type: "string"
+      presentation: "diagnostic"
+      description: "Обоснование"
+      display_in_grid: false
+
+  store_payload: true
+
+
+  

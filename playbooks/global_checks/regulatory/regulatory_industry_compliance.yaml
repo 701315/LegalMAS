@@ -195,15 +195,22 @@ extraction:
 
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по регуляторному комплаенсу.
+    Ты — юрист по регуляторному и отраслевому комплаенсу.
     Твоя задача — точно извлечь из текста:
     1) наличие и характер compliance-обязательств;
-    2) упоминания регуляторных событий (расследования, штрафы);
+    2) упоминания регуляторных событий (расследования, штрафы, проверки);
     3) заверения об отсутствии нарушений;
     4) наличие remedial-мер;
     5) отраслевую принадлежность.
 
-    Не придумывай отрасли без явных данных.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ придумывай отрасли без явных данных.
+    - НЕ считай общую фразу "compliance with applicable laws"
+      отраслевым регулированием без специальной конкретики.
+    - Если информация отсутствует — используй "none", "no",
+      "none_mentioned" или "unclear" согласно allowed_values.
+    - Если текст неоднозначен — используй "unclear".
     </role>
 
     <context>
@@ -211,6 +218,18 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и кратко объясни это в reason.
+    - Отрасль считай идентифицированной только если прямо есть
+      указание на сферу деятельности, профильный регулятор
+      или специальный отраслевой режим.
+    - Если есть только общие compliance-обязательства без отрасли,
+      это "general_only", а identified_industries = "Не применимо".
+    - Не подменяй regulatory events обычными коммерческими спорами.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -221,9 +240,6 @@ extraction:
     - has_no_violations_representations
     - has_remedial_measures
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -232,95 +248,110 @@ extraction:
     Заполни "has_compliance_obligations".
 
     Значения:
-    - "industry_specific" — специальные отраслевые требования:
-      финансовое регулирование, медицина / фарма, телеком,
-      энергетика, образование, защита данных; ссылки на
-      конкретных регуляторов (ЦБ, SEC, FDA, FCC, ФАС и др.).
-    - "general_only" — только "compliance with all applicable
-      laws" без отраслевой конкретики.
-    - "none" — обязательства отсутствуют.
-    - "unclear" — неясно.
+    - "industry_specific" — есть специальные отраслевые требования:
+      финансы, медицина / фарма, телеком, энергетика,
+      образование, защита данных и т.п.
+    - "general_only" — только общая обязанность соблюдать
+      применимое законодательство без отраслевой конкретики.
+    - "none" — compliance-обязательства не выявлены.
+    - "unclear" — нельзя надёжно определить.
 
     Шаг 2 — ИДЕНТИФИКАЦИЯ ОТРАСЛЕЙ
 
     Заполни "identified_industries".
 
     Правила:
-    - Кратко через ";": "финансы; медицина; защита данных"
-    - Если нет: "Не применимо"
-    - Если неясно: "Не определено"
+    - Кратко через ";", не более 3 отраслей:
+      "финансы; медицина; защита данных"
+    - Если отрасли не определены и обязательства только общие:
+      "Не применимо"
+    - Если отрасль нельзя определить:
+      "Не определено"
 
     Шаг 3 — РЕГУЛЯТОРНЫЕ СОБЫТИЯ
 
     Заполни "mentions_regulatory_events".
 
     Значения:
-    - "yes" — упоминаются: проверки, расследования,
+    - "yes" — упоминаются проверки, расследования,
       предписания, штрафы, enforcement actions, settlement,
-      consent orders.
-    - "none_mentioned" — явно указано их отсутствие.
-    - "no" — не упоминаются.
-    - "unclear" — неясно.
+      consent orders и т.п.
+    - "none_mentioned" — прямо указано их отсутствие.
+    - "no" — события не упоминаются.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — ЗАВЕРЕНИЯ ОБ ОТСУТСТВИИ НАРУШЕНИЙ
 
     Заполни "has_no_violations_representations".
 
     Значения:
-    - "yes" — есть: no material violations, no ongoing /
-      pending investigations, отсутствие существенных штрафов.
+    - "yes" — есть формулы вроде no material violations,
+      no ongoing/pending investigations, отсутствие существенных штрафов.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 5 — REMEDIAL-МЕРЫ
 
     Заполни "has_remedial_measures".
 
     Значения:
-    - "yes" — упоминаются remedial actions, corrective measures,
-      устранение нарушений, settlement выполнен.
+    - "yes" — есть remedial actions, corrective measures,
+      устранение нарушений, исполнение предписаний.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 6 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "regulatory_compliance_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовый случай:
-    - все поля unclear:
+    Возможные состояния:
+    1. Есть отраслевой контур:
+       "Финансы; отраслевые требования; заверения об отсутствии нарушений"
+    2. Только общий комплаенс:
+       "Только общие compliance-обязательства"
+    3. Есть регуляторные события:
+       "Медицина; отраслевые требования; регуляторные события упомянуты"
+    4. Нет данных:
+       "Не удалось определить отраслевой комплаенс"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить отраслевой комплаенс"
-
-    Если данные есть — комбинируй через ";":
-    - identified_industries (если определены)
-    - has_compliance_obligations (industry_specific / general_only)
-    - mentions_regulatory_events (если "yes")
-    - has_no_violations_representations (если "yes": "нет нарушений")
-    - has_remedial_measures (если "yes": "remedial план")
-
-    Примеры:
-    - "Финансы; отраслевые требования ЦБ; нет нарушений (заверения)"
-    - "Медицина; только общие compliance-обязательства; расследования без статуса"
-    - "Телеком; нет отраслевых требований; нет заверений"
-    - "Не удалось определить отраслевой комплаенс"
-
-    Ограничение: не более 4 фактов через ";".
+    - Если has_compliance_obligations = "none"
+      и mentions_regulatory_events in ["no", "none_mentioned"]
+      и has_no_violations_representations = "no":
+      "Отраслевой регуляторный контур не выявлен"
+    - Если has_compliance_obligations = "general_only"
+      и identified_industries = "Не применимо":
+      "Только общие compliance-обязательства"
+    - Иначе комбинируй через ";":
+      * identified_industries, если это не "Не применимо"
+        и не "Не определено"
+      * "отраслевые требования", если has_compliance_obligations = "industry_specific"
+      * "только общие compliance-обязательства", если has_compliance_obligations = "general_only"
+      * "регуляторные события упомянуты", если mentions_regulatory_events = "yes"
+      * "заверения об отсутствии нарушений", если has_no_violations_representations = "yes"
+      * "remedial-меры", если has_remedial_measures = "yes"
+    - Не более 4 коротких фактов через ";".
 
     Шаг 7 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: отрасль, compliance, события, заверения.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
     - "Соблюдает применимое законодательство" без конкретики:
       * has_compliance_obligations = "general_only"
+      * identified_industries = "Не применимо"
 
     - Расследования упомянуты, статус неясен, remedial нет:
       * mentions_regulatory_events = "yes"
@@ -328,20 +359,35 @@ extraction:
 
     - "No material violations" + "no ongoing investigations":
       * has_no_violations_representations = "yes"
-
-    - Финансы, нет отраслевых требований, нет заверений:
-      * has_compliance_obligations = "general_only"
-      * has_no_violations_representations = "no"
+      * mentions_regulatory_events = "none_mentioned"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
+      * identified_industries = "Не определено"
       * regulatory_compliance_display =
         "Не удалось определить отраслевой комплаенс"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (regulatory_compliance_display, identified_industries, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "regulatory_compliance_display": "Финансы; отраслевые требования; заверения об отсутствии нарушений",
+      "has_compliance_obligations": "industry_specific",
+      "identified_industries": "финансы",
+      "mentions_regulatory_events": "none_mentioned",
+      "has_no_violations_representations": "yes",
+      "has_remedial_measures": "no",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -350,6 +396,8 @@ extraction:
       presentation: "fact"
       label: "Отраслевой комплаенс"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "has_compliance_obligations"
       type: "string"
@@ -360,12 +408,15 @@ extraction:
         - "general_only"
         - "none"
         - "unclear"
+      display_in_grid: false
 
     - name: "identified_industries"
       type: "string"
       presentation: "fact"
       label: "Отрасли"
       description: "Идентифицированные отрасли регулирования"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "mentions_regulatory_events"
       type: "string"
@@ -376,6 +427,7 @@ extraction:
         - "none_mentioned"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_no_violations_representations"
       type: "string"
@@ -385,6 +437,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_remedial_measures"
       type: "string"
@@ -394,11 +447,13 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

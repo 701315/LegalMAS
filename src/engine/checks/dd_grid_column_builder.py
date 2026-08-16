@@ -1,7 +1,7 @@
 # src/engine/checks/dd_grid_column_builder.py
 
 """
-DD Grid Column Builder (V1.6).
+DD Grid Column Builder (V1.7).
 
 Универсальный автомаппинг ExtractionConfig.fields → runtime DD Grid columns.
 
@@ -24,11 +24,18 @@ DD Grid Column Builder (V1.6).
       - type == EVIDENCE_LIST
       - presentation == "diagnostic"
 
-   b) display summary (свёрнутое представление, не колонка):
-      - name.endswith("_display")
+   b) display summary (свёрнутое представление):
+      - name.endswith("_display") И display_in_grid != True
       - presentation == "summary"
 
-   c) columns — всё остальное, по правилам A-F:
+   Если поле с name.endswith("_display") помечено display_in_grid=True,
+   оно становится полноценной колонкой, а не display summary.
+
+   c) columns:
+      - В playbook-driven mode (хотя бы одно поле с display_in_grid=True):
+        только поля с display_in_grid=True и presentation in {fact, summary}.
+      - В legacy auto-mapping mode:
+        всё остальное по правилам A-F.
 
       A. paired <prefix>_status + <prefix>_details  → text column
       B. paired <prefix>_status + <prefix>_value    → text column
@@ -288,6 +295,37 @@ def _is_display_summary_field(cfg: ExtractionFieldConfig) -> bool:
     return False
 
 
+def _has_explicit_display_grid_fields(
+    fields: list[ExtractionFieldConfig],
+) -> bool:
+    """
+    Return True if playbook explicitly opts into display_in_grid mode.
+
+    We switch to playbook-driven DD Grid contract only when
+    at least one field is explicitly marked display_in_grid=True.
+    This preserves backward compatibility for legacy checks.
+    """
+    return any(
+        bool(getattr(cfg, "display_in_grid", False))
+        for cfg in fields
+    )
+
+
+def _is_human_display_field(cfg: ExtractionFieldConfig) -> bool:
+    """
+    Return True if field is safe for user-facing DD Grid display.
+
+    signal/diagnostic fields must never become grid columns,
+    even if misconfigured with display_in_grid=True.
+    """
+    presentation = str(getattr(cfg, "presentation", None) or "").strip().lower()
+    if presentation in {"signal", "diagnostic"}:
+        return False
+    if cfg.type == ExtractionFieldType.EVIDENCE_LIST:
+        return False
+    return True
+
+
 def _get_label(cfg: ExtractionFieldConfig, fallback_name: str | None = None) -> str:
     """
     Получить human-readable label для колонки.
@@ -348,22 +386,25 @@ class DDGridColumnBuilder:
             )
             return [], [], None
 
+        fields = extraction.fields or []
+
         # Приоритет 1: explicit dd_grid_columns из YAML
         if extraction.dd_grid_columns:
             columns = self._build_from_explicit_spec(
                 check_id=check.id,
                 specs=extraction.dd_grid_columns,
-                fields=extraction.fields or [],
+                fields=fields,
             )
-            # Metadata / display summary всё равно считаются по fields,
-            # чтобы V1.7 корректно распределил drawer content и compact view.
-            metadata_fields, display_summary_field = self._classify_non_column_fields(
-                extraction.fields or []
-            )
+            metadata_fields, display_summary_field = \
+                self._classify_non_column_fields(fields)
             return columns, metadata_fields, display_summary_field
 
-        # Приоритет 2: автомаппинг
-        return self._auto_map_columns(check.id, extraction.fields or [])
+        # Приоритет 2: playbook-driven mode через display_in_grid
+        if _has_explicit_display_grid_fields(fields):
+            return self._build_from_display_flags(check.id, fields)
+
+        # Приоритет 3: legacy auto-mapping
+        return self._auto_map_columns(check.id, fields)
 
     # ─── Explicit spec path ───────────────────────────────────────────
 
@@ -437,6 +478,89 @@ class DDGridColumnBuilder:
         return metadata_fields, display_summary_field
 
     # ─── Auto-mapping path ────────────────────────────────────────────
+
+    def _build_from_display_flags(
+        self,
+        check_id: str,
+        fields: list[ExtractionFieldConfig],
+    ) -> tuple[list[DDGridColumnRuntime], list[str], str | None]:
+        """
+        Build columns from explicit playbook display_in_grid flags.
+
+        Rules:
+        - only fields with display_in_grid=True become visible columns;
+        - only human-displayable presentations are allowed:
+          presentation in {fact, summary} — signal/diagnostic excluded;
+        - display_priority controls ordering;
+        - *_display fields may also become real columns here
+          (no longer automatically excluded as display_summary).
+        """
+        metadata_fields: list[str] = []
+        display_summary_field: str | None = None
+        visible_fields: list[tuple[int, ExtractionFieldConfig]] = []
+
+        for idx, cfg in enumerate(fields):
+            # Metadata — всегда в drawer
+            if _is_metadata_field(cfg):
+                metadata_fields.append(cfg.name)
+                continue
+
+            # Display summary — только если поле НЕ помечено display_in_grid
+            is_display = _is_display_summary_field(cfg)
+            is_visible = bool(getattr(cfg, "display_in_grid", False))
+
+            if is_display and not is_visible:
+                if display_summary_field is None:
+                    display_summary_field = cfg.name
+                continue
+
+            if not is_visible:
+                continue
+
+            # Защита от signal/diagnostic в колонках
+            if not _is_human_display_field(cfg):
+                logger.warning(
+                    "DDGridColumnBuilder: signal/diagnostic field "
+                    "marked display_in_grid=True, skipping",
+                    check_id=check_id,
+                    field_name=cfg.name,
+                    presentation=getattr(cfg, "presentation", None),
+                )
+                continue
+
+            visible_fields.append((idx, cfg))
+
+        if not visible_fields:
+            logger.debug(
+                "DDGridColumnBuilder: no visible playbook-driven fields found",
+                check_id=check_id,
+            )
+            return [], metadata_fields, display_summary_field
+
+        def sort_key(
+            item: tuple[int, ExtractionFieldConfig],
+        ) -> tuple[int, int, str]:
+            idx, cfg = item
+            priority = getattr(cfg, "display_priority", None)
+            priority_value = priority if isinstance(priority, int) else 10_000
+            return (priority_value, idx, cfg.name)
+
+        visible_fields.sort(key=sort_key)
+
+        columns: list[DDGridColumnRuntime] = []
+        for idx, cfg in visible_fields:
+            column = self._build_singleton_column(check_id=check_id, cfg=cfg)
+
+            priority = getattr(cfg, "display_priority", None)
+            display_order = (
+                priority * _DISPLAY_ORDER_STEP
+                if isinstance(priority, int)
+                else idx * _DISPLAY_ORDER_STEP
+            )
+            columns.append(self._with_display_order(column, display_order))
+
+        columns.sort(key=lambda c: (c.display_order, c.column_id))
+        return columns, metadata_fields, display_summary_field
 
     def _auto_map_columns(
         self,

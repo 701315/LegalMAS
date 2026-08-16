@@ -48,9 +48,9 @@ _SUCCESS_EXECUTION_STATUSES: frozenset[str] = frozenset({"SUCCESS"})
 _NOT_DEFINED_STATUS_VALUES: frozenset[str] = frozenset({"missing", "not_defined", "not_found"})
 _MISSING_SCALAR_VALUES: frozenset[str] = frozenset({"", "none", "null", "not_found"})
 
-_DISPLAY_NOT_APPLICABLE = "н/о"
 _DISPLAY_ERROR = "⚠ Ошибка"
 _DISPLAY_PRESENT = "Присутствует"
+_DEFAULT_SEGMENT_ID = "_default"
 _DEFAULT_UNGROUPED_LABEL = "Прочие проверки"
 _DEFAULT_UNGROUPED_GROUP_ID = "_ungrouped"
 _DEFAULT_LOCATION_FALLBACK_REASON = "Точная ссылка на пункт документа не определена"
@@ -214,13 +214,20 @@ class DocTypeClassDTO:
 
 @dataclass
 class DDGridV1Data:
-    """Полная runtime-структура DD Grid V1."""
+    """
+    Полная runtime-структура DD Grid V1.
+
+    cell_values:    {document_id: {segment_id: {column_id: CellValueDTO}}}
+    drawer_contents:{document_id: {segment_id: {check_id: DrawerContentDTO}}}
+
+    segment_id нормализован: для single-segment документов = "_default".
+    """
 
     global_groups: list[GlobalGroupDTO]
     doc_type_classes: list[DocTypeClassDTO]
     column_registry: dict[str, DDGridColumnRuntime]
-    cell_values: dict[str, dict[str, CellValueDTO]]
-    drawer_contents: dict[str, dict[str, DrawerContentDTO]]
+    cell_values: dict[str, dict[str, dict[str, CellValueDTO]]]
+    drawer_contents: dict[str, dict[str, dict[str, DrawerContentDTO]]]
     documents_meta: list[DocumentMetaDTO]
 
 
@@ -552,13 +559,6 @@ def _extract_raw_value(field_payload: Any) -> Any:
     return field_payload
 
 
-_PAGE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"стр\.?\s*(\d+)", re.IGNORECASE),
-    re.compile(r"страниц[аеы]?\s*(\d+)", re.IGNORECASE),
-    re.compile(r"page\s*(\d+)", re.IGNORECASE),
-    re.compile(r"p\.?\s*(\d+)", re.IGNORECASE),
-)
-
 # НОВОЕ: Паттерны для извлечения номера пункта/статьи из текста результата
 _CLAUSE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"[Пп]унк[тте]\s*(\d+(?:\.\d+)?)", re.IGNORECASE),
@@ -845,19 +845,6 @@ def _is_global_check(check: CheckDefinition) -> bool:
     return not origin and not check.doc_types
 
 
-def _is_check_applicable(check: CheckDefinition, doc_type: str | None) -> bool:
-    """
-    Applicability rule:
-    - пустой check.doc_types → global / universally applicable
-    - иначе doc_type должен быть указан и входить в check.doc_types
-    """
-    if not check.doc_types:
-        return True
-    if not doc_type:
-        return False
-    return doc_type in check.doc_types
-
-
 def _normalize_string_comparable(value: Any) -> str | None:
     """Привести значение к lowercase string для безопасного сравнения."""
     if value is None:
@@ -867,8 +854,6 @@ def _normalize_string_comparable(value: Any) -> str | None:
 
 def _resolve_cell_state(
     *,
-    check: CheckDefinition,
-    doc_type: str | None,
     check_result: dict[str, Any] | None,
     column: DDGridColumnRuntime,
     raw_value: Any,
@@ -877,16 +862,12 @@ def _resolve_cell_state(
     """
     Определить состояние ячейки DD Grid V1.
 
-    Приоритет:
-    1. not_applicable
-    2. not_executed
-    3. error
-    4. not_defined
-    5. defined
+    Приоритет (4 состояния, применимость гарантирована планировщиком):
+    1. not_executed  — нет результата
+    2. error         — техническая ошибка выполнения
+    3. not_defined   — результат есть, значение не найдено
+    4. defined       — значение найдено
     """
-    if not _is_check_applicable(check, doc_type):
-        return "not_applicable"
-
     if check_result is None:
         return "not_executed"
 
@@ -926,8 +907,6 @@ def _format_display_value(
     column: DDGridColumnRuntime,
 ) -> str:
     """Форматировать текст ячейки по runtime column format."""
-    if cell_state == "not_applicable":
-        return _DISPLAY_NOT_APPLICABLE
     if cell_state == "error":
         return _DISPLAY_ERROR
     if cell_state in {"not_defined", "not_executed"}:
@@ -950,39 +929,38 @@ def _format_display_value(
     return text
 
 
+def _plan_status_to_cell_state(plan_status: str) -> str:
+    """
+    Привести plan_item.status к cell_state когда check_result отсутствует.
+
+    failed / timeout → error (техническая ошибка на уровне плана)
+    всё остальное   → not_executed (нет данных, но не ошибка)
+    """
+    if plan_status.lower() in ("failed", "timeout"):
+        return "error"
+    return "not_executed"
+
+
 def _build_cell_value(
     *,
     check: CheckDefinition,
-    doc_type: str | None,
     check_result: dict[str, Any] | None,
     column: DDGridColumnRuntime,
-    plan_info: dict[str, Any] | None = None,  # <--- ДОБАВЛЕНО
+    plan_status: str,
 ) -> CellValueDTO:
-    """Построить CellValueDTO для одной runtime-колонки."""
+    """
+    Построить CellValueDTO для одной runtime-колонки.
 
-    # НОВОЕ: Обработка случая, когда проверка была запланирована, но результата ещё нет
+    Единый путь: состояние всегда выводится через _resolve_cell_state()
+    и _format_display_value(). При отсутствии результата — ранний return
+    с состоянием из plan_status без обращения к structured_data.
+    """
+    # Нет результата — состояние определяем по plan_status, display из column.fallback_display
     if check_result is None:
-        if plan_info:
-            status = str(plan_info.get("status", "")).lower()
-            if status in ("planned", "dispatched"):
-                cell_state = "not_executed"
-                display_value = "Ожидает выполнения"
-            elif status == "started":
-                cell_state = "not_executed"
-                display_value = "Выполняется"
-            elif status in ("failed", "timeout", "cancelled"):
-                cell_state = "error"
-                display_value = "Ошибка при выполнении"
-            else:
-                cell_state = "not_defined"
-                display_value = "Результат не определён"
-        else:
-            cell_state = "not_defined"
-            display_value = "Результат не определён"
-
+        cell_state = _plan_status_to_cell_state(plan_status)
         return CellValueDTO(
             cell_state=cell_state,
-            display_value=display_value,
+            display_value=column.fallback_display,
             raw_value=None,
             location_clause_ref=None,
             location_page=None,
@@ -991,9 +969,10 @@ def _build_cell_value(
             location_fallback_reason=None,
         )
 
+    # Есть результат — единый путь через resolve + format
     structured_data = _normalize_structured_data(
         check.id,
-        check_result.get("structured_data") if check_result else None,
+        check_result.get("structured_data"),
     )
 
     value_payload = _extract_field_payload(structured_data, column.value_field)
@@ -1006,8 +985,6 @@ def _build_cell_value(
         raw_value = status_field_value
 
     cell_state = _resolve_cell_state(
-        check=check,
-        doc_type=doc_type,
         check_result=check_result,
         column=column,
         raw_value=raw_value,
@@ -1029,29 +1006,24 @@ def _build_cell_value(
         location_fallback_reason,
     ) = _extract_location_bundle(location_payload)
 
-    # ========================================================================
-    # FALLBACK: Если location не найден в structured_data, ищем в display_text
-    # ========================================================================
+    # Fallback: ищем location в display_text если structured_data ничего не дал
     if not location_clause_ref and location_page is None:
-        display_text = _safe_str_or_none(check_result.get("display_text")) if check_result else None
+        display_text = _safe_str_or_none(check_result.get("display_text"))
         if display_text:
             for pattern in _PAGE_PATTERNS:
                 match = pattern.search(display_text)
                 if match:
                     location_page = _safe_int_or_none(match.group(1))
                     break
-            
             for pattern in _CLAUSE_PATTERNS:
                 match = pattern.search(display_text)
                 if match:
                     location_clause_ref = f"п. {match.group(1)}"
                     break
-            
             if location_page is not None or location_clause_ref:
                 has_location_fallback = True
                 location_confidence = "low"
                 location_fallback_reason = "Извлечено из display_text (эвристика)"
-    # ========================================================================
 
     (
         location_clause_ref,
@@ -1102,20 +1074,18 @@ def _collect_evidence_items(raw_value: Any) -> list[str]:
 def _combine_column_states(states: list[str]) -> str:
     """
     Свести состояния отдельных колонок к check-level состоянию для drawer.
+
+    Приоритет: error > defined > not_defined > not_executed
     """
     if not states:
         return "not_executed"
-    if all(state == "not_applicable" for state in states):
-        return "not_applicable"
     if any(state == "error" for state in states):
         return "error"
     if any(state == "defined" for state in states):
         return "defined"
     if any(state == "not_defined" for state in states):
         return "not_defined"
-    if any(state == "not_executed" for state in states):
-        return "not_executed"
-    return states[0]
+    return "not_executed"
 
 
 def _has_partial_field_extraction(
@@ -1146,24 +1116,14 @@ def _normalize_execution_status_for_api(
     API значения:
     - SUCCESS      — check выполнен успешно, все поля найдены
     - PARTIAL      — check выполнен, часть полей не найдена
-    - FAILED       — техническая ошибка выполнения (COMPUTE_FAILED, PERSIST_FAILED, FAILED)
+    - FAILED       — техническая ошибка выполнения
     - TIMEOUT      — превышен таймаут выполнения
-    - SKIPPED      — check не применим или ещё не начался (PENDING)
-    - IN_PROGRESS  — check активно выполняется прямо сейчас (RUNNING)
-
-    Важно: RUNNING и PENDING — не ошибки.
-    RUNNING → IN_PROGRESS (пользователь открыл Grid до завершения Run).
-    PENDING → SKIPPED (check ещё в очереди, результата нет).
+    - SKIPPED      — нет результата (план есть, результата нет)
+    - IN_PROGRESS  — check активно выполняется прямо сейчас
     """
     states = [cell.cell_state for _, cell in column_cells]
 
-    if not states:
-        return "SKIPPED"
-
-    if all(state == "not_applicable" for state in states):
-        return "SKIPPED"
-
-    if check_result is None:
+    if not states or check_result is None:
         return "SKIPPED"
 
     raw_status = (_safe_str_or_none(check_result.get("execution_status")) or "").upper()
@@ -1182,8 +1142,6 @@ def _normalize_execution_status_for_api(
         return "FAILED"
 
     if raw_status in _RUNNING_EXECUTION_STATUSES:
-        # Check активно выполняется. Пользователь открыл Grid пока Run ещё не завершён.
-        # Показывать FAILED — ложная информация. IN_PROGRESS честно отражает состояние.
         logger.info(
             "DD Grid V1: check is still running, returning IN_PROGRESS",
             raw_status=raw_status,
@@ -1193,8 +1151,6 @@ def _normalize_execution_status_for_api(
         return "IN_PROGRESS"
 
     if raw_status in _PENDING_EXECUTION_STATUSES:
-        # Check ещё не начался — в очереди. Семантически эквивалентно not_executed.
-        # SKIPPED корректен: нет результата, нет ошибки.
         logger.info(
             "DD Grid V1: check is pending (queued), returning SKIPPED",
             raw_status=raw_status,
@@ -1224,6 +1180,29 @@ def _normalize_execution_status_for_api(
     return "FAILED"
 
 
+_PLAN_STATUS_TO_REASON: dict[str, str] = {
+    "planned": "Проверка запланирована и ожидает выполнения.",
+    "dispatched": "Проверка запланирована и ожидает выполнения.",
+    "started": "Проверка выполняется в данный момент.",
+    "failed": "Ошибка при выполнении проверки.",
+    "timeout": "Превышен таймаут выполнения проверки.",
+    "cancelled": "Проверка была отменена.",
+    "skipped": "Проверка пропущена (результат учтён в другом плане).",
+    "succeeded": "Результат ожидается.",
+}
+
+_PLAN_STATUS_TO_EXECUTION_STATUS: dict[str, str] = {
+    "planned": "SKIPPED",
+    "dispatched": "SKIPPED",
+    "started": "IN_PROGRESS",
+    "failed": "FAILED",
+    "timeout": "TIMEOUT",
+    "cancelled": "SKIPPED",
+    "skipped": "SKIPPED",
+    "succeeded": "SKIPPED",
+}
+
+
 def _build_drawer_content(
     *,
     check: CheckDefinition,
@@ -1231,55 +1210,47 @@ def _build_drawer_content(
     check_result: dict[str, Any] | None,
     subgroup: CheckSubgroupDTO,
     column_cells: list[tuple[DDGridColumnRuntime, CellValueDTO]],
-    plan_info: dict[str, Any] | None = None,  # <--- ДОБАВЛЕНО
+    plan_status: str,
 ) -> DrawerContentDTO:
-    """Построить drawer content для одного (document, check)."""
+    """
+    Построить drawer content для одного (document, check).
 
-    # НОВОЕ: Ранний возврат, если проверка запланирована, но результата нет
+    field_details собирается один раз из column_cells — всегда,
+    независимо от наличия check_result. Это устраняет дублирование кода.
+    """
+    # field_details — единственная сборка, всегда из готовых column_cells
+    field_details: list[DrawerFieldDTO] = [
+        DrawerFieldDTO(
+            column_id=col.column_id,
+            field_name=col.value_field or col.status_field or "",
+            label=col.label,
+            cell_state=cell.cell_state,
+            display_value=cell.display_value,
+            raw_value=cell.raw_value,
+            location_clause_ref=cell.location_clause_ref,
+            location_page=cell.location_page,
+            location_confidence=cell.location_confidence,
+            has_location_fallback=cell.has_location_fallback,
+            location_fallback_reason=cell.location_fallback_reason,
+        )
+        for col, cell in column_cells
+    ]
+
+    cell_state = _combine_column_states([cell.cell_state for _, cell in column_cells])
+
+    # Нет результата — возвращаем drawer с данными из plan_status
     if check_result is None:
-        status = str(plan_info.get("status", "")).lower() if plan_info else "unknown"
-        execution_status_api = "SKIPPED"
-        
-        if status in ("planned", "dispatched"):
-            reason = "Проверка запланирована и ожидает выполнения."
-        elif status == "started":
-            reason = "Проверка выполняется в данный момент."
-            execution_status_api = "IN_PROGRESS"
-        elif status in ("failed", "timeout", "cancelled"):
-            err_details = plan_info.get("error_details") if plan_info else None
-            reason = f"Ошибка при выполнении проверки: {err_details or 'Неизвестная ошибка'}"
-            execution_status_api = "FAILED"
-        else:
-            reason = "Результат не определён."
-
-        # Собираем field_details для совместимости интерфейса
-        field_details: list[DrawerFieldDTO] = [
-            DrawerFieldDTO(
-                column_id=col.column_id,
-                field_name=col.value_field or col.status_field or "",
-                label=col.label,
-                cell_state=cell.cell_state,
-                display_value=cell.display_value,
-                raw_value=cell.raw_value,
-                location_clause_ref=cell.location_clause_ref,
-                location_page=cell.location_page,
-                location_confidence=cell.location_confidence,
-                has_location_fallback=cell.has_location_fallback,
-                location_fallback_reason=cell.location_fallback_reason,
-            )
-            for col, cell in column_cells
-        ]
-
+        plan_status_lower = plan_status.lower()
         return DrawerContentDTO(
             check_id=check.id,
             check_name=check.name,
             document_id=doc_id,
-            cell_state=_combine_column_states([cell.cell_state for _, cell in column_cells]),
-            reason=reason,
+            cell_state=cell_state,
+            reason=_PLAN_STATUS_TO_REASON.get(plan_status_lower, "Статус проверки неизвестен."),
             review_status=None,
             review_message=None,
             display_text=None,
-            execution_status=execution_status_api,
+            execution_status=_PLAN_STATUS_TO_EXECUTION_STATUS.get(plan_status_lower, "SKIPPED"),
             detection_level=None,
             confidence=None,
             quality_flags=None,
@@ -1297,29 +1268,11 @@ def _build_drawer_content(
             evidence_items=[],
         )
 
+    # Есть результат — полная сборка из check_result
     structured_data = _normalize_structured_data(
         check.id,
-        check_result.get("structured_data") if check_result else None,
+        check_result.get("structured_data"),
     )
-
-    field_details: list[DrawerFieldDTO] = []
-    for column, cell in column_cells:
-        field_name = column.value_field or column.status_field or ""
-        field_details.append(
-            DrawerFieldDTO(
-                column_id=column.column_id,
-                field_name=field_name,
-                label=column.label,
-                cell_state=cell.cell_state,
-                display_value=cell.display_value,
-                raw_value=cell.raw_value,
-                location_clause_ref=cell.location_clause_ref,
-                location_page=cell.location_page,
-                location_confidence=cell.location_confidence,
-                has_location_fallback=cell.has_location_fallback,
-                location_fallback_reason=cell.location_fallback_reason,
-            )
-        )
 
     evidence_items: list[str] = []
     metadata_reason: str | None = None
@@ -1333,84 +1286,56 @@ def _build_drawer_content(
             break
 
     for field_name in subgroup.metadata_fields:
-        # reason-like metadata уже отнесены в drawer.reason
-        # и не должны дублироваться в evidence_items.
         if field_name in _REASON_METADATA_FIELDS:
             continue
-
         payload = _extract_field_payload(structured_data, field_name)
         raw_value = _extract_raw_value(payload)
         evidence_items.extend(_collect_evidence_items(raw_value))
 
-    review_message = _safe_str_or_none(check_result.get("review_message")) if check_result else None
-    display_text = _safe_str_or_none(check_result.get("display_text")) if check_result else None
-    review_status = _safe_str_or_none(check_result.get("review_status")) if check_result else None
+    review_message = _safe_str_or_none(check_result.get("review_message"))
+    display_text = _safe_str_or_none(check_result.get("display_text"))
+    review_status = _safe_str_or_none(check_result.get("review_status"))
     execution_status = _normalize_execution_status_for_api(
         check_result=check_result,
         column_cells=column_cells,
     )
 
-    _obs = _extract_observability_from_raw(
-        check_result.get("quality_flags") if check_result else None
-    )
+    _obs = _extract_observability_from_raw(check_result.get("quality_flags"))
     extraction_llm_invoked: bool = _obs["extraction_llm_invoked"]
     extraction_mode: str | None = _obs["extraction_mode"]
 
     detection_level = _map_detector_to_detection_level(
-        check_result.get("detector_used") if check_result else None,
+        check_result.get("detector_used"),
         extraction_llm_invoked=extraction_llm_invoked,
         extraction_mode=extraction_mode,
     )
     confidence = _normalize_confidence(
-        check_result.get("confidence") if check_result else None,
+        check_result.get("confidence"),
         detection_level=detection_level,
     )
-    quality_flags = _normalize_quality_flags(
-        check_result.get("quality_flags") if check_result else None
-    )
+    quality_flags = _normalize_quality_flags(check_result.get("quality_flags"))
 
-    raw_qc_status = check_result.get("qc_status") if check_result else None
-    qc_status = _normalize_qc_status_for_api(raw_qc_status)
-
+    qc_status = _normalize_qc_status_for_api(check_result.get("qc_status"))
     _pending_like_qc = qc_status == "pending"
-    qc_by = (
-        None
-        if _pending_like_qc
-        else _safe_str_or_none(check_result.get("qc_by") if check_result else None)
-    )
-    qc_at = (
-        None
-        if _pending_like_qc
-        else _normalize_qc_at_for_api(check_result.get("qc_at") if check_result else None)
-    )
-    qc_comment = (
-        None
-        if _pending_like_qc
-        else _safe_str_or_none(check_result.get("qc_comment") if check_result else None)
-    )
+    qc_by = None if _pending_like_qc else _safe_str_or_none(check_result.get("qc_by"))
+    qc_at = None if _pending_like_qc else _normalize_qc_at_for_api(check_result.get("qc_at"))
+    qc_comment = None if _pending_like_qc else _safe_str_or_none(check_result.get("qc_comment"))
 
-    # B3 P1: observability
     agent_name = _derive_agent_name(
-        check_result.get("detector_used") if check_result else None,
+        check_result.get("detector_used"),
         extraction_llm_invoked=extraction_llm_invoked,
     )
-    execution_time_ms = (
-        _obs["duration_ms"]
-        or _derive_execution_time_ms(
-            check_result.get("started_at") if check_result else None,
-            check_result.get("finished_at") if check_result else None,
-        )
+    execution_time_ms = _obs["duration_ms"] or _derive_execution_time_ms(
+        check_result.get("started_at"),
+        check_result.get("finished_at"),
     )
-
-    reason = metadata_reason or review_message or display_text
-    cell_state = _combine_column_states([cell.cell_state for _, cell in column_cells])
 
     return DrawerContentDTO(
         check_id=check.id,
         check_name=check.name,
         document_id=doc_id,
         cell_state=cell_state,
-        reason=reason,
+        reason=metadata_reason or review_message or display_text,
         review_status=review_status,
         review_message=review_message,
         display_text=display_text,
@@ -1491,37 +1416,70 @@ def _build_column_registry(
     return column_registry, check_subgroups
 
 
-def _result_rank(result_row: dict[str, Any]) -> tuple[int, int, float]:
-    """Ранг результата для выбора best row."""
+def _result_rank(result_row: dict[str, Any]) -> tuple[int, float]:
+    """
+    Ранг результата для выбора best row внутри одного (doc, segment, check).
+
+    Критерии без severity (severity убран из модели отображения):
+    1. result:     fail > unclear > pass
+    2. confidence: выше — лучше
+    """
     result_priority = {"fail": 3, "unclear": 2, "pass": 1}
-    severity_priority = {"critical": 4, "high": 3, "medium": 2, "low": 1, "pass": 0}
     return (
         result_priority.get(str(result_row.get("result", "")).lower(), 0),
-        severity_priority.get(str(result_row.get("severity", "")).lower(), 0),
         float(result_row.get("confidence") or 0.0),
     )
 
-def _build_plan_index(plan_items: list[Any]) -> dict[tuple[str, str], dict[str, Any]]:
+def _build_plan_index(
+    plan_items: list[Any],
+) -> dict[tuple[str, str, str], dict[str, Any]]:
     """
-    Построить индекс запланированных проверок по ключу (document_id, check_id).
-    Source of truth: если записи нет в индексе, проверка не планировалась для этого документа.
+    Построить индекс запланированных проверок.
+
+    Ключ: (document_id, segment_id, check_id)
+    segment_id нормализован: None → _DEFAULT_SEGMENT_ID.
+
+    Source of truth: если записи нет в индексе,
+    проверка не планировалась для этого (документ, сегмент, check).
     """
-    plan_index: dict[tuple[str, str], dict[str, Any]] = {}
+    plan_index: dict[tuple[str, str, str], dict[str, Any]] = {}
     for item in plan_items:
         doc_id = str(item.document_id)
         check_id = str(item.check_id)
-        plan_index[(doc_id, check_id)] = {
+        segment_id = (
+            str(item.segment_id)
+            if item.segment_id is not None
+            else _DEFAULT_SEGMENT_ID
+        )
+        key = (doc_id, segment_id, check_id)
+        plan_index[key] = {
             "plan_item_id": str(item.id),
             "status": str(item.status),
             "error_details": item.error_details,
         }
     return plan_index
 
-def _build_result_index(check_results: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
+def _build_result_index(
+    check_results: list[dict[str, Any]],
+) -> dict[tuple[str, str, str], dict[str, Any]]:
     """
-    Построить индекс (document_id, check_id) -> best result dict.
+    Построить индекс (document_id, segment_id, check_id) → best result dict.
+
+    segment_id нормализован: None → _DEFAULT_SEGMENT_ID.
+    Best-row выбирается только внутри одного (doc, segment, check).
+
+    Tolerant Reader pattern:
+    Если для (doc, check) существует ровно один result с non-default segment_id,
+    создаётся дополнительный alias-ключ с _DEFAULT_SEGMENT_ID.
+    Это необходимо когда plan_item создан с segment_id=None (_default),
+    а persisted result содержит реальный segment UUID (single-segment docs).
+    Для multi-segment docs (len > 1) alias не создаётся — каждый сегмент
+    матчится строго по своему segment_id.
     """
-    result_index: dict[tuple[str, str], dict[str, Any]] = {}
+    result_index: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+    # Вспомогательный индекс для aliasing: (doc_id, check_id) → {segment_id: best_row}
+    by_doc_check: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
 
     for row in check_results:
         if not isinstance(row, dict):
@@ -1541,10 +1499,44 @@ def _build_result_index(check_results: list[dict[str, Any]]) -> dict[tuple[str, 
             )
             continue
 
-        key = (document_id, check_id)
+        raw_segment_id = row.get("segment_id")
+        segment_id = (
+            str(raw_segment_id)
+            if raw_segment_id is not None
+            else _DEFAULT_SEGMENT_ID
+        )
+
+        # Основной индекс — как раньше
+        key = (document_id, segment_id, check_id)
         current = result_index.get(key)
         if current is None or _result_rank(row) > _result_rank(current):
             result_index[key] = row
+
+        # Вспомогательный индекс для aliasing
+        doc_check_key = (document_id, check_id)
+        bucket = by_doc_check.setdefault(doc_check_key, {})
+        current_bucket = bucket.get(segment_id)
+        if current_bucket is None or _result_rank(row) > _result_rank(current_bucket):
+            bucket[segment_id] = row
+
+    # Tolerant Reader: alias single-segment results под "_default"
+    for (document_id, check_id), segment_map in by_doc_check.items():
+        # Если "_default" уже есть — alias не нужен
+        if _DEFAULT_SEGMENT_ID in segment_map:
+            continue
+
+        # Только для ровно одного реального сегмента — безопасно aliasить
+        if len(segment_map) == 1:
+            only_segment_id, only_row = next(iter(segment_map.items()))
+            alias_key = (document_id, _DEFAULT_SEGMENT_ID, check_id)
+            if alias_key not in result_index:
+                result_index[alias_key] = only_row
+                logger.debug(
+                    "DD Grid V1: single-segment alias created for _default lookup",
+                    document_id=document_id,
+                    check_id=check_id,
+                    source_segment_id=only_segment_id,
+                )
 
     return result_index
 
@@ -1684,6 +1676,9 @@ def _build_documents_meta(documents: dict[str, dict[str, Any]]) -> list[Document
                 doc_type=_safe_str_or_none(safe_doc_info.get("doc_type")),
                 status=_safe_str_or_none(safe_doc_info.get("status")) or "",
                 folder_path=_safe_str_or_none(safe_doc_info.get("folder_path")),
+                segment_id=_safe_str_or_none(safe_doc_info.get("segment_id")),
+                segment_type=_safe_str_or_none(safe_doc_info.get("segment_type")),
+                segment_title=_safe_str_or_none(safe_doc_info.get("segment_title")),
             )
         )
 
@@ -1701,34 +1696,35 @@ def build_dd_grid_v1(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     registry: YAMLRegistry,
-    plan_items: list[Any],  # <--- ДОБАВЛЕНО (list[RunCheckPlanItem])
+    plan_items: list[Any],
+    checks_mode: str = "all",
 ) -> DDGridV1Data:
     """
     Построить полную структуру DD Grid V1.
 
     Args:
-        checks:
-            Все playbook checks.
-        check_results:
-            Raw dict payloads из RunnerRepository.load_check_results_for_run().
-        documents:
-            Dict {document_id: {...}} из RunnerRepository.load_documents_for_run().
-        registry:
-            YAMLRegistry для doc-type grouping.
+        checks:       Все playbook checks.
+        check_results:Raw dict payloads из RunnerRepository.load_check_results_for_run().
+        documents:    Dict {document_id: {...}} из RunnerRepository.load_documents_for_run().
+        registry:     YAMLRegistry для doc-type grouping.
+        plan_items:   list[RunCheckPlanItem] — источник истины о запланированных проверках.
+        checks_mode:  "all" | "global_only" | "doc_type_only" — гейтинг групп.
 
     Returns:
-        DDGridV1Data
+        DDGridV1Data с cell_values: {doc_id: {segment_id: {column_id: CellValueDTO}}}
     """
     logger.info(
         "DD Grid V1: build started",
         checks_count=len(checks),
         check_results_count=len(check_results),
         documents_count=len(documents),
+        plan_items_count=len(plan_items),
+        checks_mode=checks_mode,
     )
 
     column_registry, check_subgroups = _build_column_registry(checks)
     result_index = _build_result_index(check_results)
-    plan_index = _build_plan_index(plan_items)  # <--- ДОБАВЛЕНО
+    plan_index = _build_plan_index(plan_items)
     documents_meta = _build_documents_meta(documents)
 
     present_doc_types: set[str] = set()
@@ -1738,56 +1734,81 @@ def build_dd_grid_v1(
             if doc_type:
                 present_doc_types.add(doc_type)
 
-    global_groups = _build_global_groups(checks, check_subgroups)
-    doc_type_classes = _build_doc_type_classes(
-        checks=checks,
-        check_subgroups=check_subgroups,
-        registry=registry,
-        present_doc_types=present_doc_types,
+    # checks_mode гейтинг: не строим пустые группы для нерелевантных режимов
+    global_groups = (
+        _build_global_groups(checks, check_subgroups)
+        if checks_mode in ("all", "global_only")
+        else []
+    )
+    doc_type_classes = (
+        _build_doc_type_classes(
+            checks=checks,
+            check_subgroups=check_subgroups,
+            registry=registry,
+            present_doc_types=present_doc_types,
+        )
+        if checks_mode in ("all", "doc_type_only")
+        else []
     )
 
     grid_checks = [check for check in checks if check.id in check_subgroups]
 
-    cell_values: dict[str, dict[str, CellValueDTO]] = {}
-    drawer_contents: dict[str, dict[str, DrawerContentDTO]] = {}
+    # Собрать все сегменты из plan_index — только те, что реально запланированы
+    segments_per_doc: dict[str, set[str]] = {}
+    for (doc_id, seg_id, _check_id) in plan_index:
+        segments_per_doc.setdefault(doc_id, set()).add(seg_id)
+
+    cell_values: dict[str, dict[str, dict[str, CellValueDTO]]] = {}
+    drawer_contents: dict[str, dict[str, dict[str, DrawerContentDTO]]] = {}
 
     for document_id, doc_info in documents.items():
-        safe_doc_info = doc_info if isinstance(doc_info, dict) else {}
-        doc_type = _safe_str_or_none(safe_doc_info.get("doc_type"))
+        doc_id_str = str(document_id)
 
-        cell_values[str(document_id)] = {}
-        drawer_contents[str(document_id)] = {}
+        cell_values[doc_id_str] = {}
+        drawer_contents[doc_id_str] = {}
 
-        for check in grid_checks:
-            # КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
-            # Показываем строку ТОЛЬКО если проверка была запланирована для этого документа.
-            plan_info = plan_index.get((str(document_id), check.id))
-            if plan_info is None:
-                continue  # Проверка не планировалась, строку не создаём вообще
+        # Если для документа нет ни одного plan_item — пропускаем документ целиком
+        segments = segments_per_doc.get(doc_id_str)
+        if not segments:
+            continue
 
-            subgroup = check_subgroups[check.id]
-            check_result = result_index.get((str(document_id), check.id))
+        for segment_id in segments:
+            cell_values[doc_id_str][segment_id] = {}
+            drawer_contents[doc_id_str][segment_id] = {}
 
-            column_cells: list[tuple[DDGridColumnRuntime, CellValueDTO]] = []
-            for column in subgroup.columns:
-                cell = _build_cell_value(
+            for check in grid_checks:
+                plan_info = plan_index.get((doc_id_str, segment_id, check.id))
+                if plan_info is None:
+                    continue
+
+                plan_status = plan_info["status"]
+
+                # skipped → идемпотентность: ищем реальный результат в другом плане
+                # для того же (doc, segment, check). Если нашли — используем.
+                # Если нет — check_result = None → not_executed (не ошибка).
+                check_result = result_index.get((doc_id_str, segment_id, check.id))
+
+                subgroup = check_subgroups[check.id]
+                column_cells: list[tuple[DDGridColumnRuntime, CellValueDTO]] = []
+
+                for column in subgroup.columns:
+                    cell = _build_cell_value(
+                        check=check,
+                        check_result=check_result,
+                        column=column,
+                        plan_status=plan_status,
+                    )
+                    cell_values[doc_id_str][segment_id][column.column_id] = cell
+                    column_cells.append((column, cell))
+
+                drawer_contents[doc_id_str][segment_id][check.id] = _build_drawer_content(
                     check=check,
-                    doc_type=doc_type,
+                    doc_id=doc_id_str,
                     check_result=check_result,
-                    column=column,
-                    plan_info=plan_info,  # <--- ДОБАВЛЕНО
+                    subgroup=subgroup,
+                    column_cells=column_cells,
+                    plan_status=plan_status,
                 )
-                cell_values[str(document_id)][column.column_id] = cell
-                column_cells.append((column, cell))
-
-            drawer_contents[str(document_id)][check.id] = _build_drawer_content(
-                check=check,
-                doc_id=str(document_id),
-                check_result=check_result,
-                subgroup=subgroup,
-                column_cells=column_cells,
-                plan_info=plan_info,  # <--- ДОБАВЛЕНО
-            )
 
     logger.info(
         "DD Grid V1: build completed",
@@ -1796,6 +1817,7 @@ def build_dd_grid_v1(
         columns=len(column_registry),
         documents_meta=len(documents_meta),
         indexed_results=len(result_index),
+        indexed_plans=len(plan_index),
     )
 
     return DDGridV1Data(

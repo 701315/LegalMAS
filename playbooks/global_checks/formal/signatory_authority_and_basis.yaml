@@ -1,0 +1,475 @@
+id: "signatory_authority_and_basis"
+name: "Полномочия подписантов"
+group: "Document completeness"
+description: >
+  Анализирует полномочия лиц, подписавших договор: идентификация
+  подписантов и их должностей, основания полномочий (устав,
+  доверенность, решение органа), полнота реквизитов доверенности,
+  признаки выхода за пределы полномочий.
+
+  Формирует краткий user-facing вывод и оценивает формальный риск
+  подписания неуполномоченным лицом.
+
+  Корпоративные одобрения (крупная / заинтересованная сделка,
+  решения СД / ОСА) анализируются отдельным чеком
+  corporate_approvals_and_transaction_qualification.
+
+doc_types: []
+
+severity: "high"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+ui_mode: "field_extraction"
+
+rules:
+  keyword_mode: any
+
+  keywords:
+    high:
+      - "(?i)подписант"
+      - "(?i)уполномочен"
+      - "(?i)authorised?\\s+signatory"
+      - "(?i)signing\\s+authority"
+      - "(?i)действует\\s+на\\s+основании"
+      - "(?i)acting\\s+(on\\s+the\\s+)?basis\\s+of"
+      - "(?i)duly\\s+authorised?"
+      - "(?i)\\bустав[аеу]?\\b"
+      - "(?i)\\bcharter\\b"
+      - "(?i)articles\\s+of\\s+(association|incorporation)"
+      - "(?i)учредительн[а-я]+\\s+документ"
+      - "(?i)доверенност[ьи]"
+      - "(?i)power\\s+of\\s+attorney"
+      - "(?i)\\bPoA\\b"
+      - "(?i)на\\s+основании\\s+доверенност[ьи]"
+      - "(?i)pursuant\\s+to\\s+(a\\s+)?power\\s+of\\s+attorney"
+
+    medium:
+      - "(?i)генеральн[а-я]+\\s+директор"
+      - "(?i)\\bCEO\\b"
+      - "(?i)единоличн[а-я]+\\s+исполнительн[а-я]+\\s+орган"
+      - "(?i)sole\\s+executive\\s+body"
+      - "(?i)представитель"
+      - "(?i)attorney[-\\s]?in[-\\s]?fact"
+      - "(?i)доверенност[ьи]\\s+(№|#|номер)\\s*\\d+"
+      - "(?i)доверенност[ьи]\\s+от\\s+\\d"
+      - "(?i)power\\s+of\\s+attorney\\s+(No\\.?|#|dated)\\s*\\d+"
+      - "(?i)срок\\s+действия\\s+доверенност"
+      - "(?i)validity\\s+of\\s+(the\\s+)?power\\s+of\\s+attorney"
+      - "(?i)в\\s+лице"
+      - "(?i)represented\\s+by"
+
+    low:
+      - "(?i)authorised?\\s+signatory"
+      - "(?i)power\\s+of\\s+attorney"
+      - "(?i)доверенност[ьи]"
+      - "(?i)действует\\s+на\\s+основании"
+      - "(?i)в\\s+лице"
+      - "(?i)represented\\s+by"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 6
+  temperature: 0.0
+  max_tokens: 700
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 700
+
+retrieval:
+  retrieval_profile: "authority_check"
+  context_k: 6
+  max_chunks: 12
+
+  retrieval_query: >
+    подписант уполномоченный представитель действует на основании
+    устав доверенность power of attorney в лице генеральный директор
+    CEO represented by authorised signatory
+
+  boost_keywords:
+    - "подписант"
+    - "уполномочен"
+    - "authorised signatory"
+    - "действует на основании"
+    - "acting on the basis of"
+    - "доверенность"
+    - "power of attorney"
+    - "устав"
+    - "charter"
+    - "articles of association"
+    - "генеральный директор"
+    - "CEO"
+    - "единоличный исполнительный орган"
+    - "в лице"
+    - "represented by"
+    - "attorney-in-fact"
+
+  negative_keywords:
+    - "штрафные санкции"
+    - "условия оплаты"
+    - "валюта платежа"
+    - "подсудность"
+    - "применимое право"
+    - "форс-мажор"
+    - "крупная сделка"
+    - "заинтересованная сделка"
+    - "решение совета директоров"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "structural_anchor"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "boilerplate"
+    - "representations"
+
+  position_bias:
+    preferred_range: [0.00, 0.15]
+    boost: 0.30
+    scope: "segment"
+
+  rerank: true
+  filters: {}
+
+conditional: null
+
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  confidence_bonus_on_match: 0.08
+  confidence_penalty_on_excluded_segment: 0.15
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 900
+
+  llm_prompt_extraction: |
+    <role>
+    Ты — старший корпоративный юрист, специализирующийся
+    на формальной проверке полномочий подписантов договоров.
+
+    Твоя задача — точно извлечь из текста:
+    1) кто подписал договор (ФИО, должность);
+    2) на каком основании (устав, доверенность, решение);
+    3) насколько полны реквизиты основания;
+    4) есть ли признаки выхода за пределы полномочий.
+
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ считай генерального директора автоматически
+      уполномоченным, если в тексте нет ссылки на устав
+      или иное основание.
+    - НЕ додумывай реквизиты доверенности, если они не указаны.
+    - Если текст неоднозначен — используй "unclear".
+
+    Корпоративные одобрения (крупная / заинтересованная сделка)
+    анализируются отдельным чеком — здесь их не затрагивай.
+    </role>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если подписант указан в преамбуле, но не в подписном блоке
+      (или наоборот) — укажи в reason.
+    - Если в тексте только "действует на основании устава" без
+      указания подписанта — это неполная идентификация.
+    - Не используй внешние знания о том, кто является ГД
+      конкретной компании.
+    </context_rules>
+
+    <task>
+    Заполни только следующие поля:
+    - authority_display
+    - signatories_summary
+    - authority_basis_summary
+    - signatories_identified
+    - authority_basis_type
+    - authority_basis_completeness
+    - ultra_vires_risk
+    - reason
+    </task>
+
+    <instructions>
+    Шаг 1 — ИДЕНТИФИКАЦИЯ ПОДПИСАНТОВ
+
+    Заполни "signatories_identified".
+
+    Значения:
+    - "yes" — подписанты обеих (или всех) сторон
+      идентифицированы: есть ФИО и/или должность.
+    - "partial" — подписант только одной стороны указан,
+      или указана только должность без ФИО.
+    - "no" — подписанты не идентифицированы.
+    - "unclear" — нельзя надёжно определить.
+
+    Шаг 2 — КРАТКОЕ ОПИСАНИЕ ПОДПИСАНТОВ
+
+    Заполни "signatories_summary".
+
+    Правила:
+    - Кратко, через " / " для разных сторон.
+    - Формат: "ФИО, должность" для каждой стороны.
+    - Примеры:
+      "Иванов И.И., Генеральный директор / Smith J., CEO"
+      "Петрова А.А., по доверенности / подписант не указан"
+    - Если не идентифицированы:
+      "Подписанты не идентифицированы"
+    - Если нельзя определить:
+      "Не удалось определить"
+
+    Шаг 3 — ТИП ОСНОВАНИЯ ПОЛНОМОЧИЙ
+
+    Заполни "authority_basis_type".
+
+    Значения:
+    - "charter" — устав / articles of association.
+    - "power_of_attorney" — доверенность / PoA.
+    - "board_resolution" — решение органа управления.
+    - "combined" — несколько оснований (например, устав + PoA
+      для разных сторон).
+    - "not_mentioned" — основание не указано.
+    - "unclear" — нельзя определить.
+
+    Шаг 4 — ПОЛНОТА РЕКВИЗИТОВ ОСНОВАНИЯ
+
+    Заполни "authority_basis_completeness".
+
+    Значения:
+    - "complete" — основание с реквизитами:
+      устав + дата/номер регистрации, или PoA с № и датой.
+    - "incomplete" — основание упоминается, но без реквизитов:
+      "на основании устава", "по доверенности" без №/даты.
+    - "not_mentioned" — основание не указано вообще.
+    - "unclear" — нельзя определить.
+
+    Шаг 5 — КРАТКИЙ СТАТУС ОСНОВАНИЯ ПОЛНОМОЧИЙ
+
+    Заполни "authority_basis_summary".
+
+    Правила:
+    - Если основание полное:
+      "На основании устава (рег. №... от ...)"
+      "По доверенности №123 от 01.01.2024"
+    - Если неполное:
+      "На основании устава (без реквизитов)"
+      "По доверенности (без № и даты)"
+    - Если не указано:
+      "Основание полномочий не указано"
+    - Если нельзя определить:
+      "Не удалось определить"
+
+    Шаг 6 — ПРИЗНАКИ ВЫХОДА ЗА ПРЕДЕЛЫ ПОЛНОМОЧИЙ
+
+    Заполни "ultra_vires_risk".
+
+    Значения:
+    - "yes" — есть прямые признаки из текста:
+      доверенность с ограниченным предметом / суммой,
+      противоречие между полномочиями и предметом договора.
+    - "no" — прямых признаков нет.
+    - "unclear" — нельзя определить.
+
+    Шаг 7 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
+
+    Заполни "authority_display".
+
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
+
+    Возможные состояния:
+    1. Всё в порядке:
+       "Полномочия подтверждены; на основании устава"
+    2. Есть замечания:
+       "Подписант указан; доверенность без реквизитов"
+    3. Проблема:
+       "Основание полномочий не указано"
+       "Подписанты не идентифицированы"
+    4. Не удалось определить:
+       "Не удалось определить полномочия подписантов"
+
+    Правила:
+    - Если все поля unclear:
+      "Не удалось определить полномочия подписантов"
+    - Если signatories_identified = "no":
+      "Подписанты не идентифицированы"
+    - Если authority_basis_completeness = "not_mentioned":
+      "Основание полномочий не указано"
+    - Если ultra_vires_risk = "yes":
+      добавь "признаки выхода за пределы полномочий"
+    - Иначе:
+      * начни с "Полномочия подтверждены" или
+        "Подписант указан" (если incomplete)
+      * добавь краткое основание
+    - Не более 3 коротких фактов через ";".
+
+    Шаг 8 — ОБОСНОВАНИЕ
+
+    Заполни "reason".
+
+    Правила:
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    </instructions>
+
+    <edge_cases>
+    - Только "действует на основании устава" без ФИО и должности:
+      * signatories_identified = "partial"
+      * authority_basis_type = "charter"
+      * authority_basis_completeness = "incomplete"
+
+    - ГД указан, ссылка на устав с реквизитами:
+      * signatories_identified = "yes"
+      * authority_basis_type = "charter"
+      * authority_basis_completeness = "complete"
+
+    - Доверенность без номера и даты:
+      * authority_basis_type = "power_of_attorney"
+      * authority_basis_completeness = "incomplete"
+      * authority_basis_summary = "По доверенности (без № и даты)"
+
+    - Подписанты вообще не указаны:
+      * signatories_identified = "no"
+      * signatories_summary = "Подписанты не идентифицированы"
+      * authority_basis_type = "not_mentioned"
+      * authority_basis_completeness = "not_mentioned"
+      * authority_display = "Подписанты не идентифицированы"
+
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * signatories_summary = "Не удалось определить"
+      * authority_basis_summary = "Не удалось определить"
+      * authority_display =
+        "Не удалось определить полномочия подписантов"
+    </edge_cases>
+
+    <output_expectations>
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (authority_display, signatories_summary,
+       authority_basis_summary, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "authority_display": "Полномочия подтверждены; на основании устава",
+      "signatories_summary": "Иванов И.И., Генеральный директор / Smith J., CEO",
+      "authority_basis_summary": "На основании устава (рег. №... от ...)",
+      "signatories_identified": "yes",
+      "authority_basis_type": "charter",
+      "authority_basis_completeness": "complete",
+      "ultra_vires_risk": "no",
+      "reason": "..."
+    }
+    </output_expectations>
+
+  fields:
+    - name: "authority_display"
+      type: "string"
+      presentation: "fact"
+      label: "Полномочия подписанта"
+      description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
+
+    - name: "signatories_summary"
+      type: "string"
+      presentation: "fact"
+      label: "Подписанты"
+      description: "Краткое описание подписантов и их должностей"
+      display_in_grid: true
+      display_priority: 2
+
+    - name: "authority_basis_summary"
+      type: "string"
+      presentation: "fact"
+      label: "Основание полномочий"
+      description: "Краткий статус основания полномочий"
+      display_in_grid: true
+      display_priority: 3
+
+    - name: "signatories_identified"
+      type: "string"
+      presentation: "signal"
+      description: "Идентификация подписантов"
+      allowed_values:
+        - "yes"
+        - "partial"
+        - "no"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "authority_basis_type"
+      type: "string"
+      presentation: "signal"
+      description: "Тип основания полномочий"
+      allowed_values:
+        - "charter"
+        - "power_of_attorney"
+        - "board_resolution"
+        - "combined"
+        - "not_mentioned"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "authority_basis_completeness"
+      type: "string"
+      presentation: "signal"
+      description: "Полнота реквизитов основания"
+      allowed_values:
+        - "complete"
+        - "incomplete"
+        - "not_mentioned"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "ultra_vires_risk"
+      type: "string"
+      presentation: "signal"
+      description: "Признаки выхода за пределы полномочий"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "reason"
+      type: "string"
+      presentation: "diagnostic"
+      description: "Обоснование"
+      display_in_grid: false
+
+  store_payload: true
+
+
+
+  

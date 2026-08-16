@@ -60,6 +60,7 @@ _GLOBAL_CHECKS_PATH = _PROJECT_ROOT / "playbooks" / "global_checks"
 SKIP = "SKIP"
 CREATE_PUBLISH = "CREATE_PUBLISH"
 UPDATE_PUBLISH = "UPDATE_PUBLISH"
+ARCHIVE_MISSING = "ARCHIVE_MISSING"
 ERROR = "ERROR"
 
 
@@ -67,6 +68,35 @@ ERROR = "ERROR"
 
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+def _collect_global_instruction_codes(base_path: Path) -> set[str]:
+    """
+    Собрать все instruction_code из YAML global checks.
+    Используется для определения published-инструкций,
+    которые больше отсутствуют в repo и должны быть архивированы.
+    """
+    codes: set[str] = set()
+
+    yaml_files = sorted(
+        f for ext in ("*.yaml", "*.yml")
+        for f in base_path.rglob(ext)
+    )
+
+    for yaml_file in yaml_files:
+        try:
+            raw_yaml = yaml_file.read_text(encoding="utf-8")
+            parsed = yaml_lib.safe_load(raw_yaml)
+        except Exception:
+            continue
+
+        if not isinstance(parsed, dict):
+            continue
+
+        code = _extract_instruction_code(parsed, yaml_file)
+        if code:
+            codes.add(code)
+
+    return codes
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -210,6 +240,71 @@ async def _sync_one_doc_type(
             return ERROR
 
 
+async def _archive_missing_doc_types(
+    *,
+    valid_codes: set[str],
+    dry_run: bool,
+) -> int:
+    """
+    Архивировать published platform doc-type instructions,
+    которых больше нет в registry / repo.
+
+    Выполняется только при полном sync (only_code is None).
+    """
+    from services.instruction_publishing_service import InstructionPublishingService
+    from db.repositories.document_type_instruction_version_repo import (
+        DocumentTypeInstructionVersionRepository,
+    )
+
+    if not valid_codes:
+        logger.warning(
+            "sync_doc_types: valid_codes empty, skip auto-archive of missing instructions"
+        )
+        return 0
+
+    if dry_run:
+        async with get_session() as session:
+            repo = DocumentTypeInstructionVersionRepository(session)
+            published_versions = await repo.list_platform_versions(
+                version_status="published"
+            )
+            missing_versions = [
+                v for v in published_versions
+                if v.doc_type_code not in valid_codes
+            ]
+            for version in missing_versions:
+                logger.info(
+                    "sync_doc_type: [DRY RUN] would archive missing published instruction",
+                    doc_type_code=version.doc_type_code,
+                    version_id=str(version.id),
+                )
+            return len(missing_versions)
+
+    async with transactional_session() as session:
+        repo = DocumentTypeInstructionVersionRepository(session)
+        svc = InstructionPublishingService(session)
+
+        published_versions = await repo.list_platform_versions(
+            version_status="published"
+        )
+        missing_versions = [
+            v for v in published_versions
+            if v.doc_type_code not in valid_codes
+        ]
+
+        archived_count = 0
+        for version in missing_versions:
+            await svc.archive_version(version_id=version.id)
+            archived_count += 1
+            logger.info(
+                "sync_doc_type: archived missing published instruction",
+                doc_type_code=version.doc_type_code,
+                version_id=str(version.id),
+            )
+
+        return archived_count
+
+
 async def sync_doc_types(
     *,
     only_code: str | None = None,
@@ -225,7 +320,13 @@ async def sync_doc_types(
 
     if not all_codes:
         logger.warning("sync_doc_types: no doc types found in registry")
-        return {SKIP: 0, CREATE_PUBLISH: 0, UPDATE_PUBLISH: 0, ERROR: 0}
+        return {
+            SKIP: 0,
+            CREATE_PUBLISH: 0,
+            UPDATE_PUBLISH: 0,
+            ARCHIVE_MISSING: 0,
+            ERROR: 0,
+        }
 
     if only_code:
         if only_code not in all_codes:
@@ -233,12 +334,24 @@ async def sync_doc_types(
                 "sync_doc_types: code not found in registry",
                 code=only_code,
             )
-            return {SKIP: 0, CREATE_PUBLISH: 0, UPDATE_PUBLISH: 0, ERROR: 1}
+            return {
+                SKIP: 0,
+                CREATE_PUBLISH: 0,
+                UPDATE_PUBLISH: 0,
+                ARCHIVE_MISSING: 0,
+                ERROR: 1,
+            }
         codes = [only_code]
     else:
         codes = all_codes
 
-    counts: dict[str, int] = {SKIP: 0, CREATE_PUBLISH: 0, UPDATE_PUBLISH: 0, ERROR: 0}
+    counts: dict[str, int] = {
+        SKIP: 0,
+        CREATE_PUBLISH: 0,
+        UPDATE_PUBLISH: 0,
+        ARCHIVE_MISSING: 0,
+        ERROR: 0,
+    }
     for code in codes:
         try:
             result = await _sync_one_doc_type(
@@ -254,6 +367,23 @@ async def sync_doc_types(
             )
             result = ERROR
         counts[result] = counts.get(result, 0) + 1
+
+    # Авто-архивация published platform instructions,
+    # которых больше нет в registry/repo.
+    # Выполняем только при полном sync, а не при синке одного code.
+    if only_code is None:
+        try:
+            archived_missing = await _archive_missing_doc_types(
+                valid_codes=set(codes),
+                dry_run=dry_run,
+            )
+            counts[ARCHIVE_MISSING] = archived_missing
+        except Exception as exc:
+            logger.exception(
+                "sync_doc_types: failed to archive missing published instructions",
+                error=str(exc),
+            )
+            counts[ERROR] = counts.get(ERROR, 0) + 1
 
     return counts
 
@@ -416,6 +546,71 @@ async def _sync_one_global(
             return ERROR
 
 
+async def _archive_missing_global_checks(
+    *,
+    valid_codes: set[str],
+    dry_run: bool,
+) -> int:
+    """
+    Архивировать published platform global instructions,
+    которых больше нет в repo.
+    """
+    from services.global_instruction_publishing_service import (
+        GlobalInstructionPublishingService,
+    )
+    from db.repositories.global_instruction_version_repo import (
+        GlobalInstructionVersionRepository,
+    )
+
+    if not valid_codes:
+        logger.warning(
+            "sync_global_checks: valid_codes empty, skip auto-archive of missing instructions"
+        )
+        return 0
+
+    if dry_run:
+        async with get_session() as session:
+            repo = GlobalInstructionVersionRepository(session)
+            published_versions = await repo.list_platform_versions(
+                version_status="published"
+            )
+            missing_versions = [
+                v for v in published_versions
+                if v.instruction_code not in valid_codes
+            ]
+            for version in missing_versions:
+                logger.info(
+                    "sync_global: [DRY RUN] would archive missing published instruction",
+                    instruction_code=version.instruction_code,
+                    version_id=str(version.id),
+                )
+            return len(missing_versions)
+
+    async with transactional_session() as session:
+        repo = GlobalInstructionVersionRepository(session)
+        svc = GlobalInstructionPublishingService(session)
+
+        published_versions = await repo.list_platform_versions(
+            version_status="published"
+        )
+        missing_versions = [
+            v for v in published_versions
+            if v.instruction_code not in valid_codes
+        ]
+
+        archived_count = 0
+        for version in missing_versions:
+            await svc.archive_version(version_id=version.id)
+            archived_count += 1
+            logger.info(
+                "sync_global: archived missing published instruction",
+                instruction_code=version.instruction_code,
+                version_id=str(version.id),
+            )
+
+        return archived_count
+
+
 async def sync_global_checks(
     *,
     only_code: str | None = None,
@@ -435,9 +630,21 @@ async def sync_global_checks(
             "sync_global_checks: no YAML files found",
             path=str(base_path),
         )
-        return {SKIP: 0, CREATE_PUBLISH: 0, UPDATE_PUBLISH: 0, ERROR: 0}
+        return {
+            SKIP: 0,
+            CREATE_PUBLISH: 0,
+            UPDATE_PUBLISH: 0,
+            ARCHIVE_MISSING: 0,
+            ERROR: 0,
+        }
 
-    counts: dict[str, int] = {SKIP: 0, CREATE_PUBLISH: 0, UPDATE_PUBLISH: 0, ERROR: 0}
+    counts: dict[str, int] = {
+        SKIP: 0,
+        CREATE_PUBLISH: 0,
+        UPDATE_PUBLISH: 0,
+        ARCHIVE_MISSING: 0,
+        ERROR: 0,
+    }
     for yaml_file in yaml_files:
         try:
             result = await _sync_one_global(
@@ -455,6 +662,25 @@ async def sync_global_checks(
             result = ERROR
         counts[result] = counts.get(result, 0) + 1
 
+
+    # Авто-архивация published platform global instructions,
+    # которых больше нет в repo.
+    # Выполняем только при полном sync, а не при синке одного code.
+    if only_code is None:
+        try:
+            valid_codes = _collect_global_instruction_codes(base_path)
+            archived_missing = await _archive_missing_global_checks(
+                valid_codes=valid_codes,
+                dry_run=dry_run,
+            )
+            counts[ARCHIVE_MISSING] = archived_missing
+        except Exception as exc:
+            logger.exception(
+                "sync_global_checks: failed to archive missing published instructions",
+                error=str(exc),
+            )
+            counts[ERROR] = counts.get(ERROR, 0) + 1
+
     return counts
 
 
@@ -465,12 +691,13 @@ async def sync_global_checks(
 def _print_summary(kind: str, counts: dict[str, int]) -> None:
     total = sum(counts.values())
     print(f"\n{'─' * 52}")
-    print(f"  Kind          : {kind}")
-    print(f"  SKIP          : {counts.get(SKIP, 0)}")
-    print(f"  CREATE_PUBLISH: {counts.get(CREATE_PUBLISH, 0)}")
-    print(f"  UPDATE_PUBLISH: {counts.get(UPDATE_PUBLISH, 0)}")
-    print(f"  ERROR         : {counts.get(ERROR, 0)}")
-    print(f"  Total         : {total}")
+    print(f"  Kind            : {kind}")
+    print(f"  SKIP            : {counts.get(SKIP, 0)}")
+    print(f"  CREATE_PUBLISH  : {counts.get(CREATE_PUBLISH, 0)}")
+    print(f"  UPDATE_PUBLISH  : {counts.get(UPDATE_PUBLISH, 0)}")
+    print(f"  ARCHIVE_MISSING : {counts.get(ARCHIVE_MISSING, 0)}")
+    print(f"  ERROR           : {counts.get(ERROR, 0)}")
+    print(f"  Total           : {total}")
 
 
 async def _run(

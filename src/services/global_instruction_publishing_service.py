@@ -160,7 +160,11 @@ class GlobalInstructionPublishingService:
             owner_scope=version.owner_scope,
             tenant_id=version.tenant_id,
         )
-        if duplicate is not None and duplicate.id != version.id:
+        if (
+            duplicate is not None
+            and duplicate.id != version.id
+            and duplicate.id != version.parent_version_id
+        ):
             raise GlobalInstructionDuplicateContentError(
                 f"Cannot update draft: identical snapshot already exists "
                 f"(existing_version_id={duplicate.id})."
@@ -215,7 +219,11 @@ class GlobalInstructionPublishingService:
             owner_scope=version.owner_scope,
             tenant_id=version.tenant_id,
         )
-        if duplicate is not None and duplicate.id != version.id:
+        if (
+            duplicate is not None
+            and duplicate.id != version.id
+            and duplicate.id != version.parent_version_id
+        ):
             raise GlobalInstructionDuplicateContentError(
                 f"Cannot validate draft: identical snapshot already exists "
                 f"(existing_version_id={duplicate.id})."
