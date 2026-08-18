@@ -46,7 +46,10 @@ from ..detectors.models import RetrievedChunk
 from ..playbook.models import CheckDefinition, DetectorType
 from ..retrieval.engine import RetrievalEngine
 from .extraction import ExtractionExecutor
-from .result_semantics import _NOT_FOUND_VALUES, _RESERVED_METADATA_FIELDS
+from .extraction_semantics import (
+    RESERVED_METADATA_FIELDS as _RESERVED_METADATA_FIELDS,
+    iter_meaningful_fields,
+)
 
 logger = get_logger(__name__)
 
@@ -566,40 +569,22 @@ class CheckExecutor:
         check: CheckDefinition | None = None,
     ) -> bool:
         """
-        Return True when structured_data contains at least one meaningful
-        factual value.
+        Canonical business-level success predicate for field_extraction checks.
 
-        Reserved metadata fields, explicit not-found markers, and fields
-        with presentation='signal' or 'diagnostic' do not count.
+        Delegates meaningful-field semantics to extraction_semantics.iter_meaningful_fields()
+        so that executor and result_semantics use one shared rule-set.
         """
         if not isinstance(structured_data, dict) or not structured_data:
             return False
 
-        for field_name, field_payload in structured_data.items():
-            if field_name in _RESERVED_METADATA_FIELDS:
-                continue
-
-            # Skip signal/diagnostic fields — they are machine routing,
-            # not factual extraction for DD Grid display.
-            presentation = _get_field_presentation_from_check(check, field_name)
-            if presentation in ("signal", "diagnostic"):
-                continue
-
-            value = (
-                field_payload.get("value")
-                if isinstance(field_payload, dict) and "value" in field_payload
-                else field_payload
+        return bool(
+            iter_meaningful_fields(
+                structured_data,
+                presentation_resolver=lambda field_name: _get_field_presentation_from_check(
+                    check, field_name
+                ),
             )
-
-            if value is None:
-                continue
-
-            if isinstance(value, str) and value.strip().lower() in _NOT_FOUND_VALUES:
-                continue
-
-            return True
-
-        return False
+        )
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -920,7 +905,80 @@ class CheckExecutor:
             retrieved_chunks = retrieved_chunks[:context_k]
             contexts = contexts[:context_k]
 
+        # ------------------------------------------------------------------
+        # Budget reservation for field_extraction checks.
+        #
+        # Проблема (найдена при live-тесте run_id=f48e95af-74fe-4d76-93b2-b45edb9347dd):
+        # _build_limited_context() резервировал под joined_text ВЕСЬ
+        # LLM_CONTEXT_LIMIT, не зная, что для field_extraction checks этот
+        # же самый joined_text ЗАТЕМ передаётся как evidence в
+        # ExtractionExecutor -> ExtractionLLMDetector.extract_with_telemetry(),
+        # который СВЕРХУ добавляет свой собственный prompt skeleton
+        # (llm_prompt_extraction + fields schema + few-shot + example_json).
+        #
+        # Итог: два независимых бюджета молча складывались и легко
+        # превышали реальный n_ctx модели. Ollama тихо обрезала контекст
+        # на своей стороне, JSON от LLM приходил битым/усечённым,
+        # _parse_response() ловил JSONDecodeError, extraction_llm_invoked
+        # не проставлялся -> ни warning в app.log, ни записи в
+        # llm_usage_events, structured_data = все поля "not found",
+        # хотя нужные данные физически присутствовали в документе.
+        #
+        # Фикс: для field_extraction checks заранее вычитаем из общего
+        # лимита оценочный размер extraction-промпта (skeleton + output +
+        # safety margin), чтобы _build_limited_context() резервировал
+        # joined_text только под ОСТАТОК бюджета.
+        # ------------------------------------------------------------------
         llm_context_limit = getattr(settings, "LLM_CONTEXT_LIMIT", None)
+
+        _is_field_extraction_precheck = self._is_field_extraction_check(check)
+        if _is_field_extraction_precheck and isinstance(llm_context_limit, int) and llm_context_limit > 0:
+            _extraction_cfg_precheck = getattr(check, "extraction", None)
+            _extraction_max_tokens = (
+                int(getattr(_extraction_cfg_precheck, "llm_max_tokens", None) or 0)
+                or int(getattr(settings, "LLM_EXTRACTION_MAX_TOKENS", 900))
+            )
+            _extraction_prompt_text = (
+                getattr(_extraction_cfg_precheck, "llm_prompt_extraction", None) or ""
+            )
+
+            # ВАЖНО: держать этот коэффициент синхронизированным с
+            # ExtractionLLMDetector.extract_with_telemetry() (token_factor=3.8).
+            # Если там изменится значение — обновить и здесь.
+            _EXTRACTION_TOKEN_FACTOR = 3.8
+            _extraction_skeleton_tokens_estimate = int(
+                len(_extraction_prompt_text.split()) * _EXTRACTION_TOKEN_FACTOR
+            )
+            _extraction_safety_margin = int(
+                getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512)
+            )
+
+            _reserved_for_extraction = (
+                _extraction_max_tokens
+                + _extraction_skeleton_tokens_estimate
+                + _extraction_safety_margin
+            )
+
+            _min_context_floor = int(
+                getattr(settings, "LLM_MIN_CONTEXT_FLOOR_TOKENS", 512)
+            )
+
+            llm_context_limit = max(
+                _min_context_floor,
+                llm_context_limit - _reserved_for_extraction,
+            )
+
+            logger.debug(
+                "CheckExecutor: reserved extraction budget before building joined_text",
+                extra={
+                    "check_id": getattr(check, "id", None),
+                    "reserved_for_extraction": _reserved_for_extraction,
+                    "extraction_skeleton_tokens_estimate": _extraction_skeleton_tokens_estimate,
+                    "extraction_max_tokens": _extraction_max_tokens,
+                    "adjusted_context_budget_for_joined_text": llm_context_limit,
+                },
+            )
+
         joined_text, retrieved_chunks, contexts, context_tokens, context_truncated = (
             self._build_limited_context(
                 contexts=contexts,

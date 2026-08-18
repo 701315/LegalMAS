@@ -208,12 +208,21 @@ extraction:
     Ты — юрист по AML/KYC и финансовому комплаенсу.
     Твоя задача — точно извлечь из текста:
     1) характер AML/KYC-обязательств и их детализацию;
-    2) требования по раскрытию бенефициаров;
+    2) требования по раскрытию бенефициаров (UBO);
     3) AML-мониторинг и reporting;
     4) ссылки на законодательство;
     5) право контрагента заблокировать / приостановить сервис.
 
-    Не придумывай обязательства если их нет в тексте.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ додумывай AML/KYC-обязательства, если в тексте только
+      общие compliance-фразы без конкретики.
+    - НЕ считай санкционный скрининг автоматически AML-мониторингом —
+      это разные вещи.
+    - Если информация отсутствует — используй "no" или "unclear"
+      согласно allowed_values.
+    - Если в договоре нет финансовых операций —
+      AML/KYC, как правило, не применимы, используй "no".
     </role>
 
     <context>
@@ -221,6 +230,21 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни в reason.
+    - Различай:
+      * "detailed" KYC — конкретные процедуры, перечень документов,
+        ссылки на ФЗ-115, FATF, CDD/EDD;
+      * "general" KYC — только фраза "соблюдать AML/KYC"
+        без конкретики.
+    - Право приостановки "broad" — если основание субъективное
+      ("reasonable suspicion", по усмотрению контрагента).
+    - Право приостановки "proportionate" — только при реальном
+      нарушении или фактическом попадании в список.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -233,9 +257,6 @@ extraction:
     - references_legislation
     - counterparty_suspension_rights
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -245,9 +266,9 @@ extraction:
 
     Значения:
     - "yes" — явные KYC-требования: идентификация клиентов,
-      сбор KYC-документов, CDD/EDD.
+      сбор KYC-документов, CDD / EDD.
     - "no" — отсутствуют.
-    - "unclear" — неясно.
+    - "unclear" — нельзя надёжно определить.
 
     Шаг 2 — УРОВЕНЬ ДЕТАЛИЗАЦИИ KYC
 
@@ -255,19 +276,19 @@ extraction:
 
     Значения:
     - "detailed" — конкретные процедуры, ссылки на законы,
-      перечень документов, CDD/EDD.
+      перечень документов, упоминание CDD / EDD.
     - "general" — только общие фразы без процедур.
     - "not_applicable" — KYC нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 3 — ПЕРИОДИЧЕСКОЕ ОБНОВЛЕНИЕ KYC
 
     Заполни "requires_kyc_update".
 
     Значения:
-    - "yes" — periodic review / update KYC предусмотрен.
+    - "yes" — periodic review / update KYC прямо предусмотрен.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — РАСКРЫТИЕ UBO
 
@@ -277,76 +298,82 @@ extraction:
     - "yes" — требуется раскрыть beneficial owner / UBO /
       контролирующих лиц.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 5 — AML-МОНИТОРИНГ И REPORTING
 
     Заполни "has_aml_monitoring".
 
     Значения:
-    - "yes" — есть: мониторинг транзакций, reporting в
+    - "yes" — есть мониторинг транзакций или reporting в
       уполномоченные органы (Росфинмониторинг, FinCEN, FIU).
-    - "no" — отсутствуют.
-    - "unclear" — неясно.
+    - "no" — нет.
+    - "unclear" — нельзя определить.
 
     Шаг 6 — ССЫЛКИ НА ЗАКОНОДАТЕЛЬСТВО
 
     Заполни "references_legislation".
 
     Значения:
-    - "yes" — конкретные законы: ФЗ-115, FATF,
-      EU AML Directives, Bank Secrecy Act / FinCEN.
+    - "yes" — прямые ссылки: ФЗ-115, FATF,
+      EU AML Directives (4AMLD/5AMLD/6AMLD),
+      Bank Secrecy Act / FinCEN.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 7 — ПРАВО КОНТРАГЕНТА НА ПРИОСТАНОВКУ
 
     Заполни "counterparty_suspension_rights".
 
     Значения:
-    - "broad" — широкое право: при "reasonable suspicion",
-      по субъективному усмотрению.
+    - "broad" — субъективное основание: "reasonable suspicion",
+      по усмотрению контрагента без объективного критерия.
     - "proportionate" — только при реальном нарушении /
       фактическом включении в список.
     - "none" — нет права на приостановку.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "aml_kyc_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовые случаи:
-    - has_kyc_obligations = "no":
+    Возможные состояния:
+    1. Детализированные AML/KYC:
+       "AML/KYC детализированы (ФЗ-115 / FATF); UBO раскрытие;
+        мониторинг; право приостановки пропорциональное"
+    2. Только общие:
+       "AML/KYC только декларативно; нет UBO; право
+        приостановки широкое"
+    3. Нет AML/KYC:
+       "AML/KYC не обнаружены"
+    4. Не удалось определить:
+       "Не удалось определить AML/KYC"
+
+    Правила:
+    - Если has_kyc_obligations = "no":
       "AML/KYC не обнаружены"
-    - все поля unclear:
+    - Если все поля unclear:
       "Не удалось определить AML/KYC"
-
-    Если AML/KYC есть — комбинируй через ";":
-    - kyc_detail_level (detailed / general)
-    - references_legislation (если "yes": конкретные законы)
-    - requires_ubo_disclosure (если "yes": "UBO раскрытие")
-    - counterparty_suspension_rights (если "broad": предупредить)
-
-    Примеры:
-    - "AML/KYC детализированы (ФЗ-115 / FATF); UBO раскрытие; мониторинг; право приостановки пропорциональное"
-    - "AML/KYC только декларативно; нет UBO; право приостановки широкое"
-    - "AML/KYC не обнаружены"
-    - "Не удалось определить AML/KYC"
-
-    Ограничение: не более 4 фактов через ";".
+    - Иначе комбинируй через ";":
+      * kyc_detail_level: "детализированы" / "декларативно"
+      * references_legislation (если "yes": конкретные законы)
+      * requires_ubo_disclosure (если "yes": "UBO раскрытие")
+      * counterparty_suspension_rights (если "broad":
+        "право приостановки широкое")
+    - Не более 4 фактов через ";".
 
     Шаг 9 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: KYC характер, UBO, мониторинг, законодательство,
-      право приостановки.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
@@ -357,11 +384,14 @@ extraction:
     - Детализированные KYC + UBO + ФЗ-115 + пропорциональная
       приостановка:
       * kyc_detail_level = "detailed"
+      * references_legislation = "yes"
+      * requires_ubo_disclosure = "yes"
+      * counterparty_suspension_rights = "proportionate"
 
     - "Reasonable suspicion" как основание приостановки:
       * counterparty_suspension_rights = "broad"
 
-    - Нет финансовых операций, AML/KYC не нужны:
+    - Договор без финансовых операций (консалтинг, аренда):
       * has_kyc_obligations = "no"
       * aml_kyc_display = "AML/KYC не обнаружены"
 
@@ -371,8 +401,27 @@ extraction:
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (aml_kyc_display, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "aml_kyc_display": "AML/KYC детализированы (ФЗ-115); UBO раскрытие; мониторинг",
+      "has_kyc_obligations": "yes",
+      "kyc_detail_level": "detailed",
+      "requires_kyc_update": "yes",
+      "requires_ubo_disclosure": "yes",
+      "has_aml_monitoring": "yes",
+      "references_legislation": "yes",
+      "counterparty_suspension_rights": "proportionate",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -381,6 +430,8 @@ extraction:
       presentation: "fact"
       label: "AML/KYC"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "has_kyc_obligations"
       type: "string"
@@ -390,6 +441,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "kyc_detail_level"
       type: "string"
@@ -400,6 +452,7 @@ extraction:
         - "general"
         - "not_applicable"
         - "unclear"
+      display_in_grid: false
 
     - name: "requires_kyc_update"
       type: "string"
@@ -409,6 +462,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "requires_ubo_disclosure"
       type: "string"
@@ -418,6 +472,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_aml_monitoring"
       type: "string"
@@ -427,6 +482,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "references_legislation"
       type: "string"
@@ -436,6 +492,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "counterparty_suspension_rights"
       type: "string"
@@ -446,11 +503,13 @@ extraction:
         - "proportionate"
         - "none"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

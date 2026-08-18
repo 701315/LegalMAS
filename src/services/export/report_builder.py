@@ -1,5 +1,3 @@
-# src/services/export/report_builder.py
-
 """
 Построитель Word‑отчёта по результатам юридического DD‑анализа (DD Report).
 
@@ -25,17 +23,23 @@
 - отчёт ориентирован на юриста: минимум технических деталей, максимум читабельности;
 - все ключевые параметры Run (плейбук, режим, стратегия, окружение) явно зашиты
   в титульную страницу и футер для последующего аудита и воспроизводимости.
+
+Архитектурный принцип:
+- Никакой зависимости от aggregator.py
+- Чтение напрямую из check_results + documents + checks_by_id
+- Детерминированный порядок секций и сортировка
 """
 
 import io
 from datetime import datetime
+from typing import Any
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, RGBColor
 
 from core.logging import get_logger
-from services.export.models import AggregatedResults
+from engine.playbook.models import CheckDefinition
 
 logger = get_logger(__name__)
 
@@ -48,8 +52,304 @@ _SEVERITY_COLORS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Helpers — прямой подсчёт метрик из check_results
+# ---------------------------------------------------------------------------
+
+
+def _count_severity(check_results: list[dict[str, Any]]) -> dict[str, int]:
+    """Подсчитать severity counts напрямую из check_results."""
+    counts = {"critical": 0, "high": 0, "medium": 0, "pass": 0, "unclear": 0}
+    for cr in check_results:
+        result = cr.get("result", "unclear")
+        severity = cr.get("severity", "medium")
+
+        if result == "fail":
+            if severity in counts:
+                counts[severity] += 1
+        elif result == "pass":
+            counts["pass"] += 1
+        else:
+            counts["unclear"] += 1
+    return counts
+
+
+def _count_conditional(check_results: list[dict[str, Any]]) -> dict[str, int]:
+    """Подсчитать conditional checks статистику."""
+    total = sum(1 for cr in check_results if cr.get("conditional_check_triggered"))
+    triggered_fail = sum(
+        1 for cr in check_results
+        if cr.get("conditional_check_triggered") and cr.get("result") == "fail"
+    )
+    return {"total": total, "triggered_fail": triggered_fail}
+
+
+def _get_top_risks(
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+    limit: int = 15,
+) -> list[dict]:
+    """Получить топ рисков (critical/high) из check_results."""
+    severity_order = {"critical": 0, "high": 1, "medium": 2}
+
+    fail_rows = [
+        cr for cr in check_results
+        if cr.get("result") == "fail" and cr.get("severity") in ("critical", "high")
+    ]
+
+    fail_rows.sort(key=lambda r: (
+        severity_order.get(r.get("severity", "medium"), 9),
+        -r.get("confidence", 0.0),
+    ))
+
+    risks = []
+    for cr in fail_rows[:limit]:
+        doc_id = cr.get("document_id", "")
+        doc_info = documents.get(doc_id, {})
+
+        risks.append({
+            "check_name": cr.get("check_name", ""),
+            "severity": cr.get("severity", "medium"),
+            "document_name": doc_info.get("name", "Unknown"),
+            "doc_type": doc_info.get("doc_type", "Generic"),
+            "clause_uid": cr.get("clause_uid", ""),
+            "page": cr.get("page"),
+            "evidence_snippet": (cr.get("display_text") or cr.get("value_text", ""))[:300],
+            "structured_data": cr.get("structured_data") or {},
+            "conditional_check_triggered": cr.get("conditional_check_triggered", False),
+            "trigger_name": cr.get("trigger_name", ""),
+        })
+
+    return risks
+
+
+def _count_quality_metrics(
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Подсчитать метрики качества анализа."""
+    quarantine_count = sum(
+        1 for doc in documents.values()
+        if doc.get("status") == "quarantine"
+    )
+
+    degraded_docs = set()
+    for cr in check_results:
+        quality_flags = cr.get("quality_flags") or {}
+        if isinstance(quality_flags, dict) and quality_flags.get("structure_degraded"):
+            degraded_docs.add(cr.get("document_id", ""))
+
+    fail_high_crit = [
+        cr for cr in check_results
+        if cr.get("result") == "fail" and cr.get("severity") in ("critical", "high")
+    ]
+
+    evidence_valid = sum(
+        1 for cr in fail_high_crit
+        if (cr.get("display_text") or cr.get("value_text") or "").strip()
+    )
+
+    evidence_validity_rate = (
+        evidence_valid / len(fail_high_crit) if fail_high_crit else 1.0
+    )
+
+    return {
+        "quarantine_count": quarantine_count,
+        "degraded_count": len(degraded_docs),
+        "evidence_validity_rate": evidence_validity_rate,
+    }
+
+
+def _get_conditional_rows(
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+    limit: int = 20,
+) -> list[dict]:
+    """Получить сработавшие conditional checks."""
+    rows = []
+    for cr in check_results:
+        if not cr.get("conditional_check_triggered"):
+            continue
+
+        doc_id = cr.get("document_id", "")
+        doc_info = documents.get(doc_id, {})
+
+        rows.append({
+            "document_name": doc_info.get("name", "Unknown"),
+            "doc_type": doc_info.get("doc_type", "Generic"),
+            "trigger_name": cr.get("trigger_name", ""),
+            "check_name": cr.get("check_name", ""),
+            "result": cr.get("result", "unclear"),
+            "severity": cr.get("severity", "medium"),
+            "evidence_snippet": (cr.get("display_text") or cr.get("value_text", ""))[:150],
+        })
+
+        if len(rows) >= limit:
+            break
+
+    return rows
+
+
+def _get_extracted_values(
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+    limit: int = 30,
+) -> list[dict]:
+    """Извлечь structured values из check_results."""
+    rows = []
+
+    for cr in check_results:
+        doc_id = cr.get("document_id", "")
+        doc_info = documents.get(doc_id, {})
+        structured_data = cr.get("structured_data") or {}
+
+        for field_name, field_value in structured_data.items():
+            # Нормализация
+            if isinstance(field_value, dict) and "value" in field_value:
+                raw_display_value = field_value.get("value")
+            else:
+                raw_display_value = field_value
+
+            if raw_display_value is None or str(raw_display_value) in ("not_found", "not_defined", "None", ""):
+                continue
+
+            display_value = str(raw_display_value)
+
+            rows.append({
+                "document_name": doc_info.get("name", "Unknown"),
+                "doc_type": doc_info.get("doc_type", "Generic"),
+                "field_name": field_name,
+                "field_value": display_value,
+                "clause_uid": cr.get("clause_uid", ""),
+                "page": cr.get("page"),
+            })
+
+            if len(rows) >= limit:
+                break
+
+        if len(rows) >= limit:
+            break
+
+    return rows
+
+
+def _build_dd_requests_for_report(
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+    checks_by_id: dict[str, CheckDefinition],
+) -> list[dict]:
+    """
+    Построить DD requests для отчёта (аналогично миграции в Приоритете B).
+
+    Триггер: required=true поле со значением not_defined/missing в structured_data.
+    """
+    from services.export.dd_request_loader import get_dd_request_loader
+
+    loader = get_dd_request_loader()
+
+    # Группируем по check_id
+    results_by_check: dict[str, list[dict]] = {}
+    for cr in check_results:
+        check_id = cr.get("check_id", "")
+        if not check_id:
+            continue
+        results_by_check.setdefault(check_id, []).append(cr)
+
+    requests = []
+
+    for check_id, cr_list in results_by_check.items():
+        check_def = checks_by_id.get(check_id)
+        if not check_def:
+            continue
+
+        extraction = check_def.extraction
+        if not extraction or not extraction.enabled:
+            continue
+
+        required_fields = [
+            f.name for f in extraction.fields
+            if getattr(f, "required", False)
+        ]
+
+        if not required_fields:
+            continue
+
+        # Ищем документы где хотя бы одно required поле отсутствует
+        triggered_docs: list[dict] = []
+        for cr in cr_list:
+            doc_id = cr.get("document_id", "")
+            structured_data = cr.get("structured_data") or {}
+
+            missing_required = []
+            for field_name in required_fields:
+                field_value = structured_data.get(field_name)
+
+                if isinstance(field_value, dict) and "value" in field_value:
+                    raw_value = field_value.get("value")
+                else:
+                    raw_value = field_value
+
+                if raw_value is None or str(raw_value) in ("not_found", "not_defined", "None", ""):
+                    missing_required.append(field_name)
+
+            if missing_required:
+                triggered_docs.append({
+                    "document_id": doc_id,
+                    "document_name": documents.get(doc_id, {}).get("name", "Unknown"),
+                    "doc_type": documents.get(doc_id, {}).get("doc_type", "Generic"),
+                    "structured_data": structured_data,
+                })
+
+        if not triggered_docs:
+            continue
+
+        doc_names = [d["document_name"] for d in triggered_docs]
+        text, addressee = loader.render(check_id, check_def.name, doc_names)
+
+        # Собираем structured_values
+        structured_values = []
+        for doc in triggered_docs:
+            for field_name in required_fields:
+                field_value = doc["structured_data"].get(field_name)
+                if field_value:
+                    if isinstance(field_value, dict) and "value" in field_value:
+                        display_value = str(field_value.get("value", ""))
+                    else:
+                        display_value = str(field_value)
+                    if display_value and display_value not in ("not_found", "not_defined", "None", ""):
+                        structured_values.append({
+                            "field": field_name,
+                            "value": display_value,
+                        })
+
+        requests.append({
+            "priority": check_def.severity,
+            "check_name": check_def.name,
+            "addressee": addressee,
+            "text": text,
+            "document_count": len(triggered_docs),
+            "document_names": doc_names[:5],
+            "structured_values": structured_values[:5],
+        })
+
+    # Сортировка по приоритету
+    severity_order = {"critical": 0, "high": 1, "medium": 2}
+    requests.sort(key=lambda r: severity_order.get(r["priority"], 9))
+
+    return requests
+
+
+# ---------------------------------------------------------------------------
+# Точка входа
+# ---------------------------------------------------------------------------
+
+
 def build_report_docx(
-    aggregated: AggregatedResults,
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+    checks_by_id: dict[str, CheckDefinition],
+    deal_name: str,
+    run_id: str,
     playbook_version: str = "1.0.0",
     playbook_profile: str = "M&A Russia DD",
     environment_hash: str = "",
@@ -60,12 +360,16 @@ def build_report_docx(
     Сформировать Word‑отчёт DD Report по результатам одного Run.
 
     Параметры:
-    - aggregated: агрегированные результаты анализа по сделке и Run;
+    - check_results: Сырые результаты проверок из БД
+    - documents: Метаданные документов {doc_id: {...}}
+    - checks_by_id: Словарь {check_id: CheckDefinition} для DD requests
+    - deal_name: Название сделки для титульной страницы
+    - run_id: ID Run для логирования и футера
     - playbook_version: версия плейбука (semver), отображается на титуле и в футере;
     - playbook_profile: человекочитаемое имя/профиль плейбука;
     - environment_hash: хэш окружения выполнения анализа (docker/libs/weights);
-    - checks_mode: режим проверок для текущего Run (например, global_only / global_and_doc_type);
-    - pipeline_strategy: стратегия пайплайна для Run (например, REUSE_STRUCTURE / FULL_RERUN).
+    - checks_mode: режим проверок для текущего Run;
+    - pipeline_strategy: стратегия пайплайна для Run.
 
     Возвращает:
     - байтовое содержимое .docx‑файла отчёта, готовое к сохранению или отдаче клиенту.
@@ -74,38 +378,56 @@ def build_report_docx(
 
     _add_title_page(
         doc,
-        aggregated,
-        playbook_version,
-        playbook_profile,
+        deal_name=deal_name,
+        run_id=run_id,
+        pb_version=playbook_version,
+        pb_profile=playbook_profile,
         checks_mode=checks_mode,
         pipeline_strategy=pipeline_strategy,
     )
-    _add_executive_summary(doc, aggregated)
-    _add_critical_findings(doc, aggregated)
-    _add_quality_section(doc, aggregated)
+    _add_executive_summary(doc, check_results, documents)
+    _add_critical_findings(doc, check_results, documents)
+    _add_quality_section(doc, check_results, documents)
 
     # Дополнительные разделы
-    if aggregated.conditional_rows:
-        _add_conditional_checks_section(doc, aggregated)
-    if aggregated.structured_value_rows:
-        _add_extracted_values_section(doc, aggregated)
+    conditional_rows = _get_conditional_rows(check_results, documents)
+    if conditional_rows:
+        _add_conditional_checks_section(doc, conditional_rows)
 
-    _add_request_list(doc, aggregated)
-    _add_footer(doc, aggregated, playbook_version, playbook_profile, environment_hash)
+    extracted_values = _get_extracted_values(check_results, documents)
+    if extracted_values:
+        _add_extracted_values_section(doc, extracted_values)
+
+    dd_requests = _build_dd_requests_for_report(check_results, documents, checks_by_id)
+    _add_request_list(doc, dd_requests)
+
+    _add_footer(
+        doc,
+        run_id=run_id,
+        pb_version=playbook_version,
+        pb_profile=playbook_profile,
+        env_hash=environment_hash,
+    )
 
     output = io.BytesIO()
     doc.save(output)
     output.seek(0)
-    logger.info("DD Report Word built")
+    logger.info("DD Report Word built (V1 path)")
     return output.read()
+
+
+# ---------------------------------------------------------------------------
+# Секции отчёта
+# ---------------------------------------------------------------------------
 
 
 def _add_title_page(
     doc: Document,
-    agg: AggregatedResults,
+    *,
+    deal_name: str,
+    run_id: str,
     pb_version: str,
     pb_profile: str,
-    *,
     checks_mode: str = "",
     pipeline_strategy: str = "",
 ) -> None:
@@ -120,7 +442,7 @@ def _add_title_page(
     doc.add_paragraph("")
     subtitle = doc.add_paragraph()
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    subtitle.add_run(agg.deal_name).font.size = Pt(14)
+    subtitle.add_run(deal_name).font.size = Pt(14)
 
     doc.add_paragraph("")
     info = doc.add_paragraph()
@@ -128,9 +450,9 @@ def _add_title_page(
     info.add_run(f"Профиль анализа: {pb_profile}\n").font.size = Pt(11)
     info.add_run(f"Дата: {datetime.now().strftime('%d.%m.%Y')}\n").font.size = Pt(11)
     info.add_run(f"Playbook: v{pb_version}\n").font.size = Pt(11)
-    info.add_run(f"Run ID: {agg.run_id[:8]}...\n").font.size = Pt(9)
+    info.add_run(f"Run ID: {run_id[:8]}...\n").font.size = Pt(9)
 
-    # Режим и стратегия Run, чтобы юрист видел контекст именно этого отчёта
+    # Режим и стратегия Run
     if checks_mode:
         info.add_run(f"Режим проверок: {checks_mode}\n").font.size = Pt(10)
     if pipeline_strategy:
@@ -139,101 +461,120 @@ def _add_title_page(
     doc.add_page_break()
 
 
-def _add_executive_summary(doc: Document, agg: AggregatedResults) -> None:
+def _add_executive_summary(
+    doc: Document,
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+) -> None:
     doc.add_heading("1. Executive Summary", level=1)
-    counts = agg.severity_counts
+
+    counts = _count_severity(check_results)
+    conditional_stats = _count_conditional(check_results)
+
     doc.add_paragraph(
-        f"В рамках анализа проверено {agg.total_documents} документов, "
-        f"выполнено {agg.total_checks} проверок."
+        f"В рамках анализа проверено {len(documents)} документов, "
+        f"выполнено {len(check_results)} проверок."
     )
-    # Упоминание условных проверок, если они были
-    if agg.conditional_checks_triggered > 0:
+
+    # Упоминание условных проверок
+    if conditional_stats["total"] > 0:
         doc.add_paragraph(
-            f"Выявлены и проверены {agg.conditional_checks_total} условных "
+            f"Выявлены и проверены {conditional_stats['total']} условных "
             f"проверок (triggered checks), из которых "
-            f"{agg.conditional_checks_triggered} завершились с результатом FAIL."
+            f"{conditional_stats['triggered_fail']} завершились с результатом FAIL."
         )
 
     table = doc.add_table(rows=6, cols=2)
     table.style = "Light Grid Accent 1"
     cells = [
-        ("🔴 Critical", str(counts.critical)),
-        ("🟠 High", str(counts.high)),
-        ("🟡 Medium", str(counts.medium)),
-        ("🟢 Pass", str(counts.pass_count)),
-        ("⚪ Unclear", str(counts.unclear)),
-        ("Итого", str(counts.total)),
+        ("🔴 Critical", str(counts["critical"])),
+        ("🟠 High", str(counts["high"])),
+        ("🟡 Medium", str(counts["medium"])),
+        ("🟢 Pass", str(counts["pass"])),
+        ("⚪ Unclear", str(counts["unclear"])),
+        ("Итого", str(sum(counts.values()))),
     ]
     for i, (label, value) in enumerate(cells):
         table.cell(i, 0).text = label
         table.cell(i, 1).text = value
 
     doc.add_paragraph("")
-    if counts.critical > 0:
+    if counts["critical"] > 0:
         assessment = (
-            f"⚠️ ВЫЯВЛЕНЫ КРИТИЧЕСКИЕ РИСКИ ({counts.critical}). "
+            f"⚠️ ВЫЯВЛЕНЫ КРИТИЧЕСКИЕ РИСКИ ({counts['critical']}). "
             "Рекомендуется немедленная проработка с юридической командой."
         )
-    elif counts.high > 0:
+    elif counts["high"] > 0:
         assessment = (
-            f"Выявлены существенные риски ({counts.high} high). "
+            f"Выявлены существенные риски ({counts['high']} high). "
             "Рекомендуется детальный анализ до закрытия сделки."
         )
     else:
         assessment = "Критических и существенных рисков не выявлено."
 
     p = doc.add_paragraph(assessment)
-    if counts.critical > 0:
+    if counts["critical"] > 0:
         p.runs[0].bold = True
 
 
-def _add_critical_findings(doc: Document, agg: AggregatedResults) -> None:
+def _add_critical_findings(
+    doc: Document,
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+) -> None:
     doc.add_heading("2. Критические находки", level=1)
-    critical_high = [r for r in agg.top_risks if r.severity in ("critical", "high")]
+    critical_high = _get_top_risks(check_results, documents, limit=15)
 
     if not critical_high:
         doc.add_paragraph("Критических и существенных рисков не выявлено.")
         return
 
-    for i, risk in enumerate(critical_high[:15], 1):
+    for i, risk in enumerate(critical_high, 1):
         doc.add_heading(
-            f"2.{i}. {risk.check_name} ({risk.severity.upper()})",
+            f"2.{i}. {risk['check_name']} ({risk['severity'].upper()})",
             level=2,
         )
-        doc.add_paragraph(f"Документ: {risk.document_name} ({risk.doc_type})")
-        if risk.clause_uid:
-            doc.add_paragraph(f"Пункт: {risk.clause_uid}, стр. {risk.page or '—'}")
-        if risk.evidence_snippet:
+        doc.add_paragraph(f"Документ: {risk['document_name']} ({risk['doc_type']})")
+        if risk["clause_uid"]:
+            doc.add_paragraph(f"Пункт: {risk['clause_uid']}, стр. {risk['page'] or '—'}")
+        if risk["evidence_snippet"]:
             quote = doc.add_paragraph()
-            run = quote.add_run(f"«{risk.evidence_snippet[:300]}»")
+            run = quote.add_run(f"«{risk['evidence_snippet']}»")
             run.italic = True
         # Извлечённые структурированные данные по риску
-        if risk.structured_data:
-            sd_text = "; ".join(f"{k}: {v}" for k, v in risk.structured_data.items())
+        if risk["structured_data"]:
+            sd_text = "; ".join(f"{k}: {v}" for k, v in risk["structured_data"].items())
             doc.add_paragraph(f"Извлечённые данные: {sd_text}")
         # Пометка, что риск появился из условной проверки
-        if risk.conditional_check_triggered and risk.trigger_name:
-            doc.add_paragraph(f"ℹ️ Проверка активирована триггером: «{risk.trigger_name}»")
+        if risk["conditional_check_triggered"] and risk["trigger_name"]:
+            doc.add_paragraph(f"ℹ️ Проверка активирована триггером: «{risk['trigger_name']}»")
         doc.add_paragraph("")
 
 
-def _add_quality_section(doc: Document, agg: AggregatedResults) -> None:
+def _add_quality_section(
+    doc: Document,
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+) -> None:
     doc.add_heading("3. Качество анализа", level=1)
+    metrics = _count_quality_metrics(check_results, documents)
+
     items = [
-        f"Документов в карантине: {agg.quarantine_count}",
-        f"Документов с degraded структурой: {agg.degraded_count}",
-        f"Evidence validity rate: {agg.evidence_validity_rate:.0%}",
+        f"Документов в карантине: {metrics['quarantine_count']}",
+        f"Документов с degraded структурой: {metrics['degraded_count']}",
+        f"Evidence validity rate: {metrics['evidence_validity_rate']:.0%}",
     ]
     for item in items:
         doc.add_paragraph(item, style="List Bullet")
-    if agg.quarantine_count > 0:
+
+    if metrics["quarantine_count"] > 0:
         doc.add_paragraph(
             "⚠️ Документы в карантине не были проанализированы. "
             "Рекомендуется загрузить текстовые версии для повторного анализа."
         )
 
 
-def _add_conditional_checks_section(doc: Document, agg: AggregatedResults) -> None:
+def _add_conditional_checks_section(doc: Document, conditional_rows: list[dict]) -> None:
     """Раздел по сработавшим условным (triggered) проверкам."""
     doc.add_heading("4. Условные проверки", level=1)
     doc.add_paragraph(
@@ -242,7 +583,7 @@ def _add_conditional_checks_section(doc: Document, agg: AggregatedResults) -> No
         "(conditional_checks)."
     )
 
-    fail_cond = [r for r in agg.conditional_rows if r.result == "fail"]
+    fail_cond = [r for r in conditional_rows if r["result"] == "fail"]
     if not fail_cond:
         doc.add_paragraph("Нарушений по условным проверкам не выявлено.")
         return
@@ -258,14 +599,14 @@ def _add_conditional_checks_section(doc: Document, agg: AggregatedResults) -> No
 
     for cr in fail_cond[:20]:
         row_cells = table.add_row().cells
-        row_cells[0].text = cr.document_name
-        row_cells[1].text = cr.trigger_name
-        row_cells[2].text = cr.check_name
-        row_cells[3].text = cr.severity.upper()
-        row_cells[4].text = cr.evidence_snippet[:150]
+        row_cells[0].text = cr["document_name"]
+        row_cells[1].text = cr["trigger_name"]
+        row_cells[2].text = cr["check_name"]
+        row_cells[3].text = cr["severity"].upper()
+        row_cells[4].text = cr["evidence_snippet"]
 
 
-def _add_extracted_values_section(doc: Document, agg: AggregatedResults) -> None:
+def _add_extracted_values_section(doc: Document, extracted_values: list[dict]) -> None:
     """Раздел по структурированным извлечённым значениям (суммы, даты и т.п.)."""
     doc.add_heading("5. Извлечённые значения", level=1)
     doc.add_paragraph(
@@ -282,38 +623,39 @@ def _add_extracted_values_section(doc: Document, agg: AggregatedResults) -> None
     hdr[3].text = "Значение"
     hdr[4].text = "Пункт"
 
-    for sv in agg.structured_value_rows[:30]:
+    for sv in extracted_values[:30]:
         row_cells = table.add_row().cells
-        row_cells[0].text = sv.document_name
-        row_cells[1].text = sv.doc_type
-        row_cells[2].text = sv.field_name
-        row_cells[3].text = sv.field_value
-        row_cells[4].text = sv.clause_uid or (str(sv.page) if sv.page else "")
+        row_cells[0].text = sv["document_name"]
+        row_cells[1].text = sv["doc_type"]
+        row_cells[2].text = sv["field_name"]
+        row_cells[3].text = sv["field_value"]
+        row_cells[4].text = sv["clause_uid"] or (str(sv["page"]) if sv["page"] else "")
 
 
-def _add_request_list(doc: Document, agg: AggregatedResults) -> None:
+def _add_request_list(doc: Document, dd_requests: list[dict]) -> None:
     doc.add_heading("Приложение A. Список запросов", level=1)
-    if not agg.dd_requests:
+    if not dd_requests:
         doc.add_paragraph("Запросы не сформированы.")
         return
 
-    for i, req in enumerate(agg.dd_requests, 1):
+    for i, req in enumerate(dd_requests, 1):
         doc.add_heading(
-            f"A.{i}. [{req.priority.upper()}] {req.check_name}",
+            f"A.{i}. [{req['priority'].upper()}] {req['check_name']}",
             level=2,
         )
-        doc.add_paragraph(f"Адресат: {req.addressee}")
-        doc.add_paragraph(req.text)
-        doc.add_paragraph(f"Документы ({req.document_count}): " + ", ".join(req.document_names[:5]))
-        if req.structured_values:
-            sv_text = "; ".join(f"{sv['field']}={sv['value']}" for sv in req.structured_values[:5])
+        doc.add_paragraph(f"Адресат: {req['addressee']}")
+        doc.add_paragraph(req["text"])
+        doc.add_paragraph(f"Документы ({req['document_count']}): " + ", ".join(req["document_names"][:5]))
+        if req["structured_values"]:
+            sv_text = "; ".join(f"{sv['field']}={sv['value']}" for sv in req["structured_values"][:5])
             doc.add_paragraph(f"Связанные значения: {sv_text}")
         doc.add_paragraph("")
 
 
 def _add_footer(
     doc: Document,
-    agg: AggregatedResults,
+    *,
+    run_id: str,
     pb_version: str,
     pb_profile: str,
     env_hash: str,
@@ -323,10 +665,13 @@ def _add_footer(
     footer_text = (
         f"Reproducibility: Profile={pb_profile} | "
         f"Playbook v{pb_version} | "
-        f"Run {agg.run_id[:12]} | "
+        f"Run {run_id[:12]} | "
         f"Env {env_hash[:12] if env_hash else 'dev'} | "
         f"Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     )
     p = doc.add_paragraph(footer_text)
     p.runs[0].font.size = Pt(8)
     p.runs[0].font.color.rgb = RGBColor(0x80, 0x80, 0x80)
+
+
+    

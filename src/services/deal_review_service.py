@@ -32,8 +32,6 @@ from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.run_repo import RunRepository
 from db.repositories.runner_repo import RunnerRepository
 from db.uow import db_uow
-from services.export.aggregator import aggregate_results
-from services.export.models import AggregatedResults
 
 # Новые специализированные компоненты
 from services import review_presenter
@@ -86,85 +84,37 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-async def load_aggregated_results(
-    deal_id: str,
-    run_id: str,
-) -> tuple[AggregatedResults, dict[str, dict[str, Any]]]:
-    """
-    Загрузить документы и результаты проверок для сделки/рана из БД
-    и собрать AggregatedResults.
-
-    Возвращает кортеж:
-    - aggregated: AggregatedResults — единый источник данных для всех экспортов
-    - documents: словарь {document_id: {name, folder_path, doc_type, ...}}
-    """
-    deal_uuid = uuid.UUID(deal_id)
-    run_uuid = uuid.UUID(run_id)
-
-    async with db_uow() as uow:
-        runner_repo = RunnerRepository(uow.session)
-        deal_repo = DealRepository(uow.session)
-
-        documents = await runner_repo.load_documents_for_run(run_uuid)
-        check_results = await runner_repo.load_check_results_for_run(run_uuid)
-        deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
-
-    deal_name = deal.name if deal else f"Deal {deal_id}"
-
-    logger.info(
-        "Building AggregatedResults for deal run",
-        deal_id=deal_id,
-        run_id=run_id,
-        deal_name=deal_name,
-        documents=len(documents),
-        check_results=len(check_results),
-    )
-
-    aggregated = aggregate_results(
-        deal_id=deal_id,
-        deal_name=deal_name,
-        run_id=run_id,
-        check_results=check_results,
-        documents=documents,
-    )
-    return aggregated, documents
-
 
 # ---------------------------------------------------------------------------
 # Делегирование в review_presenter
 # ---------------------------------------------------------------------------
 
-
-def build_document_summaries(
-    agg: AggregatedResults,
+def build_dd_requests(
+    check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
-) -> list[DocumentSummaryDTO]:
-    """Делегирует в review_presenter."""
-    return review_presenter.build_document_summaries(agg, documents)
+    checks_by_id: dict[str, Any],
+) -> list[DDRequestDTO]:
+    """Прямое чтение из check_results + CheckDefinition, без aggregator."""
+    from services import review_presenter
+    return review_presenter.build_dd_requests(check_results, documents, checks_by_id)
 
 
-def build_document_detail(
-    agg: AggregatedResults,
+def build_conditional_checks(
+    check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
-    document_id: str,
-) -> DocumentDetailDTO:
-    """Делегирует в review_presenter."""
-    return review_presenter.build_document_detail(agg, documents, document_id)
+) -> list[ConditionalCheckDTO]:
+    """Прямое чтение из check_results, без aggregator."""
+    from services import review_presenter
+    return review_presenter.build_conditional_checks(check_results, documents)
 
 
-def build_dd_requests(agg: AggregatedResults) -> list[DDRequestDTO]:
-    """Делегирует в review_presenter."""
-    return review_presenter.build_dd_requests(agg)
-
-
-def build_conditional_checks(agg: AggregatedResults) -> list[ConditionalCheckDTO]:
-    """Делегирует в review_presenter."""
-    return review_presenter.build_conditional_checks(agg)
-
-
-def build_extracted_values(agg: AggregatedResults) -> list[ExtractedValueDTO]:
-    """Делегирует в review_presenter."""
-    return review_presenter.build_extracted_values(agg)
+def build_extracted_values(
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+) -> list[ExtractedValueDTO]:
+    """Прямое чтение из check_results, без aggregator."""
+    from services import review_presenter
+    return review_presenter.build_extracted_values(check_results, documents)
 
 
 # ---------------------------------------------------------------------------
@@ -173,14 +123,28 @@ def build_extracted_values(agg: AggregatedResults) -> list[ExtractedValueDTO]:
 
 
 def build_dd_matrix(
-    agg: AggregatedResults,
+    check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
+    checks_by_id: dict[str, CheckDefinition],
+    deal_id: str,
+    run_id: str,
+    deal_name: str,
 ) -> DDMatrixResponseDTO:
     """
-    Делегирует построение матрицы рисков в dd_matrix_builder.
-    Используется эндпоинтом GET /deals/{deal_id}/runs/{run_id}/dd-matrix.
+    Построить матричное представление результатов Run.
+
+    Прямое чтение из check_results, без aggregator.
     """
-    return build_dd_matrix_response(agg, documents)
+    from services.dd_matrix_builder import build_dd_matrix as build_dd_matrix_response
+
+    return build_dd_matrix_response(
+        check_results=check_results,
+        documents=documents,
+        checks_by_id=checks_by_id,
+        deal_id=deal_id,
+        run_id=run_id,
+        deal_name=deal_name,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -321,67 +285,77 @@ def _map_dd_grid_v1_to_response(
         for cls in data.doc_type_classes
     ]
 
-    cell_values_dto: dict[str, dict[str, DDGridCellValueDTO]] = {
+    cell_values_dto: dict[str, dict[str, dict[str, DDGridCellValueDTO]]] = {
         doc_id: {
-            col_id: DDGridCellValueDTO(
-                cell_state=cell.cell_state,
-                display_value=cell.display_value,
-                raw_value=cell.raw_value,
-                location_clause_ref=cell.location_clause_ref,
-                location_page=cell.location_page,
-                location_confidence=cell.location_confidence,
-                has_location_fallback=cell.has_location_fallback,
-                location_fallback_reason=cell.location_fallback_reason,
-            )
-            for col_id, cell in doc_cells.items()
+            seg_id: {
+                col_id: DDGridCellValueDTO(
+                    cell_state=cell.cell_state,
+                    display_value=cell.display_value,
+                    raw_value=cell.raw_value,
+                    location_clause_ref=cell.location_clause_ref,
+                    location_page=cell.location_page,
+                    location_confidence=cell.location_confidence,
+                    has_location_fallback=cell.has_location_fallback,
+                    location_fallback_reason=cell.location_fallback_reason,
+                )
+                for col_id, cell in seg_cells.items()
+            }
+            for seg_id, seg_cells in doc_cells.items()
         }
         for doc_id, doc_cells in data.cell_values.items()
     }
 
-    drawer_contents_dto: dict[str, dict[str, DDGridDrawerDTO]] = {
+    def _map_drawer(drawer: Any) -> DDGridDrawerDTO:
+        """Маппинг одного DrawerContentDTO → DDGridDrawerDTO."""
+        return DDGridDrawerDTO(
+            check_id=drawer.check_id,
+            check_name=drawer.check_name,
+            document_id=drawer.document_id,
+            cell_state=drawer.cell_state,
+            reason=drawer.reason,
+            review_status=drawer.review_status,
+            review_message=drawer.review_message,
+            display_text=drawer.display_text,
+            execution_status=drawer.execution_status,
+            detection_level=drawer.detection_level,
+            confidence=drawer.confidence,
+            quality_flags=drawer.quality_flags,
+            qc_status=drawer.qc_status,
+            qc_by=drawer.qc_by,
+            qc_at=drawer.qc_at,
+            qc_comment=drawer.qc_comment,
+            agent_name=drawer.agent_name,
+            model_version=drawer.model_version,
+            execution_time_ms=drawer.execution_time_ms,
+            retry_attempts=drawer.retry_attempts,
+            input_tokens=drawer.input_tokens,
+            output_tokens=drawer.output_tokens,
+            fields=[
+                DDGridDrawerFieldDTO(
+                    column_id=f.column_id,
+                    field_name=f.field_name,
+                    label=f.label,
+                    cell_state=f.cell_state,
+                    display_value=f.display_value,
+                    raw_value=f.raw_value,
+                    location_clause_ref=f.location_clause_ref,
+                    location_page=f.location_page,
+                    location_confidence=f.location_confidence,
+                    has_location_fallback=f.has_location_fallback,
+                    location_fallback_reason=f.location_fallback_reason,
+                )
+                for f in drawer.fields
+            ],
+            evidence_items=list(drawer.evidence_items),
+        )
+
+    drawer_contents_dto: dict[str, dict[str, dict[str, DDGridDrawerDTO]]] = {
         doc_id: {
-            check_id: DDGridDrawerDTO(
-                check_id=drawer.check_id,
-                check_name=drawer.check_name,
-                document_id=drawer.document_id,
-                cell_state=drawer.cell_state,
-                reason=drawer.reason,
-                review_status=drawer.review_status,
-                review_message=drawer.review_message,
-                display_text=drawer.display_text,
-                execution_status=drawer.execution_status,
-                detection_level=drawer.detection_level,
-                confidence=drawer.confidence,
-                quality_flags=drawer.quality_flags,
-                qc_status=drawer.qc_status,
-                qc_by=drawer.qc_by,
-                qc_at=drawer.qc_at,
-                qc_comment=drawer.qc_comment,
-                agent_name=drawer.agent_name,
-                model_version=drawer.model_version,
-                execution_time_ms=drawer.execution_time_ms,
-                retry_attempts=drawer.retry_attempts,
-                input_tokens=drawer.input_tokens,
-                output_tokens=drawer.output_tokens,
-                fields=[
-                    DDGridDrawerFieldDTO(
-                        column_id=f.column_id,
-                        field_name=f.field_name,
-                        label=f.label,
-                        cell_state=f.cell_state,
-                        display_value=f.display_value,
-                        raw_value=f.raw_value,
-                        location_clause_ref=f.location_clause_ref,
-                        location_page=f.location_page,
-                        location_confidence=f.location_confidence,
-                        has_location_fallback=f.has_location_fallback,
-                        location_fallback_reason=f.location_fallback_reason,
-                    )
-                    for f in drawer.fields
-                ],
-                evidence_items=list(drawer.evidence_items),
-            )
-            for check_id, drawer in doc_drawers.items()
+            seg_id: {
+                check_id: _map_drawer(drawer)
+                for check_id, drawer in seg_drawers.items()
+            }
+            for seg_id, seg_drawers in doc_drawers.items()
         }
         for doc_id, doc_drawers in data.drawer_contents.items()
     }
@@ -409,6 +383,9 @@ def _map_dd_grid_v1_to_response(
             doc_type=dm.doc_type,
             status=dm.status,
             folder_path=dm.folder_path,
+            segment_id=dm.segment_id,
+            segment_type=dm.segment_type,
+            segment_title=dm.segment_title,
             instruction_snapshot=_build_instruction_snapshot(dm.doc_type),
         )
         for dm in data.documents_meta
@@ -536,6 +513,7 @@ def _collect_dd_grid_v1_checks(
 async def build_dd_grid_v1_response(
     deal_id: str,
     run_id: str,
+    checks_mode: str = "all",
 ) -> DDGridV1ResponseDTO:
     """
     Загрузить данные и построить DD Grid V1 response.
@@ -660,7 +638,8 @@ async def build_dd_grid_v1_response(
         check_results=check_results,
         documents=documents,
         registry=registry,
-        plan_items=plan_items,  # <--- ДОБАВЛЕНО
+        plan_items=plan_items,
+        checks_mode=checks_mode,
     )
 
     return _map_dd_grid_v1_to_response(

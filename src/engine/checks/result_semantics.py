@@ -36,35 +36,20 @@ from core.config import settings
 from core.constants import CheckExecutionStatus
 from core.logging import get_logger
 
+from engine.checks.extraction_semantics import (
+    NOT_FOUND_VALUES as _NOT_FOUND_VALUES,
+    RESERVED_METADATA_FIELDS as _RESERVED_METADATA_FIELDS,
+    extract_scalar_value as _extract_scalar_value_shared,
+    is_machine_code_token as _is_machine_code_shared,
+    is_not_found_scalar as _is_not_found_value_shared,
+    iter_meaningful_fields as _iter_meaningful_fields_shared,
+)
+
+
 logger = get_logger(__name__)
 
 
 # ─── Constants ────────────────────────────────────────────────────────────────
-
-_NOT_FOUND_VALUES = frozenset({
-    "not_found",
-    "notfound",
-    "not_defined",
-    "missing",
-    "absent",
-    "not present",
-    "none",
-    "null",
-    "",
-    "n/a",
-    "—",
-    "не найдено",
-    "не определено",
-    "отсутствует",
-    "данные не определены",
-})
-
-_RESERVED_METADATA_FIELDS = frozenset({
-    "reason",
-    "evidence",
-    "explanation",
-    "notes",
-})
 
 _TECHNICAL_FAILURE_STATUSES = frozenset({
     CheckExecutionStatus.FAILED.value,
@@ -251,18 +236,8 @@ def _resolve_check_name(
 
 
 def _is_machine_code(reason: str | None) -> bool:
-    """
-    Determine if a reason string is a machine-internal code vs human text.
-
-    Machine codes are snake_case lowercase tokens without spaces,
-    e.g. "rules_confident_positive", "llm_timeout".
-    """
-    if not reason:
-        return True
-    r = reason.strip()
-    if not r:
-        return True
-    return "_" in r and " " not in r and r == r.lower()
+    """Shared machine-code detector."""
+    return _is_machine_code_shared(reason)
 
 
 def _extract_machine_reason(exec_result: dict) -> str | None:
@@ -280,25 +255,13 @@ def _extract_machine_reason(exec_result: dict) -> str | None:
 
 
 def _is_not_found_value(value: Any) -> bool:
-    """Check if a single extracted value represents 'not found'."""
-    if value is None:
-        return True
-    if not isinstance(value, str):
-        return False
-    return value.strip().lower() in _NOT_FOUND_VALUES
+    """Shared not-found semantic predicate."""
+    return _is_not_found_value_shared(value)
 
 
 def _extract_scalar_value(field_payload: Any) -> Any:
-    """
-    Extract scalar value from structured_data field payload.
-
-    Normalized structured_data stores fields as:
-        {"field_name": {"value": actual_value, ...}}
-    This helper unwraps the {"value": ...} envelope.
-    """
-    if isinstance(field_payload, dict) and "value" in field_payload:
-        return field_payload["value"]
-    return field_payload
+    """Shared scalar extractor for normalized structured_data fields."""
+    return _extract_scalar_value_shared(field_payload)
 
 
 def _has_factual_extraction(
@@ -307,7 +270,11 @@ def _has_factual_extraction(
 ) -> bool:
     """
     Return True if structured_data contains at least one meaningful
-    factual extracted value eligible for primary display.
+    extracted value eligible for primary display.
+
+    Includes fact, summary, and high-confidence signal fields.
+    Excludes diagnostic fields and low-confidence signal fields.
+    See _iter_factual_fields() for detailed evaluation rules.
     """
     return bool(_iter_factual_fields(structured_data, check=check))
 
@@ -317,33 +284,17 @@ def _iter_factual_fields(
     check: Any | None = None,
 ) -> list[tuple[str, Any]]:
     """
-    Return list of (field_name, scalar_value) for meaningful extracted fields
-    eligible for primary display.
+    Return meaningful extracted fields eligible for primary display.
 
-    Skips:
-    - reserved metadata fields (reason / evidence / explanation / notes),
-    - fields with presentation = 'signal' or 'diagnostic',
-    - None / empty / explicit not-found markers.
-
-    Preserves dict iteration order (insertion order in Python 3.7+).
+    Uses one canonical semantic rule-set shared with CheckExecutor:
+    fact/summary + high-confidence signal fields are displayable;
+    diagnostic and not-found values are excluded.
     """
-    if not structured_data:
-        return []
-
-    result: list[tuple[str, Any]] = []
-    for field_name, field_payload in structured_data.items():
-        if field_name in _RESERVED_METADATA_FIELDS:
-            continue
-
-        presentation = _get_field_presentation(check, field_name)
-        if presentation in ("signal", "diagnostic"):
-            continue
-
-        value = _extract_scalar_value(field_payload)
-        if not _is_not_found_value(value):
-            result.append((field_name, value))
-
-    return result
+    meaningful = _iter_meaningful_fields_shared(
+        structured_data,
+        presentation_resolver=lambda field_name: _get_field_presentation(check, field_name),
+    )
+    return [(field_name, value) for field_name, value, _payload, _presentation in meaningful]
 
 
 # ─── Field label / unit resolution ───────────────────────────────────────────
@@ -418,7 +369,15 @@ def _get_field_presentation(check: Any | None, field_name: str) -> str:
             return str(presentation).strip()
     return "fact"
 
+def _is_grid_display_presentation(check: Any | None, field_name: str) -> bool:
+    """
+    Return True only for extraction fields that are safe for human DD Grid display.
 
+    Grid / display_text must never expose internal signal or diagnostic fields,
+    even if they are accidentally marked with display_in_grid=True.
+    """
+    presentation = _get_field_presentation(check, field_name)
+    return presentation in {"fact", "summary"}
 
 def _get_field_unit(check: Any | None, field_name: str) -> str | None:
     """Get unit for an extraction field (e.g. 'days', 'RUB')."""
@@ -428,6 +387,40 @@ def _get_field_unit(check: Any | None, field_name: str) -> str | None:
         if unit and str(unit).strip():
             return str(unit).strip()
     return None
+
+
+def _get_allowed_value_label(
+    check: Any | None,
+    field_name: str,
+    value: Any,
+) -> str | None:
+    """
+    Resolve human-readable label for enum-like extracted values.
+
+    If field.allowed_values uses AllowedValueSpec(value, label),
+    return label. Otherwise return None.
+    """
+    if value is None:
+        return None
+
+    field_cfg = _find_extraction_field_config(check, field_name)
+    if field_cfg is None:
+        return None
+
+    allowed_values = getattr(field_cfg, "allowed_values", None) or []
+    value_norm = str(value).strip().lower()
+
+    for candidate in allowed_values:
+        candidate_value = getattr(candidate, "value", candidate)
+        candidate_label = getattr(candidate, "label", None)
+
+        if str(candidate_value).strip().lower() == value_norm:
+            if candidate_label and str(candidate_label).strip():
+                return str(candidate_label).strip()
+            return str(candidate_value).strip()
+
+    return None
+
 
 def _get_field_display_in_grid(check: Any | None, field_name: str) -> bool:
     """
@@ -466,7 +459,10 @@ def _iter_grid_factual_fields(
 
     Rules:
     - Only fields with display_in_grid=True are included.
-    - signal/diagnostic fields are already excluded by _iter_factual_fields().
+    - Only human-displayable fields are allowed:
+      presentation in {"fact", "summary"}.
+    - signal/diagnostic fields are never included in compact DD Grid summary,
+      even if misconfigured with display_in_grid=True.
     """
     factual = _iter_factual_fields(structured_data, check=check)
     if not factual:
@@ -476,6 +472,7 @@ def _iter_grid_factual_fields(
         (field_name, value)
         for field_name, value in factual
         if _get_field_display_in_grid(check, field_name)
+        and _is_grid_display_presentation(check, field_name)
     ]
 
 
@@ -508,7 +505,7 @@ def _build_compact_grid_factual_summary(
     for field_name, raw_value in factual[:_MAX_FACT_FIELDS_IN_DISPLAY]:
         label = _get_field_label(check, field_name)
         unit = _get_field_unit(check, field_name)
-        value_str = _format_display_value(raw_value, unit)
+        value_str = _format_display_value(check, field_name, raw_value, unit)
         parts.append(f"{label}: {value_str}")
 
     if not parts:
@@ -516,98 +513,6 @@ def _build_compact_grid_factual_summary(
 
     return "; ".join(parts)
 
-
-def _get_field_display_in_grid(check: Any | None, field_name: str) -> bool:
-    """
-    Return True if field is explicitly marked for compact DD Grid display.
-
-    This is an opt-in playbook-driven contract.
-    No guessing by field names, no document-specific logic.
-    """
-    field_cfg = _find_extraction_field_config(check, field_name)
-    if field_cfg is None:
-        return False
-    return bool(getattr(field_cfg, "display_in_grid", False))
-
-
-def _get_field_display_priority(check: Any | None, field_name: str) -> int:
-    """
-    Resolve explicit DD Grid display priority for a field.
-
-    Lower value = earlier in compact summary.
-    If not configured, fall back to extraction declaration order.
-    """
-    field_cfg = _find_extraction_field_config(check, field_name)
-    if field_cfg is not None:
-        priority = getattr(field_cfg, "display_priority", None)
-        if isinstance(priority, int):
-            return priority
-    return _get_field_priority(check, field_name)
-
-
-def _iter_grid_factual_fields(
-    structured_data: dict[str, Any] | None,
-    check: Any | None = None,
-) -> list[tuple[str, Any]]:
-    """
-    Return meaningful factual fields explicitly marked for DD Grid display.
-
-    Rules:
-    - Only fields with display_in_grid=True are included.
-    - signal/diagnostic fields are still excluded because _iter_factual_fields()
-      already filters them out.
-    - Preserves deterministic ordering later via display_priority / field order.
-    """
-    factual = _iter_factual_fields(structured_data, check=check)
-    if not factual:
-        return []
-
-    return [
-        (field_name, value)
-        for field_name, value in factual
-        if _get_field_display_in_grid(check, field_name)
-    ]
-
-
-def _build_compact_grid_factual_summary(
-    check: Any | None,
-    structured_data: dict[str, Any] | None,
-) -> str | None:
-    """
-    Build compact DD Grid summary from explicitly selected factual fields.
-
-    This is the universal multi-field display path for extraction-driven checks.
-
-    Priority contract:
-    - Playbook explicitly marks display_in_grid=True fields.
-    - display_priority controls order.
-    - Output is a single compact line joined by '; '.
-
-    If no fields are marked for grid display, returns None and caller falls back
-    to single-field display semantics.
-    """
-    factual = _iter_grid_factual_fields(structured_data, check=check)
-    if not factual:
-        return None
-
-    factual.sort(
-        key=lambda pair: (
-            _get_field_display_priority(check, pair[0]),
-            _get_field_priority(check, pair[0]),
-        )
-    )
-
-    parts: list[str] = []
-    for field_name, raw_value in factual:
-        label = _get_field_label(check, field_name)
-        unit = _get_field_unit(check, field_name)
-        value_str = _format_display_value(raw_value, unit)
-        parts.append(f"{label}: {value_str}")
-
-    if not parts:
-        return None
-
-    return "; ".join(parts)
 
 def _get_field_priority(check: Any | None, field_name: str) -> int:
     """
@@ -646,10 +551,17 @@ def _select_primary_factual_field(
     2. *_details fields
     3. everything else
 
+    Only fields with presentation in {"fact", "summary"} are eligible.
+    signal/diagnostic fields are never used as primary display text.
+
     Inside each group, extraction config field order remains canonical priority.
     Returns (field_name, scalar_value) or None.
     """
-    factual = _iter_factual_fields(structured_data, check=check)
+    factual = [
+        (field_name, value)
+        for field_name, value in _iter_factual_fields(structured_data, check=check)
+        if _is_grid_display_presentation(check, field_name)
+    ]
     if not factual:
         return None
 
@@ -668,12 +580,19 @@ def _select_primary_factual_field(
 # ─── Value formatting ────────────────────────────────────────────────────────
 
 
-def _format_display_value(value: Any, unit: str | None = None) -> str:
+def _format_display_value(
+    check: Any | None,
+    field_name: str,
+    value: Any,
+    unit: str | None = None,
+) -> str:
     """
-    Format an extracted value for human display.
+    Format extracted value for human display.
 
-    Handles booleans, None, and appends unit if present.
-    No locale-specific formatting — kept universal.
+    Enhancements:
+    - resolves localized enum labels from AllowedValueSpec when available;
+    - preserves old behavior for plain strings and booleans;
+    - appends unit if needed.
     """
     if value is None:
         return "—"
@@ -681,7 +600,9 @@ def _format_display_value(value: Any, unit: str | None = None) -> str:
     if isinstance(value, bool):
         return "Да" if value else "Нет"
 
-    text = str(value).strip()
+    enum_label = _get_allowed_value_label(check, field_name, value)
+    text = enum_label or str(value).strip()
+
     if not text:
         return "—"
 
@@ -814,7 +735,7 @@ def _build_factual_display_text(
     )
     label = _get_field_label(check, field_name)
     unit = _get_field_unit(check, field_name)
-    value_str = _format_display_value(raw_value, unit)
+    value_str = _format_display_value(check, field_name, raw_value, unit)
     return f"{label}: {value_str}"
 
 

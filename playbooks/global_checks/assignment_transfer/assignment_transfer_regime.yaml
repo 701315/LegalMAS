@@ -162,6 +162,15 @@ extraction:
     Твоя задача — точно извлечь из текста только общий режим
     уступки прав и перевода долга / передачи обязательств.
 
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" из общих норм права.
+    - НЕ додумывай условия, которых нет в тексте.
+    - Если информация отсутствует — ставь "not_specified"
+      или "missing", а не предполагай наиболее вероятный вариант.
+    - Если текст неоднозначен — ставь "unclear",
+      а не выбирай один из вариантов.
+
     Не оценивай риск.
     Не анализируй смену контроля (CoC).
     Не анализируй асимметрию между сторонами.
@@ -169,6 +178,19 @@ extraction:
     Не анализируй механику согласия, сроки ответа, deemed consent,
     reasonableness standard или последствия нарушения.
     </role>
+
+    <context_rules>
+    - Ниже приведены фрагменты, отобранные автоматически.
+    - Некоторые фрагменты могут быть нерелевантны данному
+      check — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Если ни один фрагмент не содержит информации по теме —
+      используй значения для случая "тема не урегулирована".
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
+    </context_rules>
 
     <context>
     Ниже приведены релевантные фрагменты договора:
@@ -200,7 +222,8 @@ extraction:
       уступку прав / требований, перевод долга, передачу обязательств
       или передачу договора в целом.
     - "missing" — если таких положений нет.
-    - "unclear" — если формулировки есть, но режим надёжно определить нельзя.
+    - "unclear" — если формулировки есть, но режим надёжно
+      определить нельзя.
 
     Шаг 2 — ТИП РЕЖИМА
 
@@ -210,8 +233,8 @@ extraction:
     - "prohibited" — уступка / перевод долга прямо запрещены.
     - "consent_required" — допустимы только с согласия другой стороны.
     - "freely_permitted" — прямо разрешены без согласия.
-    - "mixed" — режим различается между уступкой прав и переводом долга
-      либо текст не даёт один единый режим.
+    - "mixed" — режим различается между уступкой прав и переводом
+      долга либо текст не даёт один единый режим.
     - "not_specified" — если assignment_transfer_status = "missing".
     - "unclear" — режим нельзя определить надёжно.
 
@@ -220,7 +243,8 @@ extraction:
     Заполни "assignment_transfer_coverage".
 
     Значения:
-    - "assignment_only" — регулируется только уступка прав / требований.
+    - "assignment_only" — регулируется только уступка прав /
+      требований.
     - "transfer_only" — регулируется только перевод долга /
       передача обязательств.
     - "both" — регулируются и уступка прав, и перевод долга /
@@ -231,6 +255,13 @@ extraction:
     Шаг 4 — DISPLAY ДЛЯ DD GRID
 
     Заполни "assignment_transfer_display".
+
+    Это поле — краткий итог для таблицы.
+    Сформируй его на основе уже заполненных полей:
+    - assignment_transfer_status
+    - assignment_transfer_regime_type
+    - assignment_transfer_coverage
+    Не добавляй информацию, которой нет в этих полях.
 
     Базовые шаблоны:
     - status = "missing":
@@ -267,15 +298,22 @@ extraction:
 
     Заполни "reason".
 
-    Правила:
-    - 1 короткое предложение, максимум 2.
-    - Укажи общий вывод по режиму и покрытию.
-    - Приведи короткую цитату в кавычках.
-    - Не анализируй риск и не делай правовых выводов сверх текста.
+    Формат:
+    - Первое предложение: краткий вывод по режиму и покрытию.
+    - Второе предложение: цитата из текста в кавычках
+      (самый релевантный фрагмент, до 100 символов).
+
+    Примеры:
+    - "Договор запрещает уступку прав без согласия.
+      «Ни одна из Сторон не вправе уступить свои права
+      без предварительного письменного согласия»."
+    - "Положения об уступке прав не обнаружены
+      в представленных фрагментах."
     </instructions>
 
     <edge_cases>
-    - "Neither party may assign this Agreement without prior written consent":
+    - "Neither party may assign this Agreement without prior
+      written consent":
       * assignment_transfer_status = "present"
       * assignment_transfer_regime_type = "consent_required"
       * assignment_transfer_coverage = "assignment_only"
@@ -287,6 +325,13 @@ extraction:
       * assignment_transfer_coverage = "both"
       * assignment_transfer_display =
         "Уступка прав и перевод долга запрещены"
+
+    - Тема уступки вообще не урегулирована:
+      * assignment_transfer_status = "missing"
+      * assignment_transfer_regime_type = "not_specified"
+      * assignment_transfer_coverage = "not_specified"
+      * assignment_transfer_display =
+        "Положения об уступке прав и переводе долга не установлены"
 
     - Нет релевантных фрагментов:
       * assignment_transfer_status = "missing"
@@ -304,9 +349,23 @@ extraction:
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения в DD Grid.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай в markdown-блоки (без ```).
+    - Не добавляй комментариев вне JSON.
+    - Все значения полей с allowed_values — на английском
+      (как указано в списке).
+    - Свободные текстовые поля (assignment_transfer_display,
+      reason) — на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "assignment_transfer_display": "Уступка прав — только с письменного согласия",
+      "assignment_transfer_status": "present",
+      "assignment_transfer_regime_type": "consent_required",
+      "assignment_transfer_coverage": "assignment_only",
+      "reason": "Договор требует согласия на уступку. «Neither party may assign...»."
+    }
     </output_expectations>
 
   fields:
@@ -315,11 +374,14 @@ extraction:
       presentation: "fact"
       label: "Уступка прав / перевод долга"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "assignment_transfer_status"
       type: "string"
       presentation: "signal"
       description: "Наличие положений"
+      display_in_grid: false
       allowed_values:
         - "present"
         - "missing"
@@ -329,6 +391,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Тип режима"
+      display_in_grid: false
       allowed_values:
         - "prohibited"
         - "consent_required"
@@ -341,6 +404,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Покрытие"
+      display_in_grid: false
       allowed_values:
         - "assignment_only"
         - "transfer_only"
@@ -352,6 +416,7 @@ extraction:
       type: "string"
       presentation: "diagnostic"
       description: "Краткое обоснование"
+      display_in_grid: false
 
   store_payload: true
 

@@ -46,7 +46,7 @@ import type {
   GridTabProps,
   ViewerState,
 } from "../grid/gridTab.types";
-import type { ReviewSelectionItem } from "../grid/reviewGrid.types";
+import type { ReviewSelectionItem } from "./ddGridV1.types";
 import DDGridV1ExportButtons from "./DDGridV1ExportButtons";
 import DDGridV1ExportLayoutPicker, {
   type DDGridV1MatrixLayout,
@@ -62,15 +62,14 @@ import {
   exportSectionedToPdf,
   exportSectionedToWord,
 } from "./ddGridV1.exportRunners";
-import ReviewQcBulkActions from "../grid/ReviewQcBulkActions";
 import {
-  getReviewQcCapability,
-  getReviewQcDisabledNote,
-  getSelectedReviewFindings,
-} from "../grid/reviewGrid.qc";
+  getSelectedV1Drawers,
+  getV1QcCapability,
+  getV1QcDisabledNote,
+} from "./ddGridV1.qc";
+import DDGridV1QcBulkActions from "./DDGridV1QcBulkActions";
 
 import { selectDDGridV1DerivedModel } from "./ddGridV1.selectors";
-import { adaptDDGridV1ToLegacyReview } from "./ddGridV1.legacyAdapter";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 
 // -------------------------------------------------------------
@@ -491,14 +490,8 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [ddGridV1Response],
   );
 
-  // Legacy-совместимая derived data для существующих UI-компонентов
-  const reviewDerived = React.useMemo(
-    () => adaptDDGridV1ToLegacyReview(v1Model),
-    [v1Model],
-  );
-
-  // Без фильтров: используем raw findings и rows напрямую
-  const filteredReviewRows = reviewDerived.rows;
+// V1 QC хелперы работают напрямую с v1Model — без адаптера
+// legacyAdapter и reviewGrid.qc больше не используются
 
   // Компактный список visibleCheckIds для V1 List (аналогично тому,
   // что делает DDGridV1TypedGroups для matrix)
@@ -539,18 +532,18 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   // visibleListCellKeys больше не нужен — новый V1 List читает данные
   // напрямую из V1 модели и фильтрует по visibleCheckIds.
 
-  const selectedReviewFindings = React.useMemo(
-    () => getSelectedReviewFindings(reviewDerived.findings, reviewSelection),
-    [reviewDerived.findings, reviewSelection],
+  const selectedV1Drawers = React.useMemo(
+    () => getSelectedV1Drawers(v1Model, reviewSelection),
+    [v1Model, reviewSelection],
   );
 
   const reviewQcCapability = React.useMemo(
-    () => getReviewQcCapability(reviewSelection, selectedReviewFindings, runId),
-    [reviewSelection, selectedReviewFindings, runId],
+    () => getV1QcCapability(reviewSelection, selectedV1Drawers, runId),
+    [reviewSelection, selectedV1Drawers, runId],
   );
 
   const reviewQcDisabledNote = React.useMemo(
-    () => getReviewQcDisabledNote(reviewQcCapability),
+    () => getV1QcDisabledNote(reviewQcCapability),
     [reviewQcCapability],
   );
 
@@ -752,7 +745,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                 <DDGridV1SummaryLine
                   documentsCount={v1Model.stats.documentsCount}
                   checksCount={v1Model.stats.checksCount}
-                  findingsCount={reviewDerived.findings.length}
+                  findingsCount={selectedV1Drawers.length}
                   runtimeColsCount={v1Model.stats.runtimeColumnsCount}
                   definedCellsCount={v1Model.stats.definedCellsCount}
                   notDefinedCellsCount={v1Model.stats.notDefinedCellsCount}
@@ -1007,10 +1000,12 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                     Выберите строки в таблице для применения статуса ко всем findings
                   </span>
                 </div>
-                <ReviewQcBulkActions
+                <DDGridV1QcBulkActions
                   selectedRowsCount={reviewQcCapability.selectedRowsCount}
-                  selectedFindings={selectedReviewFindings}
+                  selectedFindingsCount={reviewQcCapability.selectedFindingsCount}
+                  selectedDrawers={selectedV1Drawers}
                   runId={runId}
+                  capability={reviewQcCapability}
                 />
               </div>
             ) : reviewQcDisabledNote ? (
@@ -1032,8 +1027,8 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
             <DDGridV1TypedGroups
               runId={runId}
               model={v1Model}
-              rows={filteredReviewRows}
-              columns={reviewDerived.columns}
+              rows={v1Model.rows}
+              columns={[]}
               onOpenAtLocation={openViewerAt}
               onSelectionChange={handleReviewSelectionChange}
               clearSelectionToken={gridSelectionResetToken}
@@ -1043,8 +1038,8 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               key={`review-list-v1:${gridSelectionResetToken}`}
               runId={runId}
               model={v1Model}
-              rows={reviewDerived.rows}
-              columns={reviewDerived.columns}
+              rows={v1Model.rows}
+              columns={[]}
               visibleCheckIds={listVisibleCheckIds}
               includePassResults={showPassInList}
               visibleExtraColumnIds={appliedExtraColumnIds}

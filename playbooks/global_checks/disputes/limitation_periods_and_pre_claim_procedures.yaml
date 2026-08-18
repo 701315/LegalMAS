@@ -179,14 +179,21 @@ extraction:
 
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по договорным спорам.
+    Ты — юрист по договорным спорам и досудебным процедурам.
     Твоя задача — точно извлечь из текста:
     1) есть ли обязательная досудебная процедура и её детали;
     2) установлен ли в договоре срок предъявления претензии /
        требования / иска, и если да — какой именно.
 
-    Не оценивай процессуальный риск для Target.
-    Не придумывай сроки на основе закона.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ придумывай сроки на основе общих норм закона.
+    - НЕ считай обычные операционные уведомления
+      (о поставке, приёмке, оплате) досудебной процедурой —
+      досудебная процедура относится к спорам и претензиям.
+    - Если информация отсутствует — используй "not_mandatory",
+      "not_specified" или "unclear" согласно allowed_values.
+    - Если текст неоднозначен — используй "unclear".
     </role>
 
     <context>
@@ -194,6 +201,18 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни это в reason.
+    - Факультативные формулировки ("стороны стремятся",
+      "may attempt", "shall endeavour") — это НЕ обязательная
+      досудебная процедура.
+    - Если договор отсылает к праву по вопросу сроков —
+      это "applicable_law_reference", а не "not_specified".
+    - Не используй внешние знания о законных сроках давности.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -205,13 +224,6 @@ extraction:
     - claim_deadline_trigger
     - claim_deadline_display
     - reason
-
-    Важно:
-    - не смешивай статус и значение в одном поле;
-    - если договор отсылает к праву — это "applicable_law_reference",
-      а не "not_specified";
-    - обычные операционные уведомления не являются claim deadline;
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -227,8 +239,7 @@ extraction:
       * пройти обязательные переговоры / медиацию;
       * выполнить иной обязательный pre-claim step.
     - "not_mandatory" — нет обязательной досудебной процедуры,
-      либо формулировки факультативные
-      ("may", "shall endeavour", "стороны стремятся").
+      либо формулировки факультативные.
     - "unclear" — невозможно уверенно определить обязательность.
 
     Шаг 2 — ОПИСАНИЕ ДОСУДЕБНОЙ ПРОЦЕДУРЫ
@@ -246,8 +257,10 @@ extraction:
       * "Не удалось определить"
     - Если status = "not_mandatory" и процедуры нет:
       "Не предусмотрена".
-    - Если факультативная: "Рекомендательный переговорный порядок".
-    - Если status = "unclear": "Не удалось определить".
+    - Если факультативная:
+      "Рекомендательный переговорный порядок".
+    - Если status = "unclear":
+      "Не удалось определить".
 
     Шаг 3 — РЕЖИМ СРОКА ПРЕДЪЯВЛЕНИЯ ПРЕТЕНЗИИ / ИСКА
 
@@ -256,8 +269,8 @@ extraction:
     Под "claim deadline" понимай:
     - срок для направления претензии / claim notice;
     - срок для предъявления требования;
-    - срок для обращения с иском (time bar), если прямо
-      установлен договором.
+    - срок для обращения с иском (time bar),
+      если прямо установлен договором.
 
     Значения:
     - "contract_specified" — договор прямо устанавливает
@@ -277,18 +290,18 @@ extraction:
     Заполни "claim_deadline_value" и "claim_deadline_trigger".
 
     Правила для claim_deadline_value:
-    - только сам срок без объяснений;
-    - примеры: "10 дней", "30 календарных дней",
-      "6 месяцев", "1 год";
-    - если сроков несколько: "10 дней; 30 дней".
-    - если claim_deadline_regime ≠ "contract_specified": "".
+    - Только сам срок без объяснений.
+    - Примеры: "10 дней", "30 календарных дней",
+      "6 месяцев", "1 год".
+    - Если сроков несколько: "10 дней; 30 дней".
+    - Если claim_deadline_regime ≠ "contract_specified": "".
 
     Правила для claim_deadline_trigger:
-    - момент начала течения срока, если указан;
-    - примеры: "с даты поставки", "с момента обнаружения
-      недостатка", "с даты получения товара";
-    - если момент не указан: "не указано";
-    - если claim_deadline_regime ≠ "contract_specified": "".
+    - Момент начала течения срока, если указан.
+    - Примеры: "с даты поставки", "с момента обнаружения
+      недостатка", "с даты получения товара".
+    - Если момент не указан: "не указано".
+    - Если claim_deadline_regime ≠ "contract_specified": "".
 
     Шаг 5 — CLAIM DEADLINE DISPLAY
 
@@ -310,43 +323,52 @@ extraction:
 
     Заполни "limitation_and_procedure_display".
 
-    Базовые случаи:
-    - pre_claim_procedure_status = "unclear"
-      И claim_deadline_regime = "unclear":
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
+
+    Возможные состояния:
+    1. Конкретные данные:
+       "Обязательная претензия; срок — 30 дней с даты поставки"
+    2. Досудебный порядок есть, срок по закону:
+       "Обязательная медиация; срок давности по закону"
+    3. Ничего не предусмотрено:
+       "Досудебный порядок не предусмотрен; срок не установлен"
+    4. Не удалось определить:
+       "Не удалось определить"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить"
-    - pre_claim_procedure_status = "not_mandatory"
-      И claim_deadline_regime = "not_specified":
+    - Если pre_claim_procedure_status = "not_mandatory"
+      и claim_deadline_regime = "not_specified":
       "Досудебный порядок не предусмотрен; срок не установлен"
-
-    Если есть конкретные данные — комбинируй через ";":
-    - начни с pre_claim_procedure_value (кратко)
-    - добавь claim_deadline_display (кратко)
-
-    Примеры:
-    - "Обязательная претензия; срок — 30 дней с даты поставки"
-    - "Обязательная медиация; срок иска — 1 год"
-    - "Досудебный порядок не предусмотрен; срок давности по закону"
-    - "Досудебный порядок не предусмотрен; срок не установлен"
-    - "Не удалось определить"
+    - Иначе:
+      * начни с pre_claim_procedure_value (кратко)
+      * добавь claim_deadline_display (кратко)
+    - Не более 2–3 коротких фактов через ";".
 
     Шаг 7 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: есть ли обязательная процедура, есть ли срок и какой.
-    - Приведи ключевую фразу из текста в кавычках.
-    - Не оценивай риск.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    - Не оценивай процессуальный риск.
     </instructions>
 
     <edge_cases>
-    - Претензия обязательна, срок ожидания есть:
+    - Претензия обязательна, срок ожидания указан:
       * pre_claim_procedure_status = "mandatory"
+      * pre_claim_procedure_value =
+        "Обязательная претензия и 30-дневный срок урегулирования"
 
     - Переговоры только рекомендательные:
       * pre_claim_procedure_status = "not_mandatory"
-      * pre_claim_procedure_value = "Рекомендательный переговорный порядок"
+      * pre_claim_procedure_value =
+        "Рекомендательный переговорный порядок"
 
     - Обязательный досудебный порядок, срок претензии не установлен:
       * pre_claim_procedure_status = "mandatory"
@@ -384,8 +406,28 @@ extraction:
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (limitation_and_procedure_display, pre_claim_procedure_value,
+       claim_deadline_value, claim_deadline_trigger,
+       claim_deadline_display, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "limitation_and_procedure_display": "Обязательная претензия; срок — 30 дней с даты поставки",
+      "pre_claim_procedure_status": "mandatory",
+      "pre_claim_procedure_value": "Обязательная претензия и 30-дневный срок урегулирования",
+      "claim_deadline_regime": "contract_specified",
+      "claim_deadline_value": "30 дней",
+      "claim_deadline_trigger": "с даты поставки",
+      "claim_deadline_display": "Претензия: 30 дней с даты поставки",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -394,6 +436,8 @@ extraction:
       presentation: "fact"
       label: "Досудебный порядок и срок давности"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "pre_claim_procedure_status"
       type: "string"
@@ -403,12 +447,15 @@ extraction:
         - "mandatory"
         - "not_mandatory"
         - "unclear"
+      display_in_grid: false
 
     - name: "pre_claim_procedure_value"
       type: "string"
       presentation: "fact"
       label: "Досудебная процедура"
       description: "Краткое описание досудебной процедуры"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "claim_deadline_regime"
       type: "string"
@@ -419,29 +466,35 @@ extraction:
         - "applicable_law_reference"
         - "not_specified"
         - "unclear"
+      display_in_grid: false
 
     - name: "claim_deadline_value"
       type: "string"
       presentation: "fact"
       label: "Срок предъявления"
       description: "Конкретный срок (если установлен договором)"
+      display_in_grid: false
 
     - name: "claim_deadline_trigger"
       type: "string"
       presentation: "fact"
       label: "Момент начала срока"
       description: "Момент начала течения срока"
+      display_in_grid: false
 
     - name: "claim_deadline_display"
       type: "string"
       presentation: "fact"
       label: "Срок"
       description: "Срок предъявления требования для DD Grid"
+      display_in_grid: true
+      display_priority: 3
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

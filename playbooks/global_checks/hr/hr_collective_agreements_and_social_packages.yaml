@@ -211,7 +211,13 @@ extraction:
     5) требуются ли обязательные консультации при реорганизации
        или CoC.
 
-    Не придумывай данные, которых нет в тексте.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ придумывай CBA, если упоминается только профсоюз
+      без текста коллективного договора или соглашения.
+    - НЕ выводи срок CBA по умолчанию, если он не указан.
+    - Если информация отсутствует — используй "no", "unclear"
+      или соответствующее текстовое состояние.
     </role>
 
     <context>
@@ -219,6 +225,18 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и кратко объясни это в reason.
+    - Профсоюз или works council без текста CBA не означает
+      автоматически наличие коллективного договора.
+    - `union_coverage_strength` заполняй только если охват
+      или сила профсоюза прямо видны из текста.
+    - Если есть только общие упоминания соцпакета без перечня,
+      не придумывай элементы пакета.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -232,128 +250,141 @@ extraction:
     - requires_consultation_on_restructuring
     - union_coverage_strength
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — НАЛИЧИЕ CBA / ПРОФСОЮЗА
+    Шаг 1 — НАЛИЧИЕ CBA / СОГЛАШЕНИЯ С ПРОФСОЮЗОМ
 
     Заполни "has_collective_agreement".
 
     Значения:
     - "yes" — есть CBA / соглашение с профсоюзом /
-      works council.
+      works council arrangement.
     - "no" — нет.
-    - "unclear" — профсоюз упоминается, но текста CBA нет.
+    - "unclear" — профсоюз упоминается, но наличие самого
+      CBA / соглашения не подтверждено.
 
-    Шаг 2 — СРОК И ПРОЦЕДУРА ИЗМЕНЕНИЯ CBA
+    Шаг 2 — СРОК CBA
 
-    Заполни "cba_term":
-    - Конкретный: "до 31.12.2026", "3 года"
-    - Бессрочный: "Бессрочный"
-    - Не указан: "Не указан"
+    Заполни "cba_term".
+
+    Правила:
+    - Если срок указан: "до 31.12.2026", "3 года"
+    - Если CBA есть, но срок не указан: "Не указан"
     - Если CBA нет: "Не применимо"
+    - Если нельзя определить: "Не удалось определить"
 
-    Заполни "cba_modification_procedure":
-    - "yes" — процедура пересмотра предусмотрена.
+    Шаг 3 — ПРОЦЕДУРА ПЕРЕСМОТРА CBA
+
+    Заполни "cba_modification_procedure".
+
+    Значения:
+    - "yes" — процедура пересмотра / изменения предусмотрена.
     - "no" — не предусмотрена.
     - "not_applicable" — CBA нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
-    Шаг 3 — СОЦИАЛЬНЫЙ ПАКЕТ
+    Шаг 4 — СОЦИАЛЬНЫЙ ПАКЕТ
 
     Заполни "social_benefits_summary".
 
     Правила:
-    - Кратко через ";":
+    - Кратко через ";", не более 3 элементов:
       "ДМС; дополнительный отпуск 5 дней; пенсионная программа"
     - Если нет: "Не предусмотрен"
-    - Если неясно: "Не удалось определить"
+    - Если нельзя определить: "Не удалось определить"
 
-    Шаг 4 — ENHANCED SEVERANCE
+    Шаг 5 — ENHANCED SEVERANCE
 
     Заполни "has_enhanced_severance".
 
     Значения:
-    - "yes" — выплаты при увольнении сверх ТК РФ /
-      законодательства: повышенные пособия, доп. компенсации.
+    - "yes" — есть выплаты сверх ТК РФ / закона:
+      повышенные пособия, дополнительные компенсации.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
-    Шаг 5 — ОГРАНИЧЕНИЯ НА СОКРАЩЕНИЯ
+    Шаг 6 — ОГРАНИЧЕНИЯ НА СОКРАЩЕНИЯ
 
     Заполни "has_redundancy_restrictions".
 
     Значения:
-    - "yes" — есть: no-redundancy clause, job security
-      guarantee, moratorium on layoffs, ограничения
-      на аутсорсинг / offshoring.
+    - "yes" — есть no-redundancy clause, job security,
+      moratorium on layoffs, ограничения на аутсорсинг.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
-    Шаг 6 — ОБЯЗАТЕЛЬНЫЕ КОНСУЛЬТАЦИИ
+    Шаг 7 — ОБЯЗАТЕЛЬНЫЕ КОНСУЛЬТАЦИИ
 
     Заполни "requires_consultation_on_restructuring".
 
     Значения:
     - "yes" — обязательные консультации с работниками /
-      профсоюзом при реорганизации, массовых увольнениях,
-      CoC или смене собственника.
+      профсоюзом при реорганизации, сокращениях, CoC.
     - "no" — не предусмотрены.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
-    Шаг 7 — СИЛА ПРОФСОЮЗА / ОХВАТ CBA
+    Шаг 8 — СИЛА ПРОФСОЮЗА / ОХВАТ CBA
 
     Заполни "union_coverage_strength".
 
-    Это поле заполняй только если охват явно указан в тексте.
-    Не угадывай по косвенным признакам.
-
     Значения:
-    - "high" — охват > 50% или явно указан как высокий.
+    - "high" — охват > 50% или прямо высокий.
     - "medium" — умеренный охват / влияние.
-    - "low" — низкий охват или слабый профсоюз.
+    - "low" — низкий охват / слабое влияние.
     - "none" — профсоюз отсутствует.
-    - "unclear" — охват не указан или неясно.
+    - "unclear" — охват не указан или нельзя определить.
 
-    Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
+    Шаг 9 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "hr_cba_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовые случаи:
-    - has_collective_agreement = "no":
-      "CBA не обнаружен; профсоюза нет"
-    - все поля unclear:
+    Возможные состояния:
+    1. CBA есть:
+       "CBA до 2026 г.; ДМС + доп. отпуск; обязательные консультации"
+    2. CBA нет:
+       "CBA не обнаружен; профсоюза нет"
+    3. Частичная картина:
+       "CBA есть; срок не указан; no-redundancy"
+    4. Не удалось определить:
+       "Не удалось определить наличие CBA"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить наличие CBA"
+    - Если has_collective_agreement = "no" и union_coverage_strength = "none":
+      "CBA не обнаружен; профсоюза нет"
+    - Если has_collective_agreement = "no":
+      "CBA не обнаружен"
+    - Если has_collective_agreement = "yes":
+      * начни с:
+        - "CBA {cba_term}", если cba_term не "Не указан"
+        - "CBA есть", если cba_term = "Не указан"
+      * если social_benefits_summary не "Не предусмотрен"
+        и не "Не удалось определить" — добавь кратко соцпакет
+      * если has_enhanced_severance = "yes":
+        добавь "enhanced severance"
+      * если has_redundancy_restrictions = "yes":
+        добавь "ограничения на сокращения"
+      * если requires_consultation_on_restructuring = "yes":
+        добавь "обязательные консультации"
+    - Если has_collective_agreement = "unclear":
+      "Не удалось определить наличие CBA"
+    - Не более 3 коротких фактов через ";".
 
-    Если CBA есть — комбинируй через ";":
-    - начни с "CBA" + cba_term (если указан)
-    - добавь social_benefits_summary (кратко)
-    - добавь has_redundancy_restrictions (если "yes")
-    - добавь requires_consultation_on_restructuring (если "yes")
-
-    Примеры:
-    - "CBA до 2026 г.; ДМС + доп. отпуск; no-redundancy clause"
-    - "CBA есть; enhanced severance; обязательные консультации при CoC"
-    - "CBA не обнаружен; профсоюза нет"
-    - "Не удалось определить наличие CBA"
-
-    Ограничение: не более 3 фактов через ";".
-
-    Шаг 9 — КРАТКОЕ ОБОСНОВАНИЕ
+    Шаг 10 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: есть ли CBA, срок, ключевые льготы,
-      ограничения, консультации.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод по CBA.
+    - Второе — срок / льготы / ограничения + короткая цитата
+      (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
@@ -376,16 +407,39 @@ extraction:
     - Нет CBA / профсоюза:
       * has_collective_agreement = "no"
       * union_coverage_strength = "none"
+      * cba_term = "Не применимо"
       * hr_cba_display = "CBA не обнаружен; профсоюза нет"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
+      * cba_term = "Не удалось определить"
+      * social_benefits_summary = "Не удалось определить"
       * hr_cba_display = "Не удалось определить наличие CBA"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (hr_cba_display, cba_term, social_benefits_summary, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "hr_cba_display": "CBA до 31.12.2026; ДМС; обязательные консультации",
+      "has_collective_agreement": "yes",
+      "cba_term": "до 31.12.2026",
+      "cba_modification_procedure": "yes",
+      "social_benefits_summary": "ДМС",
+      "has_enhanced_severance": "no",
+      "has_redundancy_restrictions": "no",
+      "requires_consultation_on_restructuring": "yes",
+      "union_coverage_strength": "medium",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -394,6 +448,8 @@ extraction:
       presentation: "fact"
       label: "Коллективный договор и соцпакет"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "has_collective_agreement"
       type: "string"
@@ -403,12 +459,15 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "cba_term"
       type: "string"
       presentation: "fact"
       label: "Срок CBA"
       description: "Срок действия коллективного договора"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "cba_modification_procedure"
       type: "string"
@@ -419,12 +478,14 @@ extraction:
         - "no"
         - "not_applicable"
         - "unclear"
+      display_in_grid: false
 
     - name: "social_benefits_summary"
       type: "string"
       presentation: "fact"
       label: "Социальный пакет"
       description: "Ключевые элементы социального пакета"
+      display_in_grid: false
 
     - name: "has_enhanced_severance"
       type: "string"
@@ -434,6 +495,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_redundancy_restrictions"
       type: "string"
@@ -443,6 +505,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "requires_consultation_on_restructuring"
       type: "string"
@@ -452,6 +515,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "union_coverage_strength"
       type: "string"
@@ -463,11 +527,13 @@ extraction:
         - "low"
         - "none"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

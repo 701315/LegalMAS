@@ -84,8 +84,6 @@ function getReviewStatusLabel(status: string | null | undefined): string {
     case "no_issue_detected":
     case "ok":
       return "Без замечаний";
-    case "not_applicable":
-      return "Неприменимо";
     case "unclear":
       return "Результат не определён";
     default:
@@ -312,8 +310,10 @@ export function buildDDGridV1ExportRows(params: {
     for (const check of allChecks) {
       if (visibleCheckSet && !visibleCheckSet.has(check.checkId)) continue;
 
+      // 3-уровневый lookup: doc_id → segment_id → check_id
+      const segmentId = v1Row.segmentId ?? "_default";
       const drawer =
-        model.drawerContents[v1Row.documentId]?.[check.checkId] ?? null;
+        model.drawerContents[v1Row.documentId]?.[segmentId]?.[check.checkId] ?? null;
       if (!drawer) continue;
 
       // pass фильтр
@@ -526,27 +526,26 @@ export function buildDDGridV1MatrixExportTable(params: {
         checkName,
         columnLabel,
         extract: (row) => {
+          // 3-уровневый lookup: doc_id → segment_id → column_id
+          const segmentId = row.segmentId ?? "_default";
           const perDoc = model.cellValues[row.documentId];
-          const rawCell = perDoc
-            ? perDoc[runtimeColumn.column.column_id] ?? null
-            : null;
+          const perSegment = perDoc ? perDoc[segmentId] : undefined;
+          const rawCell = perSegment ? perSegment[runtimeColumn.column.column_id] ?? null : null;
 
           if (!rawCell) {
-            if (
-              runtimeColumn.applicableDocTypeCodes.length > 0 &&
-              !runtimeColumn.applicableDocTypeCodes.includes(row.docType ?? "") 
-            ) {
-              return "н/о";
-            }
             return "—";
           }
 
-          if (rawCell.cell_state === "not_applicable") return "н/о";
-          if (rawCell.cell_state === "error") return "⚠ Ошибка";
-          if (rawCell.cell_state === "not_defined") return "—";
-          if (rawCell.cell_state === "not_executed") return "—";
-
-          return rawCell.display_value || "";
+          switch (rawCell.cell_state) {
+            case "error":
+              return "⚠ Ошибка";
+            case "not_defined":
+            case "not_executed":
+              return "—";
+            case "defined":
+            default:
+              return rawCell.display_value || "";
+          }
         },
       });
     }
@@ -746,34 +745,26 @@ export function buildDDGridV1DocumentSectionedExportTable(params: {
     const rows: string[][] = [];
 
     for (const { check, scopeGroupLabel } of allChecks) {
+      // 3-уровневый lookup: doc_id → segment_id → check_id
+      const segmentId = v1Row.segmentId ?? "_default";
       const drawer =
-        model.drawerContents[v1Row.documentId]?.[check.checkId] ?? null;
+        model.drawerContents[v1Row.documentId]?.[segmentId]?.[check.checkId] ?? null;
       if (!drawer) continue;
 
       // Одна check = группа строк (одна на runtime column)
       const checkName = check.checkName || check.checkId;
 
       for (const runtimeColumn of check.columns) {
+        // 3-уровневый lookup: doc_id → segment_id → column_id
         const perDoc = model.cellValues[v1Row.documentId];
-        const rawCell = perDoc
-          ? perDoc[runtimeColumn.column.column_id] ?? null
-          : null;
+        const perSegment = perDoc ? perDoc[segmentId] : undefined;
+        const rawCell = perSegment ? perSegment[runtimeColumn.column.column_id] ?? null : null;
 
         let value = "";
         if (!rawCell) {
-          if (
-            runtimeColumn.applicableDocTypeCodes.length > 0 &&
-              !runtimeColumn.applicableDocTypeCodes.includes(v1Row.docType ?? "") // <-- ИСПРАВЛЕНО
-          ) {
-            value = "н/о";
-          } else {
-            value = "—";
-          }
+          value = "—";
         } else {
           switch (rawCell.cell_state) {
-            case "not_applicable":
-              value = "н/о";
-              break;
             case "error":
               value = "⚠ Ошибка";
               break;
@@ -781,6 +772,7 @@ export function buildDDGridV1DocumentSectionedExportTable(params: {
             case "not_executed":
               value = "—";
               break;
+            case "defined":
             default:
               value = rawCell.display_value || "";
           }
@@ -853,28 +845,22 @@ export function buildDDGridV1ScopeGroupSectionedExportTable(params: {
     runtimeColumn: DDGridV1CheckNode["columns"][number],
   ) => {
     return (row: DDGridV1MatrixRow): string => {
+      // 3-уровневый lookup: doc_id → segment_id → column_id
+      const segmentId = row.segmentId ?? "_default";
       const perDoc = model.cellValues[row.documentId];
-      const rawCell = perDoc
-        ? perDoc[runtimeColumn.column.column_id] ?? null
-        : null;
+      const perSegment = perDoc ? perDoc[segmentId] : undefined;
+      const rawCell = perSegment ? perSegment[runtimeColumn.column.column_id] ?? null : null;
 
       if (!rawCell) {
-        if (
-          runtimeColumn.applicableDocTypeCodes.length > 0 &&
-          !runtimeColumn.applicableDocTypeCodes.includes(row.docType ?? "") // <-- ИСПРАВЛЕНО
-        ) {
-          return "н/о";
-        }
         return "—";
       }
       switch (rawCell.cell_state) {
-        case "not_applicable":
-          return "н/о";
         case "error":
           return "⚠ Ошибка";
         case "not_defined":
         case "not_executed":
           return "—";
+        case "defined":
         default:
           return rawCell.display_value || "";
       }

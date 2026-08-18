@@ -282,7 +282,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                 <div className="border-t border-[var(--border-subtle)]" />
 
                 {/* Тулбар */}
-                <div className="flex min-h-10 flex-wrap items-center gap-2 py-3">
+                <div className="flex min-h-10 flex-wrap items-start gap-1.5 py-3 sm:items-center sm:gap-2">                  
                   <Button
                     type="button"
                     size="sm"
@@ -290,14 +290,16 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                     onClick={handleOpenColumnSelector}
                     aria-expanded={isColumnSelectorOpen}
                     aria-controls="documents-columns-panel"
-                    className={
+                    className={[
+                      "shrink-0 whitespace-nowrap text-xs sm:text-sm",
                       isColumnSelectorOpen
                         ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--text-primary)] shadow-sm hover:bg-[var(--accent-muted)]"
-                        : ""
-                    }
+                        : "",
+                    ].join(" ")}
                   >
-                    Настроить отображаемые колонки
+                    Настроить колонки
                   </Button>
+
 
                   <ExportMenu
                     isOpen={isExportMenuOpen}

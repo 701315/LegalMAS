@@ -217,9 +217,15 @@ extraction:
     3) условия хранения и удаления данных после расторжения;
     4) прозрачность backup / restore.
 
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ предполагай право на экспорт, если оно не указано явно.
+    - НЕ считай упоминание backup достаточным без конкретных условий.
+    - Если информация отсутствует — используй "unclear",
+      "not_addressed" или "not_specified".
+
     Не анализируй ИБ-обязательства провайдера, SLA и общие
     условия аутсорсинга — это задача outsourced_it_and_security_risk.
-    Не предполагай право на экспорт если оно не указано явно.
     </role>
 
     <context>
@@ -227,6 +233,20 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни в reason.
+    - "Strict" = немедленное отключение при небольших нарушениях
+      без cure period.
+    - "Moderate" = серьёзные нарушения + разумное уведомление.
+    - "Mild" = ограниченные основания + cure period.
+    - Если договор молчит о праве на экспорт — это "no",
+      а не "unclear".
+    - Backup "clear" = частота + срок хранения + процедура restore.
+      Только упоминание backup = "partial".
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -239,9 +259,6 @@ extraction:
     - data_retention_after_termination
     - backup_and_restore_transparency
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -252,12 +269,12 @@ extraction:
     Значения:
     - "strict" — провайдер может немедленно отключить
       при небольших нарушениях (просрочка < 30 дней,
-      любой спор, по усмотрению).
+      по усмотрению, без cure).
     - "moderate" — при серьёзных нарушениях с разумным
       уведомлением.
-    - "mild" — ограниченные основания, cure period.
+    - "mild" — ограниченные основания, есть cure period.
     - "not_addressed" — условия не описаны.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 2 — СРОК УВЕДОМЛЕНИЯ О ПРИОСТАНОВКЕ
 
@@ -267,7 +284,7 @@ extraction:
     - Если указан: "0 дней", "5 рабочих дней", "30 дней"
     - Нет уведомления: "Без уведомления"
     - Не установлен: "Не установлен"
-    - Неясно: "Не удалось определить"
+    - Нельзя определить: "Не удалось определить"
 
     Шаг 3 — ПРАВО НА ЭКСПОРТ ДАННЫХ
 
@@ -276,7 +293,7 @@ extraction:
     Значения:
     - "yes" — есть явное право клиента на выгрузку данных.
     - "no" — право не предусмотрено или явно отсутствует.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — КАЧЕСТВО ОКНА ВЫГРУЗКИ
 
@@ -287,7 +304,7 @@ extraction:
     - "limited" — окно есть, но короткое (< 30 дней).
     - "none" — окна нет.
     - "not_applicable" — права на экспорт нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 5 — КАЧЕСТВО ФОРМАТОВ ЭКСПОРТА
 
@@ -299,7 +316,7 @@ extraction:
     - "poor" — только PDF / нестандартные форматы.
     - "not_specified" — форматы не указаны.
     - "not_applicable" — права на экспорт нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 6 — ХРАНЕНИЕ / УДАЛЕНИЕ ДАННЫХ
 
@@ -307,58 +324,59 @@ extraction:
 
     Значения:
     - "defined_period" — чётко установлен срок хранения
-      после расторжения (укажи срок в reason).
+      (укажи срок в reason).
     - "immediate_deletion" — данные удаляются немедленно.
     - "on_request" — удаление по запросу клиента.
     - "not_specified" — не урегулировано.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 7 — ПРОЗРАЧНОСТЬ BACKUP / RESTORE
 
     Заполни "backup_and_restore_transparency".
 
     Значения:
-    - "clear" — backup с чёткими условиями: частота,
-      срок хранения, процедура restore.
+    - "clear" — чёткие условия: частота, срок хранения,
+      процедура restore.
     - "partial" — backup упомянут без деталей.
     - "absent" — backup не упоминается.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "it_access_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовый случай:
-    - все поля unclear:
+    Возможные состояния:
+    1. Конкретные данные:
+       "Приостановка без уведомления; экспорт есть; окно 30 дней"
+    2. Проблемные условия:
+       "Strict условия; нет права на экспорт; backup не описан"
+    3. Не удалось определить:
+       "Не удалось определить условия доступа и экспорта"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить условия доступа и экспорта"
-
-    Если данные есть — комбинируй через ";":
-    - начни с service_suspension_severity (кратко)
-    - добавь suspension_notice_period (если проблема)
-    - добавь has_data_export_rights (если "no")
-    - добавь export_window_quality (если limited/none)
-    - добавь data_retention_after_termination (если критично)
-
-    Примеры:
-    - "Приостановка без уведомления; экспорт есть; окно 30 дней; CSV/JSON"
-    - "Strict условия; нет права на экспорт; backup не описан"
-    - "Умеренные условия; экспорт есть; данные удаляются через 90 дней"
-    - "Не удалось определить условия доступа и экспорта"
-
-    Ограничение: не более 4 фактов через ";".
+    - Иначе комбинируй через ";":
+      * service_suspension_severity (если strict: предупредить)
+      * suspension_notice_period (если "Без уведомления":
+        добавить)
+      * has_data_export_rights (если "no": "нет права на экспорт")
+      * export_window_quality (если limited/none)
+      * data_retention_after_termination (если критично)
+    - Не более 4 коротких фактов через ";".
 
     Шаг 9 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: основания приостановки, notice, право
-      на экспорт, окно, хранение, backup.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
@@ -369,15 +387,16 @@ extraction:
     - Договор молчит о праве на экспорт:
       * has_data_export_rights = "no"
       * export_window_quality = "not_applicable"
+      * export_format_quality = "not_applicable"
 
-    - Чёткое окно 30 дней, CSV/JSON:
+    - Окно 30 дней, CSV/JSON:
       * export_window_quality = "good"
       * export_format_quality = "machine_readable"
 
     - Немедленное удаление после расторжения:
       * data_retention_after_termination = "immediate_deletion"
 
-    - Backup упомянут без сроков и процедуры:
+    - Backup упомянут без деталей:
       * backup_and_restore_transparency = "partial"
 
     - Нет релевантных фрагментов:
@@ -387,8 +406,27 @@ extraction:
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (it_access_display, suspension_notice_period, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "it_access_display": "Strict условия; без уведомления; нет права на экспорт",
+      "service_suspension_severity": "strict",
+      "suspension_notice_period": "Без уведомления",
+      "has_data_export_rights": "no",
+      "export_window_quality": "not_applicable",
+      "export_format_quality": "not_applicable",
+      "data_retention_after_termination": "not_specified",
+      "backup_and_restore_transparency": "absent",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -397,6 +435,8 @@ extraction:
       presentation: "fact"
       label: "Доступ и экспорт данных"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "service_suspension_severity"
       type: "string"
@@ -408,12 +448,15 @@ extraction:
         - "mild"
         - "not_addressed"
         - "unclear"
+      display_in_grid: false
 
     - name: "suspension_notice_period"
       type: "string"
       presentation: "fact"
       label: "Срок уведомления"
       description: "Срок уведомления о приостановке сервиса"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "has_data_export_rights"
       type: "string"
@@ -423,6 +466,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "export_window_quality"
       type: "string"
@@ -434,6 +478,7 @@ extraction:
         - "none"
         - "not_applicable"
         - "unclear"
+      display_in_grid: false
 
     - name: "export_format_quality"
       type: "string"
@@ -446,6 +491,7 @@ extraction:
         - "not_specified"
         - "not_applicable"
         - "unclear"
+      display_in_grid: false
 
     - name: "data_retention_after_termination"
       type: "string"
@@ -457,6 +503,7 @@ extraction:
         - "on_request"
         - "not_specified"
         - "unclear"
+      display_in_grid: false
 
     - name: "backup_and_restore_transparency"
       type: "string"
@@ -467,11 +514,15 @@ extraction:
         - "partial"
         - "absent"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
+
+  store_payload: true
 
   store_payload: true
 

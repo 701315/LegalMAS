@@ -210,8 +210,11 @@ extraction:
     6) каково качество SLA;
     7) может ли провайдер менять условия в одностороннем порядке.
 
-    Не оценивай общий ИТ-риск компании.
-    Не анализируй тему шире текста.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ придумывай функции на аутсорсинге, если они не указаны.
+    - НЕ предполагай наличие SLA или exit-механизмов без явного упоминания.
+    - Если информация отсутствует — используй "no", "absent" или "unclear".
     </role>
 
     <context>
@@ -219,6 +222,20 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и кратко объясни в reason.
+    - Если речь идёт о поставке товаров или обычном сервисном договоре
+      без ИТ-аутсорсинга — это может быть не в scope данного check.
+    - "provider_can_suspend_easily" = "yes" только если основания
+      мягкие: просрочка < 30 дней без cure, по усмотрению провайдера.
+    - SLA "strong" = конкретный uptime %, service credits / penalties.
+      SLA "weak" = есть SLA, но без метрик или кредитов.
+    - "outsourced_it_functions_summary" — только функции, явно
+      переданные внешнему ИТ-провайдеру. Не угадывай по отрасли.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -231,10 +248,6 @@ extraction:
     - sla_quality
     - provider_can_change_terms_unilaterally
     - reason
-
-    Важно:
-    - не придумывай данные, которых нет в тексте;
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -242,12 +255,17 @@ extraction:
 
     Заполни "outsourced_it_functions_summary".
 
-    Определи, какие функции переданы провайдеру:
-    - облачный хостинг, инфраструктура (IaaS/PaaS)
-    - SaaS-приложения (CRM, ERP, биллинг, аналитика)
-    - колл-центр, контакт-центр
-    - HR-аутсорсинг, расчёт зарплат
-    - платёжная инфраструктура, процессинг
+    Правила:
+    - Кратко через ";", не более 3 позиций:
+      "CRM; ERP", "SaaS + колл-центр", "облачная инфраструктура"
+    - Если нет ИТ-аутсорсинга: "Не выявлено"
+    - Если нельзя определить: "Не удалось определить"
+
+    Категории для распознавания:
+    - облачный хостинг / инфраструктура (IaaS / PaaS / cloud)
+    - SaaS-приложения (CRM, ERP, биллинг, HR-система, аналитика)
+    - колл-центр / контакт-центр
+    - платёжная инфраструктура / процессинг
     - хранение и обработка данных
 
     Шаг 2 — ИБ-ОБЯЗАТЕЛЬСТВА ПРОВАЙДЕРА
@@ -255,69 +273,170 @@ extraction:
     Заполни "provider_security_obligations_present".
 
     Значения:
-    - "yes" — явно прописаны ИБ-требования: ссылки на стандарты (ISO, SOC), конкретные меры (шифрование, аудит).
+    - "yes" — явно прописаны ИБ-требования: ссылки на стандарты
+      (ISO 27001, SOC 2), конкретные меры (шифрование, аудит,
+      penetration testing).
     - "no" — ИБ-обязательства отсутствуют.
-    - "unclear" — формулировки общие.
+    - "unclear" — формулировки общие без конкретики.
 
     Шаг 3 — КОНТРОЛЬ СУБПОДРЯДЧИКОВ
 
     Заполни "subprocessor_controls".
 
     Значения:
-    - "yes" — контроль предусмотрен (требуется согласие клиента).
-    - "no" — провайдер может привлекать субподрядчиков без ограничений.
-    - "unclear" — из текста неясно.
+    - "yes" — контроль предусмотрен: согласие клиента
+      на привлечение субподрядчиков или право на аудит.
+    - "no" — провайдер может привлекать субподрядчиков
+      без ограничений / согласия.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — УСЛОВИЯ ПРИОСТАНОВКИ СЕРВИСА
 
     Заполни "provider_can_suspend_easily".
 
     Значения:
-    - "yes" — провайдер может приостановить сервис при мягких условиях (короткая просрочка, без уведомления).
-    - "no" — приостановка ограничена серьёзными нарушениями.
-    - "unclear" — из текста неясно.
+    - "yes" — провайдер может приостановить сервис
+      при мягких условиях: просрочка < 30 дней без cure period,
+      немедленно, по субъективному усмотрению.
+    - "no" — приостановка ограничена серьёзными нарушениями
+      с cure period или уведомлением.
+    - "unclear" — нельзя определить.
 
     Шаг 5 — МЕХАНИЗМЫ ЭКСПОРТА ДАННЫХ И ПЕРЕХОДА
 
     Заполни "has_data_export_and_transition_mechanisms".
 
     Значения:
-    - "yes" — право на экспорт данных, transition assistance прописаны.
-    - "no" — механизмов нет или описаны крайне общо.
-    - "unclear" — из текста неясно.
+    - "yes" — явно предусмотрены: право на экспорт данных,
+      transition assistance, exit plan, переход к другому
+      провайдеру с помощью текущего.
+    - "no" — механизмов нет или описаны только в общих чертах.
+    - "unclear" — нельзя определить.
 
     Шаг 6 — КАЧЕСТВО SLA
 
     Заполни "sla_quality".
 
     Значения:
-    - "strong" — есть конкретные метрики (uptime %) и кредиты.
-    - "weak" — SLA декларативный.
-    - "absent" — SLA отсутствует.
-    - "unclear" — из текста неясно.
+    - "strong" — конкретные метрики: uptime %, SLA credits /
+      penalties, конкретные сроки восстановления.
+    - "weak" — SLA упоминается, но без конкретных метрик
+      или кредитов.
+    - "absent" — SLA отсутствует или не упоминается.
+    - "unclear" — нельзя определить.
 
     Шаг 7 — ОДНОСТОРОННЕЕ ИЗМЕНЕНИЕ УСЛОВИЙ
 
     Заполни "provider_can_change_terms_unilaterally".
 
     Значения:
-    - "yes" — провайдер вправе без согласия клиента менять условия.
-    - "no" — изменения требуют согласия.
-    - "unclear" — из текста неясно.
+    - "yes" — провайдер вправе изменять условия без согласия
+      клиента: notice-only или без уведомления.
+    - "no" — изменения требуют согласия клиента.
+    - "unclear" — нельзя определить.
 
-    Шаг 8 — DISPLAY ДЛЯ DD GRID
+    Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "it_outsourcing_display".
 
-    Примеры:
-    - "CRM; ИБ-обязательства есть; SLA strong; нет exit-механизмов"
-    - "SaaS-платформа; ИБ-обязательства не описаны; риск лёгкой приостановки"
-    - "ИТ-аутсорсинг не выявлен"
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
+
+    Возможные состояния:
+    1. Аутсорсинг выявлен, параметры известны:
+       "CRM; ИБ-обязательства есть; SLA strong; exit-механизм есть"
+    2. Аутсорсинг выявлен, есть риски:
+       "SaaS-платформа; ИБ не описана; риск лёгкой приостановки"
+    3. ИТ-аутсорсинг не выявлен:
+       "ИТ-аутсорсинг не выявлен"
+    4. Не удалось определить:
+       "Не удалось определить условия ИТ-аутсорсинга"
+
+    Правила:
+    - Если все поля unclear:
+      "Не удалось определить условия ИТ-аутсорсинга"
+    - Если outsourced_it_functions_summary = "Не выявлено":
+      "ИТ-аутсорсинг не выявлен"
+    - Иначе комбинируй через ";":
+      * начни с outsourced_it_functions_summary (кратко)
+      * если provider_security_obligations_present = "yes":
+        "ИБ-обязательства есть"
+      * если provider_security_obligations_present = "no":
+        "ИБ не описана"
+      * если sla_quality = "strong":
+        "SLA strong"
+      * если sla_quality = "absent":
+        "SLA отсутствует"
+      * если provider_can_suspend_easily = "yes":
+        "риск лёгкой приостановки"
+      * если has_data_export_and_transition_mechanisms = "no":
+        "нет exit-механизма"
+      * если provider_can_change_terms_unilaterally = "yes":
+        "одностороннее изменение условий"
+    - Не более 4 коротких фактов через ";".
 
     Шаг 9 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
+
+    Правила:
+    - Первое предложение — краткий вывод по функциям и ИБ.
+    - Второе — SLA / приостановка / exit + цитата (до 100 символов).
+    - Пиши по-русски.
     </instructions>
+
+    <edge_cases>
+    - ИТ-аутсорсинга нет в договоре:
+      * outsourced_it_functions_summary = "Не выявлено"
+      * все сигналы = "unclear" или "no"
+      * it_outsourcing_display = "ИТ-аутсорсинг не выявлен"
+
+    - Декларативные ИБ без конкретики:
+      * provider_security_obligations_present = "unclear"
+
+    - Провайдер может менять условия с 30-дневным notice:
+      * provider_can_change_terms_unilaterally = "yes"
+
+    - Есть uptime 99.9% + service credits:
+      * sla_quality = "strong"
+
+    - SLA упомянут без метрик:
+      * sla_quality = "weak"
+
+    - Нет transition assistance и data export:
+      * has_data_export_and_transition_mechanisms = "no"
+
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * outsourced_it_functions_summary = "Не удалось определить"
+      * it_outsourcing_display =
+        "Не удалось определить условия ИТ-аутсорсинга"
+    </edge_cases>
+
+    <output_expectations>
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (it_outsourcing_display, outsourced_it_functions_summary, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "it_outsourcing_display": "CRM; ИБ-обязательства есть; SLA strong; нет exit-механизма",
+      "outsourced_it_functions_summary": "CRM",
+      "provider_security_obligations_present": "yes",
+      "subprocessor_controls": "yes",
+      "provider_can_suspend_easily": "no",
+      "has_data_export_and_transition_mechanisms": "no",
+      "sla_quality": "strong",
+      "provider_can_change_terms_unilaterally": "no",
+      "reason": "..."
+    }
+    </output_expectations>
 
   fields:
     - name: "it_outsourcing_display"
@@ -325,12 +444,16 @@ extraction:
       presentation: "fact"
       label: "ИТ-аутсорсинг"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "outsourced_it_functions_summary"
       type: "string"
       presentation: "fact"
       label: "Функции на аутсорсинге"
       description: "Краткий перечень ключевых функций у провайдера"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "provider_security_obligations_present"
       type: "string"
@@ -340,6 +463,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "subprocessor_controls"
       type: "string"
@@ -349,6 +473,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "provider_can_suspend_easily"
       type: "string"
@@ -358,6 +483,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_data_export_and_transition_mechanisms"
       type: "string"
@@ -367,6 +493,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "sla_quality"
       type: "string"
@@ -377,6 +504,7 @@ extraction:
         - "weak"
         - "absent"
         - "unclear"
+      display_in_grid: false
 
     - name: "provider_can_change_terms_unilaterally"
       type: "string"
@@ -386,11 +514,13 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

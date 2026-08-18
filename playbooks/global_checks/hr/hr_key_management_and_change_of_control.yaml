@@ -213,13 +213,18 @@ extraction:
     <role>
     Ты — юрист по трудовому праву и M&A.
     Твоя задача — точно извлечь из текста:
-    1) CoC / exit выплаты топ-менеджменту (golden parachute,
-       severance), их тип и триггер;
+    1) CoC / exit выплаты топ-менеджменту;
     2) retention-механизмы;
     3) non-compete / non-solicit;
     4) good leaver / bad leaver и vesting.
 
-    Не придумывай размеры выплат если они не указаны явно.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ придумывай размеры выплат, если они не указаны явно.
+    - НЕ подменяй обычные законные выплаты severance
+      специальными CoC / exit выплатами.
+    - Если информация отсутствует — используй "no", "unclear"
+      или соответствующее текстовое состояние.
     </role>
 
     <context>
@@ -227,6 +232,18 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и кратко объясни это в reason.
+    - `single_trigger` = выплата только из-за CoC.
+    - `double_trigger` = CoC + увольнение / ухудшение роли /
+      termination without cause / good reason.
+    - Обычные выплаты по закону не считаются CoC / exit выплатами.
+    - Не добавляй в display длительность retention или non-compete,
+      если она не отражена в extracted fields.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -240,9 +257,6 @@ extraction:
     - restrictive_covenants_strength
     - has_leaver_or_vesting_terms
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -252,10 +266,10 @@ extraction:
     "coc_payment_trigger_type", "coc_payment_size_summary".
 
     Значения для has_change_of_control_or_exit_payments:
-    - "yes" — есть: golden parachute, CoC bonus, enhanced
-      severance, exit payment.
+    - "yes" — есть golden parachute, CoC bonus,
+      enhanced severance, exit payment.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Значения для coc_payment_trigger_type:
     - "single_trigger" — выплата только из-за CoC.
@@ -266,26 +280,26 @@ extraction:
 
     Правила для coc_payment_size_summary:
     - Если размер указан явно: "3 оклада", "USD 500K", "18 мес."
-    - Если не указан: "Размер не указан"
-    - Если не применимо: "Не применимо"
+    - Если выплата есть, но размер не указан: "Размер не указан"
+    - Если выплат нет: "Не применимо"
+    - Если нельзя определить: "Не удалось определить"
 
     Шаг 2 — RETENTION-МЕХАНИЗМЫ
 
     Заполни "has_retention_bonuses" и "retention_strength".
 
     Значения для has_retention_bonuses:
-    - "yes" — есть: retention bonus, stay bonus, vesting,
-      long-term incentive.
+    - "yes" — есть retention bonus, stay bonus, vesting,
+      LTIP retention, удерживающие выплаты.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Значения для retention_strength:
-    - "strong" — существенный: > 12 месяцев или значительная
-      сумма явно указана.
+    - "strong" — явно существенный retention.
     - "moderate" — умеренный.
-    - "weak" — формальный / незначительный.
+    - "weak" — формальный / слабый.
     - "not_applicable" — retention нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 3 — NON-COMPETE / NON-SOLICIT
 
@@ -293,70 +307,83 @@ extraction:
     и "restrictive_covenants_strength".
 
     Значения для has_non_compete_or_non_solicit:
-    - "yes" / "no" / "unclear"
+    - "yes" — есть non-compete / non-solicit /
+      restrictive covenants.
+    - "no" — нет.
+    - "unclear" — нельзя определить.
 
     Значения для restrictive_covenants_strength:
-    - "strong" — есть срок (> 1 года), территория, санкции.
-    - "moderate" — частично: срок или санкции.
-    - "weak" — нет срока, территории или санкций.
+    - "strong" — есть срок, территория, санкции / enforceability.
+    - "moderate" — часть элементов есть.
+    - "weak" — ограничения описаны слабо.
     - "not_applicable" — ограничений нет.
-    - "unclear" — нельзя оценить.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — GOOD LEAVER / BAD LEAVER / VESTING
 
     Заполни "has_leaver_or_vesting_terms".
 
     Значения:
-    - "yes" — есть: good/bad leaver, vesting, forfeiture,
-      acceleration vesting при CoC.
+    - "yes" — есть good/bad leaver, vesting, forfeiture,
+      acceleration при CoC.
     - "no" — нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 5 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "key_management_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовые случаи:
-    - has_change_of_control_or_exit_payments = "no"
-      и has_retention_bonuses = "no":
-      "CoC выплат не обнаружено; retention нет"
-    - все поля unclear:
+    Возможные состояния:
+    1. Есть CoC / exit выплаты:
+       "CoC / exit выплаты: 3 оклада; double-trigger; retention сильный"
+    2. Выплат нет, но есть ограничения:
+       "CoC выплат не обнаружено; retention есть; non-compete умеренный"
+    3. Есть vesting / leaver:
+       "CoC / exit выплаты: размер не указан; leaver / vesting есть"
+    4. Не удалось определить:
+       "Не удалось определить условия для топ-менеджмента"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить условия для топ-менеджмента"
-
-    Если данные есть — комбинируй через ";":
-    - начни с CoC payment (если есть):
-      "Golden parachute: {size}; {trigger_type}"
-    - добавь retention (если есть):
-      "retention {strength}"
-    - добавь non-compete (если есть):
-      "non-compete {strength}"
-    - добавь vesting (если есть и критично):
-      "vesting / acceleration"
-
-    Примеры:
-    - "Golden parachute: 3 оклада; single-trigger; retention 18 мес."
-    - "CoC bonus при double-trigger; non-compete 2 года"
-    - "CoC выплат не обнаружено; retention bonus есть; non-compete слабый"
-    - "Не удалось определить условия для топ-менеджмента"
-
-    Ограничение: не более 3 фактов через ";".
+    - Если has_change_of_control_or_exit_payments = "no"
+      и has_retention_bonuses = "no"
+      и has_non_compete_or_non_solicit = "no"
+      и has_leaver_or_vesting_terms = "no":
+      "CoC выплат не обнаружено; retention нет"
+    - Иначе комбинируй через ";":
+      * если has_change_of_control_or_exit_payments = "yes":
+        "CoC / exit выплаты: {coc_payment_size_summary}"
+      * если coc_payment_trigger_type != "not_applicable"
+        и != "unclear":
+        добавь trigger_type кратко:
+        "single-trigger", "double-trigger", "termination only"
+      * если has_retention_bonuses = "yes":
+        добавь "retention сильный/умеренный/слабый"
+      * если has_non_compete_or_non_solicit = "yes":
+        добавь "non-compete сильный/умеренный/слабый"
+      * если has_leaver_or_vesting_terms = "yes":
+        добавь "leaver / vesting есть"
+    - Не более 3 коротких фактов через ";".
 
     Шаг 6 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: CoC payments и триггер, размер, retention,
-      non-compete, leaver/vesting.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — trigger / размер / retention / covenants
+      + короткая цитата (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
     - 6 окладов при CoC + увольнении:
+      * has_change_of_control_or_exit_payments = "yes"
       * coc_payment_trigger_type = "double_trigger"
       * coc_payment_size_summary = "6 окладов"
 
@@ -365,8 +392,11 @@ extraction:
 
     - Только стандартные выплаты по закону:
       * has_change_of_control_or_exit_payments = "no"
+      * coc_payment_trigger_type = "not_applicable"
+      * coc_payment_size_summary = "Не применимо"
 
     - Non-compete без срока и санкций:
+      * has_non_compete_or_non_solicit = "yes"
       * restrictive_covenants_strength = "weak"
 
     - Acceleration vesting при CoC:
@@ -374,13 +404,34 @@ extraction:
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
+      * coc_payment_size_summary = "Не удалось определить"
       * key_management_display =
         "Не удалось определить условия для топ-менеджмента"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (key_management_display, coc_payment_size_summary, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "key_management_display": "CoC / exit выплаты: 3 оклада; double-trigger; retention сильный",
+      "has_change_of_control_or_exit_payments": "yes",
+      "coc_payment_trigger_type": "double_trigger",
+      "coc_payment_size_summary": "3 оклада",
+      "has_retention_bonuses": "yes",
+      "retention_strength": "strong",
+      "has_non_compete_or_non_solicit": "yes",
+      "restrictive_covenants_strength": "moderate",
+      "has_leaver_or_vesting_terms": "yes",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -389,6 +440,8 @@ extraction:
       presentation: "fact"
       label: "Топ-менеджмент и CoC"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "has_change_of_control_or_exit_payments"
       type: "string"
@@ -398,6 +451,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "coc_payment_trigger_type"
       type: "string"
@@ -409,12 +463,15 @@ extraction:
         - "termination_only"
         - "not_applicable"
         - "unclear"
+      display_in_grid: false
 
     - name: "coc_payment_size_summary"
       type: "string"
       presentation: "fact"
       label: "Размер CoC / severance выплат"
       description: "Размер выплат при CoC или увольнении"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "has_retention_bonuses"
       type: "string"
@@ -424,6 +481,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "retention_strength"
       type: "string"
@@ -435,6 +493,7 @@ extraction:
         - "weak"
         - "not_applicable"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_non_compete_or_non_solicit"
       type: "string"
@@ -444,6 +503,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "restrictive_covenants_strength"
       type: "string"
@@ -455,6 +515,7 @@ extraction:
         - "weak"
         - "not_applicable"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_leaver_or_vesting_terms"
       type: "string"
@@ -464,11 +525,13 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

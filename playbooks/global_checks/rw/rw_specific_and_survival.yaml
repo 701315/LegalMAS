@@ -208,15 +208,18 @@ extraction:
 
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по M&A.
+    Ты — юрист по M&A и специальным заверениям.
     Твоя задача — точно извлечь из текста:
     1) наличие специальных R&W по критичным зонам риска;
     2) масштаб knowledge qualifiers;
     3) структуру и сроки действия (survival) R&W.
 
-    Фундаментальные R&W (статус, полномочия, title, no conflict,
-    general compliance) анализируются чеком rw_fundamental.
-    Не придумывай сроки если они не указаны.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ додумывай сроки survival, если они не указаны явно.
+    - НЕ смешивай специальные R&W с фундаментальными
+      (статус, полномочия, title, no conflict, general compliance).
+    - Если информация отсутствует — используй "missing" или "unclear".
     </role>
 
     <context>
@@ -224,6 +227,20 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни в reason.
+    - Knowledge qualifiers "extensive" = они применяются к
+      налоговым, санкционным, compliance R&W — это нестандартно
+      и существенно ослабляет защиту.
+    - Knowledge qualifiers "limited" = только для объективно
+      сложных категорий, например IP infringement by third parties.
+    - Survival период: если указан конкретный срок — используй его.
+      Если только "shall survive" без срока — has_survival_period = "yes",
+      survival_general_value = "Не установлен".
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -238,9 +255,6 @@ extraction:
     - survival_general_value
     - survival_structure_summary
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -252,7 +266,7 @@ extraction:
     - "present" — есть: все налоги уплачены, нет существенных
       налоговых претензий / задолженностей / доначислений.
     - "missing" — отсутствуют.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 2 — САНКЦИОННЫЕ R&W
 
@@ -260,9 +274,10 @@ extraction:
 
     Значения:
     - "present" — есть: не является санкционным лицом
-      (OFAC, EU, UK), нет нарушений санкционного законодательства.
+      (OFAC, EU, UK и т.п.),
+      нет нарушений санкционного законодательства.
     - "missing" — отсутствуют.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 3 — R&W ПО СУДЕБНЫМ СПОРАМ
 
@@ -272,7 +287,7 @@ extraction:
     - "present" — есть: нет существенных pending / threatened
       споров, арбитражей, административных дел.
     - "missing" — отсутствуют.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — КОМПЛАЕНС / AML / АНТИКОРРУПЦИЯ R&W
 
@@ -282,20 +297,19 @@ extraction:
 
     Значения:
     - "present" — есть: соблюдение FCPA, UK Bribery Act,
-      ФЗ-273, AML-требований, отраслевого регуляторного
-      комплаенса.
+      ФЗ-273, AML-требований, отраслевого регуляторного комплаенса.
     - "missing" — отсутствуют.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 5 — IP И ОБРЕМЕНЕНИЯ R&W
 
     Заполни "rw_ip_encumbrances".
 
     Значения:
-    - "present" — есть: принадлежность ключевых IP, нет
-      нарушений IP третьих лиц, нет нераскрытых обременений.
+    - "present" — есть: принадлежность ключевых IP, нет нарушений
+      IP третьих лиц, нет нераскрытых обременений.
     - "missing" — отсутствуют.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 6 — KNOWLEDGE QUALIFIERS
 
@@ -304,71 +318,83 @@ extraction:
     Значения:
     - "none" — knowledge qualifiers не используются.
     - "limited" — только для объективно сложных категорий
-      (IP infringement by third parties) — стандартно.
-    - "extensive" — применяются к налогам, санкциям, комплаенс
-      R&W — существенно ослабляет защиту.
-    - "unclear" — неясно.
+      (IP infringement by 3rd parties).
+    - "extensive" — применяются к налогам, санкциям,
+      compliance R&W — существенно ослабляет защиту.
+    - "unclear" — нельзя определить.
 
     Шаг 7 — НАЛИЧИЕ SURVIVAL PERIOD
 
     Заполни "has_survival_period".
 
     Значения:
-    - "yes" / "no" / "unclear"
+    - "yes" — survival упомянут явно.
+    - "no" — не упомянут.
+    - "unclear" — нельзя определить.
 
     Шаг 8 — ОБЩИЙ СРОК SURVIVAL
 
     Заполни "survival_general_value".
 
     Правила:
-    - Если указан: "12 месяцев", "18 месяцев", "24 месяца"
-    - Бессрочно: "Бессрочно"
-    - Не установлен: "Не установлен"
-    - Неясно: "Не удалось определить"
+    - Если срок указан: "12 месяцев", "18 месяцев", "24 месяца"
+    - Если бессрочно: "Бессрочно"
+    - Если survival есть, но срок не установлен: "Не установлен"
+    - Если survival нет: "Не применимо"
+    - Если нельзя определить: "Не удалось определить"
 
     Шаг 9 — СТРУКТУРА SURVIVAL
 
     Заполни "survival_structure_summary".
 
     Правила:
-    - Кратко через ";":
+    - Если дифференцированные сроки:
       "18 мес. — общий; 4 года — налоги; бессрочно — санкции"
-      "18 мес. для всех R&W без дифференциации"
-    - Нет: "Не установлен"
-    - Неясно: "Не удалось определить"
+    - Если единый срок:
+      "18 мес. для всех R&W"
+    - Если нет survival: "Не установлен"
+    - Если нельзя определить: "Не удалось определить"
 
     Шаг 10 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "rw_specific_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовый случай:
-    - все поля unclear:
+    Возможные состояния:
+    1. Полное покрытие:
+       "Налоги: да; Санкции: да; Споры: да; Survival: 18 мес."
+    2. Частичное покрытие:
+       "Налоги: нет; Санкции: нет; Остальные: да; Survival: 12 мес."
+    3. Проблемные qualifiers:
+       "Extensive knowledge qualifiers на санкции; Survival: 18 мес."
+    4. Не удалось определить:
+       "Не удалось определить специальные R&W"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить специальные R&W"
-
-    Если данные есть — комбинируй через ";":
-    - краткое покрытие: "Налоги: да/нет; Санкции: да/нет"
-    - survival (кратко)
-    - knowledge qualifiers если "extensive"
-
-    Примеры:
-    - "Налоги: да; Санкции: да; Споры: да; Survival: 18 мес./4 года налоги/бессрочно санкции"
-    - "Налоги: нет; Санкции: нет; Остальные: да; Survival: 12 мес."
-    - "Extensive knowledge qualifiers на санкции; Survival: 18 мес."
-    - "Не удалось определить специальные R&W"
-
-    Ограничение: не более 4 фактов через ";".
+    - Иначе:
+      * сформируй краткую оценку покрытия:
+        "Налоги: {да/нет}; Санкции: {да/нет}; Споры: {да/нет}"
+        (только по тем, что "present" или "missing",
+         опускай "unclear")
+      * добавь survival:
+        "Survival: {survival_general_value}"
+      * если knowledge_qualifiers_scope = "extensive":
+        добавь "extensive knowledge qualifiers"
+    - Не более 4 коротких фактов через ";".
 
     Шаг 11 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: покрытие по зонам, knowledge qualifiers, survival.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
@@ -381,8 +407,10 @@ extraction:
 
     - Survival 12 мес. для всех без дифференциации:
       * survival_general_value = "12 месяцев"
+      * survival_structure_summary = "12 мес. для всех R&W"
 
     - Дифференцированные: 18 мес. / 4 года налоги / бессрочно санкции:
+      * survival_general_value = "18 месяцев"
       * survival_structure_summary =
         "18 мес. — общий; 4 года — налоги; бессрочно — санкции"
 
@@ -391,12 +419,36 @@ extraction:
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * rw_specific_display = "Не удалось определить специальные R&W"
+      * survival_general_value = "Не удалось определить"
+      * rw_specific_display =
+        "Не удалось определить специальные R&W"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (rw_specific_display, survival_general_value,
+       survival_structure_summary, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "rw_specific_display": "Налоги: да; Санкции: да; Споры: да; Survival: 18 мес.",
+      "rw_tax": "present",
+      "rw_sanctions": "present",
+      "rw_litigation": "present",
+      "rw_compliance_specific": "present",
+      "rw_ip_encumbrances": "missing",
+      "knowledge_qualifiers_scope": "limited",
+      "has_survival_period": "yes",
+      "survival_general_value": "18 месяцев",
+      "survival_structure_summary": "18 мес. — общий; 4 года — налоги",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -405,6 +457,8 @@ extraction:
       presentation: "fact"
       label: "Специальные R&W и survival"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "rw_tax"
       type: "string"
@@ -414,6 +468,7 @@ extraction:
         - "present"
         - "missing"
         - "unclear"
+      display_in_grid: false
 
     - name: "rw_sanctions"
       type: "string"
@@ -423,6 +478,7 @@ extraction:
         - "present"
         - "missing"
         - "unclear"
+      display_in_grid: false
 
     - name: "rw_litigation"
       type: "string"
@@ -432,6 +488,7 @@ extraction:
         - "present"
         - "missing"
         - "unclear"
+      display_in_grid: false
 
     - name: "rw_compliance_specific"
       type: "string"
@@ -441,6 +498,7 @@ extraction:
         - "present"
         - "missing"
         - "unclear"
+      display_in_grid: false
 
     - name: "rw_ip_encumbrances"
       type: "string"
@@ -450,6 +508,7 @@ extraction:
         - "present"
         - "missing"
         - "unclear"
+      display_in_grid: false
 
     - name: "knowledge_qualifiers_scope"
       type: "string"
@@ -460,6 +519,7 @@ extraction:
         - "limited"
         - "extensive"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_survival_period"
       type: "string"
@@ -469,23 +529,28 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "survival_general_value"
       type: "string"
       presentation: "fact"
       label: "Общий срок survival"
       description: "Общий срок действия R&W после closing"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "survival_structure_summary"
       type: "string"
       presentation: "fact"
       label: "Структура survival"
       description: "Дифференцированные сроки survival по категориям R&W"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

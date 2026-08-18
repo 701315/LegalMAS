@@ -1,0 +1,515 @@
+id: "corporate_approvals_and_transaction_qualification"
+name: "Корпоративные одобрения и квалификация сделки"
+group: "Document completeness"
+description: >
+  Анализирует необходимость и наличие корпоративных одобрений
+  для заключения договора: признаки крупной сделки
+  (ст. 46 14-ФЗ / ст. 78–79 208-ФЗ), признаки сделки
+  с заинтересованностью (ст. 45 14-ФЗ / ст. 81–84 208-ФЗ),
+  наличие решений СД / ОСА, соблюдение сроков одобрения
+  (до или после подписания).
+
+  Формирует краткий user-facing вывод и оценивает формальный риск
+  оспоримости сделки из-за отсутствия корпоративного одобрения.
+
+  Полномочия подписантов анализируются отдельным чеком
+  signatory_authority_and_basis.
+
+doc_types: []
+
+severity: "high"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+ui_mode: "field_extraction"
+
+rules:
+  keyword_mode: any
+
+  keywords:
+    high:
+      - "(?i)крупн[а-я]+\\s+сделк"
+      - "(?i)major\\s+transaction"
+      - "(?i)significant\\s+transaction"
+      - "(?i)exceeds?\\s+25\\s*%"
+      - "(?i)превышает\\s+25\\s*%"
+      - "(?i)балансов[а-я]+\\s+стоимост[ьи]\\s+актив"
+      - "(?i)заинтересованн[а-я]+\\s+сделк"
+      - "(?i)interested\\s+party\\s+transaction"
+      - "(?i)related\\s+party\\s+transaction"
+      - "(?i)\\bRPT\\b"
+      - "(?i)сделк[аи]\\s+с\\s+заинтересованност"
+      - "(?i)board\\s+resolution"
+      - "(?i)решени[ея]\\s+совета\\s+директоров"
+      - "(?i)решени[ея]\\s+СД"
+      - "(?i)shareholders['']?\\s+resolution"
+      - "(?i)решени[ея]\\s+общего\\s+собрани[яи]"
+      - "(?i)решени[ея]\\s+ОС[АУ]"
+      - "(?i)протокол\\s+(заседания\\s+)?(СД|совета|собрания)"
+
+    medium:
+      - "(?i)одобрени[ея]\\s+сделк"
+      - "(?i)approval\\s+of\\s+(the\\s+)?transaction"
+      - "(?i)corporate\\s+approval"
+      - "(?i)корпоративн[а-я]+\\s+одобрени"
+      - "(?i)consent\\s+of\\s+(the\\s+)?(board|shareholders)"
+      - "(?i)аффилированн[а-я]+\\s+лиц"
+      - "(?i)affiliated\\s+(persons?|entities?|parties?)"
+      - "(?i)бенефициарн[а-я]+\\s+владел"
+      - "(?i)beneficial\\s+owner"
+      - "(?i)контролирующ[а-я]+\\s+лиц"
+      - "(?i)controlling\\s+person"
+      - "(?i)\\b14[-\\s]?ФЗ\\b"
+      - "(?i)\\b208[-\\s]?ФЗ\\b"
+      - "(?i)Федеральн[а-я]+\\s+закон[\\s\\S]{0,20}(об\\s+обществ|акционерн)"
+
+    low:
+      - "(?i)крупная\\s+сделка"
+      - "(?i)заинтересованная\\s+сделка"
+      - "(?i)related\\s+party"
+      - "(?i)board\\s+resolution"
+      - "(?i)протокол\\s+(СД|собрания)"
+      - "(?i)corporate\\s+approval"
+      - "(?i)аффилированн[а-я]+\\s+лиц"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 6
+  temperature: 0.0
+  max_tokens: 700
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 700
+
+retrieval:
+  retrieval_profile: "authority_check"
+  context_k: 6
+  max_chunks: 12
+
+  retrieval_query: >
+    крупная сделка заинтересованная сделка одобрение совет директоров
+    общее собрание акционеров решение СД протокол одобрение сделки
+    аффилированные лица related party transaction corporate approval
+    board resolution shareholders resolution
+
+  boost_keywords:
+    - "крупная сделка"
+    - "major transaction"
+    - "заинтересованная сделка"
+    - "interested party transaction"
+    - "related party transaction"
+    - "RPT"
+    - "board resolution"
+    - "решение совета директоров"
+    - "решение СД"
+    - "shareholders resolution"
+    - "решение общего собрания"
+    - "одобрение сделки"
+    - "approval of the transaction"
+    - "corporate approval"
+    - "корпоративное одобрение"
+    - "аффилированное лицо"
+    - "affiliated person"
+    - "протокол заседания"
+    - "14-ФЗ"
+    - "208-ФЗ"
+    - "балансовая стоимость активов"
+
+  negative_keywords:
+    - "штрафные санкции"
+    - "условия оплаты"
+    - "валюта платежа"
+    - "подсудность"
+    - "применимое право"
+    - "форс-мажор"
+    - "доверенность"
+    - "power of attorney"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "structural_anchor"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "boilerplate"
+    - "representations"
+
+  position_bias:
+    preferred_range: [0.00, 1.00]
+    boost: 0.10
+    scope: "segment"
+
+  rerank: true
+  filters: {}
+
+conditional: null
+
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  confidence_bonus_on_match: 0.08
+  confidence_penalty_on_excluded_segment: 0.15
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 950
+
+  llm_prompt_extraction: |
+    <role>
+    Ты — старший корпоративный юрист, специализирующийся
+    на корпоративных одобрениях и квалификации сделок по
+    российскому корпоративному праву.
+
+    Твоя задача — точно извлечь из текста:
+    1) есть ли признаки крупной сделки;
+    2) есть ли признаки сделки с заинтересованностью;
+    3) упоминаются ли корпоративные одобрения и каков их статус;
+    4) получено ли одобрение до или после подписания.
+
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай вывод о крупности сделки по одному только
+      предмету договора — нужны прямые маркеры.
+    - НЕ считай отсутствие упоминания одобрения автоматическим
+      нарушением — если нет признаков крупной / заинтересованной
+      сделки, одобрение может быть не нужно.
+    - Если данных недостаточно — используй "unclear".
+
+    Полномочия подписантов анализируются отдельным чеком —
+    здесь их не затрагивай.
+    </role>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если есть ссылка на решение СД / ОСА, но без реквизитов —
+      это упоминание, но неполное.
+    - Признаки крупной сделки:
+      * прямое упоминание "крупная сделка" / "major transaction";
+      * упоминание порога 25% балансовой стоимости активов;
+      * иные прямые маркеры по тексту.
+    - Признаки заинтересованности:
+      * прямое упоминание "сделка с заинтересованностью" / RPT;
+      * упоминание аффилированных лиц;
+      * бенефициарного владельца;
+      * контролирующего лица.
+    - Не делай выводов на основании предположений о размере сделки.
+    </context_rules>
+
+    <task>
+    Заполни только следующие поля:
+    - approvals_display
+    - transaction_qualification
+    - approval_status_summary
+    - major_transaction_indicators
+    - interested_party_indicators
+    - corporate_approvals_mentioned
+    - approval_body
+    - approval_timing
+    - reason
+    </task>
+
+    <instructions>
+    Шаг 1 — ПРИЗНАКИ КРУПНОЙ СДЕЛКИ
+
+    Заполни "major_transaction_indicators".
+
+    Значения:
+    - "yes" — есть прямые признаки по ст. 46 14-ФЗ /
+      ст. 78–79 208-ФЗ: прямое упоминание, пороги,
+      превышение 25% балансовой стоимости активов.
+    - "no" — прямых признаков нет.
+    - "unclear" — данных недостаточно.
+
+    Шаг 2 — ПРИЗНАКИ ЗАИНТЕРЕСОВАННОЙ СДЕЛКИ
+
+    Заполни "interested_party_indicators".
+
+    Значения:
+    - "yes" — есть прямые признаки по ст. 45 14-ФЗ /
+      ст. 81–84 208-ФЗ: прямое упоминание, аффилированность,
+      RPT.
+    - "no" — прямых признаков нет.
+    - "unclear" — данных недостаточно.
+
+    Шаг 3 — USER-FACING КВАЛИФИКАЦИЯ СДЕЛКИ
+
+    Заполни "transaction_qualification".
+
+    Правила:
+    - Если оба "no":
+      "Признаков крупной / заинтересованной сделки не выявлено"
+    - Если major = "yes", interested = "no":
+      "Признаки крупной сделки"
+    - Если major = "no", interested = "yes":
+      "Признаки заинтересованной сделки"
+    - Если оба "yes":
+      "Признаки крупной и заинтересованной сделки"
+    - Если нельзя определить:
+      "Не удалось определить"
+
+    Шаг 4 — НАЛИЧИЕ КОРПОРАТИВНЫХ ОДОБРЕНИЙ
+
+    Заполни "corporate_approvals_mentioned".
+
+    Значения:
+    - "yes" — решения / одобрения СД / ОСА упоминаются
+      (с реквизитами или без).
+    - "no" — не упоминаются при наличии признаков
+      крупной / заинтересованной сделки.
+    - "not_required" — признаков необходимости одобрения не выявлено.
+    - "unclear" — нельзя определить.
+
+    Шаг 5 — ОРГАН ОДОБРЕНИЯ
+
+    Заполни "approval_body".
+
+    Значения:
+    - "board" — решение совета директоров / наблюдательного совета.
+    - "shareholders" — решение общего собрания.
+    - "both" — решения обоих органов.
+    - "not_applicable" — одобрение не требуется или не упомянуто.
+    - "unclear" — нельзя определить.
+
+    Шаг 6 — МОМЕНТ ОДОБРЕНИЯ
+
+    Заполни "approval_timing".
+
+    Значения:
+    - "pre_signing" — одобрение получено до подписания договора.
+    - "post_factum" — дата решения позже даты договора.
+    - "not_applicable" — одобрение не требуется или не упомянуто.
+    - "unclear" — нельзя определить.
+
+    Шаг 7 — USER-FACING СТАТУС ОДОБРЕНИЯ
+
+    Заполни "approval_status_summary".
+
+    Правила:
+    - Если corporate_approvals_mentioned = "not_required":
+      "Одобрение не требуется"
+    - Если = "yes" и approval_timing = "pre_signing":
+      "Одобрение получено (до подписания)"
+    - Если = "yes" и approval_timing = "post_factum":
+      "Одобрение получено (после подписания)"
+    - Если = "yes" и approval_timing = "unclear":
+      "Одобрение упоминается (момент не определён)"
+    - Если = "no":
+      "Одобрение не упоминается"
+    - Если = "unclear":
+      "Не удалось определить"
+
+    Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
+
+    Заполни "approvals_display".
+
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
+
+    Возможные состояния:
+    1. Одобрение не требуется:
+       "Признаков крупной / заинтересованной сделки не выявлено"
+    2. Одобрение есть:
+       "Крупная сделка; одобрение СД от 01.01.2024"
+       "RPT; одобрение ОСА получено до подписания"
+    3. Одобрение отсутствует:
+       "Крупная сделка; одобрение не упоминается"
+       "RPT; одобрение не упоминается"
+    4. Не удалось определить:
+       "Не удалось определить необходимость и наличие одобрений"
+
+    Правила:
+    - Если все поля unclear:
+      "Не удалось определить необходимость и наличие одобрений"
+    - Если major = "no" и interested = "no":
+      "Признаков крупной / заинтересованной сделки не выявлено"
+    - Иначе:
+      * начни с transaction_qualification
+      * затем добавь approval_status_summary
+    - Не более 3 коротких фактов через ";".
+
+    Шаг 9 — ОБОСНОВАНИЕ
+
+    Заполни "reason".
+
+    Правила:
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    </instructions>
+
+    <edge_cases>
+    - "Настоящий договор является крупной сделкой":
+      * major_transaction_indicators = "yes"
+
+    - Упоминание аффилированных лиц / RPT:
+      * interested_party_indicators = "yes"
+
+    - Протокол СД от ... одобрил сделку:
+      * corporate_approvals_mentioned = "yes"
+      * approval_body = "board"
+      * approval_timing = "pre_signing" (если дата раньше договора)
+
+    - Признаки крупной сделки, одобрение не упоминается:
+      * corporate_approvals_mentioned = "no"
+      * approval_status_summary = "Одобрение не упоминается"
+
+    - Нет признаков крупной / заинтересованной:
+      * major_transaction_indicators = "no"
+      * interested_party_indicators = "no"
+      * corporate_approvals_mentioned = "not_required"
+      * approval_body = "not_applicable"
+      * approval_timing = "not_applicable"
+      * transaction_qualification =
+        "Признаков крупной / заинтересованной сделки не выявлено"
+      * approval_status_summary = "Одобрение не требуется"
+      * approvals_display =
+        "Признаков крупной / заинтересованной сделки не выявлено"
+
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * transaction_qualification = "Не удалось определить"
+      * approval_status_summary = "Не удалось определить"
+      * approvals_display =
+        "Не удалось определить необходимость и наличие одобрений"
+    </edge_cases>
+
+    <output_expectations>
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (approvals_display, transaction_qualification,
+       approval_status_summary, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "approvals_display": "Крупная сделка; одобрение СД получено до подписания",
+      "transaction_qualification": "Признаки крупной сделки",
+      "approval_status_summary": "Одобрение получено (до подписания)",
+      "major_transaction_indicators": "yes",
+      "interested_party_indicators": "no",
+      "corporate_approvals_mentioned": "yes",
+      "approval_body": "board",
+      "approval_timing": "pre_signing",
+      "reason": "..."
+    }
+    </output_expectations>
+
+  fields:
+    - name: "approvals_display"
+      type: "string"
+      presentation: "fact"
+      label: "Корпоративные одобрения"
+      description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
+
+    - name: "transaction_qualification"
+      type: "string"
+      presentation: "fact"
+      label: "Квалификация сделки"
+      description: "Краткая квалификация по признакам крупной / заинтересованной"
+      display_in_grid: true
+      display_priority: 2
+
+    - name: "approval_status_summary"
+      type: "string"
+      presentation: "fact"
+      label: "Статус одобрения"
+      description: "Краткий статус корпоративного одобрения"
+      display_in_grid: true
+      display_priority: 3
+
+    - name: "major_transaction_indicators"
+      type: "string"
+      presentation: "signal"
+      description: "Признаки крупной сделки"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "interested_party_indicators"
+      type: "string"
+      presentation: "signal"
+      description: "Признаки заинтересованной сделки"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "corporate_approvals_mentioned"
+      type: "string"
+      presentation: "signal"
+      description: "Упоминание корпоративных одобрений"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "not_required"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "approval_body"
+      type: "string"
+      presentation: "signal"
+      description: "Орган, давший одобрение"
+      allowed_values:
+        - "board"
+        - "shareholders"
+        - "both"
+        - "not_applicable"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "approval_timing"
+      type: "string"
+      presentation: "signal"
+      description: "Момент получения одобрения"
+      allowed_values:
+        - "pre_signing"
+        - "post_factum"
+        - "not_applicable"
+        - "unclear"
+      display_in_grid: false
+
+    - name: "reason"
+      type: "string"
+      presentation: "diagnostic"
+      description: "Обоснование"
+      display_in_grid: false
+
+  store_payload: true
+
+
+
+  

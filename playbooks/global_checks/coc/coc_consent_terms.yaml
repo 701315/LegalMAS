@@ -161,13 +161,35 @@ extraction:
     Твоя задача — точно извлечь механику получения согласия
     контрагента при смене контроля (Change of Control).
 
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" из общих норм права.
+    - НЕ додумывай условия, которых нет в тексте.
+    - Если информация отсутствует — ставь "not_specified",
+      а не предполагай наиболее вероятный вариант.
+    - Если текст неоднозначен — ставь "unclear".
+
     Не анализируй уступку прав и перевод долга.
-    Не анализируй наличие / тип режима CoC — это задача другого check.
+    Не анализируй наличие / тип режима CoC —
+    это задача другого check.
     Не анализируй последствия отказа (расторжение, акселерация).
     Не анализируй carve-out и исключения.
     Не анализируй, кто именно даёт согласие.
     Не оценивай риск.
     </role>
+
+    <context_rules>
+    - Ниже приведены фрагменты, отобранные автоматически.
+    - Некоторые фрагменты могут быть нерелевантны данному
+      check — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Если ни один фрагмент не содержит информации по теме —
+      используй значения для случая "тема не урегулирована".
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
+    </context_rules>
 
     <context>
     Ниже приведены релевантные фрагменты договора:
@@ -219,8 +241,11 @@ extraction:
 
     Правила:
     - Если срок установлен: извлеки как есть
-      ("10 рабочих дней", "30 календарных дней").
-    - Если не установлен: "Не установлен".
+      ("10 рабочих дней", "30 calendar days").
+    - Если согласие требуется, но срок не установлен:
+      "Не установлен".
+    - Если тема CoC / согласия вообще не урегулирована
+      в договоре: "Не установлено".
     - Если согласие не требуется: "Не применимо".
     - Если нельзя определить: "Не удалось определить".
 
@@ -229,7 +254,8 @@ extraction:
     Заполни "coc_deemed_consent".
 
     Значения:
-    - "yes" — молчание / отсутствие ответа в срок считается согласием.
+    - "yes" — молчание / отсутствие ответа в срок
+      считается согласием.
     - "no" — прямо требуется явное согласие.
     - "not_specified" — тема не урегулирована.
     - "not_applicable" — согласие не требуется.
@@ -240,7 +266,8 @@ extraction:
     Заполни "coc_reasonableness_standard".
 
     Значения:
-    - "not_unreasonably_withheld" — отказ не может быть необоснованным.
+    - "not_unreasonably_withheld" — отказ не может быть
+      необоснованным.
     - "sole_discretion" — отказ по усмотрению.
     - "not_specified" — стандарт не установлен.
     - "not_applicable" — согласие не требуется.
@@ -250,13 +277,23 @@ extraction:
 
     Заполни "coc_consent_display".
 
+    Это поле — краткий итог для таблицы.
+    Сформируй его на основе уже заполненных полей:
+    - coc_consent_required
+    - coc_consent_form
+    - coc_response_period
+    - coc_deemed_consent
+    - coc_reasonableness_standard
+    Не добавляй информацию, которой нет в этих полях.
+
     Примеры:
     - "Для CoC требуется предварительное письменное согласие;
       срок ответа не установлен"
     - "Для CoC требуется согласие; 15 рабочих дней;
       молчание считается согласием"
     - "Для CoC требуется согласие; отказ по sole discretion"
-    - "Для CoC требуется согласие; отказ не может быть необоснованным"
+    - "Для CoC требуется согласие;
+      отказ не может быть необоснованным"
     - "Для CoC согласие не требуется"
     - "Условия согласия при CoC не установлены"
     - "Не удалось определить условия согласия при CoC"
@@ -265,9 +302,18 @@ extraction:
 
     Заполни "reason".
 
-    Правила:
-    - 1–2 коротких предложения.
-    - Приведи короткую цитату в кавычках.
+    Формат:
+    - Первое предложение: краткий вывод
+      (что найдено или не найдено).
+    - Второе предложение: цитата из текста в кавычках
+      (самый релевантный фрагмент, до 100 символов).
+
+    Примеры:
+    - "Договор требует предварительного письменного согласия
+      при CoC, стандарт отказа не установлен.
+      «Prior written consent of the counterparty is required»."
+    - "Положения о согласии при CoC не обнаружены
+      в представленных фрагментах."
     </instructions>
 
     <edge_cases>
@@ -281,12 +327,13 @@ extraction:
         "Для CoC требуется предварительное письменное согласие;
         срок ответа не установлен"
 
-    - "Consent shall not be unreasonably withheld, delayed or conditioned":
+    - "Consent shall not be unreasonably withheld, delayed
+      or conditioned":
       * coc_reasonableness_standard = "not_unreasonably_withheld"
 
-    - "In the event of a failure to respond within 15 business days,
-      consent shall be deemed to have been given":
-      * coc_response_period = "15 business days"
+    - "Failure to respond within 15 business days,
+      consent shall be deemed given":
+      * coc_response_period = "15 рабочих дней"
       * coc_deemed_consent = "yes"
 
     - "In its sole and absolute discretion":
@@ -300,8 +347,15 @@ extraction:
       * coc_reasonableness_standard = "not_applicable"
       * coc_consent_display = "Для CoC согласие не требуется"
 
+    - Тема CoC вообще не урегулирована:
+      * coc_consent_required = "not_specified"
+      * coc_response_period = "Не установлено"
+      * coc_consent_display =
+        "Условия согласия при CoC не установлены"
+
     - Нет релевантных фрагментов:
       * coc_consent_required = "not_specified"
+      * coc_response_period = "Не установлено"
       * coc_consent_display =
         "Условия согласия при CoC не установлены"
 
@@ -312,7 +366,25 @@ extraction:
     </edge_cases>
 
     <output_expectations>
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай в markdown-блоки (без ```).
+    - Не добавляй комментариев вне JSON.
+    - Все значения полей с allowed_values — на английском
+      (как указано в списке).
+    - Свободные текстовые поля (coc_consent_display,
+      coc_response_period, reason) — на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "coc_consent_display": "Для CoC требуется предварительное письменное согласие; срок ответа не установлен",
+      "coc_consent_required": "yes",
+      "coc_consent_form": "prior_written",
+      "coc_response_period": "Не установлен",
+      "coc_deemed_consent": "not_specified",
+      "coc_reasonableness_standard": "not_specified",
+      "reason": "Договор требует письменного согласия при CoC. «Prior written consent is required»."
+    }
     </output_expectations>
 
   fields:
@@ -321,11 +393,14 @@ extraction:
       presentation: "fact"
       label: "Согласие при CoC"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "coc_consent_required"
       type: "string"
       presentation: "signal"
       description: "Требуется ли согласие при CoC"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -336,6 +411,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Форма согласия"
+      display_in_grid: false
       allowed_values:
         - "prior_written"
         - "written"
@@ -347,13 +423,16 @@ extraction:
     - name: "coc_response_period"
       type: "string"
       presentation: "fact"
-      label: "Срок ответа"
+      label: "Срок ответа при CoC"
       description: "Срок рассмотрения запроса о согласии при CoC"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "coc_deemed_consent"
       type: "string"
       presentation: "signal"
       description: "Deemed consent при CoC"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -365,6 +444,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Стандарт отказа при CoC"
+      display_in_grid: false
       allowed_values:
         - "not_unreasonably_withheld"
         - "sole_discretion"
@@ -376,6 +456,7 @@ extraction:
       type: "string"
       presentation: "diagnostic"
       description: "Краткое обоснование"
+      display_in_grid: false
 
   store_payload: true
 

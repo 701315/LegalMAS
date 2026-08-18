@@ -29,7 +29,6 @@ from services.instruction_compiler import (
     InstructionCompiler,
 )
 from services.instruction_publishing_service import (
-    DuplicateInstructionContentError,
     InstructionVersionNotFoundError,
 )
 
@@ -75,12 +74,17 @@ class InstructionEditorService:
 
         Полезно для:
         - "Edit published" flow: пользователь нажимает кнопку,
-          получает редактируемый draft на основе published версии
-        - Создание вариантов для A/B review
+          получает редактируемый draft на основе published версии;
+        - восстановление archived-версии в новый рабочий draft;
+        - создание вариантов для review.
+
+        Дубликат-чек по sha256 намеренно отсутствует: клон создаётся
+        с тем же YAML, что и source — это рабочая копия для редактирования.
+        После создания пользователь вносит изменения через update_draft,
+        который уже содержит нужные проверки.
 
         Raises:
             InstructionVersionNotFoundError: source не найден
-            DuplicateInstructionContentError: identical content уже существует
         """
         source = await self.version_repo.get_by_id(source_version_id)
         if source is None:
@@ -92,17 +96,6 @@ class InstructionEditorService:
             doc_type_code=source.doc_type_code,
             source=source.source_yaml,
         )
-
-        existing = await self.version_repo.get_by_doc_type_and_sha256(
-            doc_type_code=compiled.doc_type_code,
-            source_sha256=compiled.source_sha256,
-        )
-        if existing is not None:
-            raise DuplicateInstructionContentError(
-                f"Cannot clone: identical instruction snapshot already exists "
-                f"for doc_type_code='{compiled.doc_type_code}' "
-                f"(existing_version_id={existing.id})."
-            )
 
         cloned = await self.version_repo.create_version(
             doc_type_code=compiled.doc_type_code,

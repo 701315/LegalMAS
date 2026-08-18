@@ -23,7 +23,6 @@ import CounterpartiesTab from "./tabs/CounterpartiesTab";
 import RealEstateTab from "./tabs/RealEstateTab";
 import { useEnsureProjectRole } from "../hooks/useEnsureProjectRole";
 import Button from "../components/ui/Button";
-import { useIsMobile } from "../hooks/useIsMobile";
 import { runKeys, useStartRun } from "../api/runs";
 import { useSetPrimaryLanguage, useUpdateDeal } from "../api/deals";
 import { useDocuments } from "../api/documents";
@@ -93,7 +92,6 @@ function getTabPanelId(tabKey: TabKey) {
 }
 
 const DealPage: React.FC<DealPageProps> = ({ deal }) => {
-  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -303,8 +301,11 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
   };
 
-    return (
-      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg-card)]">
+  return (
+    // На мобильном: h-[100dvh] гарантирует, что flex-1 получит реальную высоту экрана
+    // без проблем с адресной строкой мобильного браузера (в отличие от h-screen/100vh).
+    // На десктопе (lg:): h-full min-h-0 для корректной работы AppShell.
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--bg-card)] lg:h-full">
         <header
           className="hidden shrink-0 border-b border-[var(--border)] lg:block"
           style={{
@@ -455,7 +456,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
           </nav>
         </aside>
 
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
           <header className="shrink-0 border-b border-[var(--border)] bg-[var(--accent-subtle)] lg:hidden">
             <div className="px-4 py-4">
               <div className="flex items-start justify-between gap-3">
@@ -569,23 +570,21 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
               />
             </section>
           ) : (
-            <section
-              id={getTabPanelId(activeTab)}
-              role="tabpanel"
-              aria-labelledby={getTabId(activeTab)}
-              className={`flex min-h-0 min-w-0 flex-1 flex-col ${
-                isMobile ? "overflow-y-auto" : "overflow-hidden"
-              } p-4 lg:p-6`}
-              tabIndex={0}
-            >
-              {renderActiveTabPanel()}
-              {/* Bottom spacer (mobile only). */}
-              <div
-                aria-hidden="true"
-                className="shrink-0 lg:hidden"
-                style={{ height: "var(--app-safe-bottom)" }}
-              />
-            </section>
+          <section
+            id={getTabPanelId(activeTab)}
+            role="tabpanel"
+            aria-labelledby={getTabId(activeTab)}
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain p-4 lg:overflow-hidden lg:p-6"
+            tabIndex={0}
+          >
+            {renderActiveTabPanel()}
+            {/* Bottom spacer (mobile only). */}
+            <div
+              aria-hidden="true"
+              className="shrink-0 lg:hidden"
+              style={{ height: "var(--app-safe-bottom)" }}
+            />
+          </section>
           )}
         </main>
       </div>

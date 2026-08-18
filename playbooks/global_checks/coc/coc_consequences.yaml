@@ -163,11 +163,32 @@ extraction:
     Твоя задача — точно извлечь substantive последствия,
     которые наступают при смене контроля (Change of Control).
 
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" из общих норм права.
+    - НЕ додумывай последствия, которых нет в тексте.
+    - Если информация отсутствует — ставь "no",
+      а не предполагай наиболее вероятный вариант.
+    - Если текст неоднозначен — ставь "unclear".
+
     Не анализируй механику согласия.
     Не анализируй definition of control или CoC trigger.
     Не анализируй последствия уступки прав / перевода долга.
     Не оценивай общий M&A-риск.
     </role>
+
+    <context_rules>
+    - Ниже приведены фрагменты, отобранные автоматически.
+    - Некоторые фрагменты могут быть нерелевантны данному
+      check — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Если ни один фрагмент не содержит информации по теме —
+      используй значения для случая "последствия не установлены".
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
+    </context_rules>
 
     <context>
     Ниже приведены релевантные фрагменты договора:
@@ -247,6 +268,15 @@ extraction:
 
     Заполни "coc_consequences_display".
 
+    Это поле — краткий итог для таблицы.
+    Сформируй его на основе уже заполненных полей:
+    - coc_termination_right
+    - coc_termination_mechanism
+    - coc_acceleration
+    - coc_price_terms_change
+    - coc_cure_or_waiver
+    Не добавляй информацию, которой нет в этих полях.
+
     Правила:
     - Начинай с "Для CoC — ".
     - Перечисляй последствия через точку с запятой
@@ -257,28 +287,26 @@ extraction:
     - "Для CoC — автоматическое прекращение договора"
     - "Для CoC — право расторгнуть; cure period предусмотрен"
     - "Для CoC — право расторгнуть; акселерация; step-up ставки"
-    - "Для CoC — только уведомление контрагента"
     - "Для CoC — только согласие контрагента"
+    - "Для CoC — только уведомление контрагента"
     - "Последствия CoC не установлены"
     - "Не удалось определить последствия CoC"
-
-    Если из текста видно только требование уведомления или согласия
-    без расторжения / акселерации / изменения условий:
-    - coc_termination_right = "none"
-    - coc_acceleration = "no"
-    - coc_price_terms_change = "no"
-    - coc_consequences_display = "Для CoC — только согласие контрагента"
-      или "Для CoC — только уведомление контрагента"
 
     Шаг 7 — ОБОСНОВАНИЕ
 
     Заполни "reason".
 
-    Правила:
-    - 1–2 коротких предложения.
-    - Укажи: какие последствия предусмотрены и есть ли
-      смягчающие механизмы.
-    - Приведи короткую цитату в кавычках.
+    Формат:
+    - Первое предложение: краткий вывод
+      (какие последствия предусмотрены или не предусмотрены).
+    - Второе предложение: цитата из текста в кавычках
+      (самый релевантный фрагмент, до 100 символов).
+
+    Примеры:
+    - "При CoC договор прекращается автоматически без cure period.
+      «Upon a change of control this Agreement shall terminate»."
+    - "Специальные последствия CoC не обнаружены
+      в представленных фрагментах."
     </instructions>
 
     <edge_cases>
@@ -303,13 +331,21 @@ extraction:
       * coc_consequences_display =
         "Для CoC — только согласие контрагента"
 
+    - Только уведомление, без расторжения / акселерации:
+      * coc_termination_right = "none"
+      * coc_acceleration = "no"
+      * coc_price_terms_change = "no"
+      * coc_consequences_display =
+        "Для CoC — только уведомление контрагента"
+
     - Нет упоминаний последствий CoC:
       * coc_termination_right = "none"
       * coc_termination_mechanism = "not_applicable"
       * coc_acceleration = "no"
       * coc_price_terms_change = "no"
       * coc_cure_or_waiver = "no"
-      * coc_consequences_display = "Последствия CoC не установлены"
+      * coc_consequences_display =
+        "Последствия CoC не установлены"
 
     - Фрагменты нерелевантны:
       * coc_termination_right = "unclear"
@@ -322,7 +358,25 @@ extraction:
     </edge_cases>
 
     <output_expectations>
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай в markdown-блоки (без ```).
+    - Не добавляй комментариев вне JSON.
+    - Все значения полей с allowed_values — на английском
+      (как указано в списке).
+    - Свободные текстовые поля (coc_consequences_display,
+      reason) — на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "coc_consequences_display": "Для CoC — право расторгнуть; cure period предусмотрен",
+      "coc_termination_right": "limited",
+      "coc_termination_mechanism": "with_cure",
+      "coc_acceleration": "no",
+      "coc_price_terms_change": "no",
+      "coc_cure_or_waiver": "yes",
+      "reason": "При CoC предусмотрено право расторгнуть с cure period. «The party may terminate upon CoC...»."
+    }
     </output_expectations>
 
   fields:
@@ -331,11 +385,14 @@ extraction:
       presentation: "fact"
       label: "Последствия CoC"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "coc_termination_right"
       type: "string"
       presentation: "signal"
       description: "Право на расторжение при CoC"
+      display_in_grid: false
       allowed_values:
         - "none"
         - "limited"
@@ -346,6 +403,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Механизм расторжения при CoC"
+      display_in_grid: false
       allowed_values:
         - "optional"
         - "automatic"
@@ -357,6 +415,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Акселерация при CoC"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -366,6 +425,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Изменение цены / условий при CoC"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -375,6 +435,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Cure period / waiver при CoC"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -384,6 +445,7 @@ extraction:
       type: "string"
       presentation: "diagnostic"
       description: "Краткое обоснование"
+      display_in_grid: false
 
   store_payload: true
   

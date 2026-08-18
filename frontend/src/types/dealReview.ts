@@ -428,7 +428,6 @@ export interface DocumentStructuredDataDTO {
 export type DDGridV1CellState =
   | "defined"
   | "not_defined"
-  | "not_applicable"
   | "not_executed"
   | "error";
 
@@ -655,6 +654,12 @@ export interface DDGridV1DocumentMetaDTO {
   doc_type: string | null;
   status: string;
   folder_path: string | null;
+  
+  // Segment-aware fields
+  segment_id: string | null;
+  segment_type: string | null;
+  segment_title: string | null;
+  
   instruction_snapshot: DDGridV1InstructionSnapshotDTO | null;
 }
 
@@ -677,8 +682,10 @@ export interface DDGridV1ResponseDTO {
   doc_type_classes: DDGridV1DocTypeClassDTO[];
 
   column_registry: Record<string, DDGridV1ColumnDTO>;
-  cell_values: Record<string, Record<string, DDGridV1CellValueDTO>>;
-  drawer_contents: Record<string, Record<string, DDGridV1DrawerContentDTO>>;
+  
+  // 3-уровневая структура: doc → segment → column/check
+  cell_values: Record<string, Record<string, Record<string, DDGridV1CellValueDTO>>>;
+  drawer_contents: Record<string, Record<string, Record<string, DDGridV1DrawerContentDTO>>>;
 
   documents_meta: DDGridV1DocumentMetaDTO[];
 }

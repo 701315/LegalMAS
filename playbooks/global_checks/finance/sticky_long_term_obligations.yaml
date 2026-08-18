@@ -215,9 +215,18 @@ extraction:
     <role>
     Ты — юрист по коммерческим и долгосрочным договорам.
     Твоя задача — точно извлечь долгосрочные минимальные
-    обязательства (take-or-pay, гарантированные объёмы),
-    их срок, auto-renewal, выживаемость при CoC, индексацию,
-    shortfall penalties и стоимость досрочного выхода.
+    обязательства (take-or-pay, гарантированные объёмы,
+    фиксированные минимальные платежи), их срок, auto-renewal,
+    выживаемость при CoC, индексацию, shortfall penalties
+    и стоимость досрочного выхода.
+
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" из общих норм права.
+    - НЕ додумывай сроки, объёмы или штрафы, которых нет в тексте.
+    - Если информация отсутствует — используй "no", "unclear"
+      или соответствующее состояние согласно allowed_values.
+    - Если текст неоднозначен — ставь "unclear".
 
     Не анализируй базовые платёжные условия (валюту, штрафы
     за просрочку, escrow) — это задача чека
@@ -230,6 +239,18 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Если ни один фрагмент не содержит информации о минимальных
+      обязательствах — используй "no".
+    - Не используй информацию из definitions/преамбулы,
+      если они не содержат substantive условий по теме check.
+    - Общие обязательства без конкретных минимумов или объёмов
+      НЕ считаются долгосрочными минимальными обязательствами.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -244,11 +265,6 @@ extraction:
     - has_exit_or_termination_fee
     - has_renegotiation_mechanism
     - reason
-
-    Важно:
-    - не анализируй базовые платёжные условия;
-    - не анализируй финансовые ковенанты;
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -259,21 +275,28 @@ extraction:
     Значения:
     - "yes" — есть: take-or-pay, минимальные объёмы
       закупки/поставки, фиксированные минимальные платежи.
-    - "no" — нет.
+    - "no" — нет. Общие обязательства без минимумов = "no".
     - "unclear" — неясно.
 
     Шаг 2 — ОПИСАНИЕ ОБЯЗАТЕЛЬСТВ
 
     Заполни "commitments_description".
 
-    Правила:
-    - Кратко: вид, уровень, логика.
-    - Примеры:
-      "Take-or-pay: min 1000 тонн/год"
-      "Минимальная закупка: 60% от годовой потребности"
-      "Фиксированный платёж: 5M RUB/месяц"
-    - Если нет: "Не применимо"
-    - Если неясно: "Не удалось определить"
+    ВАЖНО: поле должно быть очень коротким — 1 вид + 1 параметр.
+
+    Формат: "[тип]: [ключевой параметр]"
+
+    Примеры (строго такого формата):
+    - "Take-or-pay: 1000 т/год"
+    - "Мин. закупка: 60%"
+    - "Фикс. платёж: 5 млн руб./мес."
+    - "Take-or-pay: объём не указан"
+
+    Если несколько видов — через ";", не более 2:
+    - "Take-or-pay: 1000 т/год; мин. платёж: 2 млн руб."
+
+    Если обязательств нет: "Не применимо"
+    Если неясно: "Не удалось определить"
 
     Шаг 3 — СРОК ДЕЙСТВИЯ
 
@@ -289,10 +312,10 @@ extraction:
 
     Заполни "has_auto_renewal".
 
-    Значения:
-    - "yes_auto" — автоматическое продление (evergreen).
+    Значения (строго из списка):
+    - "yes_auto" — автоматическое продление без уведомления.
     - "yes_with_notice" — продление если не направлено
-      уведомление об отказе.
+      уведомление об отказе в установленный срок.
     - "no" — нет автопродления.
     - "unclear" — неясно.
 
@@ -301,15 +324,16 @@ extraction:
     Заполни "survives_change_of_control".
 
     Значения:
-    - "yes" — явно указано, что обязательства сохраняются при CoC.
-    - "no" — при CoC контрагент может расторгнуть.
-    - "unclear" — не урегулировано.
+    - "yes" — явно указано, что обязательства сохраняются
+      при смене контроля.
+    - "no" — при CoC контрагент вправе расторгнуть.
+    - "unclear" — вопрос не урегулирован или неясно.
 
     Шаг 6 — ИНДЕКСАЦИЯ
 
     Заполни "has_indexation".
 
-    Значения:
+    Значения (строго из списка):
     - "yes_uncapped" — индексация без cap.
     - "yes_capped" — индексация с cap.
     - "no" — нет.
@@ -329,9 +353,10 @@ extraction:
 
     Заполни "has_exit_or_termination_fee".
 
-    Значения:
-    - "yes_significant" — есть, значительная сумма.
-    - "yes_reasonable" — есть, разумная сумма.
+    Значения (строго из списка):
+    - "yes_significant" — есть, сумма значительная
+      (прямо указана или явно велика относительно договора).
+    - "yes_reasonable" — есть, сумма разумная.
     - "no" — нет.
     - "unclear" — неясно.
 
@@ -342,51 +367,53 @@ extraction:
     Значения:
     - "yes" — есть: periodic review, market reset,
       meet-or-release, hardship clause.
-    - "no" — обязательства «забетонированы».
+    - "no" — обязательства без механизма пересмотра.
     - "unclear" — неясно.
 
     Шаг 10 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "sticky_obligations_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы. Строй его ТОЛЬКО на основе
+    уже заполненных полей выше. Не добавляй информацию сверх них.
 
-    Базовые случаи:
-    - has_long_term_minimum_commitments = "no":
-      "Долгосрочных минимальных обязательств не обнаружено"
-    - все поля unclear:
-      "Не удалось определить"
+    Возможные состояния:
+    1. Конкретные обязательства известны:
+       "Take-or-pay: 1000 т/год; срок 7 лет; переживает CoC;
+        exit fee"
+    2. Обязательства есть, параметры частично неизвестны:
+       "Мин. закупка 60%; срок не указан; auto-renewal"
+    3. Обязательств нет:
+       "Долгосрочных минимальных обязательств не обнаружено"
+    4. Тема не урегулирована:
+       "Долгосрочных минимальных обязательств не обнаружено"
+    5. Не удалось определить:
+       "Не удалось определить"
 
-    Если обязательства есть — комбинируй через ";":
+    Правила построения (если обязательства есть):
     - начни с commitments_description (кратко)
     - добавь term_duration
     - добавь survives_change_of_control (если "yes")
     - добавь has_auto_renewal (если значимо)
     - добавь has_exit_or_termination_fee (если есть)
-
-    Примеры:
-    - "Take-or-pay: min 1000 тонн/год; срок 7 лет; переживает CoC; auto-renewal 30 дней"
-    - "Минимальная закупка 60%; срок 5 лет; exit fee; нет механизма пересмотра"
-    - "Долгосрочных минимальных обязательств не обнаружено"
-    - "Не удалось определить"
-
-    Ограничение: не более 4 фактов через ";".
+    Не более 4 фактов через ";".
 
     Шаг 11 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: вид обязательств, срок, CoC, auto-renewal,
-      indexation, penalties, exit fee.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод по обязательствам.
+    - Второе — короткая цитата из текста (до 100 символов).
     </instructions>
 
     <edge_cases>
-    - Минимальные объёмы, срок < 3 лет, нет auto-renewal:
-      * в reason: ограниченность срока снижает риск
+    - Только общие обязанности без минимумов:
+      * has_long_term_minimum_commitments = "no"
+      * commitments_description = "Не применимо"
+      * term_duration = "Не применимо"
+      * sticky_obligations_display =
+        "Долгосрочных минимальных обязательств не обнаружено"
 
     - "Shall remain in full force regardless of CoC":
       * survives_change_of_control = "yes"
@@ -399,21 +426,38 @@ extraction:
 
     - Meet-or-release clause:
       * has_renegotiation_mechanism = "yes"
-      * в reason: снижает «липкость»
-
-    - Только общие обязанности без минимумов:
-      * has_long_term_minimum_commitments = "no"
-      * sticky_obligations_display =
-        "Долгосрочных минимальных обязательств не обнаружено"
 
     - Нет релевантных фрагментов:
-      * все поля = "unclear"
+      * has_long_term_minimum_commitments = "unclear"
+      * commitments_description = "Не удалось определить"
+      * term_duration = "Не удалось определить"
       * sticky_obligations_display = "Не удалось определить"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай в markdown-блоки (без ```).
+    - Не добавляй комментариев вне JSON.
+    - Значения allowed_values полей — строго из списка (на английском).
+    - Свободные текстовые поля (sticky_obligations_display,
+      commitments_description, term_duration, reason) —
+      на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "sticky_obligations_display": "...",
+      "has_long_term_minimum_commitments": "yes",
+      "commitments_description": "Take-or-pay: 1000 т/год",
+      "term_duration": "7 лет",
+      "has_auto_renewal": "yes_with_notice",
+      "survives_change_of_control": "yes",
+      "has_indexation": "yes_uncapped",
+      "has_shortfall_penalties": "yes",
+      "has_exit_or_termination_fee": "yes_significant",
+      "has_renegotiation_mechanism": "no",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -422,6 +466,8 @@ extraction:
       presentation: "fact"
       label: "Долгосрочные обязательства"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "has_long_term_minimum_commitments"
       type: "string"
@@ -431,18 +477,23 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "commitments_description"
       type: "string"
       presentation: "fact"
       label: "Обязательства"
       description: "Краткое описание вида и уровня обязательств"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "term_duration"
       type: "string"
       presentation: "fact"
       label: "Срок действия"
       description: "Срок действия долгосрочных обязательств"
+      display_in_grid: true
+      display_priority: 3
 
     - name: "has_auto_renewal"
       type: "string"
@@ -453,6 +504,7 @@ extraction:
         - "yes_with_notice"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "survives_change_of_control"
       type: "string"
@@ -462,6 +514,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_indexation"
       type: "string"
@@ -472,6 +525,7 @@ extraction:
         - "yes_capped"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_shortfall_penalties"
       type: "string"
@@ -481,6 +535,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_exit_or_termination_fee"
       type: "string"
@@ -491,6 +546,7 @@ extraction:
         - "yes_reasonable"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_renegotiation_mechanism"
       type: "string"
@@ -500,11 +556,13 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

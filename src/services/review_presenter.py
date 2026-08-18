@@ -21,202 +21,245 @@ from api.schemas.deal_review import (
     DocumentSummaryDTO,
     ExtractedValueDTO,
 )
-from services.export.models import AggregatedResults
+
+from engine.playbook.models import CheckDefinition
 
 
-def build_document_summaries(
-    agg: AggregatedResults,
+def build_dd_requests(
+    check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
-) -> list[DocumentSummaryDTO]:
+    checks_by_id: dict[str, CheckDefinition],
+) -> list[DDRequestDTO]:
     """
-    Построить краткие статусы документов.
+    Построить список DD-запросов для UI.
 
-    Счётчики рисков:
-    - critical_count, high_count, medium_count: количество fail по severity
-    - pass_count: количество pass
-    - unclear_count: количество unclear
-    Документы сортируются по имени (A→Z).
+    Триггер: required=true поле со значением not_defined/missing в structured_data.
+    Источник: прямое чтение check_results + CheckDefinition.extraction.fields.
+    Aggregator больше не нужен для этой фичи.
+
+    Args:
+        check_results: Список результатов проверок из БД.
+        documents: Словарь {document_id: {name, doc_type, ...}}.
+        checks_by_id: Словарь {check_id: CheckDefinition} для доступа к required полям.
     """
-    by_doc: dict[str, dict[str, Any]] = {}
+    from services.export.dd_request_loader import get_dd_request_loader
 
-    for row in agg.rows:
-        doc_id = row.document_id
+    loader = get_dd_request_loader()
 
-        if doc_id not in by_doc:
-            doc_meta = documents.get(doc_id, {})
-            by_doc[doc_id] = {
-                "document_id": doc_id,
-                "name": row.document_name,
-                "doc_type": row.doc_type,
-                "status": doc_meta.get("status", ""),
-                "critical_count": 0,
-                "high_count": 0,
-                "medium_count": 0,
-                "pass_count": 0,
-                "unclear_count": 0,
-                "has_degraded_structure": "structure_degraded" in (row.quality_flags or ""),
-                # ИСПРАВЛЕНО: добавлено отсутствующее поле in_quarantine
-                "in_quarantine": doc_meta.get("status", "") == "quarantine",
-                "classification_level": doc_meta.get("classification_level", ""),
-                "classification_confidence": float(
-                    doc_meta.get("classification_confidence", 0.0)
-                ),
-            }
+    # Группируем check_results по check_id
+    results_by_check: dict[str, list[dict]] = {}
+    for cr in check_results:
+        check_id = cr.get("check_id", "")
+        if not check_id:
+            continue
+        results_by_check.setdefault(check_id, []).append(cr)
 
-        # ИСПРАВЛЕНО: явная обработка каждого case без f-string магии.
-        # Оригинальный код использовал f"{row.severity}_count" для fail-строк,
-        # что приводило к созданию ключей типа "low_count", "unclear_count"
-        # которых нет в DocumentSummaryDTO → ValidationError.
-        if row.result == "fail":
-            if row.severity == "critical":
-                by_doc[doc_id]["critical_count"] += 1
-            elif row.severity == "high":
-                by_doc[doc_id]["high_count"] += 1
-            elif row.severity == "medium":
-                by_doc[doc_id]["medium_count"] += 1
-        elif row.result == "pass":
-            by_doc[doc_id]["pass_count"] += 1
-        elif row.result == "unclear":
-            by_doc[doc_id]["unclear_count"] += 1
-        # Прочие result (missing_required_clause и т.д.) — не считаем,
-        # чтобы не создавать невалидные ключи в by_doc.
+    dd_requests: list[DDRequestDTO] = []
 
-    return [
-        DocumentSummaryDTO(**v)
-        for v in sorted(by_doc.values(), key=lambda x: x["name"].lower())
-    ]
-
-
-def build_document_detail(
-    agg: AggregatedResults,
-    documents: dict[str, dict[str, Any]],
-    document_id: str,
-) -> DocumentDetailDTO:
-    """
-    Построить детальную карточку документа по его id.
-
-    Карточка содержит все check-результаты для данного документа
-    в том порядке, в котором они хранятся в AggregatedResults.
-    """
-    doc_meta = documents.get(document_id)
-    if not doc_meta:
-        raise ValueError(f"Document {document_id} not found in aggregated data")
-
-    checks: list[CheckItemDTO] = []
-
-    for row in agg.rows:
-        if row.document_id != document_id:
+    for check_id, cr_list in results_by_check.items():
+        check_def = checks_by_id.get(check_id)
+        if not check_def:
             continue
 
-        checks.append(
-            CheckItemDTO(
-                check_id=row.check_id,
-                check_name=row.check_name,
-                result=row.result,
-                severity=row.severity,
-                evidence_snippet=row.evidence_snippet,
-                page=row.page,
-                clause_uid=row.clause_uid or "",
-                confidence=row.confidence,
-                detector_used=row.detector_used,
-                quality_flags={"flags": row.quality_flags} if row.quality_flags else None,
-                conditional_check_triggered=row.conditional_check_triggered,
-                trigger_name=row.trigger_name,
-                structured_data=row.structured_data or {},
-                origin=row.origin,
-                segment_id=row.segment_id or None,
-                segment_type=row.segment_type or None,
-                segment_title=row.segment_title or None,
-                segment_order=row.segment_order,
-                is_primary_segment=row.is_primary_segment,
-                display_text=row.display_text,
-                review_status=row.review_status,
-                review_message=row.review_message,
-                needs_manual_review=row.needs_manual_review,
-                ui_mode=row.ui_mode,
+        # Находим required поля из CheckDefinition
+        extraction = check_def.extraction
+        if not extraction or not extraction.enabled:
+            continue
+
+        required_fields = [
+            f.name for f in extraction.fields
+            if getattr(f, "required", False)
+        ]
+
+        if not required_fields:
+            # Нет required полей — DD Request не создаётся
+            continue
+
+        # Ищем документы где хотя бы одно required поле отсутствует
+        triggered_docs: list[dict] = []
+        for cr in cr_list:
+            doc_id = cr.get("document_id", "")
+            structured_data = cr.get("structured_data") or {}
+
+            missing_required: list[str] = []
+            for field_name in required_fields:
+                field_value = structured_data.get(field_name)
+
+                # Нормализация (как в aggregator.py)
+                if isinstance(field_value, dict) and "value" in field_value:
+                    raw_value = field_value.get("value")
+                else:
+                    raw_value = field_value
+
+                # Проверка на missing
+                if raw_value is None or str(raw_value) in ("not_found", "not_defined", "None", ""):
+                    missing_required.append(field_name)
+
+            if missing_required:
+                triggered_docs.append({
+                    "document_id": doc_id,
+                    "document_name": documents.get(doc_id, {}).get("name", "Unknown"),
+                    "doc_type": documents.get(doc_id, {}).get("doc_type", "Generic"),
+                    "missing_fields": missing_required,
+                    "structured_data": structured_data,
+                    "segment_id": cr.get("segment_id"),
+                    "segment_type": cr.get("segment_type"),
+                    "segment_title": cr.get("segment_title"),
+                    "segment_order": cr.get("segment_order"),
+                    "is_primary_segment": cr.get("is_primary_segment"),
+                    "chunk_id": cr.get("chunk_id"),
+                    "chunk_index": cr.get("chunk_index"),
+                })
+
+        if not triggered_docs:
+            continue
+
+        # Сортируем по приоритету (critical/high/medium из check_def.severity)
+        severity_order = {"critical": 0, "high": 1, "medium": 2}
+        triggered_docs.sort(key=lambda d: severity_order.get(check_def.severity, 9))
+
+        # Берём provenance из первого документа
+        first_doc = triggered_docs[0]
+
+        # Рендерим текст из YAML шаблона
+        doc_names = [d["document_name"] for d in triggered_docs]
+        text, addressee = loader.render(check_id, check_def.name, doc_names)
+
+        # Собираем structured_values только из required полей
+        structured_values: list[dict] = []
+        for doc in triggered_docs:
+            for field_name in required_fields:
+                field_value = doc["structured_data"].get(field_name)
+                if field_value:
+                    if isinstance(field_value, dict) and "value" in field_value:
+                        display_value = str(field_value.get("value", ""))
+                    else:
+                        display_value = str(field_value)
+                    if display_value and display_value not in ("not_found", "not_defined", "None", ""):
+                        structured_values.append({
+                            "field": field_name,
+                            "value": display_value,
+                            "doc": doc["document_id"],
+                        })
+
+        dd_requests.append(
+            DDRequestDTO(
+                request_id="",  # UUID генерируется на фронте или в API
+                priority=check_def.severity,
+                check_id=check_id,
+                check_name=check_def.name,
+                addressee=addressee,
+                text=text,
+                document_ids=[d["document_id"] for d in triggered_docs],
+                document_names=doc_names,
+                doc_types=list(set(d["doc_type"] for d in triggered_docs)),
+                structured_values=structured_values,
+                segment_id=first_doc["segment_id"] or None,
+                segment_type=first_doc["segment_type"] or None,
+                segment_title=first_doc["segment_title"] or None,
+                segment_order=first_doc["segment_order"],
+                is_primary_segment=first_doc["is_primary_segment"],
+                chunk_id=first_doc["chunk_id"] or None,
+                chunk_index=first_doc["chunk_index"],
             )
         )
 
-    return DocumentDetailDTO(
-        document_id=document_id,
-        name=doc_meta["name"],
-        doc_type=doc_meta["doc_type"],
-        status=doc_meta["status"],
-        classification_level=doc_meta.get("classification_level", ""),
-        classification_confidence=float(doc_meta.get("classification_confidence", 0.0)),
-        applicable_triggers=doc_meta.get("applicable_triggers", []),
-        checks=checks,
-    )
+    # Сортировка по приоритету
+    severity_order = {"critical": 0, "high": 1, "medium": 2}
+    dd_requests.sort(key=lambda r: severity_order.get(r.priority, 9))
+
+    return dd_requests
 
 
-def build_dd_requests(agg: AggregatedResults) -> list[DDRequestDTO]:
+def build_conditional_checks(
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+) -> list[ConditionalCheckDTO]:
     """
-    Построить список DD-запросов для UI.
-    Передаёт segment provenance для навигации во viewer.
+    Построить список условных проверок для UI.
+
+    Источник: прямое чтение check_results (conditional_check_triggered=True).
+    Aggregator больше не нужен для этой фичи.
     """
-    return [
-        DDRequestDTO(
-            request_id=req.request_id,
-            priority=req.priority,
-            check_id=req.check_id,
-            check_name=req.check_name,
-            addressee=req.addressee,
-            text=req.text,
-            document_ids=req.document_ids,
-            document_names=req.document_names,
-            doc_types=req.doc_types,
-            structured_values=req.structured_values,
-            segment_id=req.segment_id or None,
-            segment_type=req.segment_type or None,
-            segment_title=req.segment_title or None,
-            segment_order=req.segment_order,
-            is_primary_segment=req.is_primary_segment,
-            chunk_id=req.chunk_id or None,
-            chunk_index=req.chunk_index,
-        )
-        for req in agg.dd_requests
-    ]
-
-
-def build_conditional_checks(agg: AggregatedResults) -> list[ConditionalCheckDTO]:
-    """Построить список условных проверок для UI."""
     return [
         ConditionalCheckDTO(
-            document_name=cr.document_name,
-            doc_type=cr.doc_type,
-            trigger_name=cr.trigger_name,
-            check_id=cr.check_id,
-            check_name=cr.check_name,
-            result=cr.result,
-            severity=cr.severity,
-            evidence_snippet=cr.evidence_snippet,
-            page=cr.page,
-            confidence=cr.confidence,
-            quality_flags={"flags": cr.quality_flags} if cr.quality_flags else None,
+            document_name=documents.get(cr.get("document_id", ""), {}).get("name", "Unknown"),
+            doc_type=documents.get(cr.get("document_id", ""), {}).get("doc_type", "Generic"),
+            trigger_name=cr.get("trigger_name", ""),
+            check_id=cr.get("check_id", ""),
+            check_name=cr.get("check_name", ""),
+            result=cr.get("result", "unclear"),
+            severity=cr.get("severity", "medium"),
+            evidence_snippet=(cr.get("display_text") or cr.get("value_text", ""))[:300],
+            page=cr.get("page"),
+            confidence=cr.get("confidence", 0.0),
+            quality_flags={"flags": cr.get("quality_flags")} if cr.get("quality_flags") else None,
         )
-        for cr in agg.conditional_rows
+        for cr in check_results
+        if cr.get("conditional_check_triggered")
     ]
 
 
-def build_extracted_values(agg: AggregatedResults) -> list[ExtractedValueDTO]:
-    """Построить список извлечённых структурированных значений для UI."""
-    return [
-        ExtractedValueDTO(
-            document_name=sv.document_name,
-            doc_type=sv.doc_type,
-            check_name=sv.check_name,
-            field_name=sv.field_name,
-            field_value=sv.field_value,
-            field_format=sv.field_format,
-            page=sv.page,
-            clause_uid=sv.clause_uid or "",
-            segment_id=sv.segment_id or None,
-            segment_type=sv.segment_type or None,
-            segment_title=sv.segment_title or None,
-            segment_order=sv.segment_order,
-            is_primary_segment=sv.is_primary_segment,
-        )
-        for sv in agg.structured_value_rows
-    ]
+def build_extracted_values(
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+) -> list[ExtractedValueDTO]:
+    """
+    Построить список извлечённых структурированных значений для UI.
+
+    Источник: прямое чтение structured_data из check_results.
+    Aggregator больше не нужен для этой фичи.
+    """
+    results: list[ExtractedValueDTO] = []
+
+    for cr in check_results:
+        doc_id = cr.get("document_id", "")
+        doc_info = documents.get(doc_id, {})
+        structured_data = cr.get("structured_data") or {}
+
+        for field_name, field_value in structured_data.items():
+            # Нормализация значения (как в aggregator.py)
+            if isinstance(field_value, dict) and "value" in field_value:
+                raw_display_value = field_value.get("value")
+            else:
+                raw_display_value = field_value
+
+            # Пропускаем пустые / служебные значения
+            if raw_display_value is None or str(raw_display_value) in ("not_found", "None", ""):
+                continue
+
+            display_value = str(raw_display_value)
+
+            results.append(
+                ExtractedValueDTO(
+                    document_name=doc_info.get("name", "Unknown"),
+                    doc_type=doc_info.get("doc_type", "Generic"),
+                    check_name=cr.get("check_name", ""),
+                    field_name=field_name,
+                    field_value=display_value,
+                    field_format=_infer_field_format(field_name, display_value),
+                    page=cr.get("page"),
+                    clause_uid=cr.get("clause_uid", ""),
+                    segment_id=cr.get("segment_id") or None,
+                    segment_type=cr.get("segment_type") or None,
+                    segment_title=cr.get("segment_title") or None,
+                    segment_order=cr.get("segment_order"),
+                    is_primary_segment=cr.get("is_primary_segment"),
+                )
+            )
+
+    return results
+
+
+def _infer_field_format(field_name: str, value: str) -> str:
+    """Infer display format from field name (как в aggregator.py)."""
+    name_lower = field_name.lower()
+    if any(x in name_lower for x in ("amount", "price", "sum", "cost")):
+        return "money"
+    if any(x in name_lower for x in ("date", "expiry", "term")):
+        return "date"
+    if any(x in name_lower for x in ("party", "parties", "entity")):
+        return "entity_name"
+    return "text"
 
 

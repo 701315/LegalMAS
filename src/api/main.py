@@ -48,6 +48,7 @@ from core.logging import get_logger, setup_logging
 from core.tracing import instrument_fastapi_app, setup_tracing_provider, shutdown_tracing
 from db.session import engine
 from ops.instrument import setup_metrics
+from services.summary_dispatcher import get_summary_dispatcher
 
 from .endpoints import (
     admin,
@@ -71,6 +72,7 @@ from .endpoints import (
     qc,
     requests,
     results,
+    run_summary,
     runner,
     runs,
     user_projects,
@@ -89,18 +91,6 @@ logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Шаг 1: Инициализация TracerProvider на уровне модуля.
-#
-# Простым языком:
-# Здесь мы "включаем" систему трейсинга — создаём TracerProvider,
-# настраиваем exporter (отправку в Tempo), sampler (фильтр),
-# и инструментируем SQLAlchemy и httpx.
-#
-# Это делается ДО создания FastAPI app, потому что:
-# - SQLAlchemy engine уже существует на этот момент (создан в db/session.py)
-# - httpx инструментируется глобально, не привязан к app
-# - FastAPI instrumentation требует отдельного вызова после создания app
-#
-# Если OTEL_ENABLED=False — вызов мгновенно возвращается без эффекта.
 # ---------------------------------------------------------------------------
 setup_tracing_provider()
 
@@ -112,11 +102,12 @@ async def lifespan(app: FastAPI):
 
     Startup:
     - валидирует YAML Registry fail-fast способом;
-    - если конфиги типов документов некорректны, приложение не стартует.
+    - запускает фоновый диспетчер генерации executive summary.
 
     Shutdown:
-    - сначала корректно завершает трейсинг (отправляет все pending spans);
-    - потом закрывает SQLAlchemy AsyncEngine.
+    - останавливает диспетчер summary;
+    - корректно завершает трейсинг (отправляет все pending spans);
+    - закрывает SQLAlchemy AsyncEngine.
     """
     _ = app
 
@@ -127,14 +118,20 @@ async def lifespan(app: FastAPI):
         types_loaded=len(registry.list_types()),
     )
 
+    # Фоновый автозапуск генерации executive summary для terminal-runs.
+    dispatcher = get_summary_dispatcher()
+    await dispatcher.start()
+
     try:
         yield
     finally:
-        # Сначала корректно завершаем трейсинг — отправляем все pending трейсы.
-        # Важно делать это ДО закрытия engine, потому что последние трейсы
-        # могут содержать SQL spans которые ещё не отправлены в Tempo.
+        # 1. Останавливаем диспетчер резюме
+        await dispatcher.stop()
+
+        # 2. Корректно завершаем трейсинг — отправляем все pending трейсы.
         shutdown_tracing()
 
+        # 3. Закрываем SQLAlchemy AsyncEngine
         logger.info("API shutdown — disposing database engine")
         try:
             await engine.dispose()
@@ -158,18 +155,6 @@ setup_metrics(app)
 
 # ---------------------------------------------------------------------------
 # CORS — подготовка списка заголовков.
-#
-# Читаем конфиг из settings (который берёт значения из .env).
-# Дополнительно гарантируем наличие заголовков, необходимых для корректной
-# работы ETag concurrency (If-Match / If-None-Match) и базового API.
-#
-# Почему это нужно:
-# - .env может содержать сокращённый список CORS_ALLOW_HEADERS;
-# - без If-Match браузер блокирует PATCH-запросы с этим заголовком
-#   на этапе preflight (400 "Disallowed CORS headers");
-# - фикс в коде надёжнее чем полагаться на правильность .env в каждом окружении.
-#
-# Если в .env задан wildcard "*" — не трогаем, он покрывает всё.
 # ---------------------------------------------------------------------------
 _REQUIRED_CORS_HEADERS = [
     "If-Match",
@@ -203,22 +188,6 @@ logger.info(
 
 # ---------------------------------------------------------------------------
 # Регистрируем middleware приложения.
-#
-# Порядок важен — Starlette добавляет middleware в обратном порядке
-# относительно вызовов add_middleware. Реальный стек выполнения:
-#
-#   [OTel — добавится позже] → CORSMiddleware → AuditMiddleware → endpoint
-#
-# CORSMiddleware должен стоять снаружи AuditMiddleware, чтобы:
-# - preflight OPTIONS запросы обрабатывались до входа в AuditMiddleware;
-# - CORS-заголовки проставлялись на все ответы включая ошибки.
-#
-# AuditMiddleware явно пропускает OPTIONS запросы (return await call_next)
-# как дополнительная защита на случай если порядок middleware изменится.
-#
-# OpenTelemetry middleware будет добавлен ПОЗЖЕ через instrument_fastapi_app(app),
-# уже после регистрации всех middleware и routers — чтобы оказаться самым внешним.
-# Тогда request logs в AuditMiddleware будут выполняться внутри активного span.
 # ---------------------------------------------------------------------------
 app.add_middleware(AuditMiddleware)
 
@@ -255,6 +224,9 @@ app.include_router(deal_review.router, prefix="/api/v1")
 
 # Runs.
 app.include_router(runs.router, prefix="/api/v1")
+
+# Executive summary для runs.
+app.include_router(run_summary.router, prefix="/api/v1")
 
 # QC actions for review mode.
 app.include_router(qc.router, prefix="/api/v1")
@@ -326,24 +298,6 @@ app.include_router(global_instruction_router, prefix="/api/v1")
 # ---------------------------------------------------------------------------
 # Шаг 2: FastAPI instrumentation подключаем ПОСЛЕ всех middleware и routers,
 # но ДО старта приложения.
-#
-# Простым языком:
-# FastAPIInstrumentor внутри себя добавляет middleware OpenTelemetry.
-# Нам нужно чтобы этот middleware оказался самым внешним:
-#
-#   OpenTelemetryMiddleware -> CORSMiddleware -> AuditMiddleware -> endpoint
-#
-# Тогда:
-# - span создаётся до входа в CORSMiddleware и AuditMiddleware
-# - request-логи из AuditMiddleware выполняются уже внутри активного span
-# - add_trace_context в logging.py автоматически добавляет
-#   trace_id и span_id в structured logs
-#
-# Если вызвать instrument_fastapi_app(app) слишком рано,
-# AuditMiddleware окажется снаружи span и trace_id в логах не появится.
-#
-# Если вызвать слишком поздно (после старта приложения),
-# FastAPI выбросит RuntimeError: cannot add middleware after startup.
 # ---------------------------------------------------------------------------
 instrument_fastapi_app(app)
 

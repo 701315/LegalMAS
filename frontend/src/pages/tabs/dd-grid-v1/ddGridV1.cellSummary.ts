@@ -7,15 +7,13 @@
 // - для каждого runtime column строим одну строку "Label: value";
 // - value идёт через formatDDGridV1CellText — единственный источник
 //   правды по форматированию (text / enum / yes_no / presence_only);
-// - если для (document, column) ячейки нет и колонка привязана к
-//   конкретному type_code, а doc_type документа не совпадает —
-//   отображаем "н/о" (not_applicable) без хардкода конкретного типа;
-// - если ячейки нет и колонка применима — отображаем fallback_display
+// - если для (document, column) ячейки нет — отображаем fallback_display
 //   колонки (not_executed).
+// - not_applicable удалён из типа DDGridV1CellState.
 // =============================================================
 
 import { formatDDGridV1CellText } from "./ddGridV1.formatters";
-import type { DDGridV1CellState } from "../../../types/dealReview";
+import type { DDGridV1CellState, DDGridV1CellValueDTO } from "../../../types/dealReview";
 import type {
   DDGridV1CheckNode,
   DDGridV1DerivedModel,
@@ -40,10 +38,9 @@ export interface DDGridV1CheckCellSummary {
   checkName: string;
   entries: DDGridV1CheckCellSummaryEntry[];
   /**
-   * true, если ВСЕ runtime columns этого check-а для документа
-   * оказались not_applicable (например, check из doc_type ветки
-   * для документа другого типа). Используется для визуального
-   * приглушения ячейки.
+   * Примечание: allNotApplicable всегда false, т.к. not_applicable
+   * удалён из типа DDGridV1CellState. Применимость check гарантируется
+   * планировщиком на бэкенде.
    */
   allNotApplicable: boolean;
 }
@@ -58,31 +55,27 @@ export interface DDGridV1CheckCellSummary {
 export function buildDDGridV1CheckCellSummary(
   model: DDGridV1DerivedModel,
   documentId: string,
-  docType: string,
+  _docType: string, // eslint-disable-line @typescript-eslint/no-unused-vars
   check: DDGridV1CheckNode,
 ): DDGridV1CheckCellSummary {
+  // 3-уровневый lookup: doc_id → segment_id → column_id
+  // segment_id = "_default" для single-segment документов
   const perDocCells = model.cellValues[documentId] ?? {};
-
-  let notApplicableCount = 0;
+  const segmentId = "_default";
+  const perSegmentCells = perDocCells[segmentId] ?? {};
 
   const entries: DDGridV1CheckCellSummaryEntry[] = check.columns.map(
     (runtimeCol, indexInCheck) => {
-      const rawCell = perDocCells[runtimeCol.column.column_id] ?? null;
+      // rawCell — это DDGridV1CellValueDTO | null (не Record!)
+      const rawCell: DDGridV1CellValueDTO | null = perSegmentCells[runtimeCol.column.column_id] ?? null;
 
       let effectiveState: DDGridV1CellState;
       if (rawCell) {
         effectiveState = rawCell.cell_state;
-      } else if (
-        runtimeCol.applicableDocTypeCodes.length > 0 &&
-        !runtimeCol.applicableDocTypeCodes.includes(docType)
-      ) {
-        effectiveState = "not_applicable";
       } else {
+        // Применимость check гарантируется планировщиком на бэкенде.
+        // Для docType-scoped колонок которые не применимы — not_executed.
         effectiveState = "not_executed";
-      }
-
-      if (effectiveState === "not_applicable") {
-        notApplicableCount += 1;
       }
 
       const displayText = formatDDGridV1CellText(
@@ -104,8 +97,7 @@ export function buildDDGridV1CheckCellSummary(
     checkId: check.checkId,
     checkName: check.checkName,
     entries,
-    allNotApplicable:
-      entries.length > 0 && notApplicableCount === entries.length,
+    allNotApplicable: false,
   };
 }
 

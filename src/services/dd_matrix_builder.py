@@ -1,16 +1,15 @@
-# src/services/dd_matrix_builder.py
-
 """
 DD Matrix Builder.
 
 Строит матричное представление результатов Run (DDMatrixResponseDTO) из:
-- AggregatedResults (строки результатов проверок)
+- check_results (прямое чтение из БД)
 - documents dict (метаданные документов)
+- checks_by_id (CheckDefinition для metadata)
 
 Архитектурный принцип:
-  Этот модуль содержит только логику трансформации данных в матрицу.
-  Никаких обращений к БД или внешним сервисам.
-  Вызывается из deal_review_service.build_dd_matrix().
+  - Никакой зависимости от aggregator.py или AggregatedResults
+  - Чтение напрямую из check_results + documents
+  - Детерминированный порядок строк/столбцов
 
 Структура ответа:
   - segment_documents: строки на уровне логического документа/сегмента (primary)
@@ -31,7 +30,7 @@ from api.schemas.deal_review import (
     MatrixCellDTO,
     SegmentMatrixRowDTO,
 )
-from services.export.models import AggregatedResults
+from engine.playbook.models import CheckDefinition
 
 
 # ---------------------------------------------------------------------------
@@ -39,22 +38,20 @@ from services.export.models import AggregatedResults
 # ---------------------------------------------------------------------------
 
 _RESULT_PRIORITY: dict[str, int] = {"fail": 3, "unclear": 2, "pass": 1}
-_SEVERITY_PRIORITY: dict[str, int] = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
 
-def _select_best_row(rows: list[Any]) -> Any:
+def _select_best_row(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Выбрать наиболее важную строку для (segment, check):
     - сначала по result: fail > unclear > pass
-    - потом по severity: critical > high > medium > low
     - затем по confidence (по убыванию)
+    - severity больше не используется (убран из модели)
     """
     return max(
         rows,
         key=lambda r: (
-            _RESULT_PRIORITY.get(r.result, 0),
-            _SEVERITY_PRIORITY.get(r.severity, 0),
-            r.confidence or 0.0,
+            _RESULT_PRIORITY.get(r.get("result", "unclear"), 0),
+            r.get("confidence", 0.0) or 0.0,
         ),
     )
 
@@ -71,13 +68,76 @@ def _sort_key(row: DocumentMatrixRowDTO | SegmentMatrixRowDTO) -> tuple[int, int
 
 
 # ---------------------------------------------------------------------------
+# Helpers — прямой подсчёт метрик
+# ---------------------------------------------------------------------------
+
+
+def _count_severity(check_results: list[dict[str, Any]]) -> dict[str, int]:
+    """Подсчитать severity counts напрямую из check_results."""
+    counts = {"critical": 0, "high": 0, "medium": 0, "pass": 0, "unclear": 0}
+    for cr in check_results:
+        result = cr.get("result", "unclear")
+        severity = cr.get("severity", "medium")
+
+        if result == "fail":
+            if severity in counts:
+                counts[severity] += 1
+        elif result == "pass":
+            counts["pass"] += 1
+        else:
+            counts["unclear"] += 1
+    return counts
+
+
+def _count_quality_metrics(
+    check_results: list[dict[str, Any]],
+    documents: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Подсчитать метрики качества анализа."""
+    quarantine_count = sum(
+        1 for doc in documents.values()
+        if doc.get("status") == "quarantine"
+    )
+
+    degraded_docs = set()
+    for cr in check_results:
+        quality_flags = cr.get("quality_flags") or {}
+        if isinstance(quality_flags, dict) and quality_flags.get("structure_degraded"):
+            degraded_docs.add(cr.get("document_id", ""))
+
+    fail_high_crit = [
+        cr for cr in check_results
+        if cr.get("result") == "fail" and cr.get("severity") in ("critical", "high")
+    ]
+
+    evidence_valid = sum(
+        1 for cr in fail_high_crit
+        if (cr.get("display_text") or cr.get("value_text") or "").strip()
+    )
+
+    evidence_validity_rate = (
+        evidence_valid / len(fail_high_crit) if fail_high_crit else 1.0
+    )
+
+    return {
+        "quarantine_count": quarantine_count,
+        "degraded_count": len(degraded_docs),
+        "evidence_validity_rate": evidence_validity_rate,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Публичный API
 # ---------------------------------------------------------------------------
 
 
 def build_dd_matrix(
-    agg: AggregatedResults,
+    check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
+    checks_by_id: dict[str, CheckDefinition],
+    deal_id: str,
+    run_id: str,
+    deal_name: str,
 ) -> DDMatrixResponseDTO:
     """
     Построить матричное представление результатов Run.
@@ -98,34 +158,39 @@ def build_dd_matrix(
     seen_checks: dict[str, dict[str, Any]] = {}
 
     # Проход 1: GLOBAL_PLAYBOOK — идут первыми
-    for row in agg.rows:
-        if (row.origin or "").upper() != "GLOBAL_PLAYBOOK":
+    for cr in check_results:
+        origin = (cr.get("origin") or "").upper()
+        if origin != "GLOBAL_PLAYBOOK":
             continue
-        if row.check_id not in seen_checks:
-            seen_checks[row.check_id] = {
-                "check_id": row.check_id,
-                "check_name": row.check_name,
+        check_id = cr.get("check_id", "")
+        if check_id not in seen_checks:
+            seen_checks[check_id] = {
+                "check_id": check_id,
+                "check_name": cr.get("check_name", ""),
                 "origin": "GLOBAL_PLAYBOOK",
-                "severity": row.severity,
+                "severity": cr.get("severity", "medium"),
                 "applicable_doc_types": None,
             }
 
     # Проход 2: DOCUMENT_TYPE / CONDITIONAL
-    for row in agg.rows:
-        if (row.origin or "").upper() == "GLOBAL_PLAYBOOK":
+    for cr in check_results:
+        origin = (cr.get("origin") or "").upper()
+        if origin == "GLOBAL_PLAYBOOK":
             continue
-        resolved_origin = "CONDITIONAL" if row.conditional_check_triggered else "DOCUMENT_TYPE"
-        if row.check_id not in seen_checks:
-            seen_checks[row.check_id] = {
-                "check_id": row.check_id,
-                "check_name": row.check_name,
+        check_id = cr.get("check_id", "")
+        resolved_origin = "CONDITIONAL" if cr.get("conditional_check_triggered") else "DOCUMENT_TYPE"
+        if check_id not in seen_checks:
+            seen_checks[check_id] = {
+                "check_id": check_id,
+                "check_name": cr.get("check_name", ""),
                 "origin": resolved_origin,
-                "severity": row.severity,
+                "severity": cr.get("severity", "medium"),
                 "applicable_doc_types": [],
             }
-        applicable = seen_checks[row.check_id]["applicable_doc_types"]
-        if applicable is not None and row.doc_type not in applicable:
-            applicable.append(row.doc_type)
+        applicable = seen_checks[check_id]["applicable_doc_types"]
+        doc_type = cr.get("doc_type", "Generic")
+        if applicable is not None and doc_type not in applicable:
+            applicable.append(doc_type)
 
     checks_list: list[CheckMetaDTO] = []
     global_check_ids: list[str] = []
@@ -155,34 +220,65 @@ def build_dd_matrix(
     sv_index_segment: dict[tuple[str, str, str], list[ExtractedFieldDTO]] = defaultdict(list)
     sv_index_fallback: dict[tuple[str, str], list[ExtractedFieldDTO]] = defaultdict(list)
 
-    for sv in agg.structured_value_rows:
-        extracted_field = ExtractedFieldDTO(
-            field_name=sv.field_name,
-            field_value=sv.field_value,
-            field_format=sv.field_format,
-        )
-        seg_id = sv.segment_id or ""
-        sv_index_segment[(sv.document_id, seg_id, sv.check_id)].append(extracted_field)
-        sv_index_fallback[(sv.document_id, sv.check_id)].append(extracted_field)
+    for cr in check_results:
+        doc_id = cr.get("document_id", "")
+        check_id = cr.get("check_id", "")
+        segment_id = cr.get("segment_id") or ""
+        structured_data = cr.get("structured_data") or {}
+
+        for field_name, field_value in structured_data.items():
+            # Нормализация значения
+            if isinstance(field_value, dict) and "value" in field_value:
+                raw_display_value = field_value.get("value")
+            else:
+                raw_display_value = field_value
+
+            if raw_display_value is None or str(raw_display_value) in ("not_found", "not_defined", "None", ""):
+                continue
+
+            display_value = str(raw_display_value)
+
+            # Infer format
+            name_lower = field_name.lower()
+            if any(x in name_lower for x in ("amount", "price", "sum", "cost")):
+                field_format = "money"
+            elif any(x in name_lower for x in ("date", "expiry", "term")):
+                field_format = "date"
+            elif any(x in name_lower for x in ("party", "parties", "entity")):
+                field_format = "entity_name"
+            else:
+                field_format = "text"
+
+            extracted_field = ExtractedFieldDTO(
+                field_name=field_name,
+                field_value=display_value,
+                field_format=field_format,
+            )
+            sv_index_segment[(doc_id, segment_id, check_id)].append(extracted_field)
+            sv_index_fallback[(doc_id, check_id)].append(extracted_field)
 
     # ------------------------------------------------------------------
     # Шаг 3. Индекс результатов на уровне файла (для legacy file-rows)
     # ------------------------------------------------------------------
-    result_index: dict[tuple[str, str], Any] = {}
-    for row in agg.rows:
-        result_index[(row.document_id, row.check_id)] = row
+    result_index: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for cr in check_results:
+        doc_id = cr.get("document_id", "")
+        check_id = cr.get("check_id", "")
+        result_index[(doc_id, check_id)].append(cr)
 
     # Порядок документов (стабильный, по первому появлению)
     doc_order: dict[str, None] = {}
-    for row in agg.rows:
-        doc_order[row.document_id] = None
+    for cr in check_results:
+        doc_order[cr.get("document_id", "")] = None
 
     # ------------------------------------------------------------------
     # Шаг 4. Segment-ориентированные строки
     # ------------------------------------------------------------------
-    segment_groups: dict[tuple[str, str], list[Any]] = defaultdict(list)
-    for row in agg.rows:
-        segment_groups[(row.document_id, row.segment_id or "")].append(row)
+    segment_groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for cr in check_results:
+        doc_id = cr.get("document_id", "")
+        segment_id = cr.get("segment_id") or ""
+        segment_groups[(doc_id, segment_id)].append(cr)
 
     segment_rows: list[SegmentMatrixRowDTO] = []
 
@@ -190,9 +286,9 @@ def build_dd_matrix(
         doc_meta = documents.get(doc_id, {})
         r0 = rows_for_segment[0]
 
-        by_check: dict[str, list[Any]] = defaultdict(list)
-        for r in rows_for_segment:
-            by_check[r.check_id].append(r)
+        by_check: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for cr in rows_for_segment:
+            by_check[cr.get("check_id", "")].append(cr)
 
         segment_results: dict[str, MatrixCellDTO] = {}
 
@@ -205,33 +301,31 @@ def build_dd_matrix(
                 extracted = sv_index_fallback.get((doc_id, check_id), [])
 
             segment_results[check_id] = MatrixCellDTO(
-                result=best.result,
-                severity=best.severity,
-                snippet=best.evidence_snippet or "",
-                page=best.page,
-                clause_uid=best.clause_uid or "",
+                result=best.get("result", "unclear"),
+                severity=best.get("severity", "medium"),
+                snippet=(best.get("display_text") or best.get("value_text") or "")[:300],
+                page=best.get("page"),
+                clause_uid=best.get("clause_uid", ""),
                 extracted=extracted,
-                confidence=best.confidence or 0.0,
-                qc_status=best.qc_status or "pending",
-                qc_by=best.qc_by or None,
-                qc_comment=best.qc_comment or None,
-                qc_at=best.qc_at.isoformat() if best.qc_at else None,
-                conditional_check_triggered=best.conditional_check_triggered,
-                trigger_name=best.trigger_name or "",
-                segment_id=best.segment_id or None,
-                segment_type=best.segment_type or None,
-                segment_title=best.segment_title or None,
-                segment_order=best.segment_order,
-                is_primary_segment=best.is_primary_segment,
-                # ИСПРАВЛЕНО: добавлены chunk_id и chunk_index (отсутствовали)
-                chunk_id=best.chunk_id or None,
-                chunk_index=best.chunk_index,
-                # Canonical display semantics
-                display_text=best.display_text,
-                review_status=best.review_status,
-                review_message=best.review_message,
-                needs_manual_review=best.needs_manual_review,
-                ui_mode=best.ui_mode,
+                confidence=best.get("confidence", 0.0) or 0.0,
+                qc_status=best.get("qc_status", "pending"),
+                qc_by=best.get("qc_by"),
+                qc_comment=best.get("qc_comment"),
+                qc_at=best.get("qc_at").isoformat() if best.get("qc_at") else None,
+                conditional_check_triggered=best.get("conditional_check_triggered", False),
+                trigger_name=best.get("trigger_name", ""),
+                segment_id=best.get("segment_id") or None,
+                segment_type=best.get("segment_type"),
+                segment_title=best.get("segment_title"),
+                segment_order=best.get("segment_order"),
+                is_primary_segment=best.get("is_primary_segment"),
+                chunk_id=best.get("chunk_id"),
+                chunk_index=best.get("chunk_index"),
+                display_text=best.get("display_text"),
+                review_status=best.get("review_status"),
+                review_message=best.get("review_message"),
+                needs_manual_review=best.get("needs_manual_review", False),
+                ui_mode=best.get("ui_mode"),
             )
 
         segment_rows.append(
@@ -239,18 +333,16 @@ def build_dd_matrix(
                 document_id=doc_id,
                 document_name=doc_meta.get("name", ""),
                 doc_type=doc_meta.get("doc_type", "Generic"),
-                folder_path=doc_meta.get("folder_path") or None,
+                folder_path=doc_meta.get("folder_path"),
                 segment_id=seg_id or None,
-                segment_type=r0.segment_type or None,
-                segment_title=r0.segment_title or None,
-                segment_order=r0.segment_order,
-                is_primary_segment=r0.is_primary_segment,
+                segment_type=r0.get("segment_type"),
+                segment_title=r0.get("segment_title"),
+                segment_order=r0.get("segment_order"),
+                is_primary_segment=r0.get("is_primary_segment"),
                 status=doc_meta.get("status", "completed"),
                 classification_level=doc_meta.get("classification_level", ""),
                 classification_confidence=float(doc_meta.get("classification_confidence", 0.0)),
-                requires_manual_review=bool(
-                    doc_meta.get("classification_requires_review") or False
-                ),
+                requires_manual_review=bool(doc_meta.get("classification_requires_review")),
                 results=segment_results,
             )
         )
@@ -265,25 +357,27 @@ def build_dd_matrix(
         file_results: dict[str, MatrixCellDTO] = {}
 
         for check_id in seen_checks:
-            export_row = result_index.get((doc_id, check_id))
-            if export_row is None:
+            export_rows = result_index.get((doc_id, check_id))
+            if not export_rows:
                 continue
 
+            # Берём лучший результат для этого (doc, check)
+            best = _select_best_row(export_rows)
+
             file_results[check_id] = MatrixCellDTO(
-                result=export_row.result,
-                severity=export_row.severity,
-                snippet=export_row.evidence_snippet or "",
-                page=export_row.page,
-                clause_uid=export_row.clause_uid or "",
+                result=best.get("result", "unclear"),
+                severity=best.get("severity", "medium"),
+                snippet=(best.get("display_text") or best.get("value_text") or "")[:300],
+                page=best.get("page"),
+                clause_uid=best.get("clause_uid", ""),
                 extracted=sv_index_fallback.get((doc_id, check_id), []),
-                confidence=export_row.confidence or 0.0,
-                qc_status=export_row.qc_status or "pending",
-                qc_by=export_row.qc_by,
-                qc_comment=export_row.qc_comment,
-                qc_at=export_row.qc_at,
-                conditional_check_triggered=export_row.conditional_check_triggered,
-                trigger_name=export_row.trigger_name or "",
-                # File-level строки не несут segment/chunk provenance
+                confidence=best.get("confidence", 0.0) or 0.0,
+                qc_status=best.get("qc_status", "pending"),
+                qc_by=best.get("qc_by"),
+                qc_comment=best.get("qc_comment"),
+                qc_at=best.get("qc_at").isoformat() if best.get("qc_at") else None,
+                conditional_check_triggered=best.get("conditional_check_triggered", False),
+                trigger_name=best.get("trigger_name", ""),
                 segment_id=None,
                 segment_type=None,
                 segment_title=None,
@@ -291,12 +385,11 @@ def build_dd_matrix(
                 is_primary_segment=None,
                 chunk_id=None,
                 chunk_index=None,
-                # Canonical display semantics
-                display_text=export_row.display_text,
-                review_status=export_row.review_status,
-                review_message=export_row.review_message,
-                needs_manual_review=export_row.needs_manual_review,
-                ui_mode=export_row.ui_mode,
+                display_text=best.get("display_text"),
+                review_status=best.get("review_status"),
+                review_message=best.get("review_message"),
+                needs_manual_review=best.get("needs_manual_review", False),
+                ui_mode=best.get("ui_mode"),
             )
 
         file_rows.append(
@@ -304,15 +397,11 @@ def build_dd_matrix(
                 document_id=doc_id,
                 document_name=doc_meta.get("name", ""),
                 doc_type=doc_meta.get("doc_type", "Generic"),
-                folder_path=doc_meta.get("folder_path") or None,
+                folder_path=doc_meta.get("folder_path"),
                 status=doc_meta.get("status", "completed"),
                 classification_level=doc_meta.get("classification_level", ""),
-                classification_confidence=float(
-                    doc_meta.get("classification_confidence", 0.0)
-                ),
-                requires_manual_review=bool(
-                    doc_meta.get("classification_requires_review") or False
-                ),
+                classification_confidence=float(doc_meta.get("classification_confidence", 0.0)),
+                requires_manual_review=bool(doc_meta.get("classification_requires_review")),
                 results=file_results,
             )
         )
@@ -326,22 +415,25 @@ def build_dd_matrix(
     # ------------------------------------------------------------------
     # Шаг 7. Финальная сборка
     # ------------------------------------------------------------------
+    severity_counts = _count_severity(check_results)
+    quality_metrics = _count_quality_metrics(check_results, documents)
+
     return DDMatrixResponseDTO(
-        deal_id=agg.deal_id,
-        run_id=agg.run_id,
-        deal_name=agg.deal_name,
+        deal_id=deal_id,
+        run_id=run_id,
+        deal_name=deal_name,
         checks=checks_list,
         global_check_ids=global_check_ids,
         doc_type_check_ids=dict(doc_type_check_ids),
-        # ИСПРАВЛЕНО: восстановлены legacy file-rows (было documents=[])
         documents=file_rows,
         segment_documents=segment_rows,
-        total_documents=agg.total_documents,
-        total_checks=agg.total_checks,
-        severity_counts=agg.severity_counts.to_dict(),
-        quarantine_count=agg.quarantine_count,
-        degraded_count=agg.degraded_count,
-        evidence_validity_rate=round(agg.evidence_validity_rate, 3),
+        total_documents=len(documents),
+        total_checks=len(check_results),
+        severity_counts=severity_counts,
+        quarantine_count=quality_metrics["quarantine_count"],
+        degraded_count=quality_metrics["degraded_count"],
+        evidence_validity_rate=round(quality_metrics["evidence_validity_rate"], 3),
     )
 
 
+    

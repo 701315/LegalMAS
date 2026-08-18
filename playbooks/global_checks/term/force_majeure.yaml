@@ -208,8 +208,26 @@ extraction:
     4) есть ли право расторжения при длительном FM;
     5) в чью пользу работает FM.
 
-    Не придумывай FM-события если их нет в тексте.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" из общих норм права.
+    - НЕ додумывай FM-события если их нет в тексте.
+    - Если информация отсутствует — ставь "unclear" или "no".
+    - Если текст неоднозначен — ставь "unclear".
     </role>
+
+    <context_rules>
+    - Ниже приведены фрагменты, отобранные автоматически.
+    - Некоторые фрагменты могут быть нерелевантны —
+      игнорируй их.
+    - Если среди фрагментов есть противоречия —
+      укажи "unclear" и объясни в reason.
+    - Если ни один фрагмент не содержит информации —
+      используй значения для случая "FM-клауза отсутствует".
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
+    </context_rules>
 
     <context>
     Ниже приведены релевантные фрагменты договора:
@@ -231,7 +249,7 @@ extraction:
     - fm_beneficiary
     - reason
 
-    Важно:
+    Общие правила:
     - пиши коротко и по-русски.
     </task>
 
@@ -248,8 +266,8 @@ extraction:
     Заполни "covers_classic_events".
 
     Значения:
-    - "yes" — стихийные бедствия, война, забастовки,
-      государственные акты.
+    - "yes" — прямо указаны: стихийные бедствия, война,
+      забастовки, государственные акты.
     - "no" / "unclear"
 
     Шаг 3 — СОВРЕМЕННЫЕ РИСКИ
@@ -260,16 +278,18 @@ extraction:
     - "yes" / "no" / "unclear"
 
     Для modern_risks_detail:
-    - Перечисли через ";": "пандемии; санкции; кибератаки"
-    - Если нет: "Не применимо"
+    - Если есть: перечисли через ";":
+      "пандемии; санкции; кибератаки".
+    - Нет: "Не применимо".
+    - Неясно: "Не удалось определить".
 
     Шаг 4 — ЭКОНОМИЧЕСКИЕ ОСНОВАНИЯ
 
     Заполни "includes_economic_grounds".
 
     Значения:
-    - "yes" — включены: economic hardship, market disruption,
-      ухудшение финансового положения.
+    - "yes" — прямо включены: economic hardship,
+      market disruption, ухудшение финансового положения.
     - "no" / "unclear"
 
     Шаг 5 — ПЛАТЁЖНЫЕ ОБЯЗАТЕЛЬСТВА
@@ -278,7 +298,7 @@ extraction:
 
     Значения:
     - "yes" — FM освобождает от платёжных обязательств.
-    - "no" — прямо указано: платежи не освобождаются.
+    - "no" — прямо указано: платежи FM не охватываются.
     - "unclear" — не раскрыто.
 
     Шаг 6 — ПРАВО РАСТОРЖЕНИЯ
@@ -289,9 +309,11 @@ extraction:
     - "yes" / "no" / "unclear"
 
     Для termination_threshold:
-    - Если есть: "90 дней", "6 месяцев", "180 days"
-    - Нет: "Не определён"
-    - Нет права: "Не применимо"
+    - Если указан: "90 дней", "6 месяцев", "180 days".
+    - Право есть, порог не указан: "Не определён".
+    - Нет права расторжения: "Не применимо".
+    - FM-клауза отсутствует: "Не установлено".
+    - Нельзя определить: "Не удалось определить".
 
     Шаг 7 — В ЧЬЮ ПОЛЬЗУ FM
 
@@ -303,28 +325,37 @@ extraction:
     - "target" — преимущественно Target.
     - "unclear" — неясно.
 
-    Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
+    Шаг 8 — DISPLAY ДЛЯ DD GRID
 
     Заполни "force_majeure_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это поле — краткий итог для таблицы.
+    Сформируй его на основе уже заполненных полей:
+    - has_force_majeure_clause
+    - covers_classic_events / covers_modern_risks
+    - includes_economic_grounds
+    - covers_payments
+    - has_termination_right + termination_threshold
+    - fm_beneficiary
+    Не добавляй информацию, которой нет в этих полях.
 
     Базовые случаи:
     - has_force_majeure_clause = "no":
       "FM-оговорка не обнаружена"
-    - все поля unclear:
+    - has_force_majeure_clause = "unclear":
       "Не удалось определить наличие FM"
 
     Если FM есть — комбинируй через ";":
-    - events coverage (classic / modern / economic)
-    - covers_payments (если "yes": предупредить; "no": снижает риск)
-    - has_termination_right + termination_threshold (если есть)
+    - охват событий
+    - covers_payments (если "yes": предупредить)
+    - has_termination_right + termination_threshold
     - fm_beneficiary (если не "mutual")
 
     Примеры:
-    - "FM есть; классические + пандемии + санкции; не освобождает от платежей; расторжение > 90 дней"
-    - "FM есть; включает economic hardship; освобождает от платежей; расторжение у контрагента"
+    - "FM есть; классические + пандемии + санкции;
+      не освобождает от платежей; расторжение > 90 дней"
+    - "FM есть; включает economic hardship;
+      освобождает от платежей; расторжение у контрагента"
     - "FM-оговорка не обнаружена"
     - "Не удалось определить наличие FM"
 
@@ -334,11 +365,19 @@ extraction:
 
     Заполни "reason".
 
-    Правила:
-    - 1–2 коротких предложения.
-    - Укажи: события, экономические основания, платежи,
-      расторжение, бенефициар.
-    - Приведи цитату в кавычках.
+    Формат:
+    - Первое предложение: краткий вывод
+      (события, экономические основания, платежи,
+      расторжение, бенефициар).
+    - Второе предложение: цитата из текста в кавычках
+      (самый релевантный фрагмент, до 100 символов).
+
+    Примеры:
+    - "FM-оговорка охватывает классические события
+      и пандемии; платежи не освобождаются; расторжение
+      при FM > 90 дней.
+      «Force majeure shall not excuse payment obligations»."
+    - "FM-оговорка не обнаружена в представленных фрагментах."
     </instructions>
 
     <edge_cases>
@@ -347,16 +386,49 @@ extraction:
 
     - Нет FM-оговорки:
       * has_force_majeure_clause = "no"
+      * termination_threshold = "Не установлено"
       * force_majeure_display = "FM-оговорка не обнаружена"
+
+    - FM есть, но право расторжения не предусмотрено:
+      * has_termination_right = "no"
+      * termination_threshold = "Не применимо"
+
+    - FM есть, право расторжения есть, порог не указан:
+      * has_termination_right = "yes"
+      * termination_threshold = "Не определён"
 
     - Нет релевантных фрагментов:
       * has_force_majeure_clause = "unclear"
-      * force_majeure_display = "Не удалось определить наличие FM"
+      * termination_threshold = "Не удалось определить"
+      * force_majeure_display =
+        "Не удалось определить наличие FM"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай в markdown-блоки (без ```).
+    - Не добавляй комментариев вне JSON.
+    - Все значения полей с allowed_values — на английском
+      (как указано в списке).
+    - Свободные текстовые поля (force_majeure_display,
+      modern_risks_detail, termination_threshold, reason) —
+      на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "force_majeure_display": "FM есть; классические + пандемии; не освобождает от платежей; расторжение > 90 дней",
+      "has_force_majeure_clause": "yes",
+      "covers_classic_events": "yes",
+      "covers_modern_risks": "yes",
+      "modern_risks_detail": "пандемии; санкции",
+      "includes_economic_grounds": "no",
+      "covers_payments": "no",
+      "has_termination_right": "yes",
+      "termination_threshold": "90 дней",
+      "fm_beneficiary": "mutual",
+      "reason": "FM охватывает классические события и пандемии; платежи не освобождаются; расторжение > 90 дней. «Force majeure shall not excuse payment»."
+    }
     </output_expectations>
 
   fields:
@@ -365,11 +437,14 @@ extraction:
       presentation: "fact"
       label: "Форс-мажор"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "has_force_majeure_clause"
       type: "string"
       presentation: "signal"
       description: "Наличие FM-оговорки"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -379,6 +454,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Классические FM-события"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -388,6 +464,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Современные риски (пандемии, санкции, кибер)"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -398,11 +475,13 @@ extraction:
       presentation: "fact"
       label: "Современные риски"
       description: "Перечень современных рисков в FM"
+      display_in_grid: false
 
     - name: "includes_economic_grounds"
       type: "string"
       presentation: "signal"
       description: "Экономические основания в FM"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -412,6 +491,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "FM охватывает платёжные обязательства"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -421,6 +501,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Право расторжения при длительном FM"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -431,11 +512,14 @@ extraction:
       presentation: "fact"
       label: "Порог расторжения"
       description: "Минимальный срок FM для права расторжения"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "fm_beneficiary"
       type: "string"
       presentation: "signal"
       description: "В чью пользу работает FM"
+      display_in_grid: false
       allowed_values:
         - "mutual"
         - "counterparty"
@@ -446,6 +530,7 @@ extraction:
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

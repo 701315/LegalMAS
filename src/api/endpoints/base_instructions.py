@@ -254,12 +254,14 @@ async def list_base_global_checks(
 ) -> GlobalInstructionCatalogResponse:
     """
     Каталог базовых global instructions платформы.
-    Read-only. Доступен tenant_admin и member.
+    Клиентам показываем только те инструкции, у которых есть хотя бы
+    одна published platform-версия.
     """
     _ = user
     items = await service.list_catalog()
+    published_items = [item for item in items if item.has_published]
     return GlobalInstructionCatalogResponse(
-        items=[_serialize_global_catalog_item(item) for item in items]
+        items=[_serialize_global_catalog_item(item) for item in published_items]
     )
 
 
@@ -327,12 +329,14 @@ async def list_base_doc_types(
 ) -> InstructionCatalogResponse:
     """
     Каталог базовых doc-type instructions платформы.
-    Read-only. Доступен tenant_admin и member.
+    Клиентам показываем только те инструкции, у которых есть хотя бы
+    одна published platform-версия.
     """
     _ = user
     items = await service.list_doc_type_catalog()
+    published_items = [item for item in items if item.has_published]
     return InstructionCatalogResponse(
-        items=[_serialize_doc_type_catalog_item(item) for item in items]
+        items=[_serialize_doc_type_catalog_item(item) for item in published_items]
     )
 
 

@@ -191,16 +191,19 @@ extraction:
 
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по контрактному праву.
+    Ты — юрист по коммерческим договорам и ответственности сторон.
     Твоя задача — точно извлечь из текста:
-    1) ограничена ли ответственность Target;
-    2) каков объём и характер indemnity;
+    1) ограничена ли ответственность;
+    2) каков общий объём и характер indemnity;
     3) есть ли значимые штрафы / liquidated damages.
 
-    Детальный анализ caps / basket / de minimis / carve-out
-    выполняется чеком liability_caps_and_baskets.
-    Детальный анализ исключений видов убытков выполняется
-    чеком liability_exclusions.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" о наличии cap, indemnity
+      или штрафов, если текст этого прямо не подтверждает.
+    - НЕ подменяй этот check детальным анализом caps / basket / carve-out.
+    - Если информация неоднозначна или фрагментов недостаточно —
+      ставь "unclear".
     </role>
 
     <context>
@@ -208,6 +211,19 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни это в reason.
+    - Используй "none" или "no" только если из текста
+      по существу видно отсутствие indemnity / значимых штрафов,
+      а не просто отсутствует упоминание в коротком фрагменте.
+    - Если нет достаточной информации о блоке ответственности —
+      используй "unclear".
+    - Не используй информацию из definitions, если там нет
+      substantive условий об ответственности.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -217,11 +233,6 @@ extraction:
     - indemnity_beneficiary
     - has_significant_penalties
     - reason
-
-    Важно:
-    - не анализируй caps / basket / de minimis;
-    - не анализируй исключения видов убытков;
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -230,98 +241,133 @@ extraction:
     Заполни "liability_general".
 
     Значения:
-    - "limited" — есть явные ограничения: caps, исключения
-      косвенных убытков, иные чётко прописанные ограничения.
-    - "unlimited" — прямые формулировки о неограниченной
-      ответственности, или любые убытки без видимых caps.
-    - "unclear" — невозможно надёжно определить.
+    - "limited" — есть явные ограничения ответственности:
+      caps, исключения категорий убытков или иные текстовые лимитаторы.
+    - "unlimited" — прямо указана неограниченная ответственность
+      либо очень широкая формула ответственности без видимого
+      ограничителя в самом релевантном блоке.
+    - "unclear" — нельзя надёжно определить.
 
     Шаг 2 — МАСШТАБ INDEMNITY
 
     Заполни "indemnity_scope".
 
     Значения:
-    - "none" — indemnity-обязательства отсутствуют.
-    - "narrow" — ограничено конкретными рисками: IP, налоги,
-      regulatory claims.
-    - "broad" — "any and all losses, damages, fines, penalties,
-      costs and expenses" без существенных carve-out.
-    - "unclear" — неясно.
+    - "none" — indemnity-обязательство отсутствует по существу.
+    - "narrow" — indemnity ограничено конкретными рисками
+      или узкими категориями требований.
+    - "broad" — формула охватывает "любые и все убытки / расходы /
+      требования" без существенных внутренних ограничений.
+    - "unclear" — нельзя определить.
 
-    Шаг 3 — В ЧЬЮ ПОЛЬЗУ INDEMNITY
+    Шаг 3 — В ЧЬЮ ПОЛЬЗУ РАБОТАЕТ INDEMNITY
 
     Заполни "indemnity_beneficiary".
 
     Значения:
-    - "mutual" — симметрично.
+    - "mutual" — симметрично для обеих сторон.
     - "counterparty" — преимущественно в пользу контрагента.
     - "target" — преимущественно в пользу Target.
     - "not_applicable" — indemnity нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — ЗНАЧИМЫЕ ШТРАФЫ / LIQUIDATED DAMAGES
 
     Заполни "has_significant_penalties".
 
     Значения:
-    - "yes" — крупные liquidated damages, высокая дневная
-      ставка без cap, кумулятивные штрафы без ограничения.
-    - "no" — штрафы умеренные или отсутствуют.
-    - "unclear" — невозможно оценить.
+    - "yes" — есть существенные штрафы, liquidated damages,
+      высокая ставка без видимого ограничения
+      или кумулятивные штрафы.
+    - "no" — существенных штрафов нет или штрафы выглядят умеренными.
+    - "unclear" — нельзя определить.
 
     Шаг 5 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "liability_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовый случай:
-    - все поля unclear:
+    Возможные состояния:
+    1. Конкретная картина установлена:
+       "Ответственность ограничена; indemnity широкая в пользу контрагента; значимые штрафы"
+       "Ответственность неограниченная; indemnity отсутствует"
+    2. Частичная картина:
+       "Ответственность ограничена; indemnity не удалось определить"
+    3. Не удалось определить:
+       "Не удалось определить объём ответственности"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить объём ответственности"
+    - Иначе:
+      * сначала укажи liability_general:
+        - "Ответственность ограничена"
+        - "Ответственность неограниченная"
+        - "Характер ответственности не удалось определить"
+      * затем indemnity:
+        - "indemnity отсутствует"
+        - "indemnity узкая"
+        - "indemnity широкая"
+        - при необходимости добавь бенефициара:
+          "в пользу контрагента", "в пользу Target", "взаимная"
+      * затем добавь "значимые штрафы", если has_significant_penalties = "yes"
+    - Не более 3 коротких фактов через ";".
 
-    Если данные есть — комбинируй через ";":
-    - liability_general (limited / unlimited)
-    - indemnity_scope + indemnity_beneficiary (если проблема)
-    - has_significant_penalties (если "yes")
-
-    Примеры:
-    - "Ответственность ограничена; indemnity широкая в пользу контрагента; значимые штрафы"
-    - "Ответственность неограниченная; hold harmless без cap"
-    - "Ответственность ограничена; indemnity узкое; штрафы умеренные"
-    - "Не удалось определить объём ответственности"
-
-    Ограничение: не более 3 фактов через ";".
-
-    Шаг 6 — КРАТКОЕ ОБОСНОВАНИЕ
+    Шаг 6 — ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: тип ответственности, indemnity, штрафы.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
-    - "Unlimited liability" или "any and all losses" без caps:
+    - "Unlimited liability" или аналогичная прямая формулировка:
       * liability_general = "unlimited"
 
-    - "Any and all losses" в indemnity в пользу контрагента:
+    - "Any and all losses" в пользу контрагента
+      без видимого внутреннего ограничителя:
       * indemnity_scope = "broad"
       * indemnity_beneficiary = "counterparty"
 
-    - Кумулятивные штрафы без cap:
+    - Indemnity отсутствует:
+      * indemnity_scope = "none"
+      * indemnity_beneficiary = "not_applicable"
+
+    - Значимые штрафы:
       * has_significant_penalties = "yes"
 
     - Нет релевантных фрагментов:
-      * все поля = "unclear"
+      * liability_general = "unclear"
+      * indemnity_scope = "unclear"
+      * indemnity_beneficiary = "unclear"
+      * has_significant_penalties = "unclear"
       * liability_display = "Не удалось определить объём ответственности"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля (liability_display, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "liability_display": "Ответственность ограничена; indemnity широкая в пользу контрагента",
+      "liability_general": "limited",
+      "indemnity_scope": "broad",
+      "indemnity_beneficiary": "counterparty",
+      "has_significant_penalties": "no",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -330,6 +376,8 @@ extraction:
       presentation: "fact"
       label: "Ответственность и indemnity"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "liability_general"
       type: "string"
@@ -339,6 +387,7 @@ extraction:
         - "limited"
         - "unlimited"
         - "unclear"
+      display_in_grid: false
 
     - name: "indemnity_scope"
       type: "string"
@@ -349,6 +398,7 @@ extraction:
         - "narrow"
         - "broad"
         - "unclear"
+      display_in_grid: false
 
     - name: "indemnity_beneficiary"
       type: "string"
@@ -360,6 +410,7 @@ extraction:
         - "target"
         - "not_applicable"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_significant_penalties"
       type: "string"
@@ -369,11 +420,13 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
 

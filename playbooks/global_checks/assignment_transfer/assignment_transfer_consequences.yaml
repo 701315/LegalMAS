@@ -162,11 +162,33 @@ extraction:
     которые наступают при уступке прав / переводе долга /
     передаче обязательств.
 
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" из общих норм права.
+    - НЕ додумывай последствия, которых нет в тексте.
+    - Если информация отсутствует — ставь "no",
+      а не предполагай наиболее вероятный вариант.
+    - Если текст неоднозначен — ставь "unclear",
+      а не выбирай один из вариантов.
+
     Не анализируй смену контроля (CoC).
     Не анализируй механику согласия.
     Не анализируй базовый режим (prohibited / consent_required).
     Не оценивай общий M&A-риск.
     </role>
+
+    <context_rules>
+    - Ниже приведены фрагменты, отобранные автоматически.
+    - Некоторые фрагменты могут быть нерелевантны данному
+      check — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Если ни один фрагмент не содержит информации по теме —
+      используй значения для случая "тема не урегулирована".
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
+    </context_rules>
 
     <context>
     Ниже приведены релевантные фрагменты договора:
@@ -245,6 +267,15 @@ extraction:
 
     Заполни "at_consequences_display".
 
+    Это поле — краткий итог для таблицы.
+    Сформируй его на основе уже заполненных полей:
+    - at_termination_right
+    - at_termination_mechanism
+    - at_acceleration
+    - at_price_terms_change
+    - at_cure_or_waiver
+    Не добавляй информацию, которой нет в этих полях.
+
     Правила:
     - Начинай с "Для уступки — ".
     - Перечисляй последствия через точку с запятой.
@@ -254,6 +285,7 @@ extraction:
     - "Для уступки — автоматическое прекращение договора"
     - "Для уступки — право расторгнуть; cure period предусмотрен"
     - "Для уступки — право расторгнуть; акселерация"
+    - "Для уступки — ухудшение условий / step-up"
     - "Для уступки — только согласие контрагента"
     - "Последствия уступки не установлены"
     - "Не удалось определить последствия уступки"
@@ -262,11 +294,18 @@ extraction:
 
     Заполни "reason".
 
-    Правила:
-    - 1–2 коротких предложения.
-    - Укажи: какие последствия предусмотрены,
-      механизм расторжения, есть ли cure/waiver.
-    - Приведи короткую цитату в кавычках.
+    Формат:
+    - Первое предложение: краткий вывод
+      (какие последствия предусмотрены или не предусмотрены).
+    - Второе предложение: цитата из текста в кавычках
+      (самый релевантный фрагмент, до 100 символов).
+
+    Примеры:
+    - "При уступке без согласия договор прекращается автоматически.
+      «В случае уступки прав без согласия Поставщика
+      договор считается расторгнутым»."
+    - "Специальные последствия уступки не обнаружены
+      в представленных фрагментах."
     </instructions>
 
     <edge_cases>
@@ -291,7 +330,7 @@ extraction:
       * at_consequences_display =
         "Для уступки — только согласие контрагента"
 
-    - Нет упоминаний последствий:
+    - Тема последствий уступки не урегулирована:
       * at_termination_right = "none"
       * at_termination_mechanism = "not_applicable"
       * at_acceleration = "no"
@@ -300,7 +339,16 @@ extraction:
       * at_consequences_display =
         "Последствия уступки не установлены"
 
-    - Фрагменты нерелевантны:
+    - Нет релевантных фрагментов:
+      * at_termination_right = "none"
+      * at_termination_mechanism = "not_applicable"
+      * at_acceleration = "no"
+      * at_price_terms_change = "no"
+      * at_cure_or_waiver = "no"
+      * at_consequences_display =
+        "Последствия уступки не установлены"
+
+    - Фрагменты есть, но вывод нельзя:
       * at_termination_right = "unclear"
       * at_termination_mechanism = "unclear"
       * at_acceleration = "unclear"
@@ -311,7 +359,25 @@ extraction:
     </edge_cases>
 
     <output_expectations>
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай в markdown-блоки (без ```).
+    - Не добавляй комментариев вне JSON.
+    - Все значения полей с allowed_values — на английском
+      (как указано в списке).
+    - Свободные текстовые поля (at_consequences_display,
+      reason) — на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "at_consequences_display": "Для уступки — право расторгнуть; cure period предусмотрен",
+      "at_termination_right": "limited",
+      "at_termination_mechanism": "with_cure",
+      "at_acceleration": "no",
+      "at_price_terms_change": "no",
+      "at_cure_or_waiver": "yes",
+      "reason": "При уступке без согласия предусмотрен cure period. «Поставщик вправе расторгнуть...»."
+    }
     </output_expectations>
 
   fields:
@@ -320,11 +386,14 @@ extraction:
       presentation: "fact"
       label: "Последствия уступки"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "at_termination_right"
       type: "string"
       presentation: "signal"
       description: "Право на расторжение при уступке"
+      display_in_grid: false
       allowed_values:
         - "none"
         - "limited"
@@ -335,6 +404,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Механизм расторжения при уступке"
+      display_in_grid: false
       allowed_values:
         - "optional"
         - "automatic"
@@ -346,6 +416,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Акселерация при уступке"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -355,6 +426,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Изменение цены / условий при уступке"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -364,6 +436,7 @@ extraction:
       type: "string"
       presentation: "signal"
       description: "Cure period / waiver при уступке"
+      display_in_grid: false
       allowed_values:
         - "yes"
         - "no"
@@ -373,6 +446,7 @@ extraction:
       type: "string"
       presentation: "diagnostic"
       description: "Краткое обоснование"
+      display_in_grid: false
 
   store_payload: true
 

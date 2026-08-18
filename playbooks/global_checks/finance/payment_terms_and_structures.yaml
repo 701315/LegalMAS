@@ -218,7 +218,16 @@ extraction:
     валюту, структуру платежей, штрафы за просрочку, предоплаты /
     аккредитивы / escrow, set-off rights, индексацию цен.
 
-    Не анализируй take-or-pay, минимальные объёмы и финансовые ковенанты.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай выводов "по умолчанию" из общих норм права.
+    - НЕ додумывай валюту, ставки или сроки, которых нет в тексте.
+    - Если информация отсутствует — используй "not_specified",
+      "not_addressed" или "unclear" согласно allowed_values.
+    - Если текст неоднозначен — ставь "unclear".
+
+    Не анализируй take-or-pay, минимальные объёмы и
+    финансовые ковенанты.
     </role>
 
     <context>
@@ -226,6 +235,16 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Если ни один фрагмент не содержит информации о платёжных
+      условиях — используй "not_specified" или "unclear".
+    - Не используй информацию из definitions/преамбулы,
+      если они не содержат substantive условий по теме check.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -237,9 +256,6 @@ extraction:
     - set_off_rights
     - has_price_indexation
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -249,15 +265,15 @@ extraction:
 
     Правила:
     - Конкретная валюта: "RUB", "USD", "EUR",
-      "multiple: USD + EUR".
-    - Если не указана: "not_specified".
-    - Если иностранная и нет хеджирования — отметь в reason.
+      "USD + EUR" (если несколько).
+    - Если не указана: "не указана"
+    - Если неясно: "не удалось определить"
 
     Шаг 2 — СТРУКТУРА ПЛАТЕЖЕЙ
 
     Заполни "payment_schedule_type".
 
-    Значения:
+    Значения (строго из списка):
     - "advance_only" — только предоплата.
     - "postpayment" — только постоплата.
     - "milestone" — milestone-платежи.
@@ -270,12 +286,13 @@ extraction:
 
     Заполни "has_late_payment_penalties".
 
-    Значения:
-    - "yes_market_rate" — есть, ставка рыночная.
-    - "yes_excessive" — есть, ставка чрезмерно высокая
+    Значения (строго из списка):
+    - "yes_market_rate" — есть, ставка рыночная
+      (≤ 0.1% в день или ≤ 36% годовых).
+    - "yes_excessive" — есть, ставка чрезмерная
       (> 0.1% в день или > 36% годовых).
     - "yes_unspecified_rate" — есть, ставка не указана.
-    - "no" — нет.
+    - "no" — нет штрафов за просрочку.
     - "unclear" — неясно.
 
     Шаг 4 — ПРЕДОПЛАТЫ, АККРЕДИТИВЫ, ESCROW
@@ -288,25 +305,25 @@ extraction:
     - "unclear" — неясно.
 
     Если "yes" — в reason кратко опиши объём аванса
-    и условия возврата / высвобождения escrow.
+    или условия высвобождения escrow.
 
     Шаг 5 — SET-OFF / NETTING
 
     Заполни "set_off_rights".
 
-    Значения:
+    Значения (строго из списка):
     - "counterparty_unilateral" — контрагент может зачитывать
-      суммы без согласия Target.
-    - "mutual" — взаимный зачёт.
-    - "prohibited" — зачёт запрещён.
-    - "not_addressed" — не урегулировано.
+      суммы в одностороннем порядке без согласия стороны.
+    - "mutual" — взаимный зачёт с согласия обеих сторон.
+    - "prohibited" — зачёт прямо запрещён.
+    - "not_addressed" — вопрос не урегулирован.
     - "unclear" — неясно.
 
     Шаг 6 — ИНДЕКСАЦИЯ ЦЕН
 
     Заполни "has_price_indexation".
 
-    Значения:
+    Значения (строго из списка):
     - "yes_uncapped" — индексация без cap.
     - "yes_capped" — индексация с cap.
     - "no" — нет.
@@ -316,65 +333,82 @@ extraction:
 
     Заполни "payment_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы. Строй его ТОЛЬКО на основе
+    уже заполненных полей выше. Не добавляй информацию сверх них.
 
-    Базовый случай:
-    - все поля unclear / not_specified:
-      "Не удалось определить платежные условия"
+    Возможные состояния:
+    1. Конкретные условия известны:
+       "RUB; постоплата Net 30; штрафные проценты рыночные"
+    2. Частичные данные:
+       "USD; структура не определена; escrow"
+    3. Условия не урегулированы:
+       "Платёжные условия не установлены"
+    4. Не удалось определить:
+       "Не удалось определить платёжные условия"
 
-    Если данные есть — комбинируй через ";":
+    Правила построения (если данные есть):
     - начни с payment_currency
-    - добавь payment_schedule_type (кратко)
+    - добавь payment_schedule_type (кратко, на русском)
     - добавь has_late_payment_penalties (если значимо)
     - добавь has_advance_lc_escrow (если есть)
     - добавь set_off_rights (если counterparty_unilateral)
-
-    Примеры:
-    - "RUB; постоплата Net 30; штрафные проценты рыночные"
-    - "USD; 30% аванс + milestone; escrow; штрафные проценты не указаны"
-    - "EUR без хеджирования; предоплата 50%; set-off контрагента"
-    - "Не удалось определить платежные условия"
-
-    Ограничение: не более 4 фактов через ";".
+    Не более 4 фактов через ";".
 
     Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: валюту, структуру, ключевые риски.
-    - Приведи короткую цитату в кавычках.
+    - Первое предложение — краткий вывод по платёжным условиям.
+    - Второе — короткая цитата из текста (до 100 символов).
     </instructions>
 
     <edge_cases>
     - Стандартная постоплата Net 30, рыночные проценты:
+      * payment_schedule_type = "postpayment"
       * has_late_payment_penalties = "yes_market_rate"
-
-    - Аванс > 50% без advance payment guarantee:
-      * has_advance_lc_escrow = "yes"
 
     - USD без хеджирования:
       * payment_currency = "USD"
+      * в reason: валютный риск не хеджирован
 
     - 0.5% в день штрафные проценты:
       * has_late_payment_penalties = "yes_excessive"
 
-    - Escrow 24 месяца без trigger events:
-      * has_advance_lc_escrow = "yes"
-
     - Контрагент зачитывает суммы без согласия:
       * set_off_rights = "counterparty_unilateral"
 
+    - Платёжные условия не установлены в договоре:
+      * payment_currency = "не указана"
+      * payment_schedule_type = "not_specified"
+      * payment_display = "Платёжные условия не установлены"
+
     - Нет релевантных фрагментов:
-      * все поля = "unclear" / "not_specified"
-      * payment_display = "Не удалось определить платежные условия"
+      * payment_currency = "не удалось определить"
+      * payment_schedule_type = "unclear"
+      * payment_display = "Не удалось определить платёжные условия"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай в markdown-блоки (без ```).
+    - Не добавляй комментариев вне JSON.
+    - Значения allowed_values полей — строго из списка (на английском).
+    - Свободные текстовые поля (payment_display, payment_currency,
+      reason) — на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "payment_display": "...",
+      "payment_currency": "RUB",
+      "payment_schedule_type": "postpayment",
+      "has_late_payment_penalties": "yes_market_rate",
+      "has_advance_lc_escrow": "no",
+      "set_off_rights": "not_addressed",
+      "has_price_indexation": "no",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -383,12 +417,16 @@ extraction:
       presentation: "fact"
       label: "Платежные условия"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "payment_currency"
       type: "string"
       presentation: "fact"
       label: "Валюта платежа"
       description: "Валюта платежа"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "payment_schedule_type"
       type: "string"
@@ -402,6 +440,7 @@ extraction:
         - "periodic"
         - "not_specified"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_late_payment_penalties"
       type: "string"
@@ -413,6 +452,7 @@ extraction:
         - "yes_unspecified_rate"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_advance_lc_escrow"
       type: "string"
@@ -422,6 +462,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "set_off_rights"
       type: "string"
@@ -433,6 +474,7 @@ extraction:
         - "prohibited"
         - "not_addressed"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_price_indexation"
       type: "string"
@@ -443,11 +485,13 @@ extraction:
         - "yes_capped"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
 
   store_payload: true
   

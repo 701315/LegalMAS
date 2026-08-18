@@ -227,7 +227,11 @@ extraction:
     3) есть ли assignment от подрядчиков / разработчиков;
     4) насколько полон scope передачи прав.
 
-    Не делай предположений о chain of title без явных данных.
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ предполагай chain of title без явных данных.
+    - НЕ считай лицензию эквивалентом assignment.
+    - Если информация отсутствует — используй "unclear".
     </role>
 
     <context>
@@ -235,6 +239,19 @@ extraction:
 
     {context}
     </context>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни в reason.
+    - Assignment = "all right, title and interest hereby assigned",
+      deed of assignment, отчуждение прав. Лицензия ≠ assignment.
+    - Служебные произведения / work made for hire = права
+      автоматически принадлежат работодателю без отдельного
+      документа — считается "yes" для employees.
+    - Pre-existing IP / background IP = риск: лицензиар может
+      только выдать лицензию, но не передать права.
+    </context_rules>
 
     <task>
     Заполни только следующие поля:
@@ -246,9 +263,6 @@ extraction:
     - has_third_party_or_preexisting_ip_risk
     - chain_of_title_clarity
     - reason
-
-    Важно:
-    - пиши коротко и по-русски.
     </task>
 
     <instructions>
@@ -269,12 +283,11 @@ extraction:
     Заполни "has_assignments_from_founders_and_employees".
 
     Значения:
-    - "yes" — явный assignment: "all right, title and
-      interest", служебные произведения / work made for hire,
-      deed of assignment от основателей.
+    - "yes" — явный assignment или режим служебных произведений
+      / work made for hire.
     - "no" — assignment отсутствует или только лицензия.
     - "partial" — для части есть, для части нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 3 — ASSIGNMENT ОТ ПОДРЯДЧИКОВ
 
@@ -284,77 +297,82 @@ extraction:
     - "yes" — явное отчуждение прав на результаты работ.
     - "no" — нет; только лицензия или retained rights.
     - "partial" — частично есть.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 4 — ПОЛНОТА SCOPE
 
     Заполни "assignment_scope_appears_full".
 
     Значения:
-    - "yes" — scope полный: worldwide / full term /
-      all uses / derivative works / irrevocable.
+    - "yes" — worldwide / full term / all uses /
+      derivative works / irrevocable.
     - "no" — scope явно ограничен.
     - "partial" — часть элементов есть, часть нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 5 — THIRD-PARTY / PRE-EXISTING IP РИСК
 
     Заполни "has_third_party_or_preexisting_ip_risk".
 
     Значения:
-    - "yes" — признаки: Target получает только лицензию
-      на pre-existing IP; retained rights у третьих лиц;
-      значимые open source / third-party компоненты.
+    - "yes" — Target получает только лицензию на pre-existing IP;
+      retained rights у третьих лиц; значимые open source /
+      third-party компоненты без assignment.
     - "no" — признаков нет.
-    - "unclear" — неясно.
+    - "unclear" — нельзя определить.
 
     Шаг 6 — CHAIN OF TITLE
 
     Заполни "chain_of_title_clarity".
 
     Значения:
-    - "clear" — цепочка прав прослеживается явно.
+    - "clear" — цепочка прав явно прослеживается.
     - "partial" — частично прослеживается.
-    - "not_established" — chain of title явно не установлена
-      или есть пробелы.
-    - "unclear" — нельзя прослеживать по фрагментам.
+    - "not_established" — chain of title не установлена
+      или есть явные пробелы.
+    - "unclear" — нельзя определить по фрагментам.
 
     Шаг 7 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "ip_ownership_display".
 
-    Это не свободное summary.
-    Строй display по следующей логике:
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовые случаи:
-    - все поля unclear:
+    Возможные состояния:
+    1. Всё в порядке:
+       "IP принадлежит Target; assignment полный; chain of title чистая"
+    2. Есть проблемы:
+       "IP у основателей; assignment отсутствует; chain of title не установлена"
+    3. Смешанная ситуация:
+       "Смешанная принадлежность; assignment от подрядчиков отсутствует"
+    4. Не удалось определить:
+       "Не удалось определить принадлежность IP"
+
+    Правила:
+    - Если все поля unclear:
       "Не удалось определить принадлежность IP"
-    - нет проблем:
-      "IP принадлежит Target; assignment полный; chain of title чистая"
-
-    Если есть конкретные данные — комбинируй через ";":
-    - начни с ip_owner_status (кратко)
-    - добавь assignment от основателей / подрядчиков (если проблема)
-    - добавь chain_of_title_clarity (если not_established)
-    - добавь third_party / preexisting (если "yes")
-
-    Примеры:
-    - "IP принадлежит Target; assignment от основателей и подрядчиков есть; scope полный"
-    - "IP у основателей; assignment отсутствует; chain of title не установлена"
-    - "Смешанная принадлежность; assignment от подрядчиков отсутствует"
-    - "Не удалось определить принадлежность IP"
-
-    Ограничение: не более 3 фактов через ";".
+    - Иначе комбинируй через ";":
+      * начни с ip_owner_status
+      * если has_assignments_from_founders_and_employees = "no":
+        "assignment от основателей отсутствует"
+      * если has_assignments_from_contractors = "no":
+        "assignment от подрядчиков отсутствует"
+      * если chain_of_title_clarity = "not_established":
+        "chain of title не установлена"
+      * если has_third_party_or_preexisting_ip_risk = "yes":
+        "риск third-party IP"
+    - Не более 3 коротких фактов через ";".
 
     Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи: кому принадлежит IP, assignment, scope,
-      chain of title, third-party риск.
-    - Приведи цитату в кавычках.
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
@@ -362,27 +380,41 @@ extraction:
       * has_assignments_from_founders_and_employees = "yes"
       * has_assignments_from_contractors = "no"
 
-    - IP создан до регистрации компании:
-      * ip_owner_status = "founders"
+    - Target только лицензиат ключевого IP:
+      * has_third_party_or_preexisting_ip_risk = "yes"
 
     - "All right, title and interest worldwide, irrevocable":
       * assignment_scope_appears_full = "yes"
-      * это сильный low risk фактор
-
-    - Target только лицензиат ключевого IP:
-      * has_third_party_or_preexisting_ip_risk = "yes"
 
     - Нет данных о chain of title:
       * chain_of_title_clarity = "unclear"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * ip_ownership_display = "Не удалось определить принадлежность IP"
+      * ip_ownership_display =
+        "Не удалось определить принадлежность IP"
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля (ip_ownership_display, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+
+    Пример структуры ответа:
+    {
+      "ip_ownership_display": "IP принадлежит Target; assignment полный; chain of title чистая",
+      "ip_owner_status": "target",
+      "has_assignments_from_founders_and_employees": "yes",
+      "has_assignments_from_contractors": "yes",
+      "assignment_scope_appears_full": "yes",
+      "has_third_party_or_preexisting_ip_risk": "no",
+      "chain_of_title_clarity": "clear",
+      "reason": "..."
+    }
     </output_expectations>
 
   fields:
@@ -391,6 +423,8 @@ extraction:
       presentation: "fact"
       label: "Принадлежность IP"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "ip_owner_status"
       type: "string"
@@ -403,6 +437,7 @@ extraction:
         - "mixed"
         - "third_party"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_assignments_from_founders_and_employees"
       type: "string"
@@ -413,6 +448,7 @@ extraction:
         - "no"
         - "partial"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_assignments_from_contractors"
       type: "string"
@@ -423,6 +459,7 @@ extraction:
         - "no"
         - "partial"
         - "unclear"
+      display_in_grid: false
 
     - name: "assignment_scope_appears_full"
       type: "string"
@@ -433,6 +470,7 @@ extraction:
         - "no"
         - "partial"
         - "unclear"
+      display_in_grid: false
 
     - name: "has_third_party_or_preexisting_ip_risk"
       type: "string"
@@ -442,6 +480,7 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "chain_of_title_clarity"
       type: "string"
@@ -452,11 +491,15 @@ extraction:
         - "partial"
         - "not_established"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Обоснование"
+      display_in_grid: false
+
+  store_payload: true
 
   store_payload: true
 

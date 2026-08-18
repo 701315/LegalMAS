@@ -38,7 +38,7 @@ const PageSection: React.FC<PageSectionProps> = ({
     >
       {hasHeader ? (
         <div className="shrink-0 px-5">
-          <div className="flex items-start justify-between gap-4 py-3">
+          <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0">
               {title ? (
                 // было: text-base, стало: text-sm
@@ -46,6 +46,7 @@ const PageSection: React.FC<PageSectionProps> = ({
                   {title}
                 </h2>
               ) : null}
+
 
               {subtitle ? (
                 // было: text-sm mt-1, стало: text-[11px] mt-0.5
@@ -55,8 +56,12 @@ const PageSection: React.FC<PageSectionProps> = ({
               ) : null}
             </div>
 
-            {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
+
+            {rightSlot ? (
+              <div className="w-full shrink-0 sm:w-auto">{rightSlot}</div>
+            ) : null}
           </div>
+
 
           <div className="border-t border-[var(--border-subtle)]" />
         </div>

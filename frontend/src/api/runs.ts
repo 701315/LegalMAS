@@ -272,4 +272,59 @@ export function useRunProgress(runId: string | null) {
   });
 }
 
+// =============================================================
+// Executive Summary Types & Hook
+// =============================================================
+
+export interface RunSummaryResponse {
+  run_id: string;
+  status: "pending" | "generating" | "ready" | "failed";
+  text?: string | null;
+  claims?: Record<string, any> | null;
+  fallback?: {
+    title: string;
+    coverage: { total: number; processed: number; failed: number; quarantine: number; pending_review: number };
+    risk_distribution: Record<string, number>;
+    top_findings: Array<{
+      check_id: string;
+      check_name: string;
+      severity: string;
+      doc_types: string[];
+      count: number;
+    }>;
+    open_items: string[];
+    actions: Array<{ label: string; filter: Record<string, any> }>;
+    source: string;
+  } | null;
+  model?: string | null;
+  prompt_version?: string | null;
+  error_message?: string | null;
+  generated_at?: string | null;
+}
+
+export async function fetchRunSummary(runId: string): Promise<RunSummaryResponse> {
+  const response = await client.get<RunSummaryResponse>(`/api/v1/runs/${runId}/summary`);
+  return response.data;
+}
+
+export async function regenerateRunSummary(runId: string): Promise<RunSummaryResponse> {
+  const response = await client.post<RunSummaryResponse>(`/api/v1/runs/${runId}/summary/regenerate`);
+  return response.data;
+}
+
+export function useRunSummary(runId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["run", runId, "summary"],
+    queryFn: () => fetchRunSummary(runId!),
+    enabled: !!runId,
+    // Polling только если статус generating или pending
+    refetchInterval: (query) => {
+      const data = query.state.data as RunSummaryResponse | undefined;
+      if (data?.status === "pending" || data?.status === "generating") {
+        return 3000; // 3 секунды
+      }
+      return false;
+    },
+  });
+}
 

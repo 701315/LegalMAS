@@ -52,16 +52,11 @@ import {
 } from "./ddGridV1.drawer";
 
 import type {
-  ReviewGridRow,
-  ReviewCheckColumn,
-  ReviewSelectionItem,
-} from "../grid/reviewGrid.types";
-
-import type {
   DDGridV1CheckNode,
   DDGridV1DerivedModel,
   DDGridV1MatrixRow,
 } from "./ddGridV1.types";
+import type { ReviewSelectionItem } from "./ddGridV1.types";
 
 import DDGridV1Drawer from "./DDGridV1Drawer";
 
@@ -259,19 +254,13 @@ function getQcStatusMeta(
  */
 function buildV1ListRows(
   model: DDGridV1DerivedModel,
-  legacyRows: ReviewGridRow[],
-  legacyColumns: ReviewCheckColumn[],
+  _rows: DDGridV1MatrixRow[],  // ✅ Не используется — берём из model.rows
+  _columns: DDGridV1CheckNode[],  // ✅ Не используется — берём из model
   visibleCheckIds: readonly string[] | null,
   includePassResults: boolean,
 ): V1ListRow[] {
-  // Индекс legacy row → qc_status/qc_comment по (documentId, checkId)
-  const legacyRowByDocId = new Map<string, ReviewGridRow>();
-  for (const row of legacyRows) {
-    legacyRowByDocId.set(row.documentId, row);
-  }
-
-  // Индекс legacy column для metadata (не критично)
-  void legacyColumns;
+  // V1-native: берём данные напрямую из model
+  // legacyRows и legacyColumns больше не нужны
 
   // Собираем все check nodes из V1 иерархии
   const allChecks: DDGridV1CheckNode[] = [];
@@ -303,13 +292,13 @@ function buildV1ListRows(
   const result: V1ListRow[] = [];
 
   for (const v1Row of model.rows) {
-    const legacyRow = legacyRowByDocId.get(v1Row.documentId);
-
     for (const check of allChecks) {
       if (visibleCheckSet && !visibleCheckSet.has(check.checkId)) continue;
 
+      // 3-уровневый lookup: doc_id → segment_id → check_id
+      const segmentId = v1Row.segmentId ?? "_default";
       const drawer =
-        model.drawerContents[v1Row.documentId]?.[check.checkId] ?? null;
+        model.drawerContents[v1Row.documentId]?.[segmentId]?.[check.checkId] ?? null;
 
       // Если drawer нет для этой пары — не создаём строку
       // (значит check не выполнялся для этого документа)
@@ -326,8 +315,6 @@ function buildV1ListRows(
         continue;
       }
 
-      const legacyCell = legacyRow?.cellsByCheckId[check.checkId];
-
       const detectionLevelInfo = resolveDDGridV1DetectionLevel(drawer);
       const confidenceInfo = resolveDDGridV1Confidence(drawer);
       const qualityFlags = resolveDDGridV1QualityFlags(drawer);
@@ -340,8 +327,8 @@ function buildV1ListRows(
         v1Row,
         checkNode: check,
         drawerContent: drawer,
-        legacyCellQcStatus: legacyCell?.qc_status ?? null,
-        legacyCellQcComment: legacyCell?.qc_comment ?? null,
+        legacyCellQcStatus: drawer.qc_status ?? null,  // ✅ Из drawer
+        legacyCellQcComment: drawer.qc_comment ?? null,  // ✅ Из drawer
         documentName: v1Row.filename || "[no name]",
         docType: v1Row.docType || "—",
         checkName: check.checkName || check.checkId,
@@ -413,31 +400,14 @@ interface SelectedDrawerState {
 export interface DDGridV1ListProps {
   runId: string;
   model: DDGridV1DerivedModel;
-  rows: ReviewGridRow[];
-  columns: ReviewCheckColumn[];
+  rows: DDGridV1MatrixRow[];  // ✅
+  columns: DDGridV1CheckNode[];  // ✅
 
-  /**
-   * Если задан — показываем только эти check_ids.
-   * Используется для интеграции с "checksScope" фильтром (все /
-   * только глобальные / только по типу документа).
-   */
   visibleCheckIds?: readonly string[];
-
-  /**
-   * Если false — скрываем строки со статусом "no_issue_detected" / "ok".
-   * Управляется через toolbar toggle "Скрыть pass".
-   */
   includePassResults?: boolean;
-
-  /**
-   * Список ID дополнительных технических колонок, которые нужно показать.
-   * Управляется через toolbar панель "Дополнительные данные".
-   * Пустой массив / undefined — показываем только базовые колонки.
-   */
   visibleExtraColumnIds?: readonly string[];
 
   onOpenAtLocation?: OpenViewerAtFn;
-
   onSelectionChange?: (selection: ReviewSelectionItem[]) => void;
   clearSelectionToken?: number;
 }
@@ -858,6 +828,7 @@ const openDrawerForRow = useCallback(
           return (
             <button
               type="button"
+              data-skip-row-click="true"
               className="text-xs text-[var(--accent-primary)] hover:underline cursor-pointer transition-colors"
               onClick={handleClick}
               title="Открыть документ в этой локации для ручной проверки"
@@ -1226,6 +1197,12 @@ const openDrawerForRow = useCallback(
               onGridReady={handleGridReady}
               onCellClicked={(event) => {
                 if (event.column.getColId() === "ag-Grid-SelectionColumn") {
+                  return;
+                }
+                // Пропускаем клики по элементам, которые управляют
+                // своим действием самостоятельно (например, кнопка "Локация")
+                const target = event.event?.target as HTMLElement | null;
+                if (target?.closest("[data-skip-row-click]")) {
                   return;
                 }
                 if (event.data) {

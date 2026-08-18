@@ -189,11 +189,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  # 8 полей × ~90 токенов (value+confidence+location+JSON overhead) ≈ 720.
-  # С запасом 25% = 900. Берём 1100 с дополнительным запасом под длинный reason.
   llm_max_tokens: 1100
-  # compact_output не задаём явно — авто-режим (None) корректно
-  # определит что custom prompt уже управляет стилем вывода.
+  
   llm_prompt_extraction: |
     <role>
     Ты — юрист по международным контрактам и разрешению споров.
@@ -201,6 +198,17 @@ extraction:
     1) применимое право;
     2) форум разрешения споров;
     3) верхнеуровневый факт наличия обязательной досудебной процедуры.
+
+    КРИТИЧЕСКИ ВАЖНО:
+    - Извлекай ТОЛЬКО то, что прямо написано в тексте.
+    - НЕ делай вывод о праве или форуме по косвенным признакам:
+      языку договора, валюте, месту подписания, адресам сторон,
+      месту исполнения.
+    - НЕ смешивай применимое право и форум разрешения споров.
+    - Если информация отсутствует — используй "missing" или "unclear"
+      согласно allowed_values, а для *_value возвращай пустую строку.
+    - Если текст неоднозначен или содержит противоречия —
+      используй "unclear".
 
     Детальный анализ сроков и механики досудебного порядка
     выполняется отдельным чеком limitation_periods_and_pre_claim_procedures.
@@ -214,6 +222,16 @@ extraction:
     {context}
     </context>
 
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни это в reason.
+    - Не используй информацию из definitions/преамбулы,
+      если они не содержат substantive условий о праве или форуме.
+    - Если оговорка о праве / форуме ссылается на приложение,
+      которого нет в контексте — используй "unclear".
+    </context_rules>
+
     <task>
     Заполни только следующие поля:
     - governing_law_and_forum_display
@@ -224,15 +242,6 @@ extraction:
     - pre_claim_procedure_present
     - reason
     - evidence
-
-    Важно:
-    - используй только то, что прямо следует из текста;
-    - не делай вывод о праве или форуме по косвенным признакам:
-      языку договора, валюте, месту подписания, адресам сторон,
-      месту исполнения;
-    - не смешивай применимое право и форум;
-    - если значение отсутствует, для *_value возвращай пустую строку;
-    - пиши user-facing значения коротко и по-русски.
     </task>
 
     <location_instructions>
@@ -291,16 +300,12 @@ extraction:
       "Суды Англии и Уэльса", "Суд штата Калифорния".
     - Не путай форум с seat, language, составом арбитров.
     - Если несколько форумов — перечисли через " / ".
-    - "Seat of arbitration shall be London" + явный выбор арбитража
-      → dispute_forum_value = "Арбитраж в Лондоне".
 
     Шаг 3 — НАЛИЧИЕ ОБЯЗАТЕЛЬНОЙ ДОСУДЕБНОЙ ПРОЦЕДУРЫ
 
     Заполни "pre_claim_procedure_present".
 
     Это routing-сигнал верхнего уровня.
-    Детальный анализ выполняется чеком
-    limitation_periods_and_pre_claim_procedures.
 
     Значения:
     - "yes" — договор прямо требует досудебного шага
@@ -313,42 +318,43 @@ extraction:
 
     Заполни "governing_law_and_forum_display".
 
-    Блок применимого права:
-    - governing_law_status = "present":
-      "Применимое право: {governing_law_value}"
-    - governing_law_status = "missing":
-      "Применимое право: не указано"
-    - governing_law_status = "unclear":
-      "Применимое право: не удалось определить"
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Блок форума:
-    - dispute_forum_status = "present":
-      "; Форум: {dispute_forum_value}"
-    - dispute_forum_status = "missing":
-      "; Форум: не указан"
-    - dispute_forum_status = "unclear":
-      "; Форум: не удалось определить"
+    Возможные состояния:
+    1. Оба поля определены:
+       "Применимое право: РФ; Форум: Арбитражный суд г. Москвы"
+    2. Право определено, форум нет:
+       "Применимое право: РФ; Форум: не указан"
+    3. Форум определён, право нет:
+       "Применимое право: не указано; Форум: МКАС при ТПП РФ"
+    4. Оба не определены:
+       "Применимое право: не указано; Форум: не указан"
+    5. Не удалось определить:
+       "Не удалось определить применимое право и форум"
 
-    Досудебный порядок:
-    - pre_claim_procedure_present = "yes":
+    Правила построения:
+    - Блок права:
+      * status = "present": "Применимое право: {value}"
+      * status = "missing": "Применимое право: не указано"
+      * status = "unclear": "Применимое право: не удалось определить"
+    - Блок форума:
+      * status = "present": "; Форум: {value}"
+      * status = "missing": "; Форум: не указан"
+      * status = "unclear": "; Форум: не удалось определить"
+    - Если pre_claim_procedure_present = "yes":
       добавь "; досудебный порядок предусмотрен"
-
-    Примеры:
-    - "Применимое право: РФ; Форум: Арбитражный суд г. Москвы"
-    - "Применимое право: Англия и Уэльс; Форум: LCIA arbitration; досудебный порядок предусмотрен"
-    - "Применимое право: РФ; Форум: не указан"
-    - "Применимое право: не указано; Форум: МКАС при ТПП РФ"
-    - "Применимое право: не указано; Форум: не указан"
 
     Шаг 5 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
     Правила:
-    - 1–2 коротких предложения.
-    - Укажи отдельно вывод по применимому праву и по форуму.
-    - Приведи краткую цитату из текста в кавычках.
-    - Не анализируй: exclusive / non-exclusive nature;
+    - Первое предложение — краткий вывод по праву и форуму.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    - Не анализируй: exclusive/non-exclusive nature;
       seat, language, состав арбитров; детали досудебного порядка.
 
     Шаг 6 — СЛУЖЕБНОЕ ПОЛЕ EVIDENCE
@@ -361,8 +367,8 @@ extraction:
       {"field_name": "governing_law_value", "clause_ref": "п. 12.1", "page": 7}
     - field_name должен быть одним из:
       "governing_law_value", "dispute_forum_value", "pre_claim_procedure_present"
-    - Включай только те поля, для которых ты точно определил ссылку на пункт.
-    - Если выделить отдельные опорные ссылки нельзя, верни value = [].
+    - Включай только те поля, для которых ты точно определил ссылку.
+    - Если выделить ссылки нельзя, верни value = [].
     - Для самого поля evidence location верни null.
     </instructions>
 
@@ -370,7 +376,6 @@ extraction:
     - Применимое право указано, форум не указан:
       * governing_law_status = "present"
       * dispute_forum_status = "missing"
-      * display: "Применимое право: РФ; Форум: не указан"
 
     - Форум указан, право не указано:
       * dispute_forum_status = "present"
@@ -385,7 +390,6 @@ extraction:
       * соответствующий value = ""
 
     - "Courts of England and Wales":
-      * dispute_forum_status = "present"
       * dispute_forum_value = "Суды Англии и Уэльса"
 
     - Нет релевантных фрагментов:
@@ -393,12 +397,34 @@ extraction:
       * dispute_forum_status = "missing", dispute_forum_value = ""
       * pre_claim_procedure_present = "unclear"
       * evidence = []
+      * governing_law_and_forum_display =
+        "Применимое право: не указано; Форум: не указан"
     </edge_cases>
 
     <output_expectations>
-    Все user-facing значения коротко и по-русски.
-    Не добавляй никаких полей, кроме указанных в схеме extraction.
-    Для каждого поля возвращай объект с ключами "value", "confidence", "location".
+    - Верни результат строго в формате JSON.
+    - Не оборачивай ответ в markdown-блоки.
+    - Не добавляй комментариев вне JSON.
+    - Для полей с allowed_values используй строго значения из списка.
+    - Свободные текстовые поля
+      (governing_law_and_forum_display, governing_law_value,
+       dispute_forum_value, reason)
+      заполняй на русском языке.
+    - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
+
+    Пример структуры ответа:
+    {
+      "governing_law_and_forum_display": {"value": "Применимое право: РФ; Форум: Арбитражный суд г. Москвы", "confidence": 0.95, "location": null},
+      "governing_law_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 12.1", "page": 7}},
+      "governing_law_value": {"value": "РФ", "confidence": 0.95, "location": {"clause_ref": "п. 12.1", "page": 7}},
+      "dispute_forum_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 12.2", "page": 7}},
+      "dispute_forum_value": {"value": "Арбитражный суд г. Москвы", "confidence": 0.95, "location": {"clause_ref": "п. 12.2", "page": 7}},
+      "pre_claim_procedure_present": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 12.3", "page": 8}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null},
+      "evidence": {"value": [...], "confidence": 1.0, "location": null}
+    }
     </output_expectations>
 
   fields:
@@ -407,6 +433,8 @@ extraction:
       presentation: "fact"
       label: "Применимое право и форум"
       description: "Нормализованный user-facing вывод для DD Grid"
+      display_in_grid: true
+      display_priority: 1
 
     - name: "governing_law_status"
       type: "string"
@@ -416,12 +444,15 @@ extraction:
         - "present"
         - "missing"
         - "unclear"
+      display_in_grid: false
 
     - name: "governing_law_value"
       type: "string"
       presentation: "fact"
       label: "Применимое право"
       description: "Применимое право (короткое название)"
+      display_in_grid: true
+      display_priority: 2
 
     - name: "dispute_forum_status"
       type: "string"
@@ -431,12 +462,15 @@ extraction:
         - "present"
         - "missing"
         - "unclear"
+      display_in_grid: false
 
     - name: "dispute_forum_value"
       type: "string"
       presentation: "fact"
       label: "Форум"
       description: "Форум разрешения споров"
+      display_in_grid: true
+      display_priority: 3
 
     - name: "pre_claim_procedure_present"
       type: "string"
@@ -446,17 +480,20 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
+      display_in_grid: false
 
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
       description: "Краткое обоснование вывода по применимому праву и форуму"
+      display_in_grid: false
 
     - name: "evidence"
       type: "evidence_list"
       presentation: "diagnostic"
       role: "subgroup_metadata"
       description: "Список опорных ссылок по отдельным извлечённым полям"
+      display_in_grid: false
 
   store_payload: true
 

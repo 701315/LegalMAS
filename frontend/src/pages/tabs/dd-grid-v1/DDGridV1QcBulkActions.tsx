@@ -1,11 +1,6 @@
-// src/pages/tabs/grid/ReviewQcBulkActions.tsx
-// Inline toolbar с QC-действиями для выбранных строк review matrix.
-//
-// Появляется только когда:
-//   - есть selectedFindings;
-//   - capability.supported === true.
-//
-// Иначе родительский компонент сам рендерит подходящий empty/disabled state.
+// =============================================================
+// src/pages/tabs/dd-grid-v1/DDGridV1QcBulkActions.tsx
+// Inline toolbar с QC-действиями для выбранных строк DD Grid V1.
 // =============================================================
 
 import React from "react";
@@ -15,19 +10,32 @@ import Button from "../../../components/ui/Button";
 import { useBulkUpdateReviewQc } from "../../../api/qc";
 import type { ReviewQcStatus } from "../../../types/dealReview";
 
-import type { ReviewFinding } from "./reviewGrid.types";
-import { buildReviewQcBulkPayload } from "./reviewGrid.qc";
+import type { DDGridV1QcCapability } from "./ddGridV1.qc";
+import { buildV1QcBulkPayload } from "./ddGridV1.qc";
 
-interface ReviewQcBulkActionsProps {
+interface DDGridV1QcBulkActionsProps {
   selectedRowsCount: number;
-  selectedFindings: ReviewFinding[];
+  selectedFindingsCount: number;
+  selectedDrawers: Array<{
+    findingId: string;
+    rowId: string;
+    documentId: string;
+    documentName: string;
+    segmentId: string | null;
+    checkId: string;
+    checkName: string;
+    qcStatus: string | null;
+  }>;
   runId: string;
+  capability: DDGridV1QcCapability;
 }
 
-const ReviewQcBulkActions: React.FC<ReviewQcBulkActionsProps> = ({
+const DDGridV1QcBulkActions: React.FC<DDGridV1QcBulkActionsProps> = ({
   selectedRowsCount,
-  selectedFindings,
+  selectedFindingsCount,
+  selectedDrawers,
   runId,
+  capability,
 }) => {
   const [comment, setComment] = React.useState("");
   const [errorText, setErrorText] = React.useState<string | null>(null);
@@ -41,8 +49,8 @@ const ReviewQcBulkActions: React.FC<ReviewQcBulkActionsProps> = ({
     async (qcStatus: ReviewQcStatus) => {
       setErrorText(null);
 
-      const payload = buildReviewQcBulkPayload(
-        selectedFindings,
+      const payload = buildV1QcBulkPayload(
+        selectedDrawers,
         runId,
         qcStatus,
         comment,
@@ -69,10 +77,12 @@ const ReviewQcBulkActions: React.FC<ReviewQcBulkActionsProps> = ({
         setPendingAction(null);
       }
     },
-    [bulkMutation, comment, runId, selectedFindings],
+    [bulkMutation, comment, runId, selectedDrawers],
   );
 
-  const findingsCount = selectedFindings.length;
+  if (!capability.supported) {
+    return null;
+  }
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-4 py-3">
@@ -83,7 +93,7 @@ const ReviewQcBulkActions: React.FC<ReviewQcBulkActionsProps> = ({
           </p>
           <p className="mt-0.5 text-sm text-[var(--text-primary)]">
             Выбрано строк: <strong>{selectedRowsCount}</strong> · findings:{" "}
-            <strong>{findingsCount}</strong>
+            <strong>{selectedFindingsCount}</strong>
           </p>
           <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
             Действие будет применено ко всем findings выбранных строк.
@@ -131,13 +141,13 @@ const ReviewQcBulkActions: React.FC<ReviewQcBulkActionsProps> = ({
 
       <div className="mt-3">
         <label
-          htmlFor="review-qc-bulk-comment"
+          htmlFor="v1-qc-bulk-comment"
           className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]"
         >
           Комментарий (опционально)
         </label>
         <input
-          id="review-qc-bulk-comment"
+          id="v1-qc-bulk-comment"
           type="text"
           value={comment}
           onChange={(event) => setComment(event.target.value)}
@@ -157,6 +167,4 @@ const ReviewQcBulkActions: React.FC<ReviewQcBulkActionsProps> = ({
   );
 };
 
-export default ReviewQcBulkActions;
-
-
+export default DDGridV1QcBulkActions;

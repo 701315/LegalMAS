@@ -15,6 +15,7 @@ Document PDF streaming endpoints.
 from __future__ import annotations
 
 import logging
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -32,6 +33,38 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+def _build_content_disposition(
+    *,
+    disposition: str,
+    filename: str,
+    fallback_filename: str,
+) -> str:
+    """
+    Построить RFC 5987-safe Content-Disposition header.
+
+    Почему это нужно:
+    - HTTP headers в Starlette/Uvicorn должны быть latin-1 safe;
+    - кириллица и другие non-ascii символы в простом filename="..."
+      могут вызвать UnicodeEncodeError и привести к 500;
+    - поэтому используем:
+        filename="ascii-fallback"
+        filename*=UTF-8''<urlencoded-original>
+    """
+    raw = (filename or "").replace('"', "").replace("\r", " ").replace("\n", " ").strip()
+    if not raw:
+        raw = fallback_filename
+
+    ascii_fallback = raw.encode("ascii", "ignore").decode("ascii").strip()
+    if not ascii_fallback:
+        ascii_fallback = fallback_filename
+
+    encoded = quote(raw, safe="")
+
+    return (
+        f'{disposition}; '
+        f'filename="{ascii_fallback}"; '
+        f"filename*=UTF-8''{encoded}"
+    )
 
 async def _stream_pdf_response(
     *,
@@ -72,13 +105,17 @@ async def _stream_pdf_response(
             detail="PDF temporarily unavailable",
         ) from e
 
-    safe_filename = filename.replace('"', "")
+    content_disposition = _build_content_disposition(
+        disposition="inline",
+        filename=filename,
+        fallback_filename=f"document_{doc_id}.pdf",
+    )
 
     return StreamingResponse(
         content=iter([pdf_bytes]),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="{safe_filename}"',
+            "Content-Disposition": content_disposition,
             "Content-Length": str(len(pdf_bytes)),
             "Cache-Control": "private, max-age=300",
             "X-Content-Type-Options": "nosniff",
@@ -428,7 +465,6 @@ async def get_document_original_file(
         ) from e
 
     filename = getattr(doc, "filename", None) or f"document_{doc_id}"
-    safe_filename = filename.replace('"', "")
 
     storage_ct = metadata.get("content_type") or ""
     if storage_ct and storage_ct != "application/octet-stream":
@@ -449,8 +485,14 @@ async def get_document_original_file(
         }
         content_type = _KNOWN.get(ext) or mimetypes.guess_type(filename)[0] or "application/octet-stream"
 
+    content_disposition = _build_content_disposition(
+        disposition="attachment",
+        filename=filename,
+        fallback_filename=f"document_{doc_id}",
+    )
+
     headers: dict[str, str] = {
-        "Content-Disposition": f'attachment; filename="{safe_filename}"',
+        "Content-Disposition": content_disposition,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
     }

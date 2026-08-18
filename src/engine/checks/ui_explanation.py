@@ -46,21 +46,10 @@ from typing import Any
 from core.config import settings
 from core.constants import CheckExecutionStatus
 from core.logging import get_logger
+from engine.checks.extraction_semantics import is_not_found_scalar
 
 logger = get_logger(__name__)
 
-
-# Значения, которые LLM возвращает когда не нашёл информацию в тексте.
-# Используются в _has_not_found_value() для определения "клаузула отсутствует".
-_NOT_FOUND_VALUES = {
-    "not_found",
-    "notfound",
-    "missing",
-    "absent",
-    "not present",
-    "не найдено",
-    "отсутствует",
-}
 
 # Подстроки, наличие которых в id/name/полях чека говорит о том,
 # что чек относится к поиску обязательной клаузулы (presence-style).
@@ -263,35 +252,22 @@ def build_user_explanation(
 
 def _has_not_found_value(structured_data: dict[str, Any] | None) -> bool:
     """
-    Вернуть True если ВСЕ заполненные поля structured_data содержат
-    not-found значение (из _NOT_FOUND_VALUES).
+    Return True only if ALL evaluated fields semantically mean "not found".
 
-    Почему "все", а не "хотя бы одно":
-    - Чек может иметь несколько полей (например, governing_law и forum).
-    - Если governing_law найден, а forum не найден — это не "клаузула отсутствует",
-      это частичный результат.
-    - "Клаузула отсутствует" только тогда, когда вообще ничего не нашли.
-
-    Поля со значением None (LLM не вернул ничего) не считаются
-    ни "найденными", ни "не найденными" — они пропускаются.
+    Uses shared extraction semantics so UI explanation stays aligned with
+    executor/result_semantics/business mapping.
     """
     if not isinstance(structured_data, dict):
         return False
 
-    # Собираем только поля, по которым LLM вернул хоть какое-то значение (не None).
     evaluated: list[bool] = []
     for _, field_payload in structured_data.items():
         value = field_payload.get("value") if isinstance(field_payload, dict) else field_payload
         if value is None:
-            # Поле без значения — пропускаем, оно не даёт информации.
             continue
 
-        value_str = str(value).strip().lower()
-        evaluated.append(value_str in _NOT_FOUND_VALUES)
+        evaluated.append(is_not_found_scalar(value))
 
-    # True только если есть хотя бы одно оценённое поле И все они not-found.
-    # Если evaluated пустой (все поля None) — возвращаем False:
-    # нет данных чтобы утверждать "клаузула отсутствует".
     return bool(evaluated) and all(evaluated)
 
 
