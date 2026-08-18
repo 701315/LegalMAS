@@ -244,6 +244,16 @@ class ExtractionExecutor:
                     base_text,
                     context_pages=context_pages,
                 )
+
+                logger.debug(
+                    "ExtractionExecutor: raw LLM extraction fields",
+                    extra={
+                        "check_id": check.id,
+                        "llm_fields": llm_result.fields,
+                        "llm_telemetry": llm_result.telemetry,
+                    },
+                )
+
                 llm_fields = llm_result.fields
                 llm_telemetry = llm_result.telemetry
             except Exception as e:

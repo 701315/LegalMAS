@@ -828,6 +828,7 @@ const openDrawerForRow = useCallback(
           return (
             <button
               type="button"
+              data-skip-row-click="true"
               className="text-xs text-[var(--accent-primary)] hover:underline cursor-pointer transition-colors"
               onClick={handleClick}
               title="Открыть документ в этой локации для ручной проверки"
@@ -1196,6 +1197,12 @@ const openDrawerForRow = useCallback(
               onGridReady={handleGridReady}
               onCellClicked={(event) => {
                 if (event.column.getColId() === "ag-Grid-SelectionColumn") {
+                  return;
+                }
+                // Пропускаем клики по элементам, которые управляют
+                // своим действием самостоятельно (например, кнопка "Локация")
+                const target = event.event?.target as HTMLElement | null;
+                if (target?.closest("[data-skip-row-click]")) {
                   return;
                 }
                 if (event.data) {

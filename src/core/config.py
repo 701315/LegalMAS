@@ -351,6 +351,13 @@ class Settings(BaseSettings):
     LLM_CONTEXT_LIMIT: int = 32768
 
     LLM_SAFETY_MARGIN_TOKENS: int = 512
+
+    # Нижний предел бюджета joined_text для field_extraction checks.
+    # Ниже этого порога ужимать контекст документа бессмысленно —
+    # extraction на почти пустом контексте не даст пользы юристу.
+    # Введено вместе с фиксом двойного бюджетирования контекста
+    # (executor.py: резерв под extraction skeleton перед _build_limited_context).
+    LLM_MIN_CONTEXT_FLOOR_TOKENS: int = 512
     LLM_MIN_OUTPUT_TOKENS: int = 64
 
     LLM_CLOUD_MODEL: str = "gpt-4o-mini"
