@@ -73,6 +73,68 @@ export function normalizeExportRecord(record: ExportRecord): ExportRecord {
  * API слой
  * ========================= */
 
+/**
+ * Helper для скачивания Blob в браузере.
+ * Создаёт временный URL, триггерит скачивание через programmatic click,
+ * затем очищает URL через revokeObjectURL.
+ * 
+ * Паттерн идентичен downloadBlob из src/api/documents.ts и adminExports.ts.
+ */
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+/**
+ * Генерирует имя файла для экспорта на основе export_type и timestamp.
+ * Формат: export_{type}_{YYYY-MM-DD_HHMM}.{ext}
+ */
+function buildExportFileName(exportType: ExportType): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const stamp =
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  
+  const extMap: Record<string, string> = {
+    grid_xlsx: "xlsx",
+    deal_summary_xlsx: "xlsx",
+    report_docx: "docx",
+    report_pdf: "pdf",
+    requests_docx: "docx",
+    aggregated_json: "json",
+  };
+  
+  const ext = extMap[exportType] || "bin";
+  return `export_${exportType}_${stamp}.${ext}`;
+}
+
+/**
+ * Функция для скачивания экспорта по export_id.
+ * 
+ * Использует exportsApi.download с responseType: "blob",
+ * чтобы запрос прошёл через axios client с Authorization header.
+ * 
+ * @param exportId - ID экспорта
+ * @param exportType - тип экспорта (для генерации имени файла)
+ */
+export async function downloadExport(
+  exportId: string,
+  exportType: ExportType
+): Promise<void> {
+  const blob = await exportsApi.download(exportId);
+  const filename = buildExportFileName(exportType);
+  downloadBlob(blob, filename);
+}
+
+
+
 export const exportsApi = {
   /**
    * Запросить экспорт для конкретного run.
@@ -100,6 +162,22 @@ export const exportsApi = {
   get: async (exportId: string): Promise<ExportRecord> => {
     const response = await client.get<ExportRecord>(`/api/v1/exports/${exportId}`);
     return normalizeExportRecord(response.data);
+  },
+
+  /**
+   * Скачать файл экспорта как Blob.
+   * 
+   * Использует responseType: "blob" для получения бинарных данных.
+   * Axios interceptor автоматически добавляет Authorization header.
+   * 
+   * Backend endpoint: GET /api/v1/exports/{export_id}/download
+   */
+  download: async (exportId: string): Promise<Blob> => {
+    const response = await client.get(
+      `/api/v1/exports/${exportId}/download`,
+      { responseType: "blob" }
+    );
+    return response.data;
   },
 };
 

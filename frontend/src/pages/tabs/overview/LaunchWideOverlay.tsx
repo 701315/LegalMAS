@@ -32,8 +32,11 @@ interface LaunchWideOverlayProps {
    * width = overlayWidth, торчит влево на main column.
    * "inline" (<xl): in-flow панель в mobile-ветке OverviewTab:
    * full width, вертикальный стек (форма первая), overlayWidth игнорируется.
+   * "page": встроенный двухколоночный режим для вкладки перезапуска:
+   * левая колонка — форма запуска, правая — preview/subpanes.
+   * Внешний header/footer не рендерятся (живут в карточке RelaunchContent).
    */
-  variant?: "overlay" | "inline";
+  variant?: "overlay" | "inline" | "page";
   overlayWidth?: number | null;
   deal: Deal;
   hasCurrentRun: boolean;
@@ -73,6 +76,11 @@ const leftPaneShellInlineClass =
   "order-2 flex min-w-0 min-h-0 flex-col border-t border-[var(--border-soft)] bg-[var(--bg-elevated-soft)]";
 
 const rightPaneInlineClass = "order-1 min-w-0 min-h-0 bg-[var(--bg-card)]";
+
+// page: panes без внутренних боковых границ — каждая колонка
+// обёрнута в собственную карточку на уровне page-рендера.
+const pageShellClass =
+  "flex min-w-0 min-h-0 flex-col bg-[var(--bg-elevated-soft)]";
 
 function getReadinessLabel(params: {
   hasCurrentRun: boolean;
@@ -272,14 +280,19 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   }
 
   const isOverlay = variant === "overlay";
+  const isPage = variant === "page";
 
   // overlay-variant бессмысленен без вычисленной ширины;
-  // inline игнорирует overlayWidth.
+  // inline и page игнорируют overlayWidth.
   if (isOverlay && (overlayWidth ?? 0) <= 0) {
     return null;
   }
 
-  const shellClass = isOverlay ? leftPaneShellClass : leftPaneShellInlineClass;
+  const shellClass = isPage
+    ? pageShellClass
+    : isOverlay
+      ? leftPaneShellClass
+      : leftPaneShellInlineClass;
   const rightPaneCls = isOverlay ? rightPaneClass : rightPaneInlineClass;
 
   const overlayCategory = hasCurrentRun ? "Повторный анализ" : "Новый анализ";
@@ -315,7 +328,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   );
 
   const renderPlaybookPane = () => (
-    <div className={leftPaneShellClass}>
+    <div className={shellClass}>
       <LeftPaneHeader
         category="Playbook"
         title="Выбор playbook проекта"
@@ -340,7 +353,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   );
 
   const renderModelConfigPane = () => (
-    <div className={leftPaneShellClass}>
+    <div className={shellClass}>
       <LeftPaneHeader
         category="Model profile"
         title="Профиль модели"
@@ -375,7 +388,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   );
 
   const renderPipelinePane = () => (
-    <div className={leftPaneShellClass}>
+    <div className={shellClass}>
       <div className={leftPaneBodyClass}>
         <PipelinePreviewPanel
           deal={deal}
@@ -401,6 +414,56 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
         return renderPipelinePane();
     }
   };
+
+  // ── page variant: двухколоночный встроенный режим ─────────────────
+  // Левая колонка — форма запуска (LaunchFormPanel), правая — preview
+  // или активный subpane (Upload / Playbook / ModelConfig).
+  // Внешний header/footer не рендерятся: заголовок страницы и кнопки
+  // живут в карточке RelaunchContent (DealPage).
+  if (isPage) {
+    return (
+      <div className="flex min-h-0 flex-col gap-3">
+        {readinessLabel && (
+          <div className="shrink-0 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-2">
+            <p className="text-xs font-medium text-[var(--color-warning-text)]">
+              {readinessLabel}
+            </p>
+          </div>
+        )}
+
+        <div className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          {/* Левая колонка — форма запуска.
+              Не имеет собственного overflow-y-auto — прокрутка
+              делегирована внешнему контейнеру RelaunchContent. */}
+          <div className="min-h-0 min-w-0 rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-card)]">
+            <LaunchFormPanel
+              deal={deal}
+              hasCurrentRun={hasCurrentRun}
+              documentsCount={documentsCount}
+              checksMode={checksMode}
+              onChecksModeChange={onChecksModeChange}
+              forceReclassify={forceReclassify}
+              onForceReclassifyChange={onForceReclassifyChange}
+              canStartRun={canStartRun}
+              canUploadDocuments={canUploadDocuments}
+              isSubmitting={isSubmitting}
+              onOpenPlaybook={handleOpenPlaybookPanel}
+              onOpenModelConfig={handleOpenModelConfigPanel}
+              onOpenUpload={handleOpenUploadPanel}
+              onPrimaryLanguageChange={onPrimaryLanguageChange}
+            />
+          </div>
+
+          {/* Правая колонка — preview / subpanes.
+              Не имеет собственного overflow-y-auto — прокрутка
+              делегирована внешнему контейнеру RelaunchContent. */}
+          <div className="min-h-0 min-w-0 rounded-2xl border border-[var(--border-soft)]">
+            {renderLeftPane()}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

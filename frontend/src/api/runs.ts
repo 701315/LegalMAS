@@ -16,6 +16,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
 import { documentKeys } from "./documents";
+import { useAuth } from "../hooks/useAuth";
+import { queryKeys } from "./queryKeys";
 import type {
   ClassificationReport,
   Run,
@@ -126,6 +128,7 @@ export const runApi = {
  */
 export function useStartRun(dealId: string) {
   const qc = useQueryClient();
+  const { userId } = useAuth();
 
   return useMutation({
     mutationFn: (data: RunCreateInput) => runApi.start(dealId, data),
@@ -135,6 +138,8 @@ export function useStartRun(dealId: string) {
         qc.invalidateQueries({ queryKey: documentKeys.byDeal(dealId) }),
         qc.invalidateQueries({ queryKey: runKeys.history(dealId, false) }),
         qc.invalidateQueries({ queryKey: runKeys.history(dealId, true) }),
+        // Инвалидируем список проектов — обновляет значок ✓ в sidebar
+        userId && qc.invalidateQueries({ queryKey: queryKeys.userProjects(userId) }),
       ]);
     },
   });

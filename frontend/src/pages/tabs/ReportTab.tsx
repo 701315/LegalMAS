@@ -4,7 +4,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useRun } from "../../api/runs";
-import { useRequestExport, useExportStatus } from "../../api/exports";
+import { useRequestExport, useExportStatus, downloadExport } from "../../api/exports";
 import type { ExportType } from "../../types/exports";
 import { EXPORT_TYPE_LABEL } from "../../constants";
 
@@ -118,6 +118,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
 
   const [activeExportId, setActiveExportId] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const {
     data: exportData,
@@ -192,10 +193,22 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    if (!activeExportId) return;
     if (!exportData || exportData.status !== "completed") return;
-    if (!exportData.download_url) return;
-    window.open(exportData.download_url, "_blank", "noopener,noreferrer");
+
+    setIsDownloading(true);
+    setLastError(null);
+
+    try {
+      await downloadExport(activeExportId, exportData.export_type);
+    } catch (error: unknown) {
+      const detail = extractErrorMessage(error);
+      console.error("Download failed:", error);
+      setLastError(detail ?? "Не удалось скачать файл. Попробуйте ещё раз.");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (!run || !isRunExportable) {
@@ -329,10 +342,11 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
                 variant="primary"
                 size="sm"
                 onClick={handleDownload}
-                disabled={!exportData.download_url}
-                leftIcon={<Download size={14} />}
+                disabled={!exportData.download_url || isDownloading}
+                isLoading={isDownloading}
+                leftIcon={!isDownloading ? <Download size={14} /> : undefined}
               >
-                Скачать файл
+                {isDownloading ? "Скачиваем…" : "Скачать файл"}
               </Button>
             </div>
           ) : exportData.status === "failed" ? (

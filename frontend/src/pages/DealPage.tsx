@@ -10,6 +10,7 @@
 
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import type { Deal, OpenViewerAtPayload } from "../types";
 import OverviewTab from "./tabs/OverviewTab";
@@ -23,6 +24,16 @@ import RealEstateTab from "./tabs/RealEstateTab";
 import { useEnsureProjectRole } from "../hooks/useEnsureProjectRole";
 import Button from "../components/ui/Button";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { runKeys, useStartRun } from "../api/runs";
+import { useSetPrimaryLanguage, useUpdateDeal } from "../api/deals";
+import { useDocuments } from "../api/documents";
+import { useDealPermissions } from "../hooks/usePermissions";
+import LaunchWideOverlay from "./tabs/overview/LaunchWideOverlay";
+import {
+  normalizeDiscoveryStatus,
+  normalizeLang,
+} from "../utils/languageDiscovery";
+import type { ChecksMode } from "./tabs/OverviewTab";
 
 
 interface DealPageProps {
@@ -91,6 +102,23 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
   useEnsureProjectRole(deal.id);
 
+  // ────────────────────────────────────────────────────────────────────
+  // Page mode: "normal" (вкладки) или "relaunch" (панель перезапуска).
+  //
+  // Паттерн аналогичен CounterpartiesTab (IntroScreen ↔ DemoScreen):
+  // сайдбар остаётся видимым, меняется только контент main-области.
+  // ────────────────────────────────────────────────────────────────────
+  type PageMode = "normal" | "relaunch";
+  const [pageMode, setPageMode] = React.useState<PageMode>("normal");
+
+  const handleOpenLaunchPanel = React.useCallback(() => {
+    setPageMode("relaunch");
+  }, []);
+
+  const handleCloseLaunchPanel = React.useCallback(() => {
+    setPageMode("normal");
+  }, []);
+
   const searchParams = React.useMemo(
     () => new URLSearchParams(location.search),
     [location.search],
@@ -103,12 +131,21 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const [viewerLocation, setViewerLocation] =
     React.useState<OpenViewerAtPayload | null>(null);
 
+  // Когда открыта панель перезапуска, ни одна вкладка не активна —
+  // активным подсвечивается пункт "Перезапустить проект" в сайдбаре.
+  const sidebarActiveTab: TabKey | null =
+    pageMode === "relaunch" ? null : activeTab;
+
   React.useEffect(() => {
     setActiveTab(isTabKey(tabFromUrl) ? tabFromUrl : "overview");
   }, [tabFromUrl]);
 
   const handleSetTab = React.useCallback(
     (tab: TabKey) => {
+      // При навигации по вкладкам закрываем relaunch-режим,
+      // чтобы переключение вкладок работало независимо от того,
+      // открыта ли сейчас панель перезапуска.
+      setPageMode("normal");
       setActiveTab(tab);
 
       const params = new URLSearchParams(location.search);
@@ -310,7 +347,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
               <SidebarItem
                 label={TAB_LABELS.overview}
                 tabKey="overview"
-                activeTab={activeTab}
+                activeTab={sidebarActiveTab}
                 onSelect={handleSetTab}
               />
             </div>
@@ -326,31 +363,31 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                 <SidebarItem
                   label={TAB_LABELS.documents}
                   tabKey="documents"
-                  activeTab={activeTab}
+               activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
                 <SidebarItem
                   label={TAB_LABELS.dd_grid}
                   tabKey="dd_grid"
-                  activeTab={activeTab}
+               activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
                 <SidebarItem
                   label={TAB_LABELS.requests}
                   tabKey="requests"
-                  activeTab={activeTab}
+               activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
                 <SidebarItem
                   label={TAB_LABELS.report}
                   tabKey="report"
-                  activeTab={activeTab}
+               activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
                 <SidebarItem
                   label={TAB_LABELS.audit}
                   tabKey="audit"
-                  activeTab={activeTab}
+               activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
               </div>
@@ -366,7 +403,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
               <SidebarItem
                 label="Контрагенты"
                 tabKey="counterparties"
-                activeTab={activeTab}
+             activeTab={sidebarActiveTab}
                 onSelect={handleSetTab}
                 badge="Скоро"
               />
@@ -382,10 +419,37 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
               <SidebarItem
                 label="Имущество"
                 tabKey="real_estate"
-                activeTab={activeTab}
+             activeTab={sidebarActiveTab}
                 onSelect={handleSetTab}
                 badge="Скоро"
               />
+            </div>
+
+            {/* ── Группа: Дополнительные действия ─────────────────────
+                Отдельная секция в сайдбаре для действий над проектом,
+                не являющихся навигацией по вкладкам. Ссылка "Перезапустить
+                проект" переводит на отдельную страницу /relaunch с
+                полным layout AppShell. Работает с любой активной вкладки. */}
+            <div className="mt-5 border-t border-[var(--border)] pt-4">
+              <div className="mb-1.5 px-3">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  Дополнительные действия
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenLaunchPanel}
+                aria-current={pageMode === "relaunch" ? "page" : undefined}
+                className={[
+                  sidebarItemBaseClassName,
+                  "flex items-center justify-between gap-2",
+                  pageMode === "relaunch"
+                    ? "bg-[var(--bg-elevated-soft)] text-[var(--text-primary)]"
+                    : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
+                ].join(" ")}
+              >
+                <span className="truncate">Перезапустить проект</span>
+              </button>
             </div>
 
           </nav>
@@ -404,14 +468,33 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                   </h1>
                 </div>
 
-                <div className="shrink-0">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleBackToProjects}
-                  >
-                    Назад
-                  </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {pageMode === "relaunch" ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleCloseLaunchPanel}
+                    >
+                      Отмена
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleOpenLaunchPanel}
+                      >
+                        Перезапустить
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleBackToProjects}
+                      >
+                        Назад
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -425,49 +508,49 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                   <MobileTab
                     label={TAB_LABELS.overview}
                     tabKey="overview"
-                    activeTab={activeTab}
+                 activeTab={sidebarActiveTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
                     label={TAB_LABELS.documents}
                     tabKey="documents"
-                    activeTab={activeTab}
+                 activeTab={sidebarActiveTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
                     label={TAB_LABELS.dd_grid}
                     tabKey="dd_grid"
-                    activeTab={activeTab}
+                 activeTab={sidebarActiveTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
                     label={TAB_LABELS.requests}
                     tabKey="requests"
-                    activeTab={activeTab}
+                 activeTab={sidebarActiveTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
                     label={TAB_LABELS.report}
                     tabKey="report"
-                    activeTab={activeTab}
+                 activeTab={sidebarActiveTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
                     label={TAB_LABELS.audit}
                     tabKey="audit"
-                    activeTab={activeTab}
+                 activeTab={sidebarActiveTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
                     label={TAB_LABELS.counterparties}
                     tabKey="counterparties"
-                    activeTab={activeTab}
+                 activeTab={sidebarActiveTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
                     label={TAB_LABELS.real_estate}
                     tabKey="real_estate"
-                    activeTab={activeTab}
+                 activeTab={sidebarActiveTab}
                     onSelect={handleSetTab}
                   />
                 </div>
@@ -475,29 +558,35 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             </div>
           </header>
 
-          <section
-            id={getTabPanelId(activeTab)}
-            role="tabpanel"
-            aria-labelledby={getTabId(activeTab)}
-            className={`flex min-h-0 min-w-0 flex-1 flex-col ${
-              isMobile ? "overflow-y-auto" : "overflow-hidden"
-            } p-4 lg:p-6`}
-            tabIndex={0}
-          >
-            {renderActiveTabPanel()}
-            {/* Bottom spacer (mobile only).
-                Гарантирует визуальный отступ от нижней границы viewport
-                и учитывает safe-area на iOS/Android. Реализован как
-                дочерний элемент (не padding-bottom скролл-контейнера),
-                чтобы обойти баг рендера padding у flex + overflow
-                в Chromium/WebKit. На десктопе (lg:) скрыт — там работает
-                стандартный p-6. */}
-            <div
-              aria-hidden="true"
-              className="shrink-0 lg:hidden"
-              style={{ height: "var(--app-safe-bottom)" }}
-            />
-          </section>
+          {pageMode === "relaunch" ? (
+            <section
+              className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain p-4 lg:p-6"
+              aria-label="Панель перезапуска проекта"
+            >
+              <RelaunchContent
+                deal={deal}
+                onClose={handleCloseLaunchPanel}
+              />
+            </section>
+          ) : (
+            <section
+              id={getTabPanelId(activeTab)}
+              role="tabpanel"
+              aria-labelledby={getTabId(activeTab)}
+              className={`flex min-h-0 min-w-0 flex-1 flex-col ${
+                isMobile ? "overflow-y-auto" : "overflow-hidden"
+              } p-4 lg:p-6`}
+              tabIndex={0}
+            >
+              {renderActiveTabPanel()}
+              {/* Bottom spacer (mobile only). */}
+              <div
+                aria-hidden="true"
+                className="shrink-0 lg:hidden"
+                style={{ height: "var(--app-safe-bottom)" }}
+              />
+            </section>
+          )}
         </main>
       </div>
     </div>
@@ -511,7 +600,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 interface SidebarItemProps {
   label: string;
   tabKey: TabKey;
-  activeTab: TabKey;
+  activeTab: TabKey | null;
   onSelect: (tab: TabKey) => void;
   disabled?: boolean;
   badge?: string;
@@ -564,7 +653,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
 interface MobileTabProps {
   label: string;
   tabKey: TabKey;
-  activeTab: TabKey;
+  activeTab: TabKey | null;
   onSelect: (tab: TabKey) => void;
   disabled?: boolean;
 }
@@ -603,6 +692,223 @@ const MobileTab: React.FC<MobileTabProps> = ({
     >
       {label}
     </button>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// RelaunchContent
+// ---------------------------------------------------------------------------
+
+interface RelaunchContentProps {
+  deal: Deal;
+  onClose: () => void;
+}
+
+const RelaunchContent: React.FC<RelaunchContentProps> = ({ deal, onClose }) => {
+  const qc = useQueryClient();
+
+  const { data: documentsPage } = useDocuments(deal.id, 1);
+  const documentsCount = documentsPage?.total ?? 0;
+  const { canStartRun, canUploadDocuments } = useDealPermissions(deal.id);
+
+  const startRun = useStartRun(deal.id);
+  const updateDealForLaunch = useUpdateDeal(deal.id);
+  const setPrimaryLanguage = useSetPrimaryLanguage(deal.id);
+
+  const [checksMode, setChecksMode] =
+    React.useState<ChecksMode>("global_and_doc_type");
+  const [forceReclassify, setForceReclassify] = React.useState(false);
+  const [launchDealPatch, setLaunchDealPatch] = React.useState<Partial<Deal>>(
+    {},
+  );
+
+  const currentRunId = deal.last_run_id ?? null;
+  const hasCurrentRun = currentRunId !== null;
+
+  const dealLanguagesKey = JSON.stringify(deal.languages ?? []);
+
+  React.useEffect(() => {
+    setLaunchDealPatch({});
+  }, [
+    deal.id,
+    deal.playbook_version_id,
+    deal.primary_language,
+    deal.language_discovery_status,
+    dealLanguagesKey,
+  ]);
+
+  const effectiveDeal: Deal = { ...deal, ...launchDealPatch };
+
+  const hasDocuments = documentsCount > 0;
+
+  const discoveryStatus = normalizeDiscoveryStatus(
+    effectiveDeal.language_discovery_status,
+  );
+
+  const isLanguageDiscoveryBlocking =
+    discoveryStatus === "pending" || discoveryStatus === "processing";
+
+  const canLaunchRun =
+    canStartRun &&
+    hasDocuments &&
+    !!effectiveDeal.playbook_version_id &&
+    !!effectiveDeal.primary_language &&
+    !isLanguageDiscoveryBlocking &&
+    !startRun.isPending &&
+    !updateDealForLaunch.isPending &&
+    !setPrimaryLanguage.isPending;
+
+  const isSubmitting =
+    startRun.isPending ||
+    updateDealForLaunch.isPending ||
+    setPrimaryLanguage.isPending;
+
+  const handlePrimaryLanguageChange = React.useCallback(
+    (value: string) => {
+      const normalizedValue = normalizeLang(value) || null;
+      setLaunchDealPatch((prev) => ({
+        ...prev,
+        primary_language: normalizedValue,
+      }));
+      setPrimaryLanguage.mutate(
+        { primary_language: normalizedValue },
+        {
+          onError: () => {
+            setLaunchDealPatch((prev) => ({
+              ...prev,
+              primary_language: deal.primary_language ?? null,
+            }));
+          },
+        },
+      );
+    },
+    [deal.primary_language, setPrimaryLanguage],
+  );
+
+  const handleStartRun = React.useCallback(() => {
+    if (!canLaunchRun) return;
+    startRun.mutate(
+      {
+        profile: "core",
+        checks_mode: checksMode,
+        force_reclassify: forceReclassify,
+      },
+      {
+        onSuccess: async (run) => {
+          setForceReclassify(false);
+          await Promise.all([
+            qc.invalidateQueries({ queryKey: runKeys.detail(run.id, true) }),
+            qc.invalidateQueries({ queryKey: runKeys.detail(run.id, false) }),
+            qc.invalidateQueries({
+              queryKey: runKeys.classificationReport(run.id),
+            }),
+            qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
+            qc.invalidateQueries({ queryKey: runKeys.history(deal.id, false) }),
+            qc.invalidateQueries({ queryKey: runKeys.history(deal.id, true) }),
+          ]);
+          onClose();
+        },
+      },
+    );
+  }, [canLaunchRun, checksMode, deal.id, forceReclassify, qc, startRun, onClose]);
+
+  const handleDealPatched = React.useCallback(
+    async (patch?: Partial<Deal>) => {
+      if (patch && Object.keys(patch).length > 0) {
+        setLaunchDealPatch((prev) => ({ ...prev, ...patch }));
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
+      ]);
+    },
+    [deal.id, qc],
+  );
+
+  return (
+    <section
+      className="flex flex-col lg:h-full lg:min-h-0"
+      aria-labelledby="relaunch-content-title"
+    >
+      <div className="relative flex flex-col text-[var(--text-primary)] lg:min-h-0 lg:flex-1">
+        <div className="grid gap-4 lg:min-h-0 lg:flex-1 grid-cols-1">
+          {/* ── Карточка перезапуска (паттерн DocumentsTab) ─── */}
+          <section className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm lg:min-h-0 lg:overflow-hidden">
+            {/* Header — паттерн DocumentsTab */}
+            <div className="px-5">
+              <div className="py-3">
+                <h2
+                  id="relaunch-content-title"
+                  className="text-sm font-semibold text-[var(--text-primary)]"
+                >
+                  {hasCurrentRun ? "Перезапуск анализа" : "Запуск анализа"}
+                </h2>
+                <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                  {hasCurrentRun
+                    ? "Проверьте документы и текущие настройки проекта перед новым прогоном."
+                    : "Проверьте документы и настройки проекта перед первым запуском."}
+                </p>
+              </div>
+
+              <div className="border-t border-[var(--border-subtle)]" />
+
+              {/* Toolbar — паттерн DocumentsTab */}
+              <div className="flex min-h-10 flex-wrap items-center gap-2 py-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={onClose}
+                >
+                  Отмена
+                </Button>
+                {/* primary = терракотовый accent; ml-auto = правый край */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="primary"
+                  onClick={handleStartRun}
+                  disabled={!canLaunchRun || isSubmitting}
+                  isLoading={isSubmitting}
+                  className="ml-auto"
+                >
+                  {hasCurrentRun ? "Перезапустить анализ" : "Запустить анализ"}
+                </Button>
+              </div>
+
+              <div className="border-t border-[var(--border-subtle)]" />
+            </div>
+
+            {/* Content — LaunchWideOverlay с variant="page".
+                Внешний контейнер имеет overflow-auto для прокрутки
+                всего блока (включая раскрытые collapsible секции).
+                Grid внутри также имеет min-h-0 для правильной работы
+                с flex-родителем. */}
+            <div className="bg-[var(--bg-card)] px-5 pb-5 pt-4 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+              <div className="min-h-0">
+                <LaunchWideOverlay
+                  variant="page"
+                  open={true}
+                  deal={effectiveDeal}
+                  hasCurrentRun={hasCurrentRun}
+                  documentsCount={documentsCount}
+                  checksMode={checksMode}
+                  onChecksModeChange={setChecksMode}
+                  forceReclassify={forceReclassify}
+                  onForceReclassifyChange={setForceReclassify}
+                  canStartRun={canLaunchRun}
+                  canUploadDocuments={canUploadDocuments}
+                  isSubmitting={isSubmitting}
+                  onPrimaryLanguageChange={handlePrimaryLanguageChange}
+                  onSubmit={handleStartRun}
+                  onClose={onClose}
+                  onDealPatched={handleDealPatched}
+                />
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
   );
 };
 
