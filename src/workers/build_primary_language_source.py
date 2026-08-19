@@ -1,5 +1,3 @@
-# src/workers/build_primary_language_source.py
-
 """
 Build Primary Language Source Worker.
 
@@ -68,10 +66,11 @@ from services.document_language_pipeline import (
     _normalize_lang,
     build_primary_language_layout,
 )
-from services.primary_pdf_builder import build_pdf_from_layout
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
 from core.tenant_resolver import resolve_artifact_tenant_id
+from services.primary_layout_quality import validate_primary_layout
+
 
 logger = get_logger(__name__)
 
@@ -87,12 +86,12 @@ def _build_primary_language_metadata_sidecar(
     primary_layout: dict[str, Any],
 ) -> dict[str, Any] | None:
     """
-    Extract a minimal, stable sidecar payload from primary layout metadata.
+    Извлечь минимальный, стабильный sidecar payload из metadata primary layout.
 
-    Contract:
-    - persists only language-related metadata required after PDF → extract;
-    - does not dump the entire layout metadata blob;
-    - returns None when layout has no usable language metadata.
+    Контракт:
+    - сохраняем только language-related metadata, которая нужна после PDF → extract;
+    - не дампим весь blob metadata layout;
+    - возвращаем None, если в layout нет нужной language metadata.
     """
     metadata = primary_layout.get("metadata")
     if not isinstance(metadata, dict):
@@ -125,11 +124,11 @@ def _store_primary_language_metadata_sidecar_safe(
     log_extra_base: dict[str, Any],
 ) -> str | None:
     """
-    Store language metadata sidecar next to primary_source PDF.
+    Сохранить language metadata sidecar рядом с primary_source PDF.
 
-    Failure-isolated by design:
-    - sidecar improves observability/traceability;
-    - failure to store it must not break primary source build.
+    Изолирован от ошибок по дизайну:
+    - sidecar улучшает наблюдаемость и трассировку;
+    - ошибка его сохранения НЕ должна ломать построение primary source.
     """
     payload = _build_primary_language_metadata_sidecar(primary_layout)
     if payload is None:
@@ -166,6 +165,7 @@ def _store_primary_language_metadata_sidecar_safe(
         ),
     )
     return sidecar_ref
+
 
 @celery_app.task(
     base=MASBaseTask,
@@ -299,49 +299,67 @@ def build_primary_language_source(
     return result
 
 
-def _normalize_layout_text(value: Any) -> str:
+# =============================================================================
+# ФАЗА 1: ИСПРАВЛЕНИЕ ROUTING
+#
+# Проблема которую мы решаем:
+# Раньше функция _layout_elements_signature включала ТЕКСТ элементов
+# в сравнение. Фильтр изменял текст («Покупатель» → Покупатель),
+# и система считала это "материальным изменением" → пересобирала PDF.
+# Так происходило для 95%+ русских документов.
+#
+# Решение:
+# Сравниваем только НАБОР ИДЕНТИФИКАТОРОВ (element_id) элементов.
+# Если состав элементов тот же — layout не изменился (monolingual_reuse).
+# Если элементы удалены — layout изменился (нужен rebuild PDF).
+#
+# Что удалено:
+# - функция _normalize_layout_text (больше не нужна)
+#
+# Что изменено:
+# - _layout_elements_signature: теперь возвращает frozenset[str] из element_id
+# - _primary_layout_materially_differs: использует новую сигнатуру
+# =============================================================================
+
+
+def _layout_elements_signature(layout: dict[str, Any] | None) -> frozenset[str]:
     """
-    Stable text normalization for layout comparison.
+    Построить детерминированную сигнатуру элементов layout для логики выбора source.
 
-    We intentionally compare only materially relevant content:
-    - page
-    - element type
-    - normalized text
+    Возвращает frozenset из element_id всех элементов в layout.
 
-    Metadata-only differences must NOT trigger PDF rebuild.
-    """
-    return " ".join(str(value or "").split()).strip()
+    Почему frozenset, а не список или кортеж:
+    - frozenset не зависит от порядка элементов.
+      Фильтр (_simple_filter) сортирует элементы по bbox после фильтрации,
+      что может изменить порядок. Это НЕ является материальным изменением —
+      downstream получает те же элементы, просто в другом порядке.
+    - Сравнение frozenset двух наборов покажет True только если набор элементов
+      действительно изменился (удалены элементы).
 
+    Почему текст НЕ включён в сигнатуру:
+    - canonical filtering не имеет права изменять текст (lossless инвариант,
+      который будет проверяться в Фазе 4);
+    - включение текста давало ложные positives из-за _sanitize_text_to_script,
+      которая изменяла «Покупатель» → Покупатель, № → пробел и т.д.;
+    - итог: почти все русские документы ложно маршрутизировались в
+      monolingual_filtered_pdf вместо monolingual_reuse.
 
-def _layout_elements_signature(layout: dict[str, Any] | None) -> tuple[tuple[Any, ...], ...]:
-    """
-    Build a deterministic signature of layout elements for source-selection logic.
+    Что считается "материальным изменением" (возвращает разные frozenset):
+    - удалён хотя бы один элемент (билингвальный фильтр убрал EN-блоки).
 
-    We do not compare full metadata or bbox byte-to-byte because:
-    - build_primary_language_layout may only enrich metadata;
-    - metadata-only change should not force primary PDF rebuild;
-    - for downstream extract input, page/type/text are the core material signal.
+    Что НЕ является "материальным изменением" (frozenset одинаковы):
+    - изменился порядок элементов (артефакт сортировки фильтра);
+    - изменился текст внутри элемента (lossless инвариант — будет отдельный gate).
     """
     elements = list((layout or {}).get("elements") or [])
-    signature: list[tuple[Any, ...]] = []
 
-    for idx, element in enumerate(elements):
-        raw_page = element.get("page")
-        try:
-            page = int(raw_page) if raw_page is not None else 0
-        except Exception:
-            page = 0
-
-        signature.append(
-            (
-                idx,
-                page,
-                str(element.get("type") or "").strip().lower(),
-                _normalize_layout_text(element.get("text")),
-            )
-        )
-
-    return tuple(signature)
+    # Собираем только непустые element_id
+    # Элементы без element_id игнорируем — они не могут быть идентифицированы
+    return frozenset(
+        str(el.get("element_id"))
+        for el in elements
+        if el.get("element_id")
+    )
 
 
 def _primary_layout_materially_differs(
@@ -349,20 +367,25 @@ def _primary_layout_materially_differs(
     primary_layout: dict[str, Any] | None,
 ) -> bool:
     """
-    Return True if primary_layout differs from raw_layout in a way that
-    should affect downstream extract/structure results.
+    Вернуть True если primary_layout материально отличается от raw_layout.
 
-    Material differences:
-    - filtered-out elements
-    - changed element order
-    - changed page/type/text content
+    "Материальное отличие" = состав элементов изменился (какие-то удалены).
 
-    Non-material differences:
-    - metadata-only changes
+    Примеры когда вернёт True (rebuild PDF нужен):
+    - фильтр удалил английские блоки из билингвального документа;
+    - фильтр удалил элементы второго языка из смешанного документа.
+
+    Примеры когда вернёт False (monolingual_reuse — оригинальный PDF годится):
+    - моноязычный русский документ с «», №, % — текст изменился, но элементы те же;
+    - фильтр только отсортировал элементы, но ничего не удалил.
+
+    Сравнение идёт по frozenset element_id:
+    - если наборы идентичны → False (не отличается);
+    - если в primary нет каких-то element_id из raw → True (элементы удалены).
     """
-    raw_sig = _layout_elements_signature(raw_layout)
-    primary_sig = _layout_elements_signature(primary_layout)
-    return raw_sig != primary_sig
+    raw_ids = _layout_elements_signature(raw_layout)
+    primary_ids = _layout_elements_signature(primary_layout)
+    return raw_ids != primary_ids
 
 
 def _determine_primary_source_build_mode(
@@ -372,20 +395,177 @@ def _determine_primary_source_build_mode(
     primary_layout: dict[str, Any],
 ) -> str:
     """
-    Decide how primary_source_ref should be built.
+    Решить, как должен быть построен primary_source_ref.
 
-    Returns:
-    - "single_language_pdf"          → globally bilingual doc, rebuild from filtered layout
-    - "monolingual_filtered_pdf"     → not globally bilingual, but filtered layout materially changed
-    - "monolingual_reuse"            → not globally bilingual, no material layout change detected
+    Возвращает одну из трёх строк:
+    - "single_language_pdf"      → глобально билингвальный документ,
+                                   пересобираем PDF из отфильтрованного layout.
+    - "monolingual_filtered_pdf" → не билингвальный глобально, но фильтр
+                                   удалил какие-то элементы — пересобираем PDF.
+    - "monolingual_reuse"        → не билингвальный, состав элементов не изменился
+                                   — переиспользуем оригинальный PDF напрямую.
+
+    Для непрофессионального программиста:
+    - "monolingual_reuse" — самый быстрый и качественный путь.
+      Оригинальный PDF используется как есть, без прохождения через ReportLab.
+      Теперь после Фазы 1 этот путь будет достигаться для 95%+ русских договоров.
     """
-    if bool(getattr(decision, "is_bilingual", False)):
+    # Проверяем is_multilingual (новое поле) с fallback на is_bilingual (legacy alias)
+    is_multi = (
+        bool(getattr(decision, "is_multilingual", False))
+        or bool(getattr(decision, "is_bilingual", False))
+    )
+    if is_multi:
         return "single_language_pdf"
 
     if _primary_layout_materially_differs(raw_layout, primary_layout):
         return "monolingual_filtered_pdf"
 
     return "monolingual_reuse"
+
+def _is_canonical_layout_enabled_for_tenant(tenant_id: str) -> bool:
+    """
+    Проверить, включён ли canonical layout pipeline для данного tenant.
+
+    Источники включения:
+    1. Глобальный флаг CANONICAL_LAYOUT_PIPELINE_ENABLED=true
+    2. Tenant allowlist в CANONICAL_LAYOUT_PIPELINE_TENANT_ALLOWLIST
+
+    ВАЖНО:
+    - settings.CANONICAL_LAYOUT_PIPELINE_TENANT_ALLOWLIST хранится как строка в .env
+    - settings.canonical_layout_tenant_allowlist возвращает уже разобранный list[str]
+    """
+    global_enabled = bool(getattr(settings, "CANONICAL_LAYOUT_PIPELINE_ENABLED", False))
+
+    allowlist = getattr(settings, "canonical_layout_tenant_allowlist", None)
+    if allowlist is None:
+        raw = getattr(settings, "CANONICAL_LAYOUT_PIPELINE_TENANT_ALLOWLIST", "")
+        allowlist = [
+            item.strip()
+            for item in str(raw).split(",")
+            if item and item.strip()
+        ]
+
+    return global_enabled or tenant_id in allowlist
+
+def _prepare_primary_layout_for_canonical_analysis(
+    primary_layout: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Подготовить primary_layout для canonical analysis path.
+
+    Что делает:
+    - копирует layout;
+    - в metadata.language_filter ставит analysis_source_kind = canonical_filtered_layout;
+    - выставляет downstream_requires_primary_source = False
+      (теперь downstream работает по JSON layout, а не по PDF).
+
+    ВАЖНО:
+    - текст элементов не меняется;
+    - filter_decisions остаётся отдельным артефактом, не частью primary layout.
+    """
+    result = deepcopy(primary_layout)
+
+    metadata = dict(result.get("metadata") or {})
+    language_filter = dict(metadata.get("language_filter") or {})
+
+    language_filter["analysis_source_kind"] = "canonical_filtered_layout"
+    language_filter["downstream_requires_primary_source"] = False
+
+    metadata["language_filter"] = language_filter
+    result["metadata"] = metadata
+    return result
+
+
+def _build_filter_decisions_payload(
+    *,
+    document_id: str,
+    document_version_id: str,
+    target_language: str,
+    primary_layout: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Построить отдельный артефакт filter_decisions.json.
+
+    Содержит:
+    - decisions: полный audit trail по каждому element_id
+    - summary: агрегированные счётчики retained/excluded/flagged
+    """
+    decisions = list(primary_layout.get("filter_decisions") or [])
+
+    retained = sum(1 for d in decisions if d.get("decision") == "retained")
+    excluded = sum(1 for d in decisions if d.get("decision") == "excluded")
+    flagged = sum(1 for d in decisions if d.get("decision") == "flagged")
+    structured = sum(1 for d in decisions if d.get("is_structured_data"))
+    mixed = sum(1 for d in decisions if d.get("language_label") == "mixed")
+    unknown = sum(1 for d in decisions if d.get("language_label") == "unknown")
+
+    return {
+        "schema_version": "filter_decisions/v1",
+        "document_id": document_id,
+        "document_version_id": document_version_id,
+        "target_language": target_language,
+        "decisions": decisions,
+        "summary": {
+            "total_elements": len(decisions),
+            "retained": retained,
+            "excluded": excluded,
+            "flagged": flagged,
+            "structured_data_preserved": structured,
+            "mixed_elements": mixed,
+            "unknown_elements": unknown,
+        },
+    }
+
+
+def _store_canonical_layout_artifacts(
+    *,
+    store: ArtifactStore,
+    tenant_id: str,
+    deal_id: str,
+    document_id: str,
+    document_version_id: str,
+    target_language: str,
+    primary_layout: dict[str, Any],
+    log_extra_base: dict[str, Any],
+) -> tuple[str, str, dict[str, Any]]:
+    """
+    Сохранить canonical primary layout и filter_decisions в MinIO.
+
+    Возвращает:
+    - layout_primary_ref
+    - filter_decisions_ref
+    - primary_layout_for_storage (layout без top-level filter_decisions)
+    """
+    canonical_layout = _prepare_primary_layout_for_canonical_analysis(primary_layout)
+
+    # primary_layout как основной analytical source не должен содержать
+    # top-level filter_decisions — они идут отдельным JSON.
+    primary_layout_for_storage = deepcopy(canonical_layout)
+    primary_layout_for_storage.pop("filter_decisions", None)
+
+    primary_path = ArtifactPath.layout_primary(tenant_id, deal_id, document_id)
+    layout_primary_ref = store.put_json(primary_path, primary_layout_for_storage)
+
+    filter_decisions_payload = _build_filter_decisions_payload(
+        document_id=document_id,
+        document_version_id=document_version_id,
+        target_language=target_language,
+        primary_layout=canonical_layout,
+    )
+    decisions_path = ArtifactPath.filter_decisions(tenant_id, deal_id, document_id)
+    filter_decisions_ref = store.put_json(decisions_path, filter_decisions_payload)
+
+    logger.info(
+        "Primary source build: canonical layout artifacts stored",
+        **log_extra_base,
+        layout_primary_ref=layout_primary_ref,
+        filter_decisions_ref=filter_decisions_ref,
+        retained_elements=len(primary_layout_for_storage.get("elements") or []),
+        excluded_elements=len(primary_layout_for_storage.get("excluded_element_ids") or []),
+    )
+
+    return layout_primary_ref, filter_decisions_ref, primary_layout_for_storage
 
 
 async def _build_primary_language_source_async(
@@ -528,6 +708,11 @@ async def _build_primary_language_source_async(
         raise PermanentError(f"Failed to read source PDF: {e}")
 
     # ── 4. Определяем языки документа ────────────────────────────────────────
+    #
+    # ФАЗА 8: detect_document_languages_from_pdf_bytes внутри вызывает
+    # extract_pdf() + build_text_layout_raw() — это и есть наш canonical
+    # raw_layout. В canonical path мы сохраняем его в MinIO как raw_ref,
+    # чтобы extract_worker не делал повторное извлечение.
 
     detection_result = detect_document_languages_from_pdf_bytes(
         pdf_bytes=pdf_bytes,
@@ -537,6 +722,36 @@ async def _build_primary_language_source_async(
     quick_layout = detection_result.quick_layout
     detected_languages = detection_result.detected_languages
 
+    # Canonical path: сохраняем quick_layout как raw_ref
+    # чтобы extract_worker мог его переиспользовать без повторного extract_pdf().
+    # Делаем это сразу после detection — до любых DB операций,
+    # чтобы raw_ref был доступен независимо от дальнейшего routing.
+    canonical_enabled = _is_canonical_layout_enabled_for_tenant(tenant_id)
+
+    raw_ref: str | None = None
+
+    if canonical_enabled:
+        try:
+            raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
+            raw_ref = store.put_json(raw_path, quick_layout)
+            logger.info(
+                "Primary source build: raw_layout saved for canonical path",
+                **log_extra_base,
+                raw_path=raw_path,
+                raw_ref=raw_ref,
+                elements=len(quick_layout.get("elements") or []),
+            )
+        except Exception as raw_exc:
+            # Сохранение raw_layout — best-effort в canonical path.
+            # Если не получилось — extract_worker сделает extraction сам.
+            logger.warning(
+                "Primary source build: failed to save raw_layout for canonical path, "
+                "extract_worker will re-extract",
+                **log_extra_base,
+                error=str(raw_exc),
+            )
+            raw_ref = None
+
     logger.info(
         "Primary source build: detected languages from quick layout",
         **log_extra_base,
@@ -544,8 +759,6 @@ async def _build_primary_language_source_async(
     )
 
     # Фиксируем результат language discovery для этого документа.
-    # Используем update_language_discovery() — canonical метод после рефакторинга
-    # Используем update_language_discovery() — canonical метод после рефакторинга.
     # Статус COMPLETED означает: языки определены, pipeline discovery для этого
     # документа завершён.
     await doc_repo.update_language_discovery(
@@ -683,7 +896,15 @@ async def _build_primary_language_source_async(
         primary_layout=primary_layout,
     )
 
+    primary_source_build_mode = _determine_primary_source_build_mode(
+        decision=decision,
+        raw_layout=quick_layout,
+        primary_layout=primary_layout,
+    )
+
     # ── 7. Карантин: целевой язык отсутствует или слишком мал по доле ────────
+    # ВАЖНО: проверяем карантин ДО сохранения canonical артефактов.
+    # Если документ идёт в карантин, canonical артефакты не нужны.
 
     if primary_layout_result.should_quarantine:
         logger.warning(
@@ -757,6 +978,84 @@ async def _build_primary_language_source_async(
             "committed": True,
         }
 
+    # ── Canonical артефакты ───────────────────────────────────────────────────
+    # Строим только если документ НЕ идёт в карантин.
+
+    layout_primary_ref: str | None = None
+    filter_decisions_ref: str | None = None
+    primary_layout_for_storage = primary_layout
+
+    if canonical_enabled:
+        quality = validate_primary_layout(
+            raw_layout=quick_layout,
+            primary_layout=_prepare_primary_layout_for_canonical_analysis(primary_layout),
+            expected_target_ratio=float(getattr(decision, "target_language_ratio", 0.0) or 0.0),
+        )
+
+        primary_layout.setdefault("metadata", {})
+        primary_layout["metadata"]["quality"] = quality
+
+        logger.info(
+            "Primary source build: canonical primary layout quality evaluated",
+            **log_extra_base,
+            fidelity_status=quality.get("fidelity_status"),
+            analysis_eligibility=quality.get("analysis_eligibility"),
+            elements_retained=quality.get("elements_retained"),
+            elements_excluded=quality.get("elements_excluded"),
+            elements_flagged=quality.get("elements_flagged"),
+        )
+
+        if quality.get("fidelity_status") == "failed":
+            logger.warning(
+                "Primary source build: canonical primary layout quality failed, quarantining document",
+                **log_extra_base,
+                failure_reasons=quality.get("fidelity_failure_reasons"),
+            )
+            updated_doc = await doc_repo.update_status(
+                doc_uuid,
+                DocumentStatus.QUARANTINE.value,
+                processing_error_details={
+                    "stage": "build_primary_language_source",
+                    "type": "primary_layout_quality_failed",
+                    "reason": "canonical_primary_layout_validation_failed",
+                    "message": "Primary layout failed quality validation",
+                    "details": quality,
+                    "timestamp": _utcnow_iso(),
+                },
+            )
+            if not updated_doc:
+                raise PermanentError(
+                    f"Document {document_id} not found during QUARANTINE status update"
+                )
+            await db.commit()
+
+            return {
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "source_ref": source_ref,
+                "primary_source_ref": existing_primary_ref,
+                "target_language": target_language,
+                "detected_languages": decision.detected_languages,
+                "requires_user_selection": False,
+                "quarantined": True,
+                "quarantine_reason": "canonical_primary_layout_validation_failed",
+                "committed": True,
+            }
+
+        layout_primary_ref, filter_decisions_ref, primary_layout_for_storage = \
+            _store_canonical_layout_artifacts(
+                store=store,
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                document_id=document_id,
+                document_version_id=document_version_id,
+                target_language=target_language,
+                primary_layout=primary_layout,
+                log_extra_base=log_extra_base,
+            )
+
     language_filter_meta = (primary_layout.get("metadata") or {}).get("language_filter") or {}
 
     logger.info(
@@ -764,7 +1063,7 @@ async def _build_primary_language_source_async(
         **log_extra_base,
         target_language=target_language,
         detected_languages=decision.detected_languages,
-        is_bilingual=decision.is_bilingual,
+        is_multilingual=getattr(decision, "is_multilingual", decision.is_bilingual),
         requires_user_selection=decision.requires_user_selection,
         language_filter_degraded=language_filter_meta.get("degraded"),
         language_filter_degraded_reason=language_filter_meta.get("degraded_reason"),
@@ -772,16 +1071,13 @@ async def _build_primary_language_source_async(
         primary_source_build_mode=primary_source_build_mode,
     )
 
-    # ── 8. Fast-path reuse only when primary layout did not materially change ──
+    # ── 8. Fast-path reuse: если элементный состав не изменился ──────────────
     #
-    # Earlier we reused original PDF for every non-bilingual document.
-    # That was too aggressive: simple language filter may still remove
-    # local bilingual residue even if global second-language ratio is small.
-    #
-    # New contract:
-    # - monolingual_reuse          → raw layout and primary layout are materially same
-    # - monolingual_filtered_pdf   → primary layout changed, rebuild PDF from it
-    # - single_language_pdf        → globally bilingual, rebuild as before
+    # ФАЗА 1 FIX: теперь сравниваем только наборы element_id (frozenset),
+    # а не тексты элементов. Это означает:
+    # - Моноязычный RU документ с «», №, % → monolingual_reuse (было: filtered_pdf)
+    # - Только реальное удаление элементов → monolingual_filtered_pdf
+    # - Глобально билингвальный → single_language_pdf (без изменений)
     if primary_source_build_mode == "monolingual_reuse":
         logger.info(
             "Primary source build: monolingual document without material layout changes, "
@@ -824,7 +1120,10 @@ async def _build_primary_language_source_async(
         updated_version = await ver_repo.update_refs(
             version_id=version_uuid,
             primary_source_ref=primary_source_ref,
+            raw_ref=raw_ref if raw_ref else None,
+            layout_primary_ref=layout_primary_ref if layout_primary_ref else None,
         )
+
         if not updated_version:
             raise PermanentError(
                 f"Failed to update primary_source_ref for version {document_version_id}"
@@ -894,6 +1193,9 @@ async def _build_primary_language_source_async(
             "tenant_id": tenant_id,
             "source_ref": source_ref,
             "primary_source_ref": primary_source_ref,
+            "raw_ref": raw_ref,
+            "layout_primary_ref": layout_primary_ref,
+            "filter_decisions_ref": filter_decisions_ref,
             "target_language": target_language,
             "detected_languages": decision.detected_languages,
             "requires_user_selection": False,
@@ -903,70 +1205,60 @@ async def _build_primary_language_source_async(
 
     # ── 9. Build primary PDF from filtered layout ────────────────────────────
     #
-    # This path is used for:
-    # - globally bilingual documents ("single_language_pdf")
-    # - non-bilingual documents where simple filter materially changed layout
-    #   ("monolingual_filtered_pdf")
+    # Этот путь используется для:
+    # - глобально билингвальных документов ("single_language_pdf"):
+    #   содержат RU и EN в значимых долях, удаляем EN-блоки.
+    # - не-билингвальных документов где фильтр удалил какие-то элементы
+    #   ("monolingual_filtered_pdf"):
+    #   редкий кейс — например, EN-заголовки в русском документе.
 
     logger.info(
         "Primary source build: rebuilding primary PDF from filtered layout",
         **log_extra_base,
         target_language=target_language,
         detected_languages=decision.detected_languages,
-        is_bilingual=decision.is_bilingual,
+        is_multilingual=getattr(decision, "is_multilingual", decision.is_bilingual),
         primary_source_build_mode=primary_source_build_mode,
     )
 
-    try:
-        primary_pdf_bytes = build_pdf_from_layout(primary_layout)
-    except Exception as e:
-        logger.exception(
-            "Failed to build primary PDF from layout",
-            **log_extra_base,
-            target_language=target_language,
-            error=str(e),
-        )
-        raise PermanentError(f"Failed to build primary PDF from layout: {e}")
+    # ── 9+10. PDF Export (non-blocking) ──────────────────────────────────────
+    #
+    # ФАЗА 6: PDF export теперь опциональный derived artifact.
+    # Failure не блокирует analysis pipeline.
+    # Canonical path (Фаза 3) использует layout_primary_ref как
+    # analytical source и не зависит от primary_source_ref.
+    #
+    # Для legacy path (extract_worker читает PDF):
+    # primary_source_ref ДОЛЖЕН быть заполнен, иначе extract не запустится.
+    # Если export failed — это PermanentError только для legacy path.
 
-    if not primary_pdf_bytes or len(primary_pdf_bytes) < 700:
-        raise PermanentError(
-            f"build_pdf_from_layout returned empty or malformed PDF "
-            f"(size={len(primary_pdf_bytes) if primary_pdf_bytes else 0}) "
-            f"for version {document_version_id}. "
-            "Possible cause: language filter removed all elements."
-        )
-
-    # ── 10. Сохраняем одноязычный PDF как primary_source_ref ─────────────────
-
-    primary_path = ArtifactPath.primary_source(
+    export_result = await _try_build_pdf_export(
+        primary_layout=primary_layout,
+        store=store,
         tenant_id=tenant_id,
         deal_id=deal_id,
         document_id=document_id,
+        log_extra_base=log_extra_base,
     )
 
-    try:
-        primary_source_ref = store.put_file(
-            primary_path,
-            primary_pdf_bytes,
-            content_type="application/pdf",
+    primary_source_ref = export_result.get("primary_source_ref")
+    export_fidelity_status = export_result.get("export_fidelity_status", "not_generated")
+
+    if not primary_source_ref and not canonical_enabled:
+        # Legacy path: без PDF extract не запустится
+        raise PermanentError(
+            f"PDF export failed for version {document_version_id} in legacy mode "
+            f"(export_fidelity_status={export_fidelity_status}). "
+            "Cannot proceed without primary_source_ref in legacy extraction path."
         )
-        logger.info(
-            "Primary source build: primary single-language PDF stored",
+
+    if not primary_source_ref and canonical_enabled:
+        logger.warning(
+            "Primary source build: PDF export failed but canonical path is enabled, "
+            "layout_primary_ref will be used as analysis source",
             **log_extra_base,
-            primary_path=primary_path,
-            primary_source_ref=primary_source_ref,
-            size=len(primary_pdf_bytes),
-            target_language=target_language,
-            primary_source_build_mode=primary_source_build_mode,
+            export_fidelity_status=export_fidelity_status,
         )
-    except Exception as e:
-        logger.exception(
-            "Failed to store primary source PDF",
-            **log_extra_base,
-            path=primary_path,
-            error=str(e),
-        )
-        raise PermanentError(f"Failed to store primary source PDF: {e}")
 
     _store_primary_language_metadata_sidecar_safe(
         store=store,
@@ -977,11 +1269,13 @@ async def _build_primary_language_source_async(
         log_extra_base=log_extra_base,
     )
 
-    # ── 11. Обновляем DocumentVersion.primary_source_ref ─────────────────────
+    # ── 11. Обновляем DocumentVersion refs ───────────────────────────────────
 
     updated_version = await ver_repo.update_refs(
         version_id=version_uuid,
         primary_source_ref=primary_source_ref,
+        raw_ref=raw_ref if raw_ref else None,
+        layout_primary_ref=layout_primary_ref if layout_primary_ref else None,
     )
     if not updated_version:
         raise PermanentError(
@@ -996,24 +1290,62 @@ async def _build_primary_language_source_async(
         processing_error_details=None,
     )
     if not updated_doc:
-        raise PermanentError(f"Document {document_id} not found during PRIMARY_READY status update")
+        raise PermanentError(
+            f"Document {document_id} not found during PRIMARY_READY status update"
+        )
 
     # ── 13. Flush + consistency check перед commit ────────────────────────────
     #
-    # Убеждаемся, что primary_source_ref виден из БД до возврата управления.
+    # Убеждаемся что изменения видны из БД до возврата управления.
     # TransientError здесь — сигнал для Celery retry, не PermanentError.
+    #
+    # ВАЖНО: В canonical path primary_source_ref может быть None (PDF export
+    # не удался, но canonical layout_primary_ref используется как source).
+    # В legacy path primary_source_ref ОБЯЗАТЕЛЕН.
 
     await db.flush()
 
     refreshed_version = await ver_repo.get_by_id(version_uuid)
-    if refreshed_version is None or not getattr(refreshed_version, "primary_source_ref", None):
+    if refreshed_version is None:
         raise TransientError(
-            f"primary_source_ref is not visible after flush for version {document_version_id}"
+            f"DocumentVersion {document_version_id} is not visible after flush"
         )
-    if refreshed_version.primary_source_ref != primary_source_ref:
+
+    if primary_source_ref is not None:
+        refreshed_ref = getattr(refreshed_version, "primary_source_ref", None)
+        if not refreshed_ref:
+            raise TransientError(
+                f"primary_source_ref is not visible after flush for version {document_version_id}"
+            )
+        if refreshed_ref != primary_source_ref:
+            raise TransientError(
+                f"primary_source_ref mismatch after flush for version {document_version_id}"
+            )
+    elif not canonical_enabled:
         raise TransientError(
-            f"primary_source_ref mismatch after flush for version {document_version_id}"
+            f"primary_source_ref is None after flush in legacy mode "
+            f"for version {document_version_id}"
         )
+
+    # В canonical path layout_primary_ref ОБЯЗАТЕЛЕН — это основной analytical source
+    if canonical_enabled:
+        refreshed_layout_primary_ref = getattr(refreshed_version, "layout_primary_ref", None)
+        if not refreshed_layout_primary_ref:
+            raise TransientError(
+                f"layout_primary_ref is not visible after flush for version {document_version_id}"
+            )
+        if layout_primary_ref and refreshed_layout_primary_ref != layout_primary_ref:
+            raise TransientError(
+                f"layout_primary_ref mismatch after flush for version {document_version_id}"
+            )
+
+        if raw_ref:
+            refreshed_raw_ref = getattr(refreshed_version, "text_layout_raw_ref", None)
+            if not refreshed_raw_ref:
+                raise TransientError(
+                    f"text_layout_raw_ref is not visible after flush for version {document_version_id}"
+                )
+    # canonical_enabled и primary_source_ref=None — это нормально, пропускаем проверку
 
     await db.commit()
 
@@ -1059,6 +1391,9 @@ async def _build_primary_language_source_async(
         "tenant_id": tenant_id,
         "source_ref": source_ref,
         "primary_source_ref": primary_source_ref,
+        "raw_ref": raw_ref,
+        "layout_primary_ref": layout_primary_ref,
+        "filter_decisions_ref": filter_decisions_ref,
         "target_language": target_language,
         "detected_languages": decision.detected_languages,
         "requires_user_selection": False,
@@ -1085,5 +1420,133 @@ def _utcnow_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
+async def _try_build_pdf_export(
+    *,
+    primary_layout: dict[str, Any],
+    store: ArtifactStore,
+    tenant_id: str,
+    deal_id: str,
+    document_id: str,
+    log_extra_base: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Опциональный PDF export из primary_layout.
+
+    КРИТИЧЕСКИ ВАЖНО: failure НЕ блокирует analysis pipeline.
+    PDF export — derived artifact, не analytical source.
+
+    Возвращает dict:
+    - primary_source_ref:      str | None — S3 ref если export прошёл
+    - export_fidelity_status:  "passed" | "degraded" | "failed" | "not_generated"
+    - export_diagnostic_ref:   str | None — S3 ref к diagnostic PDF если failed
+
+    Для непрофессионального программиста:
+    - "passed" / "degraded" → PDF опубликован в primary_source_ref
+    - "failed"              → PDF НЕ опубликован, сохранён только для диагностики
+    - "not_generated"       → исключение при построении, PDF не создан вообще
+    """
+    from services.primary_pdf_builder import build_pdf_from_layout
+    from services.primary_pdf_export_validator import validate_pdf_export
+
+    try:
+        pdf_bytes = build_pdf_from_layout(primary_layout)
+    except Exception as exc:
+        logger.warning(
+            "Primary source build: PDF export failed during build_pdf_from_layout; "
+            "analysis pipeline unaffected",
+            **log_extra_base,
+            error=str(exc),
+        )
+        return {
+            "primary_source_ref": None,
+            "export_fidelity_status": "not_generated",
+            "export_diagnostic_ref": None,
+        }
+
+    # Валидируем качество экспорта
+    validation = validate_pdf_export(primary_layout, pdf_bytes)
+    status = validation["export_fidelity_status"]
+
+    if status == "failed":
+        # Сохраняем как diagnostic artifact — не публикуем пользователю
+        logger.warning(
+            "Primary source build: PDF export validation failed; "
+            "saving as diagnostic only, analysis unaffected",
+            **log_extra_base,
+            reason=validation.get("reason"),
+            details=validation.get("details"),
+        )
+        try:
+            diagnostic_path = (
+                f"tenants/{tenant_id}/deals/{deal_id}/diagnostics/"
+                f"{document_id}_primary_export_failed.pdf"
+            )
+            diagnostic_ref = store.put_file(
+                diagnostic_path,
+                pdf_bytes,
+                content_type="application/pdf",
+            )
+        except Exception as diag_exc:
+            logger.debug(
+                "Primary source build: failed to save diagnostic PDF export",
+                **log_extra_base,
+                error=str(diag_exc),
+            )
+            diagnostic_ref = None
+
+        return {
+            "primary_source_ref": None,
+            "export_fidelity_status": "failed",
+            "export_diagnostic_ref": diagnostic_ref,
+        }
+
+    # "passed" или "degraded" → публикуем
+    if status == "degraded":
+        logger.warning(
+            "Primary source build: PDF export degraded but publishable",
+            **log_extra_base,
+            reason=validation.get("reason"),
+            details=validation.get("details"),
+        )
+
+    primary_path = ArtifactPath.primary_source(
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        document_id=document_id,
+    )
+
+    try:
+        primary_source_ref = store.put_file(
+            primary_path,
+            pdf_bytes,
+            content_type="application/pdf",
+        )
+        logger.info(
+            "Primary source build: PDF export published",
+            **log_extra_base,
+            primary_path=primary_path,
+            primary_source_ref=primary_source_ref,
+            size=len(pdf_bytes),
+            export_fidelity_status=status,
+        )
+        return {
+            "primary_source_ref": primary_source_ref,
+            "export_fidelity_status": status,
+            "export_diagnostic_ref": None,
+        }
+
+    except Exception as store_exc:
+        logger.warning(
+            "Primary source build: PDF export store failed; analysis unaffected",
+            **log_extra_base,
+            error=str(store_exc),
+        )
+        return {
+            "primary_source_ref": None,
+            "export_fidelity_status": "not_generated",
+            "export_diagnostic_ref": None,
+        }
 
 
+
+    

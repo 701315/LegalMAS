@@ -4,14 +4,14 @@
 Layout language filter.
 
 Отвечает за приведение text_layout_raw к одноязычному layout_primary для
-целевого языка ("ru" или "en"), чтобы downstream‑стадии работали только
+целевого языка (любой ISO 639-1 код), чтобы downstream‑стадии работали только
 с одной языковой версией документа.
 
 Два режима работы:
-- Простой (монолингвальный или короткий документ): посимвольная детекция
-  скрипта, оставляются элементы целевого языка + короткие нейтральные блоки
-  (цифры, подписи, номера пунктов).
-- Структурный (bilingual, >= 10 элементов): _StructuralAnalyzer группирует
+- Простой (монолингвальный или короткий документ): language detection через
+  LanguageDetector, оставляются элементы целевого языка + короткие нейтральные
+  блоки (цифры, подписи, номера пунктов) + структурированные данные (реквизиты).
+- Структурный (multilingual, >= 10 элементов): _StructuralAnalyzer группирует
   параллельные блоки по странице и вертикальной позиции, выравнивает их по
   номерам пунктов и из каждой пары/группы выбирает представление на нужном
   языке, при этом может дополнительно проставить clause_uid/parent_clause_uid.
@@ -21,14 +21,19 @@ Layout language filter.
   где elements — плоский список блоков с element_id, text, type, page, bbox и
   опциональными clause_uid/parent_clause_uid.
 - Выход: layout_primary с теми же elements/tables, но отфильтрованными по языку
-  и дополненным блоком metadata.language_filter (target_language, режим,
-  retention‑метрики, degraded/degraded_reason).
+  и дополненным блоком metadata.language_filter.
+  Дополнительно: excluded_element_ids (список удалённых) и filter_decisions (audit trail).
 
-Главная точка входа:
-- filter_layout_to_language(layout, target_language, context) — выбирает режим
-  (простой/структурный), считает качество фильтрации и пишет diagnostics в metadata;
-- удобные алиасы filter_layout_to_ru / filter_layout_to_en используются
-  в пайплайне перед структурированием и классификацией.
+LOSSLESS ИНВАРИАНТ:
+- retained_element["text"] == raw_element["text"] БЕЗ ИСКЛЮЧЕНИЙ.
+- _sanitize_text_to_script НЕ вызывается в canonical filter path.
+- Mixed/unknown элементы — retained + flagged, текст не тронут.
+
+MULTILINGUAL ПОДДЕРЖКА (Фаза 2A):
+- Поддерживает любой язык через lingua-language-detector (75+ языков).
+- target_language принимает любой ISO 639-1 код: "ru", "en", "ar", "fr", "kk"...
+- filter_layout_to_language не ограничен списком поддерживаемых языков.
+- detect_languages_in_layout возвращает реальные ISO коды всех найденных языков.
 """
 
 from __future__ import annotations
@@ -43,77 +48,464 @@ from core.logging import get_logger
 logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
-# Константы детекции языка
+# Константы
 # ---------------------------------------------------------------------------
 
-# Порог доли символов нужного скрипта для однозначной классификации
-_SCRIPT_DOMINANCE = 0.70
-# Минимальное число символов скрипта для классификации (защита от "A" -> "en")
-_SCRIPT_MIN_CHARS = 5
 # Нейтральный блок (цифры, пунктуация) включается только если короткий
 _NEUTRAL_MAX_CHARS = 40
-# Минимальная длина текста для структурного анализа (чтобы не анализировать мусор)
+
+# Минимальная длина текста для структурного анализа
 _STRUCT_MIN_TEXT_LEN = 5
+
 # Y-допуск при группировке параллельных блоков (пиксели/pt PDF)
-# Было 8.0 — этого часто не хватает для реальных двуколоночных договоров.
 _Y_TOLERANCE = 20.0
+
 # Минимальный размер документа для включения структурного анализа
 _STRUCTURAL_MIN_ELEMENTS = 10
 
-# Пороги degraded-оценки
+# Пороги degraded-оценки качества фильтрации
 _MIN_ELEMENT_RETENTION_RATIO = 0.40
 _MIN_CHAR_RETENTION_RATIO = 0.50
 
-# Дополнительные эвристики очистки
+# Дополнительные эвристики очистки PDF артефактов
 _MAX_REPEATED_SYMBOL_RUN = 6
 
+# Максимальная доля букв естественного языка для признания элемента
+# "pure structured data". Если буквы < 30% — элемент целиком из кодов/цифр.
+_STRUCTURED_DATA_MAX_NATURAL_RATIO = 0.30
 
-# Добавить константу и функцию в layout_language_filter.py
-# (рядом с другими константами вверху файла)
+# Минимальная доля элементов одного языка для признания документа multilingual.
+# Если второй язык занимает >= этой доли — документ считается multilingual.
+_MULTILINGUAL_MIN_RATIO = 0.15
 
-_STRUCTURED_DATA_RE = re.compile(
+# ---------------------------------------------------------------------------
+# Регулярное выражение для структурированных данных (реквизиты, коды, контакты)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Регулярные выражения для структурированных данных (реквизиты, коды, контакты)
+#
+# ВАЖНО: Разделены на case-sensitive и case-insensitive паттерны.
+#
+# Case-sensitive (без IGNORECASE):
+# - SWIFT/BIC: строго заглавные буквы и цифры (SABRRUMM, DEUTDEDB001)
+# - IBAN: страновой код заглавными + цифры (DE89370400440532013000)
+#
+# Case-insensitive (с IGNORECASE):
+# - email, URL, телефоны, длинные числовые коды — регистр не важен
+#
+# Разделение необходимо потому что:
+# - SWIFT паттерн [A-Z]{4}[A-Z]{2}[A-Z0-9]{2} с IGNORECASE матчит
+#   любое слово из 8+ букв: "Agreement", "Покупатель" и т.д.
+# - SWIFT реально никогда не содержит строчных букв — это стандарт ISO 9362
+# ---------------------------------------------------------------------------
+
+# Паттерны для fullmatch (весь элемент = один структурированный токен)
+# Case-sensitive: регистр имеет значение
+
+_SWIFT_BIC_FULLMATCH_RE = re.compile(
+    r"^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?$"
+    # SWIFT/BIC: 4 буквы банка + 2 буквы страны + 2 символа города + опц. 3 символа филиала
+    # Примеры: SABRRUMM, CITIUSXX, DEUTDEDB001
+    # Строго заглавные — это стандарт ISO 9362
+)
+
+_IBAN_FULLMATCH_RE = re.compile(
+    r"^[A-Z]{2}\d{2}[A-Z0-9]{4,}\d{7,}$"
+    # IBAN: 2 буквы страны (заглавные) + 2 контрольных цифры + BBAN
+    # Примеры: DE89370400440532013000, GB29NWBK60161331926819
+)
+
+# Case-insensitive: регистр не важен для этих форматов
+
+_EMAIL_FULLMATCH_RE = re.compile(
+    r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$",
+    re.IGNORECASE,
+)
+
+_URL_FULLMATCH_RE = re.compile(
+    r"^https?://\S+$",
+    re.IGNORECASE,
+)
+
+_PHONE_FULLMATCH_RE = re.compile(
+    r"^\+?[\d][\d\s\-\(\)]{6,}$"
+    # Телефон: начинается с цифры (или +цифра), содержит минимум 7 символов
+    # Примеры: +7 495 123-45-67, 8 800 200-06-00
+)
+
+_LONG_CODE_FULLMATCH_RE = re.compile(
+    r"^\d{6,}$"
+    # Длинный числовой код: ИНН (10/12 цифр), ОГРН (13 цифр), БИК (9 цифр)
+    # Примеры: 7707083893, 1027700132195
+)
+
+# Паттерны для search (структурированный токен внутри текста)
+# Используются для определения "contains" — реквизит внутри естественного текста
+
+_STRUCTURED_SEARCH_RE = re.compile(
     r"(?:"
-    r"\d{6,}"  # ИНН, ОГРН, БИК, счета
-    r"|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"  # email
-    r"|\+?[\d\s\-\(\)]{7,}"  # телефоны
-    r"|[A-Z]{2,6}[\s\-]?\d{3,}"  # SWIFT, BIC, KPP
+    r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"   # email
+    r"|https?://\S+"                                          # URL
+    r"|\+?[\d][\d\s\-\(\)]{6,}"                              # телефон (начинается с цифры)
+    r"|\d{6,}"                                                # длинный числовой код
+    r"|[A-Z]{2}\d{2}[A-Z0-9]{4,}\d{7,}"                     # IBAN (case-sensitive через контекст)
+    r"|[A-Z]{2,6}[\s\-]?\d{3,}"                              # BIC/KPP/прочие коды с цифрами
     r")",
     re.IGNORECASE,
 )
 
+# SWIFT search — отдельно, без IGNORECASE
+_SWIFT_SEARCH_RE = re.compile(
+    r"\b[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b"
+    # SWIFT/BIC внутри текста — строго заглавные
+)
 
-def _is_structured_data(text: str) -> bool:
+
+def _classify_structured_data(text: str) -> str:
     """
-    Проверить, является ли текст структурированными данными (реквизиты,
-    email, счета, коды), которые нужно сохранять независимо от скрипта.
+    Классифицировать элемент по наличию структурированных данных.
 
-    Такие элементы не являются "вторым языком" в билингвальном документе —
-    они содержат латиницу по техническим причинам (стандарты, форматы),
-    а не потому что написаны на английском.
+    Структурированные данные — это технические коды и реквизиты:
+    SWIFT/BIC, IBAN, email, URL, телефоны, длинные числовые коды (ИНН, ОГРН).
+
+    Возвращает одну из трёх строк:
+
+    "pure"
+        Элемент целиком является структурированным токеном.
+        Примеры: "SABRRUMM", "DE89370400440532013000",
+                 "+7 495 123-45-67", "legal@company.ru"
+        Такие элементы не являются "языком" — их всегда сохраняем,
+        они не влияют на языковой баланс документа.
+
+    "contains"
+        Структурированный токен присутствует внутри естественного текста.
+        Примеры: "Контакт: legal@company.ru",
+                 "Перевод на счёт IBAN: DE89370400440532013000"
+        Такие элементы классифицируются по языку текста, но всегда сохраняются.
+
+    "none"
+        Обычный текст без структурированных данных.
+        Примеры: "Договор купли-продажи", "Agreement", "Покупатель обязуется"
+        Классифицируется по языку и фильтруется по нему.
+
+    Алгоритм (трёхуровневый):
+    1. Fullmatch case-sensitive (SWIFT, IBAN) → "pure" мгновенно
+    2. Fullmatch case-insensitive (email, URL, телефон, длинный код) → "pure" мгновенно
+    3. Search токенов в тексте:
+       - нет ни одного токена → "none"
+       - есть токены → считаем долю оставшегося естественного текста
+         после удаления всех найденных токенов:
+         * мало естественного текста (< 30%) → "pure"
+         * много естественного текста (>= 30%) → "contains"
     """
     stripped = (text or "").strip()
     if not stripped:
-        return False
-    return bool(_STRUCTURED_DATA_RE.search(stripped))
+        return "none"
+
+    # ── Уровень 1: Fullmatch case-sensitive ──────────────────────────────────
+    # SWIFT/BIC и IBAN матчатся только если ВЕСЬ элемент = токен
+    # и только в заглавном регистре (стандарт ISO)
+
+    if _SWIFT_BIC_FULLMATCH_RE.match(stripped):
+        return "pure"
+
+    if _IBAN_FULLMATCH_RE.match(stripped):
+        return "pure"
+
+    # ── Уровень 2: Fullmatch case-insensitive ─────────────────────────────────
+    # Форматы где регистр не важен: email, URL, телефон, длинный код
+
+    if _EMAIL_FULLMATCH_RE.match(stripped):
+        return "pure"
+
+    if _URL_FULLMATCH_RE.match(stripped):
+        return "pure"
+
+    if _PHONE_FULLMATCH_RE.match(stripped):
+        return "pure"
+
+    if _LONG_CODE_FULLMATCH_RE.match(stripped):
+        return "pure"
+
+    # ── Уровень 3: Search токенов внутри текста ───────────────────────────────
+    # Проверяем есть ли хотя бы один структурированный токен в тексте
+
+    has_search_match = bool(
+        _STRUCTURED_SEARCH_RE.search(stripped)
+        or _SWIFT_SEARCH_RE.search(stripped)
+    )
+
+    if not has_search_match:
+        return "none"
+
+    # Есть токены внутри текста.
+    # Считаем долю естественного языка ПОСЛЕ удаления всех токенов.
+    # Если после удаления токенов почти ничего не осталось → "pure".
+    # Если осталось много букв → "contains".
+
+    # Удаляем все найденные структурированные токены из текста
+    text_without_tokens = _STRUCTURED_SEARCH_RE.sub(" ", stripped)
+    text_without_tokens = _SWIFT_SEARCH_RE.sub(" ", text_without_tokens)
+    text_without_tokens = re.sub(r"\s+", " ", text_without_tokens).strip()
+
+    # Считаем буквы естественного языка в остатке
+    natural_chars_remaining = sum(
+        1 for c in text_without_tokens
+        if (0x0400 <= ord(c) <= 0x04FF)     # кириллица
+        or (0x0041 <= ord(c) <= 0x005A)     # A-Z
+        or (0x0061 <= ord(c) <= 0x007A)     # a-z
+    )
+
+    # Считаем буквы в оригинальном тексте для нормировки
+    natural_chars_total = sum(
+        1 for c in stripped
+        if (0x0400 <= ord(c) <= 0x04FF)
+        or (0x0041 <= ord(c) <= 0x005A)
+        or (0x0061 <= ord(c) <= 0x007A)
+    )
+
+    if natural_chars_total == 0:
+        # Весь текст — цифры и спецсимволы без букв → pure
+        return "pure"
+
+    # Доля букв, оставшихся ПОСЛЕ удаления токенов, от всех букв в оригинале
+    remaining_ratio = natural_chars_remaining / natural_chars_total
+
+    if remaining_ratio < _STRUCTURED_DATA_MAX_NATURAL_RATIO:
+        # После удаления токенов букв почти не осталось → элемент = pure structured data
+        return "pure"
+
+    # Осталось много букв → реквизит внутри естественного текста
+    return "contains"
 
 
 # ---------------------------------------------------------------------------
-# Детекция скрипта
+# MULTILINGUAL: Language detection через LanguageDetector
+# ---------------------------------------------------------------------------
+
+
+def _get_element_language(text: str) -> tuple[str, str, float]:
+    """
+    Определить язык и скрипт текстового элемента.
+
+    Возвращает кортеж (language_code, script_code, confidence):
+    - language_code: ISO 639-1 код ("ru", "en", "ar", "fr", "kk", "unknown")
+    - script_code:   письменность ("cyrillic", "latin", "arabic", "hebrew", "cjk", "other")
+    - confidence:    уверенность 0.0 — 1.0
+
+    Использует LanguageDetector из language_detector.py.
+    """
+    from services.language_detector import get_language_detector
+    detector = get_language_detector()
+    result = detector.detect_language(text)
+    return result.language_code, result.script_code, result.confidence
+
+
+def _get_script_for_element(text: str) -> str:
+    """
+    Быстро определить письменность текста (без полного language detection).
+    Используется для структурного анализатора.
+    """
+    from services.language_detector import get_language_detector
+    detector = get_language_detector()
+    return detector.detect_script(text)
+
+
+def classify_element_language(
+    text: str,
+    target_lang: str,
+    structured_kind: str,
+) -> str:
+    """
+    Определить доменный language label для элемента layout.
+
+    MULTILINGUAL версия (Фаза 2A):
+    - работает с любым ISO 639-1 target_lang, не только "ru"/"en"
+    - использует LanguageDetector для точного определения языка
+    - для смешанных элементов (два языка в одном тексте) возвращает "mixed"
+
+    Параметры:
+    - text:           текст элемента
+    - target_lang:    целевой язык документа (ISO 639-1: "ru", "en", "ar", "fr"...)
+    - structured_kind: результат _classify_structured_data() для этого текста
+
+    Возвращает одну из пяти строк:
+    - "target"  — элемент на целевом языке → retained
+    - "foreign" — элемент явно на другом языке → excluded
+    - "neutral" — нейтральный контент или pure structured data → retained
+    - "mixed"   — два языка в одном элементе → flagged (retained с пометкой)
+    - "unknown" — не удалось определить язык → flagged (retained с пометкой)
+    """
+    # Pure structured data (SWIFT, IBAN, телефон) → всегда neutral
+    # Это технические коды, не языковой контент
+    if structured_kind == "pure":
+        return "neutral"
+
+    if not text or not text.strip():
+        return "neutral"
+
+    # Используем LanguageDetector для определения языка
+    language_code, script_code, confidence = _get_element_language(text)
+
+    # Нейтральный контент: нет букв, только цифры/пунктуация
+    if script_code == "other" or language_code == "unknown":
+        char_count = _count_chars(text)
+        if char_count <= _NEUTRAL_MAX_CHARS:
+            return "neutral"
+        # Длинный нейтральный/неизвестный → unknown (retain с флагом)
+        return "unknown"
+
+    # Низкая уверенность детектора → unknown (retain с флагом)
+    if not _is_detection_reliable(language_code, confidence):
+        char_count = _count_chars(text)
+        if char_count <= _NEUTRAL_MAX_CHARS:
+            return "neutral"
+        return "unknown"
+
+    # Определённый язык совпадает с целевым → target
+    if language_code == target_lang:
+        return "target"
+
+    # Проверяем смешанный контент:
+    # Если в тексте значимо присутствуют символы целевого языка
+    # (например, "Buyer (Покупатель) обязуется") → mixed
+    if _has_significant_target_script(text, target_lang):
+        return "mixed"
+
+    # Определённо другой язык → foreign
+    return "foreign"
+
+
+def _is_detection_reliable(language_code: str, confidence: float) -> bool:
+    """
+    Проверить, можно ли доверять результату language detection.
+
+    Для непрофессионального программиста:
+    - если lingua говорит "это арабский" с уверенностью 0.9 → доверяем
+    - если lingua говорит "это французский" с уверенностью 0.2 → не доверяем,
+      лучше пометим как unknown и не будем удалять этот элемент
+    """
+    if language_code == "unknown":
+        return False
+    try:
+        from core.config import settings
+        threshold = getattr(settings, "LANGUAGE_DETECTOR_CONFIDENCE_THRESHOLD", 0.50)
+    except Exception:
+        threshold = 0.50
+    return confidence >= threshold
+
+
+def _has_significant_target_script(text: str, target_lang: str) -> bool:
+    """
+    Проверить, есть ли в тексте значимое присутствие символов целевого языка.
+
+    Используется для определения mixed-content элементов.
+    Например: "Buyer (Покупатель) обязуется" — содержит и латиницу, и кириллицу.
+
+    Логика:
+    - Определяем script целевого языка по его ISO коду
+    - Считаем долю символов этого script в тексте
+    - Если доля >= 15% → значимое присутствие → mixed
+    """
+    from services.language_detector import get_language_detector
+    detector = get_language_detector()
+
+    # Определяем script целевого языка
+    # Для этого создаём "пробный" текст на целевом языке и смотрим его script
+    # Но проще — используем заранее известный маппинг
+    target_script = _lang_to_expected_script(target_lang)
+    if not target_script:
+        return False
+
+    # Считаем символы целевого script в тексте
+    target_count = 0
+    total_letter_count = 0
+
+    from services.language_detector import _SCRIPT_RANGES
+    target_ranges = next(
+        (ranges for script, ranges in _SCRIPT_RANGES if script == target_script),
+        None,
+    )
+    if not target_ranges:
+        return False
+
+    # Считаем все буквы и буквы целевого script
+    for ch in text:
+        code = ord(ch)
+        is_any_letter = any(
+            any(s <= code <= e for s, e in ranges)
+            for _, ranges in _SCRIPT_RANGES
+        )
+        if is_any_letter:
+            total_letter_count += 1
+            if any(s <= code <= e for s, e in target_ranges):
+                target_count += 1
+
+    if total_letter_count == 0:
+        return False
+
+    target_ratio = target_count / total_letter_count
+    return target_ratio >= _MULTILINGUAL_MIN_RATIO
+
+
+def _lang_to_expected_script(lang_code: str) -> str | None:
+    """
+    Маппинг ISO language code → ожидаемый script code.
+
+    Для наиболее распространённых языков в нашем контексте.
+    Используется для определения mixed-content.
+    """
+    _LANG_SCRIPT_MAP: dict[str, str] = {
+        # Кириллица
+        "ru": "cyrillic", "uk": "cyrillic", "be": "cyrillic",
+        "bg": "cyrillic", "sr": "cyrillic", "mk": "cyrillic",
+        "kk": "cyrillic", "ky": "cyrillic", "tg": "cyrillic",
+        "mn": "cyrillic",
+        # Латиница
+        "en": "latin", "fr": "latin", "de": "latin", "es": "latin",
+        "it": "latin", "pt": "latin", "nl": "latin", "pl": "latin",
+        "cs": "latin", "sk": "latin", "sl": "latin", "hr": "latin",
+        "ro": "latin", "hu": "latin", "sv": "latin", "da": "latin",
+        "nb": "latin", "fi": "latin", "et": "latin", "lv": "latin",
+        "lt": "latin", "tr": "latin", "uz": "latin", "az": "latin",
+        "id": "latin", "ms": "latin",
+        # Арабица
+        "ar": "arabic", "fa": "arabic", "ur": "arabic",
+        # Иврит
+        "he": "hebrew",
+        # CJK
+        "zh": "cjk", "ja": "cjk", "ko": "cjk",
+        # Деванагари
+        "hi": "devanagari", "mr": "devanagari",
+    }
+    return _LANG_SCRIPT_MAP.get(lang_code)
+
+
+# ---------------------------------------------------------------------------
+# Таблица решений для фильтрации по language label
+# ---------------------------------------------------------------------------
+
+_RETENTION_POLICY: dict[str, tuple[str, str]] = {
+    "target":  ("retained", "target_language_match"),
+    "neutral": ("retained", "neutral_block_preserved"),
+    "mixed":   ("flagged",  "mixed_content_retained_with_flag"),
+    "unknown": ("flagged",  "unknown_language_retained_with_flag"),
+    "foreign": ("excluded", "foreign_language_excluded"),
+}
+
+
+# ---------------------------------------------------------------------------
+# Вспомогательные функции очистки текста
 # ---------------------------------------------------------------------------
 
 
 def _clean_artifacts(text: str) -> str:
     """
-    Очистка типичных PDF/OCR/layout-артефактов перед детекцией языка.
+    Очистка типичных PDF/OCR/layout-артефактов перед анализом.
 
-    Не пытаемся "исправить" текст агрессивно — только убираем очевидный шум:
-    - replacement chars и tofu-подобные символы;
-    - zero-width chars;
-    - повторяющийся мусор из пунктуации;
-    - схлопываем пробелы.
-
-    ВАЖНО: функция нужна для детекции языка и качества.
-    Оригинальный текст элемента downstream не переписываем глобально.
+    ВАЖНО: только для детекции языка и оценки качества.
+    Оригинальный текст элемента НЕ переписываем — lossless инвариант.
     """
     if not text:
         return ""
@@ -128,14 +520,14 @@ def _clean_artifacts(text: str) -> str:
         .replace("\ufeff", "")
     )
 
-    # Частые символы деградации после неудачной конвертации/извлечения
+    # Частые символы деградации
     cleaned = cleaned.replace("�", " ")
     cleaned = cleaned.replace("■", " ")
     cleaned = cleaned.replace("□", " ")
     cleaned = cleaned.replace("▪", " ")
     cleaned = cleaned.replace("▫", " ")
 
-    # Схлопываем длинные серии из одинаковых "шумовых" символов
+    # Схлопываем длинные серии шумовых символов
     cleaned = re.sub(rf"([_\-–—.=~*•·])\1{{{_MAX_REPEATED_SYMBOL_RUN - 1},}}", r"\1", cleaned)
 
     # Нормализуем пробелы
@@ -143,111 +535,45 @@ def _clean_artifacts(text: str) -> str:
     return cleaned
 
 
-def _detect_script(text: str) -> str:
-    """
-    Определить доминирующий скрипт строки.
-
-    Возвращает:
-      "ru"    — доминирует кириллица
-      "en"    — доминирует латиница
-      "other" — нейтральный (цифры, пунктуация, пустая строка)
-
-    ВАЖНО:
-    - метод намеренно НЕ возвращает "mixed";
-    - если оба скрипта присутствуют, побеждает тот, которого больше;
-    - для арабского, CJK и иных письменностей текущий контракт возвращает "other",
-      чтобы не ломать существующий pipeline, рассчитанный на "ru"/"en".
-    """
-    prepared = _clean_artifacts(text)
-    if not prepared:
-        return "other"
-
-    cyr = 0
-    lat = 0
-
-    for ch in prepared:
-        code = ord(ch)
-        # Кириллица: основной блок + расширенный
-        if 0x0400 <= code <= 0x04FF or 0x0500 <= code <= 0x052F:
-            cyr += 1
-        # Латиница: ASCII + Latin-1 supplement
-        elif 0x0041 <= code <= 0x005A or 0x0061 <= code <= 0x007A or 0x00C0 <= code <= 0x00FF:
-            lat += 1
-
-    total = cyr + lat
-    if total == 0:
-        return "other"
-
-    if cyr >= _SCRIPT_MIN_CHARS and cyr / total >= _SCRIPT_DOMINANCE:
-        return "ru"
-    if lat >= _SCRIPT_MIN_CHARS and lat / total >= _SCRIPT_DOMINANCE:
-        return "en"
-
-    if cyr >= _SCRIPT_MIN_CHARS or lat >= _SCRIPT_MIN_CHARS:
-        return "ru" if cyr >= lat else "en"
-
-    return "other"
-
-
-# ---------------------------------------------------------------------------
-# Вспомогательные функции
-# ---------------------------------------------------------------------------
-
-
 def _count_chars(text: str) -> int:
-    """Число символов без пробелов и переносов, после мягкой очистки артефактов."""
+    """Число символов без пробелов и переносов, после мягкой очистки."""
     prepared = _clean_artifacts(text)
     return len(prepared.replace(" ", "").replace("\n", "")) if prepared else 0
 
 
 def _should_keep_neutral(text: str) -> bool:
     """
-    Нейтральный блок (числа, знаки, короткие подписи) включаем только если он короткий.
-    Длинный нейтральный текст — чаще всего ошибка детекции, деградированный extraction
-    или таблица/мусор без уверенного языка.
+    Нейтральный блок включаем только если он короткий.
+    Длинный нейтральный текст — ошибка детекции или мусор.
     """
     return _count_chars(text) <= _NEUTRAL_MAX_CHARS
 
 
 def _sanitize_text_to_script(text: str, target_lang: str) -> str:
     """
-    Очистить текст элемента под целевой язык.
+    УСТАРЕВШАЯ функция. НЕ вызывается в canonical filter path.
 
-    Идея:
-    - Оставляем буквы целевого алфавита (кириллица для ru, латиница для en),
-      а также цифры, пробелы и базовую пунктуацию.
-    - Это убирает "хвосты" второго языка в строках типа
-      "SALE AGREEMENT ДОГОВОР КУПЛИ-ПРОДАЖИ".
-    - Мы не трогаем структуру документа, только содержимое текста.
+    Оставлена для совместимости. Нарушает lossless инвариант.
+    В фильтрах (_simple_filter, _structural_filter) не используется.
     """
     if not text:
         return ""
 
     target = (target_lang or "").lower()
 
-    # Диапазоны Unicode для кириллицы и латиницы
-    allowed_ranges = {
-        "ru": [(0x0400, 0x04FF), (0x0500, 0x052F)],  # основная и доп. кириллица
-        "en": [
-            (0x0041, 0x005A),  # A-Z
-            (0x0061, 0x007A),  # a-z
-            (0x00C0, 0x00FF),  # Latin-1 supplement (умляуты и т.п.)
-        ],
+    allowed_ranges: dict[str, list[tuple[int, int]]] = {
+        "ru": [(0x0400, 0x04FF), (0x0500, 0x052F)],
+        "en": [(0x0041, 0x005A), (0x0061, 0x007A), (0x00C0, 0x00FF)],
     }
 
     allowed = allowed_ranges.get(target)
-    # Если язык неизвестен, ничего не чистим
     if not allowed:
         return text
 
     cleaned_chars: list[str] = []
     for ch in text:
         code = ord(ch)
-
-        # Буквы целевого алфавита
         is_target_letter = any(start <= code <= end for start, end in allowed)
-
-        # "Нейтральные" символы: цифры, пробелы, базовая пунктуация
         is_digit = ch.isdigit()
         is_space = ch.isspace()
         is_punct = ch in ".,;:!?()[]{}-–—/\\"
@@ -267,10 +593,7 @@ def _safe_int_page(value: Any, default: int = 1) -> int:
 
 
 def _safe_bbox(raw_bbox: Any) -> list[float]:
-    """
-    Нормализовать bbox к [x0, top, x1, bottom] из float.
-    При проблемах возвращает [0,0,0,0].
-    """
+    """Нормализовать bbox к [x0, top, x1, bottom] из float."""
     if not isinstance(raw_bbox, list | tuple) or len(raw_bbox) < 4:
         return [0.0, 0.0, 0.0, 0.0]
 
@@ -303,8 +626,22 @@ def _bbox_sort_key(element: dict[str, Any]) -> tuple[int, float, float]:
     )
 
 
+def _reading_order_sort_key(el: dict[str, Any]) -> tuple:
+    """
+    Ключ сортировки с приоритетом исходного reading_order.
+    Если reading_order задан — используем его.
+    Иначе — bbox-based сортировка.
+    """
+    raw_order = el.get("reading_order")
+    if isinstance(raw_order, int):
+        return (0, raw_order)
+    bbox = _safe_bbox(el.get("bbox"))
+    page = _safe_int_page(el.get("page", 1))
+    return (1, page, bbox[1], bbox[0])
+
+
 # ---------------------------------------------------------------------------
-# Публичные функции обнаружения языков
+# MULTILINGUAL: Публичные функции обнаружения языков
 # ---------------------------------------------------------------------------
 
 
@@ -312,26 +649,82 @@ def detect_languages_in_layout(layout: dict[str, Any]) -> list[str]:
     """
     Определить, какие языки реально присутствуют в layout.
 
-    Анализирует все elements layout["elements"].
-    Возвращает отсортированный список кодов языков (["en", "ru"] и т.п.).
-    Если ни одного языка не обнаружено — возвращает ["ru"] как дефолт.
+    MULTILINGUAL версия (Фаза 2A):
+    - использует LanguageDetector для определения реального языка каждого элемента
+    - возвращает ISO 639-1 коды ВСЕХ найденных языков: ["en", "ar"], ["ru", "kk"], ...
+    - pure structured data (IBAN, SWIFT, email) игнорируется при подсчёте языков
+    - элементы с низкой уверенностью детектора игнорируются
+
+    Возвращает отсортированный список кодов языков.
+    Если ни одного языка не обнаружено — возвращает пустой список
+    (вызывающий код сам решает что делать с пустым списком).
+
+    Для непрофессионального программиста:
+    - раньше эта функция умела находить только "ru" и "en"
+    - теперь она находит любой из 75+ языков которые умеет lingua
+    - результат используется для показа пользователю списка языков документа
     """
     elements: list[dict[str, Any]] = layout.get("elements") or []
-    langs: set[str] = set()
+    if not elements:
+        return []
+
+    # Собираем языки с количеством символов для каждого
+    # Это позволяет отфильтровать языки с ничтожным присутствием
+    lang_char_counts: dict[str, int] = {}
+    total_natural_chars = 0
+
+    from services.language_detector import get_language_detector
+    detector = get_language_detector()
 
     for el in elements:
         text = (el.get("text") or "").strip()
         if not text:
             continue
-        script = _detect_script(text)
-        if script in ("ru", "en"):
-            langs.add(script)
 
-    return sorted(langs) if langs else ["ru"]
+        # Pure structured data не влияет на языковой состав документа
+        if _classify_structured_data(text) == "pure":
+            continue
+
+        char_count = _count_chars(text)
+        if char_count == 0:
+            continue
+
+        result = detector.detect_language(text)
+
+        # Пропускаем неопределённые языки и нейтральный контент
+        if result.language_code in ("unknown",):
+            continue
+        if result.script_code == "other":
+            continue
+
+        # Пропускаем ненадёжные результаты
+        if not _is_detection_reliable(result.language_code, result.confidence):
+            continue
+
+        lang_char_counts[result.language_code] = (
+            lang_char_counts.get(result.language_code, 0) + char_count
+        )
+        total_natural_chars += char_count
+
+    if not lang_char_counts or total_natural_chars == 0:
+        return []
+
+    # Фильтруем языки которые занимают слишком малую долю
+    # (менее 5% от всего текста) — это вероятно шум или единичные слова
+    significant_langs = [
+        lang for lang, count in lang_char_counts.items()
+        if count / total_natural_chars >= 0.05
+    ]
+
+    return sorted(significant_langs)
 
 
 # ---------------------------------------------------------------------------
-# Структурный анализатор (билингвальный режим)
+# MULTILINGUAL: Структурный анализатор
+#
+# Обновлён для работы с любыми языками, не только ru/en.
+# Ключевое изменение: _StructElement.detected_lang теперь хранит ISO код
+# языка, а _StructBlock работает с generic language_elements dict.
 # ---------------------------------------------------------------------------
 
 
@@ -345,7 +738,8 @@ class _StructElement:
     page: int
     bbox: list[float]
     element_type: str
-    detected_lang: str  # "ru" | "en" | "other"
+    detected_lang: str   # ISO 639-1 код: "ru", "en", "ar", "fr"... или "unknown"
+    detected_script: str # "cyrillic", "latin", "arabic", "hebrew", "cjk", "other"
     clause_number: str | None = None
     y_center: float = 0.0
     x_center: float = 0.0
@@ -368,70 +762,79 @@ class _StructElement:
 class _StructBlock:
     """
     Группа параллельных элементов на одной вертикальной позиции.
-    Может содержать один или два языка (ru и/или en).
+
+    MULTILINGUAL версия: поддерживает любые языки.
+    Вместо жёстких ru_element/en_element — универсальный словарь
+    language_elements: {lang_code → best_element}.
     """
 
     block_id: str | None
     y_position: float
     page: int
     elements: list[_StructElement] = field(default_factory=list)
-    ru_element: _StructElement | None = None
-    en_element: _StructElement | None = None
+    # Универсальный маппинг: ISO lang code → лучший элемент для этого языка
+    language_elements: dict[str, _StructElement] = field(default_factory=dict)
     is_heading: bool = False
 
     def resolve_languages(self) -> None:
-        """Выбрать по одному представителю для каждого языка."""
-        ru_candidates: list[_StructElement] = []
-        en_candidates: list[_StructElement] = []
+        """
+        Выбрать по одному лучшему представителю для каждого найденного языка.
+
+        Лучший элемент для языка = тот с наибольшим числом символов
+        (из heading-элементов если есть heading, иначе из всех).
+        """
+        # Группируем элементы по языку
+        lang_candidates: dict[str, list[_StructElement]] = {}
 
         for el in self.elements:
-            if el.detected_lang == "ru":
-                ru_candidates.append(el)
-            elif el.detected_lang == "en":
-                en_candidates.append(el)
+            lang = el.detected_lang
+            if lang not in lang_candidates:
+                lang_candidates[lang] = []
+            lang_candidates[lang].append(el)
 
-        def _best(candidates: list[_StructElement]) -> _StructElement | None:
-            if not candidates:
-                return None
+        # Для каждого языка выбираем лучший элемент
+        self.language_elements = {}
+        for lang, candidates in lang_candidates.items():
+            if lang in ("unknown",):
+                # Для нейтрального/unknown — оставляем в нейтральный слот
+                continue
             headings = [e for e in candidates if e.element_type == "heading"]
             pool = headings if headings else candidates
-            return max(pool, key=lambda e: (_count_chars(e.text), len(e.text)))
+            best = max(pool, key=lambda e: (_count_chars(e.text), len(e.text)))
+            self.language_elements[lang] = best
 
-        self.ru_element = _best(ru_candidates)
-        self.en_element = _best(en_candidates)
+        # Нейтральные элементы: добавляем в специальный слот "neutral"
+        # если нет ни одного языкового элемента
+        if not self.language_elements:
+            all_neutral = [e for e in self.elements if e.detected_lang == "unknown"]
+            if all_neutral:
+                best_neutral = max(
+                    all_neutral,
+                    key=lambda e: (_count_chars(e.text), len(e.text)),
+                )
+                self.language_elements["unknown"] = best_neutral
 
-        if self.ru_element is None and self.en_element is None:
-            neutral = [e for e in self.elements if e.detected_lang == "other"]
-            if neutral:
-                best_neutral = max(neutral, key=lambda e: (_count_chars(e.text), len(e.text)))
-                self.ru_element = best_neutral
-                self.en_element = best_neutral
-
-    def get_for_language(self, lang: str) -> _StructElement | None:
+    def get_for_language(self, target_lang: str) -> _StructElement | None:
         """
-        Вернуть элемент для целевого языка.
+        Вернуть лучший элемент для целевого языка.
 
-        ВАЖНО:
-        - Для 'ru' возвращаем ТОЛЬКО ru_element.
-        - Для 'en' возвращаем ТОЛЬКО en_element.
-        - Если нужного языка нет в блоке, возвращаем None,
-          чтобы этот блок был пропущен для данного языка.
-        - Fallback на другой/нейтральный элемент оставляем только
-          для нестандартных значений lang (не 'ru'/'en').
+        Логика:
+        1. Если в блоке есть элемент на целевом языке → возвращаем его.
+        2. Если нет — возвращаем None (блок будет пропущен для этого языка).
+
+        Fallback на нейтральный/unknown элемент не делаем,
+        потому что такой элемент может принадлежать другому языку.
         """
-        lang = (lang or "").lower()
-
-        if lang == "ru":
-            return self.ru_element  # Без подстановки en_element
-        if lang == "en":
-            return self.en_element  # Без подстановки ru_element
-
-        # Для "other"/legacy кейсов можно вернуть любой доступный
-        return self.ru_element or self.en_element
+        return self.language_elements.get(target_lang)
 
     @property
-    def has_both_languages(self) -> bool:
-        return self.ru_element is not None and self.en_element is not None
+    def has_multiple_languages(self) -> bool:
+        """True если блок содержит элементы на двух и более языках."""
+        real_langs = {
+            lang for lang in self.language_elements
+            if lang != "unknown"
+        }
+        return len(real_langs) >= 2
 
 
 _CLAUSE_PATTERNS = [
@@ -444,7 +847,7 @@ _CLAUSE_PATTERNS = [
 
 class _StructuralAnalyzer:
     """
-    Билингвальный структурный анализатор.
+    Multilingual структурный анализатор.
 
     Группирует элементы layout по вертикальной позиции (page, y_center),
     выравнивает параллельные блоки по номерам пунктов,
@@ -482,6 +885,9 @@ class _StructuralAnalyzer:
     def _convert_elements(self, elements: list[dict[str, Any]]) -> list[_StructElement]:
         result: list[_StructElement] = []
 
+        from services.language_detector import get_language_detector
+        detector = get_language_detector()
+
         for el in elements:
             raw_text = el.get("text", "")
             text = raw_text.strip()
@@ -491,13 +897,23 @@ class _StructuralAnalyzer:
             page_val = _safe_int_page(el.get("page", 1), default=1)
             safe_bbox = _safe_bbox(el.get("bbox", [0, 0, 0, 0]))
 
-            # В structural-анализ не берём полностью нулевые bbox:
-            # они создают ложные группировки в (0,0) и сильно шумят.
             if _is_zero_bbox(safe_bbox):
                 continue
 
             el_type = str(el.get("type", "text") or "text").lower()
-            detected_lang = _detect_script(text)
+
+            # Pure structured data → unknown lang, не влияет на language grouping
+            if _classify_structured_data(text) == "pure":
+                detected_lang = "unknown"
+                detected_script = detector.detect_script(text)
+            else:
+                lang_result = detector.detect_language(text)
+                detected_lang = lang_result.language_code
+                detected_script = lang_result.script_code
+                # Низкая уверенность → unknown
+                if not _is_detection_reliable(detected_lang, lang_result.confidence):
+                    detected_lang = "unknown"
+
             clause_num = self._extract_clause_number(text, el_type)
 
             result.append(
@@ -509,6 +925,7 @@ class _StructuralAnalyzer:
                     bbox=safe_bbox,
                     element_type=el_type,
                     detected_lang=detected_lang,
+                    detected_script=detected_script,
                     clause_number=clause_num,
                 )
             )
@@ -570,21 +987,22 @@ class _StructuralAnalyzer:
         )
         block.resolve_languages()
 
-        headings_with_num = [e for e in elements if e.element_type == "heading" and e.clause_number]
+        headings_with_num = [
+            e for e in elements
+            if e.element_type == "heading" and e.clause_number
+        ]
         if headings_with_num:
-            # Берём наиболее "сильный" heading как источник block_id
-            best_heading = max(headings_with_num, key=lambda e: (_count_chars(e.text), len(e.text)))
+            best_heading = max(
+                headings_with_num,
+                key=lambda e: (_count_chars(e.text), len(e.text)),
+            )
             block.block_id = best_heading.clause_number
             block.is_heading = True
 
         return block
 
     def _align_by_clause_numbers(self, blocks: list[_StructBlock]) -> list[_StructBlock]:
-        """
-        Объединяем блоки с одинаковым block_id (номером пункта).
-        Это нужно для случаев, когда параллельные блоки договора
-        оказались на слегка разных y-координатах.
-        """
+        """Объединяем блоки с одинаковым block_id (номером пункта)."""
         num_to_blocks: dict[str, list[_StructBlock]] = {}
         unnumbered: list[_StructBlock] = []
 
@@ -627,9 +1045,13 @@ class _StructuralAnalyzer:
         for block in blocks:
             unique: list[_StructElement] = []
             for element in sorted(
-                block.elements, key=lambda e: (e.y_center, e.x_center, e.element_id)
+                block.elements,
+                key=lambda e: (e.y_center, e.x_center, e.element_id),
             ):
-                dedupe_key = element.element_id or f"{element.page}:{element.bbox}:{element.text}"
+                dedupe_key = (
+                    element.element_id
+                    or f"{element.page}:{element.bbox}:{element.text}"
+                )
                 if dedupe_key not in seen_ids:
                     seen_ids.add(dedupe_key)
                     unique.append(element)
@@ -646,7 +1068,7 @@ class _StructuralAnalyzer:
 def _assess_quality(
     original: list[dict[str, Any]],
     selected: list[dict[str, Any]],
-    is_bilingual: bool = False,  # ← новый аргумент
+    is_multilingual: bool = False,
 ) -> dict[str, Any]:
     e_b = len(original)
     e_a = len(selected)
@@ -658,23 +1080,26 @@ def _assess_quality(
 
     degraded_reasons: list[str] = []
 
-    # Абсолютные провалы — проверяем всегда, для любого документа
+    # Абсолютные провалы — проверяем всегда
     if e_b > 0 and e_a == 0:
         degraded_reasons.append("no_elements_after_filter")
     if c_b > 0 and c_a == 0:
         degraded_reasons.append("no_chars_after_filter")
 
-    # Пороги retention применяем ТОЛЬКО для билингвальных документов.
-    # Для монолингвальных фильтр не применяется (Баг 1), поэтому
-    # низкий retention здесь означает баг фильтра, а не норму.
-    if is_bilingual:
+    # Пороги retention применяем только для multilingual документов
+    # (для монолингвальных низкий retention означает баг фильтра)
+    if is_multilingual:
         if (
             e_b >= _STRUCTURAL_MIN_ELEMENTS
             and element_retention_ratio < _MIN_ELEMENT_RETENTION_RATIO
         ):
-            degraded_reasons.append(f"low_element_retention_ratio:{element_retention_ratio:.3f}")
+            degraded_reasons.append(
+                f"low_element_retention_ratio:{element_retention_ratio:.3f}"
+            )
         if c_b > 0 and char_retention_ratio < _MIN_CHAR_RETENTION_RATIO:
-            degraded_reasons.append(f"low_char_retention_ratio:{char_retention_ratio:.3f}")
+            degraded_reasons.append(
+                f"low_char_retention_ratio:{char_retention_ratio:.3f}"
+            )
 
     degraded = bool(degraded_reasons)
 
@@ -694,16 +1119,14 @@ def _build_metadata(
     layout: dict[str, Any],
     target: str,
     quality: dict[str, Any],
-    is_bilingual: bool = False,
+    is_multilingual: bool = False,
     structural_filter_used: bool = False,
 ) -> dict[str, Any]:
-    """
-    Собрать metadata для layout_primary.
-    """
+    """Собрать metadata для layout_primary."""
     base = dict(layout.get("metadata") or {})
     base["language_filter"] = {
         "target_language": target,
-        "bilingual_mode": is_bilingual,
+        "multilingual_mode": is_multilingual,
         "structural_filter_used": structural_filter_used,
         **quality,
     }
@@ -712,7 +1135,7 @@ def _build_metadata(
 
 
 # ---------------------------------------------------------------------------
-# Простой фильтр (монолингвальный / short document fallback)
+# Простой фильтр — LOSSLESS, MULTILINGUAL, с provenance
 # ---------------------------------------------------------------------------
 
 
@@ -721,67 +1144,109 @@ def _simple_filter(
     target: str,
     elements: list[dict[str, Any]],
     tables: list[Any],
-    is_bilingual: bool = False,
+    is_multilingual: bool = False,
 ) -> dict[str, Any]:
     """
-    Простая посимвольная фильтрация по скрипту.
+    Lossless простой фильтр с multilingual поддержкой.
+
+    КРИТИЧЕСКИ ВАЖНО: retained_element["text"] == raw_element["text"] БЕЗ ИСКЛЮЧЕНИЙ.
+
+    Возвращает dict с ключами:
+    - elements:             отфильтрованные элементы (retained + flagged)
+    - tables:               таблицы без изменений
+    - excluded_element_ids: список element_id удалённых элементов
+    - filter_decisions:     audit trail каждого решения
+    - metadata:             metadata с language_filter
     """
-    filtered: list[dict[str, Any]] = []
+    retained_elements: list[dict[str, Any]] = []
+    filter_decisions: list[dict[str, Any]] = []
+    excluded_ids: list[str] = []
     seen_ids: set[str] = set()
+
+    from services.language_detector import get_language_detector
+    detector = get_language_detector()
 
     for el in elements:
         text = el.get("text", "")
-        lang = _detect_script(text)
+        element_id = str(el.get("element_id") or "")
 
-        keep = False
-        is_structured = False  # ← новый флаг
-
-        if lang == target:
-            keep = True
-        elif lang == "other" and _should_keep_neutral(text):
-            keep = True
-        elif _is_structured_data(text):  # ← ПРАВКА: реквизиты сохраняем всегда
-            keep = True
-            is_structured = True
-
-        if not keep:
-            continue
-
-        dedupe_key = str(el.get("element_id") or "") or f"{_bbox_sort_key(el)}:{text.strip()}"
+        dedupe_key = element_id or f"{_bbox_sort_key(el)}:{text.strip()}"
         if dedupe_key in seen_ids:
             continue
         seen_ids.add(dedupe_key)
 
-        # Делаем копию элемента и очищаем текст под целевой язык.
-        # ПРАВКА: структурированные данные (email, счета, коды) не санитизируем —
-        # _sanitize_text_to_script удалит латиницу и уничтожит реквизиты.
-        el_copy = dict(el)
-        if not is_structured:
-            el_copy["text"] = _sanitize_text_to_script(text, target)
-        filtered.append(el_copy)
+        # Шаг 1: Структурированные данные
+        structured_kind = _classify_structured_data(text)
 
-    filtered.sort(key=_bbox_sort_key)
+        # Шаг 2: Language label
+        language_label = classify_element_language(text, target, structured_kind)
 
-    quality = _assess_quality(elements, filtered, is_bilingual=is_bilingual)
+        # Шаг 3: Structured data → всегда retained
+        if structured_kind in ("pure", "contains"):
+            decision = "retained"
+            reason = "structured_data_preserved"
+        else:
+            decision, reason = _RETENTION_POLICY[language_label]
+
+        # Шаг 4: Language detection для audit trail
+        if text.strip():
+            lang_result = detector.detect_language(text)
+            lang_detected = lang_result.language_code
+            lang_script = lang_result.script_code
+            lang_confidence = lang_result.confidence
+        else:
+            lang_detected = "unknown"
+            lang_script = "other"
+            lang_confidence = 0.0
+
+        # Шаг 5: Audit trail
+        filter_decisions.append({
+            "source_element_id": element_id,
+            "output_element_id": element_id if decision != "excluded" else None,
+            "page": el.get("page", 1),
+            "decision": decision,
+            "language_detected": lang_detected,
+            "language_script": lang_script,
+            "language_confidence": round(lang_confidence, 4),
+            "language_label": language_label,
+            "reason": reason,
+            "is_structured_data": structured_kind != "none",
+            "structured_data_kind": structured_kind,
+        })
+
+        # Шаг 6: Применяем решение
+        if decision in ("retained", "flagged"):
+            el_copy = dict(el)
+            el_copy["retention_status"] = decision
+            el_copy["language_label"] = language_label
+            retained_elements.append(el_copy)
+        else:
+            excluded_ids.append(element_id)
+
+    retained_sorted = sorted(retained_elements, key=_reading_order_sort_key)
+    for order, element in enumerate(retained_sorted):
+        element["reading_order"] = order
+
+    quality = _assess_quality(elements, retained_sorted, is_multilingual=is_multilingual)
     metadata = _build_metadata(
-        layout,
-        target,
-        quality,
-        is_bilingual=is_bilingual,
+        layout, target, quality,
+        is_multilingual=is_multilingual,
         structural_filter_used=False,
     )
 
     return {
         "document_version_id": layout.get("document_version_id"),
         "document_id": layout.get("document_id"),
-        "elements": filtered,
+        "elements": retained_sorted,
         "tables": tables,
+        "excluded_element_ids": excluded_ids,
+        "filter_decisions": filter_decisions,
         "metadata": metadata,
     }
 
 
 # ---------------------------------------------------------------------------
-# Структурный фильтр (билингвальный режим)
+# Структурный фильтр — LOSSLESS, MULTILINGUAL, с provenance
 # ---------------------------------------------------------------------------
 
 
@@ -792,34 +1257,49 @@ def _structural_filter(
     tables: list[Any],
 ) -> dict[str, Any]:
     """
-    Структурный фильтр для билингвальных документов.
+    Lossless структурный фильтр с multilingual поддержкой.
+
+    LOSSLESS ИНВАРИАНТ: текст выбранных элементов не мутирует.
     """
     analyzer = _StructuralAnalyzer()
     blocks = analyzer.analyze(elements)
 
+    raw_elements_by_id: dict[str, dict[str, Any]] = {
+        str(el.get("element_id") or ""): el
+        for el in elements
+        if el.get("element_id")
+    }
+    all_raw_ids: set[str] = set(raw_elements_by_id.keys())
+
     selected_elements: list[dict[str, Any]] = []
     selected_ids: set[str] = set()
     last_heading_uid: str | None = None
-    bilingual_block_count = 0
+    multilingual_block_count = 0
+
+    from services.language_detector import get_language_detector
+    detector = get_language_detector()
 
     for block in blocks:
-        if block.has_both_languages:
-            bilingual_block_count += 1
+        if block.has_multiple_languages:
+            multilingual_block_count += 1
 
         chosen = block.get_for_language(target)
         if not chosen:
             continue
 
-        # НОВАЯ ПРОВЕРКА:
         # Если язык выбранного элемента явно отличается от целевого
-        # и он не "нейтральный", такой элемент пропускаем.
-        if chosen.detected_lang not in (target, "other"):
+        # и он не neutral — пропускаем
+        if chosen.detected_lang not in (target, "unknown"):
             continue
 
         out = dict(chosen.original)
-        # Очищаем текст под целевой язык, чтобы убрать хвосты второго языка
-        if not _is_structured_data(chosen.text):
-            out["text"] = _sanitize_text_to_script(chosen.text, target)
+
+        # Language label для provenance
+        structured_kind = _classify_structured_data(chosen.text)
+        language_label = classify_element_language(chosen.text, target, structured_kind)
+
+        out["retention_status"] = "retained"
+        out["language_label"] = language_label
 
         if block.is_heading and block.block_id:
             out["clause_uid"] = block.block_id
@@ -829,7 +1309,11 @@ def _structural_filter(
 
         dedupe_key = (
             str(out.get("element_id") or "")
-            or f"{_safe_int_page(out.get('page', 1))}:{_safe_bbox(out.get('bbox'))}:{out.get('text', '')}"
+            or (
+                f"{_safe_int_page(out.get('page', 1))}"
+                f":{_safe_bbox(out.get('bbox'))}"
+                f":{out.get('text', '')}"
+            )
         )
         if dedupe_key in selected_ids:
             continue
@@ -837,30 +1321,78 @@ def _structural_filter(
         selected_ids.add(dedupe_key)
         selected_elements.append(out)
 
-    selected_elements.sort(key=_bbox_sort_key)
+    selected_sorted = sorted(selected_elements, key=_reading_order_sort_key)
+    for order, element in enumerate(selected_sorted):
+        element["reading_order"] = order
 
-    quality = _assess_quality(elements, selected_elements, is_bilingual=True)
+    selected_element_ids: set[str] = {
+        str(el.get("element_id") or "")
+        for el in selected_sorted
+        if el.get("element_id")
+    }
+    excluded_ids: list[str] = sorted(all_raw_ids - selected_element_ids)
+
+    # filter_decisions для selected
+    filter_decisions: list[dict[str, Any]] = []
+    for el in selected_sorted:
+        eid = str(el.get("element_id") or "")
+        el_text = el.get("text", "")
+        lang_result = detector.detect_language(el_text) if el_text.strip() else None
+        filter_decisions.append({
+            "source_element_id": eid,
+            "output_element_id": eid,
+            "page": el.get("page", 1),
+            "decision": el.get("retention_status", "retained"),
+            "language_detected": lang_result.language_code if lang_result else "unknown",
+            "language_script": lang_result.script_code if lang_result else "other",
+            "language_confidence": round(lang_result.confidence, 4) if lang_result else 0.0,
+            "language_label": el.get("language_label", "target"),
+            "reason": "structural_filter_selected",
+            "is_structured_data": _classify_structured_data(el_text) != "none",
+            "structured_data_kind": _classify_structured_data(el_text),
+        })
+
+    # filter_decisions для excluded
+    for eid in excluded_ids:
+        raw_el = raw_elements_by_id.get(eid, {})
+        raw_text = raw_el.get("text", "")
+        lang_result = detector.detect_language(raw_text) if raw_text.strip() else None
+        filter_decisions.append({
+            "source_element_id": eid,
+            "output_element_id": None,
+            "page": raw_el.get("page", 1),
+            "decision": "excluded",
+            "language_detected": lang_result.language_code if lang_result else "unknown",
+            "language_script": lang_result.script_code if lang_result else "other",
+            "language_confidence": round(lang_result.confidence, 4) if lang_result else 0.0,
+            "language_label": "foreign",
+            "reason": "structural_filter_not_selected",
+            "is_structured_data": _classify_structured_data(raw_text) != "none",
+            "structured_data_kind": _classify_structured_data(raw_text),
+        })
+
+    quality = _assess_quality(elements, selected_sorted, is_multilingual=True)
     metadata = _build_metadata(
-        layout,
-        target,
-        quality,
-        is_bilingual=True,
+        layout, target, quality,
+        is_multilingual=True,
         structural_filter_used=True,
     )
-    metadata["language_filter"]["bilingual_blocks_found"] = bilingual_block_count
+    metadata["language_filter"]["multilingual_blocks_found"] = multilingual_block_count
     metadata["language_filter"]["structural_blocks_total"] = len(blocks)
 
     return {
         "document_version_id": layout.get("document_version_id"),
         "document_id": layout.get("document_id"),
-        "elements": selected_elements,
+        "elements": selected_sorted,
         "tables": tables,
+        "excluded_element_ids": excluded_ids,
+        "filter_decisions": filter_decisions,
         "metadata": metadata,
     }
 
 
 # ---------------------------------------------------------------------------
-# Главная точка входа
+# Главная точка входа — MULTILINGUAL
 # ---------------------------------------------------------------------------
 
 
@@ -872,20 +1404,32 @@ def filter_layout_to_language(
     """
     Отфильтровать layout до одного языка.
 
+    MULTILINGUAL версия (Фаза 2A):
+    - принимает любой ISO 639-1 target_language: "ru", "en", "ar", "fr", "kk"...
+    - НЕ ограничен списком ("ru", "en")
+    - использует LanguageDetector для определения языка каждого элемента
+
     Аргументы:
       layout          — text_layout_raw
-      target_language — "ru" или "en"
+      target_language — ISO 639-1 код целевого языка
       context         — опциональный dict с ключами:
-                        "is_bilingual" (bool)
-                        "document_id"  (str)
-                        "deal_id"      (str)
+                        "is_multilingual" (bool) — документ содержит несколько языков
+                        "document_id"     (str)
+                        "deal_id"         (str)
 
-    Возвращает layout_primary.
+    Возвращает layout_primary с ключами:
+      - elements:             отфильтрованные элементы
+      - excluded_element_ids: list[str]  — удалённые element_id
+      - filter_decisions:     list[dict] — audit trail решений
+      - metadata:             metadata с language_filter
     """
-    target = (target_language or "").lower()
-    if target not in ("ru", "en"):
+    target = (target_language or "").lower().strip()
+
+    # MULTILINGUAL: не ограничиваем список языков
+    # Валидируем только что язык не пустой
+    if not target:
         logger.warning(
-            "filter_layout_to_language: unsupported target language, returning raw",
+            "filter_layout_to_language: empty target_language, returning raw layout",
             target_language=target_language,
         )
         return layout
@@ -899,25 +1443,26 @@ def filter_layout_to_language(
             "document_id": layout.get("document_id"),
             "elements": [],
             "tables": tables,
+            "excluded_element_ids": [],
+            "filter_decisions": [],
             "metadata": _build_metadata(
-                layout,
-                target,
-                _assess_quality([], [], is_bilingual=False),
-                is_bilingual=False,
+                layout, target,
+                _assess_quality([], [], is_multilingual=False),
+                is_multilingual=False,
                 structural_filter_used=False,
             ),
         }
 
-    is_bilingual = bool(context.get("is_bilingual")) if context else False
+    # "is_bilingual" для обратной совместимости → переименован в "is_multilingual"
+    is_multilingual = bool(
+        context.get("is_multilingual") or context.get("is_bilingual")
+    ) if context else False
     doc_id = (context or {}).get("document_id", "unknown")
 
-    if not is_bilingual or len(elements) < _STRUCTURAL_MIN_ELEMENTS:
+    if not is_multilingual or len(elements) < _STRUCTURAL_MIN_ELEMENTS:
         result = _simple_filter(
-            layout,
-            target,
-            elements,
-            tables,
-            is_bilingual=is_bilingual,
+            layout, target, elements, tables,
+            is_multilingual=is_multilingual,
         )
         logger.info(
             "filter_layout_to_language: simple filter applied",
@@ -925,10 +1470,11 @@ def filter_layout_to_language(
             target=target,
             elements_in=len(elements),
             elements_out=len(result.get("elements") or []),
-            degraded=result.get("metadata", {}).get("language_filter", {}).get("degraded", False),
+            elements_excluded=len(result.get("excluded_element_ids") or []),
+            degraded=result.get("metadata", {})
+                .get("language_filter", {}).get("degraded", False),
             degraded_reason=result.get("metadata", {})
-            .get("language_filter", {})
-            .get("degraded_reason"),
+                .get("language_filter", {}).get("degraded_reason"),
         )
         return result
 
@@ -940,28 +1486,28 @@ def filter_layout_to_language(
             target=target,
             elements_in=len(elements),
             elements_out=len(result.get("elements") or []),
-            bilingual_blocks=result.get("metadata", {})
-            .get("language_filter", {})
-            .get("bilingual_blocks_found", 0),
-            degraded=result.get("metadata", {}).get("language_filter", {}).get("degraded", False),
+            elements_excluded=len(result.get("excluded_element_ids") or []),
+            multilingual_blocks=result.get("metadata", {})
+                .get("language_filter", {}).get("multilingual_blocks_found", 0),
+            degraded=result.get("metadata", {})
+                .get("language_filter", {}).get("degraded", False),
             degraded_reason=result.get("metadata", {})
-            .get("language_filter", {})
-            .get("degraded_reason"),
+                .get("language_filter", {}).get("degraded_reason"),
         )
         return result
 
     except Exception as exc:  # noqa: BLE001
         logger.error(
-            "filter_layout_to_language: structural filter failed, falling back to simple filter",
+            "filter_layout_to_language: structural filter failed, "
+            "falling back to simple filter",
             document_id=doc_id,
             target_language=target,
             error=str(exc),
             traceback=traceback.format_exc(),
         )
 
-        result = _simple_filter(layout, target, elements, tables, is_bilingual=True)
+        result = _simple_filter(layout, target, elements, tables, is_multilingual=True)
 
-        # Явно помечаем degraded и добавляем причину fallback-а в metadata
         lf = (result.get("metadata") or {}).get("language_filter") or {}
         lf["degraded"] = True
 
@@ -981,6 +1527,7 @@ def filter_layout_to_language(
             target_language=target,
             elements_in=len(elements),
             elements_out=len(result.get("elements") or []),
+            elements_excluded=len(result.get("excluded_element_ids") or []),
             degraded=lf.get("degraded", False),
             degraded_reason=lf.get("degraded_reason"),
         )
@@ -988,7 +1535,7 @@ def filter_layout_to_language(
 
 
 # ---------------------------------------------------------------------------
-# Удобные алиасы
+# Удобные алиасы (сохраняем для обратной совместимости)
 # ---------------------------------------------------------------------------
 
 
@@ -998,3 +1545,5 @@ def filter_layout_to_ru(layout: dict[str, Any]) -> dict[str, Any]:
 
 def filter_layout_to_en(layout: dict[str, Any]) -> dict[str, Any]:
     return filter_layout_to_language(layout, "en")
+
+    

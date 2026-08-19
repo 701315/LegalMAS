@@ -132,6 +132,21 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
   discoveryStatus: rawDiscoveryStatus,
   onLanguageSet,
 }) => {
+
+  // === DEBUG: временный лог для отладки ===
+  React.useEffect(() => {
+    console.log("[Block5Language DEBUG]", {
+      dealId,
+      languages,
+      primaryLanguage,
+      discoveryStatus: rawDiscoveryStatus,
+      languages_type: typeof languages,
+      languages_isArray: Array.isArray(languages),
+      languages_length: languages?.length,
+    });
+  }, [dealId, languages, primaryLanguage, rawDiscoveryStatus]);
+  // === END DEBUG ===
+
   const setPrimaryLanguage = useSetPrimaryLanguage(dealId);
 
   const [optimisticLang, setOptimisticLang] = React.useState<string | null>(

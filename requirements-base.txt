@@ -53,10 +53,11 @@ python-docx==1.1.2
 bcrypt==4.2.1
 PyJWT==2.10.1
 
-# PII Sanitization
+# PII Sanitization / Language detection
 cryptography==44.0.0
 natasha==1.6.0
 langdetect==1.0.9
+lingua-language-detector==2.0.2
 
 # Temporary compatibility cap for legacy/transitive setup.py-based dependencies.
 # Revisit after validating the dependency chain against setuptools>=81.

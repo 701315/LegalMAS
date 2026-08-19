@@ -1,5 +1,3 @@
-# src/services/document_language_detection.py
-
 """
 Shared document language detection service.
 
@@ -14,6 +12,12 @@ Shared document language detection service.
 - PDF bytes -> quick layout -> language detection;
 - plain OCR text -> lightweight text layout -> language detection.
 
+MULTILINGUAL поддержка:
+- возвращает реальные ISO 639-1 коды всех найденных языков;
+- поддерживает 75+ языков через lingua;
+- корректно работает для bilingual OCR текста, если разные языки
+  находятся в разных строках/абзацах.
+
 Важно:
 - этот модуль ничего не знает про Celery, БД и статусы документов;
 - он только вычисляет и возвращает результат;
@@ -22,6 +26,7 @@ Shared document language detection service.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from core.logging import get_logger
@@ -29,6 +34,11 @@ from services.layout_language_filter import detect_languages_in_layout
 from services.quick_pdf_layout import build_quick_layout_from_pdf
 
 logger = get_logger(__name__)
+
+_MIN_LANG_CODE_LEN = 2
+_MAX_LANG_CODE_LEN = 8
+_MIN_QUICK_TEXT_BLOCK_CHARS = 5
+_MAX_BLOCK_LEN_BEFORE_SENTENCE_SPLIT = 400
 
 
 @dataclass(slots=True)
@@ -38,55 +48,125 @@ class DocumentLanguageDetectionResult:
 
 
 def _normalize_detected_languages(value: list[str] | None) -> list[str]:
-    """
-    Нормализовать список языков:
-    - убрать пустые значения;
-    - привести к lower-case;
-    - убрать дубли;
-    - отсортировать для стабильного результата.
-    """
     if not value:
         return []
-
     normalized: set[str] = set()
-
     for item in value:
         if not isinstance(item, str):
             continue
         lang = item.strip().lower()
-        if lang:
-            normalized.add(lang)
-
+        if not lang or not lang.isalpha():
+            continue
+        if len(lang) < _MIN_LANG_CODE_LEN or len(lang) > _MAX_LANG_CODE_LEN:
+            continue
+        normalized.add(lang)
     return sorted(normalized)
+
+
+def _normalize_text_input(text: str) -> str:
+    cleaned = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    cleaned = cleaned.replace("\t", " ")
+    cleaned = re.sub(r"[ \xa0]+", " ", cleaned)
+    return cleaned.strip()
+
+
+def _split_long_block_into_sentences(block: str) -> list[str]:
+    block = (block or "").strip()
+    if not block:
+        return []
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-ZА-ЯЁ0-9])", block)
+    if len(parts) == 1:
+        parts = re.split(r"(?<=[;:])\s+", block)
+    result: list[str] = []
+    for part in parts:
+        part = part.strip()
+        if len(part) >= _MIN_QUICK_TEXT_BLOCK_CHARS:
+            result.append(part)
+    return result or [block]
+
+
+def _split_text_into_quick_blocks(text: str) -> list[str]:
+    """
+    Разбить OCR/plain text на pseudo-elements для language detection.
+
+    Критически важно:
+    - НЕ склеивать весь OCR текст в один giant element.
+    - detect_languages_in_layout() определяет язык по элементам.
+    - Если bilingual OCR текст схлопнуть в один element,
+      lingua выберет только доминирующий язык.
+    - Разбивка на строки/абзацы/предложения позволяет найти
+      все реально присутствующие языки.
+    """
+    normalized = _normalize_text_input(text)
+    if not normalized:
+        return []
+
+    lines = [line.strip() for line in normalized.split("\n") if line.strip()]
+    if len(lines) > 1:
+        blocks: list[str] = []
+        for line in lines:
+            if len(line) >= _MIN_QUICK_TEXT_BLOCK_CHARS:
+                if len(line) > _MAX_BLOCK_LEN_BEFORE_SENTENCE_SPLIT:
+                    blocks.extend(_split_long_block_into_sentences(line))
+                else:
+                    blocks.append(line)
+        return blocks
+
+    paragraphs = [
+        p.strip()
+        for p in re.split(r"\n\s*\n", normalized)
+        if p and p.strip()
+    ]
+    if len(paragraphs) > 1:
+        blocks = []
+        for p in paragraphs:
+            if len(p) >= _MIN_QUICK_TEXT_BLOCK_CHARS:
+                if len(p) > _MAX_BLOCK_LEN_BEFORE_SENTENCE_SPLIT:
+                    blocks.extend(_split_long_block_into_sentences(p))
+                else:
+                    blocks.append(p)
+        return blocks
+
+    if len(normalized) > _MAX_BLOCK_LEN_BEFORE_SENTENCE_SPLIT:
+        return _split_long_block_into_sentences(normalized)
+
+    return [normalized] if len(normalized) >= _MIN_QUICK_TEXT_BLOCK_CHARS else []
 
 
 def _build_quick_layout_from_text(*, text: str) -> dict:
     """
-    Построить минимальный layout-совместимый объект из plain text.
+    Построить layout-совместимый объект из plain/OCR text.
 
-    Для непрофессионального программиста:
-    - downstream language detector уже умеет работать с layout-подобной структурой;
-    - для OCR текста нам не нужен полноценный PDF layout;
-    - достаточно отдать простой документ с одной страницей и одним текстовым блоком.
+    КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
+    - раньше здесь создавался ОДИН element на весь документ;
+    - теперь создаём несколько pseudo-elements по строкам/абзацам/предложениям.
 
-    Почему это хорошо:
-    - не дублируем логику определения языков;
-    - и PDF, и OCR text идут через один и тот же detect_languages_in_layout(...).
+    Это позволяет detect_languages_in_layout() находить все
+    реально присутствующие языки, а не только доминирующий.
     """
-    cleaned_text = (text or "").strip()
+    blocks = _split_text_into_quick_blocks(text)
+
+    elements = [
+        {
+            "element_id": f"text_input_e{i:03d}",
+            "type": "text",
+            "text": block,
+            "page": 1,
+            "bbox": [0.0, float(i * 20), 500.0, float(i * 20 + 15)],
+            "confidence": 1.0,
+        }
+        for i, block in enumerate(blocks, start=1)
+    ]
 
     return {
-        "pages": [
-            {
-                "page_number": 1,
-                "blocks": [
-                    {
-                        "type": "text",
-                        "text": cleaned_text,
-                    }
-                ],
-            }
-        ]
+        "elements": elements,
+        "tables": [],
+        "metadata": {
+            "source": "text_input",
+            "pages": 1,
+            "quick_text_block_count": len(elements),
+            "quick_text_total_chars": sum(len(el["text"]) for el in elements),
+        },
     }
 
 
@@ -96,35 +176,21 @@ def detect_document_languages_from_pdf_bytes(
     document_id: str,
     document_version_id: str,
 ) -> DocumentLanguageDetectionResult:
-    """
-    Построить quick layout и определить языки документа по PDF bytes.
-
-    Для непрофессионального программиста:
-    - quick_layout — это лёгкое промежуточное представление PDF,
-      достаточное для раннего анализа структуры и языка;
-    - detected_languages — список кодов языков, найденных в документе,
-      например ["en"] или ["ru", "en"].
-
-    Эта функция ничего не пишет в БД — только вычисляет и возвращает результат.
-    """
     quick_layout = build_quick_layout_from_pdf(
         pdf_bytes=pdf_bytes,
         document_id=document_id,
         document_version_id=document_version_id,
     )
-
-    detected_languages = _normalize_detected_languages(
-        detect_languages_in_layout(quick_layout) or []
-    )
+    raw_detected = detect_languages_in_layout(quick_layout)
+    detected_languages = _normalize_detected_languages(raw_detected)
 
     logger.info(
         "Document language detection from PDF complete",
-        extra={
-            "document_id": document_id,
-            "document_version_id": document_version_id,
-            "detected_languages": detected_languages,
-            "source_type": "pdf_bytes",
-        },
+        document_id=document_id,
+        document_version_id=document_version_id,
+        detected_languages=detected_languages,
+        detected_count=len(detected_languages),
+        source_type="pdf_bytes",
     )
 
     return DocumentLanguageDetectionResult(
@@ -139,33 +205,20 @@ def detect_document_languages_from_text(
     document_id: str,
     document_version_id: str,
 ) -> DocumentLanguageDetectionResult:
-    """
-    Определить языки документа по уже извлечённому OCR/plain text.
-
-    Для непрофессионального программиста:
-    - OCR worker сначала достаёт текст из скана или изображения;
-    - потом передаёт этот текст сюда;
-    - здесь текст превращается в лёгкий layout-объект, совместимый
-      с общим механизмом language detection.
-
-    Эта функция ничего не пишет в БД — только вычисляет и возвращает результат.
-    """
     cleaned_text = (text or "").strip()
     quick_layout = _build_quick_layout_from_text(text=cleaned_text)
-
-    detected_languages = _normalize_detected_languages(
-        detect_languages_in_layout(quick_layout) or []
-    )
+    raw_detected = detect_languages_in_layout(quick_layout)
+    detected_languages = _normalize_detected_languages(raw_detected)
 
     logger.info(
         "Document language detection from text complete",
-        extra={
-            "document_id": document_id,
-            "document_version_id": document_version_id,
-            "detected_languages": detected_languages,
-            "source_type": "text",
-            "text_length": len(cleaned_text),
-        },
+        document_id=document_id,
+        document_version_id=document_version_id,
+        detected_languages=detected_languages,
+        detected_count=len(detected_languages),
+        source_type="text",
+        text_length=len(cleaned_text),
+        quick_text_block_count=len(quick_layout.get("elements") or []),
     )
 
     return DocumentLanguageDetectionResult(

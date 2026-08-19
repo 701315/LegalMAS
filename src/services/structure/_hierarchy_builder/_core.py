@@ -1102,7 +1102,7 @@ def _select_preamble_candidate_run(
     *,
     runs: list[list[int]],
     elements: list[dict[str, Any]],
-) -> list[int]:
+) -> list[int] | None:
     """
     Выбрать run для synthetic preamble.
 
@@ -1113,11 +1113,17 @@ def _select_preamble_candidate_run(
        cover page -> TOC -> actual legal preamble -> Section 1
     3. Если post_toc runs нет, fallback:
        берём последний accepted run как раньше.
+    4. Если ни один run не прошёл фильтрацию (accepted_runs пуст),
+       возвращаем None — вызывающий код должен корректно обработать
+       отсутствие preamble candidate как валидный сценарий.
 
-    Таким образом:
-    - для документов без TOC поведение остаётся безопасным;
-    - для документов с TOC и повторной преамбулой после TOC
-      выбирается именно post-TOC preamble block.
+    Возвращает:
+    - list[int] — позиции элементов выбранного run;
+    - None — если ни один run не соответствует критериям минимальной
+      смысловой массы. Это НЕ ошибка; такие документы просто не имеют
+      явной преамбулы (например, билингвальные документы где вся
+      преамбула разбита на mixed-language элементы, не проходящие
+      фильтрацию, или документы начинающиеся сразу с нумерованных статей).
     """
     accepted_runs: list[list[int]] = []
 
@@ -1150,6 +1156,24 @@ def _select_preamble_candidate_run(
         },
     )
 
+    # ЗАЩИТА: если ни один run не прошёл фильтрацию, возвращаем None.
+    # Это валидный сценарий, а не ошибка.
+    # Часто встречается в:
+    # - билингвальных документах с mixed-language элементами;
+    # - документах без выраженной преамбулы (начинаются сразу со статей);
+    # - документах где preamble разбит на слишком короткие фрагменты.
+    if not accepted_runs:
+        logger.info(
+            "STRUCTURE preamble_no_candidates_accepted",
+            extra={
+                "total_runs": len(runs),
+                "reason": "all_runs_below_meaningful_mass_threshold",
+                "min_elements_threshold": _MIN_PREAMBLE_MEANINGFUL_ELEMENTS,
+                "min_text_chars_threshold": _MIN_PREAMBLE_TEXT_CHARS,
+            },
+        )
+        return None
+
     post_toc_runs = [
         run
         for run in accepted_runs
@@ -1167,7 +1191,20 @@ def _select_preamble_candidate_run(
             ),
         )
 
-    # Fallback для документов без TOC или без post-TOC preamble
+    # Fallback для документов без TOC или без post-TOC preamble.
+    #
+    # ВАЖНО: accepted_runs может быть пустым если ни один candidate run
+    # не прошёл фильтрацию. Например:
+    # - в двуязычных документах mixed-language элементы часто не проходят
+    #   heuristics для preamble candidates;
+    # - в документах с необычным layout (таблицы, колонки) preamble не
+    #   выделяется как отдельный run.
+    #
+    # В этом случае возвращаем None — вызывающий код должен обработать
+    # отсутствие preamble как валидный сценарий, а не как ошибку.
+    if not accepted_runs:
+        return None
+
     return accepted_runs[-1]
 
 

@@ -154,6 +154,71 @@ class Settings(BaseSettings):
     EXTRACTION_DEBUG_LOG: bool = False
     EXTRACTION_DEBUG_DOC_ID: str | None = None
 
+
+    # ---------------------------------------------------------------------------
+    # --- Language Detection (Multilingual) ---
+    #
+    # Настройки универсального детектора языков документов.
+    # Используется в language pipeline для определения языков элементов layout.
+    #
+    # LANGUAGE_DETECTOR_BACKEND — движок определения языка:
+    #   "lingua"      — lingua-language-detector (рекомендуется, 75 языков,
+    #                   хорошо работает на коротких текстах от 5 слов).
+    #   "script_only" — только Unicode script detection без language detector.
+    #                   Менее точный, но не требует дополнительных зависимостей.
+    #                   Не различает en/fr/de (все = "latin").
+    #                   Используется как fallback если lingua недоступна.
+    #
+    # LANGUAGE_DETECTOR_MIN_CHARS — минимальное число символов текста элемента,
+    #   при котором запускаем language detector.
+    #   Для очень коротких текстов (< 10 символов) detector ненадёжен,
+    #   используем script detection как fallback.
+    #
+    # LANGUAGE_DETECTOR_CONFIDENCE_THRESHOLD — минимальная уверенность detector'а
+    #   для принятия результата как надёжного.
+    #   Если уверенность ниже — возвращаем "unknown" вместо ненадёжного результата.
+    #   Диапазон: 0.0 — 1.0. Рекомендуется 0.50 для production.
+    #
+    # LANGUAGE_DETECTOR_PRELOAD — загружать lingua модель при старте приложения.
+    #   True  — загружаем при первом импорте (небольшая задержка старта).
+    #   False — lazy loading при первом вызове (чуть быстрее старт).
+    #
+    # LANGUAGE_ALLOWLIST — список языков которые показываем пользователю.
+    #   Пустая строка = показываем все обнаруженные языки.
+    #   Если задан — фильтруем detected languages по этому списку.
+    #   Формат: comma-separated ISO 639-1 codes: "ru,en,ar,fr,de,kk,uz"
+    #   Рекомендуется оставить пустым для максимальной универсальности.
+    # ---------------------------------------------------------------------------
+    LANGUAGE_DETECTOR_BACKEND: str = "lingua"
+    LANGUAGE_DETECTOR_MIN_CHARS: int = 10
+    LANGUAGE_DETECTOR_CONFIDENCE_THRESHOLD: float = 0.50
+    LANGUAGE_DETECTOR_PRELOAD: bool = False
+    LANGUAGE_ALLOWLIST: str = ""
+
+    # ---------------------------------------------------------------------------
+    # --- Canonical Layout Pipeline (Фаза 3) ---
+    #
+    # Feature flags для постепенного rollout canonical path.
+    #
+    # CANONICAL_LAYOUT_PIPELINE_ENABLED — глобальное включение canonical path.
+    #   False (default) = все документы идут через legacy PDF extraction.
+    #   True = все новые документы идут через canonical JSON layout.
+    #
+    # CANONICAL_LAYOUT_PIPELINE_TENANT_ALLOWLIST — список tenant_id для которых
+    #   canonical path включён даже если глобальный флаг = False.
+    #   Формат: comma-separated UUIDs: "uuid1,uuid2"
+    #   Используется для постепенного rollout по тенантам.
+    #
+    # CANONICAL_LAYOUT_SHADOW_MODE — строить canonical layout но не использовать
+    #   как downstream вход. Только для телеметрии и сравнения.
+    #   Не влияет на production результаты.
+    # ---------------------------------------------------------------------------
+    CANONICAL_LAYOUT_PIPELINE_ENABLED: bool = False
+    CANONICAL_LAYOUT_PIPELINE_TENANT_ALLOWLIST: str = ""
+    CANONICAL_LAYOUT_SHADOW_MODE: bool = False
+
+
+
     # --- Office → PDF Converter (DOC/DOCX) ---
     DOCX_CONVERTER_URL: str | None = None
     DOCX_CONVERTER_TIMEOUT_SECONDS: int = 60
@@ -778,6 +843,29 @@ class Settings(BaseSettings):
         """
         return _split_csv_config(self.CORS_ALLOW_HEADERS)
     
+    
+    @property
+    def language_allowlist_set(self) -> set[str]:
+        """
+        LANGUAGE_ALLOWLIST из comma-separated строки в set ISO language codes.
+
+        Пустой set = нет фильтрации, показываем все обнаруженные языки.
+
+        Примеры:
+          "ru,en,ar"  -> {"ru", "en", "ar"}
+          ""          -> set()
+        """
+        values = _split_csv_config(self.LANGUAGE_ALLOWLIST)
+        return {v.lower().strip() for v in values if v.strip()}
+
+    @property
+    def canonical_layout_tenant_allowlist(self) -> list[str]:
+        """
+        Список tenant_id для canonical layout pipeline из comma-separated строки.
+        """
+        return _split_csv_config(self.CANONICAL_LAYOUT_PIPELINE_TENANT_ALLOWLIST)
+
+
     # ---------------------------------------------------------------------------
     # --- Validators ---
     # ---------------------------------------------------------------------------

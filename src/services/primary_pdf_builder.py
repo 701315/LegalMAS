@@ -62,6 +62,12 @@ DEFAULT_PAGE_HEIGHT = float(DEFAULT_PAGE_SIZE[1])
 UNICODE_FONT_NAME = "DejaVuSans"
 UNICODE_FONT_BOLD_NAME = "DejaVuSans-Bold"
 
+# Для арабского и других RTL языков используем отдельный шрифт если доступен.
+# FreeSerif покрывает Arabic, Hebrew и другие письменности.
+# Если недоступен — fallback на DejaVuSans (частичная поддержка).
+ARABIC_FONT_NAME = "FreeSerif"
+_ARABIC_FONT_REGISTERED = False
+
 DEFAULT_FONT_NAME = UNICODE_FONT_NAME
 DEFAULT_FONT_NAME_BOLD = UNICODE_FONT_BOLD_NAME
 DEFAULT_FONT_SIZE_TEXT = 10.0
@@ -95,16 +101,22 @@ class PrimaryPdfBuildStats:
 
 def _register_unicode_fonts() -> None:
     """
-    Зарегистрировать Unicode-шрифты для всех скриптов (латиница, кириллица и т.п.).
+    Зарегистрировать Unicode-шрифты для всех скриптов.
 
-    Ожидается, что соответствующие TTF-файлы есть в Docker-образе.
-    Например, для DejaVuSans это обычно:
-    /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-    /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+    Основные шрифты (обязательные):
+    - DejaVuSans: кириллица, латиница, большинство европейских скриптов
+    - DejaVuSans-Bold: то же, жирный
+
+    Дополнительные шрифты (опциональные):
+    - FreeSerif: арабский, иврит, деванагари и другие
+      Если недоступен — fallback на DejaVuSans (частичная поддержка).
     """
+    global _ARABIC_FONT_REGISTERED
+
     if not REPORTLAB_AVAILABLE:
         return
 
+    # Основные шрифты — обязательны
     try:
         pdfmetrics.registerFont(
             TTFont(UNICODE_FONT_NAME, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
@@ -121,6 +133,32 @@ def _register_unicode_fonts() -> None:
             error=str(exc),
         )
         raise PermanentError("primary_pdf_builder cannot register unicode fonts")
+
+    # Arabic/RTL шрифт — опциональный
+    # Пробуем несколько возможных путей
+    _arabic_font_paths = [
+        "/usr/share/fonts/truetype/freefont/FreeSerif.ttf",
+        "/usr/share/fonts/truetype/free-fonts/FreeSerif.ttf",
+        "/usr/share/fonts/FreeSerif.ttf",
+    ]
+    for font_path in _arabic_font_paths:
+        try:
+            pdfmetrics.registerFont(TTFont(ARABIC_FONT_NAME, font_path))
+            _ARABIC_FONT_REGISTERED = True
+            logger.info(
+                "primary_pdf_builder: Arabic/RTL font registered",
+                font=ARABIC_FONT_NAME,
+                path=font_path,
+            )
+            break
+        except Exception:
+            continue
+
+    if not _ARABIC_FONT_REGISTERED:
+        logger.info(
+            "primary_pdf_builder: Arabic/RTL font not available, "
+            "falling back to DejaVuSans for RTL scripts",
+        )
 
 
 def build_pdf_from_layout(layout: dict[str, Any]) -> bytes:
@@ -275,6 +313,30 @@ def _bbox_sort_key(element: dict[str, Any]) -> tuple[int, float, float]:
     return page, bbox[1], bbox[0]
 
 
+def _select_font_for_element(element: dict[str, Any], is_heading: bool) -> str:
+    """
+    Выбрать шрифт для элемента в зависимости от языка/скрипта.
+
+    Для непрофессионального программиста:
+    - DejaVuSans хорошо поддерживает кириллицу и латиницу;
+    - для арабского и иврита нужен отдельный шрифт (FreeSerif);
+    - если специальный шрифт недоступен — используем DejaVuSans как fallback.
+    """
+    # Определяем язык/скрипт элемента если есть в metadata
+    language_label = element.get("language_label", "")
+    detected_lang = element.get("language_detected", "")
+
+    # Арабский, иврит, персидский — RTL языки
+    rtl_langs = {"ar", "he", "fa", "ur"}
+    needs_rtl_font = detected_lang in rtl_langs
+
+    if needs_rtl_font and _ARABIC_FONT_REGISTERED:
+        return ARABIC_FONT_NAME
+
+    # Для всех остальных — DejaVuSans (Bold для heading)
+    return DEFAULT_FONT_NAME_BOLD if is_heading else DEFAULT_FONT_NAME
+
+
 def _draw_element(pdf: canvas.Canvas, element: dict[str, Any]) -> bool:
     """
     Нарисовать один text element в PDF.
@@ -310,7 +372,8 @@ def _draw_element(pdf: canvas.Canvas, element: dict[str, Any]) -> bool:
     )
 
     element_type = (element.get("type") or "text").lower()
-    font_name = DEFAULT_FONT_NAME_BOLD if element_type == "heading" else DEFAULT_FONT_NAME
+    is_heading = element_type == "heading"
+    font_name = _select_font_for_element(element, is_heading)
     estimated_font_size = _estimate_font_size(
         text=text,
         box_width=usable_width,

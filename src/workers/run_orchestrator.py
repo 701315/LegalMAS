@@ -1048,9 +1048,24 @@ async def _build_document_task_plan(
             )
             return None
 
-        if not snap.primary_source_ref:
+        # Gate: документ готов к extract если выполняется ОДНО из условий:
+        #
+        # Условие 1 (legacy path):
+        #   primary_source_ref заполнен → оригинальный или filtered PDF готов.
+        #
+        # Условие 2 (canonical path, Фаза 3):
+        #   layout_primary_ref заполнен → canonical JSON layout уже построен
+        #   в build_primary_language_source, extract_worker проверит
+        #   analysis_source_kind и пропустит extract_pdf() если canonical.
+        #
+        # Если ни одно условие не выполнено → ждём commit предыдущей стадии.
+
+        has_primary_source = bool(snap.primary_source_ref)
+        has_canonical_layout = bool(snap.layout_primary_ref)
+
+        if not has_primary_source and not has_canonical_layout:
             logger.warning(
-                "PRIMARY_READY document without primary_source_ref, "
+                "PRIMARY_READY document without primary_source_ref or layout_primary_ref, "
                 "waiting for primary source commit",
                 document_id=doc_id_str,
                 document_version_id=snap.version_id_str,
@@ -1058,17 +1073,25 @@ async def _build_document_task_plan(
             )
             return None
 
+        # Определяем источник готовности для логирования
+        readiness_source = (
+            "primary_source_ref" if has_primary_source
+            else "canonical_layout_primary_ref"
+        )
+
         logger.info(
             "PRIMARY_READY document ready for extract",
             document_id=doc_id_str,
             document_version_id=snap.version_id_str,
             primary_source_ref=snap.primary_source_ref,
+            layout_primary_ref=snap.layout_primary_ref,
+            readiness_source=readiness_source,
             run_id=run_id,
         )
         return TaskPlan(
             task_name="workers.extract_document",
             stage="extract_document",
-            reason="primary_source_is_ready",
+            reason=f"ready_via_{readiness_source}",
             kwargs={
                 "document_version_id": snap.version_id_str,
                 "document_id": doc_id_str,

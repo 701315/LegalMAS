@@ -32,6 +32,9 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
+# Feature flags для canonical layout pipeline (Фаза 3)
+# Читаются через getattr с дефолтом False для безопасного деплоя
+
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError, TransientError
 from core.logging import get_logger
@@ -356,6 +359,87 @@ async def _extract_document_async(
 
     with _stage_span_ctx:
 
+        # ── 0. Canonical layout check (Фаза 3) ───────────────────────────────
+        #
+        # Если layout_primary_ref уже содержит canonical_filtered_layout
+        # (построенный через canonical path в build_primary_language_source),
+        # пропускаем extract_pdf() — layout уже готов.
+        #
+        # Feature flag: CANONICAL_LAYOUT_PIPELINE_ENABLED (дефолт False)
+        # Tenant allowlist: CANONICAL_LAYOUT_PIPELINE_TENANT_ALLOWLIST
+        canonical_enabled = (
+            getattr(settings, "CANONICAL_LAYOUT_PIPELINE_ENABLED", False)
+            or tenant_id in getattr(settings, "CANONICAL_LAYOUT_PIPELINE_TENANT_ALLOWLIST", [])
+        )
+
+        if canonical_enabled:
+            try:
+                ver_repo_check = DocumentVersionRepository(db)
+                version_check = await ver_repo_check.get_by_id(uuid.UUID(document_version_id))
+                existing_primary_ref = getattr(version_check, "layout_primary_ref", None) if version_check else None
+
+                if existing_primary_ref:
+                    existing_primary = store.get_json(
+                        _s3_ref_to_store_path(existing_primary_ref, store.bucket)
+                    )
+                    analysis_source_kind = (
+                        existing_primary.get("metadata", {})
+                        .get("language_filter", {})
+                        .get("analysis_source_kind")
+                    )
+
+                    if analysis_source_kind == "canonical_filtered_layout":
+                        logger.info(
+                            "Extract: canonical layout found, skipping extract_pdf()",
+                            document_id=document_id,
+                            version_id=document_version_id,
+                            analysis_source_kind=analysis_source_kind,
+                            layout_primary_ref=existing_primary_ref,
+                        )
+
+                        raw_ref_existing = getattr(version_check, "text_layout_raw_ref", None)
+                        page_count = existing_primary.get("metadata", {}).get("pages", 0) or 0
+
+                        await update_extraction_result(
+                            document_version_id=document_version_id,
+                            document_id=document_id,
+                            raw_ref=raw_ref_existing or existing_primary_ref,
+                            primary_ref=existing_primary_ref,
+                            page_count=page_count,
+                            strategy="canonical_filtered_layout",
+                            ocr_confidence=None,
+                            db=db,
+                        )
+                        await db.commit()
+
+                        return {
+                            "status": DocumentStatus.EXTRACTED.value,
+                            "document_id": document_id,
+                            "document_version_id": document_version_id,
+                            "elements": 0,
+                            "tables": 0,
+                            "pages": page_count,
+                            "strategy": "canonical_filtered_layout",
+                            "duration_seconds": round(time.time() - start_time, 2),
+                            "raw_ref": raw_ref_existing or existing_primary_ref,
+                            "layout_primary_ref": existing_primary_ref,
+                            "tenant_id": tenant_id,
+                            "committed": True,
+                            "analysis_source_kind": "canonical_filtered_layout",
+                            "stage_execution_result_details": None,
+                        }
+
+            except Exception as canonical_exc:
+                logger.warning(
+                    "Extract: canonical layout check failed, falling back to legacy extraction",
+                    document_id=document_id,
+                    version_id=document_version_id,
+                    error=str(canonical_exc),
+                )
+                # Продолжаем legacy path — не поднимаем исключение
+
+
+
         # 1. Чтение исходного PDF строго по primary_source_ref
         try:
             pdf_ref = await get_pdf_source_ref(
@@ -507,6 +591,18 @@ async def _extract_document_async(
             language_metadata=language_metadata,
         )
 
+        # Помечаем legacy path явно в metadata
+        # Canonical path помечает себя сам через analysis_source_kind в layout
+        if not (layout_primary.get("metadata", {})
+                .get("language_filter", {})
+                .get("analysis_source_kind")):
+            lf = layout_primary.setdefault("metadata", {}).setdefault("language_filter", {})
+            lf.setdefault("analysis_source_kind", "legacy_primary_pdf")
+            lf.setdefault(
+                "legacy_reason",
+                "document_processed_before_canonical_layout_migration",
+            )
+            
         # 5. Сохранение артефактов в storage
         raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
         raw_ref = store.put_json(raw_path, text_layout_raw)
@@ -817,9 +913,15 @@ async def update_extraction_result(
             elif normalized_strategy == "hybrid":
                 pipeline_strategy = "docx_via_pdf_hybrid"
 
+    # Если raw_ref уже заполнен в версии (canonical path сохранил его раньше),
+    # передаём его же — update_refs с None не перезаписывает поле.
+    # Если raw_ref пуст — передаём новый из extraction.
+    version_existing_raw_ref = getattr(version, "text_layout_raw_ref", None) if version else None
+    effective_raw_ref = version_existing_raw_ref or raw_ref
+
     await ver_repo.update_refs(
         version_uuid,
-        raw_ref=raw_ref,
+        raw_ref=effective_raw_ref,
         layout_primary_ref=primary_ref,
         extraction_strategy=normalized_strategy,
         ocr_confidence=ocr_confidence,

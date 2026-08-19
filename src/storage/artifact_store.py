@@ -285,6 +285,29 @@ class ArtifactPath:
         """
         return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/primary_sanitized.json"
 
+
+    @staticmethod
+    def filter_decisions(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Путь к filter_decisions JSON — audit trail языковой фильтрации.
+
+        Содержит решение по каждому элементу layout:
+        какой язык был определён, какое решение принято (retained/excluded/flagged),
+        по какой причине.
+
+        Используется для:
+        - отладки language filtering;
+        - аудита качества фильтрации;
+        - canonical path (Фаза 3): хранится рядом с layout_primary.
+
+        Пример пути:
+        tenants/abc/deals/xyz/layouts/{document_id}/filter_decisions.json
+        """
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/layouts/"
+            f"{document_id}/filter_decisions.json"
+        )
+
     @staticmethod
     def legal_units_v1(
         tenant_id: str,
@@ -424,6 +447,7 @@ class ArtifactStore:
         self._endpoint = s.MINIO_ENDPOINT
         self._secure = s.MINIO_SECURE
         self._environment = str(getattr(s, "ENVIRONMENT", "development")).lower()
+        self._public_endpoint = getattr(s, "MINIO_PUBLIC_ENDPOINT", None) or None
 
     def _ensure_bucket(self) -> None:
         """Create bucket if it does not exist."""
@@ -616,8 +640,8 @@ class ArtifactStore:
         
         # ОПРЕДЕЛЯЕМ БАЗОВЫЙ URL: используем публичный, если он задан в .env, 
         # иначе fallback на внутренний адрес (для локальной разработки)
-        if settings.MINIO_PUBLIC_ENDPOINT:
-            base_url = settings.MINIO_PUBLIC_ENDPOINT.rstrip("/")
+        if self._public_endpoint:
+            base_url = self._public_endpoint.rstrip("/")
         else:
             scheme = "https" if self._secure else "http"
             base_url = f"{scheme}://{self._endpoint}"
@@ -641,12 +665,10 @@ class ArtifactStore:
         
         # 2. Если задан публичный эндпоинт, заменяем внутренний хост на публичный.
         # Подпись S3 (X-Amz-Signature) привязана к пути и параметрам, замена хоста её не ломает.
-        if settings.MINIO_PUBLIC_ENDPOINT:
+        if self._public_endpoint:
             scheme = "https" if self._secure else "http"
             old_base = f"{scheme}://{self._endpoint}"
-            
-            # Аккуратно заменяем только базовую часть URL
-            url = url.replace(old_base, settings.MINIO_PUBLIC_ENDPOINT.rstrip("/"))
+            url = url.replace(old_base, self._public_endpoint.rstrip("/"))
             
         return url
 

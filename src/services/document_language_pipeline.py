@@ -23,16 +23,24 @@ Document language pipeline service.
 - если язык отсутствует или занимает < MIN_TARGET_LANGUAGE_RATIO — карантин;
 - если язык присутствует — обработка продолжается.
 
+MULTILINGUAL поддержка (Фаза 2A):
+- Поддерживаются все языки, которые умеет определять lingua (75+).
+- SUPPORTED_DOCUMENT_LANGUAGES убран — нет жёсткого ограничения по языкам.
+- _normalize_lang() теперь принимает любой валидный ISO 639-1 код.
+- _measure_language_presence() работает через LanguageDetector, а не только
+  через кириллица/латиница счётчики.
+- DocumentLanguageDecision.is_multilingual заменяет is_bilingual.
+
 Дополнительный контракт для downstream:
 - decision.pipeline_mode = "PRIMARY_ONLY_DOWNSTREAM"
-- primary_layout.metadata.language_filter.contract_version = 1
+- primary_layout.metadata.language_filter.contract_version = 2
 - primary_layout.metadata.language_filter.downstream_requires_primary_source = True
 """
 
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,13 +55,20 @@ from services.layout_language_filter import (
 
 logger = get_logger(__name__)
 
-SUPPORTED_DOCUMENT_LANGUAGES = ("ru", "en")
-
-# Минимальная доля букв целевого языка в документе.
+# Минимальная доля символов целевого языка в документе.
 # Если доля ниже этого порога — документ уходит в карантин,
 # так как целевой язык либо отсутствует, либо представлен лишь
 # техническими вхождениями (реквизиты, email и т.п.).
 MIN_TARGET_LANGUAGE_RATIO = 0.15
+
+# Минимальная доля символов языка для признания документа multilingual.
+# Если второй (или третий) язык занимает >= этой доли — документ multilingual.
+MIN_SECONDARY_LANGUAGE_RATIO = 0.15
+
+# Минимальная длина ISO language code (защита от мусора)
+_MIN_LANG_CODE_LEN = 2
+# Максимальная длина ISO language code (ISO 639-1 = 2 символа, ISO 639-3 = 3)
+_MAX_LANG_CODE_LEN = 8
 
 
 @dataclass
@@ -61,28 +76,40 @@ class DocumentLanguageDecision:
     """
     Результат языкового анализа документа.
 
+    MULTILINGUAL версия (Фаза 2A):
+    - is_multilingual заменяет is_bilingual (может быть 3+ языков)
+    - language_ratios содержит доли для ВСЕХ найденных языков
+    - detected_languages содержит все языки, не только ru/en
+
+    Поля:
+
     detected_languages:
-    - какие языки реально найдены в layout документа.
+    - какие языки реально найдены в layout документа (ISO 639-1 коды).
+      Примеры: ["en"], ["ru", "en"], ["ar", "en"], ["ru", "kk", "en"]
 
     target_language:
     - язык, переданный снаружи (из Deal.primary_language).
-      Это решение пользователя, сервис его не меняет.
+      Любой ISO 639-1 код. Сервис его не меняет.
 
-    is_bilingual:
-    - True, если документ содержит два языка, каждый из которых
-      занимает >= MIN_TARGET_LANGUAGE_RATIO букв.
+    is_multilingual:
+    - True, если документ содержит 2+ языка, каждый из которых
+      занимает >= MIN_SECONDARY_LANGUAGE_RATIO символов.
+
+    language_ratios:
+    - словарь {lang_code → ratio} для всех найденных языков.
+      Пример: {"ru": 0.72, "en": 0.24, "kk": 0.04}
 
     target_language_ratio:
-    - доля букв целевого языка в тексте документа (0.0–1.0).
+    - доля символов целевого языка в тексте документа (0.0–1.0).
 
     route:
-    - "proceed"   — документ соответствует целевому языку, обработка продолжается.
-    - "quarantine" — целевой язык отсутствует или слишком мал по доле.
+    - "proceed"    — документ соответствует целевому языку.
+    - "quarantine" — целевой язык отсутствует или слишком мал.
 
     quarantine_reason:
-    - причина карантина (None если route == "proceed"):
-      "target_language_absent"    — язык вообще не обнаружен в документе;
-      "target_language_negligible" — язык найден, но доля < MIN_TARGET_LANGUAGE_RATIO.
+    - None если route == "proceed".
+    - "target_language_absent"     — язык не обнаружен совсем.
+    - "target_language_negligible" — язык найден, но доля < MIN_TARGET_LANGUAGE_RATIO.
 
     deal_primary_language_before / after:
     - primary_language сделки до и после update_deal_languages.
@@ -91,27 +118,38 @@ class DocumentLanguageDecision:
     - список языков сделки до и после update_deal_languages.
 
     pipeline_mode:
-    - режим пайплайна для downstream.
-      "PRIMARY_ONLY_DOWNSTREAM" — все последующие стадии работают
-      только с primary_source_ref / primary layout.
+    - "PRIMARY_ONLY_DOWNSTREAM" — все стадии работают только с primary layout.
 
     requires_user_selection:
-    - всегда False в новой логике (язык уже выбран пользователем до запуска).
-      Поле сохранено для обратной совместимости с metadata downstream.
+    - всегда False (язык выбирается до запуска пайплайна).
+      Поле сохранено для совместимости с metadata downstream.
+
+    is_bilingual:
+    - DEPRECATED. Оставлено для backward compatibility.
+      Используйте is_multilingual.
     """
 
     detected_languages: list[str]
     target_language: str
-    is_bilingual: bool
+    is_multilingual: bool
+    language_ratios: dict[str, float]
     target_language_ratio: float
-    route: str  # "proceed" | "quarantine"
+    route: str                     # "proceed" | "quarantine"
     quarantine_reason: str | None
     deal_primary_language_before: str | None
     deal_languages_before: list[str]
     deal_primary_language_after: str | None
     deal_languages_after: list[str]
-    requires_user_selection: bool = False  # всегда False в новой логике
+    requires_user_selection: bool = False
     pipeline_mode: str = "PRIMARY_ONLY_DOWNSTREAM"
+
+    @property
+    def is_bilingual(self) -> bool:
+        """
+        Backward-compatible alias для is_multilingual.
+        Используйте is_multilingual в новом коде.
+        """
+        return self.is_multilingual
 
 
 @dataclass
@@ -123,15 +161,14 @@ class PrimaryLanguageLayoutResult:
     - решение по языкам документа.
 
     primary_layout:
-    - layout, отфильтрованный до одного языка (если билингвальный),
-      либо исходный layout с проставленной metadata (если одноязычный).
+    - layout, отфильтрованный до одного языка (если multilingual),
+      либо исходный layout с проставленной metadata (если монолингвальный).
 
     raw_layout:
     - исходный layout, который пришёл в сервис.
 
     should_quarantine:
-    - True, если worker должен перевести документ в статус QUARANTINE
-      и остановить дальнейшую обработку.
+    - True, если worker должен перевести документ в статус QUARANTINE.
     """
 
     decision: DocumentLanguageDecision
@@ -149,15 +186,20 @@ async def analyze_document_languages(
     """
     Определить языки документа и проверить соответствие целевому языку.
 
+    MULTILINGUAL версия:
+    - принимает любой ISO 639-1 target_language
+    - возвращает реальные языки документа через lingua detector
+    - поддерживает 3+ языков в документе
+
     Параметры:
-    - target_language: язык, выбранный пользователем (из Deal.primary_language).
+    - target_language: язык выбранный пользователем (ISO 639-1 код).
       Передаётся обязательно — пайплайн не запускается без выбранного языка.
 
     Возвращает DocumentLanguageDecision с route="proceed" или route="quarantine".
     """
     deal_repo = DealRepository(db)
     deal_before = await deal_repo.internal_unsafe_get_by_id(deal_id)
-    
+
     deal_primary_before = _normalize_lang(
         getattr(deal_before, "primary_language", None) if deal_before else None
     )
@@ -165,17 +207,30 @@ async def analyze_document_languages(
         getattr(deal_before, "languages", None) if deal_before else []
     )
 
-    # Определяем языки документа по layout
-    detected_languages = _normalize_lang_list(detect_languages_in_layout(layout))
+    # Определяем языки документа по layout через lingua detector
+    # detect_languages_in_layout теперь возвращает ISO коды любых языков
+    raw_detected = detect_languages_in_layout(layout)
+    detected_languages = _normalize_lang_list(raw_detected)
+
+    # Если lingua ничего не нашла (очень короткий документ, только цифры, OCR мусор)
+    # НЕ делаем fallback на "ru" — честнее вернуть пустой список
+    # и дать пользователю самому решить. Но для карантин-логики нам нужен список —
+    # если detect вернул пустой список, то target_language точно не найден → карантин.
     if not detected_languages:
-        detected_languages = ["ru"]
+        logger.warning(
+            "Language detection returned no languages for document layout",
+            deal_id=str(deal_id),
+            target_language=target_language,
+            elements_count=len(layout.get("elements") or []),
+        )
 
     # Обновляем языки сделки на основе найденных в документе
-    await update_deal_languages(
-        db=db,
-        deal_id=deal_id,
-        new_languages=detected_languages,
-    )
+    if detected_languages:
+        await update_deal_languages(
+            db=db,
+            deal_id=deal_id,
+            new_languages=detected_languages,
+        )
 
     deal_after = await deal_repo.internal_unsafe_get_by_id(deal_id)
     deal_primary_after = _normalize_lang(
@@ -185,8 +240,8 @@ async def analyze_document_languages(
         getattr(deal_after, "languages", None) if deal_after else []
     )
 
-    # Измеряем реальное соотношение скриптов в тексте layout
-    presence = _measure_language_presence(layout, target_language)
+    # Измеряем реальное соотношение языков в документе
+    presence = _measure_language_presence(layout, target_language, detected_languages)
 
     # Определяем маршрут: карантин или продолжение
     route, quarantine_reason = _classify_language_route(
@@ -198,7 +253,8 @@ async def analyze_document_languages(
     decision = DocumentLanguageDecision(
         detected_languages=detected_languages,
         target_language=target_language,
-        is_bilingual=presence["is_bilingual"],
+        is_multilingual=presence["is_multilingual"],
+        language_ratios=presence["language_ratios"],
         target_language_ratio=presence["target_ratio"],
         route=route,
         quarantine_reason=quarantine_reason,
@@ -215,7 +271,10 @@ async def analyze_document_languages(
         deal_id=str(deal_id),
         detected_languages=decision.detected_languages,
         target_language=decision.target_language,
-        is_bilingual=decision.is_bilingual,
+        is_multilingual=decision.is_multilingual,
+        language_ratios={
+            k: round(v, 3) for k, v in decision.language_ratios.items()
+        },
         target_language_ratio=round(decision.target_language_ratio, 3),
         route=decision.route,
         quarantine_reason=decision.quarantine_reason,
@@ -239,28 +298,25 @@ async def build_primary_language_layout(
     """
     Построить одноязычный layout для документа.
 
-    ВАЖНО: target_language обязателен. Пайплайн не должен вызываться
-    без установленного Deal.primary_language.
+    MULTILINGUAL версия (Фаза 2A):
+    - target_language — любой ISO 639-1 код
+    - is_multilingual заменяет is_bilingual в filter_context
+    - поддерживает арабский, французский, казахский и любые другие языки
+
+    ВАЖНО: target_language обязателен.
 
     Три ветви обработки:
 
     1. КАРАНТИН: целевой язык отсутствует или < MIN_TARGET_LANGUAGE_RATIO.
        should_quarantine=True. Worker переводит документ в QUARANTINE.
 
-    2. МОНОЛИНГВАЛЬНЫЙ: документ содержит только целевой язык
-       (или второй язык занимает < MIN_TARGET_LANGUAGE_RATIO).
-       Фильтр НЕ применяется — иначе потеряем реквизиты, email, банковские счета.
+    2. МОНОЛИНГВАЛЬНЫЙ: документ содержит только один значимый язык.
+       Применяем мягкий simple filter (lossless, сохраняет structured data).
        should_quarantine=False.
 
-    3. БИЛИНГВАЛЬНЫЙ: оба языка присутствуют значимо (>= MIN_TARGET_LANGUAGE_RATIO).
+    3. MULTILINGUAL: несколько языков с значимой долей каждого.
        Применяем filter_layout_to_language по целевому языку.
        should_quarantine=False.
-
-    Дополнительный контракт:
-    - primary_layout.metadata.language_filter содержит:
-        * contract_version = 1
-        * downstream_requires_primary_source = True
-        * target_language, is_bilingual, quarantine_reason, fallback_used.
     """
     decision = await analyze_document_languages(
         db=db,
@@ -270,8 +326,6 @@ async def build_primary_language_layout(
     )
 
     # ── ВЕТВЬ 1: КАРАНТИН ─────────────────────────────────────────────────
-    # Целевой язык отсутствует или слишком мал — документ не подходит
-    # для анализа по выбранному пользователем языку.
     if decision.route == "quarantine":
         logger.warning(
             "Document must be quarantined: target language absent or negligible",
@@ -295,23 +349,10 @@ async def build_primary_language_layout(
             should_quarantine=True,
         )
 
-    # ── ВЕТВЬ 2: НЕ ГЛОБАЛЬНО-БИЛИНГВАЛЬНЫЙ ДОКУМЕНТ ───────────────────────
-    # Раньше здесь фильтрация полностью скипалась, чтобы не потерять
-    # реквизиты / email / structured data. Но текущий simple filter уже
-    # умеет сохранять structured data и короткие neutral blocks.
-    #
-    # Поэтому даже для документов, не признанных bilingual по глобальному
-    # ratio, применяем мягкий simple filter:
-    # - сохраняем target-language content;
-    # - сохраняем structured data;
-    # - срезаем bilingual residue в headings / short mixed blocks.
-    #
-    # Если такой simple filter неожиданно вернул пустой layout, не
-    # карантиним документ — это слишком агрессивно для non-bilingual branch.
-    # Вместо этого делаем контролируемый fallback на исходный layout.
-    if not decision.is_bilingual:
+    # ── ВЕТВЬ 2: МОНОЛИНГВАЛЬНЫЙ ───────────────────────────────────────────
+    if not decision.is_multilingual:
         logger.info(
-            "Primary layout: non-bilingual document, applying simple language filter",
+            "Primary layout: monolingual document, applying simple language filter",
             deal_id=str(deal_id),
             tenant_id=tenant_id,
             document_id=document_id,
@@ -324,7 +365,8 @@ async def build_primary_language_layout(
             "deal_id": str(deal_id),
             "tenant_id": tenant_id,
             "document_id": document_id,
-            "is_bilingual": False,
+            "is_multilingual": False,
+            "is_bilingual": False,   # backward compat для filter
         }
 
         primary_layout = filter_layout_to_language(
@@ -335,7 +377,7 @@ async def build_primary_language_layout(
 
         if not (primary_layout.get("elements") or []):
             logger.warning(
-                "Primary layout is empty after simple filter for non-bilingual document, "
+                "Primary layout is empty after simple filter for monolingual document, "
                 "falling back to raw layout",
                 deal_id=str(deal_id),
                 tenant_id=tenant_id,
@@ -368,16 +410,17 @@ async def build_primary_language_layout(
             should_quarantine=False,
         )
 
-    # ── ВЕТВЬ 3: БИЛИНГВАЛЬНЫЙ ────────────────────────────────────────────
-    # Документ содержит два языка с значимой долей каждого.
-    # Фильтруем layout — оставляем только блоки на целевом языке.
+    # ── ВЕТВЬ 3: MULTILINGUAL ─────────────────────────────────────────────
     logger.info(
-        "Primary layout: bilingual document, applying language filter",
+        "Primary layout: multilingual document, applying language filter",
         deal_id=str(deal_id),
         tenant_id=tenant_id,
         document_id=document_id,
         target_language=target_language,
         detected_languages=decision.detected_languages,
+        language_ratios={
+            k: round(v, 3) for k, v in decision.language_ratios.items()
+        },
         target_language_ratio=round(decision.target_language_ratio, 3),
     )
 
@@ -385,7 +428,8 @@ async def build_primary_language_layout(
         "deal_id": str(deal_id),
         "tenant_id": tenant_id,
         "document_id": document_id,
-        "is_bilingual": decision.is_bilingual,
+        "is_multilingual": True,
+        "is_bilingual": True,    # backward compat для filter
     }
 
     primary_layout = filter_layout_to_language(
@@ -394,9 +438,6 @@ async def build_primary_language_layout(
         context=filter_context,
     )
 
-    # Если фильтр вернул пустой layout — безопаснее карантин, не fallback.
-    # Fallback (возврат исходного layout) опасен: он смешивает языки
-    # и downstream получает неконсистентный контент.
     if not (primary_layout.get("elements") or []):
         logger.warning(
             "Primary layout is empty after language filtering, quarantining document",
@@ -406,7 +447,6 @@ async def build_primary_language_layout(
             target_language=target_language,
             detected_languages=decision.detected_languages,
         )
-        # Обновляем quarantine_reason — причина стала известна после фильтрации
         decision.quarantine_reason = "filter_returned_empty_layout"
         primary_layout = _attach_language_metadata(
             layout=layout,
@@ -434,58 +474,124 @@ async def build_primary_language_layout(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Вспомогательные функции
+# Вспомогательные функции — MULTILINGUAL
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 def _measure_language_presence(
     layout: dict[str, Any],
     target_language: str,
+    detected_languages: list[str],
 ) -> dict:
     """
-    Измерить долю целевого языка в тексте layout.
+    Измерить долю каждого языка в тексте layout.
 
-    Считаем буквы кириллицы и латиницы по всем элементам layout.
-    Возвращает словарь с метриками:
-    - target_ratio: доля букв целевого языка (0.0–1.0);
-    - cyr_ratio:    доля кириллицы;
-    - lat_ratio:    доля латиницы;
-    - is_bilingual: True если оба скрипта >= MIN_TARGET_LANGUAGE_RATIO.
+    MULTILINGUAL версия (Фаза 2A):
+    - использует LanguageDetector для точного определения языка каждого элемента
+    - считает соотношение по реальным языкам, не только кириллица/латиница
+    - работает с арабским, французским, казахским и любыми другими языками
+    - pure structured data (IBAN, SWIFT, email) не влияет на языковой баланс
+
+    Возвращает словарь:
+    - target_ratio:   доля символов целевого языка (0.0–1.0)
+    - language_ratios: {lang_code → ratio} для всех найденных языков
+    - is_multilingual: True если 2+ языка имеют долю >= MIN_SECONDARY_LANGUAGE_RATIO
+
+    Для непрофессионального программиста:
+    - раньше функция считала только кириллицу и латиницу
+    - теперь она определяет реальный язык каждого элемента через lingua
+    - например для арабско-английского документа вернёт
+      {"ar": 0.47, "en": 0.49, "unknown": 0.04}
     """
-    all_text = " ".join(el.get("text", "") for el in (layout.get("elements") or []))
+    from services.layout_language_filter import _classify_structured_data
+    from services.language_detector import get_language_detector
 
-    cyr = sum(1 for c in all_text if "\u0400" <= c <= "\u04ff")
-    lat = sum(1 for c in all_text if "a" <= c.lower() <= "z")
-    total = cyr + lat
+    detector = get_language_detector()
+    elements = layout.get("elements") or []
 
-    if total == 0:
-        # Документ не содержит текста — считаем соотношение неопределённым.
-        # Для целей карантина возвращаем ratio=0.0 для любого языка.
+    # Считаем символы по языкам
+    lang_char_counts: dict[str, int] = {}
+    total_chars = 0
+
+    for el in elements:
+        text = el.get("text", "")
+        if not text.strip():
+            continue
+
+        # Pure structured data не влияет на языковой баланс
+        if _classify_structured_data(text) == "pure":
+            continue
+
+        # Определяем язык элемента
+        lang_result = detector.detect_language(text)
+        lang_code = lang_result.language_code
+
+        # Пропускаем нейтральный контент
+        if lang_result.script_code == "other":
+            continue
+
+        # Для ненадёжных результатов используем "unknown"
+        if not _is_detection_reliable_local(lang_code, lang_result.confidence):
+            lang_code = "unknown"
+
+        # Считаем символы (без пробелов) как вес элемента
+        char_count = len(text.replace(" ", "").strip())
+        if char_count > 0:
+            lang_char_counts[lang_code] = lang_char_counts.get(lang_code, 0) + char_count
+            total_chars += char_count
+
+    if total_chars == 0:
         return {
             "target_ratio": 0.0,
-            "cyr_ratio": 0.0,
-            "lat_ratio": 0.0,
-            "is_bilingual": False,
+            "language_ratios": {},
+            "is_multilingual": False,
         }
 
-    cyr_ratio = cyr / total
-    lat_ratio = lat / total
+    # Вычисляем доли
+    language_ratios: dict[str, float] = {
+        lang: count / total_chars
+        for lang, count in lang_char_counts.items()
+        if lang != "unknown"  # unknown не показываем в ratios
+    }
 
-    # Определяем долю целевого языка по его скриптовой системе письма
-    if target_language == "ru":
-        target_ratio = cyr_ratio
-    else:
-        # "en" и любой другой поддерживаемый язык с латиницей
-        target_ratio = lat_ratio
+    # Нормализуем если сумма не равна 1.0 (из-за исключения unknown)
+    ratio_sum = sum(language_ratios.values())
+    if ratio_sum > 0 and abs(ratio_sum - 1.0) > 0.01:
+        language_ratios = {
+            lang: ratio / ratio_sum
+            for lang, ratio in language_ratios.items()
+        }
 
-    is_bilingual = cyr_ratio >= MIN_TARGET_LANGUAGE_RATIO and lat_ratio >= MIN_TARGET_LANGUAGE_RATIO
+    # Доля целевого языка
+    target_ratio = language_ratios.get(target_language, 0.0)
+
+    # Документ считается multilingual если 2+ языка имеют значимую долю
+    significant_langs = [
+        lang for lang, ratio in language_ratios.items()
+        if ratio >= MIN_SECONDARY_LANGUAGE_RATIO and lang != target_language
+    ]
+    is_multilingual = len(significant_langs) >= 1 and target_ratio >= MIN_SECONDARY_LANGUAGE_RATIO
 
     return {
         "target_ratio": target_ratio,
-        "cyr_ratio": cyr_ratio,
-        "lat_ratio": lat_ratio,
-        "is_bilingual": is_bilingual,
+        "language_ratios": language_ratios,
+        "is_multilingual": is_multilingual,
     }
+
+
+def _is_detection_reliable_local(language_code: str, confidence: float) -> bool:
+    """
+    Локальная версия проверки надёжности detection.
+    Дублирует логику из layout_language_filter чтобы избежать circular import.
+    """
+    if language_code == "unknown":
+        return False
+    try:
+        from core.config import settings
+        threshold = getattr(settings, "LANGUAGE_DETECTOR_CONFIDENCE_THRESHOLD", 0.50)
+    except Exception:
+        threshold = 0.50
+    return confidence >= threshold
 
 
 def _classify_language_route(
@@ -496,20 +602,22 @@ def _classify_language_route(
     """
     Определить маршрут документа: продолжить обработку или в карантин.
 
+    MULTILINGUAL версия:
+    - работает с любым ISO target_language
+    - использует language_ratios из presence dict
+
     Возвращает кортеж (route, quarantine_reason):
-    - ("proceed", None)                          — обработка продолжается;
-    - ("quarantine", "target_language_absent")   — язык не обнаружен совсем;
-    - ("quarantine", "target_language_negligible") — язык есть, но доля мала.
+    - ("proceed", None)                            — обработка продолжается
+    - ("quarantine", "target_language_absent")     — язык не обнаружен
+    - ("quarantine", "target_language_negligible") — язык есть, но доля мала
 
     Правила:
-    1. Если target вообще не найден в detected — карантин (absent).
-    2. Если target найден в detected, но его реальная доля букв
-       < MIN_TARGET_LANGUAGE_RATIO — карантин (negligible).
-       Это отсекает документы где "en" попало в detected из-за email/реквизитов,
-       хотя весь содержательный текст на русском.
-    3. Иначе — proceed.
+    1. Если target вообще не найден в detected → карантин (absent).
+    2. Если target найден в detected, но его доля < MIN_TARGET_LANGUAGE_RATIO
+       → карантин (negligible).
+    3. Иначе → proceed.
     """
-    ratio = target_presence["target_ratio"]
+    ratio = target_presence.get("target_ratio", 0.0)
 
     if target not in detected:
         return "quarantine", "target_language_absent"
@@ -527,13 +635,10 @@ def _build_raw_layout_filter_fallback(
     degraded_reason: str,
 ) -> dict[str, Any]:
     """
-    Построить безопасный fallback на исходный layout после неудачной
-    non-bilingual filtering attempt.
+    Безопасный fallback на исходный layout после неудачной monolingual filter.
 
-    Используется только в ветке not decision.is_bilingual:
-    - не хотим карантинить документ из-за empty simple-filter;
-    - не хотим silently потерять факт деградации;
-    - сохраняем raw layout, но явно маркируем fallback и degraded_reason.
+    Используется только в ветке not decision.is_multilingual.
+    Явно маркирует fallback и degraded_reason в metadata.
     """
     result = _attach_language_metadata(
         layout=layout,
@@ -553,7 +658,7 @@ def _build_raw_layout_filter_fallback(
         language_filter["degraded_reason"] = degraded_reason
 
     language_filter.setdefault("structural_filter_used", False)
-    language_filter.setdefault("bilingual_mode", False)
+    language_filter.setdefault("multilingual_mode", False)
 
     metadata["language_filter"] = language_filter
     result["metadata"] = metadata
@@ -566,10 +671,10 @@ def _attach_language_metadata(
     fallback_used: bool,
 ) -> dict[str, Any]:
     """
-    Добавить в metadata следы работы language pipeline + формальный контракт
-    для downstream в language_filter.
+    Добавить в metadata следы работы language pipeline.
 
-    Эта функция не меняет исходный layout — создаёт копию верхнего уровня.
+    MULTILINGUAL версия: добавляет language_ratios и is_multilingual.
+    Не меняет исходный layout — создаёт копию верхнего уровня.
     """
     result = dict(layout)
     metadata = dict(result.get("metadata") or {})
@@ -579,7 +684,11 @@ def _attach_language_metadata(
         {
             "detected_languages": decision.detected_languages,
             "target_language": decision.target_language,
-            "is_bilingual": decision.is_bilingual,
+            "is_multilingual": decision.is_multilingual,
+            "is_bilingual": decision.is_multilingual,  # backward compat
+            "language_ratios": {
+                k: round(v, 4) for k, v in decision.language_ratios.items()
+            },
             "target_language_ratio": round(decision.target_language_ratio, 4),
             "route": decision.route,
             "quarantine_reason": decision.quarantine_reason,
@@ -597,10 +706,11 @@ def _attach_language_metadata(
     language_filter = dict(metadata.get("language_filter") or {})
     language_filter.update(
         {
-            "contract_version": 1,
+            "contract_version": 2,           # обновлено с 1 до 2 (multilingual)
             "downstream_requires_primary_source": True,
             "target_language": decision.target_language,
-            "is_bilingual": decision.is_bilingual,
+            "is_multilingual": decision.is_multilingual,
+            "is_bilingual": decision.is_multilingual,  # backward compat
             "requires_user_selection": decision.requires_user_selection,
             "quarantine_reason": decision.quarantine_reason,
             "fallback_used": fallback_used,
@@ -614,16 +724,32 @@ def _attach_language_metadata(
 
 def _normalize_lang(value: str | None) -> str | None:
     """
-    Нормализовать один код языка.
-    Оставляем только поддерживаемые языки.
+    Нормализовать один ISO language code.
+
+    MULTILINGUAL версия: принимает любой валидный ISO 639-1 или ISO 639-3 код.
+    НЕ ограничивает список поддерживаемых языков.
+
+    Валидация:
+    - не пустой
+    - только буквы (ISO коды содержат только буквы)
+    - длина от 2 до 8 символов
+
+    Для непрофессионального программиста:
+    - раньше функция принимала только "ru" и "en"
+    - теперь она принимает любой язык: "ar", "fr", "de", "kk", "uz", "he"...
     """
     if not value:
         return None
     lang = str(value).strip().lower()
     if not lang:
         return None
-    if lang not in SUPPORTED_DOCUMENT_LANGUAGES:
+
+    # Базовая валидация ISO кода: только буквы, нормальная длина
+    if not lang.isalpha():
         return None
+    if len(lang) < _MIN_LANG_CODE_LEN or len(lang) > _MAX_LANG_CODE_LEN:
+        return None
+
     return lang
 
 
@@ -631,12 +757,14 @@ def _normalize_lang_list(
     values: list[str] | tuple[str, ...] | set[str] | None,
 ) -> list[str]:
     """
-    Нормализовать список языков:
-    - lower();
-    - убрать пустые;
-    - оставить только поддерживаемые;
-    - убрать дубли;
-    - отсортировать для предсказуемости.
+    Нормализовать список ISO language codes.
+
+    MULTILINGUAL версия: принимает любые валидные ISO коды, не только ru/en.
+
+    - lower()
+    - убрать пустые и невалидные
+    - убрать дубли
+    - отсортировать для предсказуемости
     """
     if not values:
         return []
@@ -648,3 +776,5 @@ def _normalize_lang_list(
             normalized.add(lang)
 
     return sorted(normalized)
+
+    

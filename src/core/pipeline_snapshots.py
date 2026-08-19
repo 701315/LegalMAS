@@ -233,6 +233,7 @@ class VersionSnapshot:
     file_graph_ref: str | None = None
     chunks_manifest_v2_ref: str | None = None
     segments_count: int | None = None
+    text_layout_raw_ref: str | None = None   # canonical raw extraction ref
 
     pipeline_strategy: str | None = None
     extraction_strategy: str | None = None
@@ -273,6 +274,9 @@ def snapshot_version(version: Any) -> VersionSnapshot:
             getattr(version, "chunks_manifest_v2_ref", None)
         ),
         segments_count=segments_count,
+        text_layout_raw_ref=_normalize_optional_str(
+            getattr(version, "text_layout_raw_ref", None)
+        ),
         pipeline_strategy=_normalize_optional_lower_str(
             getattr(version, "pipeline_strategy", None)
         ),
