@@ -8,6 +8,11 @@
 - начисляет сигналы уверенности;
 - валидирует кандидатов по proximity / conflict / mid-paragraph rules;
 - поддерживает suppression context от P5/A3 (TOC / catalog pages, все boundary families).
+
+V2-AWARE: Detects multilingual pipeline V2 format and creates additional
+boundary candidates based on metadata.anchor_uid changes, without altering
+legacy text-based detection logic. V2-кандидаты объединяются с legacy-кандидатами
+после основного цикла сканирования.
 """
 
 from __future__ import annotations
@@ -16,7 +21,10 @@ from typing import Any
 
 from services.structure.heading_patterns import normalize_spaces
 from services.structure.models import (
+    SEGMENT_TYPE_AMENDMENT,
     SEGMENT_TYPE_APPENDIX,
+    SEGMENT_TYPE_CONTRACT,
+    SEGMENT_TYPE_HEADING,
     SEGMENT_TYPE_UNKNOWN,
 )
 
@@ -60,6 +68,111 @@ from .toc_suppression import (
 from .types import BoundaryCandidate, BoundarySignal
 
 
+# ---------------------------------------------------------------------------
+# V2 multilingual pipeline: anchor_uid-based boundary detection
+# ---------------------------------------------------------------------------
+
+
+def _is_v2_format(elements: list[dict[str, Any]]) -> bool:
+    """
+    Detect if elements are from multilingual pipeline V2.
+
+    V2 format indicators: metadata contains "anchor_uid" or "source_element_id".
+    Returns True if >= 30% of sampled elements match V2 pattern.
+    """
+    if not elements:
+        return False
+
+    sample_size = min(50, len(elements))
+    v2_count = 0
+
+    for el in elements[:sample_size]:
+        if not isinstance(el, dict):
+            continue
+        metadata = el.get("metadata", {}) or {}
+        element_id = str(el.get("element_id", "") or "")
+        is_v2_id = element_id.startswith("seg_")
+        has_anchor = "anchor_uid" in metadata
+        has_source = "source_element_id" in metadata
+        if has_anchor or (is_v2_id and has_source):
+            v2_count += 1
+
+    return (v2_count / sample_size) >= 0.3
+
+
+def _infer_segment_type_from_anchor(anchor_uid: str) -> str:
+    """Infer segment type from V2 anchor_uid (fallback: SEGMENT_TYPE_HEADING)."""
+    anchor_lower = anchor_uid.lower()
+    if "appendix" in anchor_lower or "приложение" in anchor_lower:
+        return SEGMENT_TYPE_APPENDIX
+    elif "amendment" in anchor_lower or "дополнение" in anchor_lower:
+        return SEGMENT_TYPE_AMENDMENT
+    elif anchor_uid in ("1", "1.0"):
+        return SEGMENT_TYPE_CONTRACT
+    return SEGMENT_TYPE_HEADING
+
+
+def _infer_title_from_anchor(anchor_uid: str, element_text: str) -> str | None:
+    """Extract segment title from V2 element text (short text = likely a heading)."""
+    if element_text and len(element_text) < 200:
+        return element_text[:100]
+    return None
+
+
+def _collect_v2_anchor_boundaries(
+    elements: list[dict[str, Any]],
+) -> list[BoundaryCandidate]:
+    """
+    Собирает boundary-кандидатов на основе смены metadata.anchor_uid (V2 only).
+
+    Не заменяет legacy text-based detection — вызывается отдельно внутри
+    collect_boundary_candidates() и результат объединяется с legacy-кандидатами.
+    """
+    candidates: list[BoundaryCandidate] = []
+    prev_anchor_uid: str | None = None
+
+    for idx, element in enumerate(elements):
+        if not isinstance(element, dict):
+            continue
+        metadata = element.get("metadata", {}) or {}
+        anchor_uid = metadata.get("anchor_uid")
+        if not anchor_uid or anchor_uid == prev_anchor_uid:
+            continue
+
+        prev_anchor_uid = anchor_uid
+        text = str(element.get("text", "") or "")
+        segment_type = _infer_segment_type_from_anchor(anchor_uid)
+        title = _infer_title_from_anchor(anchor_uid, text)
+
+        candidates.append(
+            BoundaryCandidate(
+                element_index=idx,
+                page=safe_page(element),
+                text=text,
+                segment_type=segment_type,
+                title=title,
+                confidence_score=0.95,
+                confidence_label=confidence_label(0.95),
+                signals=(
+                    BoundarySignal(
+                        name="v2_anchor_uid_change",
+                        weight=0.95,
+                        details={"anchor_uid": anchor_uid},
+                    ),
+                ),
+                reasons=("v2_anchor_uid_change",),
+                is_mid_page=False,
+            )
+        )
+
+    return candidates
+
+
+# ---------------------------------------------------------------------------
+# Legacy: text-based boundary detection (unchanged from pre-V2 baseline)
+# ---------------------------------------------------------------------------
+
+
 def _is_part_of_local_swarm(
     elements: list[dict[str, Any]],
     candidate_index: int,
@@ -91,7 +204,6 @@ def _is_part_of_local_swarm(
 
         el = elements[i]
 
-        # Только та же страница.
         if safe_page(el) != candidate_page:
             continue
 
@@ -109,8 +221,6 @@ def _is_part_of_local_swarm(
             if _looks_like_substantive_body_line(text):
                 substantive_between += 1
 
-    # Стая требует минимум 2 других маркера на той же странице
-    # и отсутствия содержательного текста между ними.
     return swarm_count >= 2 and substantive_between == 0
 
 
@@ -126,6 +236,9 @@ def collect_boundary_candidates(
         artifacts:            индексы running-header элементов для исключения.
         suppression_context:  P5/A3 suppression (TOC / catalog page detection,
                               все boundary families).
+
+    V2-AWARE: дополнительно вызывает _collect_v2_anchor_boundaries() и объединяет
+    результат с legacy text-based кандидатами. Legacy-логика ниже не изменена.
     """
     artifacts = artifacts or set()
     candidates: list[BoundaryCandidate] = []
@@ -157,24 +270,18 @@ def collect_boundary_candidates(
         seg_type = infer_segment_type_from_text(text)
         boundary_family = infer_boundary_family_from_text(text)
 
-        # P5/A3: подавление boundary-family markers на TOC / catalog pages (Макро-защита).
         if (
             suppression_context is not None
             and suppression_context.suppresses_boundary_family(page, boundary_family)
         ):
             continue
 
-        # НОВОЕ: Микро-защита от списков внутри обычного текста (п. 3.8)
         if boundary_family and _is_part_of_local_swarm(elements, idx, boundary_family):
             continue
 
         if not is_boundary_position(elements, idx, text):
             continue
 
-        # Body-internal listing guard:
-        # appendix/amendment entries inside a local list block
-        # (intro line + multiple same-family entries nearby)
-        # do not start a new logical segment.
         listing_guard = detect_body_internal_boundary_listing(
             elements=elements,
             candidate_index=idx,
@@ -320,6 +427,13 @@ def collect_boundary_candidates(
             )
         )
 
+    # V2: добавляем anchor_uid-based кандидатов отдельно, не трогая legacy-логику выше.
+    if _is_v2_format(elements):
+        v2_candidates = _collect_v2_anchor_boundaries(elements)
+        existing_indices = {c.element_index for c in candidates}
+        candidates.extend(c for c in v2_candidates if c.element_index not in existing_indices)
+        candidates.sort(key=lambda c: c.element_index)
+
     return candidates
 
 
@@ -329,7 +443,7 @@ def _is_strong_boundary_candidate(candidate: BoundaryCandidate) -> bool:
         return False
     if candidate.confidence_score < DEFAULT_SEGMENT_CONFIDENCE_THRESHOLD:
         return False
-    if "boundary_keyword" not in candidate.reasons:
+    if "boundary_keyword" not in candidate.reasons and "v2_anchor_uid_change" not in candidate.reasons:
         return False
     if len((candidate.text or "").split()) > 20:
         return False
@@ -461,3 +575,4 @@ def validate_boundary_candidates(
     return validated
 
 
+    
