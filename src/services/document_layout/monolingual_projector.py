@@ -1,12 +1,11 @@
 """
-Monolingual Projector Module (Phase 4).
+Monolingual Projector Module (Phase 4 / Layer 8 v3 Final).
 
-Отвечает за формирование одноязычной проекции из канонических атомов:
+Формирует одноязычную проекцию из составных структурных узлов (StructuralNodeCandidate):
 - Фильтрация по target_language + shared;
-- Safe-split для mixed-атомов (по ' / ', ' — ', '\n');
-- Сохранение маркеров без утечки противоположного языка (marker-only elements);
-- 100% трассируемость маркеров (MarkerTrace);
-- Маппинг label -> type через layout_config.label_to_raw_type.
+- Исключение узлов противоположного языка (включая их маркеры) при наличии целевого узла;
+- Safe-split для mixed-узлов;
+- 100% трассируемость маркеров.
 """
 
 from __future__ import annotations
@@ -16,21 +15,20 @@ from typing import Any
 
 from core.logging import get_logger
 from services.document_layout.config import layout_config
-from services.document_layout.language_classifier import classify_text
+from services.document_layout.parallel_alignment import AlignmentResult
 from services.document_layout.schemas import (
-    CanonicalAtom,
     MarkerTrace,
     ProjectedElement,
+    StructuralNodeCandidate,
     UnresolvedMixedAtom,
 )
+from services.document_layout.span_splitter import SpanSplitter
 
 logger = get_logger(__name__)
 
 
 @dataclass(slots=True)
 class ProjectionResult:
-    """Результат работы моноязычного проектора."""
-
     elements: list[ProjectedElement] = field(default_factory=list)
     unresolved_mixed_atoms: list[UnresolvedMixedAtom] = field(default_factory=list)
     marker_trace: MarkerTrace = field(default_factory=MarkerTrace)
@@ -42,258 +40,210 @@ class ProjectionResult:
     mixed_atoms_unresolved: int = 0
 
 
-def _try_safe_split(
-    text: str,
-    target_language: str,
-) -> tuple[str | None, str]:
-    """
-    Пытается безопасно разделить смешанный текст на части по шаблонам safe_split_patterns.
-    Возвращает (target_text_part | None, reason).
-    """
-    for pattern_cfg in layout_config.safe_split_patterns:
-        separator = pattern_cfg.get("separator")
-        if not separator or separator not in text:
-            continue
-
-        parts = [p.strip() for p in text.split(separator) if p.strip()]
-        if len(parts) >= 2:
-            for part in parts:
-                classification = classify_text(part)
-                if classification.language == target_language:
-                    return part, "safe_split_successful"
-
-    return None, "no_matching_safe_split_pattern"
-
-
 class MonolingualProjector:
-    """
-    Сервис формирования одноязычной проекции документа.
-    """
+    def __init__(self, splitter: SpanSplitter | None = None):
+        self.splitter = splitter or SpanSplitter()
 
-    def project(
+    def project_nodes(
         self,
-        atoms: list[CanonicalAtom],
+        nodes: list[StructuralNodeCandidate],
         target_language: str,
+        alignment_result: AlignmentResult | None = None,
     ) -> ProjectionResult:
-        """
-        Проецирует список канонических атомов на указанный целевой язык.
-        """
         target_lang = target_language.lower().strip()
-        result = ProjectionResult(source_atom_count=len(atoms))
+        result = ProjectionResult(source_atom_count=len(nodes))
 
-        if not atoms:
+        if not nodes:
             return result
 
         logger.info(
-            "Starting monolingual projection",
+            "Starting monolingual node projection",
             target_language=target_lang,
-            total_source_atoms=len(atoms),
+            total_nodes=len(nodes),
+        )
+
+        aligned_opp_node_ids = (
+            alignment_result.aligned_opposite_node_ids if alignment_result else set()
         )
 
         projected_elements: list[ProjectedElement] = []
         unresolved_mixed: list[UnresolvedMixedAtom] = []
 
-        # Множество маркеров, уже представленных в целевой проекции
-        projected_markers_set: set[str] = set()
+        for idx, node in enumerate(nodes):
+            raw_type = "text"
+            if node.marker:
+                raw_type = "list_item"
 
-        # Список атомов противоположного языка с маркерами для второго прохода
-        opposite_language_marker_atoms: list[CanonicalAtom] = []
-
-        for idx, atom in enumerate(atoms):
-            raw_type = layout_config.label_to_raw_type.get(atom.label, "text")
-            font_size = atom.style.font_size if atom.style else None
-            bold = atom.style.bold if atom.style else False
-
-            # ── 1. Нативный атом целевого языка ──────────────────────────────
-            if atom.language == target_lang:
-                el_id = f"{target_lang}:{atom.element_id}"
+            # 1. Нативный узел целевого языка
+            if node.language == target_lang:
+                el_id = f"{target_lang}:{node.node_id}"
                 projected_el = ProjectedElement(
                     element_id=el_id,
-                    source_element_ids=[atom.element_id],
-                    text=atom.text,
-                    page=atom.page,
-                    reading_order=atom.source_reading_order,
-                    reading_order_source="docling_texts",
-                    layout_order_confidence=atom.layout_order_confidence,
+                    source_element_ids=node.source_atom_ids,
+                    text=node.text,
+                    page=node.page,
+                    reading_order=idx,
+                    reading_order_source="structural_nodes",
+                    layout_order_confidence="validated",
                     type=raw_type,
-                    label=atom.label,
-                    marker=atom.marker,
-                    is_marker_only=atom.is_marker_only,
-                    bbox=atom.bbox,
-                    parent_ref=atom.parent_ref,
+                    label="paragraph" if raw_type == "text" else "list_item",
+                    marker=node.marker,
+                    is_marker_only=False,
+                    bbox=node.bbox,
+                    parent_ref=node.region_id,
                     language=target_lang,
                     needs_review=False,
-                    projection_method="native_language_atom",
-                    projection_confidence=atom.language_confidence,
-                    font_size=font_size,
-                    bold=bold,
-                    style=atom.style,
+                    projection_method="native_language_node",
+                    projection_confidence=node.confidence,
+                    region_id=node.region_id,
+                    hierarchy_path=node.hierarchy_path,
                 )
                 projected_elements.append(projected_el)
-                if atom.marker:
-                    projected_markers_set.add(atom.marker)
+                if node.marker:
                     result.marker_trace.projected += 1
 
-            # ── 2. Shared атом (числа, формулы, нейтральные маркеры) ──────────
-            elif atom.language == "shared":
-                el_id = f"{target_lang}:shared:{atom.element_id}"
+            # 2. Shared узел (формулы, чистые цифры, нейтральный контент)
+            elif node.language == "shared":
+                el_id = f"{target_lang}:shared:{node.node_id}"
                 projected_el = ProjectedElement(
                     element_id=el_id,
-                    source_element_ids=[atom.element_id],
-                    text=atom.text,
-                    page=atom.page,
-                    reading_order=atom.source_reading_order,
-                    reading_order_source="docling_texts",
-                    layout_order_confidence=atom.layout_order_confidence,
+                    source_element_ids=node.source_atom_ids,
+                    text=node.text,
+                    page=node.page,
+                    reading_order=idx,
+                    reading_order_source="structural_nodes",
+                    layout_order_confidence="validated",
                     type=raw_type,
-                    label=atom.label,
-                    marker=atom.marker,
-                    is_marker_only=atom.is_marker_only,
-                    bbox=atom.bbox,
-                    parent_ref=atom.parent_ref,
+                    label="paragraph" if raw_type == "text" else "list_item",
+                    marker=node.marker,
+                    is_marker_only=False,
+                    bbox=node.bbox,
+                    parent_ref=node.region_id,
                     language="shared",
-                    needs_review=atom.is_marker_only,
-                    projection_method="shared_atom",
+                    needs_review=False,
+                    projection_method="shared_node",
                     projection_confidence=1.0,
-                    font_size=font_size,
-                    bold=bold,
-                    style=atom.style,
+                    region_id=node.region_id,
+                    hierarchy_path=node.hierarchy_path,
                 )
                 projected_elements.append(projected_el)
                 result.shared_atoms_included += 1
-                if atom.marker:
-                    projected_markers_set.add(atom.marker)
+                if node.marker:
                     result.marker_trace.projected += 1
 
-            # ── 3. Mixed атом (двуязычный текст) ──────────────────────────────
-            elif atom.language == "mixed":
-                split_text, reason = _try_safe_split(atom.text, target_lang)
+            # 3. Mixed узел (двуязычная строка)
+            elif node.language == "mixed":
+                split_res = self.splitter.split_span(node.text, target_lang)
 
-                if split_text:
-                    # Успешное разделение: извлекаем только целевую часть
-                    el_id = f"{target_lang}:split:{atom.element_id}"
+                if split_res.is_split_successful and split_res.target_text:
+                    el_id = f"{target_lang}:split:{node.node_id}"
                     projected_el = ProjectedElement(
                         element_id=el_id,
-                        source_element_ids=[atom.element_id],
-                        text=split_text,
-                        page=atom.page,
-                        reading_order=atom.source_reading_order,
-                        reading_order_source="docling_texts",
-                        layout_order_confidence=atom.layout_order_confidence,
+                        source_element_ids=node.source_atom_ids,
+                        text=split_res.target_text,
+                        page=node.page,
+                        reading_order=idx,
+                        reading_order_source="structural_nodes",
+                        layout_order_confidence="validated",
                         type=raw_type,
-                        label=atom.label,
-                        marker=atom.marker,
+                        label="paragraph" if raw_type == "text" else "list_item",
+                        marker=node.marker,
                         is_marker_only=False,
-                        bbox=atom.bbox,
-                        parent_ref=atom.parent_ref,
+                        bbox=node.bbox,
+                        parent_ref=node.region_id,
                         language=target_lang,
                         needs_review=False,
-                        projection_method="safe_split_mixed",
-                        projection_confidence=0.90,
-                        font_size=font_size,
-                        bold=bold,
-                        style=atom.style,
+                        projection_method=split_res.split_method,
+                        projection_confidence=split_res.confidence,
+                        region_id=node.region_id,
+                        hierarchy_path=node.hierarchy_path,
                     )
                     projected_elements.append(projected_el)
                     result.mixed_atoms_resolved += 1
-                    if atom.marker:
-                        projected_markers_set.add(atom.marker)
+                    if node.marker:
                         result.marker_trace.projected += 1
                 else:
-                    # Не удалось разделить безопасно -> включаем целиком с needs_review
-                    el_id = f"{target_lang}:mixed:{atom.element_id}"
+                    el_id = f"{target_lang}:mixed:{node.node_id}"
                     projected_el = ProjectedElement(
                         element_id=el_id,
-                        source_element_ids=[atom.element_id],
-                        text=atom.text,
-                        page=atom.page,
-                        reading_order=atom.source_reading_order,
-                        reading_order_source="docling_texts",
-                        layout_order_confidence=atom.layout_order_confidence,
+                        source_element_ids=node.source_atom_ids,
+                        text=node.text,
+                        page=node.page,
+                        reading_order=idx,
+                        reading_order_source="structural_nodes",
+                        layout_order_confidence="validated",
                         type=raw_type,
-                        label=atom.label,
-                        marker=atom.marker,
+                        label="paragraph" if raw_type == "text" else "list_item",
+                        marker=node.marker,
                         is_marker_only=False,
-                        bbox=atom.bbox,
-                        parent_ref=atom.parent_ref,
+                        bbox=node.bbox,
+                        parent_ref=node.region_id,
                         language="mixed",
                         needs_review=True,
                         projection_method="unresolved_mixed",
                         projection_confidence=0.50,
-                        font_size=font_size,
-                        bold=bold,
-                        style=atom.style,
+                        region_id=node.region_id,
+                        hierarchy_path=node.hierarchy_path,
                     )
                     projected_elements.append(projected_el)
                     result.mixed_atoms_unresolved += 1
                     unresolved_mixed.append(
                         UnresolvedMixedAtom(
-                            element_id=atom.element_id,
-                            text=atom.text,
+                            element_id=node.node_id,
+                            text=node.text,
                             language="mixed",
-                            reason=reason,
+                            reason="low_split_confidence",
                         )
                     )
-                    if atom.marker:
-                        result.marker_trace.unresolved += 1
 
-            # ── 4. Атом противоположного языка ───────────────────────────────
+            # 4. Узел противоположного языка
             else:
-                if atom.marker:
-                    opposite_language_marker_atoms.append(atom)
-                # Обычный текст без маркеров исключается из проекции
+                # Если узел противоположного языка выравнен (aligned) с целевым узлом — он просто отбрасывается!
+                # Маркер-пустышка НЕ создаётся, так как целевой узел уже содержит нужный маркер и текст!
+                if node.node_id in aligned_opp_node_ids:
+                    result.marker_trace.excluded_with_reason += 1
+                else:
+                    # Узел НЕ выравнен (маркер есть только на чужом языке) -> сохраняем маркер-пустышку
+                    if node.marker:
+                        marker_el_id = f"{target_lang}:marker:{node.node_id}"
+                        marker_el = ProjectedElement(
+                            element_id=marker_el_id,
+                            source_element_ids=node.source_atom_ids,
+                            text="",  # Текст строго пустой
+                            page=node.page,
+                            reading_order=idx,
+                            reading_order_source="structural_nodes",
+                            layout_order_confidence="validated",
+                            type="list_item",
+                            label="list_item",
+                            marker=node.marker,
+                            is_marker_only=True,
+                            bbox=node.bbox,
+                            parent_ref=node.region_id,
+                            language="shared",
+                            needs_review=True,
+                            projection_method="preserved_marker_without_target_text",
+                            projection_confidence=1.0,
+                            region_id=node.region_id,
+                            hierarchy_path=node.hierarchy_path,
+                        )
+                        projected_elements.append(marker_el)
+                        result.marker_trace.projected += 1
+                        result.projected_marker_only_atom_count += 1
+                    else:
+                        result.marker_trace.excluded_with_reason += 1
 
-        # ── 5. Marker Preservation для противоположного языка ────────────────
-        marker_only_count = 0
-        for opp_atom in opposite_language_marker_atoms:
-            m = opp_atom.marker
-            if m and m not in projected_markers_set:
-                # Маркер отсутствует в целевой проекции -> создаем marker-only элемент
-                marker_el_id = f"{target_lang}:marker:{opp_atom.element_id}"
-                marker_el = ProjectedElement(
-                    element_id=marker_el_id,
-                    source_element_ids=[opp_atom.element_id],
-                    text="",  # Текст строго пустой (без утечки foreign text)
-                    page=opp_atom.page,
-                    reading_order=opp_atom.source_reading_order,
-                    reading_order_source="docling_texts",
-                    layout_order_confidence=opp_atom.layout_order_confidence,
-                    type="list_item",
-                    label=opp_atom.label,
-                    marker=m,
-                    is_marker_only=True,
-                    bbox=opp_atom.bbox,
-                    parent_ref=opp_atom.parent_ref,
-                    language="shared",
-                    needs_review=True,
-                    projection_method="preserved_marker_without_target_text",
-                    projection_confidence=1.0,
-                    font_size=None,
-                    bold=False,
-                    style=None,
-                )
-                projected_elements.append(marker_el)
-                projected_markers_set.add(m)
-                result.marker_trace.projected += 1
-                marker_only_count += 1
-            else:
-                # Маркер уже был представлен в целевой проекции
-                result.marker_trace.excluded_with_reason += 1
-
-        # Сортируем результирующие элементы по странице и порядку чтения
         projected_elements.sort(key=lambda el: (el.page, el.reading_order))
 
         result.elements = projected_elements
         result.unresolved_mixed_atoms = unresolved_mixed
         result.projected_atom_count = len(projected_elements)
-        result.projected_marker_only_atom_count = marker_only_count
 
         logger.info(
-            "Monolingual projection completed",
+            "Monolingual node projection completed",
             target_language=target_lang,
-            projected_atoms=result.projected_atom_count,
-            marker_only_atoms=marker_only_count,
-            unresolved_mixed=result.mixed_atoms_unresolved,
+            projected_elements=result.projected_atom_count,
+            marker_only_elements=result.projected_marker_only_atom_count,
         )
 
         return result

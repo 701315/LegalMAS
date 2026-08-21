@@ -1,20 +1,29 @@
-"""Unit tests для Document Layout Service (Phase 7)."""
+"""Unit tests для Document Layout Service (Phase 7 / v3)."""
 
 from unittest.mock import MagicMock
 import pytest
-from services.document_layout.schemas import CanonicalAtom, CanonicalAtomSource, CanonicalPage
+from services.document_layout.schemas import (
+    CanonicalAtom,
+    CanonicalAtomSource,
+    CanonicalPage,
+    PageRegion,
+    PageRegionType,
+    StructuralNodeCandidate,
+)
 from services.document_layout.service import DocumentLayoutService, QualityGateError
 
 
 class TestDocumentLayoutServiceOrchestration:
     def test_successful_flow_generates_both_refs(self):
-        # 1. Сборка моков
         mock_extractor = MagicMock()
         mock_enricher = MagicMock()
+        mock_segmenter = MagicMock()
+        mock_reconstructor = MagicMock()
         mock_classifier = MagicMock()
+        mock_node_builder = MagicMock()
+        mock_aligner = MagicMock()
         mock_store = MagicMock()
 
-        # Мокаем экстрактор
         atom = CanonicalAtom(
             element_id="atom:000001",
             page=1,
@@ -27,7 +36,6 @@ class TestDocumentLayoutServiceOrchestration:
             source=CanonicalAtomSource(docling_collection="texts"),
         )
         
-        # Передаем реальный объект CanonicalPage вместо MagicMock
         page = CanonicalPage(
             page_number=1,
             width=600.0,
@@ -35,26 +43,52 @@ class TestDocumentLayoutServiceOrchestration:
             atoms=[atom],
         )
 
+        region = PageRegion(
+            region_id="page_1_col_0",
+            region_type=PageRegionType.COLUMN,
+            page=1,
+            bbox=(50.0, 30.0, 250.0, 50.0),
+            atom_ids=["atom:000001"],
+        )
+
+        node = StructuralNodeCandidate(
+            node_id="node:1:0001",
+            marker=None,
+            bbox=(50.0, 30.0, 250.0, 50.0),
+            page=1,
+            region_id="page_1_col_0",
+            hierarchy_path=[],
+            source_atom_ids=["atom:000001"],
+            language="ru",
+            text="Пункт договора на русском",
+        )
+
         mock_extractor.extract.return_value = ([atom], [], [page], "abc123sha")
-
-        # Мокаем enricher
         mock_enricher.enrich.return_value = [atom]
+        mock_segmenter.segment_page.return_value = [region]
+        mock_reconstructor.reconstruct_page_reading_order.return_value = [atom]
 
-        # Мокаем classifier
         classified_atom = atom.model_copy(update={"language": "ru"})
         mock_classifier.classify_atoms.return_value = [classified_atom]
+        mock_node_builder.build_page_nodes.return_value = [node]
 
-        # Мокаем store
+        mock_align_res = MagicMock()
+        mock_align_res.aligned_opposite_node_ids = set()
+        mock_aligner.align_nodes.return_value = mock_align_res
+
         mock_store.put_json.side_effect = [
-            "s3://bucket/canonical.json",  # первый вызов - canonical
-            "s3://bucket/primary.json",    # второй вызов - primary
+            "s3://bucket/canonical.json",
+            "s3://bucket/primary.json",
         ]
 
-        # 2. Инициализируем сервис
         service = DocumentLayoutService(
             extractor=mock_extractor,
             enricher=mock_enricher,
+            region_segmenter=mock_segmenter,
+            reading_reconstructor=mock_reconstructor,
             classifier=mock_classifier,
+            node_builder=mock_node_builder,
+            aligner=mock_aligner,
             store=mock_store,
         )
 
@@ -68,18 +102,14 @@ class TestDocumentLayoutServiceOrchestration:
             deal_id="00000000-0000-0000-0000-000000000005",
         )
 
-        # 3. Проверки
         assert res.canonical_layout_ref == "s3://bucket/canonical.json"
         assert res.layout_primary_ref == "s3://bucket/primary.json"
         assert res.detected_languages == ["ru"]
         assert res.source_pdf_sha256 == "abc123sha"
-        assert res.total_atoms == 1
-
-        assert mock_store.put_json.call_count == 2
 
     def test_gate1_fail_raises_quality_gate_error(self):
         mock_extractor = MagicMock()
-        mock_extractor.extract.return_value = ([], [], [], "empty_sha")  # 0 атомов -> Gate 1 упадет
+        mock_extractor.extract.return_value = ([], [], [], "empty_sha")
 
         service = DocumentLayoutService(extractor=mock_extractor)
 

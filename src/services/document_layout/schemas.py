@@ -1,16 +1,26 @@
 """
-Pydantic-схемы для Document Layout Pipeline v2.
+Pydantic-схемы для Document Layout Pipeline v3.
 
 Три уровня схем:
 1. Canonical* — полный multilingual extraction (document-scoped, immutable)
 2. Projected* — результат monolingual projection (run-scoped)
 3. LayoutPrimaryCompat — финальный JSON для downstream (PII → structure)
 
+Дополнительные типы v3 (Layered Architecture):
+- PageRegion / PageRegionType — сегментация страницы по геометрии
+- StructuralNodeCandidate — составной узел (marker + bbox + hierarchy_path)
+- TableTopologyType — тип многоязычной таблицы
+- ProjectionMode — режим работы проектора
+- QuarantineEntry / QuarantineReason — учёт неопределённого контента
+
 Контракт bbox:
 - ВСЕ bbox в системе Fitz/PyMuPDF: origin top-left, y растёт вниз.
 - Формат: (x0, y0_top, x1, y1_top) где y0_top < y1_top.
-- Docling-координаты (origin bottom-left) преобразуются в compatibility_builder.
 - bbox может быть None для редких Docling items без provenance — не ошибка.
+
+Универсальность:
+- Никаких хардкод-языковых констант.
+- Все типы работают для любой пары языков и любой верстки.
 """
 
 from __future__ import annotations
@@ -38,6 +48,46 @@ class MissingTargetLanguagePolicy(str, Enum):
     )
     FALLBACK_TO_DOCUMENT_LANGUAGE = "FALLBACK_TO_DOCUMENT_LANGUAGE"
     REQUIRE_USER_CONFIRMATION = "REQUIRE_USER_CONFIRMATION"
+
+
+class PageRegionType(str, Enum):
+    """Тип региона страницы, определяется через height-gating геометрии."""
+    COLUMN = "column"                    # высокая текстовая колонка (>= column_min_height_ratio)
+    FULL_WIDTH = "full_width"            # полноширинный блок (заголовок, абзац)
+    GRID_BLOCK = "grid_block"            # короткий блок (титульный блок сторон, подписи)
+
+
+class TableTopologyType(str, Enum):
+    """
+    Тип многоязычной таблицы, определяется статистически 
+    по распределению языков в столбцах/строках/ячейках.
+    """
+    PARALLEL_COLUMN = "parallel_column"       # столбцы разделены по языку (оглавление EN|RU)
+    MIXED_ROW = "mixed_row"                   # язык — атрибут значения строки
+    INLINE_CELL = "inline_cell"               # склейка языков внутри одной ячейки через разделитель
+    HEADER_ONLY_BILINGUAL = "header_only"     # двуязычны только заголовки
+    MONOLINGUAL = "monolingual"               # одноязычная таблица
+    UNKNOWN = "unknown"                       # не удалось классифицировать
+
+
+class ProjectionMode(str, Enum):
+    """
+    Режим работы monolingual_projector.
+    Формализация trade-off между 'нулевой утечкой' и 'сохранением контента'.
+    """
+    STRICT = "strict_projection"              # production default: сомнительное в quarantine
+    LOSSLESS_REVIEW = "lossless_review"       # параллельный артефакт для аудита
+    AUTO_ACCEPT = "auto_accept"               # компромисс: split только при высокой confidence
+
+
+class QuarantineReason(str, Enum):
+    """Причина, по которой элемент попал в quarantine."""
+    LOW_ALIGNMENT_CONFIDENCE = "low_alignment_confidence"
+    AMBIGUOUS_SPLIT = "ambiguous_split"
+    UNRESOLVED_MIXED_SCRIPT = "unresolved_mixed_script"
+    TABLE_STRUCTURE_UNCERTAIN = "table_structure_uncertain"
+    UNRESOLVED_TABLE_TOPOLOGY = "unresolved_table_topology"
+    ORPHAN_MARKER_WITHOUT_TEXT = "orphan_marker_without_text"
 
 
 # ── Language Classification ──────────────────────────────────────────────────
@@ -156,15 +206,76 @@ class CanonicalLayout(BaseModel):
     validation: CanonicalLayoutValidation | None = None
 
 
+# ── Layered Architecture v3: Geometry Layer ──────────────────────────────────
+
+
+class PageRegion(BaseModel):
+    """
+    Регион страницы, определённый на основе геометрического анализа.
+    
+    Универсально: работает для любого числа колонок и любых версток.
+    """
+    region_id: str
+    region_type: PageRegionType
+    page: int = Field(ge=1)
+    bbox: tuple[float, float, float, float]
+    column_index: int | None = None           # если region_type == COLUMN
+    atom_ids: list[str] = Field(default_factory=list)
+
+
+# ── Layered Architecture v3: Structural Layer ────────────────────────────────
+
+
+class StructuralNodeCandidate(BaseModel):
+    """
+    Составной узел документа для parallel alignment.
+    
+    Ключ для дедупликации — не marker в изоляции, а составной объект:
+    marker + bbox + page + region_id + hierarchy_path.
+    Это устраняет ложные совпадения повторяющихся маркеров 
+    в разных разделах документа.
+    """
+    node_id: str
+    marker: str | None
+    bbox: tuple[float, float, float, float] | None
+    page: int = Field(ge=1)
+    region_id: str | None = None
+    hierarchy_path: list[str] = Field(default_factory=list)
+    source_atom_ids: list[str] = Field(default_factory=list)
+    language: str
+    text: str
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+# ── Layered Architecture v3: Quarantine ──────────────────────────────────────
+
+
+class QuarantineEntry(BaseModel):
+    """
+    Элемент, попавший в quarantine из-за низкой confidence.
+    
+    Хранится в параллельном потоке layout_primary.quarantined_elements[]
+    для аудита юристом, но НЕ попадает в основной поток elements[]
+    в режиме strict_projection.
+    """
+    element_id: str
+    source_atom_ids: list[str] = Field(default_factory=list)
+    reason: QuarantineReason
+    original_text: str
+    detected_language: str | None = None
+    confidence: float = Field(ge=0.0, le=1.0)
+    suggested_alternatives: list[str] = Field(default_factory=list)
+    bbox: tuple[float, float, float, float] | None = None
+    page: int | None = None
+
+
 # ── Projected Element (run-scoped) ───────────────────────────────────────────
 
 
 class ProjectedElement(BaseModel):
     """
     Элемент после monolingual projection.
-    Контракт для downstream (structure pipeline):
-    - text, page, bbox (Fitz), type (mapped from label)
-    - НЕ выдаёт: element_type, segment_id, segment_type, segment_order, scope
+    Контракт для downstream (structure pipeline).
     """
 
     element_id: str
@@ -198,6 +309,10 @@ class ProjectedElement(BaseModel):
 
     table_ref: str | None = None
     style: ElementStyle | None = None
+    
+    # v3: связь с исходным регионом страницы
+    region_id: str | None = None
+    hierarchy_path: list[str] = Field(default_factory=list)
 
 
 # ── Layout Primary Compat (run-scoped, downstream artifact) ──────────────────
@@ -214,6 +329,7 @@ class MarkerTrace(BaseModel):
     projected: int = 0
     unresolved: int = 0
     excluded_with_reason: int = 0
+    deduplicated: int = 0                     # v3: сколько маркеров-дублей отфильтровано
 
 
 class LayoutPrimaryCompatValidation(BaseModel):
@@ -225,12 +341,18 @@ class LayoutPrimaryCompatValidation(BaseModel):
     mixed_atoms_unresolved: int
     tables_included: int
     marker_trace: MarkerTrace
+    
+    # v3: quality metrics
+    quarantined_atoms_count: int = 0
+    quality_scores: dict[str, float] = Field(default_factory=dict)
 
 
 class LayoutPrimaryCompat(BaseModel):
     """
     Финальный артефакт для downstream (PII → structure).
     Совместим с raw_layout.get("elements", []).
+    
+    v3: добавлены quarantined_elements[] для аудита.
     """
 
     schema_version: str = "layout_primary_compat_v1"
@@ -243,3 +365,7 @@ class LayoutPrimaryCompat(BaseModel):
     elements: list[ProjectedElement] = Field(default_factory=list)
     unresolved_mixed_atoms: list[UnresolvedMixedAtom] = Field(default_factory=list)
     validation: LayoutPrimaryCompatValidation | None = None
+    
+    # v3: quarantine поток для аудита
+    quarantined_elements: list[QuarantineEntry] = Field(default_factory=list)
+    projection_mode: ProjectionMode = ProjectionMode.STRICT

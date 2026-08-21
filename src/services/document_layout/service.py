@@ -1,18 +1,22 @@
 """
-Document Layout Service (Phase 7).
+Document Layout Service (v3 Layered Orchestration Final).
 
-Единый координатор и оркестратор извлечения макета:
-1. Загрузка PDF;
-2. DoclingExtractor -> семантические атомы;
-3. PyMuPDFEnricher -> визуальные стили;
-4. LanguageClassifier -> языковая разметка;
-5. Gate 1: Canonical Quality;
-6. Спишется Canonical Layout JSON в S3 (version-scoped);
-7. MonolingualProjector -> проекция на целевой язык;
-8. Gate 2: Projection Quality;
-9. Compatibility Builder -> сборка макета;
-10. Gate 3: Compatibility Quality;
-11. Спишется layout_primary.json в S3 (run-scoped).
+Единый координатор и оркестратор всех 10 слоев извлечения макета:
+1. DoclingExtractor -> семантические атомы и таблицы;
+2. PyMuPDFEnricher -> визуальные стили;
+3. PageRegionSegmenter (Layer 1) -> регионы страницы с height-gating 25%;
+4. ReadingOrderReconstructor (Layer 2) -> поколоночный естественный порядок чтения;
+5. LanguageClassifier (Layer 3) -> классификация языков атомов;
+6. StructuralNodeBuilder (Layer 4) -> составные узлы StructuralNodeCandidate;
+7. ParallelAligner (Layer 5) -> сопоставление параллельных узлов противоположных языков;
+8. Gate 1: Canonical Quality;
+9. Сохранение Canonical Layout JSON в S3 (version-scoped);
+10. TableSemanticsProcessor (Layer 7 + Layer 6 SpanSplitter) -> ячеечная фильтрация таблиц;
+11. MonolingualProjector (Layer 8) -> проекция составных узлов с учётом выравнивания;
+12. Gate 2: Projection Quality;
+13. CompatibilityBuilder (Layer 10) -> сборка обратно-совместимого макета;
+14. Gate 3: Compatibility Quality;
+15. Сохранение layout_primary.json в S3 (run-scoped).
 """
 
 from __future__ import annotations
@@ -26,13 +30,19 @@ from services.document_layout.config import layout_config
 from services.document_layout.docling_extractor import DoclingExtractor
 from services.document_layout.language_classifier import LanguageClassifier
 from services.document_layout.monolingual_projector import MonolingualProjector
+from services.document_layout.page_region_segmenter import PageRegionSegmenter
+from services.document_layout.parallel_alignment import ParallelAligner
 from services.document_layout.pymupdf_enricher import PyMuPDFEnricher
 from services.document_layout.quality import (
     validate_canonical_layout,
     validate_compatibility,
     validate_projection,
 )
+from services.document_layout.reading_order_reconstructor import ReadingOrderReconstructor
 from services.document_layout.schemas import CanonicalLayout, CanonicalLayoutValidation
+from services.document_layout.span_splitter import SpanSplitter
+from services.document_layout.structural_node_builder import StructuralNodeBuilder
+from services.document_layout.table_semantics import TableSemanticsProcessor
 from storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
@@ -40,8 +50,6 @@ logger = get_logger(__name__)
 
 @dataclass(slots=True)
 class QualityGateError(Exception):
-    """Исключение при провале любого гейта качества."""
-
     reason_code: str
     message: str
     details: dict[str, Any]
@@ -49,8 +57,6 @@ class QualityGateError(Exception):
 
 @dataclass(slots=True)
 class PreparedLayoutResult:
-    """Результат успешной оркестрации извлечения макета."""
-
     canonical_layout_ref: str
     layout_primary_ref: str
     detected_languages: list[str]
@@ -60,24 +66,32 @@ class PreparedLayoutResult:
 
 
 class DocumentLayoutService:
-    """
-    Оркестратор извлечения и проекции макета документа (v2).
-    """
-
     def __init__(
         self,
         extractor: DoclingExtractor | None = None,
         enricher: PyMuPDFEnricher | None = None,
+        region_segmenter: PageRegionSegmenter | None = None,
+        reading_reconstructor: ReadingOrderReconstructor | None = None,
         classifier: LanguageClassifier | None = None,
+        node_builder: StructuralNodeBuilder | None = None,
+        aligner: ParallelAligner | None = None,
+        splitter: SpanSplitter | None = None,
+        table_processor: TableSemanticsProcessor | None = None,
         projector: MonolingualProjector | None = None,
         builder: CompatibilityBuilder | None = None,
         store: ArtifactStore | None = None,
     ):
         self.extractor = extractor or DoclingExtractor()
         self.enricher = enricher or PyMuPDFEnricher()
+        self.region_segmenter = region_segmenter or PageRegionSegmenter()
+        self.reading_reconstructor = reading_reconstructor or ReadingOrderReconstructor()
         self.classifier = classifier or LanguageClassifier()
-        self.projector = projector or MonolingualProjector()
-        self.builder = builder or CompatibilityBuilder()
+        self.node_builder = node_builder or StructuralNodeBuilder()
+        self.aligner = aligner or ParallelAligner()
+        self.splitter = splitter or SpanSplitter()
+        self.table_processor = table_processor or TableSemanticsProcessor(splitter=self.splitter)
+        self.projector = projector or MonolingualProjector(splitter=self.splitter)
+        self.builder = builder or CompatibilityBuilder(table_processor=self.table_processor)
         self.store = store or ArtifactStore()
 
     def prepare_document_layout(
@@ -90,26 +104,22 @@ class DocumentLayoutService:
         tenant_id: str,
         deal_id: str,
     ) -> PreparedLayoutResult:
-        """
-        Полный цикл обработки документа.
-        Выбрасывает QualityGateError при провале проверок качества.
-        """
+
         logger.info(
-            "Starting pipeline v2 layout preparation for document",
+            "Starting pipeline v3 layered layout preparation",
             document_id=document_id,
             version_id=document_version_id,
             run_id=run_id,
             target_language=target_language,
         )
 
-        # 1. Извлечение структуры из Docling (Фаза 1)
+        # 1. Извлечение структуры из Docling
         atoms, tables, pages, sha256 = self.extractor.extract(
             pdf_bytes=pdf_bytes,
             document_id=document_id,
             document_version_id=document_version_id,
         )
 
-        # Fail-fast пред-гейт: если извлечено 0 страниц или 0 атомов
         if not pages or not atoms:
             raise QualityGateError(
                 reason_code="CANONICAL_EXTRACTION_EMPTY",
@@ -117,13 +127,28 @@ class DocumentLayoutService:
                 details={"total_pages": len(pages), "total_atoms": len(atoms)},
             )
 
-        # 2. Визуальное обогащение через PyMuPDF (Фаза 2)
+        # 2. Визуальное обогащение через PyMuPDF
         enriched_atoms = self.enricher.enrich(pdf_bytes, atoms)
 
-        # 3. Классификация языков атомов (Фаза 3)
-        classified_atoms = self.classifier.classify_atoms(enriched_atoms)
+        # 3. Layer 1 & 2: Геометрическая сегментация регионов + Поколоночный порядок чтения
+        reordered_atoms: list[Any] = []
+        all_regions: list[Any] = []
 
-        # Сбор уникальных авторитетных языков
+        for page in pages:
+            page_atoms = [a for a in enriched_atoms if a.page == page.page_number]
+            page_copy = page.model_copy(update={"atoms": page_atoms})
+
+            regions = self.region_segmenter.segment_page(page_copy)
+            all_regions.extend(regions)
+
+            page_ordered_atoms = self.reading_reconstructor.reconstruct_page_reading_order(
+                page_copy, regions
+            )
+            reordered_atoms.extend(page_ordered_atoms)
+
+        # 4. Layer 3: Классификация языков атомов
+        classified_atoms = self.classifier.classify_atoms(reordered_atoms)
+
         detected_langs = sorted(
             list(
                 {
@@ -134,7 +159,18 @@ class DocumentLayoutService:
             )
         )
 
-        # 4. Сборка модели CanonicalLayout
+        # 5. Layer 4: Построение составных узлов StructuralNodeCandidate
+        node_candidates = []
+        for page in pages:
+            page_atoms = [a for a in classified_atoms if a.page == page.page_number]
+            page_regions = [r for r in all_regions if r.page == page.page_number]
+            page_nodes = self.node_builder.build_page_nodes(page_atoms, page_regions)
+            node_candidates.extend(page_nodes)
+
+        # 6. Layer 5: Выравнивание параллельных узлов противоположных языков
+        alignment_result = self.aligner.align_nodes(node_candidates, target_language)
+
+        # 7. Сборка модели CanonicalLayout
         lang_dist: dict[str, int] = {}
         marker_count = 0
         marker_only_count = 0
@@ -168,17 +204,16 @@ class DocumentLayoutService:
             validation=validation_canonical,
         )
 
-        # 5. Рубеж качества 1: Валидация Canonical Layout (Фаза 6)
+        # 8. Gate 1: Валидация Canonical Layout
         gate1 = validate_canonical_layout(canonical_layout)
         if not gate1.passed:
-            logger.error("Quality Gate 1 (Canonical) failed!", details=gate1.details)
             raise QualityGateError(
                 reason_code=gate1.reason_code or "CANONICAL_QUALITY_FAILED",
                 message=gate1.message or "Canonical quality gate failed",
                 details=gate1.details,
             )
 
-        # 6. Сохранение Canonical Layout в S3 (version-scoped, immutable)
+        # 9. Сохранение Canonical Layout в S3
         canonical_path = ArtifactPath.canonical_layout(
             tenant_id=tenant_id,
             deal_id=deal_id,
@@ -189,20 +224,21 @@ class DocumentLayoutService:
             canonical_path, canonical_layout.model_dump()
         )
 
-        # 7. Моноязычная проекция (Фаза 4)
-        projection = self.projector.project(classified_atoms, target_language)
+        # 10. Layer 8: Моноязычная проекция СОСТАВНЫХ УЗЛОВ с учётом выравнивания
+        projection = self.projector.project_nodes(
+            node_candidates, target_language, alignment_result=alignment_result
+        )
 
-        # 8. Рубеж качества 2: Валидация Projection (Фаза 6)
+        # 11. Gate 2: Валидация Projection
         gate2 = validate_projection(canonical_layout, projection, target_language)
         if not gate2.passed:
-            logger.error("Quality Gate 2 (Projection) failed!", details=gate2.details)
             raise QualityGateError(
                 reason_code=gate2.reason_code or "PROJECTION_QUALITY_FAILED",
                 message=gate2.message or "Projection quality gate failed",
                 details=gate2.details,
             )
 
-        # 9. Сборка обратно-совместимого макета (Фаза 5)
+        # 12. Layer 10: Сборка обратно-совместимого макета
         compat_payload = self.builder.build_layout_primary(
             projection_result=projection,
             canonical_tables=tables,
@@ -213,17 +249,16 @@ class DocumentLayoutService:
             source_canonical_layout_ref=canonical_layout_ref,
         )
 
-        # 10. Рубеж качества 3: Валидация Compatibility (Фаза 6)
+        # 13. Gate 3: Валидация Compatibility
         gate3 = validate_compatibility(compat_payload)
         if not gate3.passed:
-            logger.error("Quality Gate 3 (Compatibility) failed!", details=gate3.details)
             raise QualityGateError(
                 reason_code=gate3.reason_code or "COMPATIBILITY_QUALITY_FAILED",
                 message=gate3.message or "Compatibility quality gate failed",
                 details=gate3.details,
             )
 
-        # 11. Сохранение layout_primary в S3 (run-scoped, isolated)
+        # 14. Сохранение layout_primary в S3
         primary_path = ArtifactPath.run_layout_primary(
             tenant_id=tenant_id,
             deal_id=deal_id,
@@ -233,7 +268,7 @@ class DocumentLayoutService:
         layout_primary_ref = self.store.put_json(primary_path, compat_payload)
 
         logger.info(
-            "Document layout processing completed successfully",
+            "Document layout processing completed successfully (v3 layered final)",
             document_id=document_id,
             canonical_layout_ref=canonical_layout_ref,
             layout_primary_ref=layout_primary_ref,

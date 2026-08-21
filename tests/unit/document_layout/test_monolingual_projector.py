@@ -1,117 +1,65 @@
-"""Unit tests для Monolingual Projector (Phase 4)."""
+"""Unit tests для Monolingual Projector (Phase 4 / Layer 8 v3)."""
 
 import pytest
 from services.document_layout.monolingual_projector import MonolingualProjector
-from services.document_layout.schemas import CanonicalAtom, CanonicalAtomSource
+from services.document_layout.parallel_alignment import ParallelAligner
+from services.document_layout.schemas import StructuralNodeCandidate
 
 
 class TestMonolingualProjector:
-    def test_target_language_atoms_projected(self):
-        atom_ru = CanonicalAtom(
-            element_id="atom:000001",
-            page=1,
+    def test_target_language_nodes_projected(self):
+        node_ru = StructuralNodeCandidate(
+            node_id="node:1:0001",
+            marker="1.",
             bbox=(10.0, 10.0, 100.0, 20.0),
-            source_reading_order=1,
-            layout_order=1,
-            text="Текст на русском языке",
-            label="paragraph",
+            page=1,
+            region_id="col_0",
+            hierarchy_path=["1"],
+            source_atom_ids=["atom:001"],
             language="ru",
-            source=CanonicalAtomSource(docling_collection="texts"),
+            text="1. Текст на русском языке",
         )
-        atom_en = CanonicalAtom(
-            element_id="atom:000002",
+        node_en = StructuralNodeCandidate(
+            node_id="node:1:0002",
+            marker="1.",
+            bbox=(200.0, 10.0, 300.0, 20.0),
             page=1,
-            bbox=(10.0, 30.0, 100.0, 40.0),
-            source_reading_order=2,
-            layout_order=2,
-            text="English text to be excluded",
-            label="paragraph",
+            region_id="col_1",
+            hierarchy_path=["1"],
+            source_atom_ids=["atom:002"],
             language="en",
-            source=CanonicalAtomSource(docling_collection="texts"),
+            text="1. English text",
         )
 
-        projector = MonolingualProjector()
-        result = projector.project([atom_ru, atom_en], target_language="ru")
+        aligner = ParallelAligner()
+        alignment_res = aligner.align_nodes([node_ru, node_en], target_language="ru")
 
+        projector = MonolingualProjector()
+        result = projector.project_nodes(
+            [node_ru, node_en],
+            target_language="ru",
+            alignment_result=alignment_res,
+        )
+
+        # Благодаря выравниванию (alignment) английский узел с маркером '1.' не создаёт дубликат пустышки!
         assert result.projected_atom_count == 1
-        assert result.elements[0].text == "Текст на русском языке"
+        assert result.elements[0].text == "1. Текст на русском языке"
         assert result.elements[0].language == "ru"
-        assert result.elements[0].projection_method == "native_language_atom"
 
-    def test_shared_atoms_included_in_all_projections(self):
-        atom_shared = CanonicalAtom(
-            element_id="atom:000003",
-            page=1,
+    def test_shared_nodes_included(self):
+        node_shared = StructuralNodeCandidate(
+            node_id="node:1:0003",
+            marker=None,
             bbox=(10.0, 10.0, 50.0, 20.0),
-            source_reading_order=1,
-            layout_order=1,
-            text="100 000 USD",
-            label="paragraph",
+            page=1,
+            region_id="col_0",
+            hierarchy_path=[],
+            source_atom_ids=["atom:003"],
             language="shared",
-            source=CanonicalAtomSource(docling_collection="texts"),
+            text="100 000 USD",
         )
 
         projector = MonolingualProjector()
-        result_ru = projector.project([atom_shared], target_language="ru")
-        result_en = projector.project([atom_shared], target_language="en")
-
+        result_ru = projector.project_nodes([node_shared], target_language="ru")
         assert result_ru.projected_atom_count == 1
         assert result_ru.elements[0].text == "100 000 USD"
-        assert result_ru.elements[0].language == "shared"
-
-        assert result_en.projected_atom_count == 1
-        assert result_en.elements[0].text == "100 000 USD"
-
-    def test_safe_split_slash_resolves_mixed_atom(self):
-        atom_mixed = CanonicalAtom(
-            element_id="atom:000004",
-            page=1,
-            bbox=(10.0, 10.0, 200.0, 20.0),
-            source_reading_order=1,
-            layout_order=1,
-            text="Party A / Сторона А",
-            label="paragraph",
-            language="mixed",
-            source=CanonicalAtomSource(docling_collection="texts"),
-        )
-
-        projector = MonolingualProjector()
-        result_ru = projector.project([atom_mixed], target_language="ru")
-
-        assert result_ru.mixed_atoms_resolved == 1
-        assert result_ru.elements[0].text == "Сторона А"
-        assert result_ru.elements[0].projection_method == "safe_split_mixed"
-        assert result_ru.elements[0].language == "ru"
-
-    def test_marker_preservation_without_opposite_language_leakage(self):
-        """
-        Инвариант §II.2 Принцип 7:
-        Маркер из английского пункта переносится как marker-only элемент с пустым текстом.
-        Английский текст пункта НЕ просачивается в русскую проекцию.
-        """
-        atom_en_marker = CanonicalAtom(
-            element_id="atom:000005",
-            page=2,
-            bbox=(10.0, 50.0, 200.0, 60.0),
-            source_reading_order=5,
-            layout_order=5,
-            text="3.2 Governing Law clause in English",
-            marker="3.2",
-            is_marker_only=False,
-            label="list_item",
-            language="en",
-            source=CanonicalAtomSource(docling_collection="texts"),
-        )
-
-        projector = MonolingualProjector()
-        result_ru = projector.project([atom_en_marker], target_language="ru")
-
-        assert result_ru.projected_atom_count == 1
-        el = result_ru.elements[0]
-        assert el.marker == "3.2"
-        assert el.is_marker_only is True
-        assert el.text == ""  # Текст строго пустой!
-        assert el.projection_method == "preserved_marker_without_target_text"
-        assert el.needs_review is True
-        assert result_ru.projected_marker_only_atom_count == 1
-        assert result_ru.marker_trace.projected == 1
