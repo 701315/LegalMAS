@@ -428,6 +428,23 @@ class ArtifactPath:
         )
 
 
+
+    @staticmethod
+    def canonical_layout(tenant_id: str, deal_id: str, document_id: str, document_version_id: str) -> str:
+        '''Путь к Canonical Layout JSON (многоязычный, неизменяемый, version-scoped).'''
+        return f"tenants/{tenant_id}/deals/{deal_id}/canonical/{document_id}_version_{document_version_id}_canonical_layout.json"
+
+    @staticmethod
+    def run_layout_primary(tenant_id: str, deal_id: str, run_id: str, document_id: str) -> str:
+        '''Путь к layout_primary JSON для конкретного запуска (run-scoped).'''
+        return f"tenants/{tenant_id}/deals/{deal_id}/runs/{run_id}/{document_id}_layout_primary.json"
+
+    @staticmethod
+    def run_layout_primary_sanitized(tenant_id: str, deal_id: str, run_id: str, document_id: str) -> str:
+        '''Путь к layout_primary_sanitized JSON для конкретного запуска (run-scoped).'''
+        return f"tenants/{tenant_id}/deals/{deal_id}/runs/{run_id}/{document_id}_layout_primary_sanitized.json"
+
+
 class ArtifactStore:
     """
     MinIO/S3 client for artifact storage.

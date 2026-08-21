@@ -317,23 +317,26 @@ def _select_font_for_element(element: dict[str, Any], is_heading: bool) -> str:
     """
     Выбрать шрифт для элемента в зависимости от языка/скрипта.
 
-    Для непрофессионального программиста:
-    - DejaVuSans хорошо поддерживает кириллицу и латиницу;
-    - для арабского и иврита нужен отдельный шрифт (FreeSerif);
-    - если специальный шрифт недоступен — используем DejaVuSans как fallback.
+    Поддерживает как legacy формат (language_label на верхнем уровне),
+    так и V2 формат (language в element["metadata"]).
     """
-    # Определяем язык/скрипт элемента если есть в metadata
-    language_label = element.get("language_label", "")
-    detected_lang = element.get("language_detected", "")
+    # V2: language и script в metadata
+    el_meta = element.get("metadata") or {}
+    detected_lang = el_meta.get("language") or element.get("language_detected", "")
+    detected_script = el_meta.get("script") or ""
 
-    # Арабский, иврит, персидский — RTL языки
+    # Арабский, иврит, персидский, урду — RTL языки
     rtl_langs = {"ar", "he", "fa", "ur"}
-    needs_rtl_font = detected_lang in rtl_langs
+    rtl_scripts = {"arabic", "hebrew"}
+
+    needs_rtl_font = (
+        detected_lang in rtl_langs
+        or detected_script in rtl_scripts
+    )
 
     if needs_rtl_font and _ARABIC_FONT_REGISTERED:
         return ARABIC_FONT_NAME
 
-    # Для всех остальных — DejaVuSans (Bold для heading)
     return DEFAULT_FONT_NAME_BOLD if is_heading else DEFAULT_FONT_NAME
 
 

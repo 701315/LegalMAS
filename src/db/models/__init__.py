@@ -12,7 +12,7 @@ from .deal import Deal
 from .deal_member import DealMember
 from .tenant import Tenant
 from .user import User
-from .document import Document, DocumentSegment, DocumentStageExecution, DocumentVersion
+from .document import Document, DocumentRunLanguageResolution, DocumentSegment, DocumentStageExecution, DocumentVersion
 from .document_type_instruction import DocumentTypeInstructionVersion
 from .export import Export
 from .ops import AuditLog, DLQRecord, IdempotencyKey
@@ -44,6 +44,7 @@ __all__ = [
     "DocumentFamily",
     "DocumentFamilyMember",
     "DocumentRelation",
+    "DocumentRunLanguageResolution",
     "DocumentVersion",
     "DocumentTypeInstructionVersion",
     "Export",

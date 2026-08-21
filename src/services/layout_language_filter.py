@@ -1404,134 +1404,60 @@ def filter_layout_to_language(
     """
     Отфильтровать layout до одного языка.
 
-    MULTILINGUAL версия (Фаза 2A):
-    - принимает любой ISO 639-1 target_language: "ru", "en", "ar", "fr", "kk"...
-    - НЕ ограничен списком ("ru", "en")
-    - использует LanguageDetector для определения языка каждого элемента
+    V2: делегирует выполнение новому multilingual pipeline.
+    Возвращает монолингвальный layout (только visible элементы),
+    совместимый с downstream стадиями (classify, structure, chunks).
 
     Аргументы:
-      layout          — text_layout_raw
-      target_language — ISO 639-1 код целевого языка
-      context         — опциональный dict с ключами:
-                        "is_multilingual" (bool) — документ содержит несколько языков
-                        "document_id"     (str)
-                        "deal_id"         (str)
+        layout:          text_layout_raw
+        target_language: ISO 639-1 код целевого языка ("ru", "en", "ar", ...)
+        context:         опциональный dict с document_id, deal_id для логов
 
-    Возвращает layout_primary с ключами:
-      - elements:             отфильтрованные элементы
-      - excluded_element_ids: list[str]  — удалённые element_id
-      - filter_decisions:     list[dict] — audit trail решений
-      - metadata:             metadata с language_filter
+    Возвращает dict с ключами:
+        document_id, document_version_id, elements, tables, metadata
+
+    При пустом target_language возвращает layout без изменений.
     """
-    target = (target_language or "").lower().strip()
+    from services.multilingual.pipeline import run_multilingual_pipeline
 
-    # MULTILINGUAL: не ограничиваем список языков
-    # Валидируем только что язык не пустой
+    target = (target_language or "").lower().strip()
+    doc_id = (
+        (context or {}).get("document_id")
+        or layout.get("document_id")
+        or "unknown"
+    )
+
     if not target:
         logger.warning(
-            "filter_layout_to_language: empty target_language, returning raw layout",
-            target_language=target_language,
+            "filter_layout_to_language: empty target_language, returning layout unchanged",
+            document_id=doc_id,
         )
         return layout
 
-    elements: list[dict[str, Any]] = layout.get("elements") or []
-    tables: list[Any] = layout.get("tables") or []
+    logger.info(
+        "filter_layout_to_language: running V2 multilingual pipeline",
+        document_id=doc_id,
+        target_language=target,
+        elements_count=len(layout.get("elements") or []),
+    )
 
-    if not elements:
-        return {
-            "document_version_id": layout.get("document_version_id"),
-            "document_id": layout.get("document_id"),
-            "elements": [],
-            "tables": tables,
-            "excluded_element_ids": [],
-            "filter_decisions": [],
-            "metadata": _build_metadata(
-                layout, target,
-                _assess_quality([], [], is_multilingual=False),
-                is_multilingual=False,
-                structural_filter_used=False,
-            ),
-        }
+    result = run_multilingual_pipeline(
+        raw_layout=layout,
+        target_language=target,
+    )
 
-    # "is_bilingual" для обратной совместимости → переименован в "is_multilingual"
-    is_multilingual = bool(
-        context.get("is_multilingual") or context.get("is_bilingual")
-    ) if context else False
-    doc_id = (context or {}).get("document_id", "unknown")
+    monolingual = result.to_monolingual_layout()
 
-    if not is_multilingual or len(elements) < _STRUCTURAL_MIN_ELEMENTS:
-        result = _simple_filter(
-            layout, target, elements, tables,
-            is_multilingual=is_multilingual,
-        )
-        logger.info(
-            "filter_layout_to_language: simple filter applied",
-            document_id=doc_id,
-            target=target,
-            elements_in=len(elements),
-            elements_out=len(result.get("elements") or []),
-            elements_excluded=len(result.get("excluded_element_ids") or []),
-            degraded=result.get("metadata", {})
-                .get("language_filter", {}).get("degraded", False),
-            degraded_reason=result.get("metadata", {})
-                .get("language_filter", {}).get("degraded_reason"),
-        )
-        return result
+    logger.info(
+        "filter_layout_to_language: V2 pipeline complete",
+        document_id=doc_id,
+        target_language=target,
+        elements_visible=len(monolingual.get("elements") or []),
+        orphan_ratio=round(result.metadata.quality_metrics.orphan_ratio, 3),
+        parallel_groups=result.metadata.quality_metrics.parallel_groups_count,
+    )
 
-    try:
-        result = _structural_filter(layout, target, elements, tables)
-        logger.info(
-            "filter_layout_to_language: structural filter applied",
-            document_id=doc_id,
-            target=target,
-            elements_in=len(elements),
-            elements_out=len(result.get("elements") or []),
-            elements_excluded=len(result.get("excluded_element_ids") or []),
-            multilingual_blocks=result.get("metadata", {})
-                .get("language_filter", {}).get("multilingual_blocks_found", 0),
-            degraded=result.get("metadata", {})
-                .get("language_filter", {}).get("degraded", False),
-            degraded_reason=result.get("metadata", {})
-                .get("language_filter", {}).get("degraded_reason"),
-        )
-        return result
-
-    except Exception as exc:  # noqa: BLE001
-        logger.error(
-            "filter_layout_to_language: structural filter failed, "
-            "falling back to simple filter",
-            document_id=doc_id,
-            target_language=target,
-            error=str(exc),
-            traceback=traceback.format_exc(),
-        )
-
-        result = _simple_filter(layout, target, elements, tables, is_multilingual=True)
-
-        lf = (result.get("metadata") or {}).get("language_filter") or {}
-        lf["degraded"] = True
-
-        fallback_reason = "structural_filter_exception_fallback_to_simple"
-        prev_reason = lf.get("degraded_reason")
-        if prev_reason:
-            if fallback_reason not in str(prev_reason):
-                lf["degraded_reason"] = f"{prev_reason};{fallback_reason}"
-        else:
-            lf["degraded_reason"] = fallback_reason
-
-        result.setdefault("metadata", {})["language_filter"] = lf
-
-        logger.info(
-            "filter_layout_to_language: simple fallback applied after structural failure",
-            document_id=doc_id,
-            target_language=target,
-            elements_in=len(elements),
-            elements_out=len(result.get("elements") or []),
-            elements_excluded=len(result.get("excluded_element_ids") or []),
-            degraded=lf.get("degraded", False),
-            degraded_reason=lf.get("degraded_reason"),
-        )
-        return result
+    return monolingual
 
 
 # ---------------------------------------------------------------------------

@@ -148,6 +148,17 @@ class Run(Base):
     )
 
 
+    missing_target_language_policy: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        server_default="BLOCK_DOCUMENT_CONTINUE_RUN",
+        comment=(
+            "Как обрабатывать документы, где target language отсутствует: "
+            "BLOCK_DOCUMENT_CONTINUE_RUN | FAIL_RUN_IF_ANY_DOCUMENT_MISSING_LANGUAGE | "
+            "FALLBACK_TO_DOCUMENT_LANGUAGE | REQUIRE_USER_CONFIRMATION"
+        ),
+    )
+
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

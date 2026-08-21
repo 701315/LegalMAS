@@ -1,3 +1,4 @@
+from .document_run_language_resolution_repo import DocumentRunLanguageResolutionRepository
 # src/db/repositories/__init__.py
 
 """
@@ -45,6 +46,7 @@ __all__ = [
     "DocumentStageExecutionRepository",
     "DocumentTypeInstructionVersionRepository",
     "DocumentVersionRepository",
+    "DocumentRunLanguageResolutionRepository",
     "ExportRepository",
     "IdempotencyRepository",
     "OutboxRepository",

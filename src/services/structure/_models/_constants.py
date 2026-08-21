@@ -66,6 +66,9 @@ SEGMENT_TYPE_SCHEDULE = "schedule"
 SEGMENT_TYPE_PROTOCOL = "protocol"
 SEGMENT_TYPE_OTHER = "other"
 SEGMENT_TYPE_UNKNOWN = "unknown"
+SEGMENT_TYPE_HEADING = "heading"  # V2 multilingual pipeline: клауза верхнего уровня
+                                   # без appendix/amendment-маркера в anchor_uid
+                                   # (см. _infer_segment_type_from_anchor в _segmenter/candidates.py)
 
 VALID_SEGMENT_TYPES: frozenset[str] = frozenset(
     {
@@ -78,6 +81,7 @@ VALID_SEGMENT_TYPES: frozenset[str] = frozenset(
         SEGMENT_TYPE_PROTOCOL,
         SEGMENT_TYPE_OTHER,
         SEGMENT_TYPE_UNKNOWN,
+        SEGMENT_TYPE_HEADING,
     }
 )
 

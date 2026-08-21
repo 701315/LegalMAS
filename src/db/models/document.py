@@ -474,6 +474,30 @@ class DocumentVersion(Base):
         ),
     )
 
+
+    # ── v2 Layout Pipeline fields ──────────────────────────────────────────
+
+    canonical_layout_ref: Mapped[str | None] = mapped_column(
+        String(1024),
+        nullable=True,
+        comment=(
+            "S3 URI to canonical_layout.json — полный multilingual extraction. "
+            "Document-scoped, immutable, кэшируется по SHA256. "
+            "Заполняется build_primary_language_source (v2 pipeline)."
+        ),
+    )
+
+    detected_languages: Mapped[list[str] | None] = mapped_column(
+        PG_ARRAY(String(10)),
+        nullable=True,
+        comment=(
+            "Authoritative per-version language inventory из canonical atoms (v2). "
+            "Единственный source of truth для per-document eligibility check. "
+            "Отличается от Document.detected_languages (preliminary, для UX)."
+        ),
+    )
+
+
     __table_args__ = (
         Index("idx_docver_doc_version", "document_id", "version_num"),
         Index(
@@ -879,4 +903,88 @@ class DocumentStageExecution(Base):
         ),
     )
 
-    
+
+class DocumentRunLanguageResolution(Base):
+    """
+    Run-scoped language resolution для каждого документа в запуске.
+
+    Зачем:
+    - Один документ может анализироваться на разных языках в разных runs.
+    - Нельзя перезаписывать единственный DocumentVersion.layout_primary_ref.
+    - Эта таблица хранит per-run projection refs и статус eligibility.
+
+    Уникальность: (run_id, document_version_id) — одна resolution на пару.
+    id, created_at, updated_at наследуются от Base.
+    """
+
+    __tablename__ = "document_run_language_resolution"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    document_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_versions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=False,
+    )
+
+    requested_language: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+    )
+
+    available_languages: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default="[]",
+    )
+
+    effective_language: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    resolution_status: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        server_default="LANGUAGE_RESOLVING",
+    )
+
+    reason_code: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+
+    canonical_layout_ref: Mapped[str | None] = mapped_column(
+        String(1024),
+        nullable=True,
+    )
+
+    layout_primary_ref: Mapped[str | None] = mapped_column(
+        String(1024),
+        nullable=True,
+    )
+
+    layout_primary_sanitized_ref: Mapped[str | None] = mapped_column(
+        String(1024),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "document_version_id",
+            name="uq_doc_run_lang_resolution_run_version",
+        ),
+    )
+

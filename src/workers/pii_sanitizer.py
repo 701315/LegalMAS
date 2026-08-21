@@ -1,47 +1,36 @@
-# src/workers/pii_sanitizer.py
-
-# src/workers/pii_sanitizer.py
-
 """
 PII Sanitizer Worker.
 
-
 Пайплайн: extract → pii → structure → classify → run_deal_checks.
 
-
-Назначение:
-- Считать одноязычный макет документа (layout_primary) из MinIO.
-- Найти PII‑сущности по политике (triggers + YAML‑конфиг типа документа).
-- Заменить чувствительные данные токенами, зашифровать mapping и сохранить его.
-- Сохранить sanitized‑layout и PII‑mapping в MinIO.
-- Обновить статус документа: EXTRACTED -> SANITIZED.
-- Запуск последующих стадий (structure и далее) выполняется централизованным оркестратором.
-
-
-Архитектурные принципы:
-- Celery‑таска синхронная (def) + async‑ядро (PIISanitizer.sanitize) под db_uow().
-- Основная санитизация работает в одном UnitOfWork (db_uow) — читаем и пишем всё
-  в рамках одной транзакции.
-- Если при санитизации происходит ошибка, мы ОТДЕЛЬНО открываем новый db_uow
-  только чтобы надёжно записать статус документа (FAILED / QUARANTINE) +
-  processing_error_details.
-- Для юриста это означает: документ никогда не «зависает» в промежуточном состоянии,
-  всегда имеет честный и понятный статус.
+В V2-пайплайне (DOCUMENT_LAYOUT_V2_ENABLED = True):
+- Считывает входящий layout_primary_ref из run-scoped таблицы резолва языков.
+- Записывает sanitized-layout в document_run_language_resolution.layout_primary_sanitized_ref
+  И дублирует в DocumentVersion (для обратной совместимости с downstream-стадиями).
 """
+
+from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
 from typing import Any
-from core.stage_trace import build_stage_trace_fragment
+
+from sqlalchemy import select
+
 from classifiers.yaml_registry import YAMLRegistry
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError
 from core.logging import get_logger
+from core.stage_trace import build_stage_trace_fragment
+from services.document_layout.config import layout_config
 from db.repositories import (
     AuditRepository,
     DocumentRepository,
     DocumentVersionRepository,
+)
+from db.repositories.document_run_language_resolution_repo import (
+    DocumentRunLanguageResolutionRepository,
 )
 from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
 from db.uow import UnitOfWork, db_uow
@@ -59,52 +48,31 @@ logger = get_logger(__name__)
 
 
 class PIISanitizer:
-    """
-    Сервис санитизации PII в документе.
-
-
-    Отделён от Celery‑таски для тестируемости.
-    Получает UnitOfWork извне, работает строго в его границах.
-    """
-
     def __init__(
         self,
         uow: UnitOfWork,
-        artifact_store,  # ArtifactStore
+        artifact_store,
         artifact_tenant_id: uuid.UUID | str,
         detector=None,
         tokenizer=None,
         encryptor=None,
+        run_id: str | None = None,
     ):
         self.uow = uow
         self.store = artifact_store
         self.artifact_tenant_id: str = str(artifact_tenant_id)
+        self.run_id = run_id
 
-        # Репозитории поверх сессии из UoW
         self.doc_repo = DocumentRepository(uow.session)
         self.version_repo = DocumentVersionRepository(uow.session)
+        self.res_repo = DocumentRunLanguageResolutionRepository(uow.session)
         self.audit_repo = AuditRepository(uow.session)
 
-        # Dependency injection (для тестов)
         self.detector = detector or get_pii_detector()
         self.tokenizer = tokenizer or PIITokenizer()
         self.encryptor = encryptor or get_pii_encryptor()
 
     async def sanitize(self, document_version_id: uuid.UUID) -> dict[str, Any]:
-        """
-        Выполнить санитизацию документа.
-
-
-        Возвращает словарь с полями:
-        - document_id
-        - entities_detected / tokenized / preserved
-        - skipped (True, если документ уже был обработан)
-
-
-        В этой функции мы НЕ открываем новый UnitOfWork,
-        используем только тот, что был передан снаружи.
-        """
-        # 1. Загрузка версии и документа
         version = await self.version_repo.get_by_id(document_version_id)
         if not version:
             raise PermanentError(f"DocumentVersion {document_version_id} not found")
@@ -113,18 +81,11 @@ class PIISanitizer:
         if not doc:
             raise PermanentError(f"Document {version.document_id} not found")
 
-        # 2. Идемпотентность
         if self._should_skip(doc):
-            logger.info(
-                "Document already sanitized, skipping",
-                document_id=str(doc.id),
-            )
+            logger.info("Document already sanitized, skipping", document_id=str(doc.id))
             _skip_trace = build_stage_trace_fragment(
                 strategy="trigger_and_policy_based",
-                input_summary={
-                    "document_id": str(doc.id),
-                    "skip_reason": "already_sanitized",
-                },
+                input_summary={"document_id": str(doc.id), "skip_reason": "already_sanitized"},
                 output_summary={},
                 warnings=["skipped_already_sanitized"],
                 artifact_refs={},
@@ -137,66 +98,71 @@ class PIISanitizer:
                 "stage_execution_result_details": _skip_trace,
             }
 
-        # 3. Единый контракт пайплайна:
-        # PII работает только по layout_primary_ref.
-        layout_ref = getattr(version, "layout_primary_ref", None)
+        v2_enabled = getattr(settings, "DOCUMENT_LAYOUT_V2_ENABLED", False) or layout_config.document_layout_v2_enabled
+        run_uuid = uuid.UUID(self.run_id) if self.run_id else None
+
+        layout_ref = None
+        res_record = None
+
+        if v2_enabled and run_uuid:
+            res_record = await self.res_repo.get_by_run_and_version(run_uuid, document_version_id)
+            if res_record:
+                layout_ref = res_record.layout_primary_ref
+
         if not layout_ref:
-            raise PermanentError(
-                f"layout_primary_ref is required for PII sanitization, version={document_version_id}"
-            )
+            layout_ref = getattr(version, "layout_primary_ref", None)
+
+        if not layout_ref:
+            raise PermanentError(f"layout_primary_ref is required for PII sanitization, version={document_version_id}")
 
         try:
             layout_raw = self.store.get_json(layout_ref)
             elements = layout_raw.get("elements", [])
 
-            # 5. Построить PIIPolicy с учётом applicable_triggers и YAML‑конфига
             triggers = getattr(doc, "applicable_triggers", None) or []
             policy = self._build_policy(doc, triggers)
 
-            # 6. Обработать элементы
             sanitized_elements, global_mapping, stats = self._process_elements(elements, policy)
 
-            # 7. Сохранить sanitized-layout.
-            #
-            # Контракт пайплайна:
-            # - layout_primary_sanitized_ref является единственным downstream
-            #   sanitized layout;
-            # - legacy sanitized layout paths больше не используются.
-
-
             layout_sanitized = {**layout_raw, "elements": sanitized_elements}
-            sanitized_path = self._build_sanitized_path(doc, self.artifact_tenant_id)
-            # ArtifactStore.put_json — синхронный метод, НЕ используем await
-            self.store.put_json(sanitized_path, layout_sanitized)
+            
+            if v2_enabled and run_uuid:
+                sanitized_path = ArtifactPath.run_layout_primary_sanitized(
+                    tenant_id=self.artifact_tenant_id,
+                    deal_id=str(doc.deal_id),
+                    run_id=self.run_id,
+                    document_id=str(doc.id),
+                )
+            else:
+                sanitized_path = self._build_sanitized_path(doc, self.artifact_tenant_id)
 
-            # 8. Зашифровать и сохранить pii_mapping
+            # Сохраняем возвращаемую S3-ссылку макета (а не относительный путь)
+            layout_primary_sanitized_ref = self.store.put_json(sanitized_path, layout_sanitized)
+
             mapping_path = self._build_mapping_path(doc, self.artifact_tenant_id)
             encrypted = self.encryptor.encrypt_mapping(global_mapping)
-            # ArtifactStore.put_file — синхронный метод, НЕ используем await
-            self.store.put_file(mapping_path, encrypted)
+            
+            # Сохраняем возвращаемую S3-ссылку маппинга
+            pii_mapping_ref = self.store.put_file(mapping_path, encrypted)
 
-            # 9. Обновить DocumentVersion и статус документа
-            #
-            # ВАЖНО:
-            # - sanitized_path указывает на одноязычный sanitized layout
-            #   (ArtifactPath.layout_primary_sanitized).
-            # - mapping_path — зашифрованный PII mapping для reveal операций.
-            # - Через update_refs мы записываем обе ссылки в DocumentVersion,
-            #   чтобы layout_primary_sanitized_ref был основным source of truth
-            #   для downstream стадий (structure, DocumentContentService, checks),
-            #   а pii_mapping_ref — канонической ссылкой для PII reveal.
+            # Обновляем резолв-таблицу в V2
+            if v2_enabled and res_record:
+                res_record.layout_primary_sanitized_ref = layout_primary_sanitized_ref
+                res_record.resolution_status = "LANGUAGE_READY"
+
+            # Дублируем ссылки в DocumentVersion для 100% совместимости с downstream
             await self.version_repo.update_refs(
                 version_id=version.id,
-                layout_primary_sanitized_ref=sanitized_path,
-                pii_mapping_ref=mapping_path,
+                layout_primary_sanitized_ref=layout_primary_sanitized_ref,
+                pii_mapping_ref=pii_mapping_ref,
             )
+
             await self.doc_repo.update_status(
                 doc_id=doc.id,
                 status=DocumentStatus.SANITIZED.value,
                 processing_error_details=None,
             )
 
-            # 10. AuditLog (опционально)
             if settings.PII_AUDIT_ENABLED:
                 await self._write_audit_log(doc, triggers, policy, stats)
 
@@ -206,7 +172,6 @@ class PIISanitizer:
                 entities_detected=stats["detected"],
                 entities_tokenized=stats["tokenized"],
                 entities_preserved=stats["preserved"],
-                role_map_used=policy.use_role_map,
             )
 
             _trace = build_stage_trace_fragment(
@@ -221,15 +186,13 @@ class PIISanitizer:
                     "entities_detected": stats["detected"],
                     "entities_tokenized": stats["tokenized"],
                     "entities_preserved": stats["preserved"],
-                    "role_map_used": policy.use_role_map,
                 },
                 warnings=[],
                 artifact_refs={
-                    "layout_primary_sanitized_ref": sanitized_path,
-                    "pii_mapping_ref": mapping_path,
+                    "layout_primary_sanitized_ref": layout_primary_sanitized_ref,
+                    "pii_mapping_ref": pii_mapping_ref,
                 },
                 decision_details={
-                    "yaml_keywords_used": policy.party_role_keywords is not None,
                     "encryption_enabled": self.encryptor.is_encryption_enabled,
                 },
             )
@@ -247,7 +210,6 @@ class PIISanitizer:
             }
 
         except PIIEncryptionError as e:
-            # Ошибка шифрования → карантин
             raise QuarantineError(
                 f"Encryption error: {e}",
                 document_id=str(doc.id),
@@ -255,38 +217,22 @@ class PIISanitizer:
             ) from e
 
     def _should_skip(self, doc) -> bool:
-        """Проверить, нужно ли пропустить санитизацию (идемпотентность)."""
         if not settings.PII_SKIP_IF_ALREADY_SANITIZED:
             return False
         return doc.status == DocumentStatus.SANITIZED.value
 
     def _build_policy(self, doc, triggers: list) -> PIIPolicy:
-        """
-        Построить PIIPolicy с учётом YAML‑конфига типа документа.
-        """
         party_role_keywords: dict[str, str] | None = None
-
-        # На Stage 5 doc_type может быть ещё None (классификация позже)
         type_code = getattr(doc, "doc_type", None)
 
         if type_code:
             try:
                 registry = YAMLRegistry.get_instance()
                 cfg = registry.get_config(type_code)
-
                 if cfg and cfg.party_role_keywords:
                     party_role_keywords = cfg.party_role_keywords
-                    logger.debug(
-                        "Using party_role_keywords from YAML",
-                        doc_type=type_code,
-                        keywords_count=len(party_role_keywords),
-                    )
             except Exception as e:
-                logger.warning(
-                    "Failed to load YAML config for doc_type",
-                    doc_type=type_code,
-                    error=str(e),
-                )
+                logger.warning("Failed to load YAML config for doc_type", doc_type=type_code, error=str(e))
 
         return PIITokenizer.build_policy_from_triggers(
             applicable_triggers=triggers,
@@ -298,28 +244,11 @@ class PIISanitizer:
         elements: list[dict],
         policy: PIIPolicy,
     ) -> tuple[list[dict], dict[str, str], dict[str, int]]:
-        """
-        Обработать элементы layout'а.
-
-        Возвращает:
-        sanitized_elements, global_mapping, stats
-
-        Инвариант стабильности токенов:
-        value_to_token и doc_counters создаются ОДИН РАЗ на документ
-        и передаются через все вызовы tokenize(). Это гарантирует что
-        одна и та же PII-сущность (например "Иванов И.И.") получает
-        один токен во всех элементах layout'а, а не разные токены
-        в разных элементах.
-        """
         sanitized_elements = []
         global_mapping: dict[str, str] = {}
         stats = {"detected": 0, "tokenized": 0, "preserved": 0, "role_mapped": 0}
 
         preserve_types = get_preserve_types()
-
-        # Разделяемое состояние через все элементы документа.
-        # value_to_token: normalized_entity_value → assigned_token
-        # doc_counters:   type_key → current_max_index
         value_to_token: dict[str, str] = {}
         doc_counters: dict[str, int] = {}
 
@@ -329,11 +258,9 @@ class PIISanitizer:
                 sanitized_elements.append(elem)
                 continue
 
-            # Детектируем PII
             all_entities = self.detector.detect(raw_text)
             stats["detected"] += len(all_entities)
 
-            # Оставляем без токенизации типы, которые надо сохранить как есть
             pii_entities = [e for e in all_entities if e.type not in preserve_types]
 
             if not pii_entities:
@@ -341,7 +268,6 @@ class PIISanitizer:
                 stats["preserved"] += len(all_entities)
                 continue
 
-            # Токенизируем с разделяемым состоянием через весь документ
             context = raw_text[:500]
             result = self.tokenizer.tokenize(
                 raw_text,
@@ -362,11 +288,6 @@ class PIISanitizer:
         return sanitized_elements, global_mapping, stats
 
     def _build_sanitized_path(self, doc, tenant_id: str) -> str:
-        """
-        Построить путь для sanitized‑layout в MinIO через ArtifactPath.
-
-        В новой архитектуре это одноязычный layout_primary_sanitized.
-        """
         deal_id = str(doc.deal_id)
         return ArtifactPath.layout_primary_sanitized(
             tenant_id=tenant_id,
@@ -375,7 +296,6 @@ class PIISanitizer:
         )
 
     def _build_mapping_path(self, doc, tenant_id: str) -> str:
-        """Построить путь для PII‑mapping в MinIO через ArtifactPath."""
         deal_id = str(doc.deal_id)
         return ArtifactPath.pii_mapping(
             tenant_id=tenant_id,
@@ -390,7 +310,6 @@ class PIISanitizer:
         policy: PIIPolicy,
         stats: dict,
     ) -> None:
-        """Записать audit‑лог по результатам санитизации."""
         await self.audit_repo.log(
             tenant_id=uuid.UUID(self.artifact_tenant_id),
             deal_id=doc.deal_id,
@@ -426,19 +345,8 @@ def sanitize_document(
     tenant_id: str,
     run_id: str | None = None,
     stage_execution_id: str | None = None,
-    **kwargs,  # noqa: ARG002, поглощает: document_id, stage_execution_id, orchestration_strategy и др.
+    **kwargs,
 ) -> dict:
-    """
-    Синхронная Celery‑таска санитизации документа.
-
-    Внутри:
-      - открывает основной UnitOfWork (uow_main) через db_uow();
-      - запускает асинхронную санитизацию через PIISanitizer.sanitize;
-      - при ошибке открывает второй, маленький UnitOfWork только для записи
-        статуса (FAILED / QUARANTINE) + processing_error_details;
-      - при успехе только обновляет статус до SANITIZED.
-      - запуск следующего этапа (Structure Builder) выполняется оркестратором.
-    """
     version_uuid = uuid.UUID(document_version_id)
     document_id = kwargs.get("document_id")
 
@@ -456,6 +364,7 @@ def sanitize_document(
                 uow=uow_main,
                 artifact_store=store,
                 artifact_tenant_id=resolved_tenant_id,
+                run_id=run_id,
             )
             try:
                 result = await sanitizer.sanitize(version_uuid)
@@ -489,26 +398,9 @@ def sanitize_document(
                         tenant_id=str(failed_tenant_id),
                         message=str(e),
                     )
-
-                logger.error(
-                    "Permanent error during PII sanitization",
-                    document_version_id=document_version_id,
-                    deal_id=deal_id,
-                    tenant_id=resolved_tenant_id,
-                    run_id=run_id,
-                    error=str(e),
-                )
                 return {"status": DocumentStatus.FAILED.value, "error": str(e)}
 
             except QuarantineError as e:
-                logger.error(
-                    "Quarantine error during PII sanitization",
-                    document_version_id=document_version_id,
-                    deal_id=deal_id,
-                    tenant_id=resolved_tenant_id,
-                    run_id=run_id,
-                    error=str(e),
-                )
                 async with db_uow() as uow_err:
                     failed_tenant_id = await resolve_artifact_tenant_id(
                         session=uow_err.session,
@@ -536,21 +428,12 @@ def sanitize_document(
                         tenant_id=str(failed_tenant_id),
                         error=e,
                     )
-
                 return {"status": DocumentStatus.QUARANTINE.value, "error": str(e)}
 
-    # Переход в async‑мир через общий мост run_async
+    from mas_queue.async_helpers import run_async
     result = run_async(_run())
 
-    # Успешная санитизация → документ уже SANITIZED, можно будить оркестратор
     if run_id and result.get("committed") is True:
-        logger.info(
-            "PII sanitization finished, retriggering run pipeline",
-            document_version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=result.get("tenant_id", tenant_id),
-            run_id=run_id,
-        )
         retrigger_run_pipeline(
             run_id=run_id,
             deal_id=deal_id,
@@ -567,10 +450,6 @@ async def _mark_failed(
     tenant_id: str,
     message: str,
 ) -> None:
-    """
-    Обновить статус документа на FAILED в отдельной, простой транзакции
-    с заполнением processing_error_details.
-    """
     version_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
     audit_repo = AuditRepository(uow.session)
@@ -607,10 +486,7 @@ async def _mark_failed(
             },
         )
     except Exception:
-        logger.warning(
-            "PII sanitizer: failed to write audit log for PII_SANITIZE_FAILED",
-            document_id=str(version.document_id),
-        )
+        pass
 
 
 async def _mark_quarantine(
@@ -620,10 +496,6 @@ async def _mark_quarantine(
     tenant_id: str,
     error: QuarantineError,
 ) -> None:
-    """
-    Обновить статус документа на QUARANTINE в отдельной транзакции
-    с заполнением processing_error_details.
-    """
     version_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
     audit_repo = AuditRepository(uow.session)
@@ -661,9 +533,4 @@ async def _mark_quarantine(
             },
         )
     except Exception:
-        logger.warning(
-            "PII sanitizer: failed to write audit log for PII_SANITIZE_QUARANTINED",
-            document_id=str(version.document_id),
-        )
-
-        
+        pass

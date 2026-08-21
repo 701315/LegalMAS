@@ -1,5 +1,3 @@
-# src/core/pipeline_snapshots.py
-
 """
 Shared immutable pipeline snapshots.
 
@@ -15,14 +13,6 @@ Shared immutable pipeline snapshots.
 1) сначала загрузили ORM-объект;
 2) сразу вызвали snapshot_*();
 3) дальше работаем только со snapshot/примитивами.
-
-Важно:
-- snapshots не делают I/O;
-- snapshots не зависят от SQLAlchemy;
-- snapshots можно безопасно передавать:
-  * через await-границы,
-  * между разными UnitOfWork,
-  * в helper/service/engine слой.
 """
 
 from __future__ import annotations
@@ -32,9 +22,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Internal normalization helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# ─── Internal normalization helpers ───────────────────────────────────────────
 
 
 def _normalize_optional_str(value: Any) -> str | None:
@@ -70,22 +58,12 @@ def _normalize_bool(value: Any) -> bool:
 
 
 def _normalize_str_tuple(value: Any) -> tuple[str, ...]:
-    """
-    Нормализовать sequence-подобное значение в immutable tuple[str].
-
-    Для непрофессионального программиста:
-    - если значение не список/кортеж/итерируемая коллекция — вернём пустой tuple;
-    - берём только строковые элементы;
-    - tuple используется для immutability snapshot'а.
-    """
     if isinstance(value, Iterable) and not isinstance(value, str | bytes):
         return tuple(item for item in value if isinstance(item, str))
     return ()
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Run snapshot
-# ──────────────────────────────────────────────────────────────────────────────
+# ─── Run snapshot ─────────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +74,7 @@ class RunSnapshot:
     deal_id: uuid.UUID | None = None
     tenant_id: uuid.UUID | None = None
     pipeline_strategy: str | None = None
+    missing_target_language_policy: str | None = None
     checks_mode: str | None = None
     checks_scope: dict[str, Any] | None = None
     playbook_version_id: uuid.UUID | None = None
@@ -103,8 +82,6 @@ class RunSnapshot:
     instruction_snapshot_manifest: dict[str, Any] | None = None
     instruction_snapshot_payload: dict[str, Any] | None = None
 
-    # NULL = legacy run (без frozen snapshot, filesystem fallback разрешён)
-    # >= 1 = strict run (только frozen payload, filesystem fallback запрещён)
     snapshot_schema_version: int | None = None
 
     total_checks: int = 0
@@ -113,12 +90,10 @@ class RunSnapshot:
 
     @property
     def is_strict_snapshot(self) -> bool:
-        """True если Run требует строгого snapshot mode."""
         return self.snapshot_schema_version is not None and self.snapshot_schema_version >= 1
 
     @property
     def is_legacy(self) -> bool:
-        """True если Run создан до введения strict snapshot."""
         return self.snapshot_schema_version is None
 
     @property
@@ -141,6 +116,9 @@ def snapshot_run(run: Any) -> RunSnapshot:
         deal_id=getattr(run, "deal_id", None),
         tenant_id=getattr(run, "tenant_id", None),
         pipeline_strategy=_normalize_optional_str(getattr(run, "pipeline_strategy", None)),
+        missing_target_language_policy=_normalize_optional_str(
+            getattr(run, "missing_target_language_policy", None)
+        ),
         checks_mode=_normalize_optional_str(getattr(run, "checks_mode", None)),
         checks_scope=getattr(run, "checks_scope", None),
         playbook_version_id=getattr(run, "playbook_version_id", None),
@@ -154,24 +132,12 @@ def snapshot_run(run: Any) -> RunSnapshot:
     )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Document snapshot
-# ──────────────────────────────────────────────────────────────────────────────
+# ─── Document snapshot ────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True, slots=True)
 class DocumentSnapshot:
-    """
-    Immutable snapshot Document.
-
-    Содержит superset полей, которые реально нужны в:
-    - run_orchestrator
-    - language_discovery_orchestrator
-    - checks execution stack
-    """
-
     id: uuid.UUID
-
     status: str = ""
 
     doc_type: str | None = None
@@ -191,11 +157,6 @@ class DocumentSnapshot:
 
 
 def snapshot_document(doc: Any) -> DocumentSnapshot:
-    """
-    Снять immutable snapshot с ORM-объекта Document.
-
-    Вызывать сразу после загрузки ORM-объекта, до первого await.
-    """
     return DocumentSnapshot(
         id=doc.id,
         status=str(getattr(doc, "status", "") or ""),
@@ -207,9 +168,7 @@ def snapshot_document(doc: Any) -> DocumentSnapshot:
     )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Version snapshot
-# ──────────────────────────────────────────────────────────────────────────────
+# ─── Version snapshot ─────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,9 +176,12 @@ class VersionSnapshot:
     """
     Immutable snapshot DocumentVersion.
 
-    Содержит superset полей, которые реально нужны в:
-    - run_orchestrator
-    - language_discovery_orchestrator
+    v2 additions (2024):
+    - canonical_layout_ref: Ссылка на неизменяемый Canonical Layout в S3
+    - detected_languages: Авторитетный список языков документа
+
+    Deprecated пометка старых полей (refs переходят в run-scoped resolution):
+    - primary_source_ref, layout_primary_ref, layout_primary_sanitized_ref
     """
 
     id: uuid.UUID
@@ -227,13 +189,20 @@ class VersionSnapshot:
     origin_filetype: str | None = None
     original_ref: str | None = None
     converted_pdf_ref: str | None = None
+
+    # ─── v2 fields ────────────────────────────────────────────────────────────
+    canonical_layout_ref: str | None = None
+    detected_languages: tuple[str, ...] = ()
+
+    # ─── Deprecated fields (will be removed in phase 13) ──────────────────────
     primary_source_ref: str | None = None
     layout_primary_ref: str | None = None
     layout_primary_sanitized_ref: str | None = None
+
     file_graph_ref: str | None = None
     chunks_manifest_v2_ref: str | None = None
     segments_count: int | None = None
-    text_layout_raw_ref: str | None = None   # canonical raw extraction ref
+    text_layout_raw_ref: str | None = None
 
     pipeline_strategy: str | None = None
     extraction_strategy: str | None = None
@@ -249,11 +218,6 @@ class VersionSnapshot:
 
 
 def snapshot_version(version: Any) -> VersionSnapshot:
-    """
-    Снять immutable snapshot с ORM-объекта DocumentVersion.
-
-    Вызывать сразу после загрузки ORM-объекта, до первого await.
-    """
     segments_count_raw = getattr(version, "segments_count", None)
     segments_count = (
         _normalize_int(segments_count_raw, default=0) if segments_count_raw is not None else None
@@ -264,6 +228,10 @@ def snapshot_version(version: Any) -> VersionSnapshot:
         origin_filetype=_normalize_optional_lower_str(getattr(version, "origin_filetype", None)),
         original_ref=_normalize_optional_str(getattr(version, "original_ref", None)),
         converted_pdf_ref=_normalize_optional_str(getattr(version, "converted_pdf_ref", None)),
+        # v2 fields
+        canonical_layout_ref=_normalize_optional_str(getattr(version, "canonical_layout_ref", None)),
+        detected_languages=_normalize_str_tuple(getattr(version, "detected_languages", None)),
+        # deprecated fields (retained for backward compat)
         primary_source_ref=_normalize_optional_str(getattr(version, "primary_source_ref", None)),
         layout_primary_ref=_normalize_optional_str(getattr(version, "layout_primary_ref", None)),
         layout_primary_sanitized_ref=_normalize_optional_str(
