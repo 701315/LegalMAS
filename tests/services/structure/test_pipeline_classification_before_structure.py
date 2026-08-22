@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
-
+from services.structure.element_classifier import classify_elements
 import services.structure.pipeline as pipeline
 
 
@@ -140,7 +140,6 @@ def test_build_file_structure_empty_input_skips_classifier(monkeypatch):
     assert len(result.segment_trees) == 1
 
 
-from services.structure.element_classifier import classify_elements
 from services.structure.segmenter import segment_elements
 
 
@@ -169,3 +168,35 @@ def test_classification_preserves_real_appendix_headings_as_boundaries() -> None
 
     appendix_segments = [s for s in segments if s.segment_type == "appendix"]
     assert len(appendix_segments) >= 2
+
+
+def test_classifier_preserves_explicit_layout_facts_for_table() -> None:
+    classified = classify_elements(
+        [
+            {
+                "element_id": "table-1",
+                "text": "arbitrary extracted content",
+                "page": 1,
+                "type": "table",
+                "label": "table",
+                "is_table": True,
+                "is_furniture": False,
+                "marker": None,
+                "hierarchy_path": [],
+            }
+        ],
+        document_id="document-1",
+    )
+
+    assert len(classified) == 1
+
+    element = classified[0]
+    metadata = element["metadata"]
+
+    assert element["element_type"] == "table_content"
+    assert metadata["layout_type"] == "table"
+    assert metadata["layout_label"] == "table"
+    assert metadata["layout_is_table"] is True
+    assert metadata["layout_is_furniture"] is False
+    assert metadata["layout_marker"] is None
+    assert metadata["layout_hierarchy_path"] == []

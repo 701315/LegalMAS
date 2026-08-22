@@ -48,6 +48,34 @@ from storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
 
+def resolve_canonical_clause_uid(
+    node: dict[str, Any],
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> str | None:
+    """
+    Возвращает canonical clause identity для STRUCTURE ↔ CHUNKS linkage.
+
+    Приоритет:
+    1. effective_uid — canonical identity v3/v4, используемая retrieval/checks;
+    2. legacy clauseUid / clause_uid;
+    3. raw_uid — только compatibility fallback для старых artifacts.
+
+    В случае chunk dict metadata имеет приоритет над полями верхнего уровня.
+    """
+    meta = metadata if isinstance(metadata, dict) else {}
+
+    return normalize_uid(
+        meta.get("effective_uid")
+        or meta.get("clauseUid")
+        or meta.get("clause_uid")
+        or node.get("effective_uid")
+        or node.get("clauseUid")
+        or node.get("clause_uid")
+        or meta.get("raw_uid")
+        or node.get("raw_uid")
+    )
+
 # ── Константы representation для STRUCTURE ──────────────────────────
 
 _STRUCTURE_CANONICAL_DESC = (
@@ -470,7 +498,7 @@ def flatten_clause_tree(
     segment: PipelineSegmentDTO | None = None,
 ) -> None:
     """Рекурсивно сплющивает узел clause tree в плоский список секций."""
-    clause_uid = normalize_uid(node.get("clauseUid") or node.get("clause_uid"))
+    clause_uid = resolve_canonical_clause_uid(node)
     title = normalize_title(node.get("title") or node.get("label") or node.get("name"))
 
     page_from = normalize_int(
@@ -633,11 +661,26 @@ async def attach_structure_source_mapping(
         return False
 
     chunks_by_uid: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
     for raw_idx, ch in enumerate(clause_chunks):
-        meta = ch.get("metadata") or {}
-        uid = normalize_uid(meta.get("clause_uid") or ch.get("clause_uid"))
-        if not uid:
+        if not isinstance(ch, dict):
             continue
+
+        meta_raw = ch.get("metadata")
+        meta = meta_raw if isinstance(meta_raw, dict) else {}
+
+        uid = resolve_canonical_clause_uid(ch, metadata=meta)
+        if not uid:
+            logger.debug(
+                "PIPELINE_VIEW STRUCTURE chunk skipped: missing canonical clause identity",
+                extra={
+                    "doc_id": str(doc_id),
+                    "chunk_id": str(ch.get("id") or "").strip() or None,
+                    "metadata_keys": sorted(meta.keys()),
+                },
+            )
+            continue
+
         ch["_pipeline_index"] = raw_idx
         chunks_by_uid[uid].append(ch)
 
@@ -744,11 +787,27 @@ async def enrich_structure_with_text(
         return False
 
     chunks_by_uid: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
     for raw_idx, ch in enumerate(clause_chunks):
-        meta = ch.get("metadata") or {}
-        uid = normalize_uid(meta.get("clause_uid") or ch.get("clause_uid"))
-        if not uid:
+        if not isinstance(ch, dict):
             continue
+
+        meta_raw = ch.get("metadata")
+        meta = meta_raw if isinstance(meta_raw, dict) else {}
+
+        uid = resolve_canonical_clause_uid(ch, metadata=meta)
+        if not uid:
+            logger.debug(
+                "PIPELINE_VIEW STRUCTURE enrichment chunk skipped: "
+                "missing canonical clause identity",
+                extra={
+                    "doc_id": str(doc_id),
+                    "chunk_id": str(ch.get("id") or "").strip() or None,
+                    "metadata_keys": sorted(meta.keys()),
+                },
+            )
+            continue
+
         ch["_pipeline_index"] = raw_idx
         chunks_by_uid[uid].append(ch)
 

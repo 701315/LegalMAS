@@ -1,4 +1,6 @@
-"""
+# src/services/document_layout/table_semantics.py
+
+r"""
 Table Semantics Module (Layer 7).
 
 Отвечает за определение топологии многоязычных таблиц и ячеечную фильтрацию:
@@ -10,15 +12,28 @@ Table Semantics Module (Layer 7).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from core.logging import get_logger
 from services.document_layout.config import layout_config
 from services.document_layout.language_classifier import classify_text
-from services.document_layout.schemas import CanonicalTable, TableTopologyType
+from services.document_layout.schemas import (
+    CanonicalTable,
+    ProjectedTableCell,
+    ProjectedTableRow,
+    TableTopologyType,
+)
 from services.document_layout.span_splitter import SpanSplitter
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class ProjectedTableResult:
+    markdown_text: str
+    topology: TableTopologyType
+    rows: list[ProjectedTableRow]
 
 
 class TableSemanticsProcessor:
@@ -78,9 +93,13 @@ class TableSemanticsProcessor:
         self,
         table: CanonicalTable,
         target_language: str,
-    ) -> tuple[str, TableTopologyType]:
+    ) -> ProjectedTableResult:
         """
-        Обрабатывает таблицу с учётом её топологии и возвращает (markdown_text, topology_type).
+        Проецирует таблицу в target language.
+
+        Markdown сохраняется как display/compatibility representation.
+        `rows` сохраняет source topology для downstream structure/retrieval.
+        Ни строка, ни ячейка не получают здесь юридической интерпретации.
         """
         target_lang = target_language.lower().strip()
         topology = self.classify_topology(table, target_lang)
@@ -92,51 +111,85 @@ class TableSemanticsProcessor:
             target_language=target_lang,
         )
 
-        rows_map: dict[int, list[str]] = {}
+        rows_map: dict[int, list[ProjectedTableCell]] = {}
+
+        def append_cell(cell: Any, projected_text: str, language: str) -> None:
+            text = projected_text.strip()
+            if not text:
+                return
+
+            rows_map.setdefault(cell.row, []).append(
+                ProjectedTableCell(
+                    row=cell.row,
+                    col=cell.col,
+                    row_span=cell.row_span,
+                    col_span=cell.col_span,
+                    text=text,
+                    language=language,
+                )
+            )
 
         if topology == TableTopologyType.PARALLEL_COLUMN:
-            # Отфильтровываем столбцы противоположного языка
             for cell in table.cells:
                 text = cell.text.strip()
                 if not text:
                     continue
+
                 lang_class = classify_text(text)
                 if lang_class.language in (target_lang, "shared", "mixed"):
-                    rows_map.setdefault(cell.row, []).append(text)
+                    append_cell(cell, text, lang_class.language)
 
         elif topology == TableTopologyType.INLINE_CELL:
-            # Для каждой ячейки вызываем рекурсивный SpanSplitter
             for cell in table.cells:
                 text = cell.text.strip()
                 if not text:
                     continue
+
                 split_res = self.splitter.split_span(text, target_lang)
                 if split_res.target_text:
-                    rows_map.setdefault(cell.row, []).append(split_res.target_text)
+                    append_cell(cell, split_res.target_text, target_lang)
 
         else:
-            # Default / MIXED_ROW / MONOLINGUAL: ячеечная фильтрация
             for cell in table.cells:
                 text = cell.text.strip()
                 if not text:
                     continue
+
                 lang_class = classify_text(text)
+
                 if lang_class.language in (target_lang, "shared"):
-                    rows_map.setdefault(cell.row, []).append(text)
+                    append_cell(cell, text, lang_class.language)
                 elif lang_class.language == "mixed":
                     split_res = self.splitter.split_span(text, target_lang)
                     if split_res.target_text:
-                        rows_map.setdefault(cell.row, []).append(split_res.target_text)
+                        append_cell(cell, split_res.target_text, target_lang)
 
-        markdown_rows = []
-        for row_idx in sorted(rows_map.keys()):
-            row_cells = rows_map[row_idx]
-            if row_cells:
-                markdown_rows.append("| " + " | ".join(row_cells) + " |")
+        rows: list[ProjectedTableRow] = []
+        markdown_rows: list[str] = []
 
-        if markdown_rows:
-            final_text = "\n".join(markdown_rows)
-        else:
-            final_text = table.markdown if table.markdown else f"Таблица {table.table_id}"
+        for row_idx in sorted(rows_map):
+            cells = sorted(rows_map[row_idx], key=lambda item: item.col)
+            row_text = " | ".join(cell.text for cell in cells if cell.text.strip())
 
-        return final_text, topology
+            rows.append(
+                ProjectedTableRow(
+                    row_index=row_idx,
+                    cells=cells,
+                    text=row_text,
+                )
+            )
+
+            if row_text:
+                markdown_rows.append(f"| {row_text} |")
+
+        markdown_text = (
+            "\n".join(markdown_rows)
+            if markdown_rows
+            else (table.markdown or f"Table {table.table_id}")
+        )
+
+        return ProjectedTableResult(
+            markdown_text=markdown_text,
+            topology=topology,
+            rows=rows,
+        )

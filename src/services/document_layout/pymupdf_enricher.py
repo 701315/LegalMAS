@@ -1,3 +1,5 @@
+# src/services/document_layout/pymupdf_enricher.py
+
 """
 PyMuPDF Visual Enricher Module (Phase 2).
 

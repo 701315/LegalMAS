@@ -455,7 +455,18 @@ def build_sized_chunks_from_leaf(
                 "doc_id": str(doc_id),
                 "chunk_kind": "subclause",
                 "node_kind": node_kind,
+
+                # `effective_uid` remains the parent clause identity.
+                # It is intentionally not unique per physical fragment.
                 "effective_uid": effective_uid,
+                "parent_effective_uid": effective_uid,
+
+                # `chunk_id` is already the unique retrieval-record ID.
+                # Repeating it in metadata makes that contract explicit
+                # for consumers that read metadata rather than top-level `id`.
+                "fragment_id": chunk_id,
+                "semantic_identity_kind": "parent_clause",
+
                 "raw_uid": raw_uid,
                 "scope": scope,
                 "title": metadata.get("title"),

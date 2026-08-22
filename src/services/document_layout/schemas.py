@@ -229,11 +229,6 @@ class PageRegion(BaseModel):
 class StructuralNodeCandidate(BaseModel):
     """
     Составной узел документа для parallel alignment.
-    
-    Ключ для дедупликации — не marker в изоляции, а составной объект:
-    marker + bbox + page + region_id + hierarchy_path.
-    Это устраняет ложные совпадения повторяющихся маркеров 
-    в разных разделах документа.
     """
     node_id: str
     marker: str | None
@@ -245,6 +240,11 @@ class StructuralNodeCandidate(BaseModel):
     language: str
     text: str
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    # v3: сохраняем структурные и визуальные признаки от исходного атома
+    label: str = "paragraph"
+    font_size: float | None = None
+    bold: bool = False
+    style: ElementStyle | None = None
 
 
 # ── Layered Architecture v3: Quarantine ──────────────────────────────────────
@@ -270,7 +270,28 @@ class QuarantineEntry(BaseModel):
 
 
 # ── Projected Element (run-scoped) ───────────────────────────────────────────
+class ProjectedTableCell(BaseModel):
+    """Ячейка таблицы после language projection."""
 
+    row: int = Field(ge=0)
+    col: int = Field(ge=0)
+    row_span: int = Field(default=1, ge=1)
+    col_span: int = Field(default=1, ge=1)
+    text: str
+    language: str = "shared"
+
+
+class ProjectedTableRow(BaseModel):
+    """
+    Построчная source topology таблицы после projection.
+
+    Это source boundary, а не утверждение, что строка является
+    юридической клаузой или заголовком.
+    """
+
+    row_index: int = Field(ge=0)
+    cells: list[ProjectedTableCell] = Field(default_factory=list)
+    text: str = ""
 
 class ProjectedElement(BaseModel):
     """
@@ -308,6 +329,8 @@ class ProjectedElement(BaseModel):
     is_heading_candidate: bool = False
 
     table_ref: str | None = None
+    table_rows: list[ProjectedTableRow] = Field(default_factory=list)
+    table_topology: TableTopologyType | None = None
     style: ElementStyle | None = None
     
     # v3: связь с исходным регионом страницы
@@ -355,7 +378,7 @@ class LayoutPrimaryCompat(BaseModel):
     v3: добавлены quarantined_elements[] для аудита.
     """
 
-    schema_version: str = "layout_primary_compat_v1"
+    schema_version: str = "layout_primary_compat_v2"
     document_id: str
     document_version_id: str
     run_id: str

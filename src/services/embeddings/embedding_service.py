@@ -1,5 +1,3 @@
-# src/services/embeddings/embedding_service.py
-
 """
 Singleton service for text embeddings used by retrieval, classification, recovery.
 
@@ -8,7 +6,7 @@ Phase 14.3.B — Embedding Vector Cache:
 - batch-aware: encode() разделяет cached/uncached, кодирует только uncached;
 - cache key = sha256(text + model_name + role + token_limit) — raw text не хранится;
 - включается через EMBEDDING_CACHE_ENABLED=true;
-- thread-safe через RLock в cache;
+- thread-safe через RLock in cache;
 - async encode_async() тоже через cache.
 """
 
@@ -18,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
+import torch
 from sentence_transformers import SentenceTransformer
 
 from core.config import settings
@@ -27,7 +26,7 @@ from services.embeddings._preprocess import apply_embedding_role_prefix
 
 logger = get_logger(__name__)
 
-_ENCODE_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="embed")
+_ENCODE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="embed")
 _INIT_LOCK = threading.Lock()
 
 
@@ -47,30 +46,44 @@ class EmbeddingService:
         if self._initialized:
             return
 
-        if not settings.RUNNER_EMBEDDINGS_ENABLED:
+        embeddings_enabled = getattr(settings, "RUNNER_EMBEDDINGS_ENABLED", True)
+        if not embeddings_enabled:
             logger.warning("EmbeddingService: embeddings disabled via config")
             self.model = None
             self._model_name: str = ""
+            self._device: str = "cpu"
             self._initialized = True
             return
 
-        self._model_name = settings.RUNNER_EMBEDDINGS_MODEL
+        self._model_name = getattr(settings, "RUNNER_EMBEDDINGS_MODEL", "BAAI/bge-m3")
+        self._device = getattr(settings, "RUNNER_EMBEDDINGS_DEVICE", "cpu").lower()
 
-        model_path = Path(settings.RUNNER_EMBEDDINGS_CACHE_DIR)
+        cache_dir_path = getattr(settings, "RUNNER_EMBEDDINGS_CACHE_DIR", ".cache/embeddings")
+        model_path = Path(cache_dir_path)
         model_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(
             "EmbeddingService: loading model",
             model=self._model_name,
+            device=self._device,
             cache_dir=str(model_path),
         )
+
+        model_kwargs = {}
+        if self._device.startswith("cuda") and torch.cuda.is_available():
+            model_kwargs["torch_dtype"] = torch.float16
+
         self.model = SentenceTransformer(
             self._model_name,
             cache_folder=str(model_path),
+            device=self._device,
+            model_kwargs=model_kwargs if model_kwargs else None,
         )
+
         logger.info(
             "EmbeddingService: model ready",
             model=self._model_name,
+            device=self._device,
             dim=self.embedding_dim,
         )
         self._initialized = True
@@ -94,39 +107,19 @@ class EmbeddingService:
     def _get_embedding_max_input_tokens(self) -> int:
         """
         Safe token limit before model.encode().
-
-        Явно ограничиваем размер входа, чтобы убрать silent truncation
-        внутри SentenceTransformer и сделать его наблюдаемым через metrics/logs.
+        Для BAAI/bge-m3 поддерживается до 8192 токенов.
         """
-        return int(max(1, int(getattr(settings, "EMBEDDING_MAX_INPUT_TOKENS", 500))))
+        return int(max(1, int(getattr(settings, "EMBEDDING_MAX_INPUT_TOKENS", 8192))))
 
     def _prepare_texts_for_encoding(
         self,
         texts: list[str],
         role: str,
     ) -> list[str]:
-        """
-        Apply E5 role prefix and detect over-limit texts.
-
-        ВАЖНО:
-        - этот helper БОЛЬШЕ НЕ обрезает текст явно;
-        - он только добавляет role prefix и измеряет, сколько текстов
-          превышают safe token limit;
-        - реальное truncation behaviour остаётся у SentenceTransformer,
-          как было до P1-5A, чтобы не менять семантику retrieval.
-
-        Это observability-only fix:
-        - мы получаем metric/log о проблеме,
-        - но не меняем представление текста перед model.encode().
-        """
         prefixed_texts = [apply_embedding_role_prefix(t, role=role) for t in texts]
 
         tokenizer = getattr(self.model, "tokenizer", None) if self.model is not None else None
         if tokenizer is None:
-            logger.warning(
-                "EmbeddingService: tokenizer unavailable, token-length observability skipped",
-                role=role,
-            )
             return prefixed_texts
 
         max_input_tokens = self._get_embedding_max_input_tokens()
@@ -153,14 +146,10 @@ class EmbeddingService:
             try:
                 METRICS.embedding_text_truncated_total.labels(role=role).inc(over_limit_count)
             except Exception:
-                logger.debug(
-                    "EmbeddingService: failed to increment embedding truncation metric",
-                    exc_info=True,
-                )
+                pass
 
             logger.warning(
-                "EmbeddingService: texts exceed safe embedding token limit "
-                "(SentenceTransformer will truncate internally)",
+                "EmbeddingService: texts exceed safe embedding token limit",
                 role=role,
                 over_limit_count=over_limit_count,
                 total_texts=len(texts),
@@ -168,31 +157,9 @@ class EmbeddingService:
                 max_original_tokens_seen=max_original_tokens_seen,
             )
 
-        # Возвращаем исходные prefixed texts без явной модификации длины.
         return prefixed_texts
 
     def encode(self, texts: list[str], role: str = "passage") -> np.ndarray:
-        """
-        Синхронная кодировка с E5-prefix, explicit truncation и optional cache.
-
-        role:
-        - "passage" для корпуса/прототипов/документных фрагментов
-        - "query"   для поисковых запросов и document-as-query сценариев
-
-        ВАЖНО:
-        - E5 требует role prefix ("query:" / "passage:")
-        - длинные тексты теперь ЯВНО детектируются как over-limit до model.encode()
-        - реальное truncation behaviour остаётся у SentenceTransformer,
-          чтобы не менять retrieval semantics в hot path
-        - observability-first fix: мы измеряем и логируем проблему,
-          не меняя представление текста перед model.encode()
-
-        Cache key включает:
-        - model_name
-        - role
-        - token_limit
-        - original text
-        """
         if not self.model:
             raise RuntimeError(
                 "EmbeddingService: embeddings disabled. "
@@ -205,7 +172,10 @@ class EmbeddingService:
         prepared_texts = self._prepare_texts_for_encoding(texts, role)
 
         if not self._is_cache_enabled():
-            return self.model.encode(prepared_texts, show_progress_bar=False)
+            vectors = self.model.encode(
+                prepared_texts, show_progress_bar=False, normalize_embeddings=True
+            )
+            return np.asarray(vectors, dtype=np.float32)
 
         from services.embeddings._cache import build_embedding_cache_key
 
@@ -233,7 +203,11 @@ class EmbeddingService:
                 uncached_prepared_texts.append(prepared_texts[i])
 
         if uncached_prepared_texts:
-            fresh_vectors = self.model.encode(uncached_prepared_texts, show_progress_bar=False)
+            fresh_vectors = self.model.encode(
+                uncached_prepared_texts,
+                show_progress_bar=False,
+                normalize_embeddings=True,
+            )
             fresh_vectors = np.asarray(fresh_vectors, dtype=np.float32)
 
             to_store: dict[str, np.ndarray] = {}
@@ -260,12 +234,6 @@ class EmbeddingService:
         return result
 
     async def encode_async(self, texts: list[str], role: str = "passage") -> np.ndarray:
-        """
-        Async-safe кодировка. Запускает encode() в executor.
-        Cache и E5-prefix работают через тот же encode().
-
-        role: "passage" для корпуса/документов, "query" для поисковых запросов.
-        """
         if not self.model:
             raise RuntimeError(
                 "EmbeddingService: embeddings disabled. "
@@ -288,5 +256,3 @@ class EmbeddingService:
 
 # Global singleton
 embedding_service = EmbeddingService()
-
-

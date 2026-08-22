@@ -78,6 +78,11 @@ class TestCompatibilityBuilder:
         assert table_el["element_id"] == "ru:table:0001"
         assert table_el["type"] == "table"
         assert table_el["table_ref"] == "canonical:table:0001"
+        assert table_el["table_rows"]
+        assert table_el["table_rows"][0]["row_index"] == 0
+        assert table_el["table_rows"][0]["cells"]
+        assert table_el["table_topology"] is not None
+        assert payload["schema_version"] == "layout_primary_compat_v2"
         assert "| Колонка 1 | Колонка 2 |" in table_el["text"]
 
         # 4. Проверяем, что payload успешно десериализуется Pydantic-моделью

@@ -58,28 +58,40 @@ def chunk_sort_key(ch: dict[str, Any]) -> tuple[float, int, str]:
 
 def extract_clause_tree_text(node: dict[str, Any]) -> str:
     """
-    Достаёт canonical текст секции из clause tree с поддержкой нескольких ключей.
+    Возвращает канонический текст узла clause tree для STRUCTURE view.
 
-    Это source of truth для canonical STRUCTURE-view;
-    не зависит от CHUNKS; безопасен для разных форматов tree.to_dict().
+    Приоритет задаёт contract hierarchy v3/v4:
+    1. subtree_text — полный текст узла, включая дочерние секции;
+    2. own_text — текст, непосредственно принадлежащий самому узлу;
+    3. legacy-поля — обратная совместимость со старыми tree artifacts.
+
+    Функция не зависит от CHUNKS и не должна создавать/обогащать текст:
+    она только безопасно проецирует текст, уже сохранённый в clause tree.
     """
-    candidates = [
+    if not isinstance(node, dict):
+        return ""
+
+    candidates = (
+        # Canonical FrozenHierarchyNode.to_dict() contract.
+        node.get("subtree_text"),
+        node.get("own_text"),
+
+        # Legacy / compatibility tree contracts.
+        node.get("structure_text"),
         node.get("text"),
         node.get("content"),
         node.get("body"),
         node.get("clauseText"),
         node.get("normalized_text"),
         node.get("raw_text"),
-    ]
+    )
 
     for value in candidates:
-        if isinstance(value, str):
-            text = value.strip()
-            if text:
-                return text
-        elif value is not None:
-            text = str(value).strip()
-            if text:
-                return text
+        if value is None:
+            continue
+
+        text = value.strip() if isinstance(value, str) else str(value).strip()
+        if text:
+            return text
 
     return ""

@@ -78,6 +78,10 @@ def _classify_single_element(
 
     text = _normalize_text(str(element.get("text") or ""))
     raw_type = str(element.get("type") or "").strip().lower() or None
+
+    raw_label = str(element.get("label") or "").strip().lower() or None
+    is_table = bool(element.get("is_table")) or raw_type == "table" or raw_label == "table"
+
     top_ratio, bottom_ratio = _relative_page_position(element, page_stats)
     page = _safe_int(element.get("page"), default=1)
 
@@ -363,12 +367,13 @@ def _classify_single_element(
                 raw_type=raw_type,
                 metadata={
                     "parsed_uid": parsed_uid,
-                    "forced_numeric_heading": True,
+                    "numeric_heading_evidence": True,
+                    "numeric_heading_evidence_source": "raw_heading_parser",
                 },
             )
 
     # 7. Table content
-    if _looks_like_table_content(text):
+    if is_table or _looks_like_table_content(text):
         reasons.append(
             ClassificationReason(
                 "table_structure", 0.83, "Looks like row-like or delimiter-heavy table content"
@@ -379,11 +384,14 @@ def _classify_single_element(
             confidence=0.83,
             reasons=reasons,
             raw_type=raw_type,
+            metadata={
+                "table_detection_source": "layout" if is_table else "text_shape",
+            },
         )
 
     # 8. List item
-    if raw_type == "listitem" or _looks_like_list_item(text):
-        conf = 0.9 if raw_type == "listitem" else 0.82
+    if raw_type in {"listitem", "list_item"} or _looks_like_list_item(text):
+        conf = 0.9 if raw_type in {"listitem", "list_item"} else 0.82
         reasons.append(
             ClassificationReason(
                 "list_item_pattern", conf, "Extractor or regex indicates list item"

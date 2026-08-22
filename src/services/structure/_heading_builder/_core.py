@@ -1055,7 +1055,7 @@ def collect_scored_heading_candidates(
             "toc_match_type": res.toc_match_type,
             "toc_match_score": float(res.toc_match_score),
             "semantic_element_type": res.semantic_element_type
-            or el_meta.get("semantic_element_type"),
+                or el_meta.get("semantic_element_type"),
             "continuity_bonus": float(res.continuity_bonus),
             "legal_negative_signals": list(res.legal_negative_signals),
             "heading_confidence_from_classifier": float(el_meta.get("heading_confidence") or 0.0),
@@ -1070,6 +1070,7 @@ def collect_scored_heading_candidates(
             "is_appendix_uid": is_appendix_uid,
             "decision_before_element_type_adjustment": _status_to_decision(res.status),
             "decision_after_element_type_adjustment": decision,
+            "_preamble_zone": str(element.get("_preamble_zone") or "").strip().lower(),
         }
 
         candidate = ScoredHeadingCandidate(
@@ -1110,15 +1111,16 @@ def filter_heading_sequence(
     *,
     document_id: str,
 ) -> list[HeadingCandidate]:
-    """Дедупликация финального списка HeadingCandidate."""
+    """Дедупликация финального списка HeadingCandidate с разделением TOC и Body."""
     if not candidates:
         return []
 
     filtered: list[HeadingCandidate] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, bool]] = set()
 
     for cand in candidates:
-        key = (str(cand.scope), str(cand.raw_uid))
+        is_toc = (cand.metadata or {}).get("_preamble_zone") == "in_toc" or bool(cand.toc_entry) or bool(cand.is_toc_like)
+        key = (str(cand.scope), str(cand.raw_uid), is_toc)
         if key not in seen:
             seen.add(key)
             filtered.append(cand)

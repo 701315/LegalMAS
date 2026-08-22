@@ -59,14 +59,17 @@ def _candidate_priority_tuple(candidate: ScoredHeadingCandidate) -> tuple:
 def _select_best_candidates_by_uid(
     candidates: list[ScoredHeadingCandidate], document_id: str
 ) -> list[ScoredHeadingCandidate]:
-    """Выбирает лучшего кандидата для каждой пары (scope, raw_uid)."""
-    best_by_key: dict[tuple[str, str], ScoredHeadingCandidate] = {}
+    """Выбирает лучшего кандидата для каждой пары (scope, raw_uid), разделяя TOC и Body."""
+    best_by_key: dict[tuple[str, str, bool], ScoredHeadingCandidate] = {}
     for cand in candidates:
         raw_uid = normalize_spaces(str((cand.metadata or {}).get("raw_uid") or cand.uid or ""))
         if not raw_uid:
             continue
         scope = _normalize_scope(cand.scope)
-        key = (scope, raw_uid)
+
+        # Разделяем TOC-кандидатов и Body-кандидатов, чтобы TOC не затирал реальное положение в Body
+        is_toc = (cand.metadata or {}).get("_preamble_zone") == "in_toc" or bool((cand.metadata or {}).get("possible_toc"))
+        key = (scope, raw_uid, is_toc)
 
         existing = best_by_key.get(key)
         if existing is None:

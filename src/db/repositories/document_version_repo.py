@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-
+from typing import Any
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -168,6 +168,9 @@ class DocumentVersionRepository:
         chunks_manifest_v2_ref: str | None = None,
         chunk_plan_ref: str | None = None,
         pii_mapping_ref: str | None = None,
+        # ── v2/v3 Layout Pipeline (canonical + language inventory) ──
+        canonical_layout_ref: str | None = None,
+        detected_languages: Sequence[str] | None = None,
     ) -> DocumentVersion | None:
         """
         Update artifact references and processing metadata on a document version.
@@ -175,8 +178,8 @@ class DocumentVersionRepository:
         Используется разными стадиями:
         - convert_worker:
             converted_pdf_ref
-        - build_primary_language_source:
-            primary_source_ref
+        - build_primary_language_source (v2/v3):
+            canonical_layout_ref, detected_languages, layout_primary_ref
         - extract_worker:
             raw_ref, layout_primary_ref, extraction_strategy,
             ocr_confidence, pipeline_strategy
@@ -188,17 +191,12 @@ class DocumentVersionRepository:
             chunks_manifest_v2_ref
 
         Важно:
-        - raw_ref / sanitized_ref оставляем для backward compatibility;
-        - layout_primary_ref / layout_primary_sanitized_ref — это новый основной
-          контракт для одноязычного downstream-пайплайна;
-        - primary_source_ref — одноязычный source (PDF) до extract;
-        - chunks_manifest_v2_ref — file-level манифест чанков (CHUNKS v2);
-        - pii_mapping_ref — S3 URI к зашифрованному PII mapping (.enc),
-          необходим для PII reveal операций;
+        - canonical_layout_ref — S3 URI канонического многоязычного макета;
+        - detected_languages — authoritative список языков документа (конвертируется в list для PG ARRAY);
         - None означает "не обновлять это поле";
         - если version_id не найден, метод возвращает None.
         """
-        values: dict[str, str | float | int] = {}
+        values: dict[str, Any] = {}  # Изменено на Any для поддержки списков (detected_languages)
 
         if raw_ref is not None:
             values["text_layout_raw_ref"] = raw_ref
@@ -244,6 +242,14 @@ class DocumentVersionRepository:
 
         if pii_mapping_ref is not None:
             values["pii_mapping_ref"] = pii_mapping_ref
+
+        # ── v2/v3 Layout Pipeline fields ──────────────────────────────
+        if canonical_layout_ref is not None:
+            values["canonical_layout_ref"] = canonical_layout_ref
+
+        if detected_languages is not None:
+            # Предотвращает ошибки сериализации: SQLAlchemy PG_ARRAY строго требует list, а не tuple
+            values["detected_languages"] = list(detected_languages)
 
         if not values:
             return await self.get_by_id(version_id)

@@ -104,12 +104,20 @@ class PIISanitizer:
         layout_ref = None
         res_record = None
 
-        if v2_enabled and run_uuid:
+        if v2_enabled:
+            if not run_uuid:
+                raise PermanentError(
+                    f"run_id is required for V2 monolingual PII sanitization, "
+                    f"version={document_version_id}"
+                )
             res_record = await self.res_repo.get_by_run_and_version(run_uuid, document_version_id)
-            if res_record:
-                layout_ref = res_record.layout_primary_ref
-
-        if not layout_ref:
+            if not res_record or not res_record.layout_primary_ref:
+                raise PermanentError(
+                    f"Monolingual language resolution record not found in res_repo for run={run_uuid}, "
+                    f"version={document_version_id}. Processing blocked to prevent bilingual leakage."
+                )
+            layout_ref = res_record.layout_primary_ref
+        else:
             layout_ref = getattr(version, "layout_primary_ref", None)
 
         if not layout_ref:

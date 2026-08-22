@@ -28,6 +28,7 @@ from services.structure.crossrefs import (
 )
 from services.structure.element_classifier import (
     annotate_elements_with_guard,
+    classify_elements,
     ELEMENT_TYPE_PAGE_ARTIFACT,
     ELEMENT_TYPE_POSSIBLE_TOC,
     ELEMENT_TYPE_TOC_HEADER,
@@ -1208,6 +1209,14 @@ def build_single_segment_tree(
 ) -> ClauseTree:
     build_started = time.perf_counter()
     normalized_scope_name = _safe_str(scope_name, default="main_contract").strip() or "main_contract"
+
+    # V2→V1 semantic classification (must run BEFORE contract validation).
+    # MonolingualProjector produces V2 types (type="heading", "text", "list_item").
+    # classify_elements() maps them to V1 types (element_type="heading_candidate", etc.)
+    # and computes semantic_element_type for downstream scoring.
+    t_classify = time.perf_counter()
+    elements = classify_elements(elements, document_id=document_id)
+    log_timing(f"{log_prefix} classify_elements", t_classify)
 
     contract_valid, contract_violations = validate_element_contract(
         document_id=document_id,

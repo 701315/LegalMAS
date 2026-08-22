@@ -105,6 +105,31 @@ def validate_element_contract(
     return True, []
 
 
+def _fallback_element_type_from_layout(element: dict[str, Any]) -> str:
+    """
+    Conservative contract fallback for elements that reached structure
+    without an upstream element_type.
+
+    Uses only source/layout facts. It does not infer legal meaning,
+    numbering semantics, hierarchy level, language, or document template.
+    """
+    raw_type = normalize_spaces(str(element.get("type") or "")).lower()
+    label = normalize_spaces(str(element.get("label") or "")).lower()
+
+    if bool(element.get("is_furniture")) or raw_type == "page_artifact":
+        return "page_artifact"
+
+    if bool(element.get("is_table")) or raw_type == "table" or label == "table":
+        return "table_content"
+
+    if raw_type in {"list_item", "listitem"} or label == "list_item":
+        return "list_item"
+
+    if raw_type == "heading" or label in {"section_header", "title"}:
+        return "heading_candidate"
+
+    return "unknown_layout"
+
 def ensure_element_segment_metadata(
     *,
     elements: list[dict],
@@ -131,7 +156,24 @@ def ensure_element_segment_metadata(
         )
 
         normalized["scope"] = normalized.get("scope") or segment.scope_name
-        normalized["element_type"] = normalized.get("element_type") or "body_text"
+
+        if normalized.get("element_type"):
+            normalized["element_type"] = normalized["element_type"]
+        else:
+            fallback_type = _fallback_element_type_from_layout(normalized)
+            normalized["element_type"] = fallback_type
+
+            metadata = dict(normalized.get("metadata") or {})
+            metadata.setdefault("structure_type_source", "layout_fallback")
+            metadata.setdefault(
+                "structure_fallback_layout_type",
+                normalized.get("type"),
+            )
+            metadata.setdefault(
+                "structure_fallback_layout_label",
+                normalized.get("label"),
+            )
+            normalized["metadata"] = metadata
 
         prepared.append(normalized)
 

@@ -152,6 +152,22 @@ def classify_elements(
 
         meta = dict(result.metadata or {})
 
+        meta.setdefault(
+            "layout_type",
+            str(element.get("type") or "").strip() or None,
+        )
+        meta.setdefault(
+            "layout_label",
+            str(element.get("label") or "").strip() or None,
+        )
+        meta.setdefault("layout_is_table", bool(element.get("is_table")))
+        meta.setdefault("layout_is_furniture", bool(element.get("is_furniture")))
+        meta.setdefault("layout_marker", element.get("marker"))
+        meta.setdefault(
+            "layout_hierarchy_path",
+            list(element.get("hierarchy_path") or []),
+        )
+
         # ── Этап 2: вычисляем semantic_element_type ──────────────────────
         # Это уточнённый semantic label поверх базового element_type.
         # Используется heading_scoring и heading_builder для более точных решений.

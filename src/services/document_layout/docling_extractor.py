@@ -1,8 +1,9 @@
 """
-Docling Extractor Module (Phase 1).
+Docling Extractor Module (Phase 1 / CPU-Safe).
 
 Отвечает за первичное извлечение семантической структуры документа:
 - PDF bytes -> Docling DocumentConverter;
+- Принудительное использование CPU для совместимости с Celery prefork;
 - Итерация строго по document.texts (canonical backbone без дублей);
 - Итерация по document.tables (структурированные таблицы);
 - Преобразование координат bbox в систему Fitz (origin top-left, y↓);
@@ -18,7 +19,7 @@ import threading
 from typing import Any
 
 from docling.datamodel.base_models import DocumentStream, InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.pipeline_options import AcceleratorDevice, PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 
 from core.logging import get_logger
@@ -33,11 +34,9 @@ from services.document_layout.schemas import (
 
 logger = get_logger(__name__)
 
-# Singleton lock and instance for worker process
 _converter_lock = threading.Lock()
 _converter_instance: DocumentConverter | None = None
 
-# Сверхнадёжное регулярное выражение для маркеров юридических документов
 _MARKER_REGEX = re.compile(
     r"^("
     r"\d+(?:\.\d+)*\.?"
@@ -56,6 +55,8 @@ def get_document_converter() -> DocumentConverter:
                 pipeline_options = PdfPipelineOptions()
                 pipeline_options.do_table_structure = True
                 pipeline_options.do_ocr = True
+                # Безопасное использование CPU для Celery prefork
+                pipeline_options.accelerator_options.device = AcceleratorDevice.CPU
 
                 format_options = {
                     InputFormat.PDF: PdfFormatOption(
@@ -66,7 +67,7 @@ def get_document_converter() -> DocumentConverter:
                 _converter_instance = DocumentConverter(
                     format_options=format_options
                 )
-                logger.info("Docling DocumentConverter singleton initialized successfully")
+                logger.info("Docling DocumentConverter singleton (CPU mode) initialized successfully")
     return _converter_instance
 
 

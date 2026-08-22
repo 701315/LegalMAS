@@ -630,8 +630,9 @@ class Settings(BaseSettings):
 
     CHECK_RUNNER_MODE: str = "global_and_doc_type"
     RUNNER_EMBEDDINGS_ENABLED: bool = True
-    RUNNER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"
+    RUNNER_EMBEDDINGS_MODEL: str = "BAAI/bge-m3"
     RUNNER_EMBEDDINGS_CACHE_DIR: str = ".cache/embeddings"
+    RUNNER_EMBEDDINGS_DEVICE: str = "cpu"
 
     # Явный safe token limit для EmbeddingService перед вызовом model.encode().
     #
@@ -641,7 +642,7 @@ class Settings(BaseSettings):
     # - мы хотим делать это ЯВНО и измеримо, а не скрыто внутри библиотеки.
     #
     # Значение 500 оставляет небольшой запас под внутренние special/prefix tokens.
-    EMBEDDING_MAX_INPUT_TOKENS: int = 500
+    EMBEDDING_MAX_INPUT_TOKENS: int = 8192
 
     PLAYBOOK_DOCUMENT_TYPES_DIR: str = "playbooks/document_types"
     PLAYBOOK_DEFAULT_PATH: str = "playbooks/test/v1.0/playbook.yaml"

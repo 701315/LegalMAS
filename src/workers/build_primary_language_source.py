@@ -249,6 +249,10 @@ async def _build_primary_language_source_async(
             canonical_layout_ref=res.canonical_layout_ref,
             detected_languages=res.detected_languages,
             layout_primary_ref=res.layout_primary_ref,
+            # Записываем оригинальный PDF как primary_source для фронтенда.
+            # В v3 мы больше не генерируем кривой PDF через ReportLab,
+            # а используем исходный документ + точный JSON-макет для подсветки.
+            primary_source_ref=source_ref,
         )
 
         if run_uuid:
@@ -272,7 +276,9 @@ async def _build_primary_language_source_async(
         )
         if res.detected_languages:
             await update_deal_languages(db, deal_uuid, res.detected_languages)
-        await recompute_deal_language_discovery_state(db, deal_uuid)
+        
+        # Исправлено: Явная передача keyword-only аргументов во избежание TypeError
+        await recompute_deal_language_discovery_state(db=db, deal_id=deal_uuid)
 
         await doc_repo.update_status(doc_uuid, DocumentStatus.PRIMARY_READY.value)
         await db.commit()
@@ -355,7 +361,9 @@ async def _build_primary_language_source_async(
                 detected_languages=detected_langs,
                 status=LanguageDiscoveryStatus.COMPLETED,
             )
-            await recompute_deal_language_discovery_state(db, deal_uuid)
+            
+            # Исправлено: Явная передача keyword-only аргументов в error-path ветке
+            await recompute_deal_language_discovery_state(db=db, deal_id=deal_uuid)
             await db.commit()
 
             return {
@@ -392,3 +400,6 @@ async def _build_primary_language_source_async(
                 "quarantine_reason": qg_exc.reason_code,
                 "committed": True,
             }
+
+
+            

@@ -17,6 +17,7 @@ from services.document_layout.schemas import (
     CanonicalAtom,
     PageRegion,
     StructuralNodeCandidate,
+    ElementStyle,
 )
 
 logger = get_logger(__name__)
@@ -109,6 +110,7 @@ class StructuralNodeBuilder:
                     language=next_atom.language,
                     text=merged_text,
                     confidence=min(curr_atom.language_confidence, next_atom.language_confidence),
+                    label=next_atom.label,
                 )
                 nodes.append(node)
                 node_counter += 1
@@ -116,6 +118,8 @@ class StructuralNodeBuilder:
                 continue
 
             # Обычный автономный узел
+            # Наследуем визуальные признаки от первого атома узла
+            first_atom_style = curr_atom.style
             node = StructuralNodeCandidate(
                 node_id=f"node:{curr_atom.page}:{node_counter:04d}",
                 marker=curr_atom.marker,
@@ -127,6 +131,10 @@ class StructuralNodeBuilder:
                 language=curr_atom.language,
                 text=curr_atom.text,
                 confidence=curr_atom.language_confidence,
+                label=curr_atom.label,
+                font_size=first_atom_style.font_size if first_atom_style else None,
+                bold=first_atom_style.bold if first_atom_style else False,
+                style=first_atom_style,
             )
             nodes.append(node)
             node_counter += 1

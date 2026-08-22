@@ -70,8 +70,9 @@ class MonolingualProjector:
         unresolved_mixed: list[UnresolvedMixedAtom] = []
 
         for idx, node in enumerate(nodes):
-            raw_type = "text"
-            if node.marker:
+            # Используем маппинг Docling label → downstream raw_type
+            raw_type = layout_config.label_to_raw_type.get(node.label, "text")
+            if node.marker and raw_type == "text":
                 raw_type = "list_item"
 
             # 1. Нативный узел целевого языка
@@ -86,7 +87,7 @@ class MonolingualProjector:
                     reading_order_source="structural_nodes",
                     layout_order_confidence="validated",
                     type=raw_type,
-                    label="paragraph" if raw_type == "text" else "list_item",
+                    label=node.label if node.label else "paragraph",
                     marker=node.marker,
                     is_marker_only=False,
                     bbox=node.bbox,
@@ -95,6 +96,9 @@ class MonolingualProjector:
                     needs_review=False,
                     projection_method="native_language_node",
                     projection_confidence=node.confidence,
+                    font_size=node.font_size,
+                    bold=node.bold,
+                    style=node.style,
                     region_id=node.region_id,
                     hierarchy_path=node.hierarchy_path,
                 )
@@ -123,6 +127,9 @@ class MonolingualProjector:
                     needs_review=False,
                     projection_method="shared_node",
                     projection_confidence=1.0,
+                    font_size=node.font_size,
+                    bold=node.bold,
+                    style=node.style,
                     region_id=node.region_id,
                     hierarchy_path=node.hierarchy_path,
                 )
@@ -155,6 +162,9 @@ class MonolingualProjector:
                         needs_review=False,
                         projection_method=split_res.split_method,
                         projection_confidence=split_res.confidence,
+                        font_size=node.font_size,
+                        bold=node.bold,
+                        style=node.style,
                         region_id=node.region_id,
                         hierarchy_path=node.hierarchy_path,
                     )
@@ -182,6 +192,9 @@ class MonolingualProjector:
                         needs_review=True,
                         projection_method="unresolved_mixed",
                         projection_confidence=0.50,
+                        font_size=node.font_size,
+                        bold=node.bold,
+                        style=node.style,
                         region_id=node.region_id,
                         hierarchy_path=node.hierarchy_path,
                     )
@@ -224,6 +237,9 @@ class MonolingualProjector:
                             needs_review=True,
                             projection_method="preserved_marker_without_target_text",
                             projection_confidence=1.0,
+                            font_size=node.font_size,
+                            bold=node.bold,
+                            style=node.style,
                             region_id=node.region_id,
                             hierarchy_path=node.hierarchy_path,
                         )

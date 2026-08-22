@@ -1,3 +1,5 @@
+# src/services/document_layout/compatibility_builder.py
+
 r"""
 Compatibility Builder Module (Phase 5 / Layer 10 v3).
 
@@ -44,15 +46,18 @@ class CompatibilityBuilder:
 
         # Интеграция таблиц с ячеечной фильтрацией через TableSemanticsProcessor (Layer 7)
         for table in canonical_tables:
-            table_text, topology = self.table_processor.process_table(table, target_lang)
+            table_result = self.table_processor.process_table(table, target_lang)
 
             table_element_id = f"{target_lang}:table:{table.table_id.replace('table:', '')}"
+            # Вычисляем reading_order из Y-координаты таблицы (чтобы таблицы стояли в правильном месте текста)
+            table_reading_order = int(table.bbox[1] * 10) if table.bbox else table.page * 1000
+
             table_projected_el = ProjectedElement(
                 element_id=table_element_id,
                 source_element_ids=[table.table_id],
-                text=table_text,
+                text=table_result.markdown_text,
                 page=table.page,
-                reading_order=10000,
+                reading_order=table_reading_order,
                 reading_order_source="docling_tables",
                 layout_order_confidence="unvalidated",
                 type="table",
@@ -63,10 +68,12 @@ class CompatibilityBuilder:
                 parent_ref=None,
                 language="shared",
                 needs_review=False,
-                projection_method=f"table_filtered_{topology.value}",
+                projection_method=f"table_filtered_{table_result.topology.value}",
                 projection_confidence=1.0,
                 is_table=True,
                 table_ref=f"canonical:{table.table_id}",
+                table_rows=table_result.rows,
+                table_topology=table_result.topology,
             )
             elements.append(table_projected_el)
 
@@ -78,7 +85,7 @@ class CompatibilityBuilder:
                 "downstream_requires_primary_source": False,
                 "target_language": target_lang,
             },
-            "schema_contract": "layout_primary_compat_v1",
+            "schema_contract": "layout_primary_compat_v2",
         }
 
         validation = LayoutPrimaryCompatValidation(
@@ -93,7 +100,7 @@ class CompatibilityBuilder:
         )
 
         compat_model = LayoutPrimaryCompat(
-            schema_version="layout_primary_compat_v1",
+            schema_version="layout_primary_compat_v2",
             document_id=document_id,
             document_version_id=document_version_id,
             run_id=run_id,

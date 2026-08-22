@@ -1,3 +1,5 @@
+# src/services/document_layout/service.py
+
 """
 Document Layout Service (v3 Layered Orchestration Final).
 

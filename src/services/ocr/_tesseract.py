@@ -111,7 +111,8 @@ class TesseractOCRAdapter:
         import pytesseract
 
         # Импортируем helpers из pdf_extractor чтобы не дублировать код
-        from services.pdf_extractor import make_element_id, _classify_element_type, Element
+        # Legacy import removed
+
 
         elements = []
         confidences = []

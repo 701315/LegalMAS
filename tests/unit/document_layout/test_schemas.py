@@ -102,7 +102,7 @@ class TestLayoutPrimaryCompat:
             source_canonical_layout_ref="s3://bucket/canonical.json",
             elements=[],
         )
-        assert layout.schema_version == "layout_primary_compat_v1"
+        assert layout.schema_version == "layout_primary_compat_v2"
         assert layout.elements == []
 
     def test_elements_array_is_root_key(self):
@@ -129,3 +129,22 @@ class TestLayoutPrimaryCompat:
         data = layout.model_dump()
         assert "elements" in data
         assert len(data["elements"]) == 1
+
+    def test_layout_primary_compat_accepts_v1_payload_without_table_rows(
+        self,
+    ) -> None:
+        payload = {
+            "schema_version": "layout_primary_compat_v1",
+            "document_id": "doc",
+            "document_version_id": "version",
+            "run_id": "run",
+            "language": "en",
+            "source_canonical_layout_ref": "canonical://ref",
+            "elements": [],
+            "unresolved_mixed_atoms": [],
+        }
+
+        parsed = LayoutPrimaryCompat.model_validate(payload)
+
+        assert parsed.schema_version == "layout_primary_compat_v1"
+        assert parsed.elements == []

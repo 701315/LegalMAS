@@ -16,7 +16,7 @@ import uuid
 import pytest
 
 from engine.content.chunking import build_section_chunks_from_clauses
-
+from engine.content.chunk_canonicalization import build_sized_chunks_from_leaf
 
 # В production build_section_chunk_id() требует валидный UUID.
 # Используем фиксированный UUID, а не "test-doc-123".
@@ -274,3 +274,36 @@ class TestSectionChunksCanonicalMetadata:
         assert meta["position_ratio"] == pytest.approx(0.3)
 
 
+def test_subclause_metadata_separates_fragment_from_parent_identity() -> None:
+        document_id = uuid.UUID(TEST_DOC_ID)
+        parent_uid = "main_contract:1"
+
+        chunks = build_sized_chunks_from_leaf(
+            doc_id=document_id,
+            leaf_chunks=[
+                {
+                    "id": f"{document_id}:{parent_uid}",
+                    "text": "Short clause content.",
+                    "metadata": {
+                        "effective_uid": parent_uid,
+                        "raw_uid": "1",
+                        "scope": "main_contract",
+                        "node_kind": "leaf",
+                        "element_ids": ["element-1"],
+                    },
+                }
+            ],
+            target_tokens=100,
+            max_tokens=200,
+            overlap_ratio=0.1,
+        )
+
+        assert len(chunks) == 1
+
+        chunk = chunks[0]
+        metadata = chunk["metadata"]
+
+        assert metadata["fragment_id"] == chunk["id"]
+        assert metadata["effective_uid"] == parent_uid
+        assert metadata["parent_effective_uid"] == parent_uid
+        assert metadata["semantic_identity_kind"] == "parent_clause"
