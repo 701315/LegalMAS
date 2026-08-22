@@ -1,4 +1,4 @@
-from services.structure.pipeline import build_file_structure
+from services.structure._pipeline._core_builder import build_file_structure
 from typing import Any
 
 

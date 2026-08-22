@@ -102,6 +102,7 @@ async def test_build_primary_language_source_v2_path_success():
             canonical_layout_ref="s3://bucket/canonical.json",
             detected_languages=["ru", "en"],
             layout_primary_ref="s3://bucket/primary.json",
+            primary_source_ref="s3://bucket/test.pdf",
         )
 
         mock_res_repo.upsert_resolution.assert_called_once_with(

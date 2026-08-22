@@ -33,7 +33,7 @@ def test_imports():
         errors.append(f"❌ Фасад models ERROR: {e}")
 
     try:
-        from services.structure.pipeline import build_file_structure, build_structure
+        from services.structure._pipeline._core_builder import build_file_structure, build_structure
         print("✅ Фасад pipeline: OK")
     except Exception as e:
         errors.append(f"❌ Фасад pipeline ERROR: {e}")

@@ -7,7 +7,8 @@ Phase 10 — Chunk Planner: public facade.
     from services.structure.chunk_planner import plan_chunking
 
 Использование:
-    from services.structure.pipeline import build_file_structure_with_analysis
+    from services.structure._pipeline._core_builder import build_file_structure_with_analysis
+
     from services.structure.chunk_planner import plan_chunking
 
     analysis = build_file_structure_with_analysis(

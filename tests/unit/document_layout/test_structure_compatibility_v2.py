@@ -16,7 +16,7 @@ from services.document_layout.schemas import (
     MarkerTrace,
     ProjectedElement,
 )
-from services.structure.pipeline import build_file_structure
+from services.structure._pipeline._core_builder import build_file_structure
 
 
 def test_structure_pipeline_compatibility_with_v2_elements():

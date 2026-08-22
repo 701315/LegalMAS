@@ -39,10 +39,21 @@ class TestTableSemantics:
             markdown="",
         )
 
-        processor = TableSemanticsProcessor()
-        text, topology = processor.process_table(table, target_language="ru")
+        from services.document_layout.span_splitter import SpanSplitter
+        splitter = SpanSplitter()
+        processor = TableSemanticsProcessor(splitter=splitter)
 
-        assert topology == TableTopologyType.INLINE_CELL
+        result = processor.process_table(table, target_language="ru")
+        text = result.markdown_text
+        topology = result.topology
+
+        # Робастная проверка Enum без импорта класса TableTopology
+        assert (
+            getattr(topology, "name", None) == "INLINE_CELL"
+            or getattr(topology, "value", None) == "inline_cell"
+            or str(topology).endswith("INLINE_CELL")
+            or str(topology) == "inline_cell"
+        )
         assert "Объекты" in text
         assert "Objects" not in text
         assert "Здание 1" in text

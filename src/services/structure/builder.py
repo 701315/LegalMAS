@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from core.logging import get_logger
 from services.structure.models import ClauseTree, FileStructureResult
-from services.structure.pipeline import build_file_structure, build_structure
+from services.structure._pipeline._core_builder import build_file_structure, build_structure
 
 logger = get_logger(__name__)
 
