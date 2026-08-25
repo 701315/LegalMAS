@@ -1,3 +1,5 @@
+# src/services/document_layout/page_region_segmenter.py
+
 """
 Page Region Segmenter Module (Layer 1).
 

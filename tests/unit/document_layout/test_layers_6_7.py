@@ -59,3 +59,5 @@ class TestTableSemantics:
         assert "Здание 1" in text
         assert "Building 1" not in text
         assert "500 000.00" in text
+
+

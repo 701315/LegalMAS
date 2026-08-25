@@ -611,7 +611,21 @@ def looks_like_requisites_heading(text: str) -> bool:
 def looks_like_signature_or_requisites_heading(text: str) -> bool:
     """
     Объединённый negative rule для scorer-а и classifier-а.
+
+    Универсальный компенсирующий контроль:
+    Если строка начинается с классического числового/структурного маркера
+    (e.g., "8 РЕКВИЗИТЫ И ПОДПИСИ СТОРОН", "8.1"), то это полноценный заголовок
+    раздела документа, а не сырой блок подписей/реквизитов. Такой элемент
+    должен быть допущен к скорингу и сборке.
     """
+    t = _normalized_text(text)
+    if not t:
+        return False
+
+    # Если строка начинается с цифры, за которой следует пробел или точка
+    if re.match(r'^\s*\d+(?:\.\d+)*[\.\s]', t):
+        return False
+
     return looks_like_signature_heading(text) or looks_like_requisites_heading(text)
 
 # ============================================================================

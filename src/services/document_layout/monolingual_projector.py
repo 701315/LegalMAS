@@ -1,15 +1,20 @@
-"""
-Monolingual Projector Module (Phase 4 / Layer 8 v3 Final).
+# src/services/document_layout/monolingual_projector.py
 
-Формирует одноязычную проекцию из составных структурных узлов (StructuralNodeCandidate):
+"""
+Monolingual Projector Module (Phase 4 / Layer 8 v3.2 Final).
+
+Формирует одноязычную проекцию из составных структурных узлов:
 - Фильтрация по target_language + shared;
-- Исключение узлов противоположного языка (включая их маркеры) при наличии целевого узла;
+- Исключение узлов противоположного языка при наличии целевого узла;
+- Перенос маркеров от выровненных узлов противоположного языка (v3.2);
 - Safe-split для mixed-узлов;
+- Гарантия наличия маркера в начале текста элемента (v3.2);
 - 100% трассируемость маркеров.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -23,6 +28,7 @@ from services.document_layout.schemas import (
     UnresolvedMixedAtom,
 )
 from services.document_layout.span_splitter import SpanSplitter
+from services.document_layout.marker_recovery import _extract_marker_from_text
 
 logger = get_logger(__name__)
 
@@ -38,6 +44,29 @@ class ProjectionResult:
     shared_atoms_included: int = 0
     mixed_atoms_resolved: int = 0
     mixed_atoms_unresolved: int = 0
+
+
+def _ensure_marker_in_text(text: str, marker: str | None) -> str:
+    """
+    Гарантирует, что маркер физически присутствует в начале текста элемента.
+    Если маркер есть, а текст начинается со слов — приклеивает его.
+    """
+    if not marker:
+        return text
+
+    stripped_text = text.strip()
+    stripped_marker = marker.strip()
+
+    if not stripped_text:
+        return stripped_marker
+
+    # Если текст уже начинается с этого маркера — ничего не делаем
+    if stripped_text.startswith(stripped_marker):
+        return text
+
+    # Если маркер числовой (например "5.8") или буквенный ("(a)")
+    # и текст начинается с другой цифры/буквы — приклеиваем
+    return f"{stripped_marker} {text}"
 
 
 class MonolingualProjector:
@@ -66,29 +95,51 @@ class MonolingualProjector:
             alignment_result.aligned_opposite_node_ids if alignment_result else set()
         )
 
+        # v3.2: Строим карту переноса маркеров от выровненных узлов
+        # противоположного языка к целевым узлам (Marker Propagation)
+        marker_transfer: dict[str, str] = {}
+        if alignment_result:
+            for pair in alignment_result.aligned_pairs:
+                if pair.marker:
+                    existing = marker_transfer.get(pair.target_node_id)
+                    if not existing:
+                        marker_transfer[pair.target_node_id] = pair.marker
+
         projected_elements: list[ProjectedElement] = []
         unresolved_mixed: list[UnresolvedMixedAtom] = []
 
         for idx, node in enumerate(nodes):
-            # Используем маппинг Docling label → downstream raw_type
             raw_type = layout_config.label_to_raw_type.get(node.label, "text")
             if node.marker and raw_type == "text":
                 raw_type = "list_item"
 
+            # Универсальное извлечение маркера из текста если нет в node.marker
+            if not node.marker and node.text:
+                extracted_marker = _extract_marker_from_text(node.text)
+                if extracted_marker:
+                    node.marker = extracted_marker
+
             # 1. Нативный узел целевого языка
             if node.language == target_lang:
+                effective_marker = node.marker
+                if not effective_marker and node.node_id in marker_transfer:
+                    effective_marker = marker_transfer[node.node_id]
+
+                # Гарантируем наличие маркера в начале текста для качественного RAG и LLM-детекции
+                projected_text = _ensure_marker_in_text(node.text, effective_marker)
+
                 el_id = f"{target_lang}:{node.node_id}"
                 projected_el = ProjectedElement(
                     element_id=el_id,
                     source_element_ids=node.source_atom_ids,
-                    text=node.text,
+                    text=projected_text,
                     page=node.page,
                     reading_order=idx,
                     reading_order_source="structural_nodes",
                     layout_order_confidence="validated",
                     type=raw_type,
                     label=node.label if node.label else "paragraph",
-                    marker=node.marker,
+                    marker=effective_marker,
                     is_marker_only=False,
                     bbox=node.bbox,
                     parent_ref=node.region_id,
@@ -101,25 +152,32 @@ class MonolingualProjector:
                     style=node.style,
                     region_id=node.region_id,
                     hierarchy_path=node.hierarchy_path,
+                    metadata=dict(getattr(node, "metadata", {}) or {}),
                 )
                 projected_elements.append(projected_el)
-                if node.marker:
+                if effective_marker:
                     result.marker_trace.projected += 1
 
             # 2. Shared узел (формулы, чистые цифры, нейтральный контент)
             elif node.language == "shared":
+                effective_marker = node.marker
+                if not effective_marker and node.node_id in marker_transfer:
+                    effective_marker = marker_transfer[node.node_id]
+
+                projected_text = _ensure_marker_in_text(node.text, effective_marker)
+
                 el_id = f"{target_lang}:shared:{node.node_id}"
                 projected_el = ProjectedElement(
                     element_id=el_id,
                     source_element_ids=node.source_atom_ids,
-                    text=node.text,
+                    text=projected_text,
                     page=node.page,
                     reading_order=idx,
                     reading_order_source="structural_nodes",
                     layout_order_confidence="validated",
                     type=raw_type,
                     label="paragraph" if raw_type == "text" else "list_item",
-                    marker=node.marker,
+                    marker=effective_marker,
                     is_marker_only=False,
                     bbox=node.bbox,
                     parent_ref=node.region_id,
@@ -132,10 +190,11 @@ class MonolingualProjector:
                     style=node.style,
                     region_id=node.region_id,
                     hierarchy_path=node.hierarchy_path,
+                    metadata=dict(getattr(node, "metadata", {}) or {}),
                 )
                 projected_elements.append(projected_el)
                 result.shared_atoms_included += 1
-                if node.marker:
+                if effective_marker:
                     result.marker_trace.projected += 1
 
             # 3. Mixed узел (двуязычная строка)
@@ -143,18 +202,21 @@ class MonolingualProjector:
                 split_res = self.splitter.split_span(node.text, target_lang)
 
                 if split_res.is_split_successful and split_res.target_text:
+                    effective_marker = node.marker
+                    projected_text = _ensure_marker_in_text(split_res.target_text, effective_marker)
+
                     el_id = f"{target_lang}:split:{node.node_id}"
                     projected_el = ProjectedElement(
                         element_id=el_id,
                         source_element_ids=node.source_atom_ids,
-                        text=split_res.target_text,
+                        text=projected_text,
                         page=node.page,
                         reading_order=idx,
                         reading_order_source="structural_nodes",
                         layout_order_confidence="validated",
                         type=raw_type,
                         label="paragraph" if raw_type == "text" else "list_item",
-                        marker=node.marker,
+                        marker=effective_marker,
                         is_marker_only=False,
                         bbox=node.bbox,
                         parent_ref=node.region_id,
@@ -167,10 +229,11 @@ class MonolingualProjector:
                         style=node.style,
                         region_id=node.region_id,
                         hierarchy_path=node.hierarchy_path,
+                        metadata=dict(getattr(node, "metadata", {}) or {}),
                     )
                     projected_elements.append(projected_el)
                     result.mixed_atoms_resolved += 1
-                    if node.marker:
+                    if effective_marker:
                         result.marker_trace.projected += 1
                 else:
                     el_id = f"{target_lang}:mixed:{node.node_id}"
@@ -197,6 +260,7 @@ class MonolingualProjector:
                         style=node.style,
                         region_id=node.region_id,
                         hierarchy_path=node.hierarchy_path,
+                        metadata=dict(getattr(node, "metadata", {}) or {}),
                     )
                     projected_elements.append(projected_el)
                     result.mixed_atoms_unresolved += 1
@@ -211,18 +275,15 @@ class MonolingualProjector:
 
             # 4. Узел противоположного языка
             else:
-                # Если узел противоположного языка выравнен (aligned) с целевым узлом — он просто отбрасывается!
-                # Маркер-пустышка НЕ создаётся, так как целевой узел уже содержит нужный маркер и текст!
                 if node.node_id in aligned_opp_node_ids:
                     result.marker_trace.excluded_with_reason += 1
                 else:
-                    # Узел НЕ выравнен (маркер есть только на чужом языке) -> сохраняем маркер-пустышку
                     if node.marker:
                         marker_el_id = f"{target_lang}:marker:{node.node_id}"
                         marker_el = ProjectedElement(
                             element_id=marker_el_id,
                             source_element_ids=node.source_atom_ids,
-                            text="",  # Текст строго пустой
+                            text="",
                             page=node.page,
                             reading_order=idx,
                             reading_order_source="structural_nodes",
@@ -242,6 +303,7 @@ class MonolingualProjector:
                             style=node.style,
                             region_id=node.region_id,
                             hierarchy_path=node.hierarchy_path,
+                            metadata=dict(getattr(node, "metadata", {}) or {}),
                         )
                         projected_elements.append(marker_el)
                         result.marker_trace.projected += 1
@@ -256,10 +318,13 @@ class MonolingualProjector:
         result.projected_atom_count = len(projected_elements)
 
         logger.info(
-            "Monolingual node projection completed",
+            "Monolingual node projection completed (Dual-Hypothesis v3.2)",
             target_language=target_lang,
             projected_elements=result.projected_atom_count,
             marker_only_elements=result.projected_marker_only_atom_count,
+            markers_transferred=len(marker_transfer),
         )
 
         return result
+
+

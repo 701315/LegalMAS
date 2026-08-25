@@ -1,3 +1,5 @@
+# src/services/document_layout/config.py
+
 """
 Конфигурация Document Layout Pipeline v3.
 

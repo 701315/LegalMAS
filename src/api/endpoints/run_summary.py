@@ -52,6 +52,17 @@ async def get_run_summary(
     Если run terminal и записи ещё нет — создать 'pending' с fallback
     (dispatcher подхватит генерацию в фоне).
     """
+    # === СИСТЕМНЫЙ ФИКС: Мягкий статус ожидания для активных запусков ===
+    # Если запуск еще выполняется (статус не completed и не completed_with_errors),
+    # возвращаем статус "pending" вместо жесткой ошибки 404, разблокируя UX фронтенда.
+    if run.status not in ("completed", "completed_with_errors"):
+        return RunSummaryResponse(
+            run_id=str(run.id),
+            status="pending",
+            text="Анализ документов еще выполняется. Резюме будет сгенерировано после завершения.",
+        )
+    # ===================================================================
+
     async with get_session() as session:
         service = RunSummaryService(session)
         await service.ensure_record(run.id)

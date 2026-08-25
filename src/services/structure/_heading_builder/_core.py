@@ -54,6 +54,8 @@ from ._utils import (
     _status_to_decision,
     _uid_depth,
 )
+import numpy as np
+import numpy as np
 
 logger = get_logger(__name__)
 
@@ -123,6 +125,46 @@ class Phase2Result:
 # ============================================================================
 # Вспомогательные функции (без изменений)
 # ============================================================================
+
+def _compute_document_heading_depth(elements: list[dict[str, Any]]) -> int:
+    """
+    Вычислить адаптивную максимальную глубину нумерации документа.
+
+    Алгоритм:
+    1. Собираем глубины всех маркеров с recovery_confidence >= 0.7
+       (подтверждённые Spatial Recovery маркеры, не шум).
+    2. Если таких нет — fallback на все маркеры.
+    3. Возвращаем МАКСИМУМ (не перцентиль), потому что даже один
+       подтверждённый маркер глубины N означает N-уровневую иерархию.
+    4. Минимальное значение — 2 (безопасный дефолт).
+
+    Универсален: не зависит от языка, формата, типа документа,
+    количества уровней вложенности.
+    """
+    confirmed_depths: list[int] = []
+    all_depths: list[int] = []
+
+    for el in elements:
+        marker = el.get("marker") or ""
+        if not marker:
+            continue
+        depth = _uid_depth(marker)
+        if depth <= 0:
+            continue
+        all_depths.append(depth)
+        meta = el.get("metadata") or {}
+        if (
+            meta.get("marker_source") == "spatial_recovery"
+            and float(meta.get("recovery_confidence") or 0.0) >= 0.7
+        ):
+            confirmed_depths.append(depth)
+
+    source = confirmed_depths if confirmed_depths else all_depths
+    if not source:
+        return 2
+
+    return max(2, max(source))
+
 
 def _has_strong_toc_confirmation(match_type: str | None, match_score: float | None) -> bool:
     """Strong TOC confirmation: exact match или сильный fuzzy match.
@@ -566,6 +608,16 @@ def _apply_heading_density_guard(
             p = 1
 
         if p in dense_pages and getattr(s, "status", None) == CandidateStatus.ACCEPTED:
+            # Не демотируем элементы с подтверждённым spatial_recovery.
+            # Это компенсирующий контроль для апстрим-бага Docling;
+            # его результаты имеют приоритет над density heuristics.
+            _meta = getattr(s, "metadata", None) or {}
+            _ms = _meta.get("marker_source") or ""
+            _rc = float(_meta.get("recovery_confidence") or 0.0)
+            if _ms == "spatial_recovery" and _rc >= 0.7:
+                result.append(s)
+                continue
+
             s = _replace_scored_candidate_status(
                 s,
                 new_status=CandidateStatus.AMBIGUOUS,
@@ -955,6 +1007,12 @@ def collect_scored_heading_candidates(
             toc_match_index=toc_match_index,
         )
 
+        recovery_confidence = float(el_meta.get("recovery_confidence") or 0.0)
+        marker_source = el_meta.get("marker_source") or ""
+        
+        recovery_confidence = float(el_meta.get("recovery_confidence") or 0.0)
+        marker_source = el_meta.get("marker_source") or ""
+        
         res = score_heading_candidate(
             uid=p_uid,
             title=p_title,
@@ -966,6 +1024,14 @@ def collect_scored_heading_candidates(
             prev_heading_uid=ctx.get("prev_heading_uid"),
             next_heading_uid=ctx.get("next_heading_uid"),
         )
+        
+        if marker_source == "spatial_recovery" and recovery_confidence >= 0.7:
+            res.score = max(res.score, recovery_confidence)
+            res.accept_reasons.append("spatial_recovery_high_confidence")
+        
+        if marker_source == "spatial_recovery" and recovery_confidence >= 0.7:
+            res.score = max(res.score, recovery_confidence)
+            res.accept_reasons.append("spatial_recovery_high_confidence")
 
         decision = _status_to_decision(res.status)
         reason = _normalize_reject_reason(res.primary_reason)
@@ -998,10 +1064,28 @@ def collect_scored_heading_candidates(
                 decision, reason = "rejected", "recoverable_toc_like_rejected_by_toc_guard"
 
         if el_type == "list_item" and decision == "accepted":
-            if not _is_strict_numeric_uid(p_uid):
-                decision, reason = "rejected", "list_item_non_numeric_uid"
+            # Universal rule 1: spatial recovery signal has priority
+            if marker_source == "spatial_recovery" and recovery_confidence >= 0.7:
+                decision, reason = "accepted", "spatial_recovery_list_item"
+            # Universal rule 2: numeric markers with document-adaptive depth
+            elif _is_strict_numeric_uid(p_uid):
+                doc_max_depth = _compute_document_heading_depth(elements)
+                uid_depth = _uid_depth(p_uid)
+                if uid_depth <= doc_max_depth:
+                    if score >= 0.55:
+                        decision, reason = "accepted", "numeric_list_item_in_depth"
+                    else:
+                        decision, reason = "ambiguous", "numeric_list_item_low_score"
+                else:
+                    if score >= 0.85:
+                        decision, reason = "accepted", "numeric_list_item_exceptional"
+                    else:
+                        decision, reason = "ambiguous", "numeric_list_item_beyond_depth"
             elif _uid_depth(p_uid) > 4 and score < 0.85:
-                decision, reason = "ambiguous", "list_item_deep_uid_requires_stronger_evidence"
+                decision, reason = (
+                    "ambiguous",
+                    "list_item_deep_uid_requires_stronger_evidence",
+                )
 
         if el_type == "definition_item" and decision == "accepted":
             if not _is_strict_numeric_uid(p_uid):

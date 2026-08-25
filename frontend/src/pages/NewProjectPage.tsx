@@ -128,15 +128,7 @@ const NewProjectPage: React.FC = () => {
 
   // ───────────── DATA ─────────────
 
-  const { data: deal, refetch: refetchDeal } = useDeal(createdDealId, {
-    refetchInterval: (query) =>
-      shouldPollDealLanguageDiscovery(
-        query.state.data?.language_discovery_status,
-      )
-        ? DEAL_POLL_INTERVAL
-        : false,
-  });
-
+  // Сначала инициализируем документы и их количество
   const {
     data: documentsPage,
     isLoading: isDocumentsLoading,
@@ -145,6 +137,41 @@ const NewProjectPage: React.FC = () => {
 
   const documentsCount = documentsPage?.total ?? 0;
   const startRun = useStartRun(createdDealId ?? "");
+
+  // Теперь useDeal может безопасно использовать documentsCount!
+  const { data: deal, refetch: refetchDeal } = useDeal(createdDealId, {
+    refetchInterval: (query) => {
+      const dealData = query.state.data;
+      const status = dealData?.language_discovery_status;
+      const langs = dealData?.languages;
+
+      // 1. Discovery явно в процессе (pending/processing) — опрашиваем
+      if (shouldPollDealLanguageDiscovery(status)) {
+        return DEAL_POLL_INTERVAL;
+      }
+
+      // 2. Документы загружены, но языки ещё не определены
+      if (
+        documentsCount > 0 &&
+        (!langs || langs.length === 0) &&
+        status !== "failed"
+      ) {
+        return DEAL_POLL_INTERVAL;
+      }
+
+      return false;
+    },
+  });
+
+  // При изменении числа документов — переполучаем сделку,
+  // чтобы React Query узнал актуальный статус language discovery.
+  // Без этого polling не включится: кэш хранит status=null
+  // от момента создания сделки, а воркер уже ставит "pending".
+  React.useEffect(() => {
+    if (createdDealId && documentsCount > 0) {
+      refetchDeal();
+    }
+  }, [createdDealId, documentsCount, refetchDeal]);
 
   // ───────────── CREATE DEAL ─────────────
 

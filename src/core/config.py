@@ -468,7 +468,9 @@ class Settings(BaseSettings):
 
     # --- Structure LLM Refiner ---
     STRUCTURE_ENABLE_LLM_REFINER: bool = True
-
+    CLAUSE_DETECTOR_MIN_TEXT_LEN: int = 30
+    CLAUSE_DETECTOR_MAX_TEXT_LEN: int | None = None
+    
     # Structure refiner LLM provider. Поддерживаемые значения:
     # ollama | local | local_endpoint (все три = Ollama-compatible HTTP API).
     STRUCTURE_LLM_PROVIDER: str = "ollama"

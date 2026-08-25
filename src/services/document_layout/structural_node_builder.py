@@ -1,3 +1,5 @@
+# src/services/document_layout/structural_node_builder.py
+
 """
 Structural Node Builder Module (Layer 4).
 
@@ -99,6 +101,9 @@ class StructuralNodeBuilder:
 
                 combined_bbox = _merge_bboxes([curr_atom.bbox, next_atom.bbox])
 
+                merged_metadata = dict(getattr(curr_atom, "metadata", {}) or {})
+                merged_metadata.update(dict(getattr(next_atom, "metadata", {}) or {}))
+
                 node = StructuralNodeCandidate(
                     node_id=f"node:{curr_atom.page}:{node_counter:04d}",
                     marker=curr_atom.marker or next_atom.marker,
@@ -111,6 +116,7 @@ class StructuralNodeBuilder:
                     text=merged_text,
                     confidence=min(curr_atom.language_confidence, next_atom.language_confidence),
                     label=next_atom.label,
+                    metadata=merged_metadata,
                 )
                 nodes.append(node)
                 node_counter += 1
@@ -120,6 +126,8 @@ class StructuralNodeBuilder:
             # Обычный автономный узел
             # Наследуем визуальные признаки от первого атома узла
             first_atom_style = curr_atom.style
+            single_metadata = dict(getattr(curr_atom, "metadata", {}) or {})
+
             node = StructuralNodeCandidate(
                 node_id=f"node:{curr_atom.page}:{node_counter:04d}",
                 marker=curr_atom.marker,
@@ -135,6 +143,7 @@ class StructuralNodeBuilder:
                 font_size=first_atom_style.font_size if first_atom_style else None,
                 bold=first_atom_style.bold if first_atom_style else False,
                 style=first_atom_style,
+                metadata=single_metadata,
             )
             nodes.append(node)
             node_counter += 1

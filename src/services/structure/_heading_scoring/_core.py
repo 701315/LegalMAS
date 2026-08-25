@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from services.structure._models._constants import (
@@ -103,6 +104,20 @@ def _has_strong_structural_confirmation(
         return True
     if uid and _looks_like_root_numeric_uid(uid) and (strong_toc_confirmation or cont_bonus >= 0.03):
         return True
+    
+    # Универсальное правило: подразделы с явной нумерацией (1.1, 1.1.1, 2.8...)
+    # имеют структурное подтверждение даже без TOC match
+    # Работает для любых языков и форматов нумерации
+    if level >= 2 and uid:
+        # Числовая иерархия: 1.1, 1.1.1, 2.8...
+        if re.match(r'^\d+(?:\.\d+)+$', uid):
+            if cont_bonus >= 0.02 or (u_cont and any(bool(v) for v in u_cont.values())):
+                return True
+        # Буквенная иерархия: (a), (b), a), b)...
+        elif re.match(r'^\(?[a-zA-Zа-яА-Я]\)?$', uid) and level >= 2:
+            if cont_bonus >= 0.02:
+                return True
+    
     return False
 
 

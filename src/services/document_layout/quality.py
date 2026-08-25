@@ -1,3 +1,5 @@
+# src/services/document_layout/quality.py
+
 """
 Quality Gates Module (Phase 6).
 

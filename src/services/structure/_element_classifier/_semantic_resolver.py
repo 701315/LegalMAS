@@ -14,6 +14,7 @@ from services.structure.legal_heading_rules import (
     looks_like_definition_item,
     looks_like_requisites_heading,
     looks_like_signature_heading,
+    looks_like_signature_or_requisites_heading,
     numeric_uid_depth,
 )
 from services.structure.models import (
@@ -89,7 +90,7 @@ def _compute_semantic_element_type(
         return SEMANTIC_TYPE_DEFINITION_ITEM
 
     # Приоритет 3: Signature / requisites по тексту
-    if looks_like_signature_heading(text) or looks_like_requisites_heading(text):
+    if looks_like_signature_or_requisites_heading(text):
         return SEMANTIC_TYPE_SIGNATURE_BLOCK
 
     # Приоритет 4: Heading candidate — различаем section vs subsection по uid depth

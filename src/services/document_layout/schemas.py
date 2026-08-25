@@ -1,3 +1,5 @@
+# src/services/document_layout/schemas.py
+
 """
 Pydantic-схемы для Document Layout Pipeline v3.
 
@@ -154,6 +156,7 @@ class CanonicalAtom(BaseModel):
     language_evidence: LanguageEvidence | None = None
     style: ElementStyle | None = None
     source: CanonicalAtomSource
+    metadata: dict[str, Any] = Field(default_factory=dict)  # Для SpatialMarkerRecovery
 
 
 class CanonicalTableCell(BaseModel):
@@ -245,6 +248,7 @@ class StructuralNodeCandidate(BaseModel):
     font_size: float | None = None
     bold: bool = False
     style: ElementStyle | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 # ── Layered Architecture v3: Quarantine ──────────────────────────────────────
@@ -336,6 +340,7 @@ class ProjectedElement(BaseModel):
     # v3: связь с исходным регионом страницы
     region_id: str | None = None
     hierarchy_path: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 # ── Layout Primary Compat (run-scoped, downstream artifact) ──────────────────

@@ -147,7 +147,22 @@ def classify_elements(
             toc_ctx=toc_ctx,
         )
 
-        if result.element_type == ELEMENT_TYPE_TOC_FALSE_POSITIVE:
+        # ── УНИВЕРСАЛЬНЫЙ ПРЕДОХРАНИТЕЛЬНЫЙ КОНТРОЛЬ ЗАГОЛОВКОВ (Safeguard) ────
+        # Если элемент распознан классификатором как контент реквизитов или подписей,
+        # но при этом содержит валидную нумерацию заголовка (e.g. "8 РЕКВИЗИТЫ", "8.1"),
+        # он принудительно переводится в тип HEADING_CANDIDATE.
+        # Это защищает заголовки разделов от ложного поглощения сырым контентом.
+        element_type_to_use = result.element_type
+        confidence_to_use = result.confidence
+
+        if element_type_to_use in {ELEMENT_TYPE_SIGNATURE_BLOCK, ELEMENT_TYPE_REQUISITES_BLOCK}:
+            from services.structure.heading_patterns import parse_raw_heading
+            text_raw = str(element.get("text") or "").strip()
+            if parse_raw_heading(text_raw):
+                element_type_to_use = ELEMENT_TYPE_HEADING_CANDIDATE
+                confidence_to_use = max(confidence_to_use, 0.9)
+
+        if element_type_to_use == ELEMENT_TYPE_TOC_FALSE_POSITIVE:
             toc_fp_count += 1
 
         meta = dict(result.metadata or {})
@@ -174,15 +189,15 @@ def classify_elements(
         text_for_semantic = _normalize_text(str(element.get("text") or ""))
         semantic_type = _compute_semantic_element_type(
             text=text_for_semantic,
-            element_type=result.element_type,
+            element_type=element_type_to_use,
             raw_type=result.raw_type,
         )
         meta["semantic_element_type"] = semantic_type
 
         # ── Heading confidence (первичная оценка classifier-а) ────────────
         heading_conf = _compute_heading_confidence_from_classification(
-            element_type=result.element_type,
-            classification_confidence=result.confidence,
+            element_type=element_type_to_use,
+            classification_confidence=confidence_to_use,
             semantic_type=semantic_type,
         )
         meta["heading_confidence"] = heading_conf
@@ -232,8 +247,8 @@ def classify_elements(
 
         normalized = dict(element)
         normalized["raw_element_type"] = str(element.get("type") or "").strip() or None
-        normalized["element_type"] = result.element_type
-        normalized["element_classification_confidence"] = round(result.confidence, 3)
+        normalized["element_type"] = element_type_to_use
+        normalized["element_classification_confidence"] = round(confidence_to_use, 3)
         normalized["element_classification_reasons"] = [
             {"code": r.code, "weight": r.weight, "note": r.note} for r in result.reasons
         ]

@@ -1,3 +1,5 @@
+# src/services/document_layout/span_splitter.py
+
 """
 Span Splitter Module (Layer 6).
 

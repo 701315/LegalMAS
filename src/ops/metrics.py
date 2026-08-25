@@ -497,6 +497,113 @@ class MetricsRegistry:
             registry=r,
         )
 
+        # ==============================================================
+        # 14. SPATIAL MARKER RECOVERY METRICS
+        # Compensating control observability for Docling issue #1345.
+        # Мигрированы из services/document_layout/metrics.py
+        # (исправление registry mismatch + удаление high-cardinality
+        #  document_id label).
+        # ==============================================================
+
+        self.spatial_recovery_elements_total = Counter(
+            f"{_P}_spatial_recovery_elements_total",
+            "Total marker recovery results by confidence level.",
+            labelnames=["confidence_level"],  # high | medium | low | not_recovered
+            registry=r,
+        )
+
+        self.spatial_recovery_match_attempts_total = Counter(
+            f"{_P}_spatial_recovery_match_attempts_total",
+            "Total spatial matching attempts (marker → atom).",
+            registry=r,
+        )
+
+        self.spatial_recovery_rejections_total = Counter(
+            f"{_P}_spatial_recovery_rejections_total",
+            "Total markers rejected by sequence validation.",
+            labelnames=["reason"],  # duplicate | non_monotonic | invalid_level_close
+            registry=r,
+        )
+
+        self.spatial_recovery_confidence = Histogram(
+            f"{_P}_spatial_recovery_confidence",
+            "Distribution of marker recovery confidence scores.",
+            buckets=[0.0, 0.25, 0.5, 0.65, 0.75, 0.85, 0.9, 0.95, 0.98, 1.0],
+            registry=r,
+        )
+
+        self.spatial_recovery_y_delta = Histogram(
+            f"{_P}_spatial_recovery_y_delta",
+            "Distribution of Y-axis deltas in successful matches (points).",
+            buckets=[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 7.5, 10.0, 15.0, 20.0],
+            registry=r,
+        )
+
+        self.spatial_recovery_rate = Gauge(
+            f"{_P}_spatial_recovery_rate",
+            "Fraction of atoms without native marker that got recovered (last document).",
+            registry=r,
+        )
+
+        self.spatial_recovery_rejection_rate = Gauge(
+            f"{_P}_spatial_recovery_rejection_rate",
+            "Fraction of candidate matches rejected by sequence validation (last document).",
+            registry=r,
+        )
+
+        self.spatial_recovery_mean_confidence = Gauge(
+            f"{_P}_spatial_recovery_mean_confidence",
+            "Mean confidence score of marker recovery (last document).",
+            registry=r,
+        )
+
+        self.spatial_recovery_atoms_without_marker = Gauge(
+            f"{_P}_spatial_recovery_atoms_without_marker",
+            "Count of atoms lacking native Docling marker (last document).",
+            registry=r,
+        )
+
+        # ==============================================================
+        # 15. CLAUSE DETECTOR METRICS
+        # LLMClauseDetector observability: LLM calls, fallback, timing.
+        # ==============================================================
+
+        self.clause_detector_clauses_added_total = Counter(
+            f"{_P}_clause_detector_clauses_added_total",
+            "Total clauses added to the tree by extraction method.",
+            labelnames=["method"],  # llm | fallback
+            registry=r,
+        )
+
+        self.clause_detector_refine_duration_seconds = Histogram(
+            f"{_P}_clause_detector_refine_duration_seconds",
+            "Duration of refine_tree() execution.",
+            labelnames=["status"],  # success | error | skipped
+            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 30.0, 60.0],
+            registry=r,
+        )
+
+        self.clause_detector_llm_calls_total = Counter(
+            f"{_P}_clause_detector_llm_calls_total",
+            "Total LLM calls made by ClauseDetector.",
+            labelnames=["status"],  # success | error | empty | unavailable
+            registry=r,
+        )
+
+        self.clause_detector_fallback_clauses_total = Counter(
+            f"{_P}_clause_detector_fallback_clauses_total",
+            "Total clauses extracted via regex fallback parser.",
+            labelnames=["pattern_type"],  # strict_numeric | table_row | generic
+            registry=r,
+        )
+
+        self.clause_detector_skipped_total = Counter(
+            f"{_P}_clause_detector_skipped_total",
+            "Total clause candidates skipped during tree assembly.",
+            labelnames=["reason"],  # duplicate | no_match | construction_failed
+            registry=r,
+        )
+
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
 

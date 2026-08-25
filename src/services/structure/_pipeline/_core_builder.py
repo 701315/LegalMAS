@@ -14,6 +14,7 @@ Core builder: один сегмент -> ClauseTree.
 
 from __future__ import annotations
 
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -68,6 +69,7 @@ from ._quality_metrics import (
     _extract_evidence_metrics,
     _extract_crossref_input,
 )
+from services.structure._clause_detector.detector import LLMClauseDetector
 
 # V2 File-level orchestration imports
 from services.structure.chunk_planner import plan_chunking
@@ -98,6 +100,25 @@ from ._toc_workflow import (
 from ._utils import log_timing, stable_element_id
 
 logger = get_logger(__name__)
+
+def _unified_geometric_sort_key(el: dict[str, Any]) -> tuple[int, float, float]:
+    """
+    Универсальный геометрический ключ сортировки элементов на странице.
+    Сортирует строго сверху-вниз, слева-направо на основе физических координат bbox.
+    Это гарантирует правильный порядок элементов и исключает scale mismatch
+    между текстовыми атомами и табличными строками.
+    """
+    page = int(el.get("page") or 0)
+    bbox = el.get("bbox")
+    if bbox and isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+        y0 = float(bbox[1])
+        x0 = float(bbox[0])
+    else:
+        # Fallback если нет координат: используем reading_order как дробную часть
+        y0 = 9999.0 + float(el.get("reading_order") or el.get("layout_order") or 0) * 0.001
+        x0 = 0.0
+    return (page, y0, x0)
+
 
 
 def _safe_len(value: Any) -> int:
@@ -1094,6 +1115,14 @@ def _is_excluded_from_preamble_candidate(element: dict[str, Any]) -> bool:
     if bool(meta.get("body_recovered_from_toc", False)):
         return True
 
+    # Универсальный контроль: элемент, начинающийся с классического числового
+    # маркера пункта с вложенностью (1.1, 1.2, 3.4.1 и т.д. любой глубины),
+    # никогда не должен попадать в synthetic preamble.
+    # Одиночные цифры или маркеры сторон вида (1), (2), 1, 2 преамбуле разрешены.
+    text = str(element.get("text") or "").strip()
+    if re.match(r'^\s*\d+\.\d+', text):
+        return True
+
     return False
 
 
@@ -1405,8 +1434,6 @@ def build_single_segment_tree(
     )
 
     # Распаковываем для backward-compatibility с downstream кодом этой функции.
-    # После полного перехода на HierarchyBuildResult эти переменные
-    # можно будет заменить на hierarchy_result.root_nodes и т.д.
     root_nodes = hierarchy_result.root_nodes
     nodes = hierarchy_result.nodes_index
     element_to_effective_uid = hierarchy_result.element_to_effective_uid
@@ -1414,6 +1441,45 @@ def build_single_segment_tree(
     fsm_summary = hierarchy_result.fsm_summary
     resolution_audit = hierarchy_result.resolution_audit
     recovery_audit = hierarchy_result.recovery_audit
+
+    # === LLM Clause Boundary Detection (Phase 4 Granularity Refinement) ===
+    # Graceful degradation: если LLM недоступен — дерево остаётся на уровне глав.
+    # Детектор поддерживает Frozen и Mutable узлы (unfreeze → refine → refreeze).
+    try:
+        from services.structure._clause_detector import LLMClauseDetector
+
+        detector = LLMClauseDetector()
+        refine_result = detector.refine_tree(root_nodes, body_elements)
+
+        if refine_result.clauses_added > 0:
+            # Обновляем ссылки на корневые узлы
+            # (могли быть пересозданы при refreeze frozen-узлов)
+            root_nodes = list(refine_result.roots)
+
+            logger.info(
+                "STRUCTURE llm_clause_detection_completed",
+                extra={
+                    "document_id": document_id,
+                    "clauses_added": refine_result.clauses_added,
+                    "refine_stats": refine_result.stats,
+                },
+            )
+            # Перестраиваем плоский индекс узлов nodes_index, чтобы новые
+            # LLM-пункты были видны для downstream crossrefs и семантики
+            for root_node in root_nodes:
+                def _index_node(n):
+                    nodes[n.effective_uid] = n
+                    for child_id in n.own_element_ids:
+                        element_to_effective_uid[child_id] = n.effective_uid
+                    for child in n.children:
+                        _index_node(child)
+                _index_node(root_node)
+
+    except Exception as e:
+        logger.warning(
+            "STRUCTURE llm_clause_detection_skipped",
+            extra={"document_id": document_id, "reason": str(e)},
+        )
 
     # Phase 7: получаем graph + structured audit вместо только graph.
     crossref_result = build_cross_reference_graph_with_audit(

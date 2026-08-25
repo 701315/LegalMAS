@@ -106,6 +106,13 @@ export function useDeal(
     queryFn: () => dealApi.get(dealId as string),
     enabled: !!dealId,
     refetchInterval: options?.refetchInterval,
+    // При переключении на вкладку браузера — свежий запрос.
+    // Защита от устаревшего кэша после долгого отсутствия.
+    refetchOnWindowFocus: true,
+    // При ошибке сети/401 — 2 повторные попытки через 3 сек.
+    // Предотвращает «застревание» кэша на устаревших данных.
+    retry: 2,
+    retryDelay: 3000,
   });
 }
 

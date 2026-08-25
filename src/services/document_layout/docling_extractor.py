@@ -1,3 +1,5 @@
+# src/services/document_layout/docling_extractor.py
+
 """
 Docling Extractor Module (Phase 1 / CPU-Safe).
 
@@ -31,6 +33,8 @@ from services.document_layout.schemas import (
     CanonicalTable,
     CanonicalTableCell,
 )
+from services.document_layout.marker_recovery import recover_markers_from_atoms
+from services.document_layout.spatial_marker_recovery import SpatialMarkerRecovery
 
 logger = get_logger(__name__)
 
@@ -264,12 +268,36 @@ class DoclingExtractor:
 
         pages_list = [pages_dict[k] for k in sorted(pages_dict.keys())]
 
+        # Восстановить нумерацию для всех атомов (универсально для всех форматов)
+        atoms = recover_markers_from_atoms(atoms)
+
+        # Spatial recovery — compensating control для Docling issue #1345
+        # Восстанавливает маргинальные маркеры нумерации (1.1, 1.2, 2.1...)
+        atoms, recovery_metrics = SpatialMarkerRecovery.recover(
+            atoms=atoms,
+            pdf_bytes=pdf_bytes,
+            document_id=document_id,
+        )
+
+        logger.info(
+            "Docling extraction completed with spatial recovery",
+            extra={
+                "document_id": document_id,
+                "atoms_count": len(atoms),
+                "markers_recovered": recovery_metrics.markers_recovered_high_confidence,
+                "recovery_rate": recovery_metrics.recovery_rate,
+            },
+        )
+
         logger.info(
             "Docling extraction completed",
             document_id=document_id,
             atoms_count=len(atoms),
             tables_count=len(tables),
             pages_count=len(pages_list),
+            markers_recovered=sum(1 for a in atoms if a.marker),
         )
 
         return atoms, tables, pages_list, sha256_hash
+
+

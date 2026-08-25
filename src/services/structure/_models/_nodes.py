@@ -574,6 +574,94 @@ def _freeze_node(
     finally:
         seen_node_ids.remove(node_id)
 
+def unfreeze_node(node: FrozenHierarchyNode) -> MutableHierarchyNode:
+    """
+    Рекурсивно клонировать FrozenHierarchyNode → MutableHierarchyNode.
+
+    Сохраняет structural_hash оригинала — он будет пересчитан
+    только при явном вызове compute_and_set_structural_hash()
+    или через refreeze_forest().
+
+    Универсален: не зависит от причины заморозки или источника узла.
+    """
+    if not isinstance(node, FrozenHierarchyNode):
+        raise ValueError(f"unfreeze_node: expected FrozenHierarchyNode, got {type(node).__name__}")
+
+    mutable_children = [unfreeze_node(child) for child in node.children]
+
+    mutable = MutableHierarchyNode(
+        effective_uid=node.effective_uid,
+        title=node.title,
+        level=node.level,
+        raw_uid=node.raw_uid,
+        scope=node.scope,
+        node_kind=node.node_kind,
+        node_origin=node.node_origin,
+        content_mode=node.content_mode,
+        citability=node.citability,
+        own_element_ids=list(node.own_element_ids),
+        subtree_element_ids=list(node.subtree_element_ids),
+        own_text=node.own_text,
+        subtree_text=node.subtree_text,
+        start_page=node.start_page,
+        end_page=node.end_page,
+        children=mutable_children,
+        range_end_reason=node.range_end_reason,
+        diagnostics=dict(node.diagnostics),
+    )
+    # Сохраняем оригинальный хэш; пересчёт — ответственность вызывающего кода
+    mutable.structural_hash = node.structural_hash
+    return mutable
+
+
+def unfreeze_forest(
+    nodes: tuple[FrozenHierarchyNode, ...] | list[FrozenHierarchyNode],
+) -> list[MutableHierarchyNode]:
+    """
+    Клонировать лес frozen-узлов в mutable-узлы.
+    Симметричная операция к freeze_forest().
+    """
+    if not nodes:
+        return []
+    return [unfreeze_node(n) for n in nodes]
+
+
+def _ensure_structural_hashes(
+    node: MutableHierarchyNode,
+    parent_path: str = "",
+    sibling_index: int = 0,
+) -> None:
+    """
+    Рекурсивно пересчитать structural_hash для узлов, у которых он отсутствует.
+    Узлы с уже установленным хэшем не пересчитываются (инвариант compute_and_set).
+    """
+    if node.structural_hash is None:
+        normalized_path = (
+            f"{parent_path}/{node.raw_uid}" if parent_path else (node.raw_uid or "")
+        )
+        node.compute_and_set_structural_hash(
+            normalized_path=normalized_path,
+            sibling_index=sibling_index,
+        )
+    for idx, child in enumerate(node.children):
+        _ensure_structural_hashes(child, node.raw_uid or "", idx)
+
+
+def refreeze_forest(
+    nodes: list[MutableHierarchyNode],
+) -> tuple[FrozenHierarchyNode, ...]:
+    """
+    Пересчитать хэши (где нужно) и заморозить лес mutable-узлов.
+    Симметричная операция к unfreeze_forest().
+
+    Гарантирует, что все узлы имеют structural_hash перед freeze.
+    """
+    if not nodes:
+        return ()
+    for idx, node in enumerate(nodes):
+        _ensure_structural_hashes(node, "", idx)
+    return freeze_forest(nodes)
+
 
 @dataclass(frozen=True)
 class CrossReference:

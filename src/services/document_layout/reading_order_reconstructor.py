@@ -1,3 +1,5 @@
+# src/services/document_layout/reading_order_reconstructor.py
+
 """
 Reading Order Reconstructor Module (Layer 2).
 
