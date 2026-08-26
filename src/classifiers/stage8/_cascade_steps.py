@@ -333,25 +333,52 @@ class CascadeSteps:
 
         if l3_result.doctype != "UNKNOWN":
             top_l3 = l3_result
-            candidates.append(
-                {
-                    "type_code": l3_result.doctype,
-                    "confidence": l3_result.confidence,
-                    "level": "L3",
-                    "method": l3_result.method,
-                    "language": language,
-                    "jurisdiction": jurisdiction,
-                    "raw_similarity": raw_sim,
-                    "signal_quality": l3_extra.get(
-                        "signal_quality",
-                        min(1.0, raw_sim + settings.CLASSIFICATION_L3_SIGNAL_QUALITY_UPLIFT),
-                    ),
-                    "negative_hits": int(l3_extra.get("negative_hits", 0)),
-                    "ambiguity_penalty": float(l3_extra.get("ambiguity_penalty", 0.0)),
-                    "input_quality": float(l3_extra.get("input_quality", 1.0)),
-                    "margin": float(l3_extra.get("margin", 0.0)),
-                }
+
+            # ── Phase 3.2: L3 Noise Suppression ──────────────────────
+            # If L3 margin (top1_sim - top2_sim) is below threshold,
+            # the result is statistically indistinguishable from noise.
+            # We keep top_l3 for pre-L4 signal but exclude from voting.
+            l3_margin = float(l3_extra.get("margin", 0.0))
+            l3_min_margin = float(
+                getattr(settings, "CLASSIFICATION_L3_MIN_MARGIN", 0.05)
             )
+            l3_noise_suppressed = l3_margin < l3_min_margin
+
+            if l3_noise_suppressed:
+                logger.info(
+                    "Hybrid L3 noise suppressed",
+                    extra={
+                        "doc_id": doc_id,
+                        "type": l3_result.doctype,
+                        "confidence": l3_result.confidence,
+                        "margin": round(l3_margin, 4),
+                        "threshold": l3_min_margin,
+                    },
+                )
+                details["L3"]["noise_suppressed"] = True
+                details["L3"]["noise_margin"] = round(l3_margin, 4)
+                details["L3"]["noise_threshold"] = l3_min_margin
+            else:
+                candidates.append(
+                    {
+                        "type_code": l3_result.doctype,
+                        "confidence": l3_result.confidence,
+                        "level": "L3",
+                        "method": l3_result.method,
+                        "language": language,
+                        "jurisdiction": jurisdiction,
+                        "raw_similarity": raw_sim,
+                        "signal_quality": l3_extra.get(
+                            "signal_quality",
+                            min(1.0, raw_sim + settings.CLASSIFICATION_L3_SIGNAL_QUALITY_UPLIFT),
+                        ),
+                        "negative_hits": int(l3_extra.get("negative_hits", 0)),
+                        "ambiguity_penalty": float(l3_extra.get("ambiguity_penalty", 0.0)),
+                        "input_quality": float(l3_extra.get("input_quality", 1.0)),
+                        "margin": l3_margin,
+                    }
+                )
+
             details["L3_top"] = {
                 "type": l3_result.doctype,
                 "confidence": float(l3_result.confidence),

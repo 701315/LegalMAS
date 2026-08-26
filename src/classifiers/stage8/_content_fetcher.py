@@ -52,12 +52,21 @@ class ContentFetcher:
     def __init__(self, content_service: DocumentContentService | None) -> None:
         self.content_service = content_service
 
-    async def fetch(self, doc_id: str | UUID | Any) -> ClassificationContentBundle:
+    async def fetch(
+        self,
+        doc_id: str | UUID | Any,
+        *,
+        hot_patterns: list[re.Pattern[str]] | None = None,
+    ) -> ClassificationContentBundle:
         """
         Возвращает canonical classification content bundle.
 
         Источник:
         - DocumentContentService.get_classification_content(doc_id)
+
+        Phase 3.2:
+        - hot_patterns: compiled regex patterns from YAML keywords.high
+          (distinctiveness=high) for forced inclusion in body_text.
 
         ВАЖНО:
         - fetcher не использует get_header_and_snippet() / get_snippet_from_layout();
@@ -73,7 +82,10 @@ class ContentFetcher:
             return self._empty_bundle()
 
         try:
-            bundle = await self.content_service.get_classification_content(doc_id)
+            bundle = await self.content_service.get_classification_content(
+                doc_id,
+                hot_keyword_patterns=hot_patterns,
+            )
         except Exception as e:
             logger.exception(
                 "ContentFetcher failed to fetch canonical classification content",

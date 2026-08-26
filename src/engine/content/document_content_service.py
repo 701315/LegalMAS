@@ -22,6 +22,7 @@ DocumentContentService v3: фасад над chunk corpus, legal units и legacy
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Any
 
@@ -344,6 +345,7 @@ class DocumentContentService:
         max_body_chars: int = 1500,
         body_levels: list[str] | None = None,
         filter_unsafe_chunks: bool = True,
+        hot_keyword_patterns: list[re.Pattern[str]] | None = None,
     ) -> ClassificationContentBundle:
         """
         Построить canonical source bundle для document-level classification.
@@ -402,6 +404,7 @@ class DocumentContentService:
         selected_body_chunks, body_diag = select_body_chunks(
             retrieval_chunks,
             max_chars=max_body_chars,
+            hot_keyword_patterns=hot_keyword_patterns,
         )
 
         body_text: str | None = None

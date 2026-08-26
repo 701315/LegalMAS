@@ -381,6 +381,20 @@ class Settings(BaseSettings):
     # --- Priority rules ---
     CLASSIFICATION_L1_L2_AGREE_MIN: float = 0.70
 
+    # --- Phase 3.2: Hot Keywords Pass (body sampling) ---
+    # Принудительное включение чанков с якорными паттернами (distinctiveness=high)
+    # в body_text для классификации. Предотвращает quota crowding, когда
+    # sequential top-down sampling монополизирует бюджет на первых главах.
+    CLASSIFICATION_BODY_HOT_KEYWORDS_ENABLED: bool = True
+    CLASSIFICATION_BODY_HOT_RESERVE_FRACTION: float = 0.20
+    CLASSIFICATION_BODY_HOT_MAX_CHUNKS: int = 8
+
+    # --- Phase 3.2: L3 Noise Suppression (margin-aware voting) ---
+    # Минимальный margin (top1_sim - top2_sim) для участия L3 в голосовании.
+    # Ниже этого порога L3 результат считается статистическим шумом
+    # и исключается из candidates, чтобы не искажать weighted voting.
+    CLASSIFICATION_L3_MIN_MARGIN: float = 0.05
+
     # ---------------------------------------------------------------------------
     # --- LLM Provider ---
     # ---------------------------------------------------------------------------

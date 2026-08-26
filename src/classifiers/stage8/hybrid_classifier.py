@@ -214,7 +214,11 @@ class HybridClassifier:
         )
 
         # ── Content fetch ─────────────────────────────────────────────
-        content = await self._fetcher.fetch(doc.id)
+        hot_patterns = self._extract_hot_patterns()
+        content = await self._fetcher.fetch(
+            doc.id,
+            hot_patterns=hot_patterns if hot_patterns else None,
+        )
         header_text = content.header_text
         body_text = content.body_text
 
@@ -607,6 +611,65 @@ class HybridClassifier:
             fallback_kwargs["applicable_triggers"] = applicable_triggers
 
         return self._finalizer.build_fallback_result(**fallback_kwargs)
+
+
+    # ══════════════════════════════════════════════════════════════════
+    # Internal helpers — Phase 3.2: Hot Keywords
+    # ══════════════════════════════════════════════════════════════════
+
+    def _extract_hot_patterns(self) -> list:
+        """
+        Phase 3.2: Extract compiled regex patterns from all YAML configs
+        where distinctiveness='high' and context in ('body', 'any').
+
+        Source of truth: cfg.lexical_signals["high"] (already compiled
+        by YAMLRegistry → DocumentTypeConfig._parse_signal_list).
+
+        Returns list[re.Pattern]. Empty list if feature flag disabled
+        or no patterns found.
+        """
+        if not getattr(
+            settings, "CLASSIFICATION_BODY_HOT_KEYWORDS_ENABLED", True
+        ):
+            return []
+
+        patterns: list = []
+        seen_raw: set[str] = set()
+
+        try:
+            for cfg in self.registry.get_all_configs():
+                lexical = getattr(cfg, "lexical_signals", {}) or {}
+                for signal in lexical.get("high", []):
+                    if not isinstance(signal, dict):
+                        continue
+                    if signal.get("distinctiveness") != "high":
+                        continue
+                    ctx = signal.get("context", "any")
+                    if ctx not in ("body", "any"):
+                        continue
+                    pat = signal.get("pattern")
+                    if pat is None:
+                        continue
+                    raw = pat.pattern if hasattr(pat, "pattern") else str(pat)
+                    if raw in seen_raw:
+                        continue
+                    seen_raw.add(raw)
+                    patterns.append(pat)
+        except Exception as exc:
+            logger.warning(
+                "HybridClassifier: failed to extract hot patterns",
+                extra={"error": str(exc)},
+            )
+            return []
+
+        if patterns:
+            logger.debug(
+                "HybridClassifier: hot patterns extracted",
+                extra={"count": len(patterns)},
+            )
+
+        return patterns
+
 
     # ══════════════════════════════════════════════════════════════════
     # Internal helpers — enrichment
