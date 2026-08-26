@@ -1,3 +1,5 @@
+# src/services/structure/_clause_detector/parser.py
+
 """
 Парсер ответа LLM -> список пунктов.
 

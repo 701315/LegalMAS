@@ -570,7 +570,10 @@ def _compute_citability(node: dict[str, Any]) -> CitabilityMetrics:
 
     has_own_text = bool(own_text.strip())
     has_subtree_text = bool(subtree_text.strip())
-    is_heading_only = content_mode == "heading_only" or (not has_own_text and not has_subtree_text)
+    has_own_element_ids = bool(node.get("own_element_ids"))
+    is_heading_only = content_mode == "heading_only" or (
+        not has_own_text and not has_subtree_text and not has_own_element_ids
+    )
     is_technical_fallback = (
         content_mode == "technical_fragment"
         or node_origin == "technical_fallback"
@@ -1008,6 +1011,23 @@ class LegalUnitBuilder:
             or bool(diagnostics.get("degraded_chunk", False))
         )
 
+        # P8.8d/e: deterministic exact text projection from own_element_ids.
+        # Выполняем сборку текста ДО вычисления citability, чтобы избежать timing bug
+        # и ложного срабатывания флага is_heading_only.
+        exact_text: str | None = None
+        if element_index is not None and own_element_ids:
+            materialized = ClauseTreeBuilder.materialize_text_from_element_ids(
+                element_ids=own_element_ids,
+                element_index=element_index,
+            )
+            if materialized:
+                exact_text = materialized
+                # Backfill own_text в локальную переменную, если в дереве его не было
+                if not own_text:
+                    own_text = exact_text
+                    # Синхронизируем обратно в node dict, чтобы _compute_citability его увидел
+                    node["own_text"] = own_text
+
         citability = _compute_citability(node)
         is_heading_only = bool(citability.is_heading_only)
         semantic_title = _safe_semantic_title(
@@ -1018,17 +1038,7 @@ class LegalUnitBuilder:
             is_heading_only=is_heading_only,
         )
 
-        # P8.8d: deterministic exact text projection from own_element_ids.
-        exact_text: str | None = None
-        if element_index is not None and own_element_ids:
-            materialized = ClauseTreeBuilder.materialize_text_from_element_ids(
-                element_ids=own_element_ids,
-                element_index=element_index,
-            )
-            if materialized:
-                exact_text = materialized
-
-        # Заголовки предков = только upward context, без body текста.
+        # Заголовки предков
         parent_titles = list(current_ancestor_titles)
         context_prefix: str | None = None
         if parent_titles:

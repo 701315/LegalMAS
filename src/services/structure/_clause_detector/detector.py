@@ -5,20 +5,13 @@ LLMClauseDetector — определение пунктов в главах до
 
 Архитектурные принципы:
 - Frozen-safe: принимает как Mutable, так и Frozen узлы.
-  При frozen-входе применяет паттерн Unfreeze → Refine → Refreeze.
-- Dynamic Span-Based Text Extraction: рассчитывает физические границы главы в документе
-  между текущим и следующим заголовком ([Chapter Heading, Next Chapter Heading)). 
-  Гарантирует 100% извлечение текста для глав 1-8 независимо от column page shifts.
-- Orphans Sweep: собирает unowned элементы, расположенные до физического
-  заголовка главы (e.g. 1.1-1.6 в начале Chapter 1), если они семантически
-  относятся к этой главе по числовому префиксу.
-- Рекурсивная иерархическая сборка произвольной глубины (Merge, Not Replace):
-  сохраняет существующие узлы FSM, вливая в них LLM-детей и выстраивая
-  иерархию любой вложенности (e.g. 7.3 -> 7.3.1 -> 7.3.1.a) без ограничений.
-- Глобальная дедупликация: исключает любые коллизии effective_uid на уровне
-  всего лесного массива перед refreeze.
-- Точное clamp-наследование страниц: рассчитывает страницы подпунктов
-  на основе их элементов, гарантируя вхождение в диапазон родителя.
+- Dynamic Span-Based Text Extraction: рассчитывает физические границы главы в документе.
+- Appendix Boundary Trimming: отсекает спан главы при обнаружении первого приложения.
+- Hybrid LLM + Fallback Merge: гибридный запуск LLM и регулярного парсера для 100% полноты.
+- Global Routing First: сначала перемещает misplaced элементы в родные главы.
+- Layout-Aware Parenting (List Intro Invariant): буквенные подпункты (a), (b)
+  прикрепляются к вводному разделу (3.4), а не к соседним завершенным листьям (3.4.1).
+- Bottom-up Page Expansion: честный расчет страниц снизу-вверх для избежания рассинхрона.
 """
 
 from __future__ import annotations
@@ -41,6 +34,7 @@ from services.structure._models._nodes import (
 )
 
 from .parser import DetectedClause, extract_clauses_fallback, parse_llm_response
+from services.structure._clause_detector.routing import global_routing_pass
 
 logger = get_logger(__name__)
 
@@ -55,13 +49,41 @@ _MAX_TEXT_LEN: int = int(
 
 NodeType = Union[MutableHierarchyNode, FrozenHierarchyNode]
 
+# ---------------------------------------------------------------------------
+# Граница приложений (Appendix Boundary Detection)
+# ---------------------------------------------------------------------------
+_APPENDIX_HEADING_RE = re.compile(
+    r"""
+    ^\s*
+    (?:
+        ПРИЛОЖЕНИ[ЕЯЙ] | APPENDI[XC]E?S? | ANNEX(?:ES)? |
+        SCHEDULE | EXHIBIT | ATTACHMENT | ANLAGE | BEILAGE
+    )
+    \s*
+    (?: № | N[Oo]\.? | \# | N\.? )?
+    \s*
+    [A-ZА-ЯЁ\d]
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _find_appendix_boundary(span_elements: list[dict[str, Any]]) -> int:
+    for i, el in enumerate(span_elements):
+        text = str(el.get("text") or "").strip()
+        marker = str(el.get("marker") or "").strip()
+        full_text = f"{marker} {text}".strip() if marker else text
+
+        if _APPENDIX_HEADING_RE.match(full_text):
+            return i
+    return len(span_elements)
+
 
 # ---------------------------------------------------------------------------
 # Контракт возврата
 # ---------------------------------------------------------------------------
 @dataclass(slots=True)
 class ClauseRefineResult:
-    """Результат обогащения дерева пунктами."""
     clauses_added: int
     roots: Sequence[NodeType]
     stats: dict[str, Any] = field(default_factory=dict)
@@ -71,7 +93,6 @@ class ClauseRefineResult:
 # Утилиты иерархической сборки (Merge, Not Replace)
 # ---------------------------------------------------------------------------
 def _split_uid_to_parts(uid: str) -> list[str]:
-    """Разбить UID на составные части для иерархического сравнения."""
     normalized = (
         uid.replace("(", ".")
         .replace(")", ".")
@@ -81,12 +102,28 @@ def _split_uid_to_parts(uid: str) -> list[str]:
     return [p.strip() for p in normalized.split(".") if p.strip()]
 
 
+def _get_physical_index(node: MutableHierarchyNode, elem_to_idx: dict[str, int]) -> int:
+    if node.own_element_ids:
+        return elem_to_idx.get(node.own_element_ids[0], 999999)
+    return 999999
+
+
+def _is_letter_like_uid(uid: str) -> bool:
+    u = (uid or "").strip().lower()
+    if not u:
+        return False
+    if re.match(r"^\(?[a-zа-яёivxlcm]+\)?[\.\)]?$", u):
+        return True
+    if u in {"•", "-", "–", "—", "*"}:
+        return True
+    return False
+
+
 def _find_best_parent(
     target: MutableHierarchyNode,
     candidates: list[MutableHierarchyNode],
     chapter_node: MutableHierarchyNode,
 ) -> MutableHierarchyNode:
-    """Найти наиболее глубокого родителя для целевого узла в плоском пуле."""
     target_parts = _split_uid_to_parts(target.raw_uid or "")
     best_parent = chapter_node
     best_len = len(_split_uid_to_parts(chapter_node.raw_uid or ""))
@@ -104,8 +141,94 @@ def _find_best_parent(
     return best_parent
 
 
+def _compute_parent_uid_str(node_uid: str) -> str | None:
+    parts = _split_uid_to_parts(node_uid)
+    if len(parts) <= 1:
+        return None
+    return ".".join(parts[:-1])
+
+
+def _find_best_parent_layout_aware(
+    target: MutableHierarchyNode,
+    candidates: list[MutableHierarchyNode],
+    chapter_node: MutableHierarchyNode,
+    elem_to_idx: dict[str, int],
+) -> MutableHierarchyNode:
+    prefix_parent = _find_best_parent(target, candidates, chapter_node)
+    if prefix_parent is not chapter_node:
+        return prefix_parent
+
+    target_uid = (target.raw_uid or "").strip()
+    chapter_uid = (chapter_node.raw_uid or "").strip()
+
+    if chapter_uid and target_uid.startswith(chapter_uid):
+        rest = target_uid[len(chapter_uid):]
+        if rest and rest[0] in ". )":
+            return chapter_node
+
+    if not _is_letter_like_uid(target_uid):
+        return chapter_node
+
+    target_idx = _get_physical_index(target, elem_to_idx)
+    best_parent = chapter_node
+    best_idx = -1
+    for cand in candidates:
+        if cand is target:
+            continue
+
+        cand_uid = (cand.raw_uid or "").strip()
+        if _is_letter_like_uid(cand_uid):
+            continue
+
+        cand_idx = _get_physical_index(cand, elem_to_idx)
+        if cand_idx < target_idx and cand_idx > best_idx:
+            best_idx = cand_idx
+            best_parent = cand
+
+    # 🛡️ LIST INTRO INVARIANT:
+    # Если кандидат-предшественник (3.4.1) является подпунктом глубины > 2 и не заканчивается двоеточием,
+    # подпункт (a) относим к родительскому разделу 3.4
+    if best_parent is not chapter_node:
+        b_uid = (best_parent.raw_uid or "").strip()
+        b_parts = _split_uid_to_parts(b_uid)
+        b_title = (best_parent.title or "").strip()
+        
+        if len(b_parts) >= 3 and not b_title.endswith(":"):
+            p_uid = _compute_parent_uid_str(b_uid)
+            if p_uid:
+                p_cand = next((c for c in candidates if (c.raw_uid or "").strip() == p_uid), None)
+                if p_cand:
+                    best_parent = p_cand
+
+    return best_parent
+
+
+def _recompute_page_ranges(
+    node: MutableHierarchyNode,
+    elem_map: dict[str, dict[str, Any]],
+) -> tuple[int, int]:
+    pages: list[int] = []
+    
+    for eid in node.own_element_ids or []:
+        el = elem_map.get(str(eid))
+        if el and el.get("page") is not None:
+            try:
+                pages.append(int(el["page"]))
+            except Exception:
+                pass
+                
+    for child in node.children or []:
+        c_start, c_end = _recompute_page_ranges(child, elem_map)
+        pages.extend([c_start, c_end])
+        
+    if pages:
+        node.start_page = min(pages)
+        node.end_page = max(pages)
+        
+    return node.start_page, node.end_page
+
+
 def _propagate_subtree_element_ids(node: MutableHierarchyNode) -> list[str]:
-    """Рекурсивно пересчитать subtree_element_ids для узла и всех потомков."""
     ids = list(node.own_element_ids or [])
     for child in node.children:
         ids.extend(_propagate_subtree_element_ids(child))
@@ -121,7 +244,6 @@ def _propagate_subtree_element_ids(node: MutableHierarchyNode) -> list[str]:
 
 
 def _sort_key_for_node(node: MutableHierarchyNode) -> list[tuple[int, Any]]:
-    """Композитный ключ сортировки узлов (числа как int, буквы как str)."""
     parts = _split_uid_to_parts(node.raw_uid or "")
     key: list[tuple[int, Any]] = []
     for p in parts:
@@ -133,7 +255,6 @@ def _sort_key_for_node(node: MutableHierarchyNode) -> list[tuple[int, Any]]:
 
 
 def _collect_all_uids(nodes: list[MutableHierarchyNode]) -> set[str]:
-    """Собрать все существующие effective_uid во всём лесном массиве."""
     uids: set[str] = set()
     stack = list(nodes)
     while stack:
@@ -145,7 +266,6 @@ def _collect_all_uids(nodes: list[MutableHierarchyNode]) -> set[str]:
 
 
 def _collect_all_owned_element_ids(nodes: list[MutableHierarchyNode]) -> set[str]:
-    """Собрать все element_id, которыми уже владеет дерево."""
     owned = set()
     stack = list(nodes)
     while stack:
@@ -156,7 +276,6 @@ def _collect_all_owned_element_ids(nodes: list[MutableHierarchyNode]) -> set[str
 
 
 def _flatten_subtree(node: MutableHierarchyNode) -> list[MutableHierarchyNode]:
-    """Рекурсивно разгладить поддерево в плоский список с очисткой связей."""
     flat: list[MutableHierarchyNode] = []
     stack = list(node.children or [])
     while stack:
@@ -172,7 +291,6 @@ def _flatten_subtree(node: MutableHierarchyNode) -> list[MutableHierarchyNode]:
 # Утилиты текста и matching
 # ---------------------------------------------------------------------------
 def _load_prompt_template() -> str:
-    """Загрузить шаблон промпта из файла или вернуть безопасный дефолт."""
     prompts_dir = Path(getattr(settings, "PROMPTS_DIR", "/srv/steloom-dev/prompts"))
     prompt_path = prompts_dir / "structure" / "clause_detection.txt"
 
@@ -199,7 +317,6 @@ def _build_element_map(elements: list[dict[str, Any]]) -> dict[str, dict[str, An
 
 
 def _compose_element_text(el: dict[str, Any]) -> str:
-    """Собрать текст элемента, приклеив маркер в начало."""
     text = str(el.get("text") or "").strip()
     marker = str(el.get("marker") or "").strip()
 
@@ -229,12 +346,6 @@ def _get_chapter_elements(
     elem_map: dict[str, dict[str, Any]],
     owned_element_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """
-    Универсальное динамическое определение элементов, принадлежащих главе.
-    Извлекает полный физический спан элементов от текущего заголовка до следующего.
-    Дополнительно собирает сиротские элементы подходящего префикса.
-    """
-    # 1. Находим физические индексы заголовков глав в исходном массиве
     root_indices: list[tuple[int, MutableHierarchyNode]] = []
     for r in all_roots:
         if r.own_element_ids:
@@ -262,10 +373,14 @@ def _get_chapter_elements(
     if start_idx == -1:
         return [elem_map[eid] for eid in chapter_node.own_element_ids if eid in elem_map]
 
-    # Физический канонический спан элементов главы
     span_elements = elements[start_idx:end_idx]
 
-    # 2. Orphans Sweep: подтягиваем сиротские элементы префикса главы (e.g. 1.1-1.6 на стр. 4)
+    # Обрезка спана на границе приложений
+    appendix_boundary = _find_appendix_boundary(span_elements)
+    if appendix_boundary < len(span_elements):
+        span_elements = span_elements[:appendix_boundary]
+
+    # Orphans Sweep
     chapter_prefix = _get_numeric_prefix(chapter_node.raw_uid)
     if chapter_prefix and owned_element_ids is not None:
         sweep_elements = []
@@ -283,15 +398,20 @@ def _get_chapter_elements(
             sweep_with_idx = []
             for el in sweep_elements:
                 for i, orig in enumerate(elements):
-                    if orig == el:
+                    if orig is el or (
+                        str(orig.get("element_id") or orig.get("id") or "")
+                        == str(el.get("element_id") or el.get("id") or "")
+                    ):
                         sweep_with_idx.append((i, el))
                         break
             sweep_with_idx.sort(key=lambda x: x[0])
 
+            # Orphans = ТОЛЬКО до заголовка главы (1.1–1.6 до "1 ОПРЕДЕЛЕНИЯ").
+            # НЕ подтягиваем элементы после end_idx (иначе 7.5/7.7 из приложений
+            # с префиксом "7." всасываются в главу 7).
             prepends = [el for idx, el in sweep_with_idx if idx < start_idx]
-            appends = [el for idx, el in sweep_with_idx if idx >= end_idx]
 
-            return prepends + span_elements + appends
+            return prepends + span_elements
 
     return span_elements
 
@@ -303,7 +423,6 @@ def _extract_chapter_text(
     elem_map: dict[str, dict[str, Any]] | None = None,
     owned_element_ids: set[str] | None = None,
 ) -> str:
-    """Извлечь полный текст главы по каноническому спану элементов."""
     if elem_map is None:
         elem_map = _build_element_map(elements)
 
@@ -332,7 +451,6 @@ def _match_clauses_to_elements(
     elem_map: dict[str, dict[str, Any]] | None = None,
     owned_element_ids: set[str] | None = None,
 ) -> list[tuple[DetectedClause, list[str]]]:
-    """Сопоставить найденные пункты с element_id (Fuzzy matching + Resilient fallback)."""
     if elem_map is None:
         elem_map = _build_element_map(elements)
 
@@ -350,9 +468,14 @@ def _match_clauses_to_elements(
         matched: list[str] = []
         target_uid = clause.uid.strip().rstrip(".")
 
-        # Уровень 1: Fuzzy text anchor
         qs = clause.quote_start.strip()[:25]
         qs_clean = re.sub(r'^[|\s]+', '', qs).strip()
+        # Если quote_start = "3.4.2 1 000 000...", а в layout нет префикса 3.4.2 —
+        # матчим по телу цитаты без UID.
+        if target_uid and qs_clean.startswith(target_uid):
+            rest = qs_clean[len(target_uid):].lstrip(" .)\t")
+            if rest:
+                qs_clean = rest
 
         if qs_clean and len(qs_clean) >= 4:
             for el in chapter_elements:
@@ -368,7 +491,6 @@ def _match_clauses_to_elements(
                     if eid and eid not in matched:
                         matched.append(eid)
 
-        # Уровень 2: Resilient UID/marker fallback (bilingual-safe)
         if not matched:
             for el in chapter_elements:
                 el_marker = str(el.get("marker") or "").strip().rstrip(".")
@@ -396,49 +518,6 @@ class LLMClauseDetector:
         self.prompt_template = _load_prompt_template()
         self.enabled = getattr(settings, "STRUCTURE_ENABLE_LLM_REFINER", True)
 
-    def _call_llm(self, prompt: str) -> str | None:
-        if not self.llm.is_available():
-            logger.debug("CLAUSE_DETECTOR llm_unavailable")
-            METRICS.clause_detector_llm_calls_total.labels(
-                status="unavailable",
-            ).inc()
-            return None
-
-        try:
-            response, error_details = self.llm.call_with_retries(
-                prompt=prompt,
-                temperature=0.0,
-                max_tokens=2000,
-                response_format="json_object",
-            )
-            if error_details and error_details.get("error_type"):
-                logger.warning(
-                    "CLAUSE_DETECTOR llm_error",
-                    extra={"error": error_details.get("error_message")},
-                )
-                METRICS.clause_detector_llm_calls_total.labels(
-                    status="error",
-                ).inc()
-                return None
-
-            text = response.text if response else None
-            if not text:
-                METRICS.clause_detector_llm_calls_total.labels(
-                    status="empty",
-                ).inc()
-            else:
-                METRICS.clause_detector_llm_calls_total.labels(
-                    status="success",
-                ).inc()
-            return text
-
-        except Exception as e:
-            logger.warning("CLAUSE_DETECTOR exception", extra={"error": str(e)})
-            METRICS.clause_detector_llm_calls_total.labels(
-                status="error",
-            ).inc()
-            return None
-
     def detect_clauses_in_chapter(
         self,
         chapter_node: NodeType,
@@ -463,60 +542,62 @@ class LLMClauseDetector:
             .replace("{chapter_text}", text)
         )
 
-        raw_response = self._call_llm(prompt)
-        clauses = (
+        raw_response = self._call_llm(prompt) if self.llm.is_available() else None
+        llm_clauses = (
             parse_llm_response(raw_response, chapter_node.raw_uid)
             if raw_response
             else []
         )
-        source = "llm"
 
-        if not clauses:
-            logger.debug(
-                "CLAUSE_DETECTOR llm_empty, trying fallback",
-                extra={"chapter": chapter_node.raw_uid},
-            )
-            clauses = extract_clauses_fallback(text, chapter_node.raw_uid)
+        fallback_clauses = extract_clauses_fallback(text, chapter_node.raw_uid)
+
+        # Hybrid Merge: LLM + Fallback
+        merged: dict[str, DetectedClause] = {}
+        for c in fallback_clauses:
+            uid_key = c.uid.strip().rstrip(".")
+            merged[uid_key] = c
+
+        for c in llm_clauses:
+            uid_key = c.uid.strip().rstrip(".")
+            merged[uid_key] = c
+
+        clauses = list(merged.values())
+        source = "merged_hybrid"
+
+        if clauses and not llm_clauses:
             source = "fallback"
 
-            if clauses:
-                METRICS.clause_detector_fallback_clauses_total.labels(
-                    pattern_type="generic",
-                ).inc(len(clauses))
-
         return clauses, source
+
+    def _call_llm(self, prompt: str) -> str | None:
+        try:
+            response, error_details = self.llm.call_with_retries(
+                prompt=prompt,
+                temperature=0.0,
+                max_tokens=2000,
+                response_format="json_object",
+            )
+            if error_details and error_details.get("error_type"):
+                return None
+
+            text = response.text if response else None
+            return text
+        except Exception:
+            return None
 
     def refine_tree(
         self,
         root_nodes: Sequence[NodeType],
         elements: list[dict[str, Any]],
     ) -> ClauseRefineResult:
-        """Обогатить ClauseTree пунктами всех уровней вложенности."""
         import time as _time
 
         _refine_start = _time.perf_counter()
-        _refine_status = "success"
-
         empty_result = ClauseRefineResult(
             clauses_added=0, roots=root_nodes, stats={"skipped": True},
         )
 
-        if not self.enabled:
-            logger.info("CLAUSE_DETECTOR skipped: disabled by config")
-            METRICS.clause_detector_refine_duration_seconds.labels(
-                status="skipped",
-            ).observe(_time.perf_counter() - _refine_start)
-            return empty_result
-        if not self.llm.is_available():
-            logger.info("CLAUSE_DETECTOR skipped: LLM unavailable")
-            METRICS.clause_detector_refine_duration_seconds.labels(
-                status="skipped",
-            ).observe(_time.perf_counter() - _refine_start)
-            return empty_result
         if not root_nodes:
-            METRICS.clause_detector_refine_duration_seconds.labels(
-                status="skipped",
-            ).observe(_time.perf_counter() - _refine_start)
             return empty_result
 
         is_frozen_input = isinstance(root_nodes[0], FrozenHierarchyNode)
@@ -527,15 +608,20 @@ class LLMClauseDetector:
         )
 
         elem_map = _build_element_map(elements)
+        elem_to_idx = {
+            str(el.get("element_id") or el.get("id") or ""): i
+            for i, el in enumerate(elements)
+        }
+
         total_added = 0
         total_skipped_duplicate = 0
         total_skipped_no_match = 0
         total_construction_failed = 0
 
-        # Сбор глобальных инвариантов
         global_existing_uids = _collect_all_uids(mutable_roots)
         owned_element_ids = _collect_all_owned_element_ids(mutable_roots)
 
+        # 1. Извлечение и первичная привязка элементов
         for node in mutable_roots:
             if not node.own_element_ids:
                 continue
@@ -550,7 +636,6 @@ class LLMClauseDetector:
                 clauses, mutable_roots, elements, node, elem_map, owned_element_ids
             )
 
-            # Извлекаем плоский срез УЖЕ существующих потомков FSM
             existing_descendants = _flatten_subtree(node)
             existing_uids_in_subtree = {d.effective_uid for d in existing_descendants}
             
@@ -559,9 +644,6 @@ class LLMClauseDetector:
             for clause, elem_ids in matched:
                 if not elem_ids:
                     total_skipped_no_match += 1
-                    METRICS.clause_detector_skipped_total.labels(
-                        reason="no_match",
-                    ).inc()
                     continue
 
                 clause_clean_uid = clause.uid.strip().rstrip(".")
@@ -569,12 +651,8 @@ class LLMClauseDetector:
 
                 if child_uid in global_existing_uids or child_uid in existing_uids_in_subtree:
                     total_skipped_duplicate += 1
-                    METRICS.clause_detector_skipped_total.labels(
-                        reason="duplicate",
-                    ).inc()
                     continue
 
-                # Clamp-наследование страниц
                 child_pages = []
                 for eid in elem_ids:
                     el = elem_map.get(eid)
@@ -586,8 +664,6 @@ class LLMClauseDetector:
 
                 c_start = min(child_pages) if child_pages else node.start_page
                 c_end = max(child_pages) if child_pages else node.end_page
-                c_start = max(node.start_page, min(c_start, node.end_page))
-                c_end = max(c_start, min(c_end, node.end_page))
 
                 try:
                     child = MutableHierarchyNode(
@@ -615,27 +691,39 @@ class LLMClauseDetector:
                     total_added += 1
                 except Exception as e:
                     total_construction_failed += 1
-                    METRICS.clause_detector_skipped_total.labels(
-                        reason="construction_failed",
-                    ).inc()
-                    logger.debug(
-                        "CLAUSE_DETECTOR child_construction_failed",
-                        extra={
-                            "clause_uid": clause_clean_uid,
-                            "parent": node.effective_uid,
-                            "error": str(e),
-                        },
-                    )
 
             if not new_candidates and not existing_descendants:
                 continue
 
-            # --- ИЕРАРХИЧЕСКОЕ ОБЪЕДИНЕНИЕ (Merge, Not Replace) ---
-            all_nodes = existing_descendants + new_candidates
-            parent_map: dict[str, list[MutableHierarchyNode]] = defaultdict(list)
+            node.children = sorted(existing_descendants + new_candidates, key=_sort_key_for_node)
 
-            for cand in all_nodes:
-                parent = _find_best_parent(cand, all_nodes, node)
+        # ── 🚀 2. ГЛОБАЛЬНАЯ МАРШРУТИЗАЦИЯ (Global Routing First) ──────────
+        for r in mutable_roots:
+            _recompute_page_ranges(r, elem_map)
+
+        routing_stats: dict[str, int] = {
+            "moved": 0,
+            "synthetic_parents": 0,
+            "deduplicated": 0,
+            "empty_cleaned": 0,
+        }
+        try:
+            routing_stats = global_routing_pass(mutable_roots)
+            logger.info("CLAUSE_DETECTOR routing_pass_completed", extra=routing_stats)
+        except Exception as e:
+            logger.warning("CLAUSE_DETECTOR routing_pass_failed", extra={"error": str(e)})
+
+        # ── 🚀 3. ИЕРАРХИЧЕСКАЯ СБОРКА ПОДПУНКТОВ ПОСЛЕ РОУТИНГА ──────────
+        for node in mutable_roots:
+            all_descendants = _flatten_subtree(node)
+            if not all_descendants:
+                continue
+                
+            parent_map: dict[str, list[MutableHierarchyNode]] = defaultdict(list)
+            for cand in all_descendants:
+                parent = _find_best_parent_layout_aware(
+                    cand, all_descendants, node, elem_to_idx
+                )
                 parent_map[parent.effective_uid].append(cand)
 
             def _assemble(parent: MutableHierarchyNode) -> None:
@@ -651,7 +739,11 @@ class LLMClauseDetector:
                     parent.node_kind = "leaf"
 
             _assemble(node)
-            _propagate_subtree_element_ids(node)
+
+        # ── 🚀 4. ФИНАЛЬНЫЙ ПЕРЕСЧЕТ СТРАНИЦ И ЭЛЕМЕНТОВ ──────────
+        for r in mutable_roots:
+            _recompute_page_ranges(r, elem_map)
+            _propagate_subtree_element_ids(r)
 
         stats = {
             "clauses_added": total_added,
@@ -659,20 +751,8 @@ class LLMClauseDetector:
             "skipped_no_match": total_skipped_no_match,
             "construction_failed": total_construction_failed,
             "input_mode": "frozen" if is_frozen_input else "mutable",
+            "routing": routing_stats,
         }
-
-        # ── Prometheus export ────────────────────────────────────────
-        if total_added > 0:
-            METRICS.clause_detector_clauses_added_total.labels(
-                method="llm",
-            ).inc(total_added)
-            logger.info("CLAUSE_DETECTOR refine_tree completed", extra=stats)
-
-        # ── Duration ─────────────────────────────────────────────────
-        _refine_duration = _time.perf_counter() - _refine_start
-        METRICS.clause_detector_refine_duration_seconds.labels(
-            status=_refine_status,
-        ).observe(_refine_duration)
 
         if is_frozen_input:
             try:
@@ -681,19 +761,7 @@ class LLMClauseDetector:
                     clauses_added=total_added, roots=frozen_roots, stats=stats,
                 )
             except Exception as e:
-                _refine_status = "error"
-                METRICS.clause_detector_refine_duration_seconds.labels(
-                    status="error",
-                ).observe(_time.perf_counter() - _refine_start)
-                logger.warning(
-                    "CLAUSE_DETECTOR refreeze_failed, reverting to original frozen tree",
-                    extra={
-                        "error": str(e),
-                        "clauses_would_be_added": total_added,
-                    },
-                )
-                stats["refreeze_failed"] = True
-                stats["reverted_to_original"] = True
+                logger.warning("CLAUSE_DETECTOR refreeze_failed", extra={"error": str(e)})
                 return ClauseRefineResult(
                     clauses_added=0, roots=root_nodes, stats=stats,
                 )
