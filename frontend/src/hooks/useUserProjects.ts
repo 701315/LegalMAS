@@ -18,6 +18,11 @@ import { queryKeys } from "../api/queryKeys";
  * принимать значение userId из useAuth() без лишних преобразований
  * на стороне вызывающего компонента.
  *
+ * Polling:
+ * - включается автоматически (каждые 10 сек) когда хотя бы один
+ *   проект имеет is_processing === true;
+ * - выключается когда все проекты в терминальном состоянии.
+ *
  * @param userId Идентификатор пользователя.
  */
 export function useUserProjects(userId?: string | null) {
@@ -25,7 +30,13 @@ export function useUserProjects(userId?: string | null) {
     queryKey: queryKeys.userProjects(userId ?? "anonymous"),
     queryFn: () => fetchUserProjects(userId!),
     enabled: Boolean(userId),
-    staleTime: 60_000,
+    staleTime: 10_000,
+    refetchInterval: (query) => {
+      const projects = query.state.data;
+      if (!projects || !Array.isArray(projects)) return false;
+      const hasActive = projects.some((p) => p.is_processing === true);
+      return hasActive ? 10_000 : false;
+    },
   });
 }
 

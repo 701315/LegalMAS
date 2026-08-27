@@ -662,14 +662,17 @@ class HybridClassifier:
             )
             return []
 
-        if patterns:
-            logger.debug(
-                "HybridClassifier: hot patterns extracted",
-                extra={"count": len(patterns)},
-            )
-
+        # ── DEBUG: Phase 3.2 Hot Patterns ─────────────────────────
+        logger.info(
+            "PHASE32_HOT_PATTERNS_EXTRACTED",
+            extra={
+                "patterns_count": len(patterns),
+                "patterns_sample": [
+                    p.pattern[:50] for p in patterns[:5]
+                ] if patterns else [],
+            },
+        )
         return patterns
-
 
     # ══════════════════════════════════════════════════════════════════
     # Internal helpers — enrichment

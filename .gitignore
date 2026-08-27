@@ -13,49 +13,38 @@ eggs/
 .venv/
 venv/
 ENV/
-
 # Environment variables (ВАЖНО: не коммитить реальные секреты)
 .env
-
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-
 # OS
 .DS_Store
 Thumbs.db
-
 # Docker volumes (данные БД не коммитим)
 pgdata/
 minio_data/
 redis_data/
-
 # Test / Coverage
 .pytest_cache/
 htmlcov/
 .coverage
 coverage.xml
-
 # Alembic
 alembic/versions/__pycache__/
-
 # Byte-compiled
 *.pyc
-
 # Distribution
 *.tar.gz
 *.whl
-
 # Logs
 *.log
 .cache/
-
 # LLM модели
 LLMmodel/
-
 # Runtime artifacts
 logs/
 celerybeat-schedule
@@ -63,31 +52,31 @@ celerybeat-schedule
 *.bak
 *.bak.*
 *.save
-
 # Environment files with suffixes (keep only .env.example if needed)
 .env.*
 !.env.example
 !.env.monitoring.example
-
-
 # Stray files
 =
 frontend/audit-output/
-
 # Local scripts dependencies (не относятся к продукту)
 scripts/node_modules/
 scripts/package-lock.json
-
 # Автогенерируемые отчёты аудит-скриптов
 scripts/dev-static-frontend-audit-report.json
 scripts/frontend-scope-report.json
 scripts/frontend-scope-report.md
-
 # Frontend production env (собирается локально из шаблона)
 frontend/.env.production
-
 # Contour-specific monitoring configs — только на диске demo,
 # в git не тащим, deploy не переносит.
 docker-compose.monitoring.yml
 prometheus.yml
 monitoring/promtail/promtail-config.yml
+# Pipeline artifacts (выходные данные analysis)
+artifacts/
+# Test documents (PDF для отладки)
+docs/*.pdf
+
+# Pipeline artifacts (выходные данные analysis)
+artifacts/

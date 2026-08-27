@@ -4,8 +4,11 @@
 
 import React, { useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDocuments, useUploadDocuments } from "../../api/documents";
 import { useDealPermissions } from "../../hooks/usePermissions";
+import { queryKeys } from "../../api/queryKeys";
+import { useAuth } from "../../hooks/useAuth";
 import { formatDate } from "../../utils";
 import Button from "../ui/Button";
 import InlineAlert from "../InlineAlert";
@@ -83,6 +86,8 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
 }) => {
   const filesInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const qc = useQueryClient();
+  const { userId } = useAuth();
 
   const { canUploadDocuments } = useDealPermissions(dealId);
 
@@ -232,6 +237,9 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
 
     try {
       await uploadMutation.mutateAsync({ files: selectedFiles });
+      await qc.invalidateQueries({
+        queryKey: queryKeys.userProjects(userId ?? ""),
+      });
       resetSelection();
       onFinished();
     } catch (err: unknown) {

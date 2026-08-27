@@ -27,6 +27,8 @@ import { useSetPrimaryLanguage, useUpdateDeal } from "../api/deals";
 import { useDocuments } from "../api/documents";
 import { useDealPermissions } from "../hooks/usePermissions";
 import { runKeys, useStartRun } from "../api/runs";
+import { queryKeys } from "../api/queryKeys";
+import { useAuth } from "../hooks/useAuth";
 import {
   normalizeDiscoveryStatus,
   normalizeLang,
@@ -47,6 +49,7 @@ const RelaunchPage: React.FC = () => {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { userId } = useAuth();
 
   const {
     data: deal,
@@ -191,6 +194,7 @@ const RelaunchPage: React.FC = () => {
             qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
             qc.invalidateQueries({ queryKey: runKeys.history(deal.id, false) }),
             qc.invalidateQueries({ queryKey: runKeys.history(deal.id, true) }),
+            qc.invalidateQueries({ queryKey: queryKeys.userProjects(userId ?? "") }),
           ]);
           // Возвращаемся на предыдущую страницу проекта
           navigate(`/projects/${deal.id}`, { replace: true });

@@ -34,6 +34,7 @@ class UserProject(BaseModel):
     contact_person: str | None = None
     needs_setup: bool = False
     analysis_completed: bool = False
+    is_processing: bool = False
 
 
 def _contact_person(deal) -> str | None:
@@ -57,6 +58,30 @@ async def _analysis_completed(db: AsyncSession, deal) -> bool:
     )
     run_status = result.scalar_one_or_none()
     return run_status == "completed"
+
+
+async def _is_processing(db: AsyncSession, deal) -> bool:
+    """
+    Вернуть True если проект находится в процессе обработки.
+
+    Универсальная логика для любого юридического документа:
+    - language discovery ещё не завершён (pre-run этап);
+    - последний Run в нетерминальном статусе (основной анализ).
+    """
+    ld_status = getattr(deal, "language_discovery_status", None)
+    if ld_status in ("pending", "processing"):
+        return True
+
+    last_run_id = getattr(deal, "last_run_id", None)
+    if last_run_id:
+        result = await db.execute(
+            select(Run.status).where(Run.id == last_run_id)
+        )
+        run_status = result.scalar_one_or_none()
+        if run_status in ("pending", "running"):
+            return True
+
+    return False
 
 
 async def _needs_setup(db: AsyncSession, deal) -> bool:
@@ -119,6 +144,7 @@ async def list_user_projects(
                     contact_person=_contact_person(d),
                     needs_setup=await _needs_setup(db, d),
                     analysis_completed=await _analysis_completed(db, d),
+                    is_processing=await _is_processing(db, d),
                 )
             )
         return projects
@@ -136,6 +162,7 @@ async def list_user_projects(
                     contact_person=_contact_person(d),
                     needs_setup=await _needs_setup(db, d),
                     analysis_completed=await _analysis_completed(db, d),
+                    is_processing=await _is_processing(db, d),
                 )
             )
         return projects
@@ -161,6 +188,7 @@ async def list_user_projects(
                 contact_person=_contact_person(deal),
                 needs_setup=await _needs_setup(db, deal),
                 analysis_completed=await _analysis_completed(db, deal),
+                is_processing=await _is_processing(db, deal),
             )
         )
 

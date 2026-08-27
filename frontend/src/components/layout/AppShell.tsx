@@ -62,6 +62,7 @@ type SidebarProject = {
   role: string;
   needs_setup?: boolean;
   analysis_completed?: boolean;
+  is_processing?: boolean;
 };
 
 function getFocusableElements(container: HTMLElement | null): HTMLElement[] {
@@ -355,12 +356,25 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                               </div>
 
                               {project.needs_setup ? (
-                                <span className="shrink-0 rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-warning-text)]">
+                                <span
+                                  className="shrink-0 rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-warning-text)]"
+                                  title="Требуется настройка"
+                                >
                                   !
                                 </span>
                               ) : project.analysis_completed ? (
-                                <span className="shrink-0 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]">
+                                <span
+                                  className="shrink-0 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]"
+                                  title="Анализ завершён"
+                                >
                                   ✓
+                                </span>
+                              ) : project.is_processing ? (
+                                <span
+                                  className="shrink-0 flex h-4 w-4 items-center justify-center"
+                                  title="Анализ выполняется…"
+                                >
+                                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--accent-primary)]" />
                                 </span>
                               ) : null}
                             </div>

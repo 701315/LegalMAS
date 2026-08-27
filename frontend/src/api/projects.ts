@@ -17,6 +17,7 @@ export interface UserProject {
   contact_person?: string | null;
   needs_setup?: boolean;
   analysis_completed?: boolean;
+  is_processing?: boolean;
 }
 
 /**
