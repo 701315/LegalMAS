@@ -188,6 +188,37 @@ def _iter_context_texts(
     return [("header", header_text), ("body", body_text)]
 
 
+def _search_pattern_with_distinctiveness_override(
+    *,
+    pattern: Any,
+    context: str,
+    distinctiveness: str,
+    header_text: str,
+    body_text: str,
+) -> tuple[bool, str | None]:
+    """
+    Ищет паттерн с учётом distinctiveness.
+
+    Universal invariant:
+    - HIGH-distinctiveness patterns ищутся ВЕЗДЕ (header + body),
+      независимо от context флага. Это критично для документов где
+      определения вынесены в преамбулу вместо главы "Определения".
+    - Для medium/low distinctiveness соблюдается context флаг.
+    """
+    # HIGH patterns: игнорируем context, ищем везде
+    if distinctiveness == "high":
+        search_context = "any"
+    else:
+        search_context = context
+
+    return _search_pattern_in_context(
+        pattern=pattern,
+        context=search_context,
+        header_text=header_text,
+        body_text=body_text,
+    )
+
+
 def _search_pattern_in_context(
     *,
     pattern: Any,
@@ -440,6 +471,8 @@ class L2HeaderClassifier(BaseClassifier):
                 continue
 
             try:
+                # Для exclusions тоже применяем override для HIGH distinctiveness
+                severity = str(neg_signal.get("severity", "soft")).strip().lower()
                 matched, matched_in = _search_pattern_in_context(
                     pattern=pattern,
                     context=context,
@@ -506,9 +539,10 @@ class L2HeaderClassifier(BaseClassifier):
                     continue
 
                 try:
-                    matched, matched_in = _search_pattern_in_context(
+                    matched, matched_in = _search_pattern_with_distinctiveness_override(
                         pattern=pattern,
                         context=context,
+                        distinctiveness=distinctiveness,
                         header_text=header_text,
                         body_text=body_text,
                     )
