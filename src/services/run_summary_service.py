@@ -83,6 +83,8 @@ class RunSummaryService:
         return summary
 
     async def generate(self, run_id: uuid.UUID) -> Optional[dict[str, Any]]:
+        from datetime import datetime as _dt, timedelta as _td  # noqa: PLC0415
+
         summary = await self.ensure_record(run_id)
         if summary is None:
             return None
@@ -91,16 +93,36 @@ class RunSummaryService:
         if not claimed:
             return await self.get_response(run_id)
 
+        # Актуализируем retry_count из БД после claim
+        summary = await self.repo.get_by_run_id(run_id)
+        current_retry = getattr(summary, "retry_count", 0) if summary else 0
+
         try:
             await self._generate_inner(run_id)
         except Exception as exc:
+            next_retry_count = current_retry + 1
+            # Экспоненциальный backoff: 30с → 60с → 120с → 240с → 480с
+            backoff_seconds = 30 * (2 ** current_retry)
+            next_retry_time = (
+                _dt.utcnow() + _td(seconds=backoff_seconds)
+                if next_retry_count < 5
+                else None
+            )
+
             logger.warning(
-                "Run summary generation failed",
+                "Run summary generation attempt failed",
                 run_id=str(run_id),
+                attempt=next_retry_count,
+                next_retry_in_sec=backoff_seconds,
                 error=str(exc),
             )
+
             await self.repo.update_status(
-                run_id, "failed", error_message=str(exc)[:2000]
+                run_id,
+                "failed",
+                error_message=str(exc)[:2000],
+                retry_count=next_retry_count,
+                next_retry_at=next_retry_time,
             )
             await self.session.commit()
 

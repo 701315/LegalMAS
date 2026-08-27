@@ -87,14 +87,31 @@ class RunSummaryRepository:
         limit: int = 5,
     ) -> list[uuid.UUID]:
         """
-        Найти terminal-runs, для которых summary ещё не существует.
+        Найти terminal-runs, для которых требуется генерация резюме.
+
+        Кандидаты:
+        1. Запись RunSummary ещё не создана (id is None).
+        2. Запись существует в статусе 'pending' или 'failed',
+           время повтора наступило (next_retry_at <= now или NULL)
+           и лимит попыток не превышен (retry_count < 5).
         """
+        now = datetime.utcnow()
         stmt = (
             select(Run.id)
             .outerjoin(RunSummary, RunSummary.run_id == Run.id)
             .where(Run.status.in_(list(TERMINAL_RUN_STATUSES)))
-            .where(RunSummary.id.is_(None))
-            .order_by(Run.completed_at.desc())
+            .where(
+                (RunSummary.id.is_(None))
+                | (
+                    (RunSummary.status.in_(["pending", "failed"]))
+                    & (
+                        (RunSummary.next_retry_at.is_(None))
+                        | (RunSummary.next_retry_at <= now)
+                    )
+                    & (RunSummary.retry_count < 5)
+                )
+            )
+            .order_by(Run.completed_at.desc().nulls_last())
             .limit(limit)
         )
         result = await self.session.execute(stmt)

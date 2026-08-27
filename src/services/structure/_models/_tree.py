@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from core.logging import get_logger
 from ._crossref_graph import CrossReferenceGraph
 from ._diagnostics import ParseQualityDiagnostics, TOCDiagnostics
 from ._nodes import (
@@ -27,6 +28,9 @@ from ._normalization import (
     _normalize_structure_confidence,
     _validate_scope_name,
 )
+
+
+logger = get_logger(__name__)
 
 
 def _ensure_frozen_root(values: Any, field_name: str) -> list[FrozenHierarchyNode]:
@@ -145,11 +149,39 @@ class ClauseTree:
                     set(root_index.keys()) - set(self.nodes_index.keys())
                 )
                 extra_in_nodes_index = sorted(set(self.nodes_index.keys()) - set(root_index.keys()))
-                raise ValueError(
-                    "ClauseTree.nodes_index must match tree root traversal exactly: "
-                    f"missing_in_nodes_index={missing_in_nodes_index}, "
-                    f"extra_in_nodes_index={extra_in_nodes_index}"
-                )
+
+                # ── Self-Healing: спасение узлов-сирот ──────────────────
+                # Если узлы распознаны парсером (есть в nodes_index), но не
+                # привязаны к дереву (нет в root_index) — это сироты из
+                # приложений или вставных документов. Мы добавляем их на
+                # уровень root и помечаем дерево как degraded.
+                if extra_in_nodes_index and not missing_in_nodes_index:
+                    logger.warning(
+                        "ClauseTree: orphan nodes detected, appending to root",
+                        extra_nodes=extra_in_nodes_index,
+                        document_id=self.document_id,
+                    )
+                    for uid in extra_in_nodes_index:
+                        orphan_node = self.nodes_index[uid]
+                        if orphan_node not in self.root:
+                            self.root.append(orphan_node)
+
+                    # Перестраиваем root_index после спасения
+                    root_index = self._build_nodes_index_from_root(self.root)
+                    self.degraded = True
+                # ── конец Self-Healing ──────────────────────────────────
+
+                # Финальная строгая проверка целостности
+                if set(self.nodes_index.keys()) != set(root_index.keys()):
+                    missing_in_nodes_index = sorted(
+                        set(root_index.keys()) - set(self.nodes_index.keys())
+                    )
+                    extra_in_nodes_index = sorted(set(self.nodes_index.keys()) - set(root_index.keys()))
+                    raise ValueError(
+                        "ClauseTree.nodes_index must match tree root traversal exactly: "
+                        f"missing_in_nodes_index={missing_in_nodes_index}, "
+                        f"extra_in_nodes_index={extra_in_nodes_index}"
+                    )
         else:
             self.nodes_index = root_index
 

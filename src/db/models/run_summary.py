@@ -91,6 +91,19 @@ class RunSummary(Base):
         comment="Error details if generation failed",
     )
 
+    retry_count: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Number of failed generation attempts",
+    )
+
+    next_retry_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Scheduled time for the next generation attempt (backoff)",
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

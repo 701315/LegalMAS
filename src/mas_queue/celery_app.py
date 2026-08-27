@@ -179,6 +179,7 @@ celery_app.conf.update(
         "workers.structure_builder",
         "workers.debug_dlq_task",
         "workers.build_legal_units_enrichment",
+        "workers.summary_worker",
     ],
     task_serializer="json",
     result_serializer="json",
@@ -294,6 +295,10 @@ celery_app.conf.update(
             "queue": QUEUE_HEAVY_LLM_ENRICHMENT,
             "routing_key": QUEUE_HEAVY_LLM_ENRICHMENT,
         },
+        "workers.generate_run_summary": {
+            "queue": QUEUE_HEAVY_LLM_CHECKS,
+            "routing_key": QUEUE_HEAVY_LLM_CHECKS,
+        },
         "workers.classify_document_segments": {
             "queue": QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION,
             "routing_key": QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION,
@@ -337,6 +342,10 @@ celery_app.conf.update(
         "workers.classify_document_segments": {
             "soft_time_limit": CLASSIFY_DOCUMENT_SEGMENTS_SOFT_TIME_LIMIT_SEC,
             "time_limit": CLASSIFY_DOCUMENT_SEGMENTS_TIME_LIMIT_SEC,
+        },
+        "workers.generate_run_summary": {
+            "soft_time_limit": 600,
+            "time_limit": 660,
         },
     },
 )

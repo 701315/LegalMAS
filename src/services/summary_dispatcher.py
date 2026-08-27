@@ -24,12 +24,14 @@ from typing import Optional
 from core.logging import get_logger
 from db.session import transactional_session
 from db.repositories.run_summary_repo import RunSummaryRepository
-from services.run_summary_service import RunSummaryService
+from mas_queue.task_dispatcher import send_task_with_context
 
 logger = get_logger(__name__)
 
-_DISPATCH_INTERVAL_SEC = 10
-_BATCH_SIZE = 2
+# Диспетчер теперь занимается ТОЛЬКО recovery (зависшие + failed с backoff).
+# Основная генерация идёт через Celery-триггер в finalize_run_if_ready.
+_DISPATCH_INTERVAL_SEC = 300
+_BATCH_SIZE = 5
 
 
 class SummaryDispatcher:
@@ -78,7 +80,7 @@ class SummaryDispatcher:
         # ── Фаза 1: восстановление + поиск кандидатов (короткая транзакция)
         async with transactional_session() as session:
             repo = RunSummaryRepository(session)
-            recovered = await repo.recover_stale_generating(minutes=10)
+            recovered = await repo.recover_stale_generating(minutes=15)
             run_ids = await repo.find_runs_needing_summary(limit=self.batch_size)
 
         if recovered:
@@ -94,14 +96,25 @@ class SummaryDispatcher:
             )
 
     async def _generate_safe(self, run_id: uuid.UUID) -> None:
+        """
+        Recovery-only: отправить задачу генерации в Celery.
+
+        Диспетчер больше НЕ выполняет LLM-вызовы внутри API-процесса.
+        Он только находит зависшие/failed записи и ставит Celery-задачи.
+        """
         try:
-            async with transactional_session() as session:
-                service = RunSummaryService(session)
-                await service.generate(run_id)
-            logger.info("Summary dispatcher: generation finished", run_id=str(run_id))
+            logger.info(
+                "Summary dispatcher recovery: scheduling Celery task",
+                run_id=str(run_id),
+            )
+            send_task_with_context(
+                "workers.generate_run_summary",
+                kwargs={"run_id": str(run_id)},
+                queue="heavy_llm_checks",
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
-                "Summary dispatcher: generation error",
+                "Summary dispatcher recovery: failed to send Celery task",
                 run_id=str(run_id),
                 error=str(exc),
             )

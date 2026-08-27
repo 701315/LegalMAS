@@ -1305,6 +1305,40 @@ def finalize_run_if_ready(
                 else:
                     action = "ANALYSIS_FAILED"
 
+                # ── Event-driven trigger: генерация резюме ──────────────
+                # При успешном завершении Run регистрируем задачу генерации
+                # executive summary через Outbox. Outbox гарантирует, что
+                # задача уйдёт в Celery только после commit транзакции.
+                if updated_snap.status in (
+                    RunStatus.COMPLETED.value,
+                    RunStatus.COMPLETED_WITH_ERRORS.value,
+                ):
+                    effective_tenant_for_summary = _resolve_effective_tenant_id(
+                        tenant_id, updated_snap
+                    )
+                    logger.info(
+                        "finalize_run_if_ready: enqueuing summary generation via Outbox",
+                        run_id=run_id,
+                        status=updated_snap.status,
+                    )
+                    summary_outbox = OutboxService(uow.session)
+                    await summary_outbox.enqueue_task(
+                        task_name="workers.generate_run_summary",
+                        payload={
+                            "run_id": run_id,
+                            "tenant_id": (
+                                str(effective_tenant_for_summary)
+                                if effective_tenant_for_summary
+                                else None
+                            ),
+                        },
+                        aggregate_type="run",
+                        aggregate_id=run_id,
+                        dedup_key=f"generate_run_summary:{run_id}",
+                        headers={"queue": "heavy_llm_checks"},
+                    )
+                # ── конец trigger ───────────────────────────────────────
+
                 # Резолюция tenant_id: task kwargs → run_snap.tenant_id → None.
                 # Если tenant не определён — audit пропускается.
                 # Лучше пропустить audit запись, чем записать её в zero UUID.
