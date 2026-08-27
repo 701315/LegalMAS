@@ -322,7 +322,7 @@ class GrammarInductor:
         self.marker_candidates: list[OrphanMarker] = []
         # Страницы TOC (оглавления) — обычно страницы 1-3
         # Нужно исключить маркеры с этих страниц
-        self.toc_pages: set[int] = {1, 2, 3}
+        self.toc_pages: set[int] = set()  # v3.1: adaptive — SequenceValidator filters false positives
     
     def extract(self, pdf_bytes: bytes, document_id: str) -> list[OrphanMarker]:
         """
@@ -369,10 +369,17 @@ class GrammarInductor:
                     if page_idx + 1 in self.toc_pages:
                         continue
                     
-                    # Исключаем простые цифры без точек (1, 2, 3) — это чаще номера страниц или TOC
-                    # Оставляем только составные маркеры (1.1, 1.2, 2.1) или буквенные (а), (b))
+                    # v3.1: Adaptive filter — skip only if font is tiny (page number)
+                    # or span is at the very bottom of the page.
                     if re.match(r'^\d+$', span_text) and len(span_text) <= 2:
-                        continue
+                        span_font = first_span.get("size", 10.0)
+                        span_y1 = first_span.get("bbox", (0, 0, 0, 0))[3]
+                        page_obj = doc[page_idx]
+                        page_h = page_obj.rect.height if hasattr(page_obj, 'rect') else 842.0
+                        if span_font < self.fingerprint.median_font_size * 0.7:
+                            continue
+                        if span_y1 > page_h * 0.93:
+                            continue
                     
                     # Проверяем по базовым паттернам
                     for pattern_str, base_level in self.BASE_PATTERNS:

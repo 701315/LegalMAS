@@ -224,6 +224,13 @@ class CompatibilityBuilder:
                 )
                 elements.append(table_projected_el)
 
+        # v3.1: Normalize reading_order from physical coordinates.
+        # Fixes inverted order when PageRegionSegmenter creates overlapping bands.
+        for el in elements:
+            if el.bbox is not None:
+                el.reading_order = int(el.bbox[1] * 1000 + el.bbox[0])
+                el.reading_order_source = "physical_bbox_normalized"
+
         elements.sort(key=lambda el: (el.page, el.reading_order))
 
         if clause_rows_expanded > 0:
