@@ -27,8 +27,38 @@ def element_type(element: dict[str, Any]) -> str:
 
 
 def is_non_boundary_element_type(element: dict[str, Any]) -> bool:
-    """Элемент с таким типом не может быть границей сегмента."""
+    """Элемент с таким типом не может быть границей сегмента.
+    
+    Исключение: PDF-парсер явно распознал элемент как заголовок (raw_type/raw_label).
+    
+    Это защищает заголовки разделов/приложений от ложной блокировки,
+    когда классификатор присвоил им неверный element_type.
+    
+    Сигнал от PDF-парсера (raw_type='heading') имеет приоритет над эвристикой классификатора.
+    """
+    from core.logging import get_logger
+    
     et = element_type(element)
+    
+    # Проверяем raw_type/raw_label от PDF-парсера — это наиболее доверенный сигнал
+    # Работает для любого element_type (table_content, body_text, etc.)
+    raw_type = str(element.get("type") or "").strip().lower()
+    raw_label = str(element.get("label") or "").strip().lower()
+    
+    if raw_type in ("heading", "title") or raw_label in ("section_header", "appendix_header"):
+        text = str(element.get("text", "") or "").strip()
+        logger = get_logger(__name__)
+        logger.debug(
+            "SEGMENTER non_boundary_override_by_raw_type",
+            extra={
+                "element_type": et,
+                "element_text_preview": text[:80],
+                "raw_type": raw_type,
+                "raw_label": raw_label,
+            },
+        )
+        return False
+    
     return et in {
         "signature_block",
         "requisites_block",

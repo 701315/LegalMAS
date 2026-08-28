@@ -49,11 +49,14 @@ _EN_APPENDIX_KEYWORD_RE = (
 _TRAILING_TITLE_RE = r"(?:\s*[:\-–—]\s*.+|\s+[A-Za-zА-ЯЁа-яёЁё].*)?"
 """Опциональный trailing title после номера приложения."""
 
+_OPTIONAL_HEADER_PREFIX_RE = r"(?:(?!\d+(?:\.\d+)*\.?\s+)[^;?!]*?\s+)?"
+
 # ── Compiled regexes ─────────────────────────────────────────────────────────
 
 APPENDIX_RE = re.compile(
     rf"""
     ^
+    {_OPTIONAL_HEADER_PREFIX_RE}
     (?:
         {_EN_APPENDIX_KEYWORD_RE}
         (?:
@@ -91,6 +94,7 @@ APPENDIX_RE = re.compile(
 AMENDMENT_RE = re.compile(
     rf"""
     ^
+    {_OPTIONAL_HEADER_PREFIX_RE}
     (?:
         (?:addendum|amendment)
         \s*

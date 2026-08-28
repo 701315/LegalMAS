@@ -260,8 +260,14 @@ def detect_body_internal_boundary_listing(
         return None
 
     # 1) Ищем ближайшую вводную строку списка перед candidate.
+    # Важно: intro должна быть на той же странице, что и кандидат.
+    candidate_page = safe_page(elements[candidate_index])
+    
     previous_nonempty: list[tuple[int, str]] = []
     for i in range(candidate_index - 1, max(-1, candidate_index - 10), -1):
+        # Проверяем, что элемент на той же странице
+        if safe_page(elements[i]) != candidate_page:
+            break  # Прерываем поиск, если перешли на другую страницу
         text = normalize_spaces(str(elements[i].get("text", "") or ""))
         if not text:
             continue

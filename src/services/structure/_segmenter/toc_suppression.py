@@ -533,10 +533,7 @@ def build_boundary_suppression_context(
             if (
                 (toc_line_like_count + terminal_page_number_count) >= 4
                 and substantive_body_count <= 5
-                and (
-                    entry_count >= 2
-                    or toc_line_like_count >= 4
-                )
+                and entry_count >= 2
             ):
                 family_reasons.append("dense_toc_lines_without_explicit_header")
 

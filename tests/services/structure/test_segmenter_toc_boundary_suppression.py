@@ -382,7 +382,7 @@ def test_swarm_rule_suppresses_body_internal_listings() -> None:
         {"element_id": "e4", "page": 1, "text": "Приложение 1. Форма Акта;"},
         {"element_id": "e5", "page": 1, "text": "Приложение 2. Имущество;"},
         {"element_id": "e6", "page": 1, "text": "4 СРОК ВЫПОЛНЕНИЯ РАБОТ"},
-        {"element_id": "e7", "page": 2, "text": "ПРИЛОЖЕНИЕ 1"},
+        {"element_id": "e7", "page": 2, "text": "ПРИЛОЖЕНИЕ 1", "type": "heading", "label": "section_header"},
         {"element_id": "e8", "page": 2, "text": "Реальное приложение"},
     ]
     segments = segment_elements(document_id="doc-swarm", elements=elements)
