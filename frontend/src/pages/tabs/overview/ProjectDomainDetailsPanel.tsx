@@ -3,12 +3,9 @@
 // =============================================================
 
 import React from "react";
-import { ChevronRight, ChevronDown, Loader2, FileText } from "lucide-react";
-import { PipelineStepIcon } from "./pipelineStepIcons";
-import {
-  PipelineLayoutProvider,
-  usePipelineLayout,
-} from "./pipelineLayoutContext";
+import { ChevronRight, ChevronDown, FileText, X } from "lucide-react";
+import { CollapsedPipelineRail } from "./CollapsedPipelineRail";
+import { PipelineLayoutProvider } from "./pipelineLayoutContext";
 import type { Deal } from "../../../types";
 import DocumentsPipelinePanel from "./DocumentsPipelinePanel";
 import { LLMUsageWidget } from "./LLMUsageWidget";
@@ -199,175 +196,28 @@ function isTerminalRunStatus(status: string | undefined): boolean {
   return status === "completed" || status === "completed_with_errors" || status === "failed";
 }
 
-type StepBadgeStatus = "pending" | "running" | "completed" | "completed_with_errors" | "failed";
-
-interface CollapsedStep {
-  code: string;
-  title: string;
-  status: StepBadgeStatus;
-  duration_seconds?: number | null;
-}
-
-function formatCollapsedStepTooltip(step: CollapsedStep): string {
-  const statusLabel: Record<StepBadgeStatus, string> = {
-    completed: "завершён",
-    completed_with_errors: "завершён с ошибками",
-    failed: "ошибка",
-    running: "идёт",
-    pending: "ожидание",
-  };
-
-  const parts = [step.title, statusLabel[step.status]];
-
-  if (typeof step.duration_seconds === "number" && step.duration_seconds > 0 && step.status !== "pending") {
-    if (step.duration_seconds < 60) {
-      parts.push(`${step.duration_seconds} сек`);
-    } else {
-      const m = Math.floor(step.duration_seconds / 60);
-      const s = step.duration_seconds % 60;
-      parts.push(s > 0 ? `${m} мин ${s} сек` : `${m} мин`);
-    }
-  }
-
-  return parts.join(" · ");
-}
-
-const CollapsedStepBadge: React.FC<{ step: CollapsedStep }> = ({ step }) => {
-  const baseClass = "flex h-8 w-8 items-center justify-center rounded-full";
-  const tooltip = formatCollapsedStepTooltip(step);
-
-  if (step.status === "completed") {
-    return (
-      <span className={`${baseClass} bg-[var(--color-success)] text-white`} title={tooltip} aria-label={tooltip}>
-        <PipelineStepIcon code={step.code} className="h-4 w-4" strokeWidth={2.25} />
-      </span>
-    );
-  }
-  if (step.status === "completed_with_errors") {
-    return (
-      <span className={`${baseClass} bg-[var(--color-warning)] text-white`} title={tooltip} aria-label={tooltip}>
-        <PipelineStepIcon code={step.code} className="h-4 w-4" strokeWidth={2.25} />
-      </span>
-    );
-  }
-  if (step.status === "failed") {
-    return (
-      <span className={`${baseClass} bg-[var(--color-error)] text-white`} title={tooltip} aria-label={tooltip}>
-        <PipelineStepIcon code={step.code} className="h-4 w-4" strokeWidth={2.25} />
-      </span>
-    );
-  }
-  if (step.status === "running") {
-    return (
-      <span className={`${baseClass} bg-[var(--accent-primary)] text-white`} title={tooltip} aria-label={tooltip}>
-        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} aria-hidden />
-      </span>
-    );
-  }
-
-  return (
-    <span className={`${baseClass} border border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]`} title={tooltip} aria-label={tooltip}>
-      <PipelineStepIcon code={step.code} className="h-4 w-4" strokeWidth={2} />
-    </span>
-  );
-};
-
-const COLLAPSED_BADGE_HEIGHT_PX = 32;
-const COLLAPSED_FALLBACK_STEP_GAP_PX = 60;
-const COLLAPSED_FALLBACK_TOP_OFFSET_PX = 8;
-const COLLAPSED_RAIL_TOP_PADDING_PX = 36;
+// ---------------------------------------------------------------------------
+// Collapsed Pipeline Summary (УПРОЩЁННЫЙ)
+// ---------------------------------------------------------------------------
 
 const CollapsedPipelineSummary: React.FC<{
   runId: string | null;
   onExpand: () => void;
   summaryStatus?: string | null;
-}> = ({ runId, onExpand, summaryStatus }) => {
+}> = ({ runId, onExpand }) => {
   const { data: progress } = useRunProgress(runId);
-  const { layout } = usePipelineLayout();
-
-  const rawSteps = (progress?.steps ?? []) as CollapsedStep[];
-  const isTerminal = isTerminalRunStatus(progress?.run_status);
-
-  const summaryStep: CollapsedStep | null =
-    isTerminal && summaryStatus
-      ? {
-          code: "summary_generation",
-          title: "Построение резюме",
-          status: summaryStatus === "ready" ? "completed" : summaryStatus === "generating" || summaryStatus === "pending" ? "running" : "pending",
-        }
-      : null;
-
-  const steps = summaryStep ? [...rawSteps, summaryStep] : rawSteps;
-
-  const stepByCode = React.useMemo(() => {
-    const map = new Map<string, CollapsedStep>();
-    for (const s of steps) map.set(s.code, s);
-    return map;
-  }, [steps]);
-
-  const orderedCodes = React.useMemo(() => {
-    if (layout.order.length > 0) return layout.order;
-    return steps.map((s) => s.code);
-  }, [layout.order, steps]);
-
-  const iconsAreaHeightPx = React.useMemo(() => {
-    let maxBottom = 0;
-    for (const code of orderedCodes) {
-      const entry = layout.entries[code];
-      if (entry) {
-        const bottom = entry.top + entry.height;
-        if (bottom > maxBottom) maxBottom = bottom;
-      }
-    }
-    if (maxBottom > 0) return maxBottom;
-
-    const n = orderedCodes.length;
-    if (n === 0) return 0;
-    return COLLAPSED_FALLBACK_TOP_OFFSET_PX + (n - 1) * COLLAPSED_FALLBACK_STEP_GAP_PX + COLLAPSED_BADGE_HEIGHT_PX;
-  }, [layout.entries, orderedCodes]);
-
+  
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">Пайплайн</p>
-
-      <button
-        type="button"
-        onClick={onExpand}
-        title="Нажмите, чтобы развернуть детали пайплайна"
-        aria-label="Развернуть детали пайплайна"
-        className="group min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-0 text-left transition-colors hover:border-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)]"
-      >
-        {orderedCodes.length === 0 ? (
-          <p className="px-3 py-3 text-[10px] text-[var(--text-muted)]">—</p>
-        ) : (
-          <div className="relative w-full">
-            <span className="absolute left-1/2 top-2 -translate-x-1/2 rounded-md p-1 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]" aria-hidden>
-              <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-            </span>
-
-            <div
-              className="flex w-full flex-col items-center justify-between"
-              style={{
-                paddingTop: `${COLLAPSED_RAIL_TOP_PADDING_PX}px`,
-                paddingBottom: `${COLLAPSED_RAIL_TOP_PADDING_PX}px`,
-                minHeight: `${Math.max(iconsAreaHeightPx + COLLAPSED_RAIL_TOP_PADDING_PX * 2, orderedCodes.length * COLLAPSED_BADGE_HEIGHT_PX + (orderedCodes.length - 1) * 16)}px`,
-              }}
-            >
-              {orderedCodes.map((code) => {
-                const step = stepByCode.get(code);
-                if (!step) return null;
-                return <CollapsedStepBadge key={code} step={step} />;
-              })}
-            </div>
-          </div>
-        )}
-      </button>
-    </div>
+    <CollapsedPipelineRail
+      runId={runId}
+      onExpand={onExpand}
+      runStatus={progress?.run_status ?? null}
+    />
   );
 };
 
 // ---------------------------------------------------------------------------
-// НОВЫЙ КОМПОНЕНТ: Collapsed Summary Rail (аналог пайплайна)
+// Collapsed Summary Rail
 // ---------------------------------------------------------------------------
 
 const CollapsedSummaryRail: React.FC<{
@@ -467,18 +317,31 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
 
       {/* ── xl+ : terminal + expanded pipeline ── */}
       {isTerminal && isPipelineExpanded && (
-        <div className="hidden h-full min-h-0 xl:flex xl:flex-col">
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">Пайплайн анализа · подробности</p>
+        <div className="hidden h-full min-h-0 xl:flex xl:flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm overflow-hidden">
+          <div className="shrink-0 flex items-start justify-between border-b border-[var(--border-subtle)] px-5 py-4">
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                Пайплайн анализа
+              </h3>
+              <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                {progress?.started_at && (
+                  <>Запущен {new Date(progress.started_at).toLocaleString("ru-RU")} · </>
+                )}
+                {progress?.elapsed_seconds != null && (
+                  <>за {Math.floor(progress.elapsed_seconds / 60)} мин {progress.elapsed_seconds % 60} сек</>
+                )}
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => setIsPipelineExpanded(false)}
-              className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-[11px] text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+              className="rounded-lg p-1.5 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+              title="Свернуть пайплайн"
             >
-              Свернуть пайплайн
+              <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5">
             <DocumentsPipelinePanel runId={runId} />
           </div>
         </div>
@@ -494,7 +357,7 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
               : "minmax(72px,72px) minmax(72px,72px) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
           }}
         >
-          {/* Колонка 1: Пайплайн */}
+          {/* Колонка 1: Пайплайн (теперь использует CollapsedPipelineRail) */}
           <div className="flex h-full min-h-0 flex-col">
             <div className="h-full flex flex-col">
               <CollapsedPipelineSummary
@@ -569,7 +432,6 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
               />
             </button>
 
-
             {isMobilePipelineOpen && (
               <>
                 <div className="mx-4 border-t border-[var(--border-subtle)]" />
@@ -580,7 +442,6 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
             )}
           </section>
         </div>
-
 
         {isTerminal && (
           <div className="min-w-0 space-y-4">

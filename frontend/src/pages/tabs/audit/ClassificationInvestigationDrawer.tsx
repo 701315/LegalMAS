@@ -139,7 +139,7 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
     data && Array.isArray(data.voting?.ranking) ? data.voting.ranking : [];
 
   return (
-    <aside className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+    <aside className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
       {/* Accent strip слева */}
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[3px] bg-[var(--accent-primary)]" />
 

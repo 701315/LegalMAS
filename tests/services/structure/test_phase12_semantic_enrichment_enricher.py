@@ -104,15 +104,14 @@ def _mock_llm_response(
     confidence: float = 0.9,
     reasoning: str = "Payment-related clause.",
 ) -> str:
-    return json.dumps(
+    return (json.dumps(
         {
             "suggested_unit_type": unit_type,
             "suggested_clause_function": clause_function,
             "suggested_topics": topics or ["payment_terms"],
             "confidence": confidence,
             "reasoning": reasoning,
-        }
-    )
+        }), {})
 
 
 LLM_CLIENT_PATH = (
@@ -187,7 +186,7 @@ class TestEnrichSingleUnit:
 
     @patch(LLM_CLIENT_PATH)
     def test_handles_invalid_json_response(self, mock_llm) -> None:
-        mock_llm.return_value = "not a json response"
+        mock_llm.return_value = ("not a json response", {})
         policy = SemanticEnrichmentPolicy()
         unit = _make_unit()
 

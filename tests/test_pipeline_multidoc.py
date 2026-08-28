@@ -3,7 +3,7 @@ import types
 import pytest
 
 from core.config import settings
-from services.structure.pipeline import build_structure, build_file_structure
+from services.structure._pipeline._core_builder import build_structure, build_file_structure
 from services.structure.models import ClauseTree, FileStructureResult
 
 

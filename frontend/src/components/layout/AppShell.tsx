@@ -675,8 +675,8 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
       </aside>
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--bg-base)]">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-card)] px-4 lg:px-5">
-          <div className="flex min-w-0 items-center gap-2">
+        <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--border)] bg-[var(--bg-card)] px-4 lg:px-5">
+          <div className="flex items-center justify-start">
             {!isDesktop && (
               <button
                 ref={hamburgerButtonRef}
@@ -690,15 +690,17 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                 <Menu className="h-5 w-5" aria-hidden="true" />
               </button>
             )}
-
-            <span className="truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-              Review Workspace
-            </span>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-1 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--color-success-text)]">
-            <Shield className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Data secured</span>
+          <span className="justify-self-center truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            Review Workspace
+          </span>
+
+          <div className="flex items-center justify-end">
+            <div className="flex shrink-0 items-center gap-2 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-1 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--color-success-text)]">
+              <Shield className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Data secured</span>
+            </div>
           </div>
         </header>
 

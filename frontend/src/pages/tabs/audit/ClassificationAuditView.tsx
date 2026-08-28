@@ -212,7 +212,7 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
   return (
     <div
       className={cn(
-        "grid min-h-0 flex-1 gap-4",
+        "grid min-h-0 flex-1 gap-4 lg:grid-rows-[minmax(0,1fr)]",
         hasDrawerOpen
           ? "lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]"
           : "grid-cols-1",
@@ -504,8 +504,8 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
             />
           </div>
 
-          {/* Desktop inline drawer (already styled as <aside> in drawer component) */}
-          <div className="hidden lg:block">
+          {/* Desktop inline drawer с ограничением высоты */}
+          <div className="hidden min-h-0 lg:block">
             <ClassificationInvestigationDrawer
               documentId={selectedDocumentId}
               filename={selectedRow?.filename ?? null}

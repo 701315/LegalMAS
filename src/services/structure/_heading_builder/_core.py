@@ -1086,6 +1086,11 @@ def collect_scored_heading_candidates(
                     "ambiguous",
                     "list_item_deep_uid_requires_stronger_evidence",
                 )
+            else:
+                # Alpha/roman/paren list markers are not section headings by themselves.
+                # Ordered alpha/numeric series are recovered via record_heading_recovery
+                # (promote to heading_candidate), not via bare list_item accept.
+                decision, reason = "rejected", "list_item_non_numeric_uid"
 
         if el_type == "definition_item" and decision == "accepted":
             if not _is_strict_numeric_uid(p_uid):

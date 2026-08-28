@@ -282,7 +282,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                 <div className="border-t border-[var(--border-subtle)]" />
 
                 {/* Тулбар */}
-                <div className="flex min-h-10 flex-wrap items-start gap-1.5 py-3 sm:items-center sm:gap-2">                  
+                <div className="flex min-h-10 flex-wrap items-center gap-1.5 py-3 sm:gap-2">                  
                   <Button
                     type="button"
                     size="sm"

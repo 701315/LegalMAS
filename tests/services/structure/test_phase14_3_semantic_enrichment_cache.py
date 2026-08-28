@@ -87,7 +87,7 @@ class TestSemanticEnrichmentCacheSync:
             ):
                 with patch(
                     "services.structure.semantic_enrichment._enricher.call_semantic_enrichment_llm",
-                    return_value='{"ok": true}',
+                    return_value=('{"ok": true}', {}),
                 ) as mock_llm:
                     with patch(
                         "services.structure.semantic_enrichment._enricher.parse_llm_enrichment_response",
@@ -138,7 +138,7 @@ class TestSemanticEnrichmentCacheSync:
             ):
                 with patch(
                     "services.structure.semantic_enrichment._enricher.call_semantic_enrichment_llm",
-                    return_value='{"ok": true}',
+                    return_value=('{"ok": true}', {}),
                 ) as mock_llm:
                     with patch(
                         "services.structure.semantic_enrichment._enricher.parse_llm_enrichment_response",
@@ -185,7 +185,7 @@ class TestSemanticEnrichmentCacheSync:
             ):
                 with patch(
                     "services.structure.semantic_enrichment._enricher.call_semantic_enrichment_llm",
-                    return_value="not valid",
+                    return_value=("not valid", {}),
                 ) as mock_llm:
                     with patch(
                         "services.structure.semantic_enrichment._enricher.parse_llm_enrichment_response",
@@ -232,7 +232,7 @@ class TestSemanticEnrichmentCacheSync:
             ):
                 with patch(
                     "services.structure.semantic_enrichment._enricher.call_semantic_enrichment_llm",
-                    return_value='{"ok": true}',
+                    return_value=('{"ok": true}', {}),
                 ) as mock_llm:
                     with patch(
                         "services.structure.semantic_enrichment._enricher.parse_llm_enrichment_response",
@@ -286,7 +286,7 @@ class TestSemanticEnrichmentCacheSync:
             ):
                 with patch(
                     "services.structure.semantic_enrichment._enricher.call_semantic_enrichment_llm",
-                    return_value='{"ok": true}',
+                    return_value=('{"ok": true}', {}),
                 ) as mock_llm:
                     with patch(
                         "services.structure.semantic_enrichment._enricher.parse_llm_enrichment_response",
@@ -343,7 +343,7 @@ class TestSemanticEnrichmentCacheAsync:
                 with patch(
                     "services.structure.semantic_enrichment._llm_client.call_semantic_enrichment_llm_async",
                     new_callable=AsyncMock,
-                    return_value='{"ok": true}',
+                    return_value=('{"ok": true}', {}),
                 ) as mock_llm_async:
                     with patch(
                         "services.structure.semantic_enrichment._enricher.parse_llm_enrichment_response",

@@ -771,7 +771,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                 Mobile: вертикальный стек — settings сверху (info-баннер +
                 сегменты на всю ширину), кнопки под ними в один ряд с wrap. */}
             <div className="mb-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
+              <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
                 <div className="min-w-0 lg:flex-1">
                   <DDGridV1ViewSettings
                     hideFormatToggle={isMobile}
@@ -779,79 +779,86 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                   />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:pt-[22px]">
-                  {gridMode === "list" && (
-                    <>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={!showPassInList ? "outline" : "secondary"}
-                        onClick={() => setShowPassInList(!showPassInList)}
-                        title={
-                          showPassInList
-                            ? "Скрыть pass результаты"
-                            : "Показать pass результаты"
-                        }
-                        aria-pressed={!showPassInList}
-                        className={!showPassInList ? INLINE_PANEL_ACTIVE_CLASS : ""}
-                      >
-                        {showPassInList ? "Скрыть pass" : "Показать pass"}
-                      </Button>
-
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={isExtraColumnsPanelOpen ? "outline" : "secondary"}
-                        onClick={() => {
-                          if (!isExtraColumnsPanelOpen) {
-                            // Открываем панель — инициализируем draft из applied
-                            setDraftExtraColumnIds(appliedExtraColumnIds);
+                <div className="flex flex-col gap-1.5 lg:shrink-0">
+                  {/* Невидимый лейбл с теми же классами, что и слева. 
+                      Занимает идентичное вертикальное пространство для идеального выравнивания без магических чисел. */}
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] invisible" aria-hidden="true">
+                    Действия
+                  </span>
+                  
+                  <div className="flex flex-wrap items-center gap-2">
+                    {gridMode === "list" && (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={!showPassInList ? "outline" : "secondary"}
+                          onClick={() => setShowPassInList(!showPassInList)}
+                          title={
+                            showPassInList
+                              ? "Скрыть pass результаты"
+                              : "Показать pass результаты"
                           }
-                          setIsExtraColumnsPanelOpen((prev) => !prev);
-                        }}
-                        title="Выбрать дополнительные технические колонки для отображения"
-                        aria-expanded={isExtraColumnsPanelOpen}
-                        aria-controls="dd-grid-v1-extra-columns-panel"
-                        leftIcon={<SlidersHorizontal className="h-4 w-4" />}
-                        rightIcon={
-                          <ChevronRight
-                            className={`h-4 w-4 transition-transform duration-200 ${
-                              isExtraColumnsPanelOpen ? "rotate-90" : "rotate-0"
-                            }`}
-                          />
-                        }
-                        className={
-                          isExtraColumnsPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
-                        }
-                      >
-                        Дополнительные данные
-                        {appliedExtraColumnIds.length > 0
-                          ? ` (${appliedExtraColumnIds.length})`
-                          : ""}
-                      </Button>
-                    </>
-                  )}
+                          aria-pressed={!showPassInList}
+                          className={!showPassInList ? INLINE_PANEL_ACTIVE_CLASS : ""}
+                        >
+                          {showPassInList ? "Скрыть pass" : "Показать pass"}
+                        </Button>
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={isExportPanelOpen ? "outline" : "secondary"}
-                    onClick={handleToggleExportPanel}
-                    title="Открыть панель экспорта findings в файл"
-                    aria-expanded={isExportPanelOpen}
-                    aria-controls="dd-grid-v1-export-panel"
-                    leftIcon={<Download className="h-4 w-4" />}
-                    rightIcon={
-                      <ChevronRight
-                        className={`h-4 w-4 transition-transform duration-200 ${
-                          isExportPanelOpen ? "rotate-90" : "rotate-0"
-                        }`}
-                      />
-                    }
-                    className={isExportPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""}
-                  >
-                    Экспорт данных
-                  </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={isExtraColumnsPanelOpen ? "outline" : "secondary"}
+                          onClick={() => {
+                            if (!isExtraColumnsPanelOpen) {
+                              setDraftExtraColumnIds(appliedExtraColumnIds);
+                            }
+                            setIsExtraColumnsPanelOpen((prev) => !prev);
+                          }}
+                          title="Выбрать дополнительные технические колонки для отображения"
+                          aria-expanded={isExtraColumnsPanelOpen}
+                          aria-controls="dd-grid-v1-extra-columns-panel"
+                          leftIcon={<SlidersHorizontal className="h-4 w-4" />}
+                          rightIcon={
+                            <ChevronRight
+                              className={`h-4 w-4 transition-transform duration-200 ${
+                                isExtraColumnsPanelOpen ? "rotate-90" : "rotate-0"
+                              }`}
+                            />
+                          }
+                          className={
+                            isExtraColumnsPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
+                          }
+                        >
+                          Дополнительные данные
+                          {appliedExtraColumnIds.length > 0
+                            ? ` (${appliedExtraColumnIds.length})`
+                            : ""}
+                        </Button>
+                      </>
+                    )}
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isExportPanelOpen ? "outline" : "secondary"}
+                      onClick={handleToggleExportPanel}
+                      title="Открыть панель экспорта findings в файл"
+                      aria-expanded={isExportPanelOpen}
+                      aria-controls="dd-grid-v1-export-panel"
+                      leftIcon={<Download className="h-4 w-4" />}
+                      rightIcon={
+                        <ChevronRight
+                          className={`h-4 w-4 transition-transform duration-200 ${
+                            isExportPanelOpen ? "rotate-90" : "rotate-0"
+                          }`}
+                        />
+                      }
+                      className={isExportPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""}
+                    >
+                      Экспорт данных
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

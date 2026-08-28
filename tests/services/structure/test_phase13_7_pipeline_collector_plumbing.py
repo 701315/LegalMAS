@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import services.structure.pipeline as pipeline_module
+import services.structure._pipeline._core_builder as pipeline_module
 
 
 # ─────────────────────────────────────────────────────────────────────────────

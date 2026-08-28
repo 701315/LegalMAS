@@ -51,7 +51,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
   return (
     <div ref={containerRef} className="contents">
       {/* Кнопка-триггер + desktop slideout — узкий элемент, остаётся в первой строке тулбара */}
-      <div className="relative flex shrink-0 items-start">
+      <div className="relative flex shrink-0 items-center">
         <Button
           type="button"
           size="sm"

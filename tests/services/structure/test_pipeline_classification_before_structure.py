@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from services.structure.element_classifier import classify_elements
-import services.structure.pipeline as pipeline
+import services.structure._pipeline._core_builder as pipeline
 
 
 class _FakeFileStructureResult:

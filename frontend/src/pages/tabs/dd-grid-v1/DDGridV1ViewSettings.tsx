@@ -264,7 +264,7 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
 
   const rootClassName = stretch
     ? "flex flex-col gap-4"
-    : "flex flex-wrap items-start gap-6";
+    : "flex flex-wrap items-center gap-6";
 
   return (
     <div className={rootClassName}>
