@@ -169,11 +169,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Соглашение о защите коммерческой тайны"
-        - pattern: "(?i)коммерческ[аяое]\\s+тайн[аеи]"
-          weight: 0.85
-          distinctiveness: high
-          context: any
-          description: "Коммерческая тайна как предмет защиты NDA"
         - pattern: "(?i)non-?disclosure\\s+agreement"
           weight: 0.95
           distinctiveness: high
@@ -194,11 +189,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Обязательство неразглашения информации"
-        - pattern: "(?i)конфиденциал[ьннаяость]+"
-          weight: 0.85
-          distinctiveness: high
-          context: any
-          description: "Ссылки на конфиденциальность и конфиденциальную информацию"
         - pattern: "(?i)режим\\s+конфиденциал[ьнности]+"
           weight: 0.8
           distinctiveness: high
@@ -221,6 +211,11 @@ classification_runtime_v1:
           distinctiveness: medium
           context: any
           description: "Disclosing Party — раскрывающая сторона в англоязычном NDA"
+        - pattern: "(?i)коммерческ[аяое]\\s+тайн[аеи]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Коммерческая тайна как предмет защиты NDA"
         - pattern: "(?i)\\breceiving\\s+party\\b"
           weight: 0.65
           distinctiveness: medium
@@ -251,6 +246,11 @@ classification_runtime_v1:
           distinctiveness: medium
           context: any
           description: "Перечень исключений из режима конфиденциальности"
+        - pattern: "(?i)конфиденциал[ьннаяость]+"
+          weight: 0.40
+          distinctiveness: medium
+          context: any
+          description: "Ссылки на конфиденциальность и конфиденциальную информацию"
 
       low:
         - pattern: "(?i)\\bConfidential\\s+Disclosure\\s+Agreement\\b"

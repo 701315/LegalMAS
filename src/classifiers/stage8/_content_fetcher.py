@@ -122,16 +122,64 @@ class ContentFetcher:
         return cleaned_bundle
 
     @staticmethod
+    def _calculate_prompt_overhead_tokens() -> int:
+        """
+        Динамически вычисляет overhead промпта L4 на основе реального шаблона.
+        Универсальное решение: устраняет необходимость в захардкоженном значении.
+        """
+        from pathlib import Path
+
+        prompt_path = Path(getattr(settings, "CLASSIFICATION_L4_PROMPT_PATH", ""))
+        if not prompt_path.exists():
+            logger.warning(
+                "ContentFetcher: prompt template not found, using fallback overhead",
+                prompt_path=str(prompt_path),
+            )
+            return 1500
+
+        try:
+            template = prompt_path.read_text(encoding="utf-8").strip()
+            skeleton = template.replace("{available_types}", "[]")
+            skeleton = skeleton.replace("{document_fragment}", "")
+
+            chatml_system_instruction = (
+                "Ты — юридический ассистент. Отвечай СТРОГО одним JSON-объектом "
+                "с полями type_code, confidence, reasoning. "
+                "Никаких пояснений, никакого markdown, никаких блоков ```json. "
+                "Только JSON."
+            )
+            chatml_overhead = (
+                f"<|im_start|>system\n"
+                f"{chatml_system_instruction}\n"
+                f"<|im_end|>\n"
+                f"<|im_start|>user\n"
+                f"{skeleton}\n"
+                f"<|im_end|>\n"
+                f"<|im_start|>assistant\n"
+            )
+
+            chars_per_token = float(getattr(settings, "LLM_TOKENIZER_CHARS_PER_TOKEN", 2.2))
+            tokens = max(1, int(len(chatml_overhead) / chars_per_token))
+
+            return tokens
+        except Exception as e:
+            logger.warning("ContentFetcher: failed to calculate prompt overhead, using fallback", error=str(e))
+            return 1500
+
+    @staticmethod
     def _calculate_max_body_chars() -> int:
         """
         Динамически вычисляет максимальный размер body_text на основе
         бюджета LLM.
 
-        Принцип: отдаём классификатору максимум текста, который помещается
-        в контекст LLM, минус зарезервированное место на промпт-шаблон,
-        allowed_types и ответ модели.
+        Универсальный принцип (Universal Solution):
+        - Overhead промпта рассчитывается динамически на основе реального шаблона.
+        - Все критические параметры вынесены в settings (настраиваются через .env).
+        - Коэффициент конверсии токенов в символы (LLM_TOKENIZER_CHARS_PER_TOKEN)
+          зависит от токенизатора модели и настраивается через .env.
+        - Абсолютный лимит (CLASSIFICATION_L4_MAX_BODY_CHARS) защищает от аномалий.
 
-        Адаптируется автоматически при смене модели или LLM_CONTEXT_LIMIT.
+        Адаптируется автоматически при смене модели, LLM_CONTEXT_LIMIT или шаблона промпта.
         """
         llm_context_limit = int(
             getattr(settings, "LLM_CONTEXT_LIMIT", 16384)
@@ -143,11 +191,25 @@ class ContentFetcher:
             getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256)
         )
 
-        # Консервативная оценка overhead промпта L4:
-        # ChatML-теги + system instruction + шаблон + allowed_types JSON
-        # + filename/folder prefix. Реальный overhead ~1000-1200 токенов,
-        # берём 1500 с запасом.
-        prompt_overhead_tokens = 1500
+        # Динамический расчёт overhead промпта (без магических чисел)
+        prompt_overhead_tokens = ContentFetcher._calculate_prompt_overhead_tokens()
+
+        # Минимальный доступный объём для текста документа (архитектурный инвариант)
+        min_available_tokens = int(
+            getattr(settings, "CLASSIFICATION_L4_MIN_AVAILABLE_TOKENS", 1000)
+        )
+
+        # Универсальный коэффициент конверсии токенов в символы.
+        # Зависит от токенизатора модели (BPE, SentencePiece и т.д.).
+        # Настраивается через LLM_TOKENIZER_CHARS_PER_TOKEN в .env.
+        chars_per_token = float(
+            getattr(settings, "LLM_TOKENIZER_CHARS_PER_TOKEN", 2.2)
+        )
+
+        # Абсолютный защитный лимит на случай аномалий
+        max_body_chars_cap = int(
+            getattr(settings, "CLASSIFICATION_L4_MAX_BODY_CHARS", 35_000)
+        )
 
         available_tokens = (
             llm_context_limit
@@ -155,13 +217,10 @@ class ContentFetcher:
             - safety_margin
             - prompt_overhead_tokens
         )
-        available_tokens = max(available_tokens, 1000)
+        available_tokens = max(available_tokens, min_available_tokens)
 
-        # 1 токен ≈ 3 символа для смешанного ru/en текста
-        max_body_chars = available_tokens * 3
-
-        # Защита от аномалий: не больше 40 000 символов
-        max_body_chars = min(max_body_chars, 40_000)
+        max_body_chars = int(available_tokens * chars_per_token)
+        max_body_chars = min(max_body_chars, max_body_chars_cap)
 
         logger.debug(
             "ContentFetcher: dynamic max_body_chars calculated",
@@ -169,6 +228,9 @@ class ContentFetcher:
             max_output_tokens=max_output_tokens,
             safety_margin=safety_margin,
             prompt_overhead_tokens=prompt_overhead_tokens,
+            min_available_tokens=min_available_tokens,
+            chars_per_token=chars_per_token,
+            max_body_chars_cap=max_body_chars_cap,
             available_tokens=available_tokens,
             max_body_chars=max_body_chars,
         )

@@ -240,17 +240,7 @@ classification_runtime_v1:
           context: header
           description: "Подряд на переработку (обработку) материала или вещи"
 
-        - pattern: "(?i)подрядчик"
-          weight: 0.8
-          distinctiveness: high
-          context: any
-          description: "Ключевая роль исполнителя в договоре подряда"
 
-        - pattern: "(?i)заказчик"
-          weight: 0.75
-          distinctiveness: medium
-          context: any
-          description: "Контрагент подрядчика; общий, но важный маркер work-contract"
 
         - pattern: "(?i)результат\\s+работ"
           weight: 0.85
@@ -356,6 +346,17 @@ classification_runtime_v1:
           context: any
           description: "Субподрядчик — дополнительный участник исполнения"
 
+        - pattern: "(?i)\\bзаказчик\\b"
+          weight: 0.40
+          distinctiveness: low
+          context: any
+          description: "Родовой B2B-термин. Не является уникальным признаком подряда."
+        - pattern: "(?i)\\bподрядчик\\b"
+          weight: 0.45
+          distinctiveness: low
+          context: any
+          description: "Родовой B2B-термин. Часто встречается в смежных договорах (экспедиция, услуги)."
+
         - pattern: "(?i)генеральн[ыо]й\\s+подрядчик"
           weight: 0.3
           distinctiveness: low
@@ -400,6 +401,16 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "ДДУ — отдельный тип contract_3.6_off_plan_contract"
+
+    exclusions:
+      - pattern: "(?i)транспортн[а-яё]+\\s+экспедици[яи]"
+        severity: soft
+        weight: -0.6
+        description: "Универсальное правило: наличие предмета экспедиции снижает вероятность подряда, даже если есть слово 'подрядчик'"
+      - pattern: "(?i)организова[тьт]ь\\s+(?:выполнени[ея]|осуществлени[ея])\\s+перевозок"
+        severity: soft
+        weight: -0.5
+        description: "Организация перевозок - ключевой признак экспедиции (ст. 801 ГК РФ), сильно снижает уверенность в подряде"
 
       - pattern: "(?i)\\bНИОКР\\b"
         severity: hard
