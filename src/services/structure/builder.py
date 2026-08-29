@@ -40,6 +40,10 @@ class StructureBuilder:
         self,
         document_id: str,
         elements: list[dict] | None,
+        *,
+        tenant_id: str | None = None,
+        deal_id: str | None = None,
+        run_id: str | None = None,
     ) -> ClauseTree:
         """
         Legacy точка входа. Контракт не изменён.
@@ -50,6 +54,9 @@ class StructureBuilder:
         return build_structure(
             document_id=document_id,
             elements=elements,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
         )
 
     def build_file_structure(
@@ -58,6 +65,9 @@ class StructureBuilder:
         elements: list[dict] | None,
         *,
         document_version_id: str | None = None,
+        tenant_id: str | None = None,
+        deal_id: str | None = None,
+        run_id: str | None = None,
     ) -> FileStructureResult:
         """
         Новая точка входа для multi-document режима (v2).
@@ -85,4 +95,10 @@ class StructureBuilder:
             document_id=document_id,
             elements=elements,
             document_version_id=document_version_id,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
         )
+
+
+        

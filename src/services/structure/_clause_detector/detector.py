@@ -20,7 +20,9 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Sequence, Union
+from typing import Any, Dict, Optional, Tuple, Sequence, Union
+import uuid
+from services.llm_usage_recorder import LLMUsageRecorder
 
 from core.config import settings
 from core.logging import get_logger
@@ -32,7 +34,6 @@ from services.structure._models._nodes import (
     refreeze_forest,
     unfreeze_forest,
 )
-
 from .parser import DetectedClause, extract_clauses_fallback, parse_llm_response
 from services.structure._clause_detector.routing import global_routing_pass
 
@@ -525,6 +526,10 @@ class LLMClauseDetector:
         elements: list[dict[str, Any]],
         elem_map: dict[str, dict[str, Any]] | None = None,
         owned_element_ids: set[str] | None = None,
+        tenant_id: Optional[uuid.UUID] = None,
+        deal_id: Optional[uuid.UUID] = None,
+        document_id: Optional[uuid.UUID] = None,
+        run_id: Optional[uuid.UUID] = None,
     ) -> tuple[list[DetectedClause], str]:
         text = _extract_chapter_text(
             chapter_node, all_roots, elements, elem_map, owned_element_ids
@@ -542,7 +547,17 @@ class LLMClauseDetector:
             .replace("{chapter_text}", text)
         )
 
-        raw_response = self._call_llm(prompt) if self.llm.is_available() else None
+        raw_response, _telemetry = (
+            self._call_llm(
+                prompt,
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                document_id=document_id,
+                run_id=run_id,
+            )
+            if self.llm.is_available()
+            else (None, None)
+        )
         llm_clauses = (
             parse_llm_response(raw_response, chapter_node.raw_uid)
             if raw_response
@@ -569,7 +584,21 @@ class LLMClauseDetector:
 
         return clauses, source
 
-    def _call_llm(self, prompt: str) -> str | None:
+    def _call_llm(
+        self,
+        prompt: str,
+        tenant_id: Optional[uuid.UUID] = None,
+        deal_id: Optional[uuid.UUID] = None,
+        document_id: Optional[uuid.UUID] = None,
+        run_id: Optional[uuid.UUID] = None,
+    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        """
+        Вызывает LLM и возвращает (text, telemetry_dict).
+
+        Если tenant_id, deal_id, document_id переданы — записывает в ledger.
+        """
+        from engine.llm.client import build_llm_telemetry_from_response
+
         try:
             response, error_details = self.llm.call_with_retries(
                 prompt=prompt,
@@ -577,18 +606,64 @@ class LLMClauseDetector:
                 max_tokens=2000,
                 response_format="json_object",
             )
+
             if error_details and error_details.get("error_type"):
-                return None
+                return None, None
 
             text = response.text if response else None
-            return text
-        except Exception:
-            return None
+            if not text:
+                return None, None
+
+            telemetry = build_llm_telemetry_from_response(
+                response,
+                duration_ms=error_details.get("duration_ms"),
+                llm_attempts=error_details.get("llm_attempts"),
+            )
+            telemetry["error_type"] = error_details.get("error_type")
+            telemetry["parse_success"] = True
+
+            # Запись в ledger (best-effort, не роняет пайплайн)
+            if all([tenant_id, deal_id, document_id]):
+                try:
+                    LLMUsageRecorder.record_event_isolated(
+                        tenant_id=tenant_id,
+                        deal_id=deal_id,
+                        stage="structure_clause_detection",
+                        provider=telemetry.get("provider", "unknown"),
+                        model=telemetry.get("model", "unknown"),
+                        run_id=run_id,
+                        document_id=document_id,
+                        check_id=None,
+                        prompt_tokens=telemetry.get("prompt_tokens"),
+                        completion_tokens=telemetry.get("completion_tokens"),
+                        duration_ms=telemetry.get("duration_ms"),
+                        llm_attempts=telemetry.get("llm_attempts"),
+                        parse_success=True,
+                        error_type=None,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "ClauseDetector: failed to record LLM usage",
+                        extra={"document_id": str(document_id), "error": str(exc)},
+                    )
+
+            return text, telemetry
+
+        except Exception as exc:
+            logger.warning(
+                "ClauseDetector: LLM call failed",
+                extra={"error": str(exc)},
+            )
+            return None, None
 
     def refine_tree(
         self,
         root_nodes: Sequence[NodeType],
         elements: list[dict[str, Any]],
+        tenant_id: Optional[uuid.UUID] = None,
+        deal_id: Optional[uuid.UUID] = None,
+        document_id: Optional[uuid.UUID] = None,
+        run_id: Optional[uuid.UUID] = None,
     ) -> ClauseRefineResult:
         import time as _time
 
@@ -627,7 +702,15 @@ class LLMClauseDetector:
                 continue
 
             clauses, source = self.detect_clauses_in_chapter(
-                node, mutable_roots, elements, elem_map, owned_element_ids
+                node,
+                mutable_roots,
+                elements,
+                elem_map,
+                owned_element_ids,
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                document_id=document_id,
+                run_id=run_id,
             )
             if not clauses:
                 continue

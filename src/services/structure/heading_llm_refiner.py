@@ -47,10 +47,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Literal
-
-import requests
-
+from typing import Any, Dict, Optional, Tuple, Literal
+import uuid
+import time
+from services.llm_usage_recorder import LLMUsageRecorder
 from core.config import settings
 from core.logging import get_logger
 
@@ -187,78 +187,86 @@ def _resolve_llm_endpoint_and_model() -> tuple[str | None, str | None]:
     return endpoint, model
 
 
-def _call_local_llm(prompt: str) -> str:
+def _call_local_llm(
+    prompt: str,
+    tenant_id: Optional[uuid.UUID] = None,
+    deal_id: Optional[uuid.UUID] = None,
+    document_id: Optional[uuid.UUID] = None,
+    run_id: Optional[uuid.UUID] = None,
+) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
     """
-    Вызов локальной LLM через Ollama-compatible HTTP endpoint.
-
-    Поддерживаемые STRUCTURE_LLM_PROVIDER:
-        - "ollama"          (canonical)
-        - "local"           (legacy alias)
-        - "local_endpoint"  (legacy alias)
-
-    Все три значения обрабатываются одинаково: POST на
-    {LOCAL_LLM_ENDPOINT}/api/generate (Ollama-compatible API).
-
-    Возвращает строку с JSON-ответом модели.
+    Вызов локальной LLM через единый LLMClient.
+    Возвращает: (text, telemetry_dict)
     """
+    from engine.llm.client import LLMClient, build_llm_telemetry_from_response
 
-    provider = str(
-        getattr(settings, "STRUCTURE_LLM_PROVIDER", "") or ""
-    ).strip()
+    client = LLMClient()
 
-    if provider not in _SUPPORTED_STRUCTURE_LLM_PROVIDERS:
-        raise RuntimeError(
-            f"Unsupported STRUCTURE_LLM_PROVIDER: {provider!r}. "
-            f"Supported: {sorted(_SUPPORTED_STRUCTURE_LLM_PROVIDERS)}"
+    if not client.is_available():
+        logger.warning("HeadingRefiner: LLM not available")
+        return None, None
+
+    start = time.time()
+
+    try:
+        response, error_details = client.call_with_retries(
+            prompt=prompt,
+            temperature=0.0,
+            max_tokens=2000,
+            response_format="json_object",
+            max_retries=0,
         )
 
-    endpoint, model = _resolve_llm_endpoint_and_model()
-    if not endpoint or not model:
-        raise RuntimeError("LLM endpoint or model not configured")
+        duration_ms = int((time.time() - start) * 1000)
 
-    timeout = int(
-        getattr(settings, "STRUCTURE_LLM_TIMEOUT_SECONDS", 0)
-        or getattr(settings, "LLM_TIMEOUT_SECONDS", 30)
-        or 30
-    )
+        if response is None:
+            return None, None
 
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-        "options": {
-            "temperature": 0.0,
-        },
-    }
+        text = response.text if response else None
+        if not text or not text.strip():
+            return None, None
 
-    url = f"{endpoint}/api/generate"
+        telemetry = build_llm_telemetry_from_response(
+            response,
+            duration_ms=duration_ms,
+            llm_attempts=error_details.get("llm_attempts") if error_details else None,
+        )
+        telemetry["error_type"] = error_details.get("error_type") if error_details else None
+        telemetry["parse_success"] = True
 
-    logger.debug(
-        "STRUCTURE llm_refiner_request_start",
-        extra={
-            "provider": provider,
-            "url": url,
-            "model": model,
-            "timeout": timeout,
-        },
-    )
+        # Запись в ledger (best-effort)
+        if all([tenant_id, deal_id, document_id]):
+            try:
+                LLMUsageRecorder.record_event_isolated(
+                    tenant_id=tenant_id,
+                    deal_id=deal_id,
+                    stage="heading_refiner",
+                    provider=telemetry.get("provider", "unknown"),
+                    model=telemetry.get("model", "unknown"),
+                    run_id=run_id,
+                    document_id=document_id,
+                    check_id=None,
+                    prompt_tokens=telemetry.get("prompt_tokens"),
+                    completion_tokens=telemetry.get("completion_tokens"),
+                    duration_ms=telemetry.get("duration_ms"),
+                    llm_attempts=telemetry.get("llm_attempts"),
+                    parse_success=True,
+                    error_type=None,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "HeadingRefiner: failed to record LLM usage",
+                    extra={"document_id": str(document_id), "error": str(exc)},
+                )
 
-    response = requests.post(
-        url,
-        json=payload,
-        timeout=timeout,
-    )
-    response.raise_for_status()
+        return text.strip(), telemetry
 
-    data = response.json()
-
-    if isinstance(data, dict):
-        text = data.get("response")
-        if isinstance(text, str) and text.strip():
-            return text.strip()
-
-    raise RuntimeError("Local LLM returned empty or invalid response payload")
+    except Exception as exc:
+        logger.warning(
+            "HeadingRefiner: LLM call failed",
+            extra={"error": str(exc)},
+        )
+        return None, None
 
 
 def _parse_llm_response(raw: str) -> LLMHeadingRefinement | None:
@@ -295,6 +303,9 @@ def refine_ambiguous_candidates(
     document_id: str,
     min_confidence: float = 0.75,
     max_candidates: int = 12,
+    tenant_id: Optional[uuid.UUID] = None,
+    deal_id: Optional[uuid.UUID] = None,
+    run_id: Optional[uuid.UUID] = None,
 ) -> list[ScoredHeadingCandidate]:
     """
     Прогнать ambiguous-кандидатов через локальную LLM и вернуть обновлённый список.
@@ -348,7 +359,13 @@ def refine_ambiguous_candidates(
         )
 
         try:
-            raw_response = _call_local_llm(prompt)
+            raw_response, _telemetry = _call_local_llm(
+                prompt,
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                document_id=document_id,
+                run_id=run_id,
+            )
             parsed = _parse_llm_response(raw_response)
 
             if not parsed:

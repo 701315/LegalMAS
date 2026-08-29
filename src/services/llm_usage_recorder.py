@@ -30,6 +30,7 @@ STAGE_CLASSIFICATION_L4 = "classification_l4"
 STAGE_CHECKS_DETECTION_LLM = "checks_detection_llm"
 STAGE_CHECKS_EXTRACTION_LLM = "checks_extraction_llm"
 STAGE_STRUCTURE_SEMANTIC_ENRICHMENT = "structure_semantic_enrichment"
+STAGE_STRUCTURE_CLAUSE_DETECTION = "structure_clause_detection"
 STAGE_HEADING_REFINER = "heading_refiner"
 
 REQUEST_UID_MAX_LEN = 128

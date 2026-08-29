@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+import uuid
+
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 from ._bilingual import annotate_bilingual_heading_pairs
 from core.config import settings
 from core.logging import get_logger
@@ -767,6 +769,9 @@ def _apply_llm_refiner(
     document_id: str,
     *,
     log_context: str = "phase2",
+    tenant_id: Optional[uuid.UUID] = None,
+    deal_id: Optional[uuid.UUID] = None,
+    run_id: Optional[uuid.UUID] = None,
 ) -> list[ScoredHeadingCandidate]:
     """
     Применяет LLM-refiner к списку scored candidates.
@@ -788,6 +793,9 @@ def _apply_llm_refiner(
             scored_candidates=scored,
             elements=elements,
             document_id=document_id,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
         )
 
         patched: list[ScoredHeadingCandidate] = []
@@ -894,6 +902,9 @@ def run_phase2(
     *,
     document_id: str,
     toc_match_index: dict[tuple[str, str], dict[str, Any]] | None = None,
+    tenant_id: Optional[uuid.UUID] = None,
+    deal_id: Optional[uuid.UUID] = None,
+    run_id: Optional[uuid.UUID] = None,
 ) -> Phase2Result:
     """
     Единственная точка входа Phase 2.
@@ -916,7 +927,14 @@ def run_phase2(
     # Шаг 2: optional LLM-refiner (один раз, не два)
     llm_applied = False
     if bool(getattr(settings, "STRUCTURE_ENABLE_HEADING_LLM_REFINER", False)) and scored:
-        scored = _apply_llm_refiner(scored, elements, document_id)
+        scored = _apply_llm_refiner(
+            scored,
+            elements,
+            document_id,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
+        )
         llm_applied = True
 
     # Шаг 2.5: B2 Heading Density Guard

@@ -206,12 +206,12 @@ async def _build_structure_async(
     7) делает flush -> verify -> commit;
     8) возвращает committed=True только после commit.
 
-
     При наличии stage_execution_id:
     - перед основной логикой помечает execution как STARTED;
     - после успешного commit помечает execution как SUCCEEDED.
     """
-    _ = extra_args
+    # Извлекаем контекст из extra_args (kwargs из Celery задачи)
+    run_id = extra_args.get("run_id")
 
     start = time.time()
     store = ArtifactStore(settings)
@@ -389,6 +389,9 @@ async def _build_structure_async(
                 document_id=str(doc.id),
                 elements=elements,
                 document_version_id=str(v_id),
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                run_id=run_id,
             )
             file_result = file_analysis.file_structure
             clause_tree = file_result.primary_tree
@@ -549,6 +552,9 @@ async def _build_structure_async(
             clause_tree = builder.build(
                 document_id=str(doc.id),
                 elements=elements,
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                run_id=run_id,
             )
 
     except TransientError:

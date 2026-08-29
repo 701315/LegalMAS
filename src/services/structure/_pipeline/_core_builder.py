@@ -14,9 +14,11 @@ Core builder: один сегмент -> ClauseTree.
 
 from __future__ import annotations
 
+import uuid
+
 import re
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from services.telemetry._collector import TelemetryCollector
@@ -1257,7 +1259,10 @@ def build_single_segment_tree(
     scope_name: str | None = None,
     is_primary_segment: bool = False,
     log_prefix: str = "STRUCTURE",
-    collector: "TelemetryCollector | None" = None,  # Phase 13.2
+    collector: "TelemetryCollector | None" = None,
+    tenant_id: Optional[uuid.UUID] = None,
+    deal_id: Optional[uuid.UUID] = None,
+    run_id: Optional[uuid.UUID] = None,
 ) -> ClauseTree:
     build_started = time.perf_counter()
     normalized_scope_name = _safe_str(scope_name, default="main_contract").strip() or "main_contract"
@@ -1373,6 +1378,9 @@ def build_single_segment_tree(
         body_elements,
         document_id=document_id,
         toc_match_index=analysis.toc_match_index,
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        run_id=run_id,
     )
     headings = phase2_result.accepted_headings
     raw_evidence_bundle = phase2_result.evidence_bundle
@@ -1449,7 +1457,14 @@ def build_single_segment_tree(
         from services.structure._clause_detector import LLMClauseDetector
 
         detector = LLMClauseDetector()
-        refine_result = detector.refine_tree(root_nodes, body_elements)
+        refine_result = detector.refine_tree(
+            root_nodes,
+            body_elements,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=document_id,
+            run_id=run_id,
+        )
 
         if refine_result.clauses_added > 0:
             # Обновляем ссылки на корневые узлы
@@ -1718,6 +1733,10 @@ def _classify_elements_safe(
 def build_structure(
     document_id: str,
     elements: list[dict] | None,
+    *,
+    tenant_id: str | None = None,
+    deal_id: str | None = None,
+    run_id: str | None = None,
 ) -> ClauseTree:
     """
     Legacy wrapper.
@@ -1726,6 +1745,9 @@ def build_structure(
         document_id=document_id,
         elements=elements,
         document_version_id=None,
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        run_id=run_id,
     )
     return result.primary_tree
 
@@ -1736,6 +1758,9 @@ def build_file_structure(
     *,
     document_version_id: str | None = None,
     collector: TelemetryCollector | None = None,
+    tenant_id: str | None = None,
+    deal_id: str | None = None,
+    run_id: str | None = None,
 ) -> FileStructureResult:
     if not document_id:
         logger.warning("STRUCTURE build_file_structure: empty document_id")
@@ -1763,6 +1788,9 @@ def build_file_structure(
             scope_name=seg.scope_name,
             is_primary_segment=True,
             collector=collector,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
         )
 
         file_graph = build_file_graph(
@@ -1809,6 +1837,9 @@ def build_file_structure(
             scope_name=seg.scope_name,
             is_primary_segment=seg.is_primary,
             collector=collector,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
         )
 
         segment_trees.append(tree)
@@ -1849,6 +1880,9 @@ def build_file_structure_with_analysis(
     sliding_window: int = 5,
     crossref_neighborhood: int = 2,
     collector: TelemetryCollector | None = None,
+    tenant_id: str | None = None,
+    deal_id: str | None = None,
+    run_id: str | None = None,
 ) -> FileStructureAnalysisResult:
     """
     Phase 1-9: elements → structure → cohesion → quality evaluation.
@@ -1858,6 +1892,9 @@ def build_file_structure_with_analysis(
         elements=elements,
         document_version_id=document_version_id,
         collector=collector,
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        run_id=run_id,
     )
 
     return analyze_file_structure(
@@ -1876,13 +1913,21 @@ def build_file_structure_with_chunk_plan(
     document_version_id: str | None = None,
     quality_thresholds: QualityThresholds | None = None,
     collector: TelemetryCollector | None = None,
-):
+    tenant_id: str | None = None,
+    deal_id: str | None = None,
+    run_id: str | None = None,
+) -> tuple[FileStructureAnalysisResult, Any]:
     analysis = build_file_structure_with_analysis(
         document_id=document_id,
         elements=elements,
         document_version_id=document_version_id,
         quality_thresholds=quality_thresholds,
         collector=collector,
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        run_id=run_id,
     )
     plan = plan_chunking(analysis)
     return analysis, plan
+
+
