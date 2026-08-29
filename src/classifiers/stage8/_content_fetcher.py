@@ -26,6 +26,7 @@ import re
 from typing import Any
 from uuid import UUID
 
+from core.config import settings
 from core.logging import get_logger
 from engine.content._document_content_classification import ClassificationContentBundle
 from engine.content.document_content_service import DocumentContentService
@@ -82,9 +83,12 @@ class ContentFetcher:
             return self._empty_bundle()
 
         try:
+            max_body_chars = self._calculate_max_body_chars()
+
             bundle = await self.content_service.get_classification_content(
                 doc_id,
                 hot_keyword_patterns=hot_patterns,
+                max_body_chars=max_body_chars,
             )
         except Exception as e:
             logger.exception(
@@ -116,6 +120,61 @@ class ContentFetcher:
         )
 
         return cleaned_bundle
+
+    @staticmethod
+    def _calculate_max_body_chars() -> int:
+        """
+        Динамически вычисляет максимальный размер body_text на основе
+        бюджета LLM.
+
+        Принцип: отдаём классификатору максимум текста, который помещается
+        в контекст LLM, минус зарезервированное место на промпт-шаблон,
+        allowed_types и ответ модели.
+
+        Адаптируется автоматически при смене модели или LLM_CONTEXT_LIMIT.
+        """
+        llm_context_limit = int(
+            getattr(settings, "LLM_CONTEXT_LIMIT", 16384)
+        )
+        max_output_tokens = int(
+            getattr(settings, "LLM_MAX_TOKENS", 1024)
+        )
+        safety_margin = int(
+            getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256)
+        )
+
+        # Консервативная оценка overhead промпта L4:
+        # ChatML-теги + system instruction + шаблон + allowed_types JSON
+        # + filename/folder prefix. Реальный overhead ~1000-1200 токенов,
+        # берём 1500 с запасом.
+        prompt_overhead_tokens = 1500
+
+        available_tokens = (
+            llm_context_limit
+            - max_output_tokens
+            - safety_margin
+            - prompt_overhead_tokens
+        )
+        available_tokens = max(available_tokens, 1000)
+
+        # 1 токен ≈ 3 символа для смешанного ru/en текста
+        max_body_chars = available_tokens * 3
+
+        # Защита от аномалий: не больше 40 000 символов
+        max_body_chars = min(max_body_chars, 40_000)
+
+        logger.debug(
+            "ContentFetcher: dynamic max_body_chars calculated",
+            llm_context_limit=llm_context_limit,
+            max_output_tokens=max_output_tokens,
+            safety_margin=safety_margin,
+            prompt_overhead_tokens=prompt_overhead_tokens,
+            available_tokens=available_tokens,
+            max_body_chars=max_body_chars,
+        )
+
+        return max_body_chars
+
 
     @staticmethod
     def _empty_bundle() -> ClassificationContentBundle:

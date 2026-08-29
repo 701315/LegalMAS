@@ -169,7 +169,7 @@ classification_runtime_v1:
           weight: 0.75
           distinctiveness: medium
           context: body
-        - pattern: "(?i)\\bдвижим[оа]е?\\s+имущество\\b"
+        - pattern: "(?i)\\bдвижим(?:ое|ого|ому|ым|ом)\\s+имуществ(?:о|а|у|ом|е)\\b"
           weight: 0.75
           distinctiveness: high
           context: any

@@ -598,9 +598,14 @@ class L4LLMClassifier:
                    Если None — fallback к settings.CLASSIFICATION_L4_MAX_INPUT_CHARS.
 
         Приоритет: начало документа (заголовок, предмет договора).
+
+        Обрезка выполняется по границе предложения, чтобы LLM не получил
+        оборванную фразу вроде «Продавец обязуется передать в собственность движ».
         """
         if max_chars is None:
-            max_chars = int(getattr(settings, "CLASSIFICATION_L4_MAX_INPUT_CHARS", 6000))
+            max_chars = int(
+                getattr(settings, "CLASSIFICATION_L4_MAX_INPUT_CHARS", 20000)
+            )
 
         safe_text = (text or "").strip()
 
@@ -611,9 +616,33 @@ class L4LLMClassifier:
         )
 
         available_for_text = max(500, max_chars - len(prefix))
-        trimmed_text = safe_text[:available_for_text]
-        if len(safe_text) > available_for_text:
-            trimmed_text = trimmed_text.rstrip() + "\n...[TRUNCATED]"
+
+        if len(safe_text) <= available_for_text:
+            trimmed_text = safe_text
+        else:
+            trimmed_text = safe_text[:available_for_text]
+
+            # Умная обрезка: ищем последнюю границу предложения
+            last_sentence_end = max(
+                trimmed_text.rfind(". "),
+                trimmed_text.rfind(".\n"),
+                trimmed_text.rfind("!\n"),
+                trimmed_text.rfind("?\n"),
+                trimmed_text.rfind("\n\n"),
+            )
+
+            # Если нашли границу не ближе 500 символов к концу — режем там
+            if last_sentence_end > available_for_text - 500:
+                trimmed_text = trimmed_text[: last_sentence_end + 1].rstrip()
+            else:
+                # Иначе режем по последнему пробелу (не рвём слово)
+                last_space = trimmed_text.rfind(" ")
+                if last_space > available_for_text - 200:
+                    trimmed_text = trimmed_text[:last_space].rstrip()
+                else:
+                    trimmed_text = trimmed_text.rstrip()
+
+            trimmed_text += "\n...[ТЕКСТ ОБРЕЗАН ПО ГРАНИЦЕ ПРЕДЛОЖЕНИЯ]"
 
         return prefix + trimmed_text
 
