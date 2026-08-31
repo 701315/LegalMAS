@@ -672,17 +672,31 @@ class LegalUnitBuilder:
             is_primary_segment=is_primary_segment,
         )
 
-        root_nodes = clause_tree.get("root") or []
-        if not isinstance(root_nodes, list):
+        # Поддержка всех форматов корня дерева:
+        # 1. root = [node1, node2, ...]  (list)
+        # 2. root = {children: [node1, ...]}  (dict with children)
+        # 3. roots = [node1, node2, ...]  (альтернативный ключ)
+        raw_root = clause_tree.get("root") or clause_tree.get("roots") or []
+
+        if isinstance(raw_root, dict):
+            root_nodes = raw_root.get("children") or []
+        elif isinstance(raw_root, list):
+            root_nodes = raw_root
+        else:
+            root_nodes = []
+
+        if not root_nodes:
             snapshot.build_warnings.append(
-                f"clause_tree.root is not a list: {type(root_nodes).__name__}"
+                f"clause_tree has no usable root nodes "
+                f"(root type: {type(raw_root).__name__})"
             )
             logger.warning(
-                "LegalUnitBuilder: clause_tree root is not a list",
+                "LegalUnitBuilder: clause_tree has no root nodes",
                 extra={
                     "document_id": document_id,
                     "segment_id": segment_id,
-                    "root_type": type(root_nodes).__name__,
+                    "root_type": type(raw_root).__name__,
+                    "tree_keys": sorted(clause_tree.keys()),
                 },
             )
             return snapshot
@@ -718,6 +732,7 @@ class LegalUnitBuilder:
                 parent_unit_id=None,
                 ancestor_titles=[],
                 ancestor_path_ids=[],
+                is_primary_segment=is_primary_segment,
             )
 
         # P8.8d: post-pass — восстановить parent/children linkage и path_ids.
@@ -957,10 +972,15 @@ class LegalUnitBuilder:
         parent_unit_id: str | None = None,
         ancestor_titles: list[str] | None = None,
         ancestor_path_ids: list[str] | None = None,
+        is_primary_segment: bool = False,
     ) -> None:
         effective_uid = str(node.get("effective_uid") or "").strip()
         raw_uid = str(node.get("raw_uid") or "").strip()
         scope = str(node.get("scope") or "").strip()
+        # Согласование scope: в дереве может быть "contract",
+        # а в сегменте — "main_contract". Приводим к единому формату.
+        if is_primary_segment and scope in {"contract", "main_contract", "main", ""}:
+            scope = "main_contract"
         title = str(node.get("title") or "").strip()
         level = int(node.get("level") or 1)
         node_kind = str(node.get("node_kind") or "leaf")
@@ -1188,6 +1208,7 @@ class LegalUnitBuilder:
                     parent_unit_id=effective_uid,
                     ancestor_titles=next_ancestor_titles,
                     ancestor_path_ids=next_path_ids,
+                    is_primary_segment=is_primary_segment,
                 )
 
 
