@@ -146,9 +146,28 @@ async def _can_start_checks_for_run(
         DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
     }
 
+    has_ready_docs = False
+
     for doc_snap in doc_snaps:
         if doc_snap.status in non_participating_statuses:
             continue
+
+        # ── FIX #4: Пропускаем ВСЕ неготовые документы (не блокируя весь Run) ──
+        is_doc_ready = (
+            doc_snap.status in ready_statuses
+            and getattr(doc_snap, "doc_type", None) is not None
+            and not getattr(doc_snap, "classification_requires_review", False)
+        )
+
+        if not is_doc_ready:
+            logger.debug(
+                "Run checks: ignoring unready document from checks quorum",
+                run_id=run_snap.run_id_str,
+                document_id=doc_snap.document_id_str,
+                status=doc_snap.status,
+            )
+            continue
+        # ── КОНЕЦ FIX #4 ──────────────────────────────────────────────────────
 
         version = await ver_repo.get_latest(doc_snap.document_id)
         if version is None:
@@ -156,40 +175,19 @@ async def _can_start_checks_for_run(
 
         snap = snapshot_version(version)
 
-        # В V2 проверяем статус резолва: если язык не готов или недоступен — не запускаем checks
         if v2_enabled:
             res_record = await res_repo.get_by_run_and_version(run_snap.id, snap.version_id)
             if not res_record or res_record.resolution_status != "LANGUAGE_READY":
-                logger.info(
-                    "Run checks postponed: document language is not ready in V2 resolution",
-                    run_id=run_snap.run_id_str,
-                    document_id=doc_snap.document_id_str,
-                    resolution_status=res_record.resolution_status if res_record else "missing",
-                )
-                return False
-
-        if doc_snap.status not in ready_statuses:
-            logger.info(
-                "Run checks postponed: document has not completed enrichment stage",
-                run_id=run_snap.run_id_str,
-                document_id=doc_snap.document_id_str,
-                document_status=doc_snap.status,
-            )
-            return False
+                continue
 
         if _is_multi_document_snapshot(snap):
             all_segments_classified = await _is_segment_classification_complete(seg_repo, snap)
             if not all_segments_classified:
-                logger.info(
-                    "Run checks postponed: multi-document has unclassified segments",
-                    run_id=run_snap.run_id_str,
-                    document_id=doc_snap.document_id_str,
-                    document_version_id=snap.version_id_str,
-                    segments_count=snap.segments_count,
-                )
-                return False
+                continue
 
-    return True
+        has_ready_docs = True
+
+    return has_ready_docs
 
 
 # ─── Celery task entrypoint ───────────────────────────────────────────────────
@@ -509,6 +507,7 @@ async def _start_run_pipeline_async(
             force_reclassify=force_reclassify,
             seg_repo=seg_repo,
             deal_primary_language=deal_primary_language,
+            doc_snap=doc_snap,
         )
 
         if plan is None:
@@ -633,6 +632,7 @@ async def _build_document_task_plan(
     force_reclassify: bool,
     seg_repo: DocumentSegmentRepository,
     deal_primary_language: str | None,
+    doc_snap: DocumentSnapshot | None = None,
 ) -> TaskPlan | None:
     if not deal_primary_language:
         raise ValueError("deal_primary_language must be selected before building run task plan")
@@ -799,6 +799,19 @@ async def _build_document_task_plan(
     if status == DocumentStatus.CLASSIFIED.value:
         if snap is None:
             return None
+
+        # ── FIX #2: Блокировка enrichment для любых документов на ревью ───────
+        if (doc_snap is not None 
+                and (getattr(doc_snap, "classification_requires_review", False) 
+                     or not getattr(doc_snap, "doc_type", None))):
+            logger.info(
+                "Orchestrator: skipping enrichment — document requires manual review or lacks doc_type",
+                document_id=doc_id_str,
+                run_id=run_id,
+                current_doc_type=getattr(doc_snap, "doc_type", None),
+            )
+            return None
+        # ── КОНЕЦ FIX #2 ──────────────────────────────────────────────────────
 
         if is_full_rerun or force_reclassify:
             return TaskPlan(

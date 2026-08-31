@@ -264,35 +264,46 @@ def run_deal_checks(
                 }
                 doc_types_for_snapshot.discard(None)
 
-                try:
-                    fixed_versions = await freeze_instruction_snapshot(
-                        run_uuid=run_uuid,
-                        doc_types=doc_types_for_snapshot,
-                        run_repo=run_repo,
-                        session=uow.session,
-                        tenant_id=run_snap.tenant_id,
-                        deal_id=run_snap.deal_id or deal_uuid,
-                    )
+                # ── FIX #3: Идемпотентное расширение snapshot ─────────────────
+                if not doc_types_for_snapshot:
                     logger.info(
-                        "Run deal checks scheduler: instruction snapshot fixed",
+                        "Run deal checks scheduler: no doc_types for snapshot, "
+                        "global_only checks will proceed without frozen snapshot",
                         run_id=run_id,
                         deal_id=deal_id,
-                        fixed_doc_types_count=len(fixed_versions),
-                        snapshot_schema_version=1,
                     )
-                except Exception as version_exc:
-                    logger.exception(
-                        "Run deal checks scheduler: failed to freeze strict instruction snapshot; "
-                        "aborting scheduling",
-                        run_id=run_id,
-                        deal_id=deal_id,
-                        error=str(version_exc),
-                        error_type=type(version_exc).__name__,
-                    )
-                    raise RuntimeError(
-                        "Strict instruction snapshot freeze failed; "
-                        "checks scheduling aborted"
-                    ) from version_exc
+                else:
+                    try:
+                        fixed_versions = await freeze_instruction_snapshot(
+                            run_uuid=run_uuid,
+                            doc_types=doc_types_for_snapshot,
+                            run_repo=run_repo,
+                            session=uow.session,
+                            tenant_id=run_snap.tenant_id,
+                            deal_id=run_snap.deal_id or deal_uuid,
+                            extend_existing=True,
+                        )
+                        logger.info(
+                            "Run deal checks scheduler: instruction snapshot fixed/extended",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            fixed_doc_types_count=len(fixed_versions),
+                            snapshot_schema_version=1,
+                        )
+                    except Exception as version_exc:
+                        logger.exception(
+                            "Run deal checks scheduler: failed to freeze/extend strict instruction snapshot; "
+                            "aborting scheduling",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            error=str(version_exc),
+                            error_type=type(version_exc).__name__,
+                        )
+                        raise RuntimeError(
+                            "Strict instruction snapshot freeze/extension failed; "
+                            "checks scheduling aborted"
+                        ) from version_exc
+                # ── КОНЕЦ FIX #3 ──────────────────────────────────────────────
 
                 # Перечитываем Run, чтобы snapshot содержал только что
                 # зафиксированный instruction_snapshot_payload.
@@ -317,6 +328,42 @@ def run_deal_checks(
                 )
 
                 pairs = plan.get("pairs", [])
+                
+                # ── FIX #7: Высокопроизводительная Batch дедупликация ─────────
+                if pairs:
+                    from db.repositories.result_repo import ResultRepository
+                    result_repo = ResultRepository(uow.session)
+
+                    pair_keys = [
+                        (uuid.UUID(p["doc_id"]) if isinstance(p["doc_id"], str) else p["doc_id"],
+                         p["check_id"])
+                        for p in pairs
+                    ]
+
+                    existing_success_keys = await result_repo.get_successful_doc_check_keys(
+                        run_id=run_uuid,
+                        doc_check_pairs=pair_keys,
+                    )
+
+                    filtered_pairs = [
+                        p for p, key in zip(pairs, pair_keys)
+                        if key not in existing_success_keys
+                    ]
+                    skipped_count = len(pairs) - len(filtered_pairs)
+
+                    if skipped_count > 0:
+                        logger.info(
+                            "Run deal checks: deduplicated already successful checks",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            original=len(pairs),
+                            after_dedup=len(filtered_pairs),
+                            skipped=skipped_count,
+                        )
+
+                    pairs = filtered_pairs
+                # ── КОНЕЦ FIX #7 ──────────────────────────────────────────────
+
                 processed_docs = int(plan.get("processed_docs", 0) or 0)
                 total_checks = int(plan.get("total_checks", 0) or 0)
                 errors = int(plan.get("errors", 0) or 0)

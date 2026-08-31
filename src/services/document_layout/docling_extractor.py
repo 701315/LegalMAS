@@ -125,7 +125,6 @@ class DoclingExtractor:
         document_version_id: str,
     ) -> tuple[list[CanonicalAtom], list[CanonicalTable], list[CanonicalPage], str]:
         sha256_hash = _compute_sha256(pdf_bytes)
-        stream = DocumentStream(name=f"{document_id}.pdf", stream=io.BytesIO(pdf_bytes))
 
         logger.info(
             "Starting Docling extraction pass",
@@ -135,7 +134,16 @@ class DoclingExtractor:
             sha256=sha256_hash,
         )
 
-        conv_result = self.converter.convert(stream)
+        # ── Явная передача DocumentStream с InputFormat.PDF ───────────────────
+        doc_stream = DocumentStream(
+            name=f"{document_id}.pdf",
+            stream=io.BytesIO(pdf_bytes),
+            format=InputFormat.PDF,
+        )
+        conv_result = self.converter.convert(doc_stream)
+
+        doc = conv_result.document
+
         doc = conv_result.document
 
         pages_dict: dict[int, CanonicalPage] = {}

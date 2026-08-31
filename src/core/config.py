@@ -137,7 +137,31 @@ class Settings(BaseSettings):
 
     # --- Import Worker ---
     IMPORT_MAX_FILE_SIZE_MB: int = 200
-    IMPORT_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
+    # Форматы сгруппированы по типу для удобства сопровождения:
+    #   PDF: .pdf
+    #   Word/Text: .docx, .doc, .docm, .rtf, .odt, .txt
+    #   Excel/Data: .xlsx, .xls, .xlsm, .ods, .csv
+    #   PowerPoint: .pptx, .ppt, .odp
+    #   Изображения (OCR): .png, .jpg, .jpeg, .tiff, .tif, .bmp, .webp, .heic, .heif
+    #   Web: .html, .htm
+    #
+    # Примечания:
+    #   .rtf — выгрузки из КонсультантПлюс, Гарант, госархивы
+    #   .heic/.heif — фото документов с iPhone (требует pillow-heif)
+    #   .docm/.xlsm — корпоративные шаблоны с макросами (макросы не исполняются при конвертации)
+    #   .odt/.ods/.odp — госсектор РФ, LibreOffice
+    #   .bmp/.webp — старые сканы, скриншоты из мессенджеров
+    #   .pages/.numbers/.key (Apple iWork) НАМЕРЕННО НЕ включены:
+    #     LibreOffice не гарантирует корректную конвертацию, риск потери данных.
+    #     Пользователь должен экспортировать в PDF/DOCX перед загрузкой.
+    IMPORT_ALLOWED_EXTENSIONS: str = (
+        ".pdf,"
+        ".docx,.doc,.docm,.rtf,.odt,.txt,"
+        ".xlsx,.xls,.xlsm,.ods,.csv,"
+        ".pptx,.ppt,.odp,"
+        ".png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp,.heic,.heif,"
+        ".html,.htm"
+    )
     IMPORT_MAX_FILES_PER_BUNDLE: int = 10000
 
     # --- Extractor ---

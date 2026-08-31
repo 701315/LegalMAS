@@ -247,7 +247,18 @@ class DocumentRepository:
                 None в списке означает «статус IS NULL».
                 Если параметр не передан — возвращаются все документы сделки.
         """
-        stmt = select(Document).where(Document.deal_id == deal_id)
+        # Исключаем из расчета языков документы, не участвующие в анализе
+        non_participating_statuses = [
+            DocumentStatus.QUARANTINE.value,
+            DocumentStatus.DELETED.value,
+            DocumentStatus.DUPLICATE.value,
+            DocumentStatus.FAILED.value,
+        ]
+
+        stmt = select(Document).where(
+            Document.deal_id == deal_id,
+            Document.status.notin_(non_participating_statuses),
+        )
 
         if document_ids:
             stmt = stmt.where(Document.id.in_(document_ids))

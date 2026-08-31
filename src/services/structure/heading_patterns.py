@@ -543,6 +543,27 @@ def parse_raw_heading(text: str) -> tuple[str, str] | None:
             if len(title) >= 3 and _has_letters(title):
                 return uid, title
 
+    # 7. Fallback: капсовые строки без UID (потерянная нумерация при экстракции PDF)
+    #    Работает для случаев, когда Docling теряет римские цифры I., II., III., IV.
+    #    Примеры: "ПРЕДМЕТ ДОГОВОРА", "УСЛОВИЯ ПЕРЕВОЗОК", "ОТВЕТСТВЕННОСТЬ СТОРОН"
+    #    Критерии:
+    #    - Все символы в верхнем регистре (isupper)
+    #    - Длина 10-120 символов (не слишком коротко и не слишком длинно)
+    #    - Не заканчивается точкой (это не обычное предложение)
+    #    - Содержит буквы (не просто цифры или знаки)
+    if (
+        stripped.isupper() 
+        and len(stripped) >= 10 
+        and len(stripped) <= 120
+        and not stripped.endswith(".")
+        and _has_letters(stripped)
+    ):
+        # Проверяем, что это не обычное предложение (нет строчных букв)
+        if not any(c.islower() for c in stripped):
+            # Возвращаем синтетический UID "S" (Section)
+            # Скорер и LLM-рефайнер верифицируют на следующем этапе
+            return "S", stripped
+
     return None
 
 

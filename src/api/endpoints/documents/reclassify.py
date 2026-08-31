@@ -87,6 +87,15 @@ async def reclassify_document(
             classification_requires_review=False,
         )
 
+        # ── Гарантируем корректный статус документа для Orchestrator ─────────
+        if doc.status in {
+            DocumentStatus.CHUNKED.value,
+            DocumentStatus.STRUCTURED.value,
+            DocumentStatus.CLASSIFIED.value,
+        }:
+            doc.status = DocumentStatus.CLASSIFIED.value
+        # ── КОНЕЦ принудительного статуса ─────────────────────────────────────
+
         checks_requeued = False
         rerun_checks_requested = bool(getattr(data, "rerun_checks", False))
 
@@ -116,7 +125,58 @@ async def reclassify_document(
             value=True,
         )
 
-        await db.commit()
+        # ── FIX #5 & #6.A: Атомарный commit перед retrigger ─────────────────
+        try:
+            from sqlalchemy import select
+            from db.models.run import Run
+            from db.repositories.run_repo import RunRepository
+            from core.constants import RunStatus
+            from services.run_orchestrator_trigger import retrigger_run_pipeline
+
+            run_repo = RunRepository(db)
+            stmt = (
+                select(Run)
+                .where(Run.deal_id == doc.deal_id)
+                .order_by(Run.created_at.desc())
+                .limit(1)
+            )
+            result = await db.execute(stmt)
+            latest_run = result.scalar_one_or_none()
+
+            run_id_to_trigger = None
+            if latest_run:
+                run_id_to_trigger = str(latest_run.id)
+                if latest_run.status in {
+                    RunStatus.COMPLETED.value,
+                    RunStatus.COMPLETED_WITH_ERRORS.value,
+                }:
+                    await run_repo.update_status(
+                        latest_run.id,
+                        RunStatus.RUNNING.value,
+                    )
+
+            # 1. СНАЧАЛА ФИКСИРУЕМ В БД (до вызова Celery)
+            await db.commit()
+
+            # 2. ТОЛЬКО ПОСЛЕ УСПЕШНОГО COMMIT — ОТПРАВЛЯЕМ В БРОКЕР
+            if run_id_to_trigger:
+                retrigger_run_pipeline(
+                    run_id=run_id_to_trigger,
+                    deal_id=str(doc.deal_id),
+                    tenant_id=str(user.tenant_id),
+                )
+                logger.info(
+                    "Retriggered run pipeline after manual reclassification",
+                    run_id=run_id_to_trigger,
+                    document_id=str(doc_id),
+                )
+        except Exception as e:
+            logger.warning(
+                "Failed to retrigger run after reclassify (non-fatal)",
+                document_id=str(doc_id),
+                error=str(e),
+            )
+        # ── КОНЕЦ FIX #5 & #6.A ───────────────────────────────────────────────
 
         return ReclassifyResponse(
             document_id=doc_id,

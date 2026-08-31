@@ -62,26 +62,57 @@ class ValidationResult:
 # ─── Magic bytes ──────────────────────────────────────────────────────────────
 MAGIC_BYTES = {
     "pdf": b"%PDF",
-    "zip": b"PK\x03\x04",  # DOCX, XLSX, PPTX — all ZIP-based
+    "zip": b"PK\x03\x04",  # DOCX, XLSX, PPTX, ODT, ODS, ODP — all ZIP-based
     "png": b"\x89PNG",
     "jpg": b"\xff\xd8\xff",
     "tiff_le": b"II*\x00",  # Little-endian TIFF
     "tiff_be": b"MM\x00*",  # Big-endian TIFF
     "doc": b"\xd0\xcf\x11\xe0",  # DOC (OLE2)
+    "rtf": b"{\\rtf",  # RTF header
+    "bmp": b"BM",
 }
 
-# Extension → internal file type
+# Extension → internal file type (Синхронизировано с config.IMPORT_ALLOWED_EXTENSIONS)
 EXTENSION_MAP = {
     ".pdf": "pdf",
+    # Текстовые и офисные документы
     ".docx": "docx",
     ".doc": "doc",
+    ".docm": "doc",
+    ".rtf": "rtf",
+    ".odt": "odt",
+    ".txt": "txt",
+    # Таблицы
     ".xlsx": "xlsx",
     ".xls": "xls",
+    ".xlsm": "xlsx",
+    ".ods": "ods",
+    ".csv": "csv",
+    # Презентации
+    ".pptx": "pptx",
+    ".ppt": "ppt",
+    ".odp": "odp",
+    # Веб
+    ".html": "html",
+    ".htm": "html",
+    # Изображения (OCR)
     ".png": "image",
     ".jpg": "image",
     ".jpeg": "image",
     ".tiff": "image",
     ".tif": "image",
+    ".bmp": "image",
+    ".webp": "image",
+    ".heic": "image",
+    ".heif": "image",
+}
+
+# Форматы, требующие конвертации в PDF через LibreOffice перед извлечением текста
+CONVERTIBLE_FILETYPES = {
+    "docx", "doc", "rtf", "odt", "txt",
+    "xlsx", "xls", "ods", "csv",
+    "pptx", "ppt", "odp",
+    "html", "htm",
 }
 
 
@@ -216,8 +247,8 @@ def can_process_directly(filetype: str) -> bool:
 
 
 def needs_conversion(filetype: str) -> bool:
-    """True if DOCX/DOC — needs PDF conversion before extraction."""
-    return filetype in ("docx", "doc")
+    """True if file needs PDF conversion before extraction (Office, RTF, OpenDocument, etc.)."""
+    return filetype in CONVERTIBLE_FILETYPES
 
 
 def is_spreadsheet(filetype: str) -> bool:
@@ -258,11 +289,21 @@ def _check_magic_bytes(filepath: str, extension: str) -> tuple[bool, str | None]
                 "pdf"
             ] else None
 
-        if extension in (".docx", ".xlsx", ".xls"):
-            # DOCX and XLSX are ZIP-based (PK magic)
+        if extension in (".docx", ".xlsx", ".xls", ".xlsm", ".docm", ".pptx", ".ppt", ".odt", ".ods", ".odp"):
+            # Modern Office & OpenDocument are ZIP-based (PK magic)
             if header[:4] == MAGIC_BYTES["zip"]:
                 mapped = EXTENSION_MAP.get(extension, "unknown")
                 return True, mapped
+            # Для старых форматов PPT/XLS может быть OLE2
+            if header[:4] == MAGIC_BYTES["doc"]:
+                mapped = EXTENSION_MAP.get(extension, "unknown")
+                return True, mapped
+            return False, None
+
+        if extension == ".rtf":
+            # RTF файлы начинаются с '{\rtf'
+            if header[:5] == MAGIC_BYTES["rtf"]:
+                return True, "rtf"
             return False, None
 
         if extension == ".doc":

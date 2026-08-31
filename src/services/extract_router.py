@@ -87,15 +87,13 @@ def decide_extraction_strategy(filetype: str | None) -> ExtractRoutingDecision:
             reason=None,
         )
 
-    # DOCX/DOC: архитектурно хотим конвертировать в PDF перед анализом.
-    # Import Worker при action='convert_then_extract' поставит задачу
-    # workers.convert_to_pdf, которая затем должна (после реализации)
-    # сама поставить PDF-extractor.
-    if ft in ("docx", "doc"):
+    # Форматы, требующие конвертации в PDF перед анализом (Office, RTF, OpenDocument, Text, Web)
+    # Import Worker при action='convert_then_extract' поставит задачу workers.convert_to_pdf
+    if ft in ("docx", "doc", "rtf", "odt", "txt", "pptx", "ppt", "odp", "html", "htm"):
         return ExtractRoutingDecision(
             action="convert_then_extract",
             extractor_task="workers.convert_to_pdf",
-            reason="DOC/DOCX will be converted to PDF before analysis",
+            reason="Document will be converted to PDF before analysis",
         )
 
     # Таблицы — пока не поддерживаются текстовым пайплайном

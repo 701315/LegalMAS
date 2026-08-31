@@ -390,6 +390,7 @@ async def freeze_instruction_snapshot(
     session: Any,
     tenant_id: uuid.UUID | None = None,
     deal_id: uuid.UUID | None = None,
+    extend_existing: bool = False,
 ) -> dict[str, str]:
     """
     Зафиксировать frozen snapshot doc-type инструкций для Run.
@@ -428,23 +429,71 @@ async def freeze_instruction_snapshot(
         unique_doc_types=sorted(unique_doc_types)[:20],
     )
 
+    # ── Read existing snapshot if extend mode ─────────────────────────────────
+    existing_versions: dict[str, str] = {}
+    existing_manifest: dict[str, dict[str, Any]] = {}
+    existing_payload: dict[str, dict[str, Any]] = {}
+    
+    if extend_existing:
+        existing_run = await run_repo.get(run_uuid)
+        if existing_run:
+            from core.pipeline_snapshots import snapshot_run
+            existing_snap = snapshot_run(existing_run)
+
+            import json
+            raw_versions = existing_snap.instruction_versions
+            if isinstance(raw_versions, str):
+                raw_versions = json.loads(raw_versions) if raw_versions else {}
+            existing_versions = raw_versions or {}
+            
+            raw_manifest = existing_snap.instruction_snapshot_manifest
+            if isinstance(raw_manifest, str):
+                raw_manifest = json.loads(raw_manifest) if raw_manifest else {}
+            existing_manifest = raw_manifest or {}
+            
+            raw_payload = existing_snap.instruction_snapshot_payload
+            if isinstance(raw_payload, str):
+                raw_payload = json.loads(raw_payload) if raw_payload else {}
+            existing_payload = raw_payload or {}
+            
+            already_frozen = set(existing_payload.keys())
+            unique_doc_types = unique_doc_types - already_frozen
+            
+            if not unique_doc_types:
+                logger.info(
+                    "freeze_instruction_snapshot: all requested doc_types already frozen, skipping",
+                    run_id=run_id_str,
+                    already_frozen_count=len(already_frozen),
+                )
+                return existing_versions
+    # ── КОНЕЦ чтения существующего snapshot ───────────────────────────────────
+
     if not unique_doc_types:
         logger.info(
             "freeze_instruction_snapshot: no typed documents, writing empty snapshot",
             run_id=run_id_str,
         )
+        if extend_existing:
+            versions = existing_versions
+            manifest = existing_manifest
+            payload = existing_payload
+        else:
+            versions = {}
+            manifest = {}
+            payload = {}
+            
         updated_run = await run_repo.update_instruction_snapshot(
             run_uuid,
-            {},
-            {},
-            {},
+            versions,
+            manifest,
+            payload,
             snapshot_schema_version=SNAPSHOT_SCHEMA_VERSION_CURRENT,
         )
         if updated_run is None:
             raise RuntimeError(
                 f"Run {run_id_str} not found while writing empty instruction snapshot"
             )
-        return {}
+        return versions
 
     registry = YAMLRegistry.get_instance()
     version_repo = DocumentTypeInstructionVersionRepository(session)
@@ -513,6 +562,13 @@ async def freeze_instruction_snapshot(
             run_id=run_id_str,
             errors=resolution_errors,
         )
+
+    # ── Merge with existing if extend mode ────────────────────────────────────
+    if extend_existing:
+        versions = {**existing_versions, **versions}
+        manifest = {**existing_manifest, **manifest}
+        payload = {**existing_payload, **payload}
+    # ── КОНЕЦ слияния ─────────────────────────────────────────────────────────
 
     updated_run = await run_repo.update_instruction_snapshot(
         run_uuid,

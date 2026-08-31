@@ -227,7 +227,7 @@ class RunSummaryService:
             )
 
     async def _pass_a(
-        self, run: Run, evidence: dict[str, Any]  # ← НОВОЕ: добавлен аргумент run
+        self, run: Run, evidence: dict[str, Any]
     ) -> tuple[dict[str, Any], Optional[str]]:
         """Pass A: claims plan (structured JSON)."""
         prompt = load_prompt(
@@ -239,20 +239,37 @@ class RunSummaryService:
             prompt,
             temperature=_PASS_A_TEMPERATURE,
             max_tokens=_PASS_A_MAX_TOKENS,
-            response_format="json_object",
         )
 
-        # ← НОВОЕ: Записываем телеметрию Pass A
-        await self._record_usage(run, "run_summary_pass_a", response, error_details)
+        await self._record_usage(
+            run, "run_summary_pass_a", response, error_details
+        )
 
-        if response is None:
+        if response is None or not (response.text or "").strip():
             raise SummaryGenerationError(
-                f"Pass A LLM call failed: {error_details.get('error_message')}"
+                f"Pass A LLM call failed: "
+                f"{error_details.get('error_message', 'empty response')}"
             )
 
         claims = self._parse_json(response.text)
         if claims is None:
-            raise SummaryGenerationError("Pass A returned non-JSON output")
+            logger.warning(
+                "Pass A: unparseable JSON from LLM",
+                run_id=str(run.id),
+                text_length=len(response.text),
+                preview=response.text[:300],
+            )
+            raise SummaryGenerationError(
+                f"Pass A: invalid JSON (len={len(response.text)})"
+            )
+
+        response.parse_success = True
+
+        logger.info(
+            "Pass A claims plan parsed",
+            run_id=str(run.id),
+            risk_claims=len(claims.get("risk_claims", [])),
+        )
 
         return claims, response.model or None
 
@@ -281,12 +298,14 @@ class RunSummaryService:
             max_tokens=_PASS_B_MAX_TOKENS,
         )
 
-        # ← НОВОЕ: Записываем телеметрию Pass B
-        await self._record_usage(run, "run_summary_pass_b", response, error_details)
+        await self._record_usage(
+            run, "run_summary_pass_b", response, error_details
+        )
 
         if response is None or not (response.text or "").strip():
             raise SummaryGenerationError(
-                f"Pass B LLM call failed: {error_details.get('error_message')}"
+                f"Pass B LLM call failed: "
+                f"{error_details.get('error_message', 'empty response')}"
             )
 
         return response.text.strip(), response.model or None

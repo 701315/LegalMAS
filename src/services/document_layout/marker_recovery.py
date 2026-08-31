@@ -23,23 +23,68 @@ from services.document_layout.schemas import CanonicalAtom, CanonicalTable
 
 logger = get_logger(__name__)
 
-_MARKER_PATTERN = re.compile(r'^(\d+(?:\.\d+)*)\s+')
-_SECTION_MARKER_PATTERN = re.compile(r'^(\d+)\.?\s*$')
+# Универсальный паттерн для ВСЕХ систем нумерации:
+# 1. Арабские цифры: 1, 1.1, 2.8.3 (ГОСТ, ISO)
+# 2. Римские цифры: I, II, III, IV, V, i, ii, iii (договоры, НПА)
+# 3. Кириллические буквы: А, Б, В, а, б, в (приложения, подпункты)
+# 4. Латинские буквы: A, B, C, a, b, c (международные контракты)
+_MARKER_PATTERN = re.compile(
+    r'^('
+    r'\d+(?:\.\d+)*'           # 1. Арабские: 1, 1.1, 2.8.3
+    r'|'
+    r'[IVXLCDMivxlcdm]+'       # 2. Римские: I, II, III, iv, v
+    r'|'
+    r'[А-ЯЁа-яё]'              # 3. Кириллица: А, Б, В, а, б, в
+    r'|'
+    r'[A-Za-z]'                # 4. Латиница: A, B, C, a, b, c
+    r')\.?\s+'
+)
+
+_SECTION_MARKER_PATTERN = re.compile(
+    r'^('
+    r'\d+'
+    r'|'
+    r'[IVXLCDMivxlcdm]+'
+    r'|'
+    r'[А-ЯЁа-яё]'
+    r'|'
+    r'[A-Za-z]'
+    r')\.?\s*$'
+)
+
+# Отдельный паттерн для чистых римских цифр (для детекции в тексте)
+_ROMAN_MARKER_PATTERN = re.compile(r'^([IVXLCDMivxlcdm]+)\.?\s+')
 
 
 def _extract_marker_from_text(text: str) -> str | None:
     """
     Извлечь маркер из начала текста.
     
-    Поддерживает:
-    - 1, 2, 3... (разделы)
-    - 1.1, 1.2, 2.8... (подразделы)
-    - 1.1.1, 1.1.2... (подподразделы)
+    Поддерживает ВСЕ системы нумерации:
+    - 1, 2, 3... (арабские цифры)
+    - 1.1, 1.2, 2.8... (иерархические)
+    - I., II., III., IV... (римские цифры)
+    - А., Б., В... (кириллические заглавные)
+    - а), б), в)... (кириллические строчные)
+    - A., B., C... (латинские заглавные)
+    - a), b), c)... (латинские строчные)
     """
     if not text:
         return None
-    match = _MARKER_PATTERN.match(text.strip())
-    return match.group(1) if match else None
+    
+    text_stripped = text.strip()
+    
+    # Пробуем основной универсальный паттерн
+    match = _MARKER_PATTERN.match(text_stripped)
+    if match:
+        return match.group(1)
+    
+    # Fallback: проверяем чистые римские цифры (без точки в начале)
+    roman_match = _ROMAN_MARKER_PATTERN.match(text_stripped)
+    if roman_match:
+        return roman_match.group(1)
+    
+    return None
 
 
 def _is_data_table(table: CanonicalTable) -> bool:

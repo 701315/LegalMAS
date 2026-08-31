@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import case, distinct, func, select, update
+from sqlalchemy import case, distinct, func, select, update, tuple_
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1015,5 +1015,35 @@ class ResultRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
     
+    async def get_successful_doc_check_keys(
+        self,
+        run_id: uuid.UUID,
+        doc_check_pairs: list[tuple[uuid.UUID, str]],
+    ) -> set[tuple[uuid.UUID, str]]:
+        """
+        Высокопроизводительная batch-проверка существующих успешных проверок.
+        Использует composite IN кортежей (PostgreSQL row-value comparison).
+        """
+        if not doc_check_pairs:
+            return set()
 
+        # Нормализация пар в список (UUID, str)
+        normalized_pairs = [
+            (p[0] if isinstance(p[0], uuid.UUID) else uuid.UUID(str(p[0])), str(p[1]))
+            for p in doc_check_pairs
+        ]
+
+        stmt = (
+            select(CheckResult.document_id, CheckResult.check_id)
+            .where(
+                CheckResult.run_id == run_id,
+                CheckResult.execution_status == CheckExecutionStatus.SUCCESS.value,
+                tuple_(CheckResult.document_id, CheckResult.check_id).in_(normalized_pairs),
+            )
+        )
+
+        result = await self.session.execute(stmt)
+        return {(row.document_id, row.check_id) for row in result}
+
+        
     

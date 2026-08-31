@@ -315,6 +315,45 @@ async def _classify_document_async(
 
                 version_id_str = str(version.id)
 
+                # ── FIX #1: Защита от перезаписи + поддержка force_reclassify ─
+                existing_doc_type = getattr(doc, "doc_type", None)
+                existing_requires_review = getattr(doc, "classification_requires_review", True)
+                force_reclassify = extra_args.get("force_reclassify", False) or extra_args.get("force", False)
+                
+                if (existing_doc_type is not None 
+                        and not existing_requires_review 
+                        and not force_reclassify):
+                    logger.info(
+                        "Document already classified, skipping classification worker",
+                        document_id=document_id,
+                        doc_type=existing_doc_type,
+                        classification_level=getattr(doc, "classification_level", None),
+                    )
+                    
+                    run_id_str = extra_args.get("run_id")
+                    deal_id_str = str(doc.deal_id) if doc.deal_id else None
+                    tenant_id_str = extra_args.get("tenant_id")
+                    if run_id_str and deal_id_str and tenant_id_str:
+                        try:
+                            from services.run_orchestrator_trigger import retrigger_run_pipeline
+                            retrigger_run_pipeline(
+                                run_id=run_id_str,
+                                deal_id=deal_id_str,
+                                tenant_id=tenant_id_str,
+                            )
+                        except Exception as trig_exc:
+                            logger.warning("Classifier skip: non-fatal retrigger failure", error=str(trig_exc))
+
+                    return {
+                        "document_id": document_id,
+                        "status": doc.status,
+                        "skipped": True,
+                        "reason": "already_classified",
+                        "doc_type": existing_doc_type,
+                        "committed": False,
+                    }
+                # ── КОНЕЦ FIX #1 ──────────────────────────────────────────────
+
                 classifier = _get_classifier(uow)
                 classification_result = await classifier.classify_document(doc_id_str)
 
