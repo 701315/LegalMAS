@@ -414,6 +414,9 @@ def score_heading_candidate(
         accept_reasons.append("plausible_roman_uid")
     elif alpha_uid_is_plausible(u):
         accept_reasons.append("plausible_alpha_uid")
+    elif u.startswith("S-"):
+        accept_reasons.append("synthetic_caps_uid")
+        uid_kind = "synthetic_caps"
     else:
         return HeadingScoreResult(
             CandidateStatus.REJECTED,

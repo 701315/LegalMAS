@@ -306,14 +306,95 @@ class GrammarInductor:
     """
     
     # Базовые паттерны для первичного обнаружения кандидатов
+    # Базовые паттерны для первичного обнаружения кандидатов
+    # Мультиязычная конфигурация: RU, EN, DE, FR, ES, IT, TR, SR/HR, PL
     BASE_PATTERNS: list[tuple[str, int]] = [
-        (r'^\d+(?:\.\d+)*\.?$', 1),           # 1, 1.1, 1.1.1
-        (r'^[A-Za-zА-Яа-я]\)$', 2),           # а), b)
-        (r'^\([A-Za-zА-Яа-я\d]+\)$', 2),      # (а), (1), (b)
-        (r'^[IVXLCDMivxlcdm]+\.?$', 3),       # I, II, iii
-        (r'^§\s*\d+(?:\.\d+)*$', 4),          # § 4.2
-        (r'^Статья\s*\d+', 4),                # Статья 1
-        (r'^Приложение\s*№?\s*\d+', 4),       # Приложение № 3
+        # 1. Десятичные числовые последовательности (1, 1.1, 1.1.1). Язык-независимо.
+        (r'^\d+(?:\.\d+)*\.?$', 1),
+        
+        # 1a. Цифровые со скобкой (1), 2), 3)) — стандарт подпунктов НПА РФ.
+        (r'^\d+\)$', 2),
+        
+        # 2. Одиночные буквы латиницы и кириллицы со скобкой.
+        # Расширено: диакритика для DE, FR, TR, PL, SR/HR.
+        (r'^[A-Za-zА-Яа-яЁёĘęĄąĆćŚśŹźŻżÓóÖöÜüÄäßĞğİıŞşÇçČčĐđŠšŽž]\)$', 2),
+        
+        # 3. Буквы или цифры внутри круглых скобок ((а), (1), (b)).
+        (r'^\([A-Za-zА-Яа-яЁёĘęĄąĆćŚśŹźŻżÓóÖöÜüÄäßĞğİıŞşÇçČčĐđŠšŽž\d]+\)$', 2),
+        
+        # 4. Прописные римские цифры (I, II, X, XIV). Главы верхнего уровня (Level 1).
+        (r'^[IVXLCDM]+\.?$', 1),
+        
+        # 5. Строчные римские цифры (i, ii, ix). Вложенные списки (Level 3).
+        (r'^[ivxlcdm]+\.?$', 3),
+        
+        # 6. Символ параграфа (§ 4.2, §12). Язык-независимо.
+        (r'^§\s*\d+(?:\.\d+)*$', 4),
+        
+        # 7. Заголовки структурных единиц (Статья, Раздел, Глава, Пункт, Параграф).
+        # Мультиязычная поддержка: RU, EN, DE, FR, ES, IT, TR, SR/HR.
+        # Регистронезависимо (?i), поддерживает основные словоформы.
+        (
+            r'^(?i:'
+                # RU: Статья/статьи, Раздел, Глава/главы, Пункт/пункты, Параграф
+                r'Стать[яи]|Раздел[ыа]?|Глав[аы]|Пункт[ыа]?|Параграф'
+                r'|'
+                # EN: Article, Section, Clause, Chapter, Paragraph, Point, Item
+                r'Article|Section|Clause|Chapter|Paragraph|Point|Item'
+                r'|'
+                # DE: Artikel, Sektion, Kapitel, Absatz
+                r'Artikel|Sektion|Kapitel|Absatz'
+                r'|'
+                # FR: Chapitre, Article, Section
+                r'Chapitre'
+                r'|'
+                # ES: Artículo, Sección, Capítulo
+                r'Artículo|Sección|Capítulo'
+                r'|'
+                # IT: Articolo, Sezione, Capitolo
+                r'Articolo|Sezione|Capitolo'
+                r'|'
+                # TR: Madde, Bölüm, Fıkra, Bent, Başlık
+                r'Madde|Bölüm|Fıkra|Bent|Başlık'
+                r'|'
+                # SR/HR: Član, Odeljak, Stav, Tačka
+                r'Član|Odeljak|Stav|Tačka'
+            r')'
+            r'\s*\d+(?:\.\d+)*',
+            4
+        ),
+        
+        # 8. Приложения, дополнения, вложения (Приложение, Appendix, Annex, Anhang и др.).
+        # Мультиязычная поддержка.
+        (
+            r'^(?i:'
+                # RU: Приложение, Дополнение
+                r'Приложени[еяй]|Дополнени[еяй]'
+                r'|'
+                # EN: Appendix, Annex, Annexure, Schedule, Exhibit, Attachment
+                r'Appendix|Annex(?:ure)?|Schedule|Exhibit|Attachment'
+                r'|'
+                # DE: Anhang, Anlage, Beilage
+                r'Anhang|Anlage|Beilage'
+                r'|'
+                # FR: Annexe
+                r'Annexe'
+                r'|'
+                # ES: Anexo, Apéndice
+                r'Anexo|Apéndice'
+                r'|'
+                # IT: Allegato, Appendice
+                r'Allegato|Appendice'
+                r'|'
+                # TR: Ek
+                r'Ek'
+                r'|'
+                # SR/HR: Prilog, Dodatak
+                r'Prilog|Dodatak'
+            r')'
+            r'\s*(?:№|N[oO]\.?|#)?\s*\d+',
+            4
+        ),
     ]
     
     def __init__(self, fingerprint: DocumentFingerprint):

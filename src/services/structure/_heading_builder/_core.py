@@ -976,7 +976,16 @@ def collect_scored_heading_candidates(
     parsed_by_scope: dict[str | None, list[tuple[int, str]]] = defaultdict(list)
     for i, el in enumerate(elements):
         try:
-            txt = normalize_spaces(str(el.get("text") or ""))
+            _t = normalize_spaces(str(el.get("text") or ""))
+            _m = normalize_spaces(str(el.get("marker") or ""))
+            # Склеиваем ТОЛЬКО заглавные римские и числовые маркеры.
+            # Строчные буквенные маркеры (а), б), a), b)) НЕ склеиваем —
+            # это подпункты списков, а не заголовки глав.
+            _is_structural_marker = bool(
+                re.fullmatch(r'[IVXLCDM]+\.?', _m)
+                or re.fullmatch(r'\d+(?:\.\d+)*\.?', _m)
+            ) if _m else False
+            txt = f"{_m} {_t}".strip() if _is_structural_marker and not _t.startswith(_m) else _t
             if not txt:
                 continue
             p = parse_raw_heading(txt)
@@ -1000,7 +1009,13 @@ def collect_scored_heading_candidates(
     for elem_i, element in enumerate(elements):
         _require_element_structure_contract(element, elem_i, document_id)
 
-        raw_text = normalize_spaces(str(element.get("text") or ""))
+        _t2 = normalize_spaces(str(element.get("text") or ""))
+        _m2 = normalize_spaces(str(element.get("marker") or ""))
+        _is_structural_marker2 = bool(
+            re.fullmatch(r'[IVXLCDM]+\.?', _m2)
+            or re.fullmatch(r'\d+(?:\.\d+)*\.?', _m2)
+        ) if _m2 else False
+        raw_text = f"{_m2} {_t2}".strip() if _is_structural_marker2 and not _t2.startswith(_m2) else _t2
         if not raw_text or len(raw_text) > _MAX_HEADING_RAW_TEXT_LEN:
             continue
 
@@ -1081,12 +1096,35 @@ def collect_scored_heading_candidates(
             ):
                 decision, reason = "rejected", "recoverable_toc_like_rejected_by_toc_guard"
 
-        if el_type == "list_item" and decision == "accepted":
+        if el_type == "list_item":
+            _is_single_lowercase = len(p_uid) == 1 and p_uid.islower()
+            _is_roman_lowercase = bool(re.fullmatch(r"[ivxlcdm]+", p_uid))
+            _is_synthetic_caps = p_uid.startswith("S-")
+            _is_roman_upper = bool(re.fullmatch(r"[IVXLCDM]+", p_uid))
+            _is_alpha_upper = len(p_uid) == 1 and p_uid.isupper()
+
+            _is_valid_non_numeric_heading_uid = (
+                _is_synthetic_caps
+                or _is_roman_upper
+                or _is_alpha_upper
+            )
+
             # Universal rule 1: spatial recovery signal has priority
             if marker_source == "spatial_recovery" and recovery_confidence >= 0.7:
                 decision, reason = "accepted", "spatial_recovery_list_item"
+
+            # Universal rule 1.5: Non-numeric structural headings (roman, alpha, caps)
+            # Не влияет на числовые подпункты — они обрабатываются Правилом 2.
+            elif (
+                _is_valid_non_numeric_heading_uid
+                and not _is_single_lowercase
+                and not _is_roman_lowercase
+                and len(raw_text) <= 160
+            ):
+                decision, reason = "accepted", "list_item_structural_heading"
+
             # Universal rule 2: numeric markers with document-adaptive depth
-            elif _is_strict_numeric_uid(p_uid):
+            elif decision == "accepted" and _is_strict_numeric_uid(p_uid):
                 doc_max_depth = _compute_document_heading_depth(elements)
                 uid_depth = _uid_depth(p_uid)
                 if uid_depth <= doc_max_depth:
@@ -1099,15 +1137,14 @@ def collect_scored_heading_candidates(
                         decision, reason = "accepted", "numeric_list_item_exceptional"
                     else:
                         decision, reason = "ambiguous", "numeric_list_item_beyond_depth"
-            elif _uid_depth(p_uid) > 4 and score < 0.85:
+
+            elif decision == "accepted" and _uid_depth(p_uid) > 4 and score < 0.85:
                 decision, reason = (
                     "ambiguous",
                     "list_item_deep_uid_requires_stronger_evidence",
                 )
-            else:
-                # Alpha/roman/paren list markers are not section headings by themselves.
-                # Ordered alpha/numeric series are recovered via record_heading_recovery
-                # (promote to heading_candidate), not via bare list_item accept.
+
+            elif decision == "accepted":
                 decision, reason = "rejected", "list_item_non_numeric_uid"
 
         if el_type == "definition_item" and decision == "accepted":
