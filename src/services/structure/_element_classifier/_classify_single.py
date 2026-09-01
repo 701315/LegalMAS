@@ -9,16 +9,21 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+
+from core.logging import get_logger
 from services.structure.heading_patterns import parse_raw_heading
 from services.structure.heading_features import (
     looks_like_numeric_amount_continuation,
     looks_like_reference_led_clause_continuation,
 )
 
+
+
 from services.structure.legal_heading_rules import numeric_uid_depth
 from ._config import TOC_SCORE_STRONG, TOC_SCORE_WEAK
 from ._detectors import (
     _heading_candidate_confidence,
+    _is_roman_heading,
     _is_toc_header,
     _looks_like_list_item,
     _looks_like_page_artifact,
@@ -33,6 +38,7 @@ from ._page_stats import _relative_page_position
 from ._text_utils import _normalize_text, _safe_int
 from ._toc_context import _TocContext
 
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     pass
@@ -80,6 +86,21 @@ def _classify_single_element(
     raw_type = str(element.get("type") or "").strip().lower() or None
 
     raw_label = str(element.get("label") or "").strip().lower() or None
+
+
+    # ─── ШПИОНСКИЙ ЛОГ ДЛЯ ОТЛАДКИ ──────────────────────────────────────────────
+    # Будет срабатывать для ЛЮБОГО элемента с этими словами, чтобы мы увидели
+    # реальный текст и результат проверки _is_roman_heading
+    if any(word in text for word in ["ПРЕДМЕТ", "УСЛОВИЯ", "РАСЧЕТЫ", "ОТВЕТСТВЕННОСТЬ", "СРОК ДЕЙСТВИЯ"]):
+        logger.warning(
+            f"DEBUG SPIE: text='{text[:100]}', raw_type='{raw_type}', raw_label='{raw_label}', is_roman={_is_roman_heading(text)}"
+        )
+    # ────────────────────────────────────────────────────────────────────────────
+
+ 
+
+
+
     is_table = bool(element.get("is_table")) or raw_type == "table" or raw_label == "table"
 
     top_ratio, bottom_ratio = _relative_page_position(element, page_stats)
@@ -389,20 +410,47 @@ def _classify_single_element(
             },
         )
 
-    # 8. List item
-    if raw_type in {"listitem", "list_item"} or _looks_like_list_item(text):
-        conf = 0.9 if raw_type in {"listitem", "list_item"} else 0.82
-        reasons.append(
-            ClassificationReason(
-                "list_item_pattern", conf, "Extractor or regex indicates list item"
+    # 8. List item (с защитой от ложной классификации римских заголовков)
+    is_list_by_raw_type = raw_type in {"listitem", "list_item"}
+    is_list_by_regex = _looks_like_list_item(text)
+
+    if is_list_by_raw_type or is_list_by_regex:
+        # ── FIX: Если это универсальный заголовок, мы ПРЯМО возвращаем его как HEADING_CANDIDATE.
+        # Мы НЕ проваливаемся дальше в _heading_candidate_confidence, так как там
+        # строгий скоринг отвергнет текст без UID и с raw_type="list_item".
+        if _is_roman_heading(text):
+            logger.info(
+                "Universal heading detected (uppercase/roman), overriding list_item",
+                element_id=element.get("element_id"),
+                text=text[:80],
+                previous_label=raw_type,
             )
-        )
-        return ClassificationResult(
-            element_type=ELEMENT_TYPE_LIST_ITEM,
-            confidence=conf,
-            reasons=reasons,
-            raw_type=raw_type,
-        )
+            return ClassificationResult(
+                element_type=ELEMENT_TYPE_HEADING_CANDIDATE,
+                confidence=0.85,  # Высокая уверенность для ALL CAPS заголовков
+                reasons=[
+                    ClassificationReason(
+                        "universal_heading_override", 
+                        0.85, 
+                        "Matches universal heading fallback (uppercase, short, no terminal punctuation)"
+                    )
+                ],
+                raw_type=raw_type,
+            )
+        else:
+            conf = 0.9 if is_list_by_raw_type else 0.82
+            reasons.append(
+                ClassificationReason(
+                    "list_item_pattern", conf, "Extractor or regex indicates list item"
+                )
+            )
+            return ClassificationResult(
+                element_type=ELEMENT_TYPE_LIST_ITEM,
+                confidence=conf,
+                reasons=reasons,
+                raw_type=raw_type,
+            )
+    # ── КОНЕЦ FIX ──────────────────────────────────────────────────────
 
     # 9. Heading candidate
     heading_conf = _heading_candidate_confidence(text=text, raw_type=raw_type)
