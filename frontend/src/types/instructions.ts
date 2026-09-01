@@ -51,7 +51,7 @@ export interface InstructionCatalogItem {
   doc_type_code: string;
   name: string;
   category: string | null;
-  parent: string | null;          // ← ДОБАВЛЕНО: top-level YAML field для группировки
+  parent: string | null;
   risk_level: string | null;
   language: string | null;
   jurisdiction: string | null;

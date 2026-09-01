@@ -42,7 +42,7 @@ class InstructionCatalogItem(BaseModel):
     doc_type_code: str
     name: str
     category: str | None = None
-    parent: str | None = None           # ← ДОБАВЛЕНО: top-level YAML field
+    parent: str | None = None
     risk_level: str | None = None
     language: str | None = None
     jurisdiction: str | None = None

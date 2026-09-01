@@ -283,7 +283,7 @@ export function buildDDGridV1ExportRows(params: {
 
   for (const group of model.globalGroups) {
     for (const check of group.checks) {
-      if (!check.checkId) continue; // <-- ДОБАВЛЕНО
+      if (!check.checkId) continue;
       if (!seenCheckIds.has(check.checkId)) {
         seenCheckIds.add(check.checkId);
         allChecks.push(check);
@@ -293,7 +293,7 @@ export function buildDDGridV1ExportRows(params: {
   for (const cls of model.docTypeClasses) {
     for (const t of cls.types) {
       for (const check of t.checks) {
-        if (!check.checkId) continue; // <-- ДОБАВЛЕНО
+        if (!check.checkId) continue;
         if (!seenCheckIds.has(check.checkId)) {
           seenCheckIds.add(check.checkId);
           allChecks.push(check);
@@ -511,7 +511,7 @@ export function buildDDGridV1MatrixExportTable(params: {
     check: DDGridV1CheckNode,
     scopeGroupLabel: string,
   ) => {
-    if (!check.checkId) return; // <-- ДОБАВЛЕНО
+    if (!check.checkId) return;
     if (visibleCheckSet && !visibleCheckSet.has(check.checkId)) return;
     if (seenCheckIds.has(check.checkId)) return;
     seenCheckIds.add(check.checkId);
@@ -716,7 +716,7 @@ export function buildDDGridV1DocumentSectionedExportTable(params: {
 
   for (const group of model.globalGroups) {
     for (const check of group.checks) {
-      if (!check.checkId) continue; // <-- ДОБАВЛЕНО
+      if (!check.checkId) continue;
       if (visibleCheckSet && !visibleCheckSet.has(check.checkId)) continue;
       if (seenCheckIds.has(check.checkId)) continue;
       seenCheckIds.add(check.checkId);
@@ -726,7 +726,7 @@ export function buildDDGridV1DocumentSectionedExportTable(params: {
   for (const cls of model.docTypeClasses) {
     for (const t of cls.types) {
       for (const check of t.checks) {
-        if (!check.checkId) continue; // <-- ДОБАВЛЕНО
+        if (!check.checkId) continue;
         if (visibleCheckSet && !visibleCheckSet.has(check.checkId)) continue;
         if (seenCheckIds.has(check.checkId)) continue;
         seenCheckIds.add(check.checkId);
@@ -871,7 +871,7 @@ export function buildDDGridV1ScopeGroupSectionedExportTable(params: {
     check: DDGridV1CheckNode,
     sectionPlan: ScopeSectionPlan,
   ) => {
-    if (!check.checkId) return; // <-- ДОБАВЛЕНО
+    if (!check.checkId) return;
     if (visibleCheckSet && !visibleCheckSet.has(check.checkId)) return;
     if (seenCheckIds.has(check.checkId)) return;
     seenCheckIds.add(check.checkId);

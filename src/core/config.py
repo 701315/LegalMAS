@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     # --- MinIO / S3 ---
     MINIO_ENDPOINT: str = "127.0.0.1:9000"
-    MINIO_PUBLIC_ENDPOINT: str | None = None  # <-- ДОБАВЛЕНО
+    MINIO_PUBLIC_ENDPOINT: str | None = None
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "Kesko-701315" # (Значение по умолчанию, перекроется из .env)
     MINIO_BUCKET: str = "mas-artifacts"

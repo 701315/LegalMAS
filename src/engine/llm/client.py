@@ -863,7 +863,7 @@ class LLMClient:
             "options": {
                 "temperature": temperature,
                 "num_predict": max_tokens,
-                "num_ctx": settings.LLM_CONTEXT_LIMIT,  # <-- ДОБАВЛЕНО: принудительный размер контекста
+                "num_ctx": settings.LLM_CONTEXT_LIMIT,
             },
         }
 
@@ -1300,7 +1300,7 @@ class LLMClient:
             "options": {
                 "temperature": temperature,
                 "num_predict": max_tokens,
-                "num_ctx": settings.LLM_CONTEXT_LIMIT,  # <-- ДОБАВЛЕНО: принудительный размер контекста
+                "num_ctx": settings.LLM_CONTEXT_LIMIT,
             },
         }
 

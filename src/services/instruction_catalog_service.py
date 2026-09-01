@@ -18,7 +18,7 @@ class InstructionCatalogItemData:
     doc_type_code: str
     name: str
     category: str | None
-    parent: str | None          # ← ДОБАВЛЕНО: из cfg.parent (YAML top-level field)
+    parent: str | None
     risk_level: str | None
     language: str | None
     jurisdiction: str | None
@@ -220,7 +220,7 @@ class InstructionCatalogService:
                 or doc_type_code
             ),
             category=(getattr(cfg, "category", None) if cfg else None),
-            parent=parent_value,                                    # ← ДОБАВЛЕНО
+            parent=parent_value,
             risk_level=(getattr(cfg, "risk_level", None) if cfg else None),
             language=(getattr(cfg, "language", None) if cfg else None),
             jurisdiction=(getattr(cfg, "jurisdiction", None) if cfg else None),

@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, Dict, Optional # Добавлено
+from typing import TYPE_CHECKING, Protocol, Dict, Optional
 
 import yaml
 from pydantic import ValidationError
