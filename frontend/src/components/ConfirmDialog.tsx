@@ -2,6 +2,7 @@
 
 import React, { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import Button from "./ui/Button";
 
 interface ConfirmDialogProps {
@@ -22,14 +23,18 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   open,
   title,
   description,
-  confirmLabel = "Подтвердить",
-  cancelLabel = "Отмена",
+  confirmLabel,
+  cancelLabel,
   isConfirming = false,
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useTranslation("common");
   const titleId = useId();
   const descriptionId = useId();
+
+  const resolvedConfirmLabel = confirmLabel || t("actions.confirm");
+  const resolvedCancelLabel = cancelLabel || t("actions.cancel");
 
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -99,7 +104,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <button
         type="button"
-        aria-label="Закрыть диалог"
+        aria-label={t("actions.close")}
         className="absolute inset-0"
         onClick={() => {
           if (!isConfirming) {
@@ -141,7 +146,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             onClick={onCancel}
             disabled={isConfirming}
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </Button>
 
           <Button
@@ -151,7 +156,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             onClick={onConfirm}
             disabled={isConfirming}
           >
-            {isConfirming ? "Удаляем..." : confirmLabel}
+            {isConfirming ? t("actions.deleting") : resolvedConfirmLabel}
           </Button>
         </div>
       </div>

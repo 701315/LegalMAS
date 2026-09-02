@@ -12,6 +12,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Button from "./Button";
 
 interface ConfirmDialogProps {
@@ -47,14 +48,18 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   open,
   title,
   description,
-  confirmLabel = "Да",
-  cancelLabel = "Отмена",
+  confirmLabel,
+  cancelLabel,
   confirmVariant = "danger",
   isLoading = false,
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useTranslation("common");
   const cancelRef = React.useRef<HTMLButtonElement>(null);
+
+  const resolvedConfirmLabel = confirmLabel || t("actions.yes");
+  const resolvedCancelLabel = cancelLabel || t("actions.cancel");
 
   // Автофокус на кнопке отмены при открытии
   React.useEffect(() => {
@@ -100,7 +105,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       >
         {/* Метка */}
         <div className="mb-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-          ПОДТВЕРЖДЕНИЕ
+          {t("dialogs.confirmation")}
         </div>
 
         {/* Заголовок */}
@@ -131,7 +136,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             onClick={onCancel}
             disabled={isLoading}
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </Button>
           <Button
             variant={confirmVariant}
@@ -140,7 +145,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             onClick={onConfirm}
             isLoading={isLoading}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </Button>
         </div>
       </div>
