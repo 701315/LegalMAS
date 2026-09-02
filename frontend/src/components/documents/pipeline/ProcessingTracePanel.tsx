@@ -1,6 +1,7 @@
 // frontend/src/components/documents/pipeline/ProcessingTracePanel.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useProcessingTrace } from "../../../api/provenance";
 import type { StageTraceDTO } from "../../../api/provenance";
 
@@ -8,32 +9,19 @@ interface Props {
   documentId: string;
 }
 
-const STAGE_LABELS: Record<string, string> = {
-  "workers.build_primary_language_source": "Языковой источник",
-  "workers.extract_document": "Извлечение текста",
-  "pii.sanitize_document": "Санитизация PII",
-  "workers.build_structure": "Построение структуры",
-  "workers.build_chunks": "Чанкинг",
-  "workers.classify_document": "Классификация документа",
-  "workers.classify_document_segments": "Классификация сегментов",
-  "workers.build_legal_units_enrichment": "Семантическое обогащение",
-};
-
-const STRATEGY_LABELS: Record<string, string> = {
-  text: "Native text",
-  trigger_and_policy_based: "PII policy",
-  structure_v2: "Structure v2",
-  segment_chunk_builder_v2: "Chunk builder v2",
-  hybrid_classifier_stage8: "Hybrid classifier",
-  hybrid_segment_classifier_stage8: "Segment classifier",
-  semantic_enrichment_llm: "LLM enrichment",
-};
-
-function formatDuration(ms: number | null | undefined): string {
+function formatDuration(
+  ms: number | null | undefined,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): string {
   if (ms == null) return "—";
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
+  if (ms < 1000) return tFn("trace.duration_ms", { ms });
+  if (ms < 60_000) {
+    return tFn("trace.duration_s", { seconds: (ms / 1000).toFixed(1) });
+  }
+  return tFn("trace.duration_m_s", {
+    minutes: Math.floor(ms / 60_000),
+    seconds: Math.round((ms % 60_000) / 1000),
+  });
 }
 
 function StatusDot({ status }: { status: string }) {
@@ -45,20 +33,24 @@ function StatusDot({ status }: { status: string }) {
   };
   return (
     <span
-      className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${colors[status] ?? "bg-[var(--border-strong)]"}`}
+      className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${
+        colors[status] ?? "bg-[var(--border-strong)]"
+      }`}
     />
   );
 }
 
 function StageRow({ stage }: { stage: StageTraceDTO }) {
+  const { t, i18n } = useTranslation("pipeline");
   const [expanded, setExpanded] = React.useState(false);
 
-  const label =
-    STAGE_LABELS[stage.task_name] ??
-    stage.task_name.replace("workers.", "").replace("pii.", "");
+  // Смена точек на подчёркивания для валидных JSON ключей
+  const normTaskName = stage.task_name.replace(/\./g, "_");
+  const fallbackLabel = stage.task_name.replace("workers.", "").replace("pii.", "");
+  const label = t(`traceStages.${normTaskName}`, { defaultValue: fallbackLabel });
 
   const strategyLabel = stage.strategy
-    ? (STRATEGY_LABELS[stage.strategy] ?? stage.strategy)
+    ? t(`traceStrategies.${stage.strategy}`, { defaultValue: stage.strategy })
     : null;
 
   const warnings = (stage.warnings ?? []).filter(Boolean);
@@ -86,7 +78,7 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
               {label}
             </span>
             <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
-              {formatDuration(stage.duration_ms)}
+              {formatDuration(stage.duration_ms, t)}
             </span>
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
@@ -98,7 +90,9 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
             {terminalOutcome && (
               <span className="text-[10px] text-[var(--text-muted)]">
                 {terminalOutcome}
-                {enrichedCount != null ? ` · ${enrichedCount} сегм.` : ""}
+                {enrichedCount != null
+                  ? ` · ${t("trace.segmentsCount", { count: enrichedCount })}`
+                  : ""}
               </span>
             )}
             {hasWarnings && (
@@ -108,7 +102,7 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
             )}
             {!hasTrace && (
               <span className="text-[10px] text-[var(--text-faint)]">
-                legacy
+                {t("trace.legacy")}
               </span>
             )}
           </div>
@@ -184,14 +178,14 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
             <div className="text-[10px] text-[var(--text-faint)]">
               {stage.started_at && (
                 <div>
-                  Старт:{" "}
-                  {new Date(stage.started_at).toLocaleTimeString("ru-RU")}
+                  {t("trace.start")}{" "}
+                  {new Date(stage.started_at).toLocaleTimeString(i18n.language)}
                 </div>
               )}
               {stage.finished_at && (
                 <div>
-                  Завершено:{" "}
-                  {new Date(stage.finished_at).toLocaleTimeString("ru-RU")}
+                  {t("trace.completedAt")}{" "}
+                  {new Date(stage.finished_at).toLocaleTimeString(i18n.language)}
                 </div>
               )}
             </div>
@@ -203,12 +197,13 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
 }
 
 export function ProcessingTracePanel({ documentId }: Props) {
+  const { t } = useTranslation("pipeline");
   const { data, isLoading, error } = useProcessingTrace(documentId);
 
   if (isLoading) {
     return (
       <div className="text-xs text-[var(--text-muted)]">
-        Загружаем processing trace…
+        {t("trace.loading")}
       </div>
     );
   }
@@ -216,7 +211,7 @@ export function ProcessingTracePanel({ documentId }: Props) {
   if (error) {
     return (
       <div className="text-xs text-[var(--color-error-text)]">
-        Не удалось загрузить processing trace.
+        {t("trace.error")}
       </div>
     );
   }
@@ -224,7 +219,7 @@ export function ProcessingTracePanel({ documentId }: Props) {
   if (!data || data.stages.length === 0) {
     return (
       <div className="text-xs text-[var(--text-faint)]">
-        Processing trace недоступен.
+        {t("trace.unavailable")}
       </div>
     );
   }
@@ -237,7 +232,7 @@ export function ProcessingTracePanel({ documentId }: Props) {
     <div className="space-y-3">
       <div className="flex items-center justify-between text-[11px]">
         <span className="text-[var(--text-muted)]">
-          {succeeded}/{total} стадий завершено
+          {t("trace.stagesCompleted", { succeeded, total })}
         </span>
         <span className="text-[var(--text-faint)]">{data.document_status}</span>
       </div>
@@ -257,5 +252,4 @@ export function ProcessingTracePanel({ documentId }: Props) {
 }
 
 export default ProcessingTracePanel;
-
 

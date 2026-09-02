@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
   Loader2,
@@ -26,7 +27,7 @@ interface Props {
   ) => void;
 }
 
-function getErrorMessage(err: unknown): string {
+function getErrorMessage(err: unknown, tFn: (key: string) => string): string {
   if (typeof err === "object" && err !== null) {
     const maybeDetail = (err as { detail?: unknown }).detail;
     if (typeof maybeDetail === "string" && maybeDetail.trim()) {
@@ -39,13 +40,14 @@ function getErrorMessage(err: unknown): string {
     }
   }
 
-  return "Не удалось загрузить стадии документа";
+  return tFn("pipelinePanel.stagesError");
 }
 
 export const DocumentPipelinePanel: React.FC<Props> = ({
   documentId,
   onOpenStagePreview,
 }) => {
+  const { t } = useTranslation("pipeline");
   const [data, setData] =
     React.useState<DocumentPipelineViewResponseDTO | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
@@ -57,7 +59,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
     async function load() {
       if (!documentId) {
         setData(null);
-        setError("Не указан идентификатор документа");
+        setError(t("pipelinePanel.missingDocId"));
         setLoading(false);
         return;
       }
@@ -79,7 +81,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
         if (controller.signal.aborted) {
           return;
         }
-        setError(getErrorMessage(err));
+        setError(getErrorMessage(err, t));
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -92,7 +94,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
     return () => {
       controller.abort();
     };
-  }, [documentId]);
+  }, [documentId, t]);
 
   const stages = React.useMemo<PipelineStageViewDTO[]>(
     () => data?.stages ?? [],
@@ -127,8 +129,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
           </p>
 
           <p className="mt-1 text-xs leading-5 text-[var(--text-primary)]">
-            Путь документа по стадиям обработки — от исходного PDF до структуры
-            и чанков.
+            {t("pipelinePanel.pathDescription")}
           </p>
         </div>
       </div>
@@ -136,7 +137,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
       {loading ? (
         <div className="flex items-center gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-muted)]">
           <Loader2 className="h-4 w-4 animate-spin text-[var(--text-faint)]" />
-          <span>Загрузка стадий обработки…</span>
+          <span>{t("pipelinePanel.stagesLoading")}</span>
         </div>
       ) : error ? (
         <div className="flex items-start gap-2 rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-sm text-[var(--color-error-text)]">
@@ -155,7 +156,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
         </div>
       ) : (
         <div className="flex items-center justify-between rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--text-muted)]">
-          <span>Стадии обработки пока недоступны.</span>
+          <span>{t("pipelinePanel.notAvailable")}</span>
         </div>
       )}
     </div>
@@ -163,5 +164,4 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
 };
 
 export default DocumentPipelinePanel;
-
 

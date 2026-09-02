@@ -1,0 +1,116 @@
+{
+  "stages": {
+    "import": "File import",
+    "extract": "Text extraction",
+    "pii": "PII sanitization",
+    "structure": "Structure construction",
+    "classify": "Classification",
+    "checks": "Playbook checks",
+    "export": "Report generation",
+    "unknown": "Unknown stage"
+  },
+  "documentStatuses": {
+    "pending": "Awaiting processing",
+    "extracting": "Extracting text",
+    "extracted": "Text extracted",
+    "sanitized": "PII hidden",
+    "structured": "Structure built",
+    "classified": "Classification completed",
+    "analyzing": "Running checks",
+    "completed": "Checks completed",
+    "quarantine": "Quarantine (requires verification)",
+    "failed": "Processing error",
+    "duplicate": "Duplicate",
+    "language_selection_required": {
+      "label": "Language selection required",
+      "tooltip": "Document upload complete. For documents with several detected languages, further processing is stopped until the primary analysis language is selected. Russian is set by default.",
+      "description": "Document upload complete. For documents with several detected languages, further processing — including translation to monolingual format, extraction, sanitization, structure building, chunking, and classification — will not proceed until the primary analysis language is selected. Russian is set by default."
+    }
+  },
+  "runStatuses": {
+    "pending": "Awaiting run",
+    "running": "Running",
+    "completed": "Completed",
+    "completed_with_errors": "Completed with errors",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "trace": {
+    "loading": "Loading processing trace…",
+    "error": "Failed to load processing trace.",
+    "unavailable": "Processing trace is unavailable.",
+    "stagesCompleted": "{{succeeded}}/{{total}} stages completed",
+    "legacy": "legacy",
+    "segmentsCount_one": "{{count}} segment",
+    "segmentsCount_other": "{{count}} segments",
+    "duration_ms": "{{ms}}ms",
+    "duration_s": "{{seconds}}s",
+    "duration_m_s": "{{minutes}}m {{seconds}}s",
+    "start": "Start:",
+    "completedAt": "Completed:"
+  },
+  "traceStages": {
+    "workers_build_primary_language_source": "Language source",
+    "workers_extract_document": "Text extraction",
+    "pii_sanitize_document": "PII sanitization",
+    "workers_build_structure": "Structure construction",
+    "workers_build_chunks": "Chunking",
+    "workers_classify_document": "Document classification",
+    "workers_classify_document_segments": "Segment classification",
+    "workers_build_legal_units_enrichment": "Semantic enrichment"
+  },
+  "traceStrategies": {
+    "text": "Native text",
+    "trigger_and_policy_based": "PII policy",
+    "structure_v2": "Structure v2",
+    "segment_chunk_builder_v2": "Chunk builder v2",
+    "hybrid_classifier_stage8": "Hybrid classifier",
+    "hybrid_segment_classifier_stage8": "Segment classifier",
+    "semantic_enrichment_llm": "LLM enrichment"
+  },
+  "classification": {
+    "loading": "Loading classification decision…",
+    "panelTitle": "How decision was made",
+    "candidatesCount_one": "{{count}} candidate",
+    "candidatesCount_other": "{{count}} candidates",
+    "decisionLabel": "Decision",
+    "confidenceZoneLabel": "Confidence zone",
+    "cascadeLevelLabel": "Cascade level",
+    "outcomeLabel": "Outcome",
+    "confidenceLabel": "Confidence",
+    "languageLabel": "Language",
+    "jurisdictionLabel": "Jurisdiction",
+    "votingScoreLabel": "Voting score",
+    "requiresManual": "Requires manual review",
+    "l4Triggered": "L4 LLM triggered",
+    "unknownCorridor": "Unknown corridor",
+    "passedCascade": "Cascade levels passed:",
+    "candidatesTitle": "Classification candidates ({{count}}):",
+    "winnerBadge": "Selected",
+    "noCandidatesFallback": "No alternative candidates were considered — decision made deterministically at rule level {{level}}.",
+    "decidedBy": {
+      "L1": "L1 — deterministic match",
+      "L2": "L2 — exact rule match",
+      "L3": "L3 — hybrid decision",
+      "L4": "L4 — LLM classification",
+      "HYBRID": "HYBRID — hybrid decision",
+      "unknown": "Not determined",
+      "failed": "Classification error",
+      "pending": "In progress"
+    },
+    "confidenceZones": {
+      "confident": "Confident",
+      "low": "Low",
+      "unknown": "Undetermined"
+    }
+  },
+  "pipelinePanel": {
+    "stagesLoading": "Loading processing stages…",
+    "stagesError": "Failed to load document stages",
+    "missingDocId": "Document ID not specified",
+    "pathDescription": "The path of the document through processing stages — from original PDF to structure and chunks.",
+    "notAvailable": "Processing stages are not available yet."
+  }
+}
+
+

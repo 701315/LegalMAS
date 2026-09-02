@@ -1,6 +1,7 @@
 // frontend/src/components/documents/pipeline/ClassificationDecisionPanel.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   useClassificationDecision,
   type ClassificationDecisionDTO,
@@ -14,24 +15,27 @@ function formatConfidence(value: number | null | undefined): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function inferDecidedBy(data: ClassificationDecisionDTO): string {
+function inferDecidedBy(
+  data: ClassificationDecisionDTO,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): string {
   if (data.decided_by) return data.decided_by;
 
   const level = data.classification_level;
   const outcome = data.classification_outcome;
 
   if (level && outcome === "typed") {
-    if (level === "L1") return `${level} — детерминированное совпадение`;
-    if (level === "L2") return `${level} — точное совпадение правила`;
-    if (level === "L3") return `${level} — гибридное решение`;
-    if (level === "L4") return `${level} — LLM классификация`;
-    if (level === "HYBRID") return "HYBRID — гибридное решение";
+    if (level === "L1") return tFn("classification.decidedBy.L1");
+    if (level === "L2") return tFn("classification.decidedBy.L2");
+    if (level === "L3") return tFn("classification.decidedBy.L3");
+    if (level === "L4") return tFn("classification.decidedBy.L4");
+    if (level === "HYBRID") return tFn("classification.decidedBy.HYBRID");
     return level;
   }
 
-  if (outcome === "unknown") return "Не определено";
-  if (outcome === "failed") return "Ошибка классификации";
-  if (outcome === "pending") return "В обработке";
+  if (outcome === "unknown") return tFn("classification.decidedBy.unknown");
+  if (outcome === "failed") return tFn("classification.decidedBy.failed");
+  if (outcome === "pending") return tFn("classification.decidedBy.pending");
 
   return "—";
 }
@@ -49,18 +53,19 @@ function inferConfidenceZone(
 }
 
 function ConfidenceZoneBadge({ zone }: { zone: string | null | undefined }) {
+  const { t } = useTranslation("pipeline");
   if (!zone) return null;
-  const config: Record<string, { label: string; cls: string }> = {
+  const config: Record<string, { labelKey: string; cls: string }> = {
     confident: {
-      label: "Уверенная",
+      labelKey: "classification.confidenceZones.confident",
       cls: "status-border-success status-bg-success status-text-success",
     },
     low: {
-      label: "Низкая",
+      labelKey: "classification.confidenceZones.low",
       cls: "status-border-warning status-bg-warning status-text-warning",
     },
     unknown: {
-      label: "Неопределённая",
+      labelKey: "classification.confidenceZones.unknown",
       cls: "status-border-error status-bg-error status-text-error",
     },
   };
@@ -72,7 +77,7 @@ function ConfidenceZoneBadge({ zone }: { zone: string | null | undefined }) {
         "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]"
       }`}
     >
-      {c?.label ?? zone}
+      {c ? t(c.labelKey) : zone}
     </span>
   );
 }
@@ -107,6 +112,7 @@ function CandidateRow({
   rank: number;
   isWinner: boolean;
 }) {
+  const { t } = useTranslation("pipeline");
   const typeLabel = candidate.type_code || candidate.doctype || "—";
 
   return (
@@ -133,7 +139,7 @@ function CandidateRow({
           </span>
           {isWinner && (
             <span className="status-border-success status-bg-success status-text-success rounded-full border px-1.5 py-0.5 text-[10px] font-medium">
-              Выбран
+              {t("classification.winnerBadge")}
             </span>
           )}
         </div>
@@ -157,6 +163,7 @@ function CandidateRow({
 // ─── Main panel content ──────────────────────────────────────
 
 function DecisionContent({ data }: { data: ClassificationDecisionDTO }) {
+  const { t } = useTranslation("pipeline");
   const hasCandidates = data.candidates.length > 0;
   const hasLevels = data.levels_tried.length > 0;
   const inferredZone = inferConfidenceZone(data);
@@ -165,9 +172,9 @@ function DecisionContent({ data }: { data: ClassificationDecisionDTO }) {
     <div className="space-y-3">
       {/* Summary row */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-        <InfoRow label="Решение" value={inferDecidedBy(data)} />
+        <InfoRow label={t("classification.decisionLabel")} value={inferDecidedBy(data, t)} />
         <InfoRow
-          label="Зона уверенности"
+          label={t("classification.confidenceZoneLabel")}
           value={
             inferredZone ? (
               <ConfidenceZoneBadge zone={inferredZone} />
@@ -177,16 +184,16 @@ function DecisionContent({ data }: { data: ClassificationDecisionDTO }) {
           }
         />
         <InfoRow
-          label="Уровень каскада"
+          label={t("classification.cascadeLevelLabel")}
           value={data.classification_level ?? "—"}
         />
-        <InfoRow label="Outcome" value={data.classification_outcome ?? "—"} />
-        <InfoRow label="Confidence" value={formatConfidence(data.confidence)} />
-        <InfoRow label="Язык" value={data.language ?? "—"} />
-        <InfoRow label="Юрисдикция" value={data.jurisdiction ?? "—"} />
+        <InfoRow label={t("classification.outcomeLabel")} value={data.classification_outcome ?? "—"} />
+        <InfoRow label={t("classification.confidenceLabel")} value={formatConfidence(data.confidence)} />
+        <InfoRow label={t("classification.languageLabel")} value={data.language ?? "—"} />
+        <InfoRow label={t("classification.jurisdictionLabel")} value={data.jurisdiction ?? "—"} />
         {data.voting_score != null && (
           <InfoRow
-            label="Voting score"
+            label={t("classification.votingScoreLabel")}
             value={data.voting_score.toFixed(3)}
           />
         )}
@@ -196,17 +203,17 @@ function DecisionContent({ data }: { data: ClassificationDecisionDTO }) {
       <div className="flex flex-wrap gap-1.5">
         {data.requires_manual_review && (
           <span className="status-border-warning status-bg-warning status-text-warning rounded-full border px-2 py-0.5 text-[10px] font-medium">
-            Требует ручной проверки
+            {t("classification.requiresManual")}
           </span>
         )}
         {data.l4_triggered && (
           <span className="rounded-full border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-blue-strong)]">
-            L4 LLM triggered
+            {t("classification.l4Triggered")}
           </span>
         )}
         {data.unknown_corridor_applied && (
           <span className="status-border-error status-bg-error status-text-error rounded-full border px-2 py-0.5 text-[10px] font-medium">
-            Unknown corridor
+            {t("classification.unknownCorridor")}
           </span>
         )}
       </div>
@@ -215,7 +222,7 @@ function DecisionContent({ data }: { data: ClassificationDecisionDTO }) {
       {hasLevels && (
         <div>
           <p className="mb-1 text-[11px] font-medium text-[var(--text-secondary)]">
-            Пройденные уровни каскада:
+            {t("classification.passedCascade")}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {data.levels_tried.map((level) => (
@@ -234,7 +241,7 @@ function DecisionContent({ data }: { data: ClassificationDecisionDTO }) {
       {hasCandidates ? (
         <div>
           <p className="mb-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
-            Кандидаты классификации ({data.candidates.length}):
+            {t("classification.candidatesTitle", { count: data.candidates.length })}
           </p>
           <div className="space-y-1.5">
             {data.candidates.map((candidate, idx) => {
@@ -256,8 +263,9 @@ function DecisionContent({ data }: { data: ClassificationDecisionDTO }) {
         </div>
       ) : (
         <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-[11px] italic text-[var(--text-muted)]">
-          Альтернативных кандидатов не рассматривалось — решение принято
-          детерминированно на уровне {data.classification_level ?? "правил"}.
+          {t("classification.noCandidatesFallback", {
+            level: data.classification_level ?? t("classification.decidedBy.unknown"),
+          })}
         </p>
       )}
 
@@ -278,6 +286,7 @@ interface Props {
 }
 
 export function ClassificationDecisionPanel({ documentId }: Props) {
+  const { t } = useTranslation("pipeline");
   const { data, isLoading, error } = useClassificationDecision(documentId);
   const [expanded, setExpanded] = React.useState(false);
 
@@ -285,7 +294,7 @@ export function ClassificationDecisionPanel({ documentId }: Props) {
     return (
       <div className="mt-3 flex items-center gap-2 py-2 text-[11px] text-[var(--text-muted)]">
         <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--accent-primary)] border-t-transparent" />
-        Загрузка решения классификации…
+        {t("classification.loading")}
       </div>
     );
   }
@@ -294,7 +303,7 @@ export function ClassificationDecisionPanel({ documentId }: Props) {
     return null;
   }
 
-  const decidedByLabel = inferDecidedBy(data);
+  const decidedByLabel = inferDecidedBy(data, t);
 
   return (
     <div className="mt-3">
@@ -305,15 +314,14 @@ export function ClassificationDecisionPanel({ documentId }: Props) {
       >
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-[var(--text-primary)]">
-            Как было принято решение
+            {t("classification.panelTitle")}
           </span>
           <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
             {decidedByLabel}
           </span>
           {data.candidates.length > 0 && (
             <span className="text-[10px] text-[var(--text-muted)]">
-              {data.candidates.length} кандидат
-              {data.candidates.length > 1 ? "ов" : ""}
+              {t("classification.candidatesCount", { count: data.candidates.length })}
             </span>
           )}
         </div>
@@ -332,5 +340,4 @@ export function ClassificationDecisionPanel({ documentId }: Props) {
 }
 
 export default ClassificationDecisionPanel;
-
 

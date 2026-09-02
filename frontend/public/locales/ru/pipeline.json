@@ -1,0 +1,120 @@
+{
+  "stages": {
+    "import": "Импорт файла",
+    "extract": "Извлечение текста",
+    "pii": "Скрытие персональных данных",
+    "structure": "Построение структуры",
+    "classify": "Классификация",
+    "checks": "Проверки по плейбуку",
+    "export": "Формирование отчёта",
+    "unknown": "Неизвестная стадия"
+  },
+  "documentStatuses": {
+    "pending": "Ожидает обработки",
+    "extracting": "Извлечение текста",
+    "extracted": "Текст извлечён",
+    "sanitized": "PII скрыты",
+    "structured": "Структура построена",
+    "classified": "Классификация выполнена",
+    "analyzing": "Выполняются проверки",
+    "completed": "Проверки выполнены",
+    "quarantine": "Карантин (нужна проверка)",
+    "failed": "Ошибка обработки",
+    "duplicate": "Дубликат",
+    "language_selection_required": {
+      "label": "Нужно выбрать язык",
+      "tooltip": "Загрузка документов завершена. Дальнейшая обработка для многоязычных документов остановлена до выбора основного языка проверки. По умолчанию выбран русский язык.",
+      "description": "Загрузка документов завершена. Для документов, в которых определено несколько языков, дальнейшая обработка — приведение к одноязычности по выбранному основному языку проверки, а также экстракция, санитизация, построение структуры, чанкинг и классификация — не будет продолжена, пока не выбран основной язык проверки. По умолчанию установлен русский язык."
+    }
+  },
+  "runStatuses": {
+    "pending": "Ожидает запуска",
+    "running": "Выполняется",
+    "completed": "Завершён",
+    "completed_with_errors": "Завершён с ошибками",
+    "failed": "Не удалось выполнить",
+    "cancelled": "Отменён"
+  },
+  "trace": {
+    "loading": "Загружаем processing trace…",
+    "error": "Не удалось загрузить processing trace.",
+    "unavailable": "Processing trace недоступен.",
+    "stagesCompleted": "{{succeeded}}/{{total}} стадий завершено",
+    "legacy": "legacy",
+    "segmentsCount_one": "{{count}} сегмент",
+    "segmentsCount_few": "{{count}} сегмента",
+    "segmentsCount_many": "{{count}} сегментов",
+    "segmentsCount_other": "{{count}} сегмента",
+    "duration_ms": "{{ms}}ms",
+    "duration_s": "{{seconds}}s",
+    "duration_m_s": "{{minutes}}m {{seconds}}s",
+    "start": "Старт:",
+    "completedAt": "Завершено:"
+  },
+  "traceStages": {
+    "workers_build_primary_language_source": "Языковой источник",
+    "workers_extract_document": "Извлечение текста",
+    "pii_sanitize_document": "Санитизация PII",
+    "workers_build_structure": "Построение структуры",
+    "workers_build_chunks": "Чанкинг",
+    "workers_classify_document": "Классификация документа",
+    "workers_classify_document_segments": "Классификация сегментов",
+    "workers_build_legal_units_enrichment": "Семантическое обогащение"
+  },
+  "traceStrategies": {
+    "text": "Native text",
+    "trigger_and_policy_based": "PII policy",
+    "structure_v2": "Structure v2",
+    "segment_chunk_builder_v2": "Chunk builder v2",
+    "hybrid_classifier_stage8": "Hybrid classifier",
+    "hybrid_segment_classifier_stage8": "Segment classifier",
+    "semantic_enrichment_llm": "LLM enrichment"
+  },
+  "classification": {
+    "loading": "Загрузка решения классификации…",
+    "panelTitle": "Как было принято решение",
+    "candidatesCount_one": "{{count}} кандидат",
+    "candidatesCount_few": "{{count}} кандидата",
+    "candidatesCount_many": "{{count}} кандидатов",
+    "candidatesCount_other": "{{count}} кандидата",
+    "decisionLabel": "Решение",
+    "confidenceZoneLabel": "Зона уверенности",
+    "cascadeLevelLabel": "Уровень каскада",
+    "outcomeLabel": "Outcome",
+    "confidenceLabel": "Confidence",
+    "languageLabel": "Язык",
+    "jurisdictionLabel": "Юрисдикция",
+    "votingScoreLabel": "Voting score",
+    "requiresManual": "Требует ручной проверки",
+    "l4Triggered": "L4 LLM triggered",
+    "unknownCorridor": "Unknown corridor",
+    "passedCascade": "Пройденные уровни каскада:",
+    "candidatesTitle": "Кандидаты классификации ({{count}}):",
+    "winnerBadge": "Выбран",
+    "noCandidatesFallback": "Альтернативных кандидатов не рассматривалось — решение принято детерминированно на уровне {{level}}.",
+    "decidedBy": {
+      "L1": "L1 — детерминированное совпадение",
+      "L2": "L2 — точное совпадение правила",
+      "L3": "L3 — гибридное решение",
+      "L4": "L4 — LLM классификация",
+      "HYBRID": "HYBRID — гибридное решение",
+      "unknown": "Не определено",
+      "failed": "Ошибка классификации",
+      "pending": "В обработке"
+    },
+    "confidenceZones": {
+      "confident": "Уверенная",
+      "low": "Низкая",
+      "unknown": "Неопределённая"
+    }
+  },
+  "pipelinePanel": {
+    "stagesLoading": "Загрузка стадий обработки…",
+    "stagesError": "Не удалось загрузить стадии документа",
+    "missingDocId": "Не указан идентификатор документа",
+    "pathDescription": "Путь документа по стадиям обработки — от исходного PDF до структуры и чанков.",
+    "notAvailable": "Стадии обработки пока недоступны."
+  }
+}
+
+
