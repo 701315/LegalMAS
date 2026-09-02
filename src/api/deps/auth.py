@@ -36,12 +36,14 @@ class CurrentUser(BaseModel):
                     superadmin | tenant_admin | member
     - tenant_id   : UUID tenant'а пользователя
     - email       : email пользователя
+    - ui_locale   : выбранный язык интерфейса ('en', 'ru' и т.д.)
     """
 
     id: str
     global_role: str
     tenant_id: uuid.UUID
     email: str | None = None
+    ui_locale: str | None = None
 
 
 def get_current_user(
@@ -87,6 +89,7 @@ def get_current_user(
         tenant_id = uuid.UUID(payload["tenant_id"])
         raw_role = payload.get("system_role")
         email = payload.get("email")
+        ui_locale = payload.get("ui_locale")
     except (KeyError, ValueError) as e:
         logger.warning("JWT payload malformed", error=str(e))
         raise HTTPException(
@@ -108,6 +111,7 @@ def get_current_user(
         global_role=normalized_role,
         tenant_id=tenant_id,
         email=email,
+        ui_locale=ui_locale,
     )
 
     # Записываем identity в request.state, чтобы downstream middleware / deps

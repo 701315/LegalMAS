@@ -1,7 +1,3 @@
-// =============================================================
-// frontend/src/components/layout/AppShell.tsx
-// =============================================================
-
 import React from "react";
 import {
   LayoutDashboard,
@@ -19,7 +15,9 @@ import {
   X,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
+import { LanguageSelector } from "../i18n/LanguageSelector";
 import { useUserProjects } from "../../hooks/useUserProjects";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import Button from "../ui/Button";
@@ -160,55 +158,61 @@ interface SuperadminNavProps {
   collapsed: boolean;
 }
 
-const SuperadminNav: React.FC<SuperadminNavProps> = ({ collapsed }) => (
-  <div className="mt-4 space-y-1">
-    {!collapsed && (
-      <SidebarSectionLabel icon={Settings} label="Администрирование" />
-    )}
-    <NavItem
-      collapsed={collapsed}
-      to="/admin"
-      end
-      label="Клиенты"
-      icon={Building2}
-    />
-    <NavItem
-      collapsed={collapsed}
-      to="/admin/instructions"
-      label="Инструкции"
-      icon={BookOpen}
-    />
-    <NavItem
-      collapsed={collapsed}
-      to="/admin/monitoring"
-      label="Мониторинг"
-      icon={BarChart2}
-    />
-  </div>
-);
+const SuperadminNav: React.FC<SuperadminNavProps> = ({ collapsed }) => {
+  const { t } = useTranslation("navigation");
+  return (
+    <div className="mt-4 space-y-1">
+      {!collapsed && (
+        <SidebarSectionLabel icon={Settings} label={t("sidebar.adminSection")} />
+      )}
+      <NavItem
+        collapsed={collapsed}
+        to="/admin"
+        end
+        label={t("sidebar.clients")}
+        icon={Building2}
+      />
+      <NavItem
+        collapsed={collapsed}
+        to="/admin/instructions"
+        label={t("sidebar.instructions")}
+        icon={BookOpen}
+      />
+      <NavItem
+        collapsed={collapsed}
+        to="/admin/monitoring"
+        label={t("sidebar.monitoring")}
+        icon={BarChart2}
+      />
+    </div>
+  );
+};
 
 interface TenantAdminNavProps {
   collapsed: boolean;
 }
 
-const TenantAdminNav: React.FC<TenantAdminNavProps> = ({ collapsed }) => (
-  <div className="mt-4 space-y-1">
-    {!collapsed && <SidebarSectionLabel icon={Settings} label="Организация" />}
-    <NavItem
-      collapsed={collapsed}
-      to="/tenant-admin"
-      end
-      label="Панель администратора"
-      icon={Settings}
-    />
-    <NavItem
-      collapsed={collapsed}
-      to="/tenant-admin/instructions"
-      label="Инструкции"
-      icon={BookOpen}
-    />
-  </div>
-);
+const TenantAdminNav: React.FC<TenantAdminNavProps> = ({ collapsed }) => {
+  const { t } = useTranslation("navigation");
+  return (
+    <div className="mt-4 space-y-1">
+      {!collapsed && <SidebarSectionLabel icon={Settings} label={t("sidebar.orgSection")} />}
+      <NavItem
+        collapsed={collapsed}
+        to="/tenant-admin"
+        end
+        label={t("sidebar.adminPanel")}
+        icon={Settings}
+      />
+      <NavItem
+        collapsed={collapsed}
+        to="/tenant-admin/instructions"
+        label={t("sidebar.instructions")}
+        icon={BookOpen}
+      />
+    </div>
+  );
+};
 
 interface SidebarContentProps {
   collapsed: boolean;
@@ -233,7 +237,6 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   collapsed,
   isMobile,
   currentPath,
-  globalRole,
   isSuperadmin,
   isTenantAdmin,
   showProjectsSection,
@@ -246,94 +249,98 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   onRequestCloseMobile,
   onToggleSidebar,
   onOpenLogout,
-}) => (
-  <div className="relative flex h-full min-h-0 flex-col bg-[var(--bg-card)]">
-    {!isMobile && onToggleSidebar && (
-      <div className="absolute -right-5 top-4 z-20">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={onToggleSidebar}
-          aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
-          aria-pressed={collapsed}
-          className="h-10 min-h-0 w-10 rounded-full p-0 shadow-sm"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          )}
-        </Button>
-      </div>
-    )}
+}) => {
+  const { t } = useTranslation("navigation");
+  const { globalRole } = useAuth();
 
-    <div className="flex shrink-0 items-center gap-3 px-4 py-5">
-      <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--accent-primary)] text-xs font-semibold text-white shadow-sm">
-        <span className="tracking-tight">S</span>
-      </div>
-
-      {!collapsed && (
-        <div className="min-w-0">
-          <div className="text-[length:var(--font-size-body-sm)] leading-[var(--line-height-body-sm)] font-semibold tracking-tight text-[var(--text-primary)]">
-            Steloom
-          </div>
+  return (
+    <div className="relative flex h-full min-h-0 flex-col bg-[var(--bg-card)]">
+      {!isMobile && onToggleSidebar && (
+        <div className="absolute -right-5 top-4 z-20">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onToggleSidebar}
+            aria-label={collapsed ? t("actions.expandMenu") : t("actions.collapseMenu")}
+            aria-pressed={collapsed}
+            className="h-10 min-h-0 w-10 rounded-full p-0 shadow-sm"
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            )}
+          </Button>
         </div>
       )}
 
-      {isMobile && (
-        <button
-          ref={mobileCloseButtonRef}
-          type="button"
-          onClick={onRequestCloseMobile}
-          aria-label="Закрыть меню"
-          className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-xl text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-        >
-          <X className="h-5 w-5" aria-hidden="true" />
-        </button>
-      )}
-    </div>
+      <div className="flex shrink-0 items-center gap-3 px-4 py-5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--accent-primary)] text-xs font-semibold text-white shadow-sm">
+          <span className="tracking-tight">S</span>
+        </div>
 
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
-      <nav className="space-y-1" aria-label="Основная навигация">
-        {isSuperadmin ? (
-          <SuperadminNav collapsed={collapsed} />
-        ) : (
-          <>
-            <NavItem
-              collapsed={collapsed}
-              to="/dashboard"
-              end
-              label="Dashboard"
-              icon={LayoutDashboard}
-            />
+        {!collapsed && (
+          <div className="min-w-0">
+            <div className="text-[length:var(--font-size-body-sm)] leading-[var(--line-height-body-sm)] font-semibold tracking-tight text-[var(--text-primary)]">
+              Steloom
+            </div>
+          </div>
+        )}
 
-            {!collapsed && showProjectsSection && (
-              <div className="mt-1 pl-2">
-                <SidebarSectionLabel
-                  icon={BriefcaseBusiness}
-                  label="Проекты"
-                />
-                <div className="mt-2 space-y-1">
-                  {isProjectsLoading ? (
-                    Array.from({ length: 3 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className="rounded-xl border border-transparent px-3 py-2"
-                      >
-                        <div className="skeleton h-4 w-3/4 rounded" />
-                        <div className="mt-1.5 skeleton h-3 w-1/2 rounded" />
+        {isMobile && (
+          <button
+            ref={mobileCloseButtonRef}
+            type="button"
+            onClick={onRequestCloseMobile}
+            aria-label={t("actions.closeMenu")}
+            className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-xl text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
+        <nav className="space-y-1" aria-label={t("actions.mainNav")}>
+          {isSuperadmin ? (
+            <SuperadminNav collapsed={collapsed} />
+          ) : (
+            <>
+              <NavItem
+                collapsed={collapsed}
+                to="/dashboard"
+                end
+                label={t("sidebar.dashboard")}
+                icon={LayoutDashboard}
+              />
+
+              {!collapsed && showProjectsSection && (
+                <div className="mt-1 pl-2">
+                  <SidebarSectionLabel
+                    icon={BriefcaseBusiness}
+                    label={t("sidebar.projects")}
+                  />
+                  <div className="mt-2 space-y-1">
+                    {isProjectsLoading ? (
+                      Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="rounded-xl border border-transparent px-3 py-2"
+                        >
+                          <div className="skeleton h-4 w-3/4 rounded" />
+                          <div className="mt-1.5 skeleton h-3 w-1/2 rounded" />
+                        </div>
+                      ))
+                    ) : isProjectsError ? (
+                      <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                        {t("sidebar.loadError")}
                       </div>
-                    ))
-                  ) : isProjectsError ? (
-                    <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-                      Не удалось загрузить проекты
-                    </div>
-                  ) : sidebarProjects.length > 0 ? (
-                    sidebarProjects.map((project) => {
-                      const isActive =
-                        currentPath === `/projects/${project.deal_id}` ||
-                        currentPath.startsWith(`/projects/${project.deal_id}/`);
+                    ) : sidebarProjects.length > 0 ? (
+                      sidebarProjects.map((project) => {
+                        const isActive =
+                          currentPath === `/projects/${project.deal_id}` ||
+                          currentPath.startsWith(`/projects/${project.deal_id}/`);
 
                         return (
                           <NavLink
@@ -358,21 +365,21 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                               {project.needs_setup ? (
                                 <span
                                   className="shrink-0 rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-warning-text)]"
-                                  title="Требуется настройка"
+                                  title={t("sidebar.needsSetup")}
                                 >
                                   !
                                 </span>
                               ) : project.analysis_completed ? (
                                 <span
                                   className="shrink-0 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]"
-                                  title="Анализ завершён"
+                                  title={t("sidebar.analysisCompleted")}
                                 >
                                   ✓
                                 </span>
                               ) : project.is_processing ? (
                                 <span
                                   className="shrink-0 flex h-4 w-4 items-center justify-center"
-                                  title="Анализ выполняется…"
+                                  title={t("sidebar.analysisRunning")}
                                 >
                                   <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--accent-primary)]" />
                                 </span>
@@ -384,76 +391,78 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                             </div>
                           </NavLink>
                         );
-                    })
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-                      Нет доступных проектов
-                    </div>
-                  )}
+                      })
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                        {t("sidebar.noProjects")}
+                      </div>
+                    )}
 
-                  {hiddenProjectsCount > 0 && (
-                    <NavLink
-                      to="/dashboard"
-                      className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-                    >
-                      Ещё {hiddenProjectsCount}
-                    </NavLink>
-                  )}
+                    {hiddenProjectsCount > 0 && (
+                      <NavLink
+                        to="/dashboard"
+                        className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+                      >
+                        {t("sidebar.moreProjects", { count: hiddenProjectsCount })}
+                      </NavLink>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {canCreateProject && (
-              <div className="mt-4">
-                <NavItem
-                  collapsed={collapsed}
-                  to="/projects/new"
-                  label="Новый проект"
-                  icon={PlusSquare}
-                />
-              </div>
-            )}
+              {canCreateProject && (
+                <div className="mt-4">
+                  <NavItem
+                    collapsed={collapsed}
+                    to="/projects/new"
+                    label={t("sidebar.newProject")}
+                    icon={PlusSquare}
+                  />
+                </div>
+              )}
 
-            {isTenantAdmin && <TenantAdminNav collapsed={collapsed} />}
-          </>
-        )}
-      </nav>
-    </div>
+              {isTenantAdmin && <TenantAdminNav collapsed={collapsed} />}
+            </>
+          )}
+        </nav>
+      </div>
 
-    <div className="shrink-0 border-t border-[var(--border)] px-3 py-3">
-      <button
-        type="button"
-        onClick={onOpenLogout}
-        aria-label="Открыть окно выхода из профиля"
-        className={[
-          "flex w-full items-center gap-3 rounded-xl bg-[var(--bg-elevated-soft)] px-3 py-2 transition hover:bg-[var(--bg-card)]",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
-          collapsed ? "justify-center" : "justify-start text-left",
-        ].join(" ")}
-      >
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-          aria-hidden="true"
+      <div className="shrink-0 border-t border-[var(--border)] px-3 py-3">
+        <button
+          type="button"
+          onClick={onOpenLogout}
+          aria-label={t("actions.logout")}
+          className={[
+            "flex w-full items-center gap-3 rounded-xl bg-[var(--bg-elevated-soft)] px-3 py-2 transition hover:bg-[var(--bg-card)]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+            collapsed ? "justify-center" : "justify-start text-left",
+          ].join(" ")}
         >
-          <Users className="h-4 w-4" />
-        </span>
-
-        {!collapsed && (
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold text-[var(--text-primary)]">
-              {globalRole ?? "user"}
-            </span>
-            <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-              Выйти из профиля
-            </span>
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+            aria-hidden="true"
+          >
+            <Users className="h-4 w-4" />
           </span>
-        )}
-      </button>
+
+          {!collapsed && (
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold text-[var(--text-primary)]">
+                {globalRole ?? "user"}
+              </span>
+              <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                {t("actions.logout")}
+              </span>
+            </span>
+          )}
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const AppShell: React.FC<AppShellProps> = ({ children }) => {
+  const { t } = useTranslation("navigation");
   const { globalRole, userId, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -474,21 +483,6 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const logoutReturnFocusRef = React.useRef<HTMLElement | null>(null);
   const wasLogoutOpenRef = React.useRef(false);
 
-  // ────────────────────────────────────────────────────────────────────
-  // App-shell mode activation
-  //
-  // Activates .app-shell-mode class on <html> which switches CSS from
-  // marketing scroll model (body scrolls, min-heights, grain overlay)
-  // to app-shell contract (viewport-locked, fixed heights, no body scroll).
-  //
-  // See index.css "HTML / BODY / ROOT — DUAL MODE MODEL" for rationale.
-  //
-  // Critical: without this class, body may unexpectedly scroll when
-  // AppShell overflow chain reaches its limit, causing:
-  //   - Double scroll containers (body + AppShell)
-  //   - Fixed drawers detaching from viewport
-  //   - iOS Safari address bar layout thrashing
-  // ────────────────────────────────────────────────────────────────────
   React.useEffect(() => {
     document.documentElement.classList.add("app-shell-mode");
     return () => {
@@ -654,7 +648,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
             ? DESKTOP_NAV_WIDTH_COLLAPSED_CLASS
             : DESKTOP_NAV_WIDTH_EXPANDED_CLASS,
         ].join(" ")}
-        aria-label="Основная боковая навигация"
+        aria-label={t("actions.mainNav")}
       >
         <SidebarContent
           collapsed={collapsed}
@@ -682,7 +676,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                 ref={hamburgerButtonRef}
                 type="button"
                 onClick={handleOpenMobileNav}
-                aria-label="Открыть меню навигации"
+                aria-label={t("actions.openNav")}
                 aria-expanded={mobileNavOpen}
                 aria-controls="steloom-mobile-nav"
                 className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
@@ -693,13 +687,14 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
           </div>
 
           <span className="justify-self-center truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            Review Workspace
+            {t("header.workspace")}
           </span>
 
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-3">
+            <LanguageSelector variant="minimal" />
             <div className="flex shrink-0 items-center gap-2 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-1 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--color-success-text)]">
               <Shield className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Data secured</span>
+              <span>{t("header.dataSecured")}</span>
             </div>
           </div>
         </header>
@@ -714,7 +709,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
           <button
             type="button"
             tabIndex={-1}
-            aria-label="Закрыть меню"
+            aria-label={t("actions.closeMenu")}
             onClick={() => handleCloseMobileNav(true)}
             className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
           />
@@ -729,7 +724,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
             className={`${MOBILE_DRAWER_WIDTH_CLASS} relative h-full border-r border-[var(--border)] bg-[var(--bg-card)] shadow-2xl`}
           >
             <h2 id="steloom-mobile-nav-title" className="sr-only">
-              Основная навигация
+              {t("actions.mainNav")}
             </h2>
 
             <SidebarContent
@@ -758,7 +753,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
           <button
             type="button"
             tabIndex={-1}
-            aria-label="Закрыть окно выхода"
+            aria-label={t("actions.closeLogout")}
             onClick={handleCloseLogout}
             className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
           />
@@ -773,19 +768,18 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-2xl"
             >
               <div className="mb-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                ПОДТВЕРЖДЕНИЕ
+                {t("logout.heading")}
               </div>
 
               <h2
                 id="logout-dialog-title"
                 className="text-base font-semibold text-[var(--text-primary)]"
               >
-                Выйти из профиля?
+                {t("logout.title")}
               </h2>
 
               <p className="mt-1 text-sm text-[var(--text-muted)]">
-                Вы будете перенаправлены на страницу входа и текущая сессия будет
-                завершена.
+                {t("logout.message")}
               </p>
 
               <div className="mt-5 flex justify-end gap-2">
@@ -796,7 +790,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                   type="button"
                   onClick={handleCloseLogout}
                 >
-                  Нет
+                  {t("logout.cancel")}
                 </Button>
 
                 <Button
@@ -805,7 +799,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                   type="button"
                   onClick={handleConfirmLogout}
                 >
-                  Да
+                  {t("logout.confirm")}
                 </Button>
               </div>
             </div>

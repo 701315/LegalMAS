@@ -95,6 +95,14 @@ class User(Base):
         comment="Полное имя пользователя для отображения в UI",
     )
 
+    ui_locale: Mapped[str | None] = mapped_column(
+        String(35),
+        nullable=True,
+        default=None,
+        server_default=None,
+        comment="Выбранный язык интерфейса (BCP 47 tag: 'en', 'ru' и др.)",
+    )
+
     system_role: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

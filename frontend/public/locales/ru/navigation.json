@@ -1,0 +1,41 @@
+{
+  "sidebar": {
+    "adminSection": "Администрирование",
+    "clients": "Клиенты",
+    "instructions": "Инструкции",
+    "monitoring": "Мониторинг",
+    "orgSection": "Организация",
+    "adminPanel": "Панель администратора",
+    "dashboard": "Dashboard",
+    "projects": "Проекты",
+    "newProject": "Новый проект",
+    "noProjects": "Нет доступных проектов",
+    "loadError": "Не удалось загрузить проекты",
+    "moreProjects": "Ещё {{count}}",
+    "needsSetup": "Требуется настройка",
+    "analysisCompleted": "Анализ завершён",
+    "analysisRunning": "Анализ выполняется…"
+  },
+  "header": {
+    "workspace": "Review Workspace",
+    "dataSecured": "Данные защищены"
+  },
+  "actions": {
+    "expandMenu": "Развернуть меню",
+    "collapseMenu": "Свернуть меню",
+    "closeMenu": "Закрыть меню",
+    "openNav": "Открыть меню навигации",
+    "mainNav": "Основная навигация",
+    "logout": "Выйти из профиля",
+    "closeLogout": "Закрыть окно выхода"
+  },
+  "logout": {
+    "heading": "ПОДТВЕРЖДЕНИЕ",
+    "title": "Выйти из профиля?",
+    "message": "Вы будете перенаправлены на страницу входа и текущая сессия будет завершена.",
+    "cancel": "Нет",
+    "confirm": "Да"
+  }
+}
+
+

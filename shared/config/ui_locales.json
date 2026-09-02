@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "default_locale": "en",
+  "locales": [
+    {
+      "code": "en",
+      "native_name": "English",
+      "english_name": "English",
+      "status": "supported",
+      "is_default": true,
+      "direction": "ltr"
+    },
+    {
+      "code": "ru",
+      "native_name": "Русский",
+      "english_name": "Russian",
+      "status": "supported",
+      "is_default": false,
+      "direction": "ltr"
+    }
+  ]
+}

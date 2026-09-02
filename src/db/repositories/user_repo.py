@@ -38,6 +38,7 @@ class UserRepository:
         full_name: str | None = None,
         system_role: str = "member",
         user_id: uuid.UUID | None = None,
+        ui_locale: str | None = None,
     ) -> User:
         """
         Создать нового пользователя.
@@ -46,12 +47,17 @@ class UserRepository:
         """
         normalized_email = email.strip().lower()
 
+        # Импортируем валидатор локалей
+        from core.i18n.ui_locales import is_valid_ui_locale
+        validated_locale = ui_locale if is_valid_ui_locale(ui_locale) else None
+
         kwargs: dict = {
             "tenant_id": tenant_id,
             "email": normalized_email,
             "password_hash": password_hash,
             "full_name": full_name,
             "system_role": system_role,
+            "ui_locale": validated_locale,
         }
         if user_id is not None:
             kwargs["id"] = user_id
@@ -129,6 +135,8 @@ class UserRepository:
         clear_full_name: bool = False,
         system_role: str | None = None,
         password_hash: str | None = None,
+        ui_locale: str | None = None,
+        clear_ui_locale: bool = False,
     ) -> User | None:
         """
         Обновить данные пользователя.
@@ -138,6 +146,13 @@ class UserRepository:
             values["full_name"] = None
         elif full_name is not None:
             values["full_name"] = full_name
+
+        if clear_ui_locale:
+            values["ui_locale"] = None
+        elif ui_locale is not None:
+            from core.i18n.ui_locales import is_valid_ui_locale
+            if is_valid_ui_locale(ui_locale):
+                values["ui_locale"] = ui_locale
 
         if system_role is not None:
             values["system_role"] = system_role

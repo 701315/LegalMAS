@@ -92,6 +92,7 @@ async def login(
         tenant_id=db_user.tenant_id,
         system_role=system_role,
         email=db_user.email,
+        ui_locale=db_user.ui_locale,
     )
 
     current_user = CurrentUser(
@@ -99,6 +100,7 @@ async def login(
         global_role=system_role,
         tenant_id=db_user.tenant_id,
         email=db_user.email,
+        ui_locale=db_user.ui_locale,
     )
 
     logger.info(

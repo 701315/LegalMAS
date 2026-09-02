@@ -99,6 +99,7 @@ def create_access_token(
     tenant_id: uuid.UUID,
     system_role: str,
     email: str,
+    ui_locale: str | None = None,
 ) -> str:
     """
     Создать JWT access token.
@@ -128,6 +129,7 @@ def create_access_token(
         "tenant_id": str(tenant_id),
         "system_role": system_role,
         "email": email,
+        "ui_locale": ui_locale,
         "exp": expire,
     }
 
