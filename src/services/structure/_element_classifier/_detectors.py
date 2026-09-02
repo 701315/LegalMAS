@@ -295,85 +295,88 @@ def _looks_like_table_content(text: str) -> bool:
 def _is_roman_heading(text: str) -> bool:
     """
     Проверяет, является ли текст заголовком раздела.
-    
-    Универсальное решение — без привязки к конкретным языкам или ключевым словам.
-    Работает для русского, английского, турецкого, сербского, немецкого и др.
-    
-    Критерии (основаны на best practices LegalTech):
-    1. Есть римская цифра + разделитель + заглавная буква (универсальный паттерн)
-    2. ИЛИ текст короткий, полностью заглавный, без точки в конце
-       (это признак heading для любого языка с uppercase/lowercase)
+
+    КОНТРАКТ: принимает ОРИГИНАЛЬНЫЙ (не lowercased) текст элемента.
+    Регистрозависимые проверки (ROMAN_HEADING_RE, isupper) выполняются
+    на оригинальном тексте; нормализация используется только для длины.
+
+    Критерии:
+    1. Римская цифра + разделитель + заглавная буква (универсальный паттерн)
+    2. Текст короткий, полностью заглавный, без терминальной пунктуации
+       (признак heading для любого языка с uppercase/lowercase)
     """
-    normalized = _normalize_text(text)
-    
-    if not normalized or len(normalized) > 120:
+    original = text.strip()
+    if not original or len(original) > 120:
         return False
-    
-    # Критерий 1: Римская цифра + заглавная буква
-    # Работает для любого языка, где есть римская нумерация
-    if ROMAN_HEADING_RE.match(normalized):
+
+    # Критерий 1: Римская цифра + заглавная буква (на оригинальном тексте)
+    if ROMAN_HEADING_RE.match(original):
         return True
-    
-    # Критерий 2: Универсальный fallback для потерянных маркеров
-    # Если Docling вырезал римскую цифру, но текст сохранил признаки заголовка:
-    # - Полностью в верхнем регистре (isupper() работает для любого Unicode-языка)
-    # - Короткий (<= 60 символов — заголовки редко бывают длиннее)
-    # - Не заканчивается на точку/запятую (признак обычного предложения)
+
+    # Критерий 2: ALL-CAPS fallback (на оригинальном тексте).
+    # Исключаем строки, начинающиеся с цифры: "1. ПРЕДМЕТ ДОГОВОРА" —
+    # это нумерованный элемент, а не заголовок раздела. Числовые заголовки
+    # обрабатываются через parse_raw_heading + numeric heading override.
     if (
-        normalized.isupper() 
-        and len(normalized) <= 60 
-        and not normalized.rstrip().endswith(('.', ',', ';', ':'))
+        original.isupper()
+        and len(original) <= 60
+        and not original[0].isdigit()
+        and not original.rstrip().endswith(('.', ',', ';', ':'))
     ):
         return True
-    
+
     return False
 
 
 def _looks_like_list_item(text: str) -> bool:
     """Проверяет, является ли текст элементом списка.
 
+    КОНТРАКТ: принимает ОРИГИНАЛЬНЫЙ (не lowercased) текст.
+    Регистрозависимый guard (_is_roman_heading) проверяется на оригинале,
+    regex-матчинг — на нормализованном тексте.
+
     Args:
-        text: Текст элемента
+        text: Оригинальный текст элемента
 
     Returns:
         True если текст соответствует паттернам списка
     """
+    original = text.strip()
     normalized = _normalize_text(text)
-    
-    # ── FIX: Если это римский заголовок, мы НЕ считаем его list_item ──
-    if _is_roman_heading(normalized):
+
+    # Guard: римский/ALL-CAPS заголовок не является list_item
+    if _is_roman_heading(original):
         return False
-    # ── КОНЕЦ FIX ──────────────────────────────────────────────────────
-    
+
     return bool(LIST_ITEM_RE.match(normalized) or ROMAN_LIST_ITEM_RE.match(normalized))
 
 
 def _heading_candidate_confidence(*, text: str, raw_type: str | None) -> float:
     """Вычисляет уверенность в том, что текст является заголовком.
 
+    КОНТРАКТ: принимает ОРИГИНАЛЬНЫЙ (не lowercased) текст.
+    Регистрозависимые проверки выполняются на оригинале.
+
     Args:
-        text: Текст элемента
+        text: Оригинальный текст элемента
         raw_type: Сырой тип из экстрактора (если есть)
 
     Returns:
         Оценка уверенности 0.0-1.0
     """
+    original = text.strip()
     normalized = _normalize_text(text)
     score = 0.0
 
-
-    # ── FIX: Бонус за универсальные признаки заголовка ──
-    if _is_roman_heading(normalized):
-        score += 0.50  # Существенный бонус, чтобы преодолеть порог 0.75
-    # ────────────────────────────────────────────────────
-
-
+    # Бонус за универсальные признаки заголовка (на оригинальном тексте)
+    if _is_roman_heading(original):
+        score += 0.50
 
     if raw_type == "heading":
         score += 0.45
     if UID_HEADING_RE.match(normalized):
         score += 0.35
-    if ROOT_HEADING_NO_DOT_RE.match(normalized) and not _looks_like_list_item(normalized):
+    if ROOT_HEADING_NO_DOT_RE.match(normalized) and not _looks_like_list_item(original):
         score += 0.28
     if len(normalized) <= 80 and normalized.isupper() and len(normalized) >= 3:
         score += 0.18
@@ -382,7 +385,7 @@ def _heading_candidate_confidence(*, text: str, raw_type: str | None) -> float:
 
     if _looks_like_signature_block(normalized) or _looks_like_requisites_block(normalized):
         score -= 0.35
-    if _looks_like_list_item(normalized):
+    if _looks_like_list_item(original):
         score -= 0.30
 
     toc_score, _ = _toc_line_score(normalized)

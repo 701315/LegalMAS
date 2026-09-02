@@ -82,24 +82,10 @@ def _classify_single_element(
     # Импорт внутри функции для избежания циклических зависимостей
     from ._classify_reason import ClassificationReason, ClassificationResult
 
-    text = _normalize_text(str(element.get("text") or ""))
+    original_text = str(element.get("text") or "").strip()
+    text = _normalize_text(original_text)
     raw_type = str(element.get("type") or "").strip().lower() or None
-
     raw_label = str(element.get("label") or "").strip().lower() or None
-
-
-    # ─── ШПИОНСКИЙ ЛОГ ДЛЯ ОТЛАДКИ ──────────────────────────────────────────────
-    # Будет срабатывать для ЛЮБОГО элемента с этими словами, чтобы мы увидели
-    # реальный текст и результат проверки _is_roman_heading
-    if any(word in text for word in ["ПРЕДМЕТ", "УСЛОВИЯ", "РАСЧЕТЫ", "ОТВЕТСТВЕННОСТЬ", "СРОК ДЕЙСТВИЯ"]):
-        logger.warning(
-            f"DEBUG SPIE: text='{text[:100]}', raw_type='{raw_type}', raw_label='{raw_label}', is_roman={_is_roman_heading(text)}"
-        )
-    # ────────────────────────────────────────────────────────────────────────────
-
- 
-
-
 
     is_table = bool(element.get("is_table")) or raw_type == "table" or raw_label == "table"
 
@@ -373,7 +359,7 @@ def _classify_single_element(
             and not looks_like_reference_led_clause_continuation(parsed_title)
             and not looks_like_numeric_amount_continuation(parsed_title)
         ):
-            heading_conf = _heading_candidate_confidence(text=text, raw_type=raw_type)
+            heading_conf = _heading_candidate_confidence(text=original_text, raw_type=raw_type)
             reasons.append(
                 ClassificationReason(
                     "extractor_numeric_heading_override",
@@ -412,13 +398,13 @@ def _classify_single_element(
 
     # 8. List item (с защитой от ложной классификации римских заголовков)
     is_list_by_raw_type = raw_type in {"listitem", "list_item"}
-    is_list_by_regex = _looks_like_list_item(text)
+    is_list_by_regex = _looks_like_list_item(original_text)
 
     if is_list_by_raw_type or is_list_by_regex:
-        # ── FIX: Если это универсальный заголовок, мы ПРЯМО возвращаем его как HEADING_CANDIDATE.
-        # Мы НЕ проваливаемся дальше в _heading_candidate_confidence, так как там
-        # строгий скоринг отвергнет текст без UID и с raw_type="list_item".
-        if _is_roman_heading(text):
+        # Если это универсальный заголовок, возвращаем HEADING_CANDIDATE напрямую.
+        # Не проваливаемся в _heading_candidate_confidence, т.к. строгий скоринг
+        # отвергнет текст с raw_type="list_item".
+        if _is_roman_heading(original_text):
             logger.info(
                 "Universal heading detected (uppercase/roman), overriding list_item",
                 element_id=element.get("element_id"),
@@ -453,7 +439,7 @@ def _classify_single_element(
     # ── КОНЕЦ FIX ──────────────────────────────────────────────────────
 
     # 9. Heading candidate
-    heading_conf = _heading_candidate_confidence(text=text, raw_type=raw_type)
+    heading_conf = _heading_candidate_confidence(text=original_text, raw_type=raw_type)
     if heading_conf >= 0.75:
         reasons.append(
             ClassificationReason(

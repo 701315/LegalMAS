@@ -43,12 +43,12 @@ _converter_instance: DocumentConverter | None = None
 
 _MARKER_REGEX = re.compile(
     r"^("
-    r"\d+(?:\.\d+)*\.?"          # Арабские: 1, 1.1, 2.
-    r"|[IVXLCDMivxlcdm]+\.?"     # Римские с опциональной точкой: I, I., II., iv, v.
-    r"|[A-Za-zА-Яа-я]\)"         # Буквы со скобкой: А), a)
-    r"|\([A-Za-zА-Яа-я\d]+\)"    # Буквы/цифры в скобках: (1), (А)
-    r"|[•\-\*—]"                 # Буллеты: •, -, *, —
-    r")(?:\s+|$)"
+    r"\d+(?:\.\d+)*\.?"              # Арабские: 1, 1.1, 2.
+    r"|[IVXLCDMivxlcdm]+\.?"         # Римские с опциональной точкой: I, I., II., iv, v.
+    r"|[A-Za-zА-Яа-я]\)"             # Буквы со скобкой: А), a)
+    r"|\([A-Za-zА-Яа-я\d]+\)"        # Буквы/цифры в скобках: (1), (А)
+    r"|[•\-\*—]"                     # Буллеты: •, -, *, —
+    r")(?=\s+|$)"                    # Positive lookahead: требует пробел после, но не захватывает
 )
 
 
@@ -110,6 +110,12 @@ def _extract_marker(text: str) -> tuple[str | None, bool]:
     match = _MARKER_REGEX.match(stripped)
     if match:
         marker = match.group(1).strip()
+        # FIX: Исключить ложные одиночные буквы (г., В, а и т.д.)
+        # Разрешаем только если это римская цифра, цифра, или буква с )
+        if len(marker) == 1 and marker.isalpha() and marker not in "IVXLCDMivxlcdm":
+            # Одиночная буква без скобки — скорее всего не маркер
+            if not stripped.startswith(marker + ")"):
+                return None, False
         is_marker_only = len(stripped) == len(match.group(0).strip())
         return marker, is_marker_only
     return None, False
@@ -186,6 +192,28 @@ class DoclingExtractor:
                 page_num = int(getattr(prov, "page_no", 1))
                 page_h = page_heights.get(page_num, 841.89)
                 fitz_bbox = _convert_bbox_to_fitz(getattr(prov, "bbox", None), page_h)
+
+            # Сохранение нативного маркера Docling (data-preservation).
+            # Для label=list_item Docling выносит нумерацию в text_item.marker,
+            # а text_item.text содержит только тело. Без этого шага downstream
+            # теряет нумерацию. Универсально: работает для любого формата/языка.
+            _native_marker = getattr(text_item, "marker", None)
+            if _native_marker:
+                _native_str = str(_native_marker).strip()
+                if _native_str:
+                    # Пропускаем marker-only элементы: Docling создаёт их
+                    # отдельно для list_item (text="I.", marker="I.").
+                    # Маркер уже будет добавлен к body-элементу, поэтому
+                    # marker-only — дубликат, который засоряет sanitized layout.
+                    _text_stripped = text_val.strip()
+                    if (
+                        not _text_stripped
+                        or _text_stripped == _native_str
+                        or _text_stripped.rstrip(".") == _native_str.rstrip(".")
+                    ):
+                        continue
+                    if not _text_stripped.startswith(_native_str):
+                        text_val = f"{_native_str} {_text_stripped}"
 
             marker, is_marker_only = _extract_marker(text_val)
 
