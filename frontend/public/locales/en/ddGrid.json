@@ -1,0 +1,79 @@
+{
+  "emptyState": "No results found in DD Grid with selected parameters.",
+  "backButton": "Back",
+  "details": "Details",
+  "columns": {
+    "document": "Document",
+    "docType": "Document type",
+    "check": "Check",
+    "result": "Result",
+    "status": "Status",
+    "location": "Location"
+  },
+  "reviewStatus": {
+    "needs_review": "Requires legal attention",
+    "no_issue_detected": "No issues detected",
+    "not_applicable": "Not applicable",
+    "unclear": "LLM result not 100% clear, user clarification required",
+    "empty": "—"
+  },
+  "location": {
+    "pageAbbr": "p. {{page}}",
+    "noData": "No data",
+    "noViolations": "No violations detected",
+    "notApplicable": "Not applicable",
+    "unclearResult": "Result unclear — manual verification required",
+    "openTooltip": "Open document at this location for manual verification"
+  },
+  "qc": {
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "needs_review": "Needs review"
+  },
+  "extra": {
+    "detectionLevel": {
+      "label": "Analysis method",
+      "description": "Detection level: L1 (rules), L2 (LLM), L3 (RAG+LLM), L4 (manual)",
+      "tooltip": "Analysis method: {{method}}",
+      "unspecified": "Analysis method not determined"
+    },
+    "qcStatus": {
+      "label": "QC",
+      "description": "Status of manual verification by a lawyer"
+    },
+    "confidence": {
+      "label": "Confidence",
+      "description": "Model confidence in result (0.0–1.0)",
+      "tooltip": "Model confidence: {{confidence}}"
+    },
+    "qualityFlags": {
+      "label": "Warnings",
+      "description": "Technical quality flags for the executed check"
+    },
+    "agentName": {
+      "label": "Agent",
+      "description": "Name of the detector / agent that executed the check"
+    },
+    "modelVersion": {
+      "label": "Model",
+      "description": "LLM model version"
+    },
+    "executionTime": {
+      "label": "Execution time",
+      "description": "Check execution duration in ms"
+    },
+    "retryAttempts": {
+      "label": "LLM retries",
+      "description": "Number of LLM invocation retry attempts"
+    },
+    "inputTokens": {
+      "label": "Input tokens",
+      "description": "Number of LLM input tokens"
+    },
+    "outputTokens": {
+      "label": "Output tokens",
+      "description": "Number of LLM output tokens"
+    }
+  }
+}
+

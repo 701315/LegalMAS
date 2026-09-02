@@ -1,0 +1,41 @@
+{
+  "status": {
+    "open": "🔴 Open",
+    "in_progress": "🟡 In progress",
+    "resolved": "🟢 Closed"
+  },
+  "source": {
+    "yaml_template": "YAML template",
+    "manual": "Manual",
+    "aggregator": "Automatic"
+  },
+  "panel": {
+    "title": "DD-request",
+    "checkLabel": "Check: {{checkId}}",
+    "priority": "Priority",
+    "status": "Status",
+    "addressee": "Addressee",
+    "source": "Source",
+    "text": "Request text",
+    "documents": "Documents ({{count}})",
+    "evidenceRefs": "Sources ({{count}})",
+    "structuredValues": "Extracted data ({{count}})",
+    "yamlLink": "Connection to check",
+    "yamlLinkDescription": "Linked to YAML-check (check_id: {{checkId}}).",
+    "copyText": "Copy text",
+    "copied": "Copied",
+    "deleteConfirm": "Delete request? This action cannot be undone.",
+    "closeAria": "Close request panel"
+  },
+  "priorities": {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium"
+  },
+  "statuses": {
+    "open": "Open",
+    "in_progress": "In progress",
+    "resolved": "Closed"
+  }
+}
+

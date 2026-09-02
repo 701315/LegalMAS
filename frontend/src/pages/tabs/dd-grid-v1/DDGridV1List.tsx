@@ -22,6 +22,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { AgGridReact } from "ag-grid-react";
 import type {
   ColDef,
@@ -127,13 +128,16 @@ type ReviewStatusTone =
 // Semantic label + tone для review_status
 // -------------------------------------------------------------
 
-function getReviewStatusMeta(status: string | null | undefined): {
+function getReviewStatusMeta(
+  status: string | null | undefined,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): {
   label: string;
   tone: ReviewStatusTone;
   sortRank: number;
 } {
   if (!status || typeof status !== "string" || status.trim().length === 0) {
-    return { label: "—", tone: "unknown", sortRank: 4 };
+    return { label: tFn("reviewStatus.empty"), tone: "unknown", sortRank: 4 };
   }
 
   const normalized = status.trim();
@@ -141,28 +145,28 @@ function getReviewStatusMeta(status: string | null | undefined): {
   switch (normalized) {
     case "needs_review":
       return {
-        label: "Требует внимания юриста",
+        label: tFn("reviewStatus.needs_review"),
         tone: "warning",
-        sortRank: 0, // выше всех
+        sortRank: 0,
       };
     case "no_issue_detected":
     case "ok":
       return {
-        label: "Без замечаний",
+        label: tFn("reviewStatus.no_issue_detected"),
         tone: "success",
         sortRank: 2,
       };
     case "not_applicable":
       return {
-        label: "Неприменимо",
+        label: tFn("reviewStatus.not_applicable"),
         tone: "muted",
         sortRank: 3,
       };
     case "unclear":
       return {
-        label: "Результат не определён LLM на 100%, требуется уточнение пользователя",
+        label: tFn("reviewStatus.unclear"),
         tone: "warning",
-        sortRank: 1, // между needs_review и ok
+        sortRank: 1,
       };
     default:
       return { label: normalized, tone: "unknown", sortRank: 5 };
@@ -203,15 +207,16 @@ function getReviewStatusTextToneClass(tone: ReviewStatusTone): string {
 // Location text builder
 // -------------------------------------------------------------
 
-function buildLocationText(drawer: DDGridV1DrawerContentDTO | null): string {
+function buildLocationText(
+  drawer: DDGridV1DrawerContentDTO | null,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): string {
   if (!drawer) return "";
 
-  // Пробуем взять первый доступный location из fields (все они обычно
-  // указывают на одно и то же место в документе)
   for (const field of drawer.fields ?? []) {
     const parts: string[] = [];
     if (typeof field.location_page === "number") {
-      parts.push(`стр. ${field.location_page}`);
+      parts.push(tFn("location.pageAbbr", { page: field.location_page }));
     }
     if (
       typeof field.location_clause_ref === "string" &&
@@ -229,15 +234,16 @@ function buildLocationText(drawer: DDGridV1DrawerContentDTO | null): string {
 
 function getQcStatusMeta(
   status: string | null | undefined,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
 ): { label: string | null; tone: "success" | "error" | "warning" | "neutral" | null } {
   if (!status || status === "pending") return { label: null, tone: null };
   switch (status) {
     case "approved":
-      return { label: "Одобрено", tone: "success" };
+      return { label: tFn("qc.approved"), tone: "success" };
     case "rejected":
-      return { label: "Отклонено", tone: "error" };
+      return { label: tFn("qc.rejected"), tone: "error" };
     case "needs_review":
-      return { label: "Нужна проверка", tone: "warning" };
+      return { label: tFn("qc.needs_review"), tone: "warning" };
     default:
       return { label: status, tone: "neutral" };
   }
@@ -254,10 +260,11 @@ function getQcStatusMeta(
  */
 function buildV1ListRows(
   model: DDGridV1DerivedModel,
-  _rows: DDGridV1MatrixRow[],  // ✅ Не используется — берём из model.rows
-  _columns: DDGridV1CheckNode[],  // ✅ Не используется — берём из model
+  _rows: DDGridV1MatrixRow[],
+  _columns: DDGridV1CheckNode[],
   visibleCheckIds: readonly string[] | null,
   includePassResults: boolean,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
 ): V1ListRow[] {
   // V1-native: берём данные напрямую из model
   // legacyRows и legacyColumns больше не нужны
@@ -304,7 +311,8 @@ function buildV1ListRows(
       // (значит check не выполнялся для этого документа)
       if (!drawer) continue;
 
-      const statusMeta = getReviewStatusMeta(drawer.review_status);
+      const statusMeta = getReviewStatusMeta(drawer.review_status, tFn);
+
 
       // includePassResults toggle: если false — скрываем "OK" статусы
       if (
@@ -319,7 +327,7 @@ function buildV1ListRows(
       const confidenceInfo = resolveDDGridV1Confidence(drawer);
       const qualityFlags = resolveDDGridV1QualityFlags(drawer);
       const qcAuditInfo = resolveDDGridV1QcAuditInfo(drawer);
-      const qcStatusMeta = getQcStatusMeta(qcAuditInfo.status);
+      const qcStatusMeta = getQcStatusMeta(qcAuditInfo.status, tFn);
       const observability = resolveDDGridV1Observability(drawer);
 
       const listRow: V1ListRow = {
@@ -336,7 +344,7 @@ function buildV1ListRows(
         reviewStatus: drawer.review_status ?? null,
         reviewStatusLabel: statusMeta.label,
         reviewStatusTone: statusMeta.tone,
-        locationText: buildLocationText(drawer),
+        locationText: buildLocationText(drawer, tFn),
         detectionLevelBadge: detectionLevelInfo.badge,
         confidenceFormatted: confidenceInfo.formatted,
         confidenceTier: confidenceInfo.tier,
@@ -358,9 +366,13 @@ function buildV1ListRows(
 // Comparators
 // -------------------------------------------------------------
 
-function compareReviewStatus(a: string | null, b: string | null): number {
-  const rankA = getReviewStatusMeta(a).sortRank;
-  const rankB = getReviewStatusMeta(b).sortRank;
+function compareReviewStatus(
+  a: string | null,
+  b: string | null,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): number {
+  const rankA = getReviewStatusMeta(a, tFn).sortRank;
+  const rankB = getReviewStatusMeta(b, tFn).sortRank;
   return rankA - rankB;
 }
 
@@ -495,10 +507,7 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
   onSelectionChange,
   clearSelectionToken,
 }) => {
-  // useIsMobile должен вызываться ДО любого условного return —
-  // React Rules of Hooks. В прошлой версии хук стоял после
-  // early-return `if (!rowData.length)`, что нарушало порядок хуков
-  // при переходе между "есть данные" ↔ "нет данных".
+  const { t } = useTranslation("ddGrid");
   const isMobile = useIsMobile();
 
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -528,8 +537,9 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
         columns,
         visibleCheckIds ?? null,
         includePassResults,
+        t,
       ),
-    [model, rows, columns, visibleCheckIds, includePassResults],
+    [model, rows, columns, visibleCheckIds, includePassResults, t],
   );
 
   useEffect(() => {
@@ -669,7 +679,7 @@ const openDrawerForRow = useCallback(
   const columnDefs = useMemo<ColDef<V1ListRow>[]>(() => {
     const baseColumns: ColDef<V1ListRow>[] = [
       {
-        headerName: "Документ",
+        headerName: t("columns.document"),
         field: "documentName",
         minWidth: 280,
         pinned: "left",
@@ -685,7 +695,7 @@ const openDrawerForRow = useCallback(
         },
       },
       {
-        headerName: "Тип документа",
+        headerName: t("columns.docType"),
         field: "docType",
         minWidth: 160,
         maxWidth: 240,
@@ -701,7 +711,7 @@ const openDrawerForRow = useCallback(
         },
       },
       {
-        headerName: "Проверка",
+        headerName: t("columns.check"),
         field: "checkName",
         minWidth: 240,
         tooltipValueGetter: (params) => params.data?.checkName ?? "",
@@ -716,7 +726,7 @@ const openDrawerForRow = useCallback(
         },
       },
       {
-        headerName: "Результат",
+        headerName: t("columns.result"),
         colId: "displayText",
         minWidth: 320,
         flex: 1,
@@ -733,28 +743,28 @@ const openDrawerForRow = useCallback(
           ) : (
             <span className="text-[11px] italic text-[var(--text-faint)]">
               {row.reviewStatus === "no_issue_detected" || row.reviewStatus === "ok"
-                ? "Нарушений не выявлено"
+                ? t("location.noViolations")
                 : row.reviewStatus === "not_applicable"
-                  ? "Не применимо"
+                  ? t("location.notApplicable")
                   : row.reviewStatus === "unclear"
-                    ? "Результат не определён — требуется ручная проверка" // <-- Улучшенная формулировка
-                    : "Нет данных"}
+                    ? t("location.unclearResult")
+                    : t("location.noData")}
             </span>
           );
         },
       },
       {
-        headerName: "Статус",
+        headerName: t("columns.status"),
         colId: "reviewStatus",
         minWidth: 220,
         valueGetter: (params: ValueGetterParams<V1ListRow>) =>
           params.data?.reviewStatus ?? null,
         valueFormatter: (params: ValueFormatterParams<V1ListRow>): string => {
           const status = params.value as string | null;
-          return getReviewStatusMeta(status).label;
+          return getReviewStatusMeta(status, t).label;
         },
         comparator: (a, b) =>
-          compareReviewStatus(a as string | null, b as string | null),
+          compareReviewStatus(a as string | null, b as string | null, t),
         tooltipValueGetter: (params) => {
           const row = params.data;
           if (!row) return "";
@@ -778,7 +788,7 @@ const openDrawerForRow = useCallback(
         },
       },
       {
-        headerName: "Локация",
+        headerName: t("columns.location"),
         colId: "locationText",
         minWidth: 200,
         maxWidth: 280,
@@ -831,7 +841,7 @@ const openDrawerForRow = useCallback(
               data-skip-row-click="true"
               className="text-xs text-[var(--accent-primary)] hover:underline cursor-pointer transition-colors"
               onClick={handleClick}
-              title="Открыть документ в этой локации для ручной проверки"
+              title={t("location.openTooltip")}
             >
               {row.locationText}
             </button>
@@ -848,7 +858,7 @@ const openDrawerForRow = useCallback(
     // Все возможные extra колонки, ключ = colId (совпадает с DD_GRID_V1_EXTRA_COLUMNS.id)
     const extraColumnsMap: Record<string, ColDef<V1ListRow>> = {
       detectionLevel: {
-        headerName: "Метод анализа",
+        headerName: t("extra.detectionLevel.label"),
         colId: "detectionLevel",
         minWidth: 120,
         maxWidth: 150,
@@ -856,8 +866,8 @@ const openDrawerForRow = useCallback(
           params.data?.detectionLevelBadge ?? "",
         tooltipValueGetter: (params) =>
           params.data?.detectionLevelBadge
-            ? `Метод анализа: ${params.data.detectionLevelBadge}`
-            : "Метод анализа не определён",
+            ? t("extra.detectionLevel.tooltip", { method: params.data.detectionLevelBadge })
+            : t("extra.detectionLevel.unspecified"),
         cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
           const row = params.data;
           if (!row) return null;
@@ -869,7 +879,7 @@ const openDrawerForRow = useCallback(
         },
       },
       qcStatus: {
-        headerName: "QC",
+        headerName: t("extra.qcStatus.label"),
         colId: "qcStatus",
         minWidth: 130,
         maxWidth: 200,
@@ -905,7 +915,7 @@ const openDrawerForRow = useCallback(
         },
       },
       confidence: {
-        headerName: "Уверенность",
+        headerName: t("extra.confidence.label"),
         colId: "confidence",
         minWidth: 110,
         maxWidth: 130,
@@ -913,7 +923,7 @@ const openDrawerForRow = useCallback(
           params.data?.confidenceFormatted ?? "",
         tooltipValueGetter: (params) =>
           params.data?.confidenceFormatted
-            ? `Уверенность модели: ${params.data.confidenceFormatted}`
+            ? t("extra.confidence.tooltip", { confidence: params.data.confidenceFormatted })
             : "",
         cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
           const row = params.data;
@@ -936,7 +946,7 @@ const openDrawerForRow = useCallback(
         },
       },
       qualityFlags: {
-        headerName: "Предупреждения",
+        headerName: t("extra.qualityFlags.label"),
         colId: "qualityFlags",
         minWidth: 160,
         maxWidth: 240,
@@ -970,7 +980,7 @@ const openDrawerForRow = useCallback(
         },
       },
       agentName: {
-        headerName: "Агент",
+        headerName: t("extra.agentName.label"),
         colId: "agentName",
         minWidth: 160,
         maxWidth: 220,
@@ -991,7 +1001,7 @@ const openDrawerForRow = useCallback(
         },
       },
       modelVersion: {
-        headerName: "Модель",
+        headerName: t("extra.modelVersion.label"),
         colId: "modelVersion",
         minWidth: 160,
         maxWidth: 220,
@@ -1012,7 +1022,7 @@ const openDrawerForRow = useCallback(
         },
       },
       executionTime: {
-        headerName: "Время",
+        headerName: t("extra.executionTime.label"),
         colId: "executionTime",
         minWidth: 100,
         maxWidth: 130,
@@ -1033,7 +1043,7 @@ const openDrawerForRow = useCallback(
         },
       },
       retryAttempts: {
-        headerName: "Retries",
+        headerName: t("extra.retryAttempts.label"),
         colId: "retryAttempts",
         minWidth: 90,
         maxWidth: 110,
@@ -1052,7 +1062,7 @@ const openDrawerForRow = useCallback(
         },
       },
       inputTokens: {
-        headerName: "Input tokens",
+        headerName: t("extra.inputTokens.label"),
         colId: "inputTokens",
         minWidth: 120,
         maxWidth: 150,
@@ -1071,7 +1081,7 @@ const openDrawerForRow = useCallback(
         },
       },
       outputTokens: {
-        headerName: "Output tokens",
+        headerName: t("extra.outputTokens.label"),
         colId: "outputTokens",
         minWidth: 120,
         maxWidth: 150,
@@ -1101,7 +1111,7 @@ const openDrawerForRow = useCallback(
     }
 
     return [...baseColumns, ...orderedExtras];
-  }, [onOpenAtLocation, visibleExtraColumnIds]);
+  }, [onOpenAtLocation, visibleExtraColumnIds, t]);
 
   // -----------------------------------------------------------
   // Selection
@@ -1153,7 +1163,7 @@ const openDrawerForRow = useCallback(
   if (!rowData.length) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center text-sm text-[var(--text-secondary)] shadow-sm">
-        По выбранным параметрам в DD Grid ничего не найдено.
+        {t("emptyState")}
       </div>
     );
   }
@@ -1243,11 +1253,11 @@ const openDrawerForRow = useCallback(
                 onClick={closeDrawer}
                 className="text-sm font-medium text-[var(--accent-primary)]"
               >
-                Назад
+                {t("backButton")}
               </button>
 
               <div className="text-sm font-semibold text-[var(--text-primary)]">
-                Детали
+                {t("details")}
               </div>
 
               {/* Балансирующий элемент для центрирования */}

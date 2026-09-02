@@ -1,0 +1,80 @@
+{
+  "emptyState": "По выбранным параметрам в DD Grid ничего не найдено.",
+  "backButton": "Назад",
+  "details": "Детали",
+  "columns": {
+    "document": "Документ",
+    "docType": "Тип документа",
+    "check": "Проверка",
+    "result": "Результат",
+    "status": "Статус",
+    "location": "Локация"
+  },
+  "reviewStatus": {
+    "needs_review": "Требует внимания юриста",
+    "no_issue_detected": "Без замечаний",
+    "not_applicable": "Неприменимо",
+    "unclear": "Результат не определён LLM на 100%, требуется уточнение пользователя",
+    "empty": "—"
+  },
+  "location": {
+    "pageAbbr": "стр. {{page}}",
+    "noData": "Нет данных",
+    "noViolations": "Нарушений не выявлено",
+    "notApplicable": "Не применимо",
+    "unclearResult": "Результат не определён — требуется ручная проверка",
+    "openTooltip": "Открыть документ в этой локации для ручной проверки"
+  },
+  "qc": {
+    "approved": "Одобрено",
+    "rejected": "Отклонено",
+    "needs_review": "Нужна проверка"
+  },
+  "extra": {
+    "detectionLevel": {
+      "label": "Метод анализа",
+      "description": "Уровень детекции: L1 (правила), L2 (LLM), L3 (RAG+LLM), L4 (ручная)",
+      "tooltip": "Метод анализа: {{method}}",
+      "unspecified": "Метод анализа не определён"
+    },
+    "qcStatus": {
+      "label": "QC",
+      "description": "Статус ручной проверки юристом"
+    },
+    "confidence": {
+      "label": "Уверенность",
+      "description": "Уверенность модели в результате (0.0–1.0)",
+      "tooltip": "Уверенность модели: {{confidence}}"
+    },
+    "qualityFlags": {
+      "label": "Предупреждения",
+      "description": "Технические флаги качества выполнения проверки"
+    },
+    "agentName": {
+      "label": "Агент",
+      "description": "Имя детектора / агента, выполнившего проверку"
+    },
+    "modelVersion": {
+      "label": "Модель",
+      "description": "Версия LLM модели"
+    },
+    "executionTime": {
+      "label": "Время выполнения",
+      "description": "Длительность выполнения проверки в мс"
+    },
+    "retryAttempts": {
+      "label": "Попытки LLM",
+      "description": "Количество попыток вызова LLM"
+    },
+    "inputTokens": {
+      "label": "Input tokens",
+      "description": "Количество входных токенов LLM"
+    },
+    "outputTokens": {
+      "label": "Output tokens",
+      "description": "Количество выходных токенов LLM"
+    }
+  }
+}
+
+

@@ -1,0 +1,74 @@
+{
+  "studio": {
+    "title": "Playbook Studio",
+    "subtitle": "Создание и управление шаблонами playbook и их версиями.",
+    "refresh": "Обновить",
+    "new": "Новый",
+    "templates": "Шаблоны",
+    "newTemplate": "Новый шаблон",
+    "templateEditor": "Редактор шаблона",
+    "configure": "Настроить",
+    "backLabel": "Инструкции"
+  },
+  "errors": {
+    "loadTemplateDetail": "Не удалось загрузить детали шаблона.",
+    "loadTemplates": "Не удалось загрузить шаблоны.",
+    "loadingTemplates": "Загружаем шаблоны…",
+    "validationTitle": "Укажите название шаблона playbook.",
+    "validationItems": "Добавьте хотя бы одну инструкцию в состав шаблона.",
+    "validationNoSelect": "Не выбран шаблон для сохранения.",
+    "validationEtag": "Не удалось определить версию шаблона. Обновите страницу."
+  },
+  "templates": {
+    "emptyTitle": "Шаблонов нет",
+    "emptyDesc": "Создайте первый шаблон playbook.",
+    "emptyEditorTitle": "Шаблон не выбран",
+    "emptyEditorDesc": "Выберите существующий шаблон слева или создайте новый.",
+    "emptyVersionTitle": "Шаблон не выбран",
+    "emptyVersionDesc": "Чтобы создать версию, сначала выберите или создайте шаблон."
+  },
+  "form": {
+    "title": "Название",
+    "titlePlaceholder": "Например: Real Estate DD RU",
+    "description": "Описание",
+    "descriptionPlaceholder": "Короткое описание назначения шаблона…",
+    "dealType": "Тип сделки",
+    "dealTypePlaceholder": "mna / real_estate / nda …",
+    "jurisdiction": "Юрисдикция",
+    "jurisdictionPlaceholder": "RU / EN / DE …",
+    "language": "Язык",
+    "languagePlaceholder": "ru / en / de …",
+    "versionName": "Название версии",
+    "versionNamePlaceholder": "Например: Real Estate DD RU v1",
+    "versionNumber": "Номер версии",
+    "versionNumberPlaceholder": "0.1.0",
+    "modelConfig": "Конфигурация модели",
+    "modelConfigLoading": "Загружаем…",
+    "modelConfigMissing": "Конфигурации моделей не найдены.",
+    "modelConfigCreate": "Создать конфигурацию"
+  },
+  "picker": {
+    "title": "Добавить инструкцию",
+    "group": "Группа",
+    "allGroups": "Все группы",
+    "instruction": "Инструкция",
+    "allAdded": "Все добавлены",
+    "addButton": "Добавить"
+  },
+  "composition": {
+    "title": "Состав шаблона",
+    "empty": "Состав пуст. Используйте блок выше чтобы добавить инструкции."
+  },
+  "version": {
+    "title": "Версия playbook",
+    "subtitle": "Сохранение шаблона и создание версии — одним действием.",
+    "newTemplateAuto": "Новый шаблон (будет создан автоматически)",
+    "draftButton": "Сохранить черновик",
+    "publishButton": "Опубликовать",
+    "existing": "Существующие версии",
+    "draftSuccess": "Шаблон сохранён. Черновик версии playbook создан.",
+    "publishSuccess": "Шаблон сохранён. Версия playbook создана и опубликована."
+  }
+}
+
+

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { DDRequest } from "../../types";
 import { toRequestPanelViewFromLegacy } from "../../viewAdapters/requestPresentation";
 import { Clipboard, Check, Trash2, Pencil, Loader2 } from "lucide-react";
@@ -17,17 +18,18 @@ interface Props {
   documentNameById?: Record<string, string>;
 }
 
-const PRIORITY_OPTIONS: { value: DDRequest["priority"]; label: string }[] = [
-  { value: "critical", label: "Критичный" },
-  { value: "high", label: "Высокий" },
-  { value: "medium", label: "Средний" },
-];
+// Опции переведены на i18n дескрипторы для динамического рендера внутри компонента
+const PRIORITY_KEYS: Record<DDRequest["priority"], string> = {
+  critical: "priorities.critical",
+  high: "priorities.high",
+  medium: "priorities.medium",
+};
 
-const STATUS_OPTIONS: { value: DDRequest["status"]; label: string }[] = [
-  { value: "open", label: "Открыт" },
-  { value: "in_progress", label: "В работе" },
-  { value: "resolved", label: "Закрыт" },
-];
+const STATUS_KEYS: Record<DDRequest["status"], string> = {
+  open: "statuses.open",
+  in_progress: "statuses.in_progress",
+  resolved: "statuses.resolved",
+};
 
 export const RequestSidePanel: React.FC<Props> = ({
   request,
@@ -38,6 +40,7 @@ export const RequestSidePanel: React.FC<Props> = ({
   canManageRequests,
   documentNameById,
 }) => {
+  const { t } = useTranslation("requests");
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [priority, setPriority] = useState<DDRequest["priority"]>("medium");
@@ -86,7 +89,7 @@ export const RequestSidePanel: React.FC<Props> = ({
 
   const handleDelete = async () => {
     if (!canManageRequests) return;
-    if (!confirm("Удалить запрос? Это действие нельзя отменить.")) return;
+    if (!confirm(t("panel.deleteConfirm"))) return;
     await onDelete(request.id);
     onClose();
   };
@@ -107,7 +110,7 @@ export const RequestSidePanel: React.FC<Props> = ({
       <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-            DD‑запрос
+            {t("panel.title")}
           </p>
           <h2
             id="request-panel-title"
@@ -117,7 +120,7 @@ export const RequestSidePanel: React.FC<Props> = ({
           </h2>
           {viewModel.checkId && (
             <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-              Проверка: {viewModel.checkId}
+              {t("panel.checkLabel", { checkId: viewModel.checkId })}
             </p>
           )}
         </div>
@@ -125,7 +128,7 @@ export const RequestSidePanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Закрыть панель запроса"
+          aria-label={t("panel.closeAria")}
           className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
         >
           ✕
@@ -135,7 +138,7 @@ export const RequestSidePanel: React.FC<Props> = ({
       {/* Body */}
       <div className="flex-1 space-y-5 overflow-y-auto px-4 py-3">
         {/* Priority */}
-        <Field label="Приоритет">
+        <Field label={t("panel.priority")}>
           <select
             value={priority}
             onChange={(e) =>
@@ -144,25 +147,25 @@ export const RequestSidePanel: React.FC<Props> = ({
             disabled={!canEdit}
             className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {PRIORITY_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            {(Object.keys(PRIORITY_KEYS) as Array<DDRequest["priority"]>).map((val) => (
+              <option key={val} value={val}>
+                {t(PRIORITY_KEYS[val])}
               </option>
             ))}
           </select>
         </Field>
 
         {/* Status */}
-        <Field label="Статус">
+        <Field label={t("panel.status")}>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as DDRequest["status"])}
             disabled={!canEdit}
             className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            {(Object.keys(STATUS_KEYS) as Array<DDRequest["status"]>).map((val) => (
+              <option key={val} value={val}>
+                {t(STATUS_KEYS[val])}
               </option>
             ))}
           </select>
@@ -170,7 +173,7 @@ export const RequestSidePanel: React.FC<Props> = ({
 
         {/* Addressee */}
         {viewModel.addressee && (
-          <Field label="Адресат">
+          <Field label={t("panel.addressee")}>
             <p className="mt-1 text-sm font-medium text-[var(--text-secondary)]">
               {viewModel.addressee}
             </p>
@@ -179,14 +182,18 @@ export const RequestSidePanel: React.FC<Props> = ({
 
         {/* Source */}
         {viewModel.source && (
-          <Field label="Источник">
+          <Field label={t("panel.source")}>
             <span
               className={[
                 "mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
                 viewModel.source.colorClass,
               ].join(" ")}
             >
-              <span>{viewModel.source.label}</span>
+              <span>
+                {t(`source.${viewModel.source.code}`, {
+                  defaultValue: viewModel.source.label,
+                })}
+              </span>
             </span>
             {viewModel.source.helperText && (
               <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -197,7 +204,7 @@ export const RequestSidePanel: React.FC<Props> = ({
         )}
 
         {/* Request text */}
-        <Field label="Текст запроса">
+        <Field label={t("panel.text")}>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -209,7 +216,7 @@ export const RequestSidePanel: React.FC<Props> = ({
 
         {/* Documents */}
         {documentsWithNames.length > 0 && (
-          <Field label={`Документы (${documentsWithNames.length})`}>
+          <Field label={t("panel.documents", { count: documentsWithNames.length })}>
             <RequestDocumentsList
               documents={documentsWithNames}
               maxVisible={10}
@@ -219,16 +226,16 @@ export const RequestSidePanel: React.FC<Props> = ({
 
         {/* YAML link */}
         {viewModel.checkId && viewModel.source?.code === "yaml_template" && (
-          <Field label="Связь с проверкой">
+          <Field label={t("panel.yamlLink")}>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Связано с YAML‑проверкой (check_id: {viewModel.checkId}).
+              {t("panel.yamlLinkDescription", { checkId: viewModel.checkId })}
             </p>
           </Field>
         )}
 
         {/* Evidence refs */}
         {viewModel.evidenceRefs.length > 0 && (
-          <Field label={`Источники (${viewModel.evidenceRefs.length})`}>
+          <Field label={t("panel.evidenceRefs", { count: viewModel.evidenceRefs.length })}>
             <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-xl bg-[var(--bg-elevated-soft)] p-2">
               {viewModel.evidenceRefs.map((ref, i) => (
                 <div
@@ -245,7 +252,7 @@ export const RequestSidePanel: React.FC<Props> = ({
         {/* Structured values */}
         {viewModel.structuredValues.length > 0 && (
           <Field
-            label={`Извлечённые данные (${viewModel.structuredValues.length})`}
+            label={t("panel.structuredValues", { count: viewModel.structuredValues.length })}
           >
             <RequestStructuredValuesList
               values={viewModel.structuredValues}
@@ -268,12 +275,12 @@ export const RequestSidePanel: React.FC<Props> = ({
           {copied ? (
             <>
               <Check className="h-4 w-4" />
-              <span>Скопировано</span>
+              <span>{t("panel.copied")}</span>
             </>
           ) : (
             <>
               <Clipboard className="h-4 w-4" />
-              <span>Копировать текст</span>
+              <span>{t("panel.copyText")}</span>
             </>
           )}
         </Button>
@@ -294,7 +301,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               ) : (
                 <Check className="h-4 w-4" />
               )}
-              <span>Сохранить</span>
+              <span>{t("actions.save", { ns: "common" })}</span>
             </Button>
             <Button
               type="button"
@@ -307,7 +314,7 @@ export const RequestSidePanel: React.FC<Props> = ({
                 setEditing(false);
               }}
             >
-              Отмена
+              {t("actions.cancel", { ns: "common" })}
             </Button>
           </div>
         ) : (
@@ -321,7 +328,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               disabled={!canManageRequests}
             >
               <Pencil className="h-4 w-4" />
-              <span>Редактировать</span>
+              <span>{t("actions.edit", { ns: "common" })}</span>
             </Button>
             <Button
               type="button"

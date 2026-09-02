@@ -1,0 +1,41 @@
+{
+  "status": {
+    "open": "🔴 Открыт",
+    "in_progress": "🟡 В работе",
+    "resolved": "🟢 Закрыт"
+  },
+  "source": {
+    "yaml_template": "YAML-шаблон",
+    "manual": "Вручную",
+    "aggregator": "Автоматически"
+  },
+  "panel": {
+    "title": "DD‑запрос",
+    "checkLabel": "Проверка: {{checkId}}",
+    "priority": "Приоритет",
+    "status": "Статус",
+    "addressee": "Адресат",
+    "source": "Источник",
+    "text": "Текст запроса",
+    "documents": "Документы ({{count}})",
+    "evidenceRefs": "Источники ({{count}})",
+    "structuredValues": "Извлечённые данные ({{count}})",
+    "yamlLink": "Связь с проверкой",
+    "yamlLinkDescription": "Связано с YAML‑проверкой (check_id: {{checkId}}).",
+    "copyText": "Копировать текст",
+    "copied": "Скопировано",
+    "deleteConfirm": "Удалить запрос? Это действие нельзя отменить.",
+    "closeAria": "Закрыть панель запроса"
+  },
+  "priorities": {
+    "critical": "Критичный",
+    "high": "Высокий",
+    "medium": "Средний"
+  },
+  "statuses": {
+    "open": "Открыт",
+    "in_progress": "В работе",
+    "resolved": "Закрыт"
+  }
+}
+

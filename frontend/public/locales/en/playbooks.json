@@ -1,0 +1,74 @@
+{
+  "studio": {
+    "title": "Playbook Studio",
+    "subtitle": "Create and manage playbook templates and their versions.",
+    "refresh": "Refresh",
+    "new": "New",
+    "templates": "Templates",
+    "newTemplate": "New template",
+    "templateEditor": "Template editor",
+    "configure": "Configure",
+    "backLabel": "Instructions"
+  },
+  "errors": {
+    "loadTemplateDetail": "Failed to load template details.",
+    "loadTemplates": "Failed to load templates.",
+    "loadingTemplates": "Loading templates…",
+    "validationTitle": "Please specify the playbook template name.",
+    "validationItems": "Please add at least one instruction to the template composition.",
+    "validationNoSelect": "No template selected for saving.",
+    "validationEtag": "Failed to determine template version. Please refresh the page."
+  },
+  "templates": {
+    "emptyTitle": "No templates",
+    "emptyDesc": "Create your first playbook template.",
+    "emptyEditorTitle": "No template selected",
+    "emptyEditorDesc": "Select an existing template on the left or create a new one.",
+    "emptyVersionTitle": "No template selected",
+    "emptyVersionDesc": "To create a version, select or create a playbook template first."
+  },
+  "form": {
+    "title": "Name",
+    "titlePlaceholder": "e.g. Real Estate DD RU",
+    "description": "Description",
+    "descriptionPlaceholder": "Short description of the template's purpose…",
+    "dealType": "Deal type",
+    "dealTypePlaceholder": "mna / real_estate / nda …",
+    "jurisdiction": "Jurisdiction",
+    "jurisdictionPlaceholder": "RU / EN / DE …",
+    "language": "Language",
+    "languagePlaceholder": "ru / en / de …",
+    "versionName": "Version name",
+    "versionNamePlaceholder": "e.g. Real Estate DD RU v1",
+    "versionNumber": "Version number",
+    "versionNumberPlaceholder": "0.1.0",
+    "modelConfig": "Model configuration",
+    "modelConfigLoading": "Loading…",
+    "modelConfigMissing": "Model configurations not found.",
+    "modelConfigCreate": "Create configuration"
+  },
+  "picker": {
+    "title": "Add instruction",
+    "group": "Group",
+    "allGroups": "All groups",
+    "instruction": "Instruction",
+    "allAdded": "All added",
+    "addButton": "Add"
+  },
+  "composition": {
+    "title": "Template composition",
+    "empty": "Composition is empty. Use the block above to add instructions."
+  },
+  "version": {
+    "title": "Playbook version",
+    "subtitle": "Save template and create version — in one action.",
+    "newTemplateAuto": "New template (will be created automatically)",
+    "draftButton": "Save draft",
+    "publishButton": "Publish",
+    "existing": "Existing versions",
+    "draftSuccess": "Template saved. Playbook version draft created.",
+    "publishSuccess": "Template saved. Playbook version created and published."
+  }
+}
+
+
