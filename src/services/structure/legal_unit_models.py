@@ -30,32 +30,9 @@ from typing import Any
 class LegalUnitType(str, Enum):
     """
     Семантический тип юридической единицы.
-
-    Для непрофессионального программиста:
-    Это ответ на вопрос "что это за норма?".
-    Например: "это определение термина", "это обязательство стороны",
-    "это гарантия", "это условие платежа".
-
-    Значения:
-    - DEFINITION:              определение термина ("X означает...")
-    - OBLIGATION:              общее обязательство стороны ("Сторона обязана...")
-    - WARRANTY:                гарантия / заверение ("Продавец гарантирует...")
-    - PAYMENT_TERM:            условие оплаты (сумма, срок, порядок)
-    - NOTICE:                  уведомление (порядок, сроки, адреса)
-    - GOVERNING_LAW:           применимое право
-    - JURISDICTION:            подсудность / forum / суд
-    - APPENDIX_REFERENCE:      ссылка/узел приложения
-    - CONFIDENTIALITY:         clause о конфиденциальности / неразглашении
-    - INDEMNIFICATION:         clause о возмещении убытков / indemnity
-    - DISPUTE_RESOLUTION:      clause о разрешении споров / arbitration
-    - TERMINATION_PROVISION:   clause о расторжении / termination mechanics
-    - LIABILITY_PROVISION:     clause об ограничении/исключении ответственности
-    - GENERAL_PROVISION:       общая норма без более точной semantic категории
-    - STRUCTURAL_ANCHOR:       структурный heading-only узел, слабая цитируемость
-    - TECHNICAL_FRAGMENT:      технический fallback fragment, не semantic clause
-    - UNKNOWN:                 тип не определён
+    ВАЖНО: lowercase значения для совместимости с existing artifacts.
     """
-
+    # ── Core types (original 13) ──────────────────────────────────────────
     DEFINITION = "definition"
     OBLIGATION = "obligation"
     WARRANTY = "warranty"
@@ -64,13 +41,29 @@ class LegalUnitType(str, Enum):
     GOVERNING_LAW = "governing_law"
     JURISDICTION = "jurisdiction"
     APPENDIX_REFERENCE = "appendix_reference"
-
     CONFIDENTIALITY = "confidentiality"
     INDEMNIFICATION = "indemnification"
     DISPUTE_RESOLUTION = "dispute_resolution"
     TERMINATION_PROVISION = "termination_provision"
     LIABILITY_PROVISION = "liability_provision"
-    
+
+    # ── P0: 7 новых специфичных типов ─────────────────────────────────────
+    TITLE_TRANSFER = "title_transfer"
+    FORCE_MAJEURE = "force_majeure"
+    AMENDMENT = "amendment"
+    ENTIRE_AGREEMENT = "entire_agreement"
+    SEVERABILITY = "severability"
+    ASSIGNMENT = "assignment"
+    PERSONAL_DATA = "personal_data"
+
+    # ── P2: Дополнительные типы ───────────────────────────────────────────
+    REPRESENTATIONS = "representations"
+    EFFECTIVE_DATE = "effective_date"
+    CONDITIONS_PRECEDENT = "conditions_precedent"
+    COVENANTS = "covenants"
+    GOVERNANCE = "governance"
+
+    # ── Structural/Technical ──────────────────────────────────────────────
     GENERAL_PROVISION = "general_provision"
     STRUCTURAL_ANCHOR = "structural_anchor"
     TECHNICAL_FRAGMENT = "technical_fragment"

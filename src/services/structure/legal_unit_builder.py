@@ -51,142 +51,263 @@ from engine.content.clause_tree_builder import ClauseTreeBuilder
 
 logger = get_logger(__name__)
 
+
 # ---------------------------------------------------------------------------
 # Regex patterns для классификации по title
 # ---------------------------------------------------------------------------
 
+def _pat(ru: str, en: str) -> re.Pattern:
+    """
+    Собирает единый скомпилированный паттерн из RU- и EN-альтернатив.
+    
+    Преимущества:
+    - Явное разделение языковых групп (легче поддерживать)
+    - Единый флаг re.IGNORECASE | re.UNICODE для всех паттернов
+    - Чище читается при код-ревью
+    """
+    return re.compile(r"(" + ru + r"|" + en + r")", re.IGNORECASE | re.UNICODE)
+
+
 _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
-    # ── Definitions ────────────────────────────────────────────────────────
+
+    # ── DEFINITION ───────────────────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(definitions?|defined terms?|interpretation|meanings?|"
-            r"определени[яей]|термины|толкование)\b",
-            re.IGNORECASE,
+        _pat(
+            r"определени[яейю]|\bтермины\b|\bтолкование\b|термины\s+и\s+определения",
+            r"\bdefinitions?\b|\bdefined\s+terms?\b|\binterpretation\b|\bmeanings?\b",
         ),
         LegalUnitType.DEFINITION,
     ),
 
-    # ── Payments ───────────────────────────────────────────────────────────
+    # ── TITLE_TRANSFER (P0) ──────────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(payment|price|consideration|fee|remuneration|"
-            r"оплат[аы]|цена|вознаграждение|платёж|стоимость|сумма)\b",
-            re.IGNORECASE,
+        _pat(
+            r"переход[а-яё]*\s+права\s+собственности|момент[а-яё]*\s+перехода\s+права|"
+            r"право\s+собственности\s+на\s+товар|\bтитул(?:ьные)?\b|"
+            r"владени[ея]\s+и\s+пользовани[ея]|передач[а-яё]*\s+права\s+собственности",
+            r"\btransfer\s+of\s+title\b|\bpassing\s+of\s+(?:title|property|risk)\b|"
+            r"\btitle\s+(?:and\s+)?risk\b|\bownership\s+(?:rights?|transfer)\b|"
+            r"\bproperty\s+rights?\s+transfer\b",
         ),
-        LegalUnitType.PAYMENT_TERM,
+        LegalUnitType.TITLE_TRANSFER,
     ),
 
-    # ── Confidentiality ────────────────────────────────────────────────────
+    # ── FORCE_MAJEURE (P0) ───────────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(confidential(ity)?|non.?disclosure|secret|proprietary information|"
-            r"конфиденциальност[ьи]|неразглашени[еяй]|коммерческая тайна)\b",
-            re.IGNORECASE,
+        _pat(
+            r"форс[\s-]?мажор[а-яё]*|непреодолим[а-яё]*\s+сил[а-яё]*|"
+            r"чрезвычайн[а-яё]*\s+(?:и\s+непредотвратим[а-яё]*\s+)?обстоятельств[а-яё]*|"
+            r"обстоятельств[а-яё]*\s+непреодолимой\s+силы",
+            r"\bforce\s+majeure\b|\bact[s]?\s+of\s+god\b|\bunforeseeable\s+circumstances?\b|"
+            r"\bbeyond\s+(?:the\s+)?(?:reasonable\s+)?control\b",
+        ),
+        LegalUnitType.FORCE_MAJEURE,
+    ),
+
+    # ── CONFIDENTIALITY ──────────────────────────────────────────────────────
+    (
+        _pat(
+            r"конфиденциальност[ьию]|неразглашени[еяий]|коммерческая\s+тайна",
+            r"\bconfidential(?:ity)?\b|\bnon[- ]?disclosure\b|\bsecret[s]?\b|"
+            r"\bproprietary\s+information\b",
         ),
         LegalUnitType.CONFIDENTIALITY,
     ),
 
-    # ── Indemnification ────────────────────────────────────────────────────
+    # ── INDEMNIFICATION ──────────────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(indemnif(y|ication)|hold harmless|"
-            r"возмещени[еяй] убытков|возместить убытки|возместить ущерб)\b",
-            re.IGNORECASE,
+        _pat(
+            r"возмещени[еяий]\s+убытков|возместить\s+убытки|возместить\s+ущерб|"
+            r"компенсаци[яию]\s+вреда",
+            r"\bindemnif(?:y|ication)\b|\bhold\s+harmless\b",
         ),
         LegalUnitType.INDEMNIFICATION,
     ),
 
-    # ── Liability ──────────────────────────────────────────────────────────
+    # ── PAYMENT_TERM (расширено синонимами) ─────────────────────────────────
     (
-        re.compile(
-            r"\b(liabilit(y|ies)|limitation of liability|liability cap|"
-            r"cap on liability|exclusion of liability|consequential damages|indirect damages|"
-            r"ответственность|ограничение ответственности|предел ответственности|"
-            r"освобождени[еяй] от ответственности|косвенные убытки)\b",
-            re.IGNORECASE,
+        _pat(
+            r"оплат[аыойе]|\bцена\b|покупная\s+цена|цена\s+договора|"
+            r"вознаграждени[яейю]|\bплатёж\b|\bстоимость\b|\bсумм[аыое]\s+договора\b|"
+            r"порядок\s+оплаты|арендная\s+плата|плата\s+за\s+аренду|"
+            r"стоимость\s+услуг|стоимость\s+работ|цена\s+работ|"
+            r"размер\s+вознаграждения|цена\s+товара",
+            r"\bpayment[s]?\b|\bprice\b|\bpurchase\s+price\b|\bconsideration\b|"
+            r"\bfee[s]?\b|\bremuneration\b|\brent\b|\brental\s+fee\b|"
+            r"\bservice\s+fee\b|\bpayment\s+terms\b",
+        ),
+        LegalUnitType.PAYMENT_TERM,
+    ),
+
+    # ── LIABILITY_PROVISION (расширено: неустойка/штраф/пеня) ───────────────
+    (
+        _pat(
+            r"\bответственность\b|ограничение\s+ответственности|предел\s+ответственности|"
+            r"освобождени[еяий]\s+от\s+ответственности|косвенные\s+убытки|"
+            r"неустойк[аи]|\bштраф[аы]?\b|\bпен[яи]\b|штрафн[а-яё]*\s+санкци[яи]|"
+            r"убытки\s+в\s+виде\s+неустойки",
+            r"\bliabilit(?:y|ies)\b|\blimitation\s+of\s+liability\b|\bliability\s+cap\b|"
+            r"\bcap\s+on\s+liability\b|\bexclusion\s+of\s+liability\b|"
+            r"\bconsequential\s+damages\b|\bindirect\s+damages\b|"
+            r"\bpenalt(?:y|ies)\b|\bliquidated\s+damages\b|\bfine[s]?\b",
         ),
         LegalUnitType.LIABILITY_PROVISION,
     ),
 
-    # ── Warranties ─────────────────────────────────────────────────────────
+    # ── WARRANTY ─────────────────────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(warrant(y|ies)|representation|guarantee|"
-            r"гарантии?|заверени[яей]|поручительство)\b",
-            re.IGNORECASE,
+        _pat(
+            r"гаранти[иыией]|заверени[яейю]|\bпоручительство\b|заверения\s+и\s+гарантии",
+            r"\bwarrant(?:y|ies)\b|\bguarantee[s]?\b",
         ),
         LegalUnitType.WARRANTY,
     ),
 
-    # ── Notices ────────────────────────────────────────────────────────────
+    # ── REPRESENTATIONS (отделён от WARRANTY) ───────────────────────────────
     (
-        re.compile(
-            r"\b(notice[s]?|notification|communication|correspondence|"
-            r"уведомлени[яей]|извещени[яей]|сообщени[яей]|адреса?)\b",
-            re.IGNORECASE,
+        _pat(
+            r"заявлени[яейю]\s+сторон|заверени[яейю]\s+сторон",
+            r"\brepresentations?\b(?!\s+and\s+warrant)|\bstatements?\s+of\s+fact\b",
+        ),
+        LegalUnitType.REPRESENTATIONS,
+    ),
+
+    # ── NOTICE (исправлено: убран generic "адрес") ──────────────────────────
+    (
+        _pat(
+            r"уведомлени[яейю]|извещени[яейю]|порядок\s+уведомлени[яейю]|"
+            r"адрес[а]?\s+для\s+уведомлений|способ\s+направления\s+уведомлений",
+            r"\bnotice[s]?\b|\bnotification[s]?\b|\bmanner\s+of\s+notice\b",
         ),
         LegalUnitType.NOTICE,
     ),
 
-    # ── Governing law ──────────────────────────────────────────────────────
+    # ── GOVERNING_LAW ───────────────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(governing law|applicable law|choice of law|"
-            r"применимое право|выбор права)\b",
-            re.IGNORECASE,
+        _pat(
+            r"применимое\s+право|выбор\s+права|право,?\s+применимое\s+к\s+договору",
+            r"\bgoverning\s+law\b|\bapplicable\s+law\b|\bchoice\s+of\s+law\b",
         ),
         LegalUnitType.GOVERNING_LAW,
     ),
 
-    # ── Dispute resolution / arbitration ───────────────────────────────────
+    # ── DISPUTE_RESOLUTION (исправлено: убран одиночный "dispute") ─────────
     (
-        re.compile(
-            r"\b(dispute resolution|dispute[s]?|arbitration|arbitral|mediation|"
-            r"разрешение споров|урегулирование споров|арбитраж|третейский суд|"
-            r"медиац(?:ия|ии)|мкас)\b",
-            re.IGNORECASE,
+        _pat(
+            r"разрешение\s+споров|урегулирование\s+споров|\bарбитраж\b|"
+            r"третейский\s+суд|медиац(?:ия|ии)|\bмкас\b|порядок\s+разрешения\s+споров",
+            r"\bdispute\s+resolution\b|\barbitrati(?:on|al)\b|\bmediation\b|"
+            r"\bsettlement\s+of\s+disputes?\b",
         ),
         LegalUnitType.DISPUTE_RESOLUTION,
     ),
 
-    # ── Jurisdiction / forum / court ───────────────────────────────────────
+    # ── JURISDICTION ────────────────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(jurisdiction|competent court|courts? of|forum|venue|exclusive jurisdiction|"
-            r"подсудность|компетентный суд|суд по месту)\b",
-            re.IGNORECASE,
+        _pat(
+            r"\bподсудность\b|компетентный\s+суд|суд\s+по\s+месту",
+            r"\bjurisdiction\b|\bcompetent\s+court\b|\bcourts?\s+of\b|\bforum\b|"
+            r"\bvenue\b|\bexclusive\s+jurisdiction\b",
         ),
         LegalUnitType.JURISDICTION,
     ),
 
-    # ── Appendices ─────────────────────────────────────────────────────────
+    # ── APPENDIX_REFERENCE ──────────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(appendix|annex|exhibit|schedule|attachment|"
-            r"приложени[еяй]|приложение\s*[№#]?\s*\d|перечень)\b",
-            re.IGNORECASE,
+        _pat(
+            r"приложени[яейю]|приложение\s*[№#]?\s*\d|\bперечень\b",
+            r"\bappendix\b|\bannex\b|\bexhibit\b|\bschedule\b|\battachment\b",
         ),
         LegalUnitType.APPENDIX_REFERENCE,
     ),
 
-    # ── Termination ────────────────────────────────────────────────────────
+    # ── AMENDMENT ───────────────────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(terminat(e|ion)|rescind|rescission|termination for cause|"
-            r"right to terminate|termination notice|"
-            r"расторжени[еяй]|прекращени[еяй] договора|"
-            r"право расторжения|уведомление о расторжении)\b",
-            re.IGNORECASE,
+        _pat(
+            r"изменени[яейю]\s+(?:и\s+дополнени[яейю]*\s+)?(?:в\s+)?(?:настоящ[а-яё]*\s+)?договор[а-яё]*|"
+            r"дополнительн[а-яё]*\s+соглашени[яейю]*|допсоглашени[яейю]*|"
+            r"модификаци[яейю]\s+договор[а-яё]*|внесени[яейю]\s+изменений",
+            r"\bamendment[s]?\b|\bmodification[s]?\s+(?:to|of)\s+(?:this\s+)?agreement\b|"
+            r"\bsupplemental\s+agreement\b|\bvariation[s]?\s+of\s+(?:this\s+)?agreement\b",
+        ),
+        LegalUnitType.AMENDMENT,
+    ),
+
+    # ── TERMINATION_PROVISION ───────────────────────────────────────────────
+    (
+        _pat(
+            r"расторжени[яейю]|прекращени[яейю]\s+договора|право\s+расторжения|"
+            r"уведомление\s+о\s+расторжении|односторонний\s+отказ\s+от\s+договора",
+            r"\bterminat(?:e|ion)\b|\brescind\b|\brescission\b|\btermination\s+for\s+cause\b|"
+            r"\bright\s+to\s+terminate\b|\btermination\s+notice\b",
         ),
         LegalUnitType.TERMINATION_PROVISION,
     ),
 
-    # ── Generic obligations — only after specific categories ──────────────
+    # ── ENTIRE_AGREEMENT (P1) ───────────────────────────────────────────────
     (
-        re.compile(
-            r"\b(obligation[s]?|undertaking|covenant|duty|duties|"
-            r"обязательств[ао]|обязанности|обязан|должен)\b",
-            re.IGNORECASE,
+        _pat(
+            r"вся\s+сделк[а-яё]*|полн[а-яё]*\s+соглашени[яейю]*|"
+            r"исключительн[а-яё]*\s+соглашени[яейю]*|единственн[а-яё]*\s+договорённост[а-яё]*|"
+            r"вся\s+договорённост[а-яё]*\s+сторон",
+            r"\bentire\s+agreement\b|\bwhole\s+agreement\b|\bfull\s+understanding\b|"
+            r"\bprior\s+agreements?\s+(?:and\s+)?(?:understandings?\s+)?superseded\b|"
+            r"\bmerger\s+clause\b",
+        ),
+        LegalUnitType.ENTIRE_AGREEMENT,
+    ),
+
+    # ── SEVERABILITY (P1) ───────────────────────────────────────────────────
+    (
+        _pat(
+            r"отделимост[а-яё]*\s+положени[яейю]*|делимост[а-яё]*\s+(?:настоящ[а-яё]*\s+)?договор[а-яё]*|"
+            r"недействительност[а-яё]*\s+(?:отдельн[а-яё]*\s+)?част[а-яё]*|"
+            r"недействительност[а-яё]*\s+(?:отдельн[а-яё]*\s+)?положени[яейю]*",
+            r"\bseverability\b|\bseparability\b|\binvalid\s+provision[s]?\b|"
+            r"\bpartial\s+invalidity\b|\bunenforceable\s+provision[s]?\b",
+        ),
+        LegalUnitType.SEVERABILITY,
+    ),
+
+    # ── ASSIGNMENT (P1) ─────────────────────────────────────────────────────
+    (
+        _pat(
+            r"уступк[а-яё]*\s+прав[а-яё]*(?:\s+требовани[яейю]*)?|\bцессия\b|"
+            r"передач[а-яё]*\s+прав[а-яё]*\s+требовани[яейю]*|перевод[а-яё]*\s+долга",
+            r"\bassignment\s+(?:of\s+)?(?:rights?|claims?|agreement)?\b|"
+            r"\btransfer\s+of\s+rights?\b|\bcession\b|\bnovation\b|\bdelegation\s+of\s+duties\b",
+        ),
+        LegalUnitType.ASSIGNMENT,
+    ),
+
+    # ── PERSONAL_DATA (P1) ──────────────────────────────────────────────────
+    (
+        _pat(
+            r"персональн[а-яё]*\s+данн[а-яё]*|обработк[а-яё]*\s+(?:персональных\s+)?данных|"
+            r"защит[а-яё]*\s+персональных\s+данных|152[\s-]?фз",
+            r"\bgdpr\b|\bpersonal\s+data\b|\bdata\s+protection\b|\bdata\s+privacy\b|"
+            r"\bprivacy\s+policy\b",
+        ),
+        LegalUnitType.PERSONAL_DATA,
+    ),
+
+    # ── GENERAL_PROVISION (P0) — предмет договора, общие положения ──────────
+    (
+        _pat(
+            r"предмет\s+договора|общие\s+положения|основные\s+положения|"
+            r"общие\s+условия|статус\s+сторон|основные\s+условия|"
+            r"положения\s+договора",
+            r"\bgeneral\s+provisions\b|\bgeneral\s+terms\b|\bsubject\s+matter\b|"
+            r"\bbasis\s+of\s+agreement\b",
+        ),
+        LegalUnitType.GENERAL_PROVISION,
+    ),
+
+    # ── OBLIGATION — generic fallback, ДОЛЖЕН БЫТЬ ПОСЛЕДНИМ ────────────────
+    (
+        _pat(
+            r"обязательств[аоие]|\bобязанности?\b|\bобязан\b|\bдолжен\b",
+            r"\bobligation[s]?\b|\bundertaking[s]?\b|\bdut(?:y|ies)\b",
         ),
         LegalUnitType.OBLIGATION,
     ),
@@ -196,16 +317,16 @@ _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
     (
         re.compile(
             r"\b(definitions?|defined terms?|means|shall mean|"
-            r"определени[яей]|означает|понимается)\b",
-            re.IGNORECASE,
+            r"определени[яейю]|означает|понимается)\b",
+            re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.DEFINITIONS,
     ),
     (
         re.compile(
-            r"\b(warrant(y|ies)|represents?|representation[s]?|"
+            r"\b(warrant(?:y|ies)|represents?|representation[s]?|"
             r"гарантирует|заверяет|подтверждает)\b",
-            re.IGNORECASE,
+            re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.REPRESENTATIONS,
     ),
@@ -213,16 +334,16 @@ _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
         re.compile(
             r"\b(shall not|must not|limitation|liability|cap|ceiling|"
             r"не вправе|не несёт|ограничение|предел ответственности)\b",
-            re.IGNORECASE,
+            re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.LIMITATIONS,
     ),
     (
         re.compile(
             r"\b(remedy|remedies|indemnif|indemnity|indemnification|damages|compensation|"
-            r"cure|penalt(y|ies)|"
-            r"средства защиты|возмещени[еяй] убытков|ущерб|компенсация|неустойк[аи])\b",
-            re.IGNORECASE,
+            r"cure|penalt(?:y|ies)|"
+            r"средства защиты|возмещени[яейю] убытков|ущерб|компенсация|неустойк[аи])\b",
+            re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.REMEDIES,
     ),
@@ -230,9 +351,9 @@ _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
         re.compile(
             r"\b(procedure|process|mechanism|step[s]?|timeline|termination|"
             r"notice period|written notice|"
-            r"порядок|процедура|механизм|этапы?|сроки?|расторжени[еяй]|"
-            r"уведомлени[яей]\s+о\s+расторжении)\b",
-            re.IGNORECASE,
+            r"порядок|процедура|механизм|этапы?|сроки?|расторжени[яейю]|"
+            r"уведомлени[яейю]\s+о\s+расторжении)\b",
+            re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.PROCEDURES,
     ),
@@ -240,14 +361,14 @@ _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
         re.compile(
             r"\b(shall|must|obliged|required|undertakes|"
             r"обязан|должен|обязуется|обязательство)\b",
-            re.IGNORECASE,
+            re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.OBLIGATIONS,
     ),
     (
         re.compile(
             r"\b(entitled|right to|may|permitted|вправе|имеет право|может)\b",
-            re.IGNORECASE,
+            re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.RIGHTS,
     ),
@@ -255,8 +376,8 @@ _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
         re.compile(
             r"\b(governing law|jurisdiction|arbitration|notice[s]?|"
             r"entire agreement|severability|waiver|amendment|"
-            r"применимое право|подсудность|уведомлени|вся сделка)\b",
-            re.IGNORECASE,
+            r"применимое право|подсудность|уведомлени[яейю]|вся сделка)\b",
+            re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.BOILERPLATE,
     ),
@@ -448,23 +569,49 @@ def _classify_clause_function(
         return ClauseFunction.UNKNOWN
 
     _type_to_function: dict[LegalUnitType, ClauseFunction] = {
+        # ── Definitions ────────────────────────────────────────────────────
         LegalUnitType.DEFINITION: ClauseFunction.DEFINITIONS,
-        LegalUnitType.WARRANTY: ClauseFunction.REPRESENTATIONS,
+
+        # ── Boilerplate (institutional clauses) ───────────────────────────
         LegalUnitType.GOVERNING_LAW: ClauseFunction.BOILERPLATE,
         LegalUnitType.JURISDICTION: ClauseFunction.BOILERPLATE,
         LegalUnitType.NOTICE: ClauseFunction.BOILERPLATE,
         LegalUnitType.APPENDIX_REFERENCE: ClauseFunction.BOILERPLATE,
         LegalUnitType.DISPUTE_RESOLUTION: ClauseFunction.BOILERPLATE,
         LegalUnitType.GENERAL_PROVISION: ClauseFunction.BOILERPLATE,
+        LegalUnitType.ENTIRE_AGREEMENT: ClauseFunction.BOILERPLATE,
+        LegalUnitType.SEVERABILITY: ClauseFunction.BOILERPLATE,
+        LegalUnitType.AMENDMENT: ClauseFunction.BOILERPLATE,
+        LegalUnitType.EFFECTIVE_DATE: ClauseFunction.BOILERPLATE,
+        LegalUnitType.CONDITIONS_PRECEDENT: ClauseFunction.BOILERPLATE,
+        LegalUnitType.GOVERNANCE: ClauseFunction.BOILERPLATE,
 
+        # ── Obligations ───────────────────────────────────────────────────
         LegalUnitType.OBLIGATION: ClauseFunction.OBLIGATIONS,
         LegalUnitType.PAYMENT_TERM: ClauseFunction.OBLIGATIONS,
         LegalUnitType.CONFIDENTIALITY: ClauseFunction.OBLIGATIONS,
+        LegalUnitType.COVENANTS: ClauseFunction.OBLIGATIONS,
 
+        # ── Remedies ──────────────────────────────────────────────────────
         LegalUnitType.INDEMNIFICATION: ClauseFunction.REMEDIES,
-        LegalUnitType.TERMINATION_PROVISION: ClauseFunction.PROCEDURES,
         LegalUnitType.LIABILITY_PROVISION: ClauseFunction.LIMITATIONS,
 
+        # ── Procedures ────────────────────────────────────────────────────
+        LegalUnitType.TERMINATION_PROVISION: ClauseFunction.PROCEDURES,
+        LegalUnitType.FORCE_MAJEURE: ClauseFunction.PROCEDURES,
+
+        # ── Representations ───────────────────────────────────────────────
+        LegalUnitType.WARRANTY: ClauseFunction.REPRESENTATIONS,
+        LegalUnitType.REPRESENTATIONS: ClauseFunction.REPRESENTATIONS,
+
+        # ── Asset/Rights Transfer ─────────────────────────────────────────
+        LegalUnitType.TITLE_TRANSFER: ClauseFunction.OBLIGATIONS,
+        LegalUnitType.ASSIGNMENT: ClauseFunction.OBLIGATIONS,
+
+        # ── Data/Privacy ──────────────────────────────────────────────────
+        LegalUnitType.PERSONAL_DATA: ClauseFunction.OBLIGATIONS,
+
+        # ── Structural/Technical ──────────────────────────────────────────
         LegalUnitType.STRUCTURAL_ANCHOR: ClauseFunction.UNKNOWN,
         LegalUnitType.TECHNICAL_FRAGMENT: ClauseFunction.UNKNOWN,
     }
