@@ -239,6 +239,7 @@ class RunSummaryService:
             prompt,
             temperature=_PASS_A_TEMPERATURE,
             max_tokens=_PASS_A_MAX_TOKENS,
+            response_format="json_object",  # ← Принудительный JSON режим
         )
 
         await self._record_usage(
@@ -314,12 +315,15 @@ class RunSummaryService:
     def _parse_json(text: str) -> Optional[dict[str, Any]]:
         """Извлечь JSON из LLM-ответа (pure JSON / code block / embedded)."""
         candidate = (text or "").strip()
+        
+        # Попытка 1: Чистый JSON
         try:
             parsed = json.loads(candidate)
             return parsed if isinstance(parsed, dict) else None
         except json.JSONDecodeError:
             pass
 
+        # Попытка 2: Markdown code block
         match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", candidate, re.DOTALL)
         if match:
             try:
@@ -328,6 +332,7 @@ class RunSummaryService:
             except json.JSONDecodeError:
                 pass
 
+        # Попытка 3: Первый JSON объект в тексте
         brace = re.search(r"\{.*\}", candidate, re.DOTALL)
         if brace:
             try:
@@ -335,6 +340,19 @@ class RunSummaryService:
                 return parsed if isinstance(parsed, dict) else None
             except json.JSONDecodeError:
                 pass
+        
+        # Попытка 4: Найти JSON после ключевых фраз
+        for prefix in ["вот json", "here is the json", "json:", "ответ:", "result:"]:
+            idx = candidate.lower().find(prefix)
+            if idx >= 0:
+                rest = candidate[idx + len(prefix):].strip()
+                brace = re.search(r"\{.*\}", rest, re.DOTALL)
+                if brace:
+                    try:
+                        parsed = json.loads(brace.group(0))
+                        return parsed if isinstance(parsed, dict) else None
+                    except json.JSONDecodeError:
+                        pass
 
         return None
         

@@ -1,5 +1,7 @@
 # src/services/structure/legal_unit_builder.py
 
+# src/services/structure/legal_unit_builder.py
+
 """
 LegalUnitBuilder — построение semantic layer LegalUnit поверх clause tree.
 
@@ -36,7 +38,9 @@ LegalUnitBuilder — построение semantic layer LegalUnit поверх 
 from __future__ import annotations
 
 import re
+import uuid
 from typing import Any
+
 from services.structure.legal_unit_extractor import LegalUnitExtractor
 from core.logging import get_logger
 from services.structure.legal_unit_models import (
@@ -49,7 +53,18 @@ from services.structure.legal_unit_models import (
 )
 from engine.content.clause_tree_builder import ClauseTreeBuilder
 
+# LLM fallback imports (lazy — после основных импортов)
+from engine.llm.client import LLMClient
+from engine.prompts.loader import load_prompt as _load_prompt
+from services.llm_usage_recorder import (
+    LLMUsageRecorder,
+    STAGE_STRUCTURE_LEGAL_UNIT_CLASSIFICATION,
+)
+
 logger = get_logger(__name__)
+
+# LLM availability flag
+_LLM_AVAILABLE = LLMClient().is_available()
 
 
 # ---------------------------------------------------------------------------
@@ -69,319 +84,394 @@ def _pat(ru: str, en: str) -> re.Pattern:
 
 
 _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
+    # ВАЖНО: Порядок определяет приоритет! Специфичные → Общие.
 
-    # ── DEFINITION ───────────────────────────────────────────────────────────
+    # ── DEFINITION (специфичный, должен быть первым) ─────────────────────────
     (
         _pat(
-            r"определени[яейю]|\bтермины\b|\bтолкование\b|термины\s+и\s+определения",
-            r"\bdefinitions?\b|\bdefined\s+terms?\b|\binterpretation\b|\bmeanings?\b",
+            r"\bтермины\s+и\s+определения\b|терминология|толковани[ея]|"
+            r"определени[яейю]\b|\bтермины\b",
+            r"\bdefinitions?\b|\bdefined\s+terms?\b|\binterpretation\b|"
+            r"\bmeaning\s+of\s+terms\b|\bterminology\b",
         ),
         LegalUnitType.DEFINITION,
     ),
 
-    # ── TITLE_TRANSFER (P0) ──────────────────────────────────────────────────
+    # ── TITLE_TRANSFER (специфичный: собственность, титул) ──────────────────
     (
         _pat(
-            r"переход[а-яё]*\s+права\s+собственности|момент[а-яё]*\s+перехода\s+права|"
-            r"право\s+собственности\s+на\s+товар|\bтитул(?:ьные)?\b|"
-            r"владени[ея]\s+и\s+пользовани[ея]|передач[а-яё]*\s+права\s+собственности",
-            r"\btransfer\s+of\s+title\b|\bpassing\s+of\s+(?:title|property|risk)\b|"
-            r"\btitle\s+(?:and\s+)?risk\b|\bownership\s+(?:rights?|transfer)\b|"
-            r"\bproperty\s+rights?\s+transfer\b",
+            r"переход\s+права\s+собственности|момент\s+перехода\s+права|"
+            r"право\s+собственности|титул\s+собственности|"
+            r"владени[ея]\s+и\s+пользовани[ея]|передач[аи]\s+права\s+собственности",
+            r"\btransfer\s+of\s+title\b|\bpassing\s+of\s+title\b|"
+            r"\btransfer\s+of\s+ownership\b|\bownership\s+rights?\b|"
+            r"\btitle\s+and\s+risk\b|\bproperty\s+rights?\b",
         ),
         LegalUnitType.TITLE_TRANSFER,
     ),
 
-    # ── FORCE_MAJEURE (P0) ───────────────────────────────────────────────────
+    # ── FORCE_MAJEURE (специфичный: форс-мажор, непреодолимая сила) ────────
     (
         _pat(
             r"форс[\s-]?мажор[а-яё]*|непреодолим[а-яё]*\s+сил[а-яё]*|"
-            r"чрезвычайн[а-яё]*\s+(?:и\s+непредотвратим[а-яё]*\s+)?обстоятельств[а-яё]*|"
+            r"чрезвычайн[а-яё]*\s+обстоятельств[а-яё]*|"
             r"обстоятельств[а-яё]*\s+непреодолимой\s+силы",
-            r"\bforce\s+majeure\b|\bact[s]?\s+of\s+god\b|\bunforeseeable\s+circumstances?\b|"
-            r"\bbeyond\s+(?:the\s+)?(?:reasonable\s+)?control\b",
+            r"\bforce\s+majeure\b|\bact\s+of\s+god\b|"
+            r"\bunforeseeable\s+circumstances?\b|"
+            r"\bbeyond\s+(?:reasonable\s+)?control\b",
         ),
         LegalUnitType.FORCE_MAJEURE,
     ),
 
-    # ── CONFIDENTIALITY ──────────────────────────────────────────────────────
+    # ── CONFIDENTIALITY (специфичный: конфиденциальность, НДА) ─────────────
     (
         _pat(
-            r"конфиденциальност[ьию]|неразглашени[еяий]|коммерческая\s+тайна",
-            r"\bconfidential(?:ity)?\b|\bnon[- ]?disclosure\b|\bsecret[s]?\b|"
+            r"конфиденциальност[ьию]|неразглашени[еяий]|"
+            r"коммерческая\s+тайна|конфиденциальн[а-яё]*\s+информаци[яия]",
+            r"\bconfidentiality\b|\bnon[-]?disclosure\b|"
+            r"\bconfidential\s+information\b|\btrade\s+secret[s]?\b|"
             r"\bproprietary\s+information\b",
         ),
         LegalUnitType.CONFIDENTIALITY,
     ),
 
-    # ── INDEMNIFICATION ──────────────────────────────────────────────────────
+    # ── INDEMNIFICATION (специфичный: возмещение, индемнификация) ──────────
     (
         _pat(
-            r"возмещени[еяий]\s+убытков|возместить\s+убытки|возместить\s+ущерб|"
-            r"компенсаци[яию]\s+вреда",
-            r"\bindemnif(?:y|ication)\b|\bhold\s+harmless\b",
+            r"возмещени[еяий]\s+убытков|возмещени[еяий]\s+вреда|"
+            r"компенсаци[яию]\s+убытков|индемнификаци[яия]|"
+            r"возместить\s+убытки|возместить\s+ущерб",
+            r"\bindemnif(?:y|ication)\b|\bindemnity\b|"
+            r"\bhold\s+harmless\b|\bcompensation\s+for\s+loss\b|"
+            r"\breimbursement\s+of\s+damages\b",
         ),
         LegalUnitType.INDEMNIFICATION,
     ),
 
-    # ── PAYMENT_TERM (расширено синонимами) ─────────────────────────────────
+    # ── PAYMENT_TERM (специфичный: оплата, цена, платёж) ───────────────────
     (
         _pat(
-            r"оплат[аыойе]|\bцена\b|покупная\s+цена|цена\s+договора|"
-            r"вознаграждени[яейю]|\bплатёж\b|\bстоимость\b|\bсумм[аыое]\s+договора\b|"
-            r"порядок\s+оплаты|арендная\s+плата|плата\s+за\s+аренду|"
-            r"стоимость\s+услуг|стоимость\s+работ|цена\s+работ|"
-            r"размер\s+вознаграждения|цена\s+товара",
-            r"\bpayment[s]?\b|\bprice\b|\bpurchase\s+price\b|\bconsideration\b|"
-            r"\bfee[s]?\b|\bremuneration\b|\brent\b|\brental\s+fee\b|"
-            r"\bservice\s+fee\b|\bpayment\s+terms\b",
+            r"\bоплат[аыойе]\b|цена\s+(?:договора|товара|услуг)?|"
+            r"порядок\s+оплаты|платёж[а-яё]*|стоимость\s+(?:работ|услуг|товара)|"
+            r"арендная\s+плата|вознаграждени[еяий]|"
+            r"расчет[а-яё]*\s+(?:за\s+)?(?:товар|услуг[иу]|работ[ыу])|"
+            r"сумм[аыое]\s+договора|размер\s+оплаты",
+            r"\bpayment[s]?\b|\bprice\b|\bpurchase\s+price\b|"
+            r"\bconsideration\b|\bfee[s]?\b|\bremuneration\b|"
+            r"\brent\b|\brental\s+fee\b|\bcost\s+of\s+services\b|"
+            r"\bpayment\s+terms?\b|\bsettlement\b",
         ),
         LegalUnitType.PAYMENT_TERM,
     ),
 
-    # ── LIABILITY_PROVISION (расширено: неустойка/штраф/пеня) ───────────────
+    # ── LIABILITY_PROVISION (специфичный: ответственность, неустойка) ──────
     (
         _pat(
-            r"\bответственность\b|ограничение\s+ответственности|предел\s+ответственности|"
-            r"освобождени[еяий]\s+от\s+ответственности|косвенные\s+убытки|"
-            r"неустойк[аи]|\bштраф[аы]?\b|\bпен[яи]\b|штрафн[а-яё]*\s+санкци[яи]|"
-            r"убытки\s+в\s+виде\s+неустойки",
-            r"\bliabilit(?:y|ies)\b|\blimitation\s+of\s+liability\b|\bliability\s+cap\b|"
-            r"\bcap\s+on\s+liability\b|\bexclusion\s+of\s+liability\b|"
+            r"\bответственность\b|ограничение\s+ответственности|"
+            r"предел\s+ответственности|освобождени[еяий]\s+от\s+ответственности|"
+            r"неустойк[аи]|штраф[аы]?|пен[яи]|"
+            r"штрафн[а-яё]*\s+санкци[яи]|косвенные\s+убытки",
+            r"\bliabilit(?:y|ies)\b|\blimitation\s+of\s+liability\b|"
+            r"\bliability\s+cap\b|\bexclusion\s+of\s+liability\b|"
             r"\bconsequential\s+damages\b|\bindirect\s+damages\b|"
             r"\bpenalt(?:y|ies)\b|\bliquidated\s+damages\b|\bfine[s]?\b",
         ),
         LegalUnitType.LIABILITY_PROVISION,
     ),
 
-    # ── WARRANTY ─────────────────────────────────────────────────────────────
+    # ── WARRANTY (специфичный: гарантия, заверения) ────────────────────────
     (
         _pat(
-            r"гаранти[иыией]|заверени[яейю]|\bпоручительство\b|заверения\s+и\s+гарантии",
-            r"\bwarrant(?:y|ies)\b|\bguarantee[s]?\b",
+            r"гаранти[иыией]|гарантийн[а-яё]*\s+обязательств[ао]|"
+            r"заверени[яейю]\s+и\s+гарантии|поручительство|"
+            r"качество\s+(?:товара|работ|услуг)",
+            r"\bwarrant(?:y|ies)\b|\bguarantee[s]?\b|"
+            r"\bwarranties\s+and\s+representations\b|"
+            r"\bquality\s+(?:of\s+)?(?:goods|services)?\b",
         ),
         LegalUnitType.WARRANTY,
     ),
 
-    # ── REPRESENTATIONS (отделён от WARRANTY) ───────────────────────────────
+    # ── REPRESENTATIONS (отделён от WARRANTY: заявления сторон) ────────────
     (
         _pat(
-            r"заявлени[яейю]\s+сторон|заверени[яейю]\s+сторон",
-            r"\brepresentations?\b(?!\s+and\s+warrant)|\bstatements?\s+of\s+fact\b",
+            r"заявлени[яейю]\s+сторон|заверени[яейю]\s+сторон|"
+            r"представлени[яий]\s+сторон",
+            r"\brepresentations?\s+(?:and\s+warranties)?\b|"
+            r"\bstatements?\s+of\s+fact\b|\brepresentations?\s+of\s+parties\b",
         ),
         LegalUnitType.REPRESENTATIONS,
     ),
 
-    # ── NOTICE (исправлено: убран generic "адрес") ──────────────────────────
+    # ── NOTICE (специфичный: уведомления, извещения) ───────────────────────
     (
         _pat(
-            r"уведомлени[яейю]|извещени[яейю]|порядок\s+уведомлени[яейю]|"
-            r"адрес[а]?\s+для\s+уведомлений|способ\s+направления\s+уведомлений",
-            r"\bnotice[s]?\b|\bnotification[s]?\b|\bmanner\s+of\s+notice\b",
+            r"уведомлени[яейю]|извещени[яейю]|"
+            r"порядок\s+уведомлени[яейю]|способ\s+направления\s+уведомлений|"
+            r"адрес[а]?\s+для\s+уведомлений|корреспонденци[яия]",
+            r"\bnotice[s]?\b|\bnotification[s]?\b|"
+            r"\bmanner\s+of\s+notice\b|\bcommunications\b|"
+            r"\baddress\s+for\s+notice\b",
         ),
         LegalUnitType.NOTICE,
     ),
 
-    # ── GOVERNING_LAW ───────────────────────────────────────────────────────
+    # ── GOVERNING_LAW (специфичный: применимое право) ──────────────────────
     (
         _pat(
-            r"применимое\s+право|выбор\s+права|право,?\s+применимое\s+к\s+договору",
-            r"\bgoverning\s+law\b|\bapplicable\s+law\b|\bchoice\s+of\s+law\b",
+            r"применимое\s+право|выбор\s+права|"
+            r"право\s+применимое\s+к\s+договору|законодательств[оа]",
+            r"\bgoverning\s+law\b|\bapplicable\s+law\b|"
+            r"\bchoice\s+of\s+law\b|\bjurisdiction\s+law\b|"
+            r"\blegislation\b",
         ),
         LegalUnitType.GOVERNING_LAW,
     ),
 
-    # ── DISPUTE_RESOLUTION (исправлено: убран одиночный "dispute") ─────────
+    # ── DISPUTE_RESOLUTION (специфичный: споры, арбитраж) ──────────────────
     (
         _pat(
-            r"разрешение\s+споров|урегулирование\s+споров|\bарбитраж\b|"
-            r"третейский\s+суд|медиац(?:ия|ии)|\bмкас\b|порядок\s+разрешения\s+споров",
-            r"\bdispute\s+resolution\b|\barbitrati(?:on|al)\b|\bmediation\b|"
-            r"\bsettlement\s+of\s+disputes?\b",
+            r"разрешени[еяий]\s+споров|урегулировани[еяий]\s+споров|"
+            r"третейский\s+суд|арбитраж|медиац(?:ия|ии)|"
+            r"порядок\s+разрешени[яейю]\s+споров|претензионн[а-яё]*\s+порядок",
+            r"\bdispute\s+resolution\b|\bdispute\s+settlement\b|"
+            r"\barbitrati(?:on|al)\b|\bmediation\b|"
+            r"\blitigation\b|\bclaim\s+procedure\b",
         ),
         LegalUnitType.DISPUTE_RESOLUTION,
     ),
 
-    # ── JURISDICTION ────────────────────────────────────────────────────────
+    # ── JURISDICTION (специфичный: подсудность, суд) ───────────────────────
     (
         _pat(
-            r"\bподсудность\b|компетентный\s+суд|суд\s+по\s+месту",
-            r"\bjurisdiction\b|\bcompetent\s+court\b|\bcourts?\s+of\b|\bforum\b|"
-            r"\bvenue\b|\bexclusive\s+jurisdiction\b",
+            r"\bподсудность\b|компетентный\s+суд|суд\s+по\s+месту|"
+            r"рассмотрени[еяий]\s+споров\s+в\s+суде",
+            r"\bjurisdiction\b|\bcompetent\s+court\b|"
+            r"\bcourts?\s+of\b|\bforum\b|\bvenue\b|"
+            r"\bexclusive\s+jurisdiction\b",
         ),
         LegalUnitType.JURISDICTION,
     ),
 
-    # ── APPENDIX_REFERENCE ──────────────────────────────────────────────────
+    # ── TERMINATION_PROVISION (специфичный: расторжение, срок действия) ───
     (
         _pat(
-            r"приложени[яейю]|приложение\s*[№#]?\s*\d|\bперечень\b",
-            r"\bappendix\b|\bannex\b|\bexhibit\b|\bschedule\b|\battachment\b",
-        ),
-        LegalUnitType.APPENDIX_REFERENCE,
-    ),
-
-    # ── AMENDMENT ───────────────────────────────────────────────────────────
-    (
-        _pat(
-            r"изменени[яейю]\s+(?:и\s+дополнени[яейю]*\s+)?(?:в\s+)?(?:настоящ[а-яё]*\s+)?договор[а-яё]*|"
-            r"дополнительн[а-яё]*\s+соглашени[яейю]*|допсоглашени[яейю]*|"
-            r"модификаци[яейю]\s+договор[а-яё]*|внесени[яейю]\s+изменений",
-            r"\bamendment[s]?\b|\bmodification[s]?\s+(?:to|of)\s+(?:this\s+)?agreement\b|"
-            r"\bsupplemental\s+agreement\b|\bvariation[s]?\s+of\s+(?:this\s+)?agreement\b",
-        ),
-        LegalUnitType.AMENDMENT,
-    ),
-
-    # ── TERMINATION_PROVISION ───────────────────────────────────────────────
-    (
-        _pat(
-            r"расторжени[яейю]|прекращени[яейю]\s+договора|право\s+расторжения|"
-            r"уведомление\s+о\s+расторжении|односторонний\s+отказ\s+от\s+договора",
-            r"\bterminat(?:e|ion)\b|\brescind\b|\brescission\b|\btermination\s+for\s+cause\b|"
-            r"\bright\s+to\s+terminate\b|\btermination\s+notice\b",
+            r"расторжени[еяий]|прекращени[еяий]\s+договора|"
+            r"срок\s+действия\s+договора|право\s+расторжения|"
+            r"односторонний\s+отказ\s+от\s+договора|"
+            r"уведомлени[еяий]\s+о\s+расторжении|пролонгаци[яия]|"
+            r"продлени[еяий]\s+срока\s+действия",
+            r"\bterminat(?:e|ion)\b|\brescind\b|\brescission\b|"
+            r"\btermination\s+for\s+cause\b|\bright\s+to\s+terminate\b|"
+            r"\bcontract\s+period\b|\bduration\s+of\s+agreement\b|"
+            r"\brenewal\b|\bextension\s+of\s+term\b",
         ),
         LegalUnitType.TERMINATION_PROVISION,
     ),
 
-    # ── ENTIRE_AGREEMENT (P1) ───────────────────────────────────────────────
+    # ── ENTIRE_AGREEMENT (специфичный: вся сделка, полное соглашение) ──────
     (
         _pat(
-            r"вся\s+сделк[а-яё]*|полн[а-яё]*\s+соглашени[яейю]*|"
-            r"исключительн[а-яё]*\s+соглашени[яейю]*|единственн[а-яё]*\s+договорённост[а-яё]*|"
-            r"вся\s+договорённост[а-яё]*\s+сторон",
-            r"\bentire\s+agreement\b|\bwhole\s+agreement\b|\bfull\s+understanding\b|"
-            r"\bprior\s+agreements?\s+(?:and\s+)?(?:understandings?\s+)?superseded\b|"
-            r"\bmerger\s+clause\b",
+            r"вся\s+сделк[а-яё]*|полн[а-яё]*\s+соглашени[яейю]|"
+            r"исключительн[а-яё]*\s+соглашени[яейю]|"
+            r"вся\s+договорённост[а-яё]*|предыдущи[еяий]\s+договорённост[а-яё]*",
+            r"\bentire\s+agreement\b|\bwhole\s+agreement\b|"
+            r"\bfull\s+understanding\b|\bcomplete\s+agreement\b|"
+            r"\bprior\s+agreements?\s+superseded\b|\bmerger\s+clause\b",
         ),
         LegalUnitType.ENTIRE_AGREEMENT,
     ),
 
-    # ── SEVERABILITY (P1) ───────────────────────────────────────────────────
+    # ── SEVERABILITY (специфичный: отделимость, недействительность) ────────
     (
         _pat(
-            r"отделимост[а-яё]*\s+положени[яейю]*|делимост[а-яё]*\s+(?:настоящ[а-яё]*\s+)?договор[а-яё]*|"
+            r"отделимост[а-яё]*|делимост[а-яё]*|"
             r"недействительност[а-яё]*\s+(?:отдельн[а-яё]*\s+)?част[а-яё]*|"
-            r"недействительност[а-яё]*\s+(?:отдельн[а-яё]*\s+)?положени[яейю]*",
-            r"\bseverability\b|\bseparability\b|\binvalid\s+provision[s]?\b|"
-            r"\bpartial\s+invalidity\b|\bunenforceable\s+provision[s]?\b",
+            r"недействительност[а-яё]*\s+положени[яейю]",
+            r"\bseverability\b|\bseparability\b|"
+            r"\binvalid\s+provision[s]?\b|\bpartial\s+invalidity\b|"
+            r"\bunenforceable\s+provision[s]?\b",
         ),
         LegalUnitType.SEVERABILITY,
     ),
 
-    # ── ASSIGNMENT (P1) ─────────────────────────────────────────────────────
+    # ── ASSIGNMENT (специфичный: уступка, цессия) ──────────────────────────
     (
         _pat(
-            r"уступк[а-яё]*\s+прав[а-яё]*(?:\s+требовани[яейю]*)?|\bцессия\b|"
-            r"передач[а-яё]*\s+прав[а-яё]*\s+требовани[яейю]*|перевод[а-яё]*\s+долга",
-            r"\bassignment\s+(?:of\s+)?(?:rights?|claims?|agreement)?\b|"
-            r"\btransfer\s+of\s+rights?\b|\bcession\b|\bnovation\b|\bdelegation\s+of\s+duties\b",
+            r"уступк[а-яё]*\s+прав|цессия|передач[аи]\s+прав\s+требовани[яий]|"
+            r"перевод\s+долга|смена\s+сторон",
+            r"\bassignment\b|\bcession\b|\btransfer\s+of\s+rights?\b|"
+            r"\bnovation\b|\bdelegation\s+of\s+duties\b|"
+            r"\bchange\s+of\s+parties\b",
         ),
         LegalUnitType.ASSIGNMENT,
     ),
 
-    # ── PERSONAL_DATA (P1) ──────────────────────────────────────────────────
+    # ── PERSONAL_DATA (специфичный: персональные данные, GDPR) ─────────────
     (
         _pat(
-            r"персональн[а-яё]*\s+данн[а-яё]*|обработк[а-яё]*\s+(?:персональных\s+)?данных|"
-            r"защит[а-яё]*\s+персональных\s+данных|152[\s-]?фз",
-            r"\bgdpr\b|\bpersonal\s+data\b|\bdata\s+protection\b|\bdata\s+privacy\b|"
-            r"\bprivacy\s+policy\b",
+            r"персональн[а-яё]*\s+данн[а-яё]*|обработк[аи]\s+данных|"
+            r"защит[аи]\s+персональных\s+данных|152[\s-]?фз|"
+            r"конфиденциальност[ьию]\s+данных",
+            r"\bpersonal\s+data\b|\bdata\s+protection\b|"
+            r"\bdata\s+privacy\b|\bgdpr\b|"
+            r"\bprivacy\s+policy\b|\bdata\s+processing\b",
         ),
         LegalUnitType.PERSONAL_DATA,
     ),
 
-    # ── GENERAL_PROVISION (P0) — предмет договора, общие положения ──────────
+    # ── AMENDMENT (специфичный: изменения, допсоглашение) ──────────────────
     (
         _pat(
-            r"предмет\s+договора|общие\s+положения|основные\s+положения|"
-            r"общие\s+условия|статус\s+сторон|основные\s+условия|"
-            r"положения\s+договора",
-            r"\bgeneral\s+provisions\b|\bgeneral\s+terms\b|\bsubject\s+matter\b|"
-            r"\bbasis\s+of\s+agreement\b",
+            r"изменени[яейю]\s+(?:в\s+)?договор|дополнительн[а-яё]*\s+соглашени[яейю]|"
+            r"допсоглашени[яейю]|модификаци[яийю]\s+договора|"
+            r"внесени[еяий]\s+изменений",
+            r"\bamendment[s]?\b|\bmodification[s]?\s+of\s+agreement\b|"
+            r"\bsupplemental\s+agreement\b|\bvariation[s]?\b|"
+            r"\bchange\s+to\s+agreement\b",
+        ),
+        LegalUnitType.AMENDMENT,
+    ),
+
+    # ── APPENDIX_REFERENCE (специфичный: приложения, спецификации) ─────────
+    (
+        _pat(
+            r"приложени[яейю]|приложени[яийю]\s+к\s+договору|"
+            r"спецификаци[яийю]|перечени?|ведомост[ьи]|"
+            r"график[а-яё]*|план[а-яё]*\s+поставок?",
+            r"\bappendix\b|\bannex\b|\bexhibit\b|"
+            r"\bschedule\b|\battachment\b|\bspecification[s]?\b|"
+            r"\blist\b|\btable[s]?\b",
+        ),
+        LegalUnitType.APPENDIX_REFERENCE,
+    ),
+
+    # ── GENERAL_PROVISION (ШИРОКИЙ: предмет, общие положения, условия) ─────
+    # Должен быть ПОСЛЕ специфичных, но ДО obligation
+    (
+        _pat(
+            r"\bпредмет\s+(?:договора|контракта|соглашения)?\b|"
+            r"\bобщие\s+положения\b|\bосновные\s+положения\b|"
+            r"\bобщие\s+условия\b|\bосновные\s+условия\b|"
+            r"\bстатус\s+сторон\b|\bположения\s+договора\b|"
+            r"\bусловия\s+(?:договора|контракта|перевозок|поставки|работ|услуг)\b|"
+            r"\bсущность\s+договора\b|\bназначение\s+договора\b",
+            r"\bgeneral\s+provisions\b|\bgeneral\s+terms\b|"
+            r"\bsubject\s+matter\b|\bbasis\s+of\s+agreement\b|"
+            r"\bterms\s+and\s+conditions\b|\bcontract\s+purpose\b|"
+            r"\bscope\s+of\s+agreement\b",
         ),
         LegalUnitType.GENERAL_PROVISION,
     ),
 
-    # ── OBLIGATION — generic fallback, ДОЛЖЕН БЫТЬ ПОСЛЕДНИМ ────────────────
+    # ── OBLIGATION (generic fallback — ВСЕГДА ПОСЛЕДНИЙ!) ──────────────────
+    # Матчит всё что не попало выше: обязанности, должен, обязуется
     (
         _pat(
-            r"обязательств[аоие]|\bобязанности?\b|\bобязан\b|\bдолжен\b",
-            r"\bobligation[s]?\b|\bundertaking[s]?\b|\bdut(?:y|ies)\b",
+            r"обязательств[аоие]|\bобязанности?\b|\bобязан\b|\bдолжен\b|"
+            r"\bобязуется\b|\bобеспечиват[ьает]\b|\bподават[ьёт]\b|"
+            r"\bосуществлят[ьяет]\b|\bпредоставлят[ьяет]\b|"
+            r"\bподготов[кит]ь\b|\bпровер[яит]ь\b|\bсодержат[ьит]\b|"
+            r"\bоформлят[ьяет]\b|\bнести\s+ответственность\b",
+            r"\bobligation[s]?\b|\bundertaking[s]?\b|\bdut(?:y|ies)\b|"
+            r"\bshall\b|\bmust\b|\bobliged\b|\brequired\b|"
+            r"\bresponsibilities?\b|\bperform\b",
         ),
         LegalUnitType.OBLIGATION,
     ),
 ]
 
 _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
+    # ── DEFINITIONS ─────────────────────────────────────────────────────────
     (
         re.compile(
-            r"\b(definitions?|defined terms?|means|shall mean|"
-            r"определени[яейю]|означает|понимается)\b",
+            r"\b(definitions?|defined\s+terms?|means|shall\s+mean|"
+            r"означает|понимается|термины\s+и\s+определения|"
+            r"определени[яейю])\b",
             re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.DEFINITIONS,
     ),
+
+    # ── REPRESENTATIONS ────────────────────────────────────────────────────
     (
         re.compile(
             r"\b(warrant(?:y|ies)|represents?|representation[s]?|"
-            r"гарантирует|заверяет|подтверждает)\b",
+            r"гарантирует|заверяет|подтверждает|заявляет)\b",
             re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.REPRESENTATIONS,
     ),
+
+    # ── LIMITATIONS ────────────────────────────────────────────────────────
     (
         re.compile(
-            r"\b(shall not|must not|limitation|liability|cap|ceiling|"
-            r"не вправе|не несёт|ограничение|предел ответственности)\b",
+            r"\b(shall\s+not|must\s+not|limitation|liability|cap|ceiling|"
+            r"не\s+вправе|не\s+несёт|ограничение|предел\s+ответственности|"
+            r"исключени[еяий]\s+ответственности)\b",
             re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.LIMITATIONS,
     ),
+
+    # ── REMEDIES ───────────────────────────────────────────────────────────
     (
         re.compile(
             r"\b(remedy|remedies|indemnif|indemnity|indemnification|damages|compensation|"
             r"cure|penalt(?:y|ies)|"
-            r"средства защиты|возмещени[яейю] убытков|ущерб|компенсация|неустойк[аи])\b",
+            r"средства\s+защиты|возмещени[яейю]\s+убытков|ущерб|компенсация|неустойк[аи]|"
+            r"штраф[аы]?|пен[яи])\b",
             re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.REMEDIES,
     ),
+
+    # ── PROCEDURES ─────────────────────────────────────────────────────────
     (
         re.compile(
             r"\b(procedure|process|mechanism|step[s]?|timeline|termination|"
-            r"notice period|written notice|"
+            r"notice\s+period|written\s+notice|"
             r"порядок|процедура|механизм|этапы?|сроки?|расторжени[яейю]|"
-            r"уведомлени[яейю]\s+о\s+расторжении)\b",
+            r"уведомлени[яейю]\s+о\s+расторжении|прекращени[еяий])\b",
             re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.PROCEDURES,
     ),
+
+    # ── OBLIGATIONS ────────────────────────────────────────────────────────
     (
         re.compile(
             r"\b(shall|must|obliged|required|undertakes|"
-            r"обязан|должен|обязуется|обязательство)\b",
+            r"обязан|должен|обязуется|обязательство|обеспечивает|"
+            r"осуществляет|предоставляет|подготавливает)\b",
             re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.OBLIGATIONS,
     ),
+
+    # ── RIGHTS ─────────────────────────────────────────────────────────────
     (
         re.compile(
-            r"\b(entitled|right to|may|permitted|вправе|имеет право|может)\b",
+            r"\b(entitled|right\s+to|may|permitted|"
+            r"вправе|имеет\s+право|может|право\s+требовать)\b",
             re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.RIGHTS,
     ),
+
+    # ── BOILERPLATE ────────────────────────────────────────────────────────
     (
         re.compile(
-            r"\b(governing law|jurisdiction|arbitration|notice[s]?|"
-            r"entire agreement|severability|waiver|amendment|"
-            r"применимое право|подсудность|уведомлени[яейю]|вся сделка)\b",
+            r"\b(governing\s+law|jurisdiction|arbitration|notice[s]?|"
+            r"entire\s+agreement|severability|waiver|amendment|"
+            r"применимое\s+право|подсудность|уведомлени[яейю]|вся\s+сделка|"
+            r"заключительн[а-яё]*\s+положени[яейю]|прочие\s+условия)\b",
             re.IGNORECASE | re.UNICODE,
         ),
         ClauseFunction.BOILERPLATE,
     ),
 ]
+
 
 _CLAUSE_REF_PATTERN = re.compile(
     r"""
@@ -429,6 +519,176 @@ _APPENDIX_ITEM_REF_PATTERN = re.compile(
 _DEFINITION_REF_PATTERN = re.compile(
     r'"([A-ZА-Я][^"]{1,60})"',
 )
+
+
+# ---------------------------------------------------------------------------
+# LLM Fallback для классификации unknown LegalUnit
+# ---------------------------------------------------------------------------
+
+def _classify_unit_type_with_llm(
+    *,
+    title: str,
+    text: str | None,
+    document_id: str,
+    level: int = 1,
+    ancestor_titles: list[str] | None = None,
+    tenant_id: str | None = None,
+    deal_id: str | None = None,
+    run_id: str | None = None,
+    session: Any = None,
+) -> tuple[LegalUnitType, float, str, dict | None]:
+    """
+    LLM fallback для классификации LegalUnit когда rule-based не сработал.
+    
+    Использует промт из prompts/classification/legal_unit_type_classification_v1.txt
+    
+    Returns:
+        (unit_type, confidence, model_used, tokens_info)
+        tokens_info: dict с prompt_tokens, completion_tokens, total_tokens или None
+    """
+    if not _LLM_AVAILABLE:
+        return LegalUnitType.UNKNOWN, 0.0, "none"
+    
+    try:
+        # Формируем контекст предков
+        ancestor_titles_str = "\n".join(ancestor_titles[:3]) if ancestor_titles else "без контекста"
+        
+        # Загружаем промт из файла
+        # load_prompt принимает dict variables вторым аргументом
+        prompt_template = _load_prompt(
+            "classification/legal_unit_type_classification_v1",
+            {
+                "unit_title": title or "без заголовка",
+                "unit_text": text[:800] if text else "без текста",
+                "unit_level": str(level),
+                "ancestor_titles": ancestor_titles_str,
+            }
+        )
+        
+        llm = LLMClient()
+        
+        # Вызов LLM с retry
+        response, error_details = llm.call_with_retries(
+            prompt=prompt_template,
+            temperature=0.1,  # Низкая для консистентности
+            max_tokens=250,
+            response_format="json_object",  # Требовать JSON
+        )
+        
+        if response is None or not response.text:
+            logger.warning(
+                "LegalUnit LLM classification returned empty response",
+                extra={
+                    "document_id": document_id,
+                    "llm_error": error_details,
+                },
+            )
+            return LegalUnitType.UNKNOWN, 0.0, "empty_response"
+        
+        # Парсим JSON ответ
+        import json
+        from engine.llm.client import _extract_json
+        
+        json_data = _extract_json(response.text)
+        
+        if not json_data:
+            logger.warning(
+                "LegalUnit LLM classification failed to parse JSON",
+                extra={
+                    "document_id": document_id,
+                    "raw_response": response.text[:200],
+                },
+            )
+            return LegalUnitType.UNKNOWN, 0.0, "parse_error"
+        
+        unit_type_str = json_data.get("unit_type", "unknown").upper().strip()
+        confidence = float(json_data.get("confidence", 0.5))
+        reason = json_data.get("reason", "")
+        
+        # Валидация confidence
+        if not (0.0 <= confidence <= 1.0):
+            confidence = 0.5
+        
+        # Маппинг строки в enum
+        try:
+            unit_type = LegalUnitType[unit_type_str]
+        except KeyError:
+            logger.warning(
+                "LegalUnit LLM returned invalid unit_type",
+                extra={
+                    "document_id": document_id,
+                    "invalid_type": unit_type_str,
+                },
+            )
+            unit_type = LegalUnitType.UNKNOWN
+        
+        # Логирование успеха
+        logger.info(
+            "LegalUnit LLM classification succeeded",
+            extra={
+                "document_id": document_id,
+                "title": title[:50] if title else None,
+                "unit_type": unit_type.value,
+                "confidence": confidence,
+                "reason": reason[:100] if reason else None,
+                "model": response.model,
+                "provider": response.provider,
+                "prompt_tokens": response.prompt_tokens,
+                "completion_tokens": response.completion_tokens,
+                "total_tokens": response.tokens_used,
+            },
+        )
+        
+        # Записать в LLM usage ledger (best-effort, без блокировки)
+        if session and tenant_id and deal_id and run_id:
+            try:
+                recorder = LLMUsageRecorder(session)
+                # Создаём task для асинхронной записи (не блокируем основной поток)
+                import asyncio
+                loop = asyncio.get_event_loop()
+                loop.create_task(
+                    recorder.record_event(
+                        tenant_id=uuid.UUID(tenant_id) if isinstance(tenant_id, str) else tenant_id,
+                        deal_id=uuid.UUID(deal_id) if isinstance(deal_id, str) else deal_id,
+                        document_id=uuid.UUID(document_id) if isinstance(document_id, str) else uuid.UUID(document_id),
+                        run_id=uuid.UUID(run_id) if isinstance(run_id, str) else run_id,
+                        stage=STAGE_STRUCTURE_LEGAL_UNIT_CLASSIFICATION,
+                        provider=response.provider,
+                        model=response.model,
+                        prompt_tokens=response.prompt_tokens,
+                        completion_tokens=response.completion_tokens,
+                        duration_ms=None,
+                        llm_attempts=1,
+                        parse_success=True,
+                        request_uid=f"legal_unit_class:{run_id}:{document_id}:{title[:30]}",
+                    )
+                )
+            except Exception as exc:
+                logger.warning(
+                    "LegalUnit LLM usage recording failed",
+                    extra={
+                        "document_id": document_id,
+                        "error": str(exc),
+                        "error_type": type(exc).__name__,
+                    },
+                )
+        
+        return unit_type, confidence, response.model, {
+            "prompt_tokens": response.prompt_tokens,
+            "completion_tokens": response.completion_tokens,
+            "total_tokens": response.tokens_used,
+        }
+        
+    except Exception as e:
+        logger.warning(
+            "LegalUnit LLM classification failed, falling back to UNKNOWN",
+            extra={
+                "document_id": document_id,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+        )
+        return LegalUnitType.UNKNOWN, 0.0, "error"
 
 
 # ---------------------------------------------------------------------------
@@ -488,9 +748,17 @@ def _classify_unit_type(
     raw_uid: str,
     semantic_node_type: Any,
     is_technical_fallback: bool,
-) -> LegalUnitType:
+    document_id: str | None = None,
+    tenant_id: str | None = None,
+    deal_id: str | None = None,
+    run_id: str | None = None,
+    level: int = 1,
+    ancestor_titles: list[str] | None = None,
+    session: Any = None,
+) -> tuple[LegalUnitType, dict | None]:
+
     if is_technical_fallback:
-        return LegalUnitType.UNKNOWN
+        return LegalUnitType.UNKNOWN, None
 
     normalized_scope = _normalize_text(scope).lower()
     normalized_kind = _normalize_text(node_kind).lower()
@@ -499,55 +767,85 @@ def _classify_unit_type(
     normalized_semantic_node_type = _normalize_text(semantic_node_type).lower()
 
     if _looks_like_appendix_scope(normalized_scope):
-        return LegalUnitType.APPENDIX_REFERENCE
+        return LegalUnitType.APPENDIX_REFERENCE, None
 
     if normalized_content_mode == "heading_only":
-        return LegalUnitType.UNKNOWN
+        return LegalUnitType.UNKNOWN, None
 
     if normalized_semantic_node_type in {"definition", "definitions"}:
-        return LegalUnitType.DEFINITION
+        return LegalUnitType.DEFINITION, None
     if normalized_semantic_node_type in {"payment", "payment_term"}:
-        return LegalUnitType.PAYMENT_TERM
+        return LegalUnitType.PAYMENT_TERM, None
     if normalized_semantic_node_type in {"warranty", "representation"}:
-        return LegalUnitType.WARRANTY
+        return LegalUnitType.WARRANTY, None
     if normalized_semantic_node_type in {"notice"}:
-        return LegalUnitType.NOTICE
+        return LegalUnitType.NOTICE, None
     if normalized_semantic_node_type in {"governing_law", "choice_of_law"}:
-        return LegalUnitType.GOVERNING_LAW
+        return LegalUnitType.GOVERNING_LAW, None
     if normalized_semantic_node_type in {"jurisdiction", "forum"}:
-        return LegalUnitType.JURISDICTION
+        return LegalUnitType.JURISDICTION, None
     if normalized_semantic_node_type in {"dispute_resolution", "arbitration", "mediation"}:
-        return LegalUnitType.DISPUTE_RESOLUTION
+        return LegalUnitType.DISPUTE_RESOLUTION, None
     if normalized_semantic_node_type in {"confidentiality", "non_disclosure"}:
-        return LegalUnitType.CONFIDENTIALITY
+        return LegalUnitType.CONFIDENTIALITY, None
     if normalized_semantic_node_type in {"indemnification", "indemnity"}:
-        return LegalUnitType.INDEMNIFICATION
+        return LegalUnitType.INDEMNIFICATION, None
     if normalized_semantic_node_type in {"termination", "termination_provision"}:
-        return LegalUnitType.TERMINATION_PROVISION
+        return LegalUnitType.TERMINATION_PROVISION, None
     if normalized_semantic_node_type in {
         "liability",
         "liability_provision",
         "limitation_of_liability",
     }:
-        return LegalUnitType.LIABILITY_PROVISION
+        return LegalUnitType.LIABILITY_PROVISION, None
 
     for pattern, unit_type in _TITLE_TYPE_PATTERNS:
         if pattern.search(title):
-            return unit_type
+            return unit_type, None
 
     if text:
         text_sample = text[:500]
         for pattern, unit_type in _TITLE_TYPE_PATTERNS:
             if pattern.search(text_sample):
-                return unit_type
+                return unit_type, None
 
     if normalized_kind in {"root", "branch"} and raw_uid.isdigit():
-        return LegalUnitType.OBLIGATION
+        return LegalUnitType.OBLIGATION, None
 
     if normalized_node_origin == "semantic":
-        return LegalUnitType.UNKNOWN
+        return LegalUnitType.UNKNOWN, None
 
-    return LegalUnitType.UNKNOWN
+    # ── LLM Fallback для unknown ──────────────────────────────────────
+    llm_tokens = None
+    if document_id:
+        unit_type_llm, confidence, model, tokens_info = _classify_unit_type_with_llm(
+            title=title,
+            text=text,
+            document_id=document_id,
+            level=level,
+            ancestor_titles=ancestor_titles,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
+            session=session,
+        )
+        
+        if unit_type_llm != LegalUnitType.UNKNOWN and confidence >= 0.6:
+            logger.info(
+                "LegalUnit classified by LLM fallback",
+                extra={
+                    "document_id": document_id,
+                    "title": title[:50] if title else None,
+                    "unit_type": unit_type_llm.value,
+                    "confidence": confidence,
+                    "model": model,
+                    "tokens": tokens_info,
+                },
+            )
+            llm_tokens = tokens_info
+            return unit_type_llm, llm_tokens
+
+    return LegalUnitType.UNKNOWN, None
 
 
 def _classify_clause_function(
@@ -875,6 +1173,9 @@ class LegalUnitBuilder:
                 units=units,
                 warnings=snapshot.build_warnings,
                 document_id=document_id,
+                tenant_id=None,
+                deal_id=None,
+                run_id=None,
                 element_index=element_index,
                 parent_unit_id=None,
                 ancestor_titles=[],
@@ -1115,6 +1416,9 @@ class LegalUnitBuilder:
         units: list[LegalUnit],
         warnings: list[str],
         document_id: str,
+        tenant_id: str | None = None,
+        deal_id: str | None = None,
+        run_id: str | None = None,
         element_index: dict[str, dict[str, Any]] | None = None,
         parent_unit_id: str | None = None,
         ancestor_titles: list[str] | None = None,
@@ -1165,10 +1469,14 @@ class LegalUnitBuilder:
                         units=units,
                         warnings=warnings,
                         document_id=document_id,
+                        tenant_id=tenant_id,
+                        deal_id=deal_id,
+                        run_id=run_id,
                         element_index=element_index,
                         parent_unit_id=parent_unit_id,
                         ancestor_titles=current_ancestor_titles,
                         ancestor_path_ids=current_path_ids,
+                        is_primary_segment=is_primary_segment,
                     )
             return
 
@@ -1234,7 +1542,7 @@ class LegalUnitBuilder:
                 )
         else:
             classify_text = own_text or subtree_text
-            unit_type = _classify_unit_type(
+            unit_type, llm_tokens = _classify_unit_type(
                 title=semantic_title or title,
                 text=classify_text,
                 scope=scope,
@@ -1244,6 +1552,13 @@ class LegalUnitBuilder:
                 raw_uid=raw_uid,
                 semantic_node_type=semantic_node_type,
                 is_technical_fallback=is_technical_fallback,
+                document_id=document_id,
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                run_id=run_id,
+                level=level,
+                ancestor_titles=current_ancestor_titles,
+                session=None,  # Session передаётся из build_from_clause_tree если нужно
             )
             clause_function = _classify_clause_function(
                 title=semantic_title or title,
@@ -1297,6 +1612,8 @@ class LegalUnitBuilder:
                     if is_technical_fallback
                     else ("title_pattern" if unit_type != LegalUnitType.UNKNOWN else "not_classified")
                 ),
+                "classified_by_llm": llm_tokens is not None,
+                "llm_tokens": llm_tokens,
                 "cross_refs_count": len(cross_refs),
                 "is_technical_fallback": is_technical_fallback,
                 "is_appendix_scope": _looks_like_appendix_scope(scope),
@@ -1351,6 +1668,9 @@ class LegalUnitBuilder:
                     units=units,
                     warnings=warnings,
                     document_id=document_id,
+                    tenant_id=tenant_id,
+                    deal_id=deal_id,
+                    run_id=run_id,
                     element_index=element_index,
                     parent_unit_id=effective_uid,
                     ancestor_titles=next_ancestor_titles,
