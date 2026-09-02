@@ -1,0 +1,137 @@
+{
+  "details": {
+    "loading": "Загрузка…",
+    "notFound": "Документ не найден",
+    "loadError": "Ошибка загрузки документа",
+    "sectionInfo": "Информация",
+    "sectionClassification": "Классификация документа",
+    "sectionFamily": "Семейство документов",
+    "sectionStructuredData": "Структурированные данные",
+    "sectionReviewResults": "Результаты проверки",
+    "sectionProcessingHistory": "История обработки",
+    "sectionDocumentInfoBlock": "Информационный блок по документу",
+    "sectionActionRequired": "Требуется действие",
+    "sectionQuarantine": "Карантин / повторная загрузка"
+  },
+  "info": {
+    "docType": "Тип документа",
+    "docTypeUnknown": "Не определён",
+    "language": "Язык",
+    "pages": "Страниц",
+    "uploaded": "Загружен",
+    "empty": "—",
+    "reviewNotRequired": "Проверка юриста не требуется",
+    "wholeDocument": "Документ целиком"
+  },
+  "processingError": {
+    "quarantineTitle": "Документ в карантине",
+    "errorTitle": "Ошибка обработки",
+    "reasonPrefix": "Причина:",
+    "timePrefix": "Время:",
+    "runPrefix": "Run:"
+  },
+  "languageSelection": {
+    "title": "Нужно выбрать основной язык проверки",
+    "descriptionFallback": "Загрузка документов завершена. Для документов, в которых определено несколько языков, дальнейшая обработка не будет продолжена, пока не выбран основной язык проверки. По умолчанию установлен русский язык.",
+    "chooseButton": "Выбрать основной язык",
+    "currentDefault": "Текущий язык по умолчанию: русский"
+  },
+  "classification": {
+    "docTypePrefix": "Тип документа:",
+    "needsManualReview": "Нужна ручная проверка",
+    "yamlAvailable": "✅ YAML-инструкция загружена",
+    "yamlMissing": "⬜ YAML-инструкция не найдена",
+    "lowConfidence": "⚠️ Низкая уверенность классификации ({{percent}}%) — рекомендуется проверить тип документа",
+    "triggersTitle": "Активные триггеры (профиль документа):",
+    "triggersHint": "Тип документа и перечисленные триггеры вместе описывают сценарии по проверке документа",
+    "notPerformed": "Классификация не выполнена или документ в обработке",
+    "manualReclassifyButton": "Изменить классификацию вручную",
+    "manualPanelTitle": "Ручная переклассификация",
+    "newDocTypeLabel": "Новый тип документа",
+    "selectDocTypePlaceholder": "— Выберите тип документа —",
+    "selectedCodeLabel": "Выбран код типа:",
+    "reasonLabel": "Причина изменения",
+    "reasonPlaceholder": "Опишите причину...",
+    "applyButton": "Применить",
+    "reclassifyError": "Ошибка переклассификации",
+    "reclassifiedSuccess": "✅ Тип изменён на «{{type}}»",
+    "yamlFoundSuffix": " · YAML-инструкция найдена",
+    "yamlNotFoundSuffix": " · YAML-инструкция не найдена",
+    "reclassifiedWarning": "Документ переклассифицирован. Анализ рисков по новому типу будет произведён только после перезапуска анализа рисков по всей сделке. После будет внедрён механизм отдельного пересчёта рисков по одному документу."
+  },
+  "family": {
+    "master": "Основной",
+    "appendix": "Приложение",
+    "amendment": "Дополнение",
+    "version": "Версия"
+  },
+  "quarantine": {
+    "title": "Документ в карантине",
+    "hint": "Замените файл корректной версией, чтобы запустить повторную обработку.",
+    "dropzoneText": "Перетащите файл сюда",
+    "chooseFileButton": "Выбрать файл",
+    "downloadError": "Не удалось скачать оригинал файла."
+  },
+  "headerSection": {
+    "actionsAriaLabel": "Действия по выбранному документу",
+    "openFile": "Открыть файл",
+    "downloadFile": "Скачать файл",
+    "openInGrid": "Открыть в DD Grid",
+    "originalUnavailable": "Исходный файл пока недоступен",
+    "downloadUnavailable": "Скачивание оригинала сейчас недоступно"
+  },
+  "structuredData": {
+    "emptyNotAvailable": "Для этого документа пока нет извлечённых значений. Запустите анализ или обновите страницу после завершения проверки.",
+    "emptyProcessing": "Структурированные данные находятся в обработке. Обновите страницу через несколько минут после завершения анализа.",
+    "compositionLabel": "Состав файла",
+    "compositionSingle": "Single-document",
+    "compositionMulti_one": "Multi-document · {{count}} сегмент",
+    "compositionMulti_few": "Multi-document · {{count}} сегмента",
+    "compositionMulti_many": "Multi-document · {{count}} сегментов",
+    "compositionMulti_other": "Multi-document · {{count}} сегмента",
+    "singleDescription": "Файл анализируется как единый документ. Извлечённые значения показаны в одном общем контексте.",
+    "multiDescription": "Файл содержит несколько логических сегментов. Извлечённые значения сгруппированы по сегментам.",
+    "primarySegmentLabel": "Основной сегмент:",
+    "primarySegment": "Основной сегмент",
+    "primaryShort": "Основной",
+    "segmentsTitle": "Сегменты",
+    "segmentsAriaLabel": "Сегменты документа",
+    "orderPrefix": "Порядок: {{order}}",
+    "emptySegment": "Для выбранного сегмента пока нет данных.",
+    "emptySegmentHint": "Попробуйте выбрать другой сегмент или обновите страницу после завершения анализа.",
+    "emptyValuesInSegment": "В этом сегменте пока нет извлечённых значений.",
+    "pageAbbr": "стр. {{page}}",
+    "clausePrefix": "clause: {{clause}}",
+    "openInDocument": "Открыть в документе",
+    "otherFields": "Другие параметры",
+    "checkTitles": {
+      "overall_risk": "Общий уровень риска",
+      "confidentiality": "Конфиденциальность",
+      "governing_law": "Применимое право и подсудность",
+      "authority_and_approvals": "Полномочия и корпоративные одобрения",
+      "price_and_payment": "Цена и порядок оплаты",
+      "real_estate_core": "Основные параметры объекта недвижимости"
+    }
+  },
+  "reviewSection": {
+    "emptyMessage": "Для этого документа пока нет review-результатов в DD Matrix.",
+    "badges": {
+      "critical": "Critical: {{count}}",
+      "high": "High: {{count}}",
+      "unclear": "Unclear: {{count}}",
+      "fail": "Fail: {{count}}"
+    }
+  },
+  "pdfPreview": {
+    "subtitle": "Предпросмотр оригинала",
+    "downloadOriginal": "Скачать оригинал файла",
+    "closeAriaLabel": "Закрыть просмотр файла",
+    "viewerAriaLabel": "Просмотр файла {{filename}}",
+    "loading": "Загрузка файла…",
+    "loadFailed": "Не удалось загрузить файл",
+    "loadErrorFallback": "Не удалось загрузить PDF"
+  },
+  "shared": {
+    "docTypeNotSpecified": "тип не указан"
+  }
+}

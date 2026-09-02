@@ -1,0 +1,135 @@
+{
+  "details": {
+    "loading": "Loading…",
+    "notFound": "Document not found",
+    "loadError": "Failed to load document",
+    "sectionInfo": "Information",
+    "sectionClassification": "Document classification",
+    "sectionFamily": "Document family",
+    "sectionStructuredData": "Structured data",
+    "sectionReviewResults": "Review results",
+    "sectionProcessingHistory": "Processing history",
+    "sectionDocumentInfoBlock": "Document info block",
+    "sectionActionRequired": "Action required",
+    "sectionQuarantine": "Quarantine / re-upload"
+  },
+  "info": {
+    "docType": "Document type",
+    "docTypeUnknown": "Not determined",
+    "language": "Language",
+    "pages": "Pages",
+    "uploaded": "Uploaded",
+    "empty": "—",
+    "reviewNotRequired": "Legal review not required",
+    "wholeDocument": "Whole document"
+  },
+  "processingError": {
+    "quarantineTitle": "Document in quarantine",
+    "errorTitle": "Processing error",
+    "reasonPrefix": "Reason:",
+    "timePrefix": "Time:",
+    "runPrefix": "Run:"
+  },
+  "languageSelection": {
+    "title": "Primary analysis language required",
+    "descriptionFallback": "Document upload complete. For documents with several detected languages, processing will not continue until the primary analysis language is selected. Russian is set by default.",
+    "chooseButton": "Choose primary language",
+    "currentDefault": "Current default language: Russian"
+  },
+  "classification": {
+    "docTypePrefix": "Document type:",
+    "needsManualReview": "Manual review needed",
+    "yamlAvailable": "✅ YAML instruction loaded",
+    "yamlMissing": "⬜ YAML instruction not found",
+    "lowConfidence": "⚠️ Low classification confidence ({{percent}}%) — please verify the document type",
+    "triggersTitle": "Active triggers (document profile):",
+    "triggersHint": "The document type together with the triggers listed above describe the review scenarios applied to the document.",
+    "notPerformed": "Classification not performed or document is being processed",
+    "manualReclassifyButton": "Change classification manually",
+    "manualPanelTitle": "Manual reclassification",
+    "newDocTypeLabel": "New document type",
+    "selectDocTypePlaceholder": "— Select a document type —",
+    "selectedCodeLabel": "Selected type code:",
+    "reasonLabel": "Reason for change",
+    "reasonPlaceholder": "Describe the reason…",
+    "applyButton": "Apply",
+    "reclassifyError": "Reclassification failed",
+    "reclassifiedSuccess": "✅ Type changed to «{{type}}»",
+    "yamlFoundSuffix": " · YAML instruction found",
+    "yamlNotFoundSuffix": " · YAML instruction not found",
+    "reclassifiedWarning": "The document has been reclassified. Risk analysis for the new type will only run when the full deal analysis is restarted. Per-document recalculation will be added later."
+  },
+  "family": {
+    "master": "Master",
+    "appendix": "Appendix",
+    "amendment": "Amendment",
+    "version": "Version"
+  },
+  "quarantine": {
+    "title": "Document in quarantine",
+    "hint": "Replace the file with a valid version to restart processing.",
+    "dropzoneText": "Drop a file here",
+    "chooseFileButton": "Choose file",
+    "downloadError": "Failed to download the original file."
+  },
+  "headerSection": {
+    "actionsAriaLabel": "Actions for the selected document",
+    "openFile": "Open file",
+    "downloadFile": "Download file",
+    "openInGrid": "Open in DD Grid",
+    "originalUnavailable": "Original file is not available yet",
+    "downloadUnavailable": "Downloading the original is currently unavailable"
+  },
+  "structuredData": {
+    "emptyNotAvailable": "There are no extracted values for this document yet. Run the analysis or refresh the page after the review completes.",
+    "emptyProcessing": "Structured data is being processed. Refresh the page in a few minutes after the analysis finishes.",
+    "compositionLabel": "File composition",
+    "compositionSingle": "Single-document",
+    "compositionMulti_one": "Multi-document · {{count}} segment",
+    "compositionMulti_other": "Multi-document · {{count}} segments",
+    "singleDescription": "The file is analysed as a single document. Extracted values are shown in one shared context.",
+    "multiDescription": "The file contains several logical segments. Extracted values are grouped by segment.",
+    "primarySegmentLabel": "Primary segment:",
+    "primarySegment": "Primary segment",
+    "primaryShort": "Primary",
+    "segmentsTitle": "Segments",
+    "segmentsAriaLabel": "Document segments",
+    "orderPrefix": "Order: {{order}}",
+    "emptySegment": "No data for the selected segment yet.",
+    "emptySegmentHint": "Try selecting a different segment or refresh the page after the analysis completes.",
+    "emptyValuesInSegment": "No extracted values in this segment yet.",
+    "pageAbbr": "p. {{page}}",
+    "clausePrefix": "clause: {{clause}}",
+    "openInDocument": "Open in document",
+    "otherFields": "Other fields",
+    "checkTitles": {
+      "overall_risk": "Overall risk level",
+      "confidentiality": "Confidentiality",
+      "governing_law": "Governing law and jurisdiction",
+      "authority_and_approvals": "Authority and corporate approvals",
+      "price_and_payment": "Price and payment terms",
+      "real_estate_core": "Core real estate parameters"
+    }
+  },
+  "reviewSection": {
+    "emptyMessage": "No review results for this document in DD Matrix yet.",
+    "badges": {
+      "critical": "Critical: {{count}}",
+      "high": "High: {{count}}",
+      "unclear": "Unclear: {{count}}",
+      "fail": "Fail: {{count}}"
+    }
+  },
+  "pdfPreview": {
+    "subtitle": "Original file preview",
+    "downloadOriginal": "Download original file",
+    "closeAriaLabel": "Close file preview",
+    "viewerAriaLabel": "Preview of file {{filename}}",
+    "loading": "Loading file…",
+    "loadFailed": "Failed to load the file",
+    "loadErrorFallback": "Failed to load PDF"
+  },
+  "shared": {
+    "docTypeNotSpecified": "type not specified"
+  }
+}

@@ -3,6 +3,7 @@
 // =============================================================
 
 import React, { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { ReviewCheckCard } from "../../ReviewCheckCard";
 import type {
   DocumentReviewCheckView,
@@ -25,6 +26,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({
   onOpenReviewCell,
   onOpenAtLocation,
 }) => {
+  const { t, i18n } = useTranslation("documents");
   const hasReviewData = !!reviewData && reviewData.checks.length > 0;
 
   const sortedReviewChecks = useMemo<DocumentReviewCheckView[]>(() => {
@@ -47,9 +49,9 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({
       const bSeg = b.segmentOrder ?? Number.MAX_SAFE_INTEGER;
       if (aSeg !== bSeg) return aSeg - bSeg;
 
-      return a.checkName.localeCompare(b.checkName, "ru");
+      return a.checkName.localeCompare(b.checkName, i18n.language);
     });
-  }, [reviewData]);
+  }, [reviewData, i18n.language]);
 
   const visibleReviewChecks = resolvedActiveSegmentKey
     ? sortedReviewChecks.filter(
@@ -66,7 +68,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({
   if (!hasReviewData) {
     return (
       <p className="text-xs text-[var(--text-faint)]">
-        Для этого документа пока нет review-результатов в DD Matrix.
+        {t("reviewSection.emptyMessage")}
       </p>
     );
   }
@@ -76,22 +78,22 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({
       <div className="flex flex-wrap gap-1.5">
         {reviewData.totalCritical > 0 && (
           <span className="inline-flex items-center rounded-full border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-error-text)]">
-            Critical: {reviewData.totalCritical}
+            {t("reviewSection.badges.critical", { count: reviewData.totalCritical })}
           </span>
         )}
         {reviewData.totalHigh > 0 && (
           <span className="inline-flex items-center rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-warning-text)]">
-            High: {reviewData.totalHigh}
+            {t("reviewSection.badges.high", { count: reviewData.totalHigh })}
           </span>
         )}
         {reviewData.totalUnclear > 0 && (
           <span className="inline-flex items-center rounded-full border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-blue)]">
-            Unclear: {reviewData.totalUnclear}
+            {t("reviewSection.badges.unclear", { count: reviewData.totalUnclear })}
           </span>
         )}
         {reviewData.totalFail > 0 && (
           <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-primary)]">
-            Fail: {reviewData.totalFail}
+            {t("reviewSection.badges.fail", { count: reviewData.totalFail })}
           </span>
         )}
       </div>

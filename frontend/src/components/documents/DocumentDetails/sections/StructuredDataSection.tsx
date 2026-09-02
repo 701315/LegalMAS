@@ -1,8 +1,5 @@
-// =============================================================
-// StructuredDataSection.tsx
-// =============================================================
-
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Button from "../../../ui/Button";
 import type { ExtractedValue } from "../../../../types";
 
@@ -33,7 +30,10 @@ interface StructuredDataSectionProps {
   }) => void;
 }
 
-function getSegmentLabel(segment: StructuredSegmentGroup): string {
+function getSegmentLabel(
+  segment: StructuredSegmentGroup,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): string {
   if (segment.segmentTitle && segment.segmentTitle.trim()) {
     return segment.segmentTitle.trim();
   }
@@ -42,14 +42,17 @@ function getSegmentLabel(segment: StructuredSegmentGroup): string {
     return segment.segmentType.trim();
   }
 
-  return "Документ целиком";
+  return tFn("info.wholeDocument");
 }
 
-function getSegmentMetaLabel(segment: StructuredSegmentGroup): string | null {
+function getSegmentMetaLabel(
+  segment: StructuredSegmentGroup,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
   const parts: string[] = [];
 
   if (segment.isPrimarySegment) {
-    parts.push("Основной сегмент");
+    parts.push(tFn("structuredData.primarySegment"));
   }
 
   if (segment.segmentType && segment.segmentTitle) {
@@ -57,20 +60,23 @@ function getSegmentMetaLabel(segment: StructuredSegmentGroup): string | null {
   }
 
   if (segment.segmentOrder !== null && segment.segmentOrder !== undefined) {
-    parts.push(`Порядок: ${segment.segmentOrder}`);
+    parts.push(tFn("structuredData.orderPrefix", { order: segment.segmentOrder }));
   }
 
   return parts.length ? parts.join(" · ") : null;
 }
 
-function getCompositionBannerText(segments: StructuredSegmentGroup[]): string {
+function getCompositionBannerText(
+  segments: StructuredSegmentGroup[],
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): string {
   const actualSegments = segments.filter((s) => s.segmentId !== null);
 
   if (actualSegments.length <= 1) {
-    return "Single-document";
+    return tFn("structuredData.compositionSingle");
   }
 
-  return `Multi-document · ${actualSegments.length} segments`;
+  return tFn("structuredData.compositionMulti", { count: actualSegments.length });
 }
 
 function getPrimarySegment(
@@ -85,34 +91,30 @@ function getPrimarySegment(
 
 function getCompositionBannerDescription(
   segments: StructuredSegmentGroup[],
+  tFn: (key: string, options?: Record<string, unknown>) => string,
 ): string {
   const actualSegments = segments.filter((s) => s.segmentId !== null);
 
   if (actualSegments.length <= 1) {
-    return "Файл анализируется как единый документ. Извлечённые значения показаны в одном общем контексте.";
+    return tFn("structuredData.singleDescription");
   }
 
-  return "Файл содержит несколько логических сегментов. Извлечённые значения сгруппированы по сегментам.";
+  return tFn("structuredData.multiDescription");
 }
 
 function groupSegmentValuesByCheck(
   values: ExtractedValue[],
+  tFn: (key: string, options?: Record<string, unknown>) => string,
 ): Record<string, ExtractedValue[]> {
-  const STRUCTURED_CHECK_TITLES: Record<string, string> = {
-    overall_risk: "Общий уровень риска",
-    confidentiality: "Конфиденциальность",
-    governing_law: "Применимое право и подсудность",
-    authority_and_approvals: "Полномочия и корпоративные одобрения",
-    price_and_payment: "Цена и порядок оплаты",
-    real_estate_core: "Основные параметры объекта недвижимости",
-  };
-
   const getStructuredGroupTitle = (checkName: string): string => {
     const key = checkName.trim();
-    if (STRUCTURED_CHECK_TITLES[key]) {
-      return STRUCTURED_CHECK_TITLES[key];
+    
+    // Пытаемся перевести по коду через словарь checkTitles
+    const localized = tFn(`structuredData.checkTitles.${key}`, { defaultValue: "" });
+    if (localized) {
+      return localized;
     }
-    return checkName || "Другие параметры";
+    return checkName || tFn("structuredData.otherFields");
   };
 
   return values.reduce<Record<string, ExtractedValue[]>>((acc, val) => {
@@ -136,15 +138,15 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
   onSetActiveSegmentKey,
   onOpenAtLocation,
 }) => {
+  const { t } = useTranslation("documents");
   const hasMultipleSegments = structuredSegments.length > 1;
 
   const primarySegment = getPrimarySegment(structuredSegments);
   const primarySegmentLabel = primarySegment
-    ? getSegmentLabel(primarySegment)
+    ? getSegmentLabel(primarySegment, t)
     : null;
-  const compositionText = getCompositionBannerText(structuredSegments);
-  const compositionDescription =
-    getCompositionBannerDescription(structuredSegments);
+  const compositionText = getCompositionBannerText(structuredSegments, t);
+  const compositionDescription = getCompositionBannerDescription(structuredSegments, t);
 
   const visibleSegments = resolvedActiveSegmentKey
     ? structuredSegments.filter(
@@ -170,8 +172,7 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
   if (structuredNotAvailable) {
     return (
       <p className="text-xs text-[var(--text-primary)]">
-        Для этого документа пока нет извлечённых значений. Запустите анализ
-        или обновите страницу после завершения проверки.
+        {t("structuredData.emptyNotAvailable")}
       </p>
     );
   }
@@ -179,8 +180,7 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
   if (!structuredData || structuredData.extracted_values.length === 0) {
     return (
       <p className="text-xs text-[var(--text-primary)]">
-        Структурированные данные находятся в обработке. Обновите страницу
-        через несколько минут после завершения анализа.
+        {t("structuredData.emptyProcessing")}
       </p>
     );
   }
@@ -191,7 +191,7 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
       <div className="rounded-2xl border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] px-3 py-2.5">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-medium text-[var(--text-primary)]">
-            Состав файла
+            {t("structuredData.compositionLabel")}
           </span>
           <span className="text-xs text-[var(--text-primary)]">
             {compositionText}
@@ -205,7 +205,7 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
         {primarySegmentLabel && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="text-xs text-[var(--text-primary)]">
-              Основной сегмент:
+              {t("structuredData.primarySegmentLabel")}
             </span>
             <span className="inline-flex items-center rounded-full bg-[var(--bg-card)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-primary)] shadow-sm">
               {primarySegmentLabel}
@@ -217,16 +217,16 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
       {hasMultipleSegments && (
         <div className="space-y-1.5">
           <div className="text-xs font-medium text-[var(--text-primary)]">
-            Сегменты
+            {t("structuredData.segmentsTitle")}
           </div>
 
           <div
             className="flex flex-wrap gap-1.5"
             role="tablist"
-            aria-label="Сегменты документа"
+            aria-label={t("structuredData.segmentsAriaLabel")}
           >
             {structuredSegments.map((segment) => {
-              const label = getSegmentLabel(segment);
+              const label = getSegmentLabel(segment, t);
               const isActive =
                 resolvedActiveSegmentKey === segment.segmentKey;
 
@@ -252,7 +252,7 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
                           : "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
                       }`}
                     >
-                      Основной
+                      {t("structuredData.primaryShort")}
                     </span>
                   )}
                 </button>
@@ -266,19 +266,18 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
         {visibleSegments.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-4 text-center">
             <p className="text-xs font-medium text-[var(--text-primary)]">
-              Для выбранного сегмента пока нет данных.
+              {t("structuredData.emptySegment")}
             </p>
             <p className="mt-1 text-xs text-[var(--text-primary)]">
-              Попробуйте выбрать другой сегмент или обновите страницу
-              после завершения анализа.
+              {t("structuredData.emptySegmentHint")}
             </p>
           </div>
         ) : (
           visibleSegments.map((segment) => {
-            const groups = groupSegmentValuesByCheck(segment.values);
+            const groups = groupSegmentValuesByCheck(segment.values, t);
             const groupEntries = Object.entries(groups);
-            const segmentLabel = getSegmentLabel(segment);
-            const segmentMeta = getSegmentMetaLabel(segment);
+            const segmentLabel = getSegmentLabel(segment, t);
+            const segmentMeta = getSegmentMetaLabel(segment, t);
 
             return (
               <div
@@ -292,7 +291,7 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
                     </p>
                     {segment.isPrimarySegment && (
                       <span className="inline-flex items-center rounded-full bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-primary)]">
-                        Основной сегмент
+                        {t("structuredData.primarySegment")}
                       </span>
                     )}
                   </div>
@@ -313,7 +312,7 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
                 {groupEntries.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-3 text-center">
                     <p className="text-xs text-[var(--text-primary)]">
-                      В этом сегменте пока нет извлечённых значений.
+                      {t("structuredData.emptyValuesInSegment")}
                     </p>
                   </div>
                 ) : (
@@ -340,10 +339,10 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
 
                                 {(val.page || val.clause_uid) && (
                                   <div className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-                                    {val.page ? `стр. ${val.page}` : ""}
+                                    {val.page ? t("structuredData.pageAbbr", { page: val.page }) : ""}
                                     {val.page && val.clause_uid ? " · " : ""}
                                     {val.clause_uid
-                                      ? `clause: ${val.clause_uid}`
+                                      ? t("structuredData.clausePrefix", { clause: val.clause_uid })
                                       : ""}
                                   </div>
                                 )}
@@ -364,7 +363,7 @@ export const StructuredDataSection: React.FC<StructuredDataSectionProps> = ({
                                     }
                                     className="px-2 py-0.5 text-[10px]"
                                   >
-                                    Открыть в документе
+                                    {t("structuredData.openInDocument")}
                                   </Button>
                                 )}
                               </div>

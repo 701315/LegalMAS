@@ -11,6 +11,7 @@
 // =============================================================
 
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Download, X, Loader2, AlertTriangle } from "lucide-react";
 import Button from "../../ui/Button";
 import client from "../../../api/client";
@@ -32,6 +33,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
   onDownload,
   onClose,
 }) => {
+  const { t } = useTranslation("documents");
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
       } catch (e) {
         if (revoked) return;
         const msg =
-          e instanceof Error ? e.message : "Не удалось загрузить PDF";
+          e instanceof Error ? e.message : t("pdfPreview.loadErrorFallback");
         setLoadError(msg);
       } finally {
         if (!revoked) setIsLoading(false);
@@ -83,7 +85,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
         URL.revokeObjectURL(currentBlobUrl);
       }
     };
-  }, [open, documentId]);
+  }, [open, documentId, t]);
 
   if (!open) return null;
 
@@ -95,19 +97,21 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
     }
   };
 
+  const viewerTitle = t("pdfPreview.viewerAriaLabel", { filename });
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-[2px] p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={`Просмотр файла ${filename}`}
+      aria-label={viewerTitle}
       onClick={handleBackdropClick}
     >
       <div className="flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
         <div className="flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--text-faint)]">
-              Original file preview
+              {t("pdfPreview.subtitle")}
             </p>
             <h3 className="truncate text-base font-semibold text-[var(--text-primary)]">
               {filename}
@@ -124,7 +128,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
               isLoading={isDownloading}
               disabled={isDownloading}
             >
-              Скачать оригинал файла
+              {t("pdfPreview.downloadOriginal")}
             </Button>
 
             <Button
@@ -132,7 +136,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
               size="sm"
               variant="ghost"
               onClick={onClose}
-              aria-label="Закрыть просмотр файла"
+              aria-label={t("pdfPreview.closeAriaLabel")}
             >
               <X size={16} />
             </Button>
@@ -144,7 +148,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
             {isLoading && (
               <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
                 <Loader2 className="mr-2 animate-spin" size={18} />
-                Загрузка файла…
+                {t("pdfPreview.loading")}
               </div>
             )}
 
@@ -155,7 +159,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
                   className="mb-1 text-[var(--color-error-text)]"
                 />
                 <p className="text-xs font-medium text-[var(--color-error-text)]">
-                  Не удалось загрузить файл
+                  {t("pdfPreview.loadFailed")}
                 </p>
                 <p className="mt-1 text-[11px] text-[var(--text-muted)]">
                   {loadError}
@@ -166,7 +170,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
             {!isLoading && !loadError && blobUrl && (
               <iframe
                 src={blobUrl}
-                title={`Просмотр файла ${filename}`}
+                title={viewerTitle}
                 className="h-full w-full"
               />
             )}
@@ -176,3 +180,5 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
     </div>
   );
 };
+
+

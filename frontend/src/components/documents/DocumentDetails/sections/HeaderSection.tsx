@@ -4,6 +4,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Download, ExternalLink, FileText } from "lucide-react";
 import Button from "../../../ui/Button";
 
@@ -26,11 +27,13 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
   onDownloadOriginalFile,
   onOpenInGrid,
 }) => {
+  const { t } = useTranslation("documents");
+
   return (
     <div className="space-y-3">
       <div
         className="flex flex-wrap items-center gap-2"
-        aria-label="Действия по выбранному документу"
+        aria-label={t("headerSection.actionsAriaLabel")}
       >
         <Button
           type="button"
@@ -39,9 +42,9 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
           onClick={onOpenOriginalFile}
           disabled={!pdfUrl || !canOpenPdf}
           leftIcon={<FileText size={14} />}
-          title={!pdfUrl ? "Исходный файл пока недоступен" : undefined}
+          title={!pdfUrl ? t("headerSection.originalUnavailable") : undefined}
         >
-          Открыть файл
+          {t("headerSection.openFile")}
         </Button>
 
         <Button
@@ -52,9 +55,11 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
           disabled={!pdfUrl || !canDownload || isDownloadingOriginal}
           leftIcon={<Download size={14} />}
           isLoading={isDownloadingOriginal}
-          title={!pdfUrl ? "Скачивание оригинала сейчас недоступно" : undefined}
+          title={
+            !pdfUrl ? t("headerSection.downloadUnavailable") : undefined
+          }
         >
-          Скачать файл
+          {t("headerSection.downloadFile")}
         </Button>
 
         <Button
@@ -65,7 +70,7 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
           disabled={!onOpenInGrid}
           rightIcon={<ExternalLink size={12} />}
         >
-          Открыть в DD Grid
+          {t("headerSection.openInGrid")}
         </Button>
       </div>
     </div>

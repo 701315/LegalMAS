@@ -4,6 +4,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { Document } from "../../../types";
 
 interface SectionProps {
@@ -42,21 +43,25 @@ interface FamilyRowProps {
   doc: Document;
 }
 
-export const FamilyRow: React.FC<FamilyRowProps> = ({ icon, label, doc }) => (
-  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] py-1 text-xs last:border-0">
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="text-base">{icon}</span>
-      <div className="min-w-0">
-        <p className="truncate font-medium text-[var(--text-primary)]">
-          {doc.filename}
-        </p>
-        <p className="truncate text-[11px] text-[var(--text-primary)]">
-          {label} · {doc.doc_type || "тип не указан"}
-        </p>
+export const FamilyRow: React.FC<FamilyRowProps> = ({ icon, label, doc }) => {
+  const { t } = useTranslation("documents");
+
+  return (
+    <div className="flex items-center justify-between border-b border-[var(--border-subtle)] py-1 text-xs last:border-0">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="text-base">{icon}</span>
+        <div className="min-w-0">
+          <p className="truncate font-medium text-[var(--text-primary)]">
+            {doc.filename}
+          </p>
+          <p className="truncate text-[11px] text-[var(--text-primary)]">
+            {label} · {doc.doc_type || t("shared.docTypeNotSpecified")}
+          </p>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 
 
