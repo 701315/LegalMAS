@@ -11,6 +11,7 @@
 // - Section card with tab switcher + conditional tab content
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Loader2, RefreshCw, XCircle } from "lucide-react";
 
@@ -54,6 +55,7 @@ import ProjectDrillDown from "./tenant-admin/sections/ProjectDrillDown";
 // ─── Main Page ───────────────────────────────────────────────────────────
 
 const TenantAdminPage: React.FC = () => {
+  const { t } = useTranslation("tenantAdmin");
   const navigate = useNavigate();
   const { globalRole } = useAuth();
 
@@ -162,7 +164,7 @@ const TenantAdminPage: React.FC = () => {
       <div className="flex h-full items-center justify-center">
         <div className="flex items-center gap-3 text-[var(--text-muted)]">
           <Loader2 size={20} className="animate-spin" />
-          <span className="text-sm">Загружаем панель администратора…</span>
+          <span className="text-sm">{t("loading")}</span>
         </div>
       </div>
     );
@@ -179,10 +181,10 @@ const TenantAdminPage: React.FC = () => {
             className="mx-auto mb-3 text-[var(--color-error-text)]"
           />
           <p className="text-sm font-semibold text-[var(--color-error-text)]">
-            Не удалось загрузить панель
+            {t("error.loadFailed")}
           </p>
           <p className="mt-1 text-[10px] text-[var(--text-muted)]">
-            Проверьте права доступа или обратитесь в поддержку
+            {t("error.checkPermissions")}
           </p>
           <Button
             size="sm"
@@ -190,7 +192,7 @@ const TenantAdminPage: React.FC = () => {
             onClick={() => dashQ.refetch()}
             className="mt-4"
           >
-            Попробовать снова
+            {t("error.retry")}
           </Button>
         </div>
       </div>
@@ -225,11 +227,10 @@ const TenantAdminPage: React.FC = () => {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
                 <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                  Панель администратора
+                  {t("header.title")}
                 </h1>
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                  Проекты, пользователи, мониторинг, логи и алерты по вашей
-                  организации.
+                  {t("header.subtitle")}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -241,7 +242,7 @@ const TenantAdminPage: React.FC = () => {
                   isLoading={isRefreshing}
                   leftIcon={<RefreshCw size={14} />}
                 >
-                  Обновить
+                  {t("header.refresh")}
                 </Button>
               </div>
             </div>
@@ -257,9 +258,7 @@ const TenantAdminPage: React.FC = () => {
                 />
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-[var(--color-warning-text)]">
-                    {problemProjects.length === 1
-                      ? "1 проект требует внимания"
-                      : `${problemProjects.length} проекта требуют внимания`}
+                    {t("problems.banner", { count: problemProjects.length })}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {problemProjects.map((p) => (
@@ -272,12 +271,12 @@ const TenantAdminPage: React.FC = () => {
                         {p.deal_name}
                         {p.failed_documents > 0 && (
                           <span className="ml-1.5 text-[var(--color-error-text)]">
-                            · {p.failed_documents} ошибок
+                            {t("problems.errorsCount", { count: p.failed_documents })}
                           </span>
                         )}
                         {p.quarantine_documents > 0 && (
                           <span className="ml-1.5 text-[var(--color-warning-text)]">
-                            · {p.quarantine_documents} карантин
+                            {t("problems.quarantineCount", { count: p.quarantine_documents })}
                           </span>
                         )}
                       </button>
@@ -303,32 +302,32 @@ const TenantAdminPage: React.FC = () => {
                     onClick={() => setActiveTab("projects")}
                     badge={projects.length}
                   >
-                    Проекты
+                    {t("tabs.projects")}
                   </TabButton>
                   <TabButton
                     active={activeTab === "users"}
                     onClick={() => setActiveTab("users")}
                     badge={users.length}
                   >
-                    Пользователи
+                    {t("tabs.users")}
                   </TabButton>
                   <TabButton
                     active={activeTab === "monitoring"}
                     onClick={() => setActiveTab("monitoring")}
                   >
-                    Мониторинг
+                    {t("tabs.monitoring")}
                   </TabButton>
                   <TabButton
                     active={activeTab === "logs"}
                     onClick={() => setActiveTab("logs")}
                   >
-                    Логи
+                    {t("tabs.logs")}
                   </TabButton>
                   <TabButton
                     active={activeTab === "alerts"}
                     onClick={() => setActiveTab("alerts")}
                   >
-                    Алерты
+                    {t("tabs.alerts")}
                   </TabButton>
                 </div>
                 <div className={SECTION_DIVIDER} />

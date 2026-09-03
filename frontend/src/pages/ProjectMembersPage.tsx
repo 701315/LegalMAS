@@ -5,12 +5,14 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import Button from "../components/ui/Button";
 import ProjectMembersPanel from "../components/settings/ProjectMembersPanel";
 
 const ProjectMembersPage: React.FC = () => {
+  const { t } = useTranslation("admin");
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
 
@@ -31,7 +33,7 @@ const ProjectMembersPage: React.FC = () => {
               leftIcon={<ArrowLeft size={14} />}
               onClick={() => navigate(`/projects/${dealId}`)}
             >
-              Назад к проекту
+              {t("membersPage.backButton")}
             </Button>
           }
         />

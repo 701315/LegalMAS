@@ -1,0 +1,35 @@
+{
+  "loading": "Загружаем панель администратора…",
+  "error": {
+    "loadFailed": "Не удалось загрузить панель",
+    "checkPermissions": "Проверьте права доступа или обратитесь в поддержку",
+    "retry": "Попробовать снова"
+  },
+  "header": {
+    "title": "Панель администратора",
+    "subtitle": "Проекты, пользователи, мониторинг, логи и алерты по вашей организации.",
+    "refresh": "Обновить"
+  },
+  "problems": {
+    "banner_one": "1 проект требует внимания",
+    "banner_few": "{{count}} проекта требуют внимания",
+    "banner_many": "{{count}} проектов требуют внимания",
+    "banner_other": "{{count}} проекта требуют внимания",
+    "errorsCount_one": "· {{count}} ошибка",
+    "errorsCount_few": "· {{count}} ошибки",
+    "errorsCount_many": "· {{count}} ошибок",
+    "errorsCount_other": "· {{count}} ошибки",
+    "quarantineCount_one": "· {{count}} в карантине",
+    "quarantineCount_few": "· {{count}} в карантине",
+    "quarantineCount_many": "· {{count}} в карантине",
+    "quarantineCount_other": "· {{count}} в карантине"
+  },
+  "tabs": {
+    "projects": "Проекты",
+    "users": "Пользователи",
+    "monitoring": "Мониторинг",
+    "logs": "Логи",
+    "alerts": "Алерты"
+  }
+}
+

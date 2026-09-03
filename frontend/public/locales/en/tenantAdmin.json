@@ -1,0 +1,29 @@
+{
+  "loading": "Loading admin dashboard…",
+  "error": {
+    "loadFailed": "Failed to load dashboard",
+    "checkPermissions": "Check your permissions or contact support.",
+    "retry": "Try again"
+  },
+  "header": {
+    "title": "Admin Dashboard",
+    "subtitle": "Projects, users, monitoring, logs, and alerts for your organization.",
+    "refresh": "Refresh"
+  },
+  "problems": {
+    "banner_one": "1 project requires attention",
+    "banner_other": "{{count}} projects require attention",
+    "errorsCount_one": "· 1 error",
+    "errorsCount_other": "· {{count}} errors",
+    "quarantineCount_one": "· 1 in quarantine",
+    "quarantineCount_other": "· {{count}} in quarantine"
+  },
+  "tabs": {
+    "projects": "Projects",
+    "users": "Users",
+    "monitoring": "Monitoring",
+    "logs": "Logs",
+    "alerts": "Alerts"
+  }
+}
+
