@@ -9,6 +9,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -60,16 +61,12 @@ const TAB_KEYS: TabKey[] = [
   "real_estate",
 ];
 
-const TAB_LABELS: Record<TabKey, string> = {
-  overview: "Обзор",
-  documents: "Документы",
-  dd_grid: "DD Grid",
-  requests: "Запросы",
-  report: "Отчёт",
-  audit: "Аудит",
-  counterparties: "Контрагенты",
-  real_estate: "Имущество",
-};
+function getTabLabel(
+  tabKey: TabKey,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  return tFn(`dealPage.tabs.${tabKey}`);
+}
 
 const sidebarItemBaseClassName =
   "w-full rounded-xl px-3 py-2 text-left font-medium transition-colors " +
@@ -92,6 +89,7 @@ function getTabPanelId(tabKey: TabKey) {
 }
 
 const DealPage: React.FC<DealPageProps> = ({ deal }) => {
+  const { t } = useTranslation("projects");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -229,7 +227,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     [],
   );
 
-  const activeTabLabel = TAB_LABELS[activeTab];
+  const activeTabLabel = getTabLabel(activeTab, t);
 
   const renderActiveTabPanel = () => {
     if (activeTab === "overview") {
@@ -245,8 +243,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         />
       ) : (
         renderRunRequiredState(
-          "Список документов пока недоступен",
-          "Карточки документов в режиме review появятся после первого анализа проекта.",
+          t("dealPage.runRequired.documentsTitle"),
+          t("dealPage.runRequired.documentsDesc"),
         )
       );
     }
@@ -256,8 +254,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         <GridTab dealId={deal.id} runId={currentRunId} />
       ) : (
         renderRunRequiredState(
-          "DD Grid пока недоступен",
-          "Для этого проекта ещё не запускался анализ. Запустите первый анализ, чтобы открыть матрицу проверок.",
+          t("dealPage.runRequired.gridTitle"),
+          t("dealPage.runRequired.gridDesc"),
         )
       );
     }
@@ -271,8 +269,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         />
       ) : (
         renderRunRequiredState(
-          "Запросы пока недоступны",
-          "Сначала нужен хотя бы один анализ, чтобы система сформировала follow-up запросы по найденным рискам.",
+          t("dealPage.runRequired.requestsTitle"),
+          t("dealPage.runRequired.requestsDesc"),
         )
       );
     }
@@ -330,7 +328,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                   size="sm"
                   onClick={handleBackToProjects}
                 >
-                  Вернуться к списку проектов
+                  {t("dealPage.header.backToProjects")}
                 </Button>
               </div>
             </div>
@@ -341,12 +339,12 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         <aside className="hidden min-h-0 shrink-0 lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-[var(--border)] lg:bg-[var(--bg-card)]">
           <nav
             className="flex h-full flex-col overflow-y-auto overscroll-contain px-3 py-4"
-            aria-label="Навигация по проекту"
+            aria-label={t("dealPage.sidebar.navAria")}
           >
             {/* ── Обзор — отдельно вверху ── */}
             <div className="mb-3">
               <SidebarItem
-                label={TAB_LABELS.overview}
+                label={getTabLabel("overview", t)}
                 tabKey="overview"
                 activeTab={sidebarActiveTab}
                 onSelect={handleSetTab}
@@ -357,38 +355,38 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             <div className="border-t border-[var(--border)] pt-4">
               <div className="mb-1.5 px-3">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Анализ документов по сделке
+                  {t("dealPage.sidebar.groupDocuments")}
                 </span>
               </div>
               <div className="space-y-1">
                 <SidebarItem
-                  label={TAB_LABELS.documents}
+                  label={getTabLabel("documents", t)}
                   tabKey="documents"
-               activeTab={sidebarActiveTab}
+                  activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
                 <SidebarItem
-                  label={TAB_LABELS.dd_grid}
+                  label={getTabLabel("dd_grid", t)}
                   tabKey="dd_grid"
-               activeTab={sidebarActiveTab}
+                  activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
                 <SidebarItem
-                  label={TAB_LABELS.requests}
+                  label={getTabLabel("requests", t)}
                   tabKey="requests"
-               activeTab={sidebarActiveTab}
+                  activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
                 <SidebarItem
-                  label={TAB_LABELS.report}
+                  label={getTabLabel("report", t)}
                   tabKey="report"
-               activeTab={sidebarActiveTab}
+                  activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
                 <SidebarItem
-                  label={TAB_LABELS.audit}
+                  label={getTabLabel("audit", t)}
                   tabKey="audit"
-               activeTab={sidebarActiveTab}
+                  activeTab={sidebarActiveTab}
                   onSelect={handleSetTab}
                 />
               </div>
@@ -398,15 +396,15 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             <div className="mt-5 border-t border-[var(--border)] pt-4">
               <div className="mb-1.5 px-3">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Анализ выявленных контрагентов
+                  {t("dealPage.sidebar.groupCounterparties")}
                 </span>
               </div>
               <SidebarItem
-                label="Контрагенты"
+                label={t("dealPage.sidebar.counterparties")}
                 tabKey="counterparties"
-             activeTab={sidebarActiveTab}
+                activeTab={sidebarActiveTab}
                 onSelect={handleSetTab}
-                badge="Скоро"
+                badge={t("dealPage.sidebar.soonBadge")}
               />
             </div>
 
@@ -414,27 +412,23 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             <div className="mt-5 border-t border-[var(--border)] pt-4">
               <div className="mb-1.5 px-3">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Анализ выявленного недвижимого имущества
+                  {t("dealPage.sidebar.groupRealEstate")}
                 </span>
               </div>
               <SidebarItem
-                label="Имущество"
+                label={t("dealPage.sidebar.realEstate")}
                 tabKey="real_estate"
-             activeTab={sidebarActiveTab}
+                activeTab={sidebarActiveTab}
                 onSelect={handleSetTab}
-                badge="Скоро"
+                badge={t("dealPage.sidebar.soonBadge")}
               />
             </div>
 
-            {/* ── Группа: Дополнительные действия ─────────────────────
-                Отдельная секция в сайдбаре для действий над проектом,
-                не являющихся навигацией по вкладкам. Ссылка "Перезапустить
-                проект" переводит на отдельную страницу /relaunch с
-                полным layout AppShell. Работает с любой активной вкладки. */}
+            {/* ── Группа: Дополнительные действия ── */}
             <div className="mt-5 border-t border-[var(--border)] pt-4">
               <div className="mb-1.5 px-3">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Дополнительные действия
+                  {t("dealPage.sidebar.groupActions")}
                 </span>
               </div>
               <button
@@ -449,10 +443,9 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                     : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
                 ].join(" ")}
               >
-                <span className="truncate">Перезапустить проект</span>
+                <span className="truncate">{t("dealPage.sidebar.relaunch")}</span>
               </button>
             </div>
-
           </nav>
         </aside>
 
@@ -476,7 +469,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                       size="sm"
                       onClick={handleCloseLaunchPanel}
                     >
-                      Отмена
+                      {t("dealPage.header.cancel")}
                     </Button>
                   ) : (
                     <>
@@ -485,14 +478,14 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                         size="sm"
                         onClick={handleOpenLaunchPanel}
                       >
-                        Перезапустить
+                        {t("dealPage.header.relaunch")}
                       </Button>
                       <Button
                         variant="secondary"
                         size="sm"
                         onClick={handleBackToProjects}
                       >
-                        Назад
+                        {t("dealPage.header.back")}
                       </Button>
                     </>
                   )}
@@ -503,57 +496,18 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                 <div
                   className="flex overflow-x-auto border-t border-[var(--border)] pt-3"
                   role="tablist"
-                  aria-label="Разделы проекта"
+                  aria-label={t("dealPage.header.sectionsAria")}
                   onKeyDown={handleMobileTabKeyDown}
                 >
-                  <MobileTab
-                    label={TAB_LABELS.overview}
-                    tabKey="overview"
-                 activeTab={sidebarActiveTab}
-                    onSelect={handleSetTab}
-                  />
-                  <MobileTab
-                    label={TAB_LABELS.documents}
-                    tabKey="documents"
-                 activeTab={sidebarActiveTab}
-                    onSelect={handleSetTab}
-                  />
-                  <MobileTab
-                    label={TAB_LABELS.dd_grid}
-                    tabKey="dd_grid"
-                 activeTab={sidebarActiveTab}
-                    onSelect={handleSetTab}
-                  />
-                  <MobileTab
-                    label={TAB_LABELS.requests}
-                    tabKey="requests"
-                 activeTab={sidebarActiveTab}
-                    onSelect={handleSetTab}
-                  />
-                  <MobileTab
-                    label={TAB_LABELS.report}
-                    tabKey="report"
-                 activeTab={sidebarActiveTab}
-                    onSelect={handleSetTab}
-                  />
-                  <MobileTab
-                    label={TAB_LABELS.audit}
-                    tabKey="audit"
-                 activeTab={sidebarActiveTab}
-                    onSelect={handleSetTab}
-                  />
-                  <MobileTab
-                    label={TAB_LABELS.counterparties}
-                    tabKey="counterparties"
-                 activeTab={sidebarActiveTab}
-                    onSelect={handleSetTab}
-                  />
-                  <MobileTab
-                    label={TAB_LABELS.real_estate}
-                    tabKey="real_estate"
-                 activeTab={sidebarActiveTab}
-                    onSelect={handleSetTab}
-                  />
+                  {TAB_KEYS.map((key) => (
+                    <MobileTab
+                      key={key}
+                      label={getTabLabel(key, t)}
+                      tabKey={key}
+                      activeTab={sidebarActiveTab}
+                      onSelect={handleSetTab}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -704,6 +658,7 @@ interface RelaunchContentProps {
 }
 
 const RelaunchContent: React.FC<RelaunchContentProps> = ({ deal, onClose }) => {
+  const { t } = useTranslation("projects");
   const qc = useQueryClient();
 
   const { data: documentsPage } = useDocuments(deal.id, 1);
@@ -839,12 +794,14 @@ const RelaunchContent: React.FC<RelaunchContentProps> = ({ deal, onClose }) => {
                   id="relaunch-content-title"
                   className="text-sm font-semibold text-[var(--text-primary)]"
                 >
-                  {hasCurrentRun ? "Перезапуск анализа" : "Запуск анализа"}
+                  {hasCurrentRun
+                    ? t("dealPage.relaunch.relaunchTitle")
+                    : t("dealPage.relaunch.launchTitle")}
                 </h2>
                 <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                   {hasCurrentRun
-                    ? "Проверьте документы и текущие настройки проекта перед новым прогоном."
-                    : "Проверьте документы и настройки проекта перед первым запуском."}
+                    ? t("dealPage.relaunch.relaunchDesc")
+                    : t("dealPage.relaunch.launchDesc")}
                 </p>
               </div>
 
@@ -858,7 +815,7 @@ const RelaunchContent: React.FC<RelaunchContentProps> = ({ deal, onClose }) => {
                   variant="secondary"
                   onClick={onClose}
                 >
-                  Отмена
+                  {t("dealPage.relaunch.cancel")}
                 </Button>
                 {/* primary = терракотовый accent; ml-auto = правый край */}
                 <Button
@@ -870,7 +827,9 @@ const RelaunchContent: React.FC<RelaunchContentProps> = ({ deal, onClose }) => {
                   isLoading={isSubmitting}
                   className="ml-auto"
                 >
-                  {hasCurrentRun ? "Перезапустить анализ" : "Запустить анализ"}
+                  {hasCurrentRun
+                    ? t("dealPage.relaunch.relaunchButton")
+                    : t("dealPage.relaunch.launchButton")}
                 </Button>
               </div>
 

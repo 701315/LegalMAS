@@ -1,0 +1,9 @@
+{
+  "types": {
+    "grid_xlsx": "DD Grid (Excel)",
+    "deal_summary_xlsx": "Deal Summary (Excel)",
+    "report_docx": "DD Report (Word)"
+  }
+}
+
+

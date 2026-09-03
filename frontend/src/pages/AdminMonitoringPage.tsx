@@ -12,6 +12,7 @@
 // Скелетон рендера: Loading → Error → Not superadmin → Groups
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Activity,
   GitBranch,
@@ -134,6 +135,7 @@ const ToolGroupSection: React.FC<{ group: ToolGroup }> = ({ group }) => (
 // ─── AdminMonitoringPage ──────────────────────────────────────────────────────
 
 const AdminMonitoringPage: React.FC = () => {
+  const { t } = useTranslation("admin");
   const toolsQ = useExternalTools();
 
   // Собираем ToolGroup[] из backend response.
@@ -165,9 +167,8 @@ const AdminMonitoringPage: React.FC = () => {
     if (dashboardTools.length > 0) {
       result.push({
         id: "dashboards",
-        title: "Обзорные дашборды",
-        description:
-          "Deep links в Grafana. URL берутся из backend-конфигурации текущего контура.",
+        title: t("monitoring.groups.dashboards.title"),
+        description: t("monitoring.groups.dashboards.description"),
         tools: dashboardTools,
       });
     }
@@ -175,15 +176,14 @@ const AdminMonitoringPage: React.FC = () => {
     if (serviceTools.length > 0) {
       result.push({
         id: "services",
-        title: "Сервисы observability",
-        description:
-          "Прямые ссылки на Grafana, Prometheus, Alertmanager, Loki, Tempo, MinIO, API docs и Ollama.",
+        title: t("monitoring.groups.services.title"),
+        description: t("monitoring.groups.services.description"),
         tools: serviceTools,
       });
     }
 
     return result;
-  }, [toolsQ.data]);
+  }, [toolsQ.data, t]);
 
   // ── Loading state ───────────────────────────────────────────────────────
   if (toolsQ.isLoading && !toolsQ.data) {
@@ -191,7 +191,7 @@ const AdminMonitoringPage: React.FC = () => {
       <div className="flex h-full items-center justify-center">
         <div className="flex items-center gap-3 text-[var(--text-muted)]">
           <Loader2 size={20} className="animate-spin" />
-          <span className="text-sm">Загружаем monitoring links…</span>
+          <span className="text-sm">{t("monitoring.loading")}</span>
         </div>
       </div>
     );
@@ -207,10 +207,10 @@ const AdminMonitoringPage: React.FC = () => {
             className="mx-auto mb-3 text-[var(--color-error-text)]"
           />
           <p className="text-sm font-semibold text-[var(--color-error-text)]">
-            Не удалось загрузить ссылки мониторинга
+            {t("monitoring.error.loadFailed")}
           </p>
           <p className="mt-1 text-[10px] text-[var(--text-muted)]">
-            Проверьте backend config и доступность admin API
+            {t("monitoring.error.checkBackend")}
           </p>
           <Button
             size="sm"
@@ -218,7 +218,7 @@ const AdminMonitoringPage: React.FC = () => {
             onClick={() => toolsQ.refetch()}
             className="mt-4"
           >
-            Попробовать снова
+            {t("monitoring.error.retry")}
           </Button>
         </div>
       </div>
@@ -236,11 +236,10 @@ const AdminMonitoringPage: React.FC = () => {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Мониторинг
+                {t("monitoring.header.title")}
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Инструменты наблюдаемости платформы. Ссылки берутся из
-                backend-конфигурации контура и не зависят от browser localhost.
+                {t("monitoring.header.subtitle")}
               </p>
             </div>
 
@@ -251,7 +250,7 @@ const AdminMonitoringPage: React.FC = () => {
               isLoading={toolsQ.isFetching}
               leftIcon={<RefreshCw size={14} />}
             >
-              Обновить ссылки
+              {t("monitoring.header.refresh")}
             </Button>
           </div>
         </header>
@@ -260,7 +259,7 @@ const AdminMonitoringPage: React.FC = () => {
         {groups.length === 0 ? (
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
             <p className="text-sm text-[var(--text-secondary)]">
-              Backend не вернул доступных monitoring links для текущего контура.
+              {t("monitoring.empty")}
             </p>
           </section>
         ) : (

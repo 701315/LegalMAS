@@ -6,6 +6,7 @@
 //      /tenant-admin/instructions/base-global-checks/:instructionCode?version=<id>
 
 import React, { useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Eye, GitBranch } from "lucide-react";
 
@@ -25,10 +26,13 @@ import type {
 
 // ── Helpers ──────────────────────────────────────────────────
 
-function formatDate(value: string | null | undefined): string | null {
+function formatDate(
+  value: string | null | undefined,
+  locale: string,
+): string | null {
   if (!value) return null;
   try {
-    return new Date(value).toLocaleDateString("ru-RU");
+    return new Date(value).toLocaleDateString(locale);
   } catch {
     return null;
   }
@@ -47,78 +51,84 @@ function pickDefaultVersionId(
 
 const InstructionInfoCard: React.FC<{
   item: GlobalInstructionCatalogItem;
-}> = ({ item }) => (
-  <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-    <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-      Об инструкции
-    </h3>
+}> = ({ item }) => {
+  const { t } = useTranslation("instructions");
 
-    <div className="mt-3 space-y-3">
-      <div>
-        <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-          Название
-        </div>
-        <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-          {item.name}
-        </div>
-      </div>
+  return (
+    <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        {t("tenantBase.detail.info.aboutInstruction")}
+      </h3>
 
-      <div>
-        <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-          Код
-        </div>
-        <div className="mt-0.5 break-all font-mono text-xs text-[var(--text-secondary)]">
-          {item.instruction_code}
-        </div>
-      </div>
-
-      {item.group && (
+      <div className="mt-3 space-y-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            Группа
+            {t("tenantBase.detail.info.name")}
           </div>
-          <div className="mt-0.5 text-xs text-[var(--text-primary)]">
-            {item.group}
+          <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+            {item.name}
           </div>
         </div>
-      )}
 
-      <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
-            Всего
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+            {t("tenantBase.detail.info.code")}
           </div>
-          <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-            {item.total_versions_count}
+          <div className="mt-0.5 break-all font-mono text-xs text-[var(--text-secondary)]">
+            {item.instruction_code}
           </div>
         </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
-            Published
+
+        {item.group && (
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              {t("tenantBase.detail.info.group")}
+            </div>
+            <div className="mt-0.5 text-xs text-[var(--text-primary)]">
+              {item.group}
+            </div>
           </div>
-          <div
-            className={[
-              "mt-0.5 text-sm font-semibold",
-              item.has_published
-                ? "text-[var(--color-success-text)]"
-                : "text-[var(--text-muted)]",
-            ].join(" ")}
-          >
-            {item.has_published ? "да" : "нет"}
+        )}
+
+        <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              {t("tenantBase.detail.info.total")}
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+              {item.total_versions_count}
+            </div>
           </div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
-            Draft
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              {t("tenantBase.detail.info.published")}
+            </div>
+            <div
+              className={[
+                "mt-0.5 text-sm font-semibold",
+                item.has_published
+                  ? "text-[var(--color-success-text)]"
+                  : "text-[var(--text-muted)]",
+              ].join(" ")}
+            >
+              {item.has_published
+                ? t("tenantBase.detail.info.yes")
+                : t("tenantBase.detail.info.no")}
+            </div>
           </div>
-          <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-            {item.draft_versions_count}
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              {t("tenantBase.detail.info.draft")}
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+              {item.draft_versions_count}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 // ── VersionSidebarItem ───────────────────────────────────────
 
@@ -127,8 +137,9 @@ const VersionSidebarItem: React.FC<{
   isSelected: boolean;
   onClick: () => void;
 }> = ({ version, isSelected, onClick }) => {
-  const publishedAt = formatDate(version.published_at);
-  const updatedAt = formatDate(version.updated_at);
+  const { t, i18n } = useTranslation("instructions");
+  const publishedAt = formatDate(version.published_at, i18n.language);
+  const updatedAt = formatDate(version.updated_at, i18n.language);
   const displayDate = publishedAt ?? updatedAt;
 
   return (
@@ -147,7 +158,7 @@ const VersionSidebarItem: React.FC<{
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-semibold text-[var(--text-primary)]">
-            {version.name ?? "Без названия"}
+            {version.name ?? t("tenantBase.detail.sidebar.unnamed")}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--text-muted)]">
             <span className="font-mono">{version.id.slice(0, 8)}…</span>
@@ -196,6 +207,7 @@ const VersionsSidebar: React.FC<{
   isLoading: boolean;
   isError: boolean;
 }> = ({ versions, selectedVersionId, onSelectVersion, isLoading, isError }) => {
+  const { t } = useTranslation("instructions");
   const drafts = versions.filter((v) => v.version_status === "draft");
   const published = versions.filter((v) => v.version_status === "published");
   const archived = versions.filter((v) => v.version_status === "archived");
@@ -204,7 +216,7 @@ const VersionsSidebar: React.FC<{
     <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-          Версии
+          {t("tenantBase.detail.sidebar.title")}
         </h3>
         <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
           <GitBranch className="h-3.5 w-3.5" aria-hidden="true" />
@@ -213,18 +225,23 @@ const VersionsSidebar: React.FC<{
       </div>
 
       <div className="mt-3">
-        {isLoading && <LoadingBlock text="Загружаем версии…" rows={3} />}
+        {isLoading && (
+          <LoadingBlock
+            text={t("tenantBase.detail.sidebar.loading")}
+            rows={3}
+          />
+        )}
 
         {isError && (
           <InlineAlert
             tone="error"
-            message="Не удалось загрузить версии инструкции."
+            message={t("tenantBase.detail.sidebar.loadError")}
           />
         )}
 
         {!isLoading && !isError && versions.length === 0 && (
           <p className="rounded-lg border border-dashed border-[var(--border)] px-3 py-4 text-center text-[11px] text-[var(--text-muted)]">
-            Для этой инструкции ещё нет версий.
+            {t("tenantBase.detail.sidebar.emptyGlobal")}
           </p>
         )}
 
@@ -232,7 +249,7 @@ const VersionsSidebar: React.FC<{
           <div className="space-y-4">
             {drafts.length > 0 && (
               <VersionGroup
-                label="Черновики"
+                label={t("tenantBase.detail.sidebar.drafts")}
                 count={drafts.length}
                 versions={drafts}
                 selectedVersionId={selectedVersionId}
@@ -241,7 +258,7 @@ const VersionsSidebar: React.FC<{
             )}
             {published.length > 0 && (
               <VersionGroup
-                label="Published"
+                label={t("tenantBase.detail.sidebar.published")}
                 count={published.length}
                 versions={published}
                 selectedVersionId={selectedVersionId}
@@ -250,7 +267,7 @@ const VersionsSidebar: React.FC<{
             )}
             {archived.length > 0 && (
               <VersionGroup
-                label="Archived"
+                label={t("tenantBase.detail.sidebar.archived")}
                 count={archived.length}
                 versions={archived}
                 selectedVersionId={selectedVersionId}
@@ -269,13 +286,14 @@ const VersionsSidebar: React.FC<{
 const VersionViewPane: React.FC<{
   versionId: string;
 }> = ({ versionId }) => {
+  const { t } = useTranslation("instructions");
   const { data: version, isLoading, isError } =
     useBaseGlobalCheckVersionDetail(versionId);
 
   if (isLoading) {
     return (
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-        <LoadingBlock text="Загружаем версию инструкции…" rows={6} />
+        <LoadingBlock text={t("tenantBase.detail.viewer.loading")} rows={6} />
       </section>
     );
   }
@@ -285,7 +303,7 @@ const VersionViewPane: React.FC<{
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
         <InlineAlert
           tone="error"
-          message="Не удалось загрузить содержимое версии."
+          message={t("tenantBase.detail.viewer.loadError")}
         />
       </section>
     );
@@ -297,7 +315,7 @@ const VersionViewPane: React.FC<{
         <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-              Source YAML
+              {t("tenantBase.detail.viewer.sourceYaml")}
             </h3>
             <div className="flex items-center gap-2">
               <VersionStatusBadge
@@ -317,7 +335,7 @@ const VersionViewPane: React.FC<{
       ) : (
         <section className="flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
           <p className="text-sm text-[var(--text-muted)]">
-            Source YAML для этой версии недоступен.
+            {t("tenantBase.detail.viewer.noYaml")}
           </p>
         </section>
       )}
@@ -328,6 +346,7 @@ const VersionViewPane: React.FC<{
 // ── Page ─────────────────────────────────────────────────────
 
 const TenantBaseGlobalCheckDetailPage: React.FC = () => {
+  const { t } = useTranslation("instructions");
   const { instructionCode } = useParams<{ instructionCode: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -359,9 +378,9 @@ const TenantBaseGlobalCheckDetailPage: React.FC = () => {
     const paramIsValid =
       versionParam && versions.some((v) => v.id === versionParam);
     if (paramIsValid) return;
-    const defaultId = pickDefaultVersionId(versions);
-    if (defaultId) {
-      setSearchParams({ version: defaultId }, { replace: true });
+    const defaultIdResolved = pickDefaultVersionId(versions);
+    if (defaultIdResolved) {
+      setSearchParams({ version: defaultIdResolved }, { replace: true });
     }
   }, [versions, versionParam, setSearchParams]);
 
@@ -381,7 +400,9 @@ const TenantBaseGlobalCheckDetailPage: React.FC = () => {
   })();
 
   const displayName =
-    catalogItem?.name ?? instructionCode ?? "Global Instruction";
+    catalogItem?.name ??
+    instructionCode ??
+    t("tenantBase.detail.fallbackGlobal");
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 md:px-5 md:py-5">
@@ -396,7 +417,7 @@ const TenantBaseGlobalCheckDetailPage: React.FC = () => {
           className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Базовые Global Instructions
+          {t("tenantBase.detail.backToGlobalChecks")}
         </button>
 
         <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
@@ -413,8 +434,8 @@ const TenantBaseGlobalCheckDetailPage: React.FC = () => {
       {/* ── Empty ─────────────────────────────────────────────── */}
       {!isVersionsLoading && !isVersionsError && versions.length === 0 && (
         <EmptyState
-          title="Версий нет"
-          description="Для этой инструкции ещё не создано ни одной версии."
+          title={t("tenantBase.detail.empty.title")}
+          description={t("tenantBase.detail.empty.descGlobal")}
         />
       )}
 
@@ -447,7 +468,7 @@ const TenantBaseGlobalCheckDetailPage: React.FC = () => {
             ) : (
               <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
                 <p className="text-sm text-[var(--text-muted)]">
-                  Выберите версию из списка слева.
+                  {t("tenantBase.detail.selectPrompt")}
                 </p>
               </section>
             )}

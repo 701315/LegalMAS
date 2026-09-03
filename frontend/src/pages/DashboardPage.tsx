@@ -5,6 +5,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useUserProjects } from "../hooks/useUserProjects";
@@ -13,10 +14,10 @@ import type { ApiError } from "../types";
 import Button from "../components/ui/Button";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("ru-RU", {
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -29,6 +30,7 @@ interface DeleteTarget {
 }
 
 const DashboardPage: React.FC = () => {
+  const { t, i18n } = useTranslation("projects");
   const navigate = useNavigate();
   const { userId, userName, globalRole } = useAuth();
 
@@ -111,7 +113,7 @@ const DashboardPage: React.FC = () => {
         detailFromApiError ??
         detailFromResponse ??
         messageFromError ??
-        "Не удалось удалить проект. Возможно, есть связанные данные в системе.";
+        t("dashboard.deleteError");
 
       setDeleteError(msg);
       setDeleteTarget(null);
@@ -139,19 +141,19 @@ const DashboardPage: React.FC = () => {
         >
           <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Мои проекты
+              {t("dashboard.title")}
             </h1>
 
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Управление проектами, доступными текущему пользователю.
+              {t("dashboard.subtitle")}
             </p>
 
             <div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[var(--text-secondary)]">
               <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1">
-                Пользователь: {userName || userId}
+                {t("dashboard.userLabel", { name: userName || userId })}
               </span>
               <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1">
-                Проектов: {projects.length}
+                {t("dashboard.projectsCount", { count: projects.length })}
               </span>
             </div>
           </div>
@@ -179,7 +181,7 @@ const DashboardPage: React.FC = () => {
         {/* Ошибка загрузки */}
         {error && !isLoading && (
           <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-6 text-center text-sm text-[var(--color-error-text)]">
-            Не удалось загрузить проекты.
+            {t("dashboard.loadError")}
           </div>
         )}
 
@@ -188,7 +190,7 @@ const DashboardPage: React.FC = () => {
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <div className="mx-auto max-w-md">
               <p className="text-sm text-[var(--text-secondary)]">
-                Пока нет проектов, к которым у вас есть доступ.
+                {t("dashboard.empty")}
               </p>
               {canCreateProject && (
                 <div className="mt-5 flex justify-center">
@@ -197,7 +199,7 @@ const DashboardPage: React.FC = () => {
                     variant="secondary"
                     onClick={handleCreateProject}
                   >
-                    Создать первый проект
+                    {t("dashboard.createFirst")}
                   </Button>
                 </div>
               )}
@@ -219,20 +221,20 @@ const DashboardPage: React.FC = () => {
                       {p.deal_name}
                     </h2>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      Создан: {formatDate(p.created_at)}
+                      {t("dashboard.created", { date: formatDate(p.created_at, i18n.language) })}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                      Роль в проекте: {p.role}
+                      {t("dashboard.role", { role: p.role })}
                     </p>
                   </div>
 
                   {p.needs_setup ? (
                     <span className="shrink-0 rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-warning-text)]">
-                      Не настроен
+                      {t("dashboard.notConfigured")}
                     </span>
                   ) : p.analysis_completed ? (
                     <span className="shrink-0 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success-text)]">
-                      Анализ выполнен
+                      {t("dashboard.analysisCompleted")}
                     </span>
                   ) : null}
                 </div>
@@ -240,16 +242,16 @@ const DashboardPage: React.FC = () => {
                 <div className="mt-4 grid grid-cols-1 gap-3">
                   <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Контактное лицо
+                      {t("dashboard.contactPerson")}
                     </p>
                     <p className="mt-1 text-sm text-[var(--text-primary)]">
-                      {p.contact_person || "Не указано"}
+                      {p.contact_person || t("dashboard.notSpecified")}
                     </p>
                   </div>
 
                   <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Deal ID
+                      {t("dashboard.dealId")}
                     </p>
                     <p className="mt-1 truncate font-mono text-[12px] text-[var(--text-secondary)]">
                       {p.deal_id}
@@ -265,7 +267,7 @@ const DashboardPage: React.FC = () => {
                     className="flex-1"
                     onClick={() => handleOpenProject(p.deal_id)}
                   >
-                    Открыть проект
+                    {t("dashboard.openProject")}
                   </Button>
 
                   {globalRole === "tenant_admin" && (
@@ -278,7 +280,7 @@ const DashboardPage: React.FC = () => {
                       }
                       isLoading={deletingId === p.deal_id}
                     >
-                      {deletingId === p.deal_id ? "Удаляем…" : "Удалить"}
+                      {deletingId === p.deal_id ? t("dashboard.deleting") : t("dashboard.delete")}
                     </Button>
                   )}
                 </div>
@@ -290,10 +292,10 @@ const DashboardPage: React.FC = () => {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title={`Удалить проект «${deleteTarget?.dealName ?? ""}»?`}
-        description="Это действие нельзя отменить. Все связанные данные могут быть удалены безвозвратно."
-        confirmLabel="Удалить"
-        cancelLabel="Отмена"
+        title={t("dashboard.confirmTitle", { name: deleteTarget?.dealName ?? "" })}
+        description={t("dashboard.confirmDesc")}
+        confirmLabel={t("dashboard.confirmButton")}
+        cancelLabel={t("dashboard.cancelButton")}
         confirmVariant="danger"
         isLoading={deletingId !== null}
         onConfirm={handleConfirmDelete}

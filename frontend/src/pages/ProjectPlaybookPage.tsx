@@ -6,6 +6,7 @@
 // =============================================================
 
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, Navigate } from "react-router-dom";
 import client from "../api/client";
 import { useDealPermissions } from "../hooks/usePermissions";
@@ -18,6 +19,7 @@ interface PlaybookResponse {
 }
 
 const ProjectPlaybookPage: React.FC = () => {
+  const { t } = useTranslation("projects");
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
 
@@ -57,12 +59,11 @@ const ProjectPlaybookPage: React.FC = () => {
         ) {
           if (!cancelled) {
             setYamlText("");
-            setInfoText("Playbook для этого проекта ещё не создан.");
+            setInfoText(t("pages.playbook.notCreated"));
           }
         } else if (!cancelled) {
           setErrorText(
-            apiErr.detail ||
-              "Не удалось загрузить playbook. Попробуйте позже.",
+            apiErr.detail || t("pages.playbook.loadError"),
           );
         }
       } finally {
@@ -77,7 +78,7 @@ const ProjectPlaybookPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [dealId]);
+  }, [dealId, t]);
 
   if (!dealId) {
     return <Navigate to="/deals" replace />;
@@ -89,14 +90,14 @@ const ProjectPlaybookPage: React.FC = () => {
         <div className="flex h-full min-h-full items-center justify-center px-4 py-6">
           <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center shadow-sm">
             <p className="mb-4 text-sm text-[var(--text-secondary)]">
-              У вас нет прав для редактирования playbook этого проекта.
+              {t("pages.playbook.noPermission")}
             </p>
             <Button
               variant="secondary"
               size="sm"
               onClick={() => navigate(`/projects/${dealId}`)}
             >
-              Вернуться к проекту
+              {t("pages.playbook.backToProject")}
             </Button>
           </div>
         </div>
@@ -117,10 +118,10 @@ const ProjectPlaybookPage: React.FC = () => {
     try {
       const text = await file.text();
       setYamlText(text);
-      setInfoText(`Загружен файл: ${file.name}`);
+      setInfoText(t("pages.playbook.fileLoaded", { name: file.name }));
       setErrorText(null);
     } catch {
-      setErrorText("Не удалось прочитать файл YAML.");
+      setErrorText(t("pages.playbook.readError"));
     }
   };
 
@@ -129,7 +130,7 @@ const ProjectPlaybookPage: React.FC = () => {
     setInfoText(null);
 
     if (!yamlText.trim()) {
-      setErrorText("Нельзя сохранить пустой playbook.");
+      setErrorText(t("pages.playbook.emptySaveError"));
       return;
     }
 
@@ -138,12 +139,11 @@ const ProjectPlaybookPage: React.FC = () => {
       await client.put(`/api/v1/projects/${dealId}/playbook`, {
         yaml: yamlText,
       });
-      setInfoText("Playbook успешно сохранён.");
+      setInfoText(t("pages.playbook.saveSuccess"));
     } catch (err) {
       const apiErr = err as ApiError;
       setErrorText(
-        apiErr.detail ||
-          "Не удалось сохранить playbook. Проверьте YAML и попробуйте ещё раз.",
+        apiErr.detail || t("pages.playbook.saveError"),
       );
     } finally {
       setIsSaving(false);
@@ -158,26 +158,24 @@ const ProjectPlaybookPage: React.FC = () => {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                Playbook YAML
+                {t("pages.playbook.badge")}
               </div>
 
               <h1 className="mt-3 text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                YAML-playbook проекта
+                {t("pages.playbook.title")}
               </h1>
 
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Проект: {dealId}
+                {t("pages.playbook.projectLabel", { id: dealId })}
               </p>
 
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Этот редактор предназначен для прямого редактирования
-                YAML-конфигурации playbook для конкретного проекта. Используйте
-                его только если понимаете структуру схемы.
+                {t("pages.playbook.warningDesc")}
               </p>
             </div>
 
             <Button variant="secondary" size="sm" onClick={handleBack}>
-              ← Назад к проекту
+              ← {t("pages.playbook.backToProject")}
             </Button>
           </div>
         </header>
@@ -190,18 +188,17 @@ const ProjectPlaybookPage: React.FC = () => {
           <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] pb-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Редактор YAML-playbook
+                {t("pages.playbook.editorTitle")}
               </p>
               <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                Отредактируйте текст вручную или загрузите готовый YAML-файл.
-                При сохранении конфигурация применится только к этому проекту.
+                {t("pages.playbook.editorDesc")}
               </p>
             </div>
 
             <label
               className="inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-[12px] font-medium text-[var(--text-primary)] shadow-sm transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--accent-primary)]/35 focus-within:ring-offset-2 focus-within:ring-offset-[var(--bg-card)]"
             >
-              Загрузить YAML-файл
+              {t("pages.playbook.uploadButton")}
               <input
                 type="file"
                 accept=".yaml,.yml,text/yaml"
@@ -214,7 +211,7 @@ const ProjectPlaybookPage: React.FC = () => {
           <div className="mt-4 space-y-3">
             {isLoading ? (
               <p className="text-sm text-[var(--text-secondary)]">
-                Загружаем текущий playbook…
+                {t("pages.playbook.loading")}
               </p>
             ) : (
               <textarea
@@ -232,7 +229,7 @@ const ProjectPlaybookPage: React.FC = () => {
                 onClick={handleBack}
                 disabled={isSaving}
               >
-                Отмена
+                {t("pages.playbook.cancel")}
               </Button>
               <Button
                 variant="primary"
@@ -241,7 +238,7 @@ const ProjectPlaybookPage: React.FC = () => {
                 disabled={isSaving || isLoading}
                 isLoading={isSaving}
               >
-                {isSaving ? "Сохраняем..." : "Сохранить"}
+                {isSaving ? t("pages.playbook.saving") : t("pages.playbook.save")}
               </Button>
             </div>
           </div>

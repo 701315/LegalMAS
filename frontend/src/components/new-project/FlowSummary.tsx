@@ -1,20 +1,9 @@
 // =============================================================
 // src/components/new-project/FlowSummary.tsx
-//
-// Компактная сводка проекта для правой колонки.
-//
-// Показывает 5 параметров с текущими значениями:
-//   - Название проекта
-//   - Документы
-//   - Playbook
-//   - Профиль модели
-//   - Основной язык
-//
-// Каждый параметр — либо значение, либо placeholder "Не задано".
-// Индикатор состояния: ✓ (заполнено) / • (пусто).
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Circle } from "lucide-react";
 
 export interface FlowSummaryData {
@@ -33,9 +22,10 @@ interface SummaryRowProps {
   label: string;
   value: string | null;
   isSet: boolean;
+  emptyLabel: string;
 }
 
-const SummaryRow: React.FC<SummaryRowProps> = ({ label, value, isSet }) => {
+const SummaryRow: React.FC<SummaryRowProps> = ({ label, value, isSet, emptyLabel }) => {
   return (
     <div className="flex items-start gap-2.5 py-1.5">
       <div
@@ -71,7 +61,7 @@ const SummaryRow: React.FC<SummaryRowProps> = ({ label, value, isSet }) => {
             .join(" ")}
           title={value ?? undefined}
         >
-          {value ?? "Не задано"}
+          {value ?? emptyLabel}
         </p>
       </div>
     </div>
@@ -79,54 +69,52 @@ const SummaryRow: React.FC<SummaryRowProps> = ({ label, value, isSet }) => {
 };
 
 const FlowSummary: React.FC<FlowSummaryProps> = ({ data }) => {
+  const { t } = useTranslation("projects");
+  const notSetLabel = t("flowSummary.notSet");
+
   const documentsValue =
     data.documentsCount > 0
-      ? `${data.documentsCount} ${
-          data.documentsCount === 1
-            ? "документ"
-            : data.documentsCount < 5
-              ? "документа"
-              : "документов"
-        }`
+      ? t("flowSummary.documentsCount", { count: data.documentsCount })
       : null;
 
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          Сводка проекта
+          {t("flowSummary.title")}
         </h3>
       </div>
 
       <div className="divide-y divide-[var(--border-subtle)]">
         <SummaryRow
-          label="Название"
+          label={t("flowSummary.labels.name")}
           value={data.projectName}
           isSet={!!data.projectName}
+          emptyLabel={notSetLabel}
         />
-
         <SummaryRow
-          label="Документы"
+          label={t("flowSummary.labels.documents")}
           value={documentsValue}
           isSet={data.documentsCount > 0}
+          emptyLabel={notSetLabel}
         />
-
         <SummaryRow
-          label="Playbook"
+          label={t("flowSummary.labels.playbook")}
           value={data.playbookLabel}
           isSet={!!data.playbookLabel}
+          emptyLabel={notSetLabel}
         />
-
         <SummaryRow
-          label="Профиль модели"
+          label={t("flowSummary.labels.modelProfile")}
           value={data.modelConfigLabel}
           isSet={!!data.modelConfigLabel}
+          emptyLabel={notSetLabel}
         />
-
         <SummaryRow
-          label="Основной язык"
+          label={t("flowSummary.labels.primaryLanguage")}
           value={data.primaryLanguage}
           isSet={!!data.primaryLanguage}
+          emptyLabel={notSetLabel}
         />
       </div>
     </section>

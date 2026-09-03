@@ -4,12 +4,14 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
 import ModelConfigManagerPanel from "../components/model-config/ModelConfigManagerPanel";
 
 const ModelConfigsAdminPage: React.FC = () => {
+  const { t } = useTranslation("admin");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dealIdFromQuery = searchParams.get("dealId");
@@ -24,16 +26,16 @@ const ModelConfigsAdminPage: React.FC = () => {
           className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Назад
+          {t("modelConfigs.back")}
         </button>
 
         {/* ── Header ───────────────────────────────────────── */}
         <header>
           <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-            Конфигурации моделей
+            {t("modelConfigs.title")}
           </h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Управление профилями моделей для playbook-версий и проектов.
+            {t("modelConfigs.subtitle")}
           </p>
         </header>
 

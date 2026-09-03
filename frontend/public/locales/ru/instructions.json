@@ -1,0 +1,614 @@
+{
+  "tenantPlaybooks": {
+    "backToInstructions": "Инструкции",
+    "title": "Playbooks организации",
+    "subtitle": "Собственные playbooks вашего tenant. Видны только вам, не доступны другим клиентам платформы.",
+    "stats": "Playbooks: {{count}}",
+    "refresh": "Обновить",
+    "createInStudio": "Создать в Playbook Studio",
+    "infoTitle": "Как использовать",
+    "infoTextPrefix": "Создание и редактирование playbooks выполняется в ",
+    "infoLinkText": "Playbook Studio",
+    "infoTextSuffix": ". Эта страница показывает готовый каталог только tenant-owned playbooks — глобальные шаблоны платформы здесь не отображаются.",
+    "searchPlaceholder": "Поиск по названию, коду, описанию…",
+    "searchFound": "{{filtered}} из {{total}}",
+    "loading": "Загружаем playbooks организации…",
+    "loadError": "Не удалось загрузить playbooks организации.",
+    "emptyTitle": "Playbooks организации ещё не созданы",
+    "emptyDesc": "Создайте первый playbook в Playbook Studio. Он будет виден только вашей организации.",
+    "noResultsTitle": "Ничего не найдено",
+    "noResultsDesc": "Попробуйте изменить поисковый запрос.",
+    "clearSearch": "Очистить поиск",
+    "card": {
+      "deal": "deal",
+      "jurisdiction": "jurisdiction",
+      "language": "language",
+      "risk": "risk"
+    }
+  },
+  "tenantBase": {
+    "backToInstructions": "Инструкции",
+    "docTypes": {
+      "title": "Базовые Doc-Type Instructions",
+      "description": "Read-only каталог базовых инструкций по типам документов.",
+      "infoTitle": "Как использовать",
+      "infoText": "Базовые инструкции управляются superadmin. Нажмите на инструкцию, чтобы просмотреть её содержимое и версии. Для создания переопределений перейдите в ",
+      "infoLinkLabel": "Doc-Type Overrides",
+      "infoTextTail": ".",
+      "searchPlaceholder": "Поиск по коду, названию, parent, category…",
+      "loading": "Загружаем базовые doc-type instructions…",
+      "loadError": "Не удалось загрузить каталог doc-type instructions.",
+      "emptyTitle": "Doc-type instructions не найдены",
+      "emptyDesc": "Каталог базовых doc-type instructions пока недоступен.",
+      "noResultsTitle": "Ничего не найдено",
+      "noResultsDesc": "Попробуйте изменить поисковый запрос.",
+      "stats": {
+        "total": "Всего: {{count}}",
+        "published": "Published: {{count}}",
+        "groups": "Групп: {{count}}"
+      }
+    },
+    "globalChecks": {
+      "title": "Базовые Global Instructions",
+      "description": "Read-only каталог базовых глобальных проверок платформы.",
+      "infoTitle": "Как использовать",
+      "infoText": "Базовые инструкции управляются superadmin. Нажмите на инструкцию, чтобы просмотреть её содержимое и версии. Для создания переопределений перейдите в ",
+      "infoLinkLabel": "Global Overrides",
+      "infoTextTail": ".",
+      "searchPlaceholder": "Поиск по коду, названию, группе…",
+      "loading": "Загружаем базовые global instructions…",
+      "loadError": "Не удалось загрузить базовые global instructions.",
+      "emptyTitle": "Global instructions не найдены",
+      "emptyDesc": "Каталог базовых global instructions пока недоступен.",
+      "noResultsTitle": "Ничего не найдено",
+      "noResultsDesc": "Попробуйте изменить поисковый запрос.",
+      "stats": {
+        "total": "Всего: {{count}}",
+        "published": "Published: {{count}}",
+        "groups": "Групп: {{count}}"
+      }
+    },
+    "common": {
+      "refresh": "Обновить",
+      "ungrouped": "Без группы",
+      "collapsed": "Раздел свёрнут",
+      "expanded": "Нажмите на инструкцию, чтобы просмотреть её содержимое и версии.",
+      "expandAll": "Развернуть все",
+      "collapseAll": "Свернуть все",
+      "foundOf": "Найдено: {{filtered}} из {{total}}",
+      "clearSearch": "Очистить поиск",
+      "versionsCount_one": "{{count}} версия",
+      "versionsCount_few": "{{count}} версии",
+      "versionsCount_many": "{{count}} версий",
+      "versionsCount_other": "{{count}} версий",
+      "hasPublished": "Published",
+      "noPublished": "Нет published"
+    },
+    "detail": {
+      "backToDocTypes": "Базовые Doc-Type Instructions",
+      "backToGlobalChecks": "Базовые Global Instructions",
+      "fallbackDocType": "Doc-Type",
+      "fallbackGlobal": "Global Instruction",
+      "info": {
+        "aboutDocType": "О типе документа",
+        "aboutInstruction": "Об инструкции",
+        "name": "Название",
+        "code": "Код",
+        "parent": "Parent",
+        "risk": "Risk",
+        "language": "Language",
+        "jurisdiction": "Jurisdiction",
+        "group": "Группа",
+        "total": "Всего",
+        "published": "Published",
+        "draft": "Draft",
+        "yes": "да",
+        "no": "нет"
+      },
+      "sidebar": {
+        "title": "Версии",
+        "loading": "Загружаем версии…",
+        "loadError": "Не удалось загрузить версии инструкции.",
+        "emptyDocType": "Для этого типа документа ещё нет версий.",
+        "emptyGlobal": "Для этой инструкции ещё нет версий.",
+        "drafts": "Черновики",
+        "published": "Published",
+        "archived": "Archived",
+        "unnamed": "Без названия"
+      },
+      "viewer": {
+        "loading": "Загружаем версию инструкции…",
+        "loadError": "Не удалось загрузить содержимое версии.",
+        "sourceYaml": "Source YAML",
+        "noYaml": "Source YAML для этой версии недоступен."
+      },
+      "empty": {
+        "title": "Версий нет",
+        "descDocType": "Для этого типа документа ещё не создано ни одной версии.",
+        "descGlobal": "Для этой инструкции ещё не создано ни одной версии."
+      },
+      "selectPrompt": "Выберите версию из списка слева."
+    }
+  },
+  "tenantOverride": {
+    "breadcrumbs": {
+      "instructions": "Инструкции",
+      "overrides": "Overrides"
+    },
+    "listPage": {
+      "title": "Instruction Overrides",
+      "subtitle": "Переопределения инструкций на уровне tenant. Применяются поверх базовых published-версий.",
+      "newButton": "Новый override",
+      "stats": {
+        "total": "Всего: {{count}}",
+        "active": "Active: {{count}}",
+        "draft": "Draft: {{count}}",
+        "stale": "Stale: {{count}}"
+      },
+      "staleWarning_one": "1 override устарел — базовая версия инструкции была обновлена. Создайте новые overrides на актуальной версии.",
+      "staleWarning_few": "{{count}} overrides устарели — базовая версия инструкции была обновлена. Создайте новые overrides на актуальной версии.",
+      "staleWarning_many": "{{count}} overrides устарели — базовая версия инструкции была обновлена. Создайте новые overrides на актуальной версии.",
+      "staleWarning_other": "{{count}} overrides устарели — базовая версия инструкции была обновлена. Создайте новые overrides на актуальной версии.",
+      "loading": "Загружаем overrides…",
+      "loadError": "Не удалось загрузить overrides. Проверьте подключение.",
+      "empty": {
+        "title": "Overrides не созданы",
+        "description": "Создайте первый override, чтобы переопределить базовую инструкцию для вашего tenant.",
+        "action": "Создать override"
+      },
+      "card": {
+        "globalOverride": "Global Override",
+        "docTypeOverride": "Doc-Type Override",
+        "ops": "ops",
+        "updated": "Обновлён"
+      }
+    },
+    "createPage": {
+      "backLabel": "Overrides",
+      "title": "Создать Tenant Override",
+      "subtitle": "Создайте draft override поверх published-версии базовой инструкции.",
+      "cancel": "Отмена",
+      "errors": {
+        "noTenant": "Не удалось определить tenant. Выйдите и войдите снова.",
+        "noBaseVersion": "Выберите базовую published-версию инструкции.",
+        "noPatchOps": "Добавьте хотя бы одну JSON Patch операцию.",
+        "submitFallback": "Не удалось создать override draft."
+      },
+      "baseSection": {
+        "title": "Базовая инструкция",
+        "kindDocType": "Doc-Type instruction",
+        "kindGlobal": "Global instruction",
+        "catalogLoading": "Загружаем каталог базовых инструкций…",
+        "catalogError": "Не удалось загрузить каталог базовых инструкций.",
+        "docTypeLabel": "Тип документа",
+        "globalLabel": "Global instruction",
+        "versionLoading": "Загружаем published-версии…",
+        "noVersionsTitle": "Published-версии не найдены",
+        "noVersionsDesc": "Для выбранной базовой инструкции нет published-версий, поверх которых можно создать override.",
+        "versionLabel": "Published base version"
+      },
+      "metadataSection": {
+        "title": "Метаданные",
+        "changeSummaryLabel": "Change summary",
+        "changeSummaryPlaceholder": "Например: ослабить порог warning, добавить tenant-specific wording"
+      },
+      "patchSection": {
+        "title": "JSON Patch Operations",
+        "label": "RFC 6902 patch operations"
+      },
+      "actions": {
+        "cancel": "Отмена",
+        "submit": "Создать draft override"
+      }
+    },
+    "detailPage": {
+      "backLabel": "Overrides",
+      "backToList": "К списку overrides",
+      "title": "Tenant Override",
+      "loading": "Загружаем override…",
+      "notFound": "Override не найден или нет доступа.",
+      "errors": {
+        "validate": "Не удалось выполнить валидацию.",
+        "activate": "Не удалось активировать override. Override может быть stale или уже активен.",
+        "archive": "Не удалось архивировать override."
+      },
+      "success": {
+        "activate": "Override активирован.",
+        "archive": "Override архивирован."
+      },
+      "details": {
+        "title": "Детали",
+        "overrideId": "Override ID",
+        "baseVersion": "Base Version",
+        "baseHash": "Base Hash",
+        "scope": "Scope",
+        "scopeGlobal": "Global instruction",
+        "scopeDocType": "Doc-type instruction",
+        "patchOps": "Patch ops",
+        "patchOpsCount": "{{count}} операций"
+      },
+      "patchOps": {
+        "title": "Patch Operations",
+        "label": "Текущие patch operations (RFC 6902)",
+        "readOnlyHint": "Для изменения patch operations создайте новый override draft с обновлёнными операциями."
+      },
+      "validation": {
+        "title": "Валидация",
+        "success": "Валидация успешна",
+        "failed": "Валидация не прошла",
+        "action": "Валидировать"
+      },
+      "actions": {
+        "title": "Действия",
+        "activate": "Активировать",
+        "staleWarning": "Нельзя активировать stale override — создайте новый.",
+        "archive": "Архивировать",
+        "archivedHint": "Override архивирован. Создайте новый при необходимости."
+      },
+      "archiveDialog": {
+        "title": "Архивировать override?",
+        "description": "Override будет архивирован и перестанет применяться. Это действие нельзя отменить.",
+        "confirm": "Архивировать"
+      }
+    }
+  },
+  "tenantInstructionsIndex": {
+    "title": "Инструкции",
+    "subtitle": "Базовые инструкции платформы, playbook studio и переопределения для вашей организации.",
+    "platform": {
+      "label": "Платформа",
+      "title": "Базовые инструкции платформы",
+      "description": "Управляются superadmin. Доступны вам для просмотра и как основа для создания overrides.",
+      "globalTitle": "Базовые Global Instructions",
+      "globalDesc": "Универсальные проверки, применимые к любым документам.",
+      "docTypeTitle": "Базовые Doc-Type Instructions",
+      "docTypeDesc": "Инструкции для конкретных типов документов."
+    },
+    "studio": {
+      "label": "Studio",
+      "title": "Playbook Studio",
+      "description": "Сборка playbooks из базовых инструкций и подготовка версий для применения.",
+      "cardTitle": "Playbook Studio",
+      "cardDesc": "Создание шаблонов и сборка версий."
+    },
+    "org": {
+      "label": "Организация",
+      "title": "Переопределения вашей организации",
+      "description": "Настройки уровня tenant. Overrides применяются поверх базовых версий.",
+      "globalTitle": "Global Overrides",
+      "globalDesc": "Переопределения базовых global instructions.",
+      "docTypeTitle": "Doc-Type Overrides",
+      "docTypeDesc": "Переопределения doc-type instructions.",
+      "playbooksTitle": "Playbooks организации",
+      "playbooksDesc": "Собственные playbooks вашей организации."
+    }
+  },
+  "deal": {
+    "breadcrumbs": {
+      "project": "Проект",
+      "instructions": "Инструкции",
+      "overrides": "Overrides"
+    },
+    "instructionsPage": {
+      "title": "Инструкции проекта",
+      "subtitle": "Управление override-инструкциями для этого проекта.",
+      "overridesCard": {
+        "title": "Deal Overrides",
+        "description": "Переопределения инструкций для этого проекта."
+      }
+    },
+    "overridesPage": {
+      "title": "Deal Overrides",
+      "subtitle": "Переопределения инструкций на уровне проекта.",
+      "newButton": "Новый override",
+      "staleCount_one": "1 override устарел. Выполните rebase для каждого stale override.",
+      "staleCount_few": "{{count}} overrides устарели. Выполните rebase для каждого stale override.",
+      "staleCount_many": "{{count}} overrides устарели. Выполните rebase для каждого stale override.",
+      "staleCount_other": "{{count}} overrides устарели. Выполните rebase для каждого stale override.",
+      "sectionTitle": "Overrides",
+      "loading": "Загружаем overrides...",
+      "loadError": "Не удалось загрузить overrides проекта.",
+      "empty": {
+        "title": "Overrides не созданы",
+        "description": "Создайте override чтобы переопределить инструкцию для этого проекта.",
+        "action": "Создать override"
+      },
+      "card": {
+        "globalOverride": "Deal Global Override",
+        "dealOverride": "Deal Override",
+        "patchOpsBase": "base",
+        "patchOpsCount_one": "{{count}} patch op",
+        "patchOpsCount_few": "{{count}} patch ops",
+        "patchOpsCount_many": "{{count}} patch ops",
+        "patchOpsCount_other": "{{count}} patch ops"
+      }
+    },
+    "detailPage": {
+      "loading": "Загружаем override...",
+      "notFound": "Override не найден.",
+      "title": "Deal Override",
+      "errors": {
+        "validate": "Не удалось выполнить валидацию.",
+        "activate": "Не удалось активировать override.",
+        "archive": "Не удалось архивировать override.",
+        "rebase": "Не удалось выполнить rebase. Проверьте корректность новой базовой версии и patch ops."
+      },
+      "success": {
+        "activate": "Override активирован.",
+        "archive": "Override архивирован.",
+        "rebase": "Rebase выполнен успешно. Override привязан к новой базовой версии."
+      },
+      "meta": {
+        "id": "Override ID",
+        "baseVersion": "Base Version",
+        "scope": "Scope"
+      },
+      "patchOps": {
+        "title": "Patch Operations",
+        "label": "Текущие patch operations (RFC 6902)"
+      },
+      "rebaseForm": {
+        "title": "Rebase на новую базовую версию",
+        "description": "Укажите ID новой базовой instruction version и при необходимости скорректируйте patch operations. После rebase override перестанет быть stale.",
+        "newBaseVersionId": "Новая базовая version ID",
+        "newBaseVersionPlaceholder": "uuid новой базовой версии...",
+        "patchOpsLabel": "Patch operations для новой базы",
+        "submit": "Выполнить Rebase"
+      },
+      "validation": {
+        "title": "Валидация",
+        "success": "Валидация успешна",
+        "failed": "Валидация не прошла",
+        "action": "Валидировать"
+      },
+      "actions": {
+        "title": "Действия",
+        "activate": "Активировать",
+        "rebaseWarning": "Выполните rebase перед активацией.",
+        "archive": "Архивировать"
+      },
+      "archiveDialog": {
+        "title": "Архивировать override?",
+        "description": "Override будет архивирован. Это действие нельзя отменить."
+      }
+    }
+  },
+  "docTypeList": {
+    "ungroupedLabel": "Без родительского класса",
+    "backToInstructions": "Инструкции",
+    "title": "Инструкции по типам документов",
+    "description": "Выберите тип документа для управления версиями инструкции.",
+    "addInstruction": "Добавить инструкцию",
+    "stats": {
+      "total": "Всего: {{count}}",
+      "published": "Published: {{count}}",
+      "withDraft": "С черновиком: {{count}}"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Поиск по коду, названию или классу…",
+      "foundOf": "Найдено: {{filtered}} из {{total}}",
+      "collapseAll": "Свернуть все",
+      "expandAll": "Развернуть все"
+    },
+    "group": {
+      "collapsedHint": "Раздел свёрнут",
+      "expandedHint": "Выберите тип документа для просмотра версий и управления черновиками."
+    },
+    "card": {
+      "versionsCount_one": "{{count}} версия",
+      "versionsCount_few": "{{count}} версии",
+      "versionsCount_many": "{{count}} версий",
+      "versionsCount_other": "{{count}} версий",
+      "hasPublished": "Published",
+      "noPublished": "Нет published",
+      "draft": "Черновик",
+      "draftInvalid": "Черновик (invalid)",
+      "publishedLabel": "Published",
+      "about": "О Check-инструкции"
+    },
+    "loading": "Загружаем каталог doc-type инструкций…",
+    "loadError": "Не удалось загрузить каталог doc-type инструкций.",
+    "empty": {
+      "noItems": {
+        "title": "Doc-type инструкции не найдены",
+        "description": "Каталог пуст. Обратитесь к администратору платформы."
+      },
+      "noSearchResults": {
+        "title": "Ничего не найдено",
+        "description": "Попробуйте изменить поисковый запрос.",
+        "action": "Очистить поиск"
+      }
+    },
+    "import": {
+      "changeSummary": "Импорт из YAML",
+      "fallbackError": "Не удалось импортировать YAML."
+    }
+  },
+  "docTypeDetail": {
+    "backToList": "Инструкции по типам документов",
+    "fallbackDocTypeLabel": "Doc-Type",
+    "info": {
+      "title": "О типе документа",
+      "nameLabel": "Название",
+      "codeLabel": "Код",
+      "totalLabel": "Всего",
+      "publishedLabel": "Published",
+      "draftLabel": "Draft",
+      "hasPublishedYes": "да",
+      "hasPublishedNo": "нет"
+    },
+    "selected": {
+      "title": "Выбранная версия",
+      "nameLabel": "Название",
+      "unnamed": "Без названия",
+      "idLabel": "ID",
+      "semverLabel": "Semver",
+      "publishedLabel": "Published",
+      "changeSummaryLabel": "Описание изменений",
+      "basedOnLabel": "На основе версии"
+    },
+    "sidebar": {
+      "title": "Версии",
+      "loading": "Загружаем версии…",
+      "loadError": "Не удалось загрузить версии инструкции.",
+      "empty": "Для этого типа документа ещё нет версий.",
+      "groups": {
+        "drafts": "Черновики",
+        "published": "Published",
+        "archived": "Archived"
+      }
+    },
+    "editor": {
+      "loading": "Загружаем версию инструкции…",
+      "loadError": "Не удалось загрузить версию инструкции. Проверьте корректность ссылки.",
+      "backToDocType": "К типу документа",
+      "publishedTitle": "Редактировать эту версию",
+      "publishedHintHasDraft": "У этого типа документа уже есть активный черновик. Откройте его в списке версий слева, чтобы продолжить редактирование.",
+      "publishedHintNoDraft": "Published-версия immutable. Создайте черновик на основе этой версии, чтобы внести изменения.",
+      "openDraft": "Открыть черновик",
+      "createDraft": "Создать черновик",
+      "archiveAction": "Архивировать",
+      "archivedTitle": "Archived-версия",
+      "archivedHint": "Эта версия выведена из активного использования. При необходимости можно создать новый черновик на её основе.",
+      "restoreAsDraft": "Восстановить как черновик",
+      "sourceYamlTitle": "Source YAML",
+      "cloneSummary": "Клон версии {{name}}",
+      "errors": {
+        "clone": "Не удалось создать черновик. Попробуйте ещё раз.",
+        "validate": "Не удалось выполнить валидацию. Попробуйте ещё раз.",
+        "publish": "Не удалось опубликовать версию. Убедитесь что валидация прошла успешно.",
+        "archive": "Не удалось архивировать версию. Попробуйте ещё раз."
+      },
+      "draftSectionTitle": "Редактирование черновика",
+      "validation": {
+        "title": "Валидация",
+        "description": "Проверьте черновик перед публикацией. Валидация выполняется на сервере.",
+        "hintValid": "Валидация прошла. Можно публиковать.",
+        "hintInvalid": "Исправьте ошибки и валидируйте снова.",
+        "hintPending": "Запустите валидацию перед публикацией.",
+        "action": "Валидировать"
+      },
+      "publish": {
+        "title": "Публикация",
+        "description": "Доступна только после успешной валидации.",
+        "hintReady": "Черновик готов к публикации. После публикации версия станет immutable.",
+        "hintNotReady": "Сначала выполните валидацию и убедитесь, что ошибок нет.",
+        "action": "Опубликовать"
+      },
+      "archiveDialog": {
+        "title": "Архивировать эту версию?",
+        "description": "Инструкция «{{name}}» перестанет быть доступной клиентам для нового использования. Исторические данные не изменятся.",
+        "confirm": "Архивировать"
+      }
+    },
+    "empty": {
+      "title": "Версий нет",
+      "description": "Для этого типа документа ещё не создано ни одной версии.",
+      "action": "Создать первый draft"
+    },
+    "mainEmpty": "Выберите версию из списка слева."
+  },
+  "catalog": {
+    "title": "Global Instructions",
+    "subtitle": "Универсальные проверки, применимые к любому типу документа. Выберите инструкцию для управления версиями.",
+    "searchPlaceholder": "Поиск по коду, названию или группе…",
+    "total": "Всего: {{count}}",
+    "published": "Published: {{count}}",
+    "withDraft": "С черновиком: {{count}}",
+    "toggleCollapseAll": "Свернуть все",
+    "toggleExpandAll": "Развернуть все",
+    "loading": "Загружаем каталог global instructions…",
+    "error": "Не удалось загрузить каталог global instructions.",
+    "emptyTitle": "Global instructions не найдены",
+    "emptyDesc": "Каталог пуст. Создайте первую global instruction или обратитесь к администратору.",
+    "emptySearchTitle": "Ничего не найдено",
+    "emptySearchDesc": "Попробуйте изменить поисковый запрос.",
+    "addInstruction": "Добавить инструкцию",
+    "sectionCollapsed": "Раздел свёрнут",
+    "noPublished": "Нет published",
+    "searchResults": "Найдено: {{filtered}} из {{total}}",
+    "importError": "Не удалось импортировать YAML.",
+    "publishedLabel": "Published",
+    "draftLabel": "Черновик",
+    "draftInvalidLabel": "Черновик (invalid)",
+    "importChangeSummary": "Импорт из YAML"
+  },
+  "detail": {
+    "loading": "Загружаем версию инструкции…",
+    "error": "Не удалось загрузить версию инструкции. Проверьте корректность ссылки.",
+    "backButton": "Global Instructions",
+    "emptyVersionsTitle": "Версий нет",
+    "emptyVersionsDesc": "Для этой инструкции ещё не создано ни одной версии.",
+    "createFirstDraft": "Создать первый черновик",
+    "createDraftError": "Не удалось создать черновик. Попробуйте обновить страницу и повторить.",
+    "selectVersionPrompt": "Выберите версию из списка слева.",
+    "draftCount_one": "{{count}} версия",
+    "draftCount_few": "{{count}} версии",
+    "draftCount_many": "{{count}} версий",
+    "draftCount_other": "{{count}} версии",
+    "hasPublished": "Published",
+    "hasPublishedYes": "да",
+    "hasPublishedNo": "нет",
+    "backToList": "Global-инструкции",
+    "fallbackTitle": "Global-инструкция",
+    "newInstructionSkeletonName": "Новая инструкция",
+    "firstDraftSummary": "Первый черновик"
+  },
+  "card": {
+    "about": "Об инструкции",
+    "name": "Название",
+    "code": "Код",
+    "group": "Группа",
+    "total": "Всего",
+    "published": "Published",
+    "draft": "Draft",
+    "selectedVersion": "Выбранная версия",
+    "untitled": "Без названия",
+    "semver": "Semver",
+    "changeSummary": "Описание изменений",
+    "basedOn": "На основе версии",
+    "versions": "Версии",
+    "loadingVersions": "Загружаем версии…",
+    "versionsError": "Не удалось загрузить версии инструкции.",
+    "emptyVersions": "Для этой инструкции ещё нет версий.",
+    "draftsGroup": "Черновики",
+    "publishedGroup": "Published",
+    "archivedGroup": "Archived",
+    "ungrouped": "Без группы"
+  },
+  "editor": {
+    "editDraft": "Редактирование черновика",
+    "validation": "Валидация",
+    "validationDesc": "Проверьте черновик перед публикацией. Валидация выполняется на сервере.",
+    "validationPrompt": "Запустите валидацию перед публикацией.",
+    "validationSuccess": "Валидация прошла. Можно публиковать.",
+    "validationFailed": "Исправьте ошибки и валидируйте снова.",
+    "validateButton": "Валидировать",
+    "publishing": "Публикация",
+    "publishingDesc": "Доступна только после успешной валидации.",
+    "publishingPrompt": "Сначала выполните валидацию и убедитесь, что ошибок нет.",
+    "publishingReady": "Черновик готов к публикации. После публикации версия станет immutable.",
+    "publishButton": "Опубликовать",
+    "editPublished": "Редактировать эту версию",
+    "hasDraftActive": "У инструкции уже есть активный черновик. Откройте его в списке версий слева, чтобы продолжить редактирование.",
+    "immutablePublished": "Published-версия immutable. Создайте черновик на основе этой версии, чтобы внести изменения.",
+    "openDraftButton": "Открыть черновик",
+    "createDraftButton": "Создать черновик",
+    "archiveButton": "Архивировать",
+    "archivedVersionTitle": "Archived-версия",
+    "archivedVersionDesc": "Эта версия выведена из активного использования. При необходимости можно создать новый черновик на её основе.",
+    "restoreAsDraftButton": "Восстановить как черновик",
+    "sourceYaml": "Source YAML",
+    "archiveConfirmTitle": "Архивировать эту версию?",
+    "archiveConfirmDesc": "Инструкция \"{{name}}\" перестанет быть доступной клиентам для нового использования. Исторические данные не изменятся.",
+    "archiveConfirmLabel": "Архивировать",
+    "cancelLabel": "Отмена",
+    "cloneDraftError": "Не удалось создать черновик. Попробуйте ещё раз.",
+    "validateDraftError": "Не удалось выполнить валидацию. Попробуйте ещё раз.",
+    "publishDraftError": "Не удалось опубликовать версию. Убедитесь что валидация прошла успешно.",
+    "archiveVersionError": "Не удалось архивировать версию. Попробуйте ещё раз.",
+    "cloneSummary": "Клон версии {{name}}"
+  }
+}
+
+

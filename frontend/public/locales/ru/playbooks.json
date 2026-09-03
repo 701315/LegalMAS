@@ -1,4 +1,36 @@
 {
+  "globalPlaybookDetail": {
+    "backToList": "Global Playbooks",
+    "fallbackTitle": "Playbook",
+    "refreshAction": "Обновить",
+    "refreshAriaVersions": "Обновить версии",
+    "refreshAriaVersionData": "Обновить данные версии",
+    "versionsSectionTitle": "Версии",
+    "loadingVersions": "Загружаем версии…",
+    "versionsLoadError": "Не удалось загрузить версии playbook.",
+    "emptyVersionsTitle": "Версий нет",
+    "emptyVersionsDescription": "Для этого playbook ещё не создано ни одной версии.",
+    "versionPage": {
+      "loading": "Загружаем версию playbook…",
+      "notFoundError": "Версия не найдена или не удалось загрузить данные.",
+      "notFoundTitle": "Версия не найдена",
+      "notFoundDescription": "Проверьте корректность ссылки.",
+      "backAction": "Назад",
+      "playbookLabel": "Playbook: {{title}}",
+      "fallbackPlaybookLabel": "Global Playbooks",
+      "metadataSectionTitle": "Метаданные",
+      "metadata": {
+        "playbookId": "Playbook ID",
+        "versionId": "Version ID",
+        "semver": "Semver"
+      },
+      "infoSectionTitle": "Информация",
+      "readOnlyNotice": "Global playbook версии управляются через playbook domain и не редактируются напрямую в этом разделе. Для управления содержимым playbook используйте раздел ",
+      "readOnlyLinkLabel": "Admin Playbook Lines",
+      "readOnlyNoticeTail": ".",
+      "otherVersionsLabel": "Другие версии этого playbook"
+    }
+  },
   "studio": {
     "title": "Playbook Studio",
     "subtitle": "Создание и управление шаблонами playbook и их версиями.",
@@ -68,7 +100,158 @@
     "existing": "Существующие версии",
     "draftSuccess": "Шаблон сохранён. Черновик версии playbook создан.",
     "publishSuccess": "Шаблон сохранён. Версия playbook создана и опубликована."
+  },
+  "lines": {
+    "header": {
+      "badge": "Admin · Playbook",
+      "title": "Конструктор шаблонов Playbook",
+      "subtitle": "Настройка логических линий (шаблонов) и их состава для проектов.",
+      "back": "← Вернуться к проектам"
+    },
+    "validation": {
+      "titleRequired": "Укажите название шаблона.",
+      "topicRequired": "Элемент #{{index}}: выберите тему.",
+      "checkRequired": "Элемент #{{index}}: выберите проверку для типа check."
+    },
+    "errors": {
+      "loadLines": "Не удалось загрузить шаблоны playbook.",
+      "loadDetail": "Не удалось загрузить шаблон playbook.",
+      "cannotDeleteInUse": "Шаблон нельзя удалить, потому что он используется в проектах или запусках.",
+      "notFound": "Шаблон уже удалён или не найден.",
+      "deleteFailed": "Не удалось удалить шаблон playbook.",
+      "saveFailed": "Не удалось сохранить шаблон playbook."
+    },
+    "messages": {
+      "saved": "Шаблон сохранён.",
+      "deleted": "Шаблон удалён."
+    },
+    "list": {
+      "title": "Шаблоны playbook",
+      "new": "+ Новый",
+      "loading": "Загружаем список шаблонов...",
+      "emptyTitle": "Шаблоны ещё не созданы",
+      "emptyDesc": "Создайте первый шаблон playbook, чтобы настроить набор тем и проверок для проектов.",
+      "createButton": "Создать шаблон",
+      "typePrefix": "Тип: {{type}} · ",
+      "jurisdictionPrefix": "Юрисдикция: {{jurisdiction}} · ",
+      "languagePrefix": "Язык: {{language}}"
+    },
+    "form": {
+      "editTitle": "Редактирование шаблона",
+      "newTitle": "Новый шаблон",
+      "idLabel": "ID: {{id}}",
+      "loadingDetail": "Загружаем данные шаблона...",
+      "nameLabel": "Название",
+      "namePlaceholder": "Например: Real estate RU / M&A RU...",
+      "dealTypeLabel": "Тип сделки",
+      "dealTypePlaceholder": "real_estate, mna, nda...",
+      "jurisdictionLabel": "Юрисдикция",
+      "jurisdictionPlaceholder": "RU, EN, DE...",
+      "languageLabel": "Язык",
+      "languagePlaceholder": "ru, en...",
+      "descriptionLabel": "Описание",
+      "descriptionPlaceholder": "Краткое описание, для каких проектов используется этот шаблон."
+    },
+    "items": {
+      "title": "Состав шаблона (темы / проверки)",
+      "catalogNotLoaded": "Каталог тем не загружен",
+      "addItem": "+ Элемент",
+      "catalogUnavailableTitle": "Каталог тем недоступен",
+      "catalogUnavailableDesc": "Каталог тем и проверок не загружен или пуст. Проверьте endpoint /playbooks/catalog.",
+      "emptyTitle": "Состав шаблона пуст",
+      "emptyDesc": "Добавьте тему или проверку, чтобы сформировать содержимое playbook‑шаблона.",
+      "emptyButton": "Добавить элемент",
+      "type": "Тип",
+      "topic": "Topic",
+      "check": "Check",
+      "order": "Порядок",
+      "delete": "Удалить",
+      "notSelected": "— не выбрано —",
+      "selectCheck": "— выберите проверку —",
+      "topicCheckUnused": "Для типа topic check не используется",
+      "noChecksForTopic": "Нет проверок для выбранной темы"
+    },
+    "buttons": {
+      "deleteTemplate": "Удалить шаблон",
+      "saveFirstHint": "Сначала сохраните шаблон, затем его можно будет удалить.",
+      "saveTemplate": "Сохранить шаблон"
+    },
+    "confirm": {
+      "deleteTitle": "Удалить шаблон?",
+      "deleteDescWithTitle": "Шаблон \"{{title}}\" будет удалён без возможности восстановления. Если он используется в проектах или исторических запусках анализа, сервер отклонит удаление.",
+      "deleteDescGeneric": "Шаблон будет удалён без возможности восстановления.",
+      "deleteButton": "Удалить",
+      "cancelButton": "Отмена"
+    }
+  },
+  "registry": {
+    "header": {
+      "back": "Инструкции",
+      "title": "Реестр стандартных playbook",
+      "subtitle": "Опубликованные playbook, доступные пользователям в проектах. Только просмотр и экспорт.",
+      "count": "Playbook: {{count}}",
+      "exportExcel": "Excel",
+      "exportWord": "Word",
+      "refresh": "Обновить"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить реестр playbook."
+    },
+    "loading": "Загружаем реестр playbook…",
+    "empty": {
+      "title": "Реестр пуст",
+      "description": "Пока нет опубликованных playbook. Создайте и опубликуйте playbook в Playbook Studio.",
+      "button": "Открыть Playbook Studio"
+    },
+    "list": {
+      "title": "Playbook",
+      "searchPlaceholder": "Поиск по названию, коду…",
+      "notFound": "Ничего не найдено."
+    },
+    "detail": {
+      "title": "Детали playbook",
+      "emptyTitle": "Playbook не выбран",
+      "emptyDesc": "Выберите playbook слева для просмотра деталей.",
+      "versionLabel": "Версия",
+      "dealTypeLabel": "Тип сделки",
+      "jurisdictionLabel": "Юрисдикция",
+      "languageLabel": "Язык",
+      "compositionTitle": "Состав playbook",
+      "compositionEmpty": "Состав пуст.",
+      "colNumber": "#",
+      "colInstruction": "Инструкция",
+      "colSeverity": "Severity"
+    },
+    "exports": {
+      "generatedPrefix": "Сгенерировано:",
+      "totalPrefix": "Всего playbook:",
+      "compositionTitle": "Состав",
+      "compositionEmpty": "Состав пуст.",
+      "metaCode": "Код:",
+      "metaVersion": "Версия: v{{version}}",
+      "metaType": "Тип: {{type}}",
+      "metaJurisdiction": "Юрисдикция: {{jurisdiction}}",
+      "metaLanguage": "Язык: {{language}}",
+      "csv": {
+        "code": "Playbook code",
+        "title": "Playbook title",
+        "description": "Description",
+        "dealType": "Deal type",
+        "jurisdiction": "Jurisdiction",
+        "language": "Language",
+        "riskProfile": "Risk profile",
+        "publishedVersion": "Published version",
+        "semver": "Semver",
+        "instrCode": "Instruction code",
+        "instrName": "Instruction name",
+        "group": "Group",
+        "severity": "Severity"
+      }
+    }
   }
 }
+
+
+
 
 

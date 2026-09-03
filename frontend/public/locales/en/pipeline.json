@@ -110,6 +110,32 @@
     "missingDocId": "Document ID not specified",
     "pathDescription": "The path of the document through processing stages — from original PDF to structure and chunks.",
     "notAvailable": "Processing stages are not available yet."
+  },
+  "classificationLevels": {
+    "L0": {
+      "label": "L0 — No match",
+      "description": "Document type not determined"
+    },
+    "L1": {
+      "label": "L1 — Filename",
+      "description": "Classification by filename"
+    },
+    "L2": {
+      "label": "L2 — Keywords",
+      "description": "Classification by keywords"
+    },
+    "L3": {
+      "label": "L3 — Semantics",
+      "description": "Semantic search (embeddings)"
+    },
+    "L4": {
+      "label": "L4 — LLM",
+      "description": "Confirmed by language model"
+    },
+    "L_manual": {
+      "label": "Manual override",
+      "description": "Type set manually by operator"
+    }
   }
 }
 

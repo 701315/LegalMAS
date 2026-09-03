@@ -4,6 +4,7 @@
 // Read-only listing — детальная работа с playbook происходит в Playbook Studio.
 
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -37,33 +38,38 @@ interface SearchInputProps {
 const SearchInput: React.FC<SearchInputProps> = ({
   value,
   onChange,
-  placeholder = "Поиск…",
-}) => (
-  <div className="relative w-full">
-    <Search
-      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
-      aria-hidden="true"
-    />
-    <input
-      type="search"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      autoComplete="off"
-      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-    />
-    {value.length > 0 && (
-      <button
-        type="button"
-        onClick={() => onChange("")}
-        aria-label="Очистить поиск"
-        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    )}
-  </div>
-);
+  placeholder,
+}) => {
+  const { t } = useTranslation("common");
+  const resolvedPlaceholder = placeholder ?? t("search.placeholder");
+
+  return (
+    <div className="relative w-full">
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+        aria-hidden="true"
+      />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={resolvedPlaceholder}
+        autoComplete="off"
+        className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+      />
+      {value.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label={t("search.clear")}
+          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // PlaybookCard
@@ -72,51 +78,70 @@ const SearchInput: React.FC<SearchInputProps> = ({
 const PlaybookCard: React.FC<{
   item: TenantPlaybookItem;
   onOpen: () => void;
-}> = ({ item, onOpen }) => (
-  <button
-    type="button"
-    onClick={onOpen}
-    className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
-  >
-    <div className="flex items-start gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] transition-colors group-hover:bg-[var(--accent-muted)] group-hover:text-[var(--accent-primary)]">
-        <Layers className="h-4 w-4" aria-hidden="true" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
-          {item.title}
-        </p>
-        <p className="mt-0.5 font-mono text-[11px] text-[var(--text-muted)]">
-          {item.code}
-        </p>
-        {item.description && (
-          <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
-            {item.description}
+}> = ({ item, onOpen }) => {
+  const { t } = useTranslation("instructions");
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] transition-colors group-hover:bg-[var(--accent-muted)] group-hover:text-[var(--accent-primary)]">
+          <Layers className="h-4 w-4" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
+            {item.title}
           </p>
-        )}
-        {(item.deal_type ||
-          item.jurisdiction ||
-          item.language ||
-          item.risk_profile) && (
-          <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[var(--text-muted)]">
-            {item.deal_type && <span>deal: {item.deal_type}</span>}
-            {item.jurisdiction && (
-              <span>jurisdiction: {item.jurisdiction}</span>
-            )}
-            {item.language && <span>language: {item.language}</span>}
-            {item.risk_profile && <span>risk: {item.risk_profile}</span>}
-          </div>
-        )}
+          <p className="mt-0.5 font-mono text-[11px] text-[var(--text-muted)]">
+            {item.code}
+          </p>
+          {item.description && (
+            <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
+              {item.description}
+            </p>
+          )}
+          {(item.deal_type ||
+            item.jurisdiction ||
+            item.language ||
+            item.risk_profile) && (
+            <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[var(--text-muted)]">
+              {item.deal_type && (
+                <span>
+                  {t("tenantPlaybooks.card.deal")}: {item.deal_type}
+                </span>
+              )}
+              {item.jurisdiction && (
+                <span>
+                  {t("tenantPlaybooks.card.jurisdiction")}: {item.jurisdiction}
+                </span>
+              )}
+              {item.language && (
+                <span>
+                  {t("tenantPlaybooks.card.language")}: {item.language}
+                </span>
+              )}
+              {item.risk_profile && (
+                <span>
+                  {t("tenantPlaybooks.card.risk")}: {item.risk_profile}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  </button>
-);
+    </button>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // TenantOwnedPlaybooksPage
 // ─────────────────────────────────────────────────────────────
 
 const TenantOwnedPlaybooksPage: React.FC = () => {
+  const { t } = useTranslation("instructions");
   const navigate = useNavigate();
   const { tenantId } = useAuth();
   const [search, setSearch] = useState("");
@@ -154,21 +179,20 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
                 className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                Инструкции
+                {t("tenantPlaybooks.backToInstructions")}
               </button>
 
               <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Playbooks организации
+                {t("tenantPlaybooks.title")}
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Собственные playbooks вашего tenant. Видны только вам, не
-                доступны другим клиентам платформы.
+                {t("tenantPlaybooks.subtitle")}
               </p>
 
               {!isLoading && !isError && playbooks.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
                   <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
-                    Playbooks: {playbooks.length}
+                    {t("tenantPlaybooks.stats", { count: playbooks.length })}
                   </span>
                 </div>
               )}
@@ -181,7 +205,7 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
                 onClick={() => void refetch()}
                 leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
               >
-                Обновить
+                {t("tenantPlaybooks.refresh")}
               </Button>
               <Button
                 variant="primary"
@@ -191,7 +215,7 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
                 }
                 leftIcon={<Plus className="h-3.5 w-3.5" />}
               >
-                Создать в Playbook Studio
+                {t("tenantPlaybooks.createInStudio")}
               </Button>
             </div>
           </div>
@@ -200,11 +224,11 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
         {/* ── Инфо ────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            Как использовать
+            {t("tenantPlaybooks.infoTitle")}
           </div>
           <div className="mt-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3">
             <p className="text-sm leading-6 text-[var(--text-secondary)]">
-              Создание и редактирование playbooks выполняется в{" "}
+              {t("tenantPlaybooks.infoTextPrefix")}
               <button
                 type="button"
                 onClick={() =>
@@ -212,10 +236,9 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
                 }
                 className="font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
               >
-                Playbook Studio
+                {t("tenantPlaybooks.infoLinkText")}
               </button>
-              . Эта страница показывает готовый каталог только tenant-owned
-              playbooks — глобальные шаблоны платформы здесь не отображаются.
+              {t("tenantPlaybooks.infoTextSuffix")}
             </p>
           </div>
         </section>
@@ -226,11 +249,14 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
             <SearchInput
               value={search}
               onChange={setSearch}
-              placeholder="Поиск по названию, коду, описанию…"
+              placeholder={t("tenantPlaybooks.searchPlaceholder")}
             />
             {isSearching && (
               <p className="hidden shrink-0 text-xs text-[var(--text-muted)] sm:block">
-                {filtered.length} из {playbooks.length}
+                {t("tenantPlaybooks.searchFound", {
+                  filtered: filtered.length,
+                  total: playbooks.length,
+                })}
               </p>
             )}
           </div>
@@ -238,20 +264,20 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
 
         {/* ── States ──────────────────────────────────────────── */}
         {isLoading && (
-          <LoadingBlock text="Загружаем playbooks организации…" rows={6} />
+          <LoadingBlock text={t("tenantPlaybooks.loading")} rows={6} />
         )}
 
         {isError && (
           <InlineAlert
             tone="error"
-            message="Не удалось загрузить playbooks организации."
+            message={t("tenantPlaybooks.loadError")}
           />
         )}
 
         {!isLoading && !isError && playbooks.length === 0 && (
           <EmptyState
-            title="Playbooks организации ещё не созданы"
-            description="Создайте первый playbook в Playbook Studio. Он будет виден только вашей организации."
+            title={t("tenantPlaybooks.emptyTitle")}
+            description={t("tenantPlaybooks.emptyDesc")}
             action={
               <Button
                 variant="primary"
@@ -261,7 +287,7 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
                 }
                 leftIcon={<Plus className="h-3.5 w-3.5" />}
               >
-                Создать в Playbook Studio
+                {t("tenantPlaybooks.createInStudio")}
               </Button>
             }
           />
@@ -269,15 +295,15 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
 
         {!isLoading && !isError && playbooks.length > 0 && filtered.length === 0 && (
           <EmptyState
-            title="Ничего не найдено"
-            description="Попробуйте изменить поисковый запрос."
+            title={t("tenantPlaybooks.noResultsTitle")}
+            description={t("tenantPlaybooks.noResultsDesc")}
             action={
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setSearch("")}
               >
-                Очистить поиск
+                {t("tenantPlaybooks.clearSearch")}
               </Button>
             }
           />

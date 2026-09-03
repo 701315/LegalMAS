@@ -4,6 +4,7 @@
 // Позволяет экспортировать всё в Excel и Word.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -117,33 +118,38 @@ interface SearchInputProps {
 const SearchInput: React.FC<SearchInputProps> = ({
   value,
   onChange,
-  placeholder = "Поиск…",
-}) => (
-  <div className="relative w-full sm:w-80">
-    <Search
-      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
-      aria-hidden="true"
-    />
-    <input
-      type="search"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      autoComplete="off"
-      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-    />
-    {value.length > 0 && (
-      <button
-        type="button"
-        onClick={() => onChange("")}
-        aria-label="Очистить"
-        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    )}
-  </div>
-);
+  placeholder,
+}) => {
+  const { t } = useTranslation("playbooks");
+  const resolvedPlaceholder = placeholder || t("registry.list.searchPlaceholder");
+
+  return (
+    <div className="relative w-full sm:w-80">
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+        aria-hidden="true"
+      />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={resolvedPlaceholder}
+        autoComplete="off"
+        className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+      />
+      {value.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label={t("search.clear", { ns: "common" })}
+          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // Export utils
@@ -172,24 +178,25 @@ function escapeCsvValue(value: unknown): string {
 function buildCsvExport(
   entries: RegistryEntry[],
   checksMap: Map<string, GlobalCheckInfo>,
+  tFn: (key: string) => string,
 ): string {
   const rows: string[] = [];
 
   rows.push(
     [
-      "Playbook code",
-      "Playbook title",
-      "Description",
-      "Deal type",
-      "Jurisdiction",
-      "Language",
-      "Risk profile",
-      "Published version",
-      "Semver",
-      "Instruction code",
-      "Instruction name",
-      "Group",
-      "Severity",
+      tFn("registry.exports.csv.code"),
+      tFn("registry.exports.csv.title"),
+      tFn("registry.exports.csv.description"),
+      tFn("registry.exports.csv.dealType"),
+      tFn("registry.exports.csv.jurisdiction"),
+      tFn("registry.exports.csv.language"),
+      tFn("registry.exports.csv.riskProfile"),
+      tFn("registry.exports.csv.publishedVersion"),
+      tFn("registry.exports.csv.semver"),
+      tFn("registry.exports.csv.instrCode"),
+      tFn("registry.exports.csv.instrName"),
+      tFn("registry.exports.csv.group"),
+      tFn("registry.exports.csv.severity"),
     ]
       .map(escapeCsvValue)
       .join(";"),
@@ -239,6 +246,8 @@ function escapeHtml(s: string): string {
 function buildWordExport(
   entries: RegistryEntry[],
   checksMap: Map<string, GlobalCheckInfo>,
+  tFn: (key: string, opts?: Record<string, unknown>) => string,
+  locale: string,
 ): string {
   const parts: string[] = [];
 
@@ -246,7 +255,7 @@ function buildWordExport(
   parts.push(
     `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">`,
   );
-  parts.push(`<head><meta charset="UTF-8" /><title>Реестр playbook</title>`);
+  parts.push(`<head><meta charset="UTF-8" /><title>${escapeHtml(tFn("registry.header.title"))}</title>`);
   parts.push(`<style>
     body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: rgb(26 25 23); }
     h1 { font-size: 18pt; margin-bottom: 6pt; }
@@ -260,9 +269,9 @@ function buildWordExport(
     .code { font-family: Consolas, monospace; color: rgb(120 117 111); }
   </style></head><body>`);
 
-  parts.push(`<h1>Реестр стандартных playbook</h1>`);
+  parts.push(`<h1>${tFn("registry.header.title")}</h1>`);
   parts.push(
-    `<p class="meta">Сгенерировано: ${new Date().toLocaleString("ru-RU")}. Всего playbook: ${entries.length}.</p>`,
+    `<p class="meta">${tFn("registry.exports.generatedPrefix")} ${new Date().toLocaleString(locale)}. ${tFn("registry.exports.totalPrefix")} ${entries.length}.</p>`,
   );
 
   for (const entry of entries) {
@@ -270,13 +279,13 @@ function buildWordExport(
     parts.push(`<h2>${escapeHtml(line.title)}</h2>`);
 
     const metaParts: string[] = [];
-    metaParts.push(`Код: <span class="code">${escapeHtml(line.code)}</span>`);
+    metaParts.push(`${tFn("registry.exports.metaCode")} <span class="code">${escapeHtml(line.code)}</span>`);
     if (publishedVersion?.semver)
-      metaParts.push(`Версия: v${escapeHtml(publishedVersion.semver)}`);
-    if (line.deal_type) metaParts.push(`Тип: ${escapeHtml(line.deal_type)}`);
+      metaParts.push(tFn("registry.exports.metaVersion", { version: escapeHtml(publishedVersion.semver) }));
+    if (line.deal_type) metaParts.push(tFn("registry.exports.metaType", { type: escapeHtml(line.deal_type) }));
     if (line.jurisdiction)
-      metaParts.push(`Юрисдикция: ${escapeHtml(line.jurisdiction)}`);
-    if (line.language) metaParts.push(`Язык: ${escapeHtml(line.language)}`);
+      metaParts.push(tFn("registry.exports.metaJurisdiction", { jurisdiction: escapeHtml(line.jurisdiction) }));
+    if (line.language) metaParts.push(tFn("registry.exports.metaLanguage", { language: escapeHtml(line.language) }));
     parts.push(`<p class="meta">${metaParts.join(" · ")}</p>`);
 
     if (line.description)
@@ -284,14 +293,14 @@ function buildWordExport(
 
     const items = detail?.items ?? [];
     if (items.length === 0) {
-      parts.push(`<p><i>Состав пуст.</i></p>`);
+      parts.push(`<p><i>${tFn("registry.exports.compositionEmpty")}</i></p>`);
       continue;
     }
 
-    parts.push(`<h3>Состав (${items.length})</h3>`);
+    parts.push(`<h3>${tFn("registry.exports.compositionTitle")} (${items.length})</h3>`);
     parts.push(`<table>`);
     parts.push(
-      `<thead><tr><th>#</th><th>Instruction code</th><th>Название</th><th>Группа</th><th>Severity</th></tr></thead><tbody>`,
+      `<thead><tr><th>${tFn("registry.detail.colNumber")}</th><th>${tFn("registry.exports.csv.instrCode")}</th><th>${tFn("registry.exports.csv.instrName")}</th><th>${tFn("registry.exports.csv.group")}</th><th>${tFn("registry.detail.colSeverity")}</th></tr></thead><tbody>`,
     );
     items.forEach((item, idx) => {
       const check = checksMap.get(item.instruction_code);
@@ -311,9 +320,11 @@ function buildWordExport(
 // ─────────────────────────────────────────────────────────────
 
 const PlaybooksRegistryPage: React.FC = () => {
+  const { t, i18n } = useTranslation("playbooks");
   const navigate = useNavigate();
 
   const [entries, setEntries] = useState<RegistryEntry[]>([]);
+
   const [checks, setChecks] = useState<GlobalCheckInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -370,12 +381,12 @@ const PlaybooksRegistryPage: React.FC = () => {
       const filtered: RegistryEntry[] = results.filter(
         (r): r is RegistryEntry => r !== null,
       );
-      filtered.sort((a, b) => a.line.title.localeCompare(b.line.title, "ru"));
+      filtered.sort((a, b) => a.line.title.localeCompare(b.line.title, i18n.language));
       setEntries(filtered);
       setIsLoading(false);
     } catch (err) {
       const apiErr = err as ApiError;
-      setError(apiErr.detail || "Не удалось загрузить реестр playbook.");
+      setError(apiErr.detail || t("registry.errors.loadFailed"));
       setIsLoading(false);
     }
   }, []);
@@ -424,13 +435,13 @@ const PlaybooksRegistryPage: React.FC = () => {
   }, [filteredEntries, selectedId]);
 
   const handleExportExcel = useCallback(() => {
-    const csv = buildCsvExport(entries, checksMap);
+    const csv = buildCsvExport(entries, checksMap, t);
     const stamp = new Date().toISOString().slice(0, 10);
     downloadFile(csv, `playbooks-registry-${stamp}.csv`, "text/csv;charset=utf-8");
   }, [entries, checksMap]);
 
   const handleExportWord = useCallback(() => {
-    const html = buildWordExport(entries, checksMap);
+    const html = buildWordExport(entries, checksMap, t, i18n.language);
     const stamp = new Date().toISOString().slice(0, 10);
     downloadFile(html, `playbooks-registry-${stamp}.doc`, "application/msword");
   }, [entries, checksMap]);
@@ -451,21 +462,20 @@ const PlaybooksRegistryPage: React.FC = () => {
                 className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                Инструкции
+                {t("registry.header.back")}
               </button>
 
               <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Реестр стандартных playbook
+                {t("registry.header.title")}
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Опубликованные playbook, доступные пользователям в проектах.
-                Только просмотр и экспорт.
+                {t("registry.header.subtitle")}
               </p>
 
               {!isLoading && !error && entries.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
                   <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
-                    Playbook: {entries.length}
+                    {t("registry.header.count", { count: entries.length })}
                   </span>
                 </div>
               )}
@@ -479,7 +489,7 @@ const PlaybooksRegistryPage: React.FC = () => {
                 disabled={!canExport}
                 leftIcon={<FileSpreadsheet className="h-3.5 w-3.5" />}
               >
-                Excel
+                {t("registry.header.exportExcel")}
               </Button>
               <Button
                 variant="secondary"
@@ -488,16 +498,16 @@ const PlaybooksRegistryPage: React.FC = () => {
                 disabled={!canExport}
                 leftIcon={<FileText className="h-3.5 w-3.5" />}
               >
-                Word
+                {t("registry.header.exportWord")}
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => void loadAll()}
-                aria-label="Обновить реестр"
+                aria-label={t("registry.header.refresh")}
                 leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
               >
-                Обновить
+                {t("registry.header.refresh")}
               </Button>
             </div>
           </div>
@@ -508,21 +518,21 @@ const PlaybooksRegistryPage: React.FC = () => {
 
         {/* ── Loading ──────────────────────────────────────────── */}
         {isLoading && (
-          <LoadingBlock text="Загружаем реестр playbook…" rows={6} />
+          <LoadingBlock text={t("registry.loading")} rows={6} />
         )}
 
         {/* ── Empty ────────────────────────────────────────────── */}
         {!isLoading && !error && entries.length === 0 && (
           <EmptyState
-            title="Реестр пуст"
-            description="Пока нет опубликованных playbook. Создайте и опубликуйте playbook в Playbook Studio."
+            title={t("registry.empty.title")}
+            description={t("registry.empty.description")}
             action={
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => navigate("/admin/instructions/playbook-studio")}
               >
-                Открыть Playbook Studio
+                {t("registry.empty.button")}
               </Button>
             }
           />
@@ -532,7 +542,7 @@ const PlaybooksRegistryPage: React.FC = () => {
         {!isLoading && !error && entries.length > 0 && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(300px,1fr)_2fr]">
             <SectionCard
-              title="Playbook"
+              title={t("registry.list.title")}
               rightSlot={
                 <span className="text-[11px] text-[var(--text-muted)]">
                   {filteredEntries.length} / {entries.length}
@@ -543,13 +553,13 @@ const PlaybooksRegistryPage: React.FC = () => {
                 <SearchInput
                   value={search}
                   onChange={setSearch}
-                  placeholder="Поиск по названию, коду…"
+                  placeholder={t("registry.list.searchPlaceholder")}
                 />
               </div>
 
               {filteredEntries.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--text-muted)]">
-                  Ничего не найдено.
+                  {t("registry.list.notFound")}
                 </p>
               ) : (
                 <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto overscroll-contain">
@@ -603,11 +613,11 @@ const PlaybooksRegistryPage: React.FC = () => {
               )}
             </SectionCard>
 
-            <SectionCard title="Детали playbook">
+            <SectionCard title={t("registry.detail.title")}>
               {!selectedEntry ? (
                 <EmptyState
-                  title="Playbook не выбран"
-                  description="Выберите playbook слева для просмотра деталей."
+                  title={t("registry.detail.emptyTitle")}
+                  description={t("registry.detail.emptyDesc")}
                 />
               ) : (
                 <PlaybookDetailView
@@ -640,6 +650,7 @@ const PlaybookDetailView: React.FC<PlaybookDetailViewProps> = ({
   entry,
   checksMap,
 }) => {
+  const { t } = useTranslation("playbooks");
   const { line, detail, publishedVersion } = entry;
   const items = detail?.items ?? [];
 
@@ -669,18 +680,18 @@ const PlaybookDetailView: React.FC<PlaybookDetailViewProps> = ({
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetaCell
-          label="Версия"
+          label={t("registry.detail.versionLabel")}
           value={publishedVersion?.semver ? `v${publishedVersion.semver}` : "—"}
           mono
         />
-        <MetaCell label="Тип сделки" value={line.deal_type ?? "—"} />
-        <MetaCell label="Юрисдикция" value={line.jurisdiction ?? "—"} />
-        <MetaCell label="Язык" value={line.language ?? "—"} />
+        <MetaCell label={t("registry.detail.dealTypeLabel")} value={line.deal_type ?? "—"} />
+        <MetaCell label={t("registry.detail.jurisdictionLabel")} value={line.jurisdiction ?? "—"} />
+        <MetaCell label={t("registry.detail.languageLabel")} value={line.language ?? "—"} />
       </div>
 
       <div className="space-y-3">
         <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          Состав playbook
+          {t("registry.detail.compositionTitle")}
           <span className="ml-1.5 normal-case tracking-normal text-[var(--text-faint)]">
             · {items.length}
           </span>
@@ -688,19 +699,19 @@ const PlaybookDetailView: React.FC<PlaybookDetailViewProps> = ({
 
         {items.length === 0 ? (
           <p className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--text-muted)]">
-            Состав пуст.
+            {t("registry.detail.compositionEmpty")}
           </p>
         ) : (
           <div className="rounded-xl border border-[var(--border)]">
             <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-2 border-b border-[var(--border-soft)] px-3 py-2">
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                #
+                {t("registry.detail.colNumber")}
               </div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                Инструкция
+                {t("registry.detail.colInstruction")}
               </div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                Severity
+                {t("registry.detail.colSeverity")}
               </div>
             </div>
             <div className="divide-y divide-[var(--border-soft)]">

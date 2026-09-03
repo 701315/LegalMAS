@@ -7,6 +7,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
@@ -68,9 +69,11 @@ function formatCountLabel(
 }
 
 const NewProjectPage: React.FC = () => {
+  const { t } = useTranslation("projects");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { globalRole, userId } = useAuth();
+
   const setProjectRole = useUIStore((s) => s.setProjectRole);
 
   const canCreate =
@@ -177,7 +180,7 @@ const NewProjectPage: React.FC = () => {
 
   const handleCreateProject = async () => {
     if (!projectName.trim()) {
-      setCreateError("Укажите название проекта.");
+      setCreateError(t("newProject.errors.nameRequired"));
       return;
     }
 
@@ -198,7 +201,7 @@ const NewProjectPage: React.FC = () => {
       });
 
     } catch (err: any) {
-      setCreateError(err?.detail || "Ошибка создания проекта.");
+      setCreateError(err?.detail || t("newProject.errors.createFailed"));
     } finally {
       setIsCreating(false);
     }
@@ -220,7 +223,7 @@ const NewProjectPage: React.FC = () => {
   };
 
   const handleModelConfigSkipped = () => {
-    setModelConfigSummary("По умолчанию");
+    setModelConfigSummary(t("newProject.defaults.defaultModelConfig"));
     setBlock4Done(true);
     setEditingStep(null);
   };
@@ -244,7 +247,7 @@ const NewProjectPage: React.FC = () => {
         onSuccess: () =>
           navigate(`/projects/${createdDealId}?tab=overview`),
         onError: () =>
-          setLaunchError("Не удалось запустить анализ."),
+          setLaunchError(t("newProject.errors.launchFailed")),
       },
     );
   };
@@ -321,7 +324,7 @@ const NewProjectPage: React.FC = () => {
   const effectiveModelConfigSummary =
     modelConfigSummary ??
     deal?.model_config_name ??
-    (hasPlaybook ? "По умолчанию" : null);
+    (hasPlaybook ? t("newProject.defaults.defaultModelConfig") : null);
 
   const summaryData: FlowSummaryData = {
     projectName: projectName.trim() || null,
@@ -351,7 +354,7 @@ const NewProjectPage: React.FC = () => {
     editingStep === step
       ? {
           onBackRequest: () => setEditingStep(null),
-          backLabel: "Закрыть редактирование",
+          backLabel: t("newProject.steps.closeEdit"),
         }
       : {};
 
@@ -368,10 +371,10 @@ const NewProjectPage: React.FC = () => {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-xl font-semibold">
-                Запуск нового проекта
+                {t("newProject.header.title")}
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Последовательно настройте проект и запустите анализ.
+                {t("newProject.header.subtitle")}
               </p>
             </div>
 
@@ -379,7 +382,7 @@ const NewProjectPage: React.FC = () => {
               {requiredStepsDone > 0 && (
                 <div className="hidden rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1.5 md:block">
                   <span className="text-[11px] font-semibold text-[var(--text-muted)]">
-                    {requiredStepsDone} из {requiredStepsTotal} готово
+                    {t("newProject.header.readyProgress", { done: requiredStepsDone, total: requiredStepsTotal })}
                   </span>
                 </div>
               )}
@@ -389,7 +392,7 @@ const NewProjectPage: React.FC = () => {
                 size="sm"
                 onClick={() => setShowExitConfirm(true)}
               >
-                {createdDealId ? "Отложить настройку" : "Отмена"}
+                {createdDealId ? t("newProject.header.defer") : t("newProject.header.cancel")}
               </Button>
             </div>
           </div>
@@ -401,7 +404,7 @@ const NewProjectPage: React.FC = () => {
           <div className="space-y-4">
             <FlowBlock
               step={1}
-              title="Название проекта"
+              title={t("newProject.steps.step1Title")}
               status={block1Status}
               summary={projectName.trim() || undefined}
             >
@@ -418,7 +421,7 @@ const NewProjectPage: React.FC = () => {
 
             <FlowBlock
               step={2}
-              title="Загрузка документов"
+              title={t("newProject.steps.step2Title")}
               status={block2Status}
               summary={documentsSummary ?? undefined}
               onEditRequest={
@@ -440,7 +443,7 @@ const NewProjectPage: React.FC = () => {
 
             <FlowBlock
               step={3}
-              title="Выбор playbook"
+              title={t("newProject.steps.step3Title")}
               status={block3Status}
               summary={playbookSummary ?? undefined}
               onEditRequest={
@@ -461,7 +464,7 @@ const NewProjectPage: React.FC = () => {
 
             <FlowBlock
               step={4}
-              title="Профиль модели"
+              title={t("newProject.steps.step4Title")}
               status={block4Status}
               summary={effectiveModelConfigSummary ?? undefined}
               onEditRequest={
@@ -484,7 +487,7 @@ const NewProjectPage: React.FC = () => {
 
             <FlowBlock
               step={5}
-              title="Основной язык анализа"
+              title={t("newProject.steps.step5Title")}
               status={block5Status}
               summary={normalizedPrimaryLanguage ?? undefined}
               onEditRequest={
@@ -507,7 +510,7 @@ const NewProjectPage: React.FC = () => {
 
             <FlowBlock
               step={6}
-              title="Запуск анализа"
+              title={t("newProject.steps.step6Title")}
               status={block6Status}
             >
               <Block6Launch
@@ -548,14 +551,10 @@ const NewProjectPage: React.FC = () => {
 
       <ConfirmDialog
         open={showExitConfirm}
-        title={createdDealId ? "Отложить настройку?" : "Прервать создание?"}
-        description={
-          createdDealId
-            ? "Проект уже сохранён в системе. Вы сможете вернуться к загрузке документов и выбору настроек позже из списка проектов на дашборде."
-            : "Проект ещё не создан. Если вы выйдете сейчас, введённые данные не сохранятся."
-        }
-        confirmLabel={createdDealId ? "Выйти на дашборд" : "Прервать"}
-        cancelLabel="Остаться"
+        title={createdDealId ? t("newProject.exitConfirm.titleDefer") : t("newProject.exitConfirm.titleCancel")}
+        description={createdDealId ? t("newProject.exitConfirm.descDefer") : t("newProject.exitConfirm.descCancel")}
+        confirmLabel={createdDealId ? t("newProject.exitConfirm.confirmExit") : t("newProject.exitConfirm.confirmCancel")}
+        cancelLabel={t("newProject.exitConfirm.stay")}
         onConfirm={() => navigate("/dashboard")}
         onCancel={() => setShowExitConfirm(false)}
       />

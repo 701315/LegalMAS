@@ -5,6 +5,7 @@
 // =============================================================
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useCreateTenant } from "../api/admin";
@@ -30,6 +31,7 @@ function autoSlug(value: string): string {
 // ─────────────────────────────────────────────────────────────
 
 const AdminTenantNewPage: React.FC = () => {
+  const { t } = useTranslation("admin");
   const navigate = useNavigate();
   const createMutation = useCreateTenant();
 
@@ -50,12 +52,12 @@ const AdminTenantNewPage: React.FC = () => {
     setErrorText(null);
 
     if (!name.trim()) {
-      setErrorText("Укажите название клиента.");
+      setErrorText(t("tenantNew.errors.nameRequired"));
       return;
     }
 
     if (!slug.trim()) {
-      setErrorText("Укажите slug.");
+      setErrorText(t("tenantNew.errors.slugRequired"));
       return;
     }
 
@@ -72,7 +74,7 @@ const AdminTenantNewPage: React.FC = () => {
       const detail =
         (apiErr as ApiError)?.detail ??
         (apiErr as { message?: string })?.message ??
-        "Не удалось создать клиента. Попробуйте позже.";
+        t("tenantNew.errors.createFailed");
       setErrorText(String(detail));
     }
   };
@@ -89,15 +91,14 @@ const AdminTenantNewPage: React.FC = () => {
             className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Все клиенты
+            {t("tenantNew.back")}
           </button>
 
           <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-            Новый клиент
+            {t("tenantNew.title")}
           </h1>
           <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            Создайте нового клиента системы. После создания можно будет
-            добавить его пользователей.
+            {t("tenantNew.subtitle")}
           </p>
         </header>
 
@@ -118,7 +119,7 @@ const AdminTenantNewPage: React.FC = () => {
                   htmlFor="tenant-name"
                   className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Название клиента *
+                  {t("tenantNew.nameLabel")}
                 </label>
                 <input
                   id="tenant-name"
@@ -126,7 +127,7 @@ const AdminTenantNewPage: React.FC = () => {
                   value={name}
                   onChange={(e) => handleNameChange(e.target.value)}
                   className="input-base w-full"
-                  placeholder="Например: Ромашка Лигал"
+                  placeholder={t("tenantNew.namePlaceholder")}
                   autoComplete="off"
                 />
               </div>
@@ -136,7 +137,7 @@ const AdminTenantNewPage: React.FC = () => {
                   htmlFor="tenant-slug"
                   className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Slug *
+                  {t("tenantNew.slugLabel")}
                 </label>
                 <input
                   id="tenant-slug"
@@ -144,12 +145,11 @@ const AdminTenantNewPage: React.FC = () => {
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   className="input-base w-full font-mono"
-                  placeholder="romashka-legal"
+                  placeholder={t("tenantNew.slugPlaceholder")}
                   autoComplete="off"
                 />
                 <p className="text-xs text-[var(--text-muted)]">
-                  Только строчные латинские буквы, цифры и дефис.
-                  Генерируется автоматически из названия.
+                  {t("tenantNew.slugHint")}
                 </p>
               </div>
 
@@ -158,7 +158,7 @@ const AdminTenantNewPage: React.FC = () => {
                   htmlFor="tenant-notes"
                   className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Заметки
+                  {t("tenantNew.notesLabel")}
                 </label>
                 <textarea
                   id="tenant-notes"
@@ -166,7 +166,7 @@ const AdminTenantNewPage: React.FC = () => {
                   onChange={(e) => setNotes(e.target.value)}
                   className="input-base w-full resize-none"
                   rows={3}
-                  placeholder="Произвольные заметки администратора..."
+                  placeholder={t("tenantNew.notesPlaceholder")}
                 />
               </div>
 
@@ -177,7 +177,7 @@ const AdminTenantNewPage: React.FC = () => {
                   size="sm"
                   onClick={() => navigate("/admin")}
                 >
-                  Отмена
+                  {t("actions.cancel", { ns: "common" })}
                 </Button>
                 <Button
                   type="submit"
@@ -185,65 +185,60 @@ const AdminTenantNewPage: React.FC = () => {
                   size="sm"
                   isLoading={createMutation.isPending}
                 >
-                  {createMutation.isPending ? "Создаём…" : "Создать клиента"}
+                  {createMutation.isPending ? t("tenantNew.creating") : t("tenantNew.createButton")}
                 </Button>
               </div>
             </form>
           </section>
 
+
           {/* Подсказки */}
           <aside className="space-y-4">
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-                Что такое slug?
+                {t("tenantNew.slugHelp.title")}
               </h2>
               <div className="mt-3 space-y-2 text-xs text-[var(--text-secondary)]">
                 <p>
-                  Slug — уникальный технический идентификатор клиента в URL
-                  и системных конфигурациях.
+                  {t("tenantNew.slugHelp.p1")}
                 </p>
                 <p>
-                  Используется только латинские буквы в нижнем регистре,
-                  цифры и дефис. Например:{" "}
+                  {t("tenantNew.slugHelp.p2")}{" "}
                   <code className="rounded bg-[var(--bg-elevated-soft)] px-1 font-mono text-[11px] text-[var(--text-primary)]">
                     romashka-legal
                   </code>
                 </p>
                 <p>
-                  Slug генерируется автоматически из названия, но можно
-                  задать вручную.
+                  {t("tenantNew.slugHelp.p3")}
                 </p>
               </div>
             </section>
 
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-                После создания
+                {t("tenantNew.afterCreation.title")}
               </h2>
               <div className="mt-3 space-y-3">
                 <div className="subtle-panel px-3 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    Шаг 1
+                    {t("tenantNew.afterCreation.step1Label")}
                   </p>
                   <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                    Откроется страница клиента — можно сразу добавить
-                    пользователей.
+                    {t("tenantNew.afterCreation.step1Desc")}
                   </p>
                 </div>
                 <div className="subtle-panel px-3 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    Шаг 2
+                    {t("tenantNew.afterCreation.step2Label")}
                   </p>
                   <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                    Tenant admin клиента сможет настроить организацию:
-                    участников, playbooks, инструкции.
+                    {t("tenantNew.afterCreation.step2Desc")}
                   </p>
                 </div>
               </div>
             </section>
           </aside>
         </div>
-
       </div>
     </div>
   );

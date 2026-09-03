@@ -8,6 +8,7 @@
 // =============================================================
 
 import React, { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import client from "../api/client";
@@ -64,7 +65,9 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
   onDeleted,
   initialPlaybookId = null,
 }) => {
+  const { t } = useTranslation("playbooks");
   const navigate = useNavigate();
+
   const [searchParams] = useSearchParams();
   const { dealId } = useParams<{ dealId: string }>();
 
@@ -146,18 +149,18 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
 
   const validateBeforeSave = (): string | null => {
     if (!title.trim()) {
-      return "Укажите название шаблона.";
+      return t("lines.validation.titleRequired");
     }
 
     for (let index = 0; index < items.length; index += 1) {
       const item = items[index];
 
       if (!item.topic_code) {
-        return `Элемент #${index + 1}: выберите тему.`;
+        return t("lines.validation.topicRequired", { index: index + 1 });
       }
 
       if (item.kind === "check" && !item.check_code) {
-        return `Элемент #${index + 1}: выберите проверку для типа check.`;
+        return t("lines.validation.checkRequired", { index: index + 1 });
       }
     }
 
@@ -175,7 +178,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
       setLines(res.data || []);
     } catch (err) {
       setErrorText(
-        getApiErrorMessage(err, "Не удалось загрузить шаблоны playbook."),
+        getApiErrorMessage(err, t("lines.errors.loadLines")),
       );
     } finally {
       setIsLoading(false);
@@ -217,7 +220,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
         setItems(normalizeLineItems(res.data.items || []));
       } catch (err) {
         setErrorText(
-          getApiErrorMessage(err, "Не удалось загрузить шаблон playbook."),
+          getApiErrorMessage(err, t("lines.errors.loadDetail")),
         );
       } finally {
         setIsDetailLoading(false);
@@ -402,11 +405,11 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
       setItems(normalizeLineItems(res.data.items || []));
 
       await loadLines();
-      setSuccessText("Шаблон сохранён.");
+      setSuccessText(t("lines.messages.saved"));
       onFinished?.();
     } catch (err) {
       setErrorText(
-        getApiErrorMessage(err, "Не удалось сохранить шаблон playbook."),
+        getApiErrorMessage(err, t("lines.errors.saveFailed")),
       );
     } finally {
       setIsSaving(false);
@@ -437,19 +440,19 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
       setSelectedLineId(null);
       resetForm();
       await loadLines();
-      setSuccessText("Шаблон удалён.");
+      setSuccessText(t("lines.messages.deleted"));
       onDeleted?.();
     } catch (err) {
       if (isApiErrorStatus(err, 409)) {
         setErrorText(
           getApiErrorMessage(
             err,
-            "Шаблон нельзя удалить, потому что он используется в проектах или запусках.",
+            t("lines.errors.cannotDeleteInUse"),
           ),
         );
       } else if (isApiErrorStatus(err, 404)) {
         setErrorText(
-          getApiErrorMessage(err, "Шаблон уже удалён или не найден."),
+          getApiErrorMessage(err, t("lines.errors.notFound")),
         );
         setIsDeleteDialogOpen(false);
         setSelectedLineId(null);
@@ -458,7 +461,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
         onDeleted?.();
       } else {
         setErrorText(
-          getApiErrorMessage(err, "Не удалось удалить шаблон playbook."),
+          getApiErrorMessage(err, t("lines.errors.deleteFailed")),
         );
       }
     } finally {
@@ -484,18 +487,18 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-1">
           <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
-            Admin · Playbook
+            {t("lines.header.badge")}
           </p>
           <h1 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">
-            Конструктор шаблонов Playbook
+            {t("lines.header.title")}
           </h1>
           <p className="text-xs text-[var(--text-secondary)]">
-            Настройка логических линий (шаблонов) и их состава для проектов.
+            {t("lines.header.subtitle")}
           </p>
         </div>
 
         <Button variant="secondary" size="sm" onClick={handleBackFromPage}>
-          ← Вернуться к проектам
+          {t("lines.header.back")}
         </Button>
       </div>
     ) : null;
@@ -507,7 +510,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <PageSection
-          title="Шаблоны playbook"
+          title={t("lines.list.title")}
           rightSlot={
             <Button
               variant="secondary"
@@ -515,16 +518,16 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
               onClick={handleCreateNew}
               disabled={isUiLocked}
             >
-              + Новый
+              {t("lines.list.new")}
             </Button>
           }
         >
           {isLoading ? (
-            <LoadingBlock text="Загружаем список шаблонов..." rows={6} />
+            <LoadingBlock text={t("lines.list.loading")} rows={6} />
           ) : lines.length === 0 ? (
             <EmptyState
-              title="Шаблоны ещё не созданы"
-              description="Создайте первый шаблон playbook, чтобы настроить набор тем и проверок для проектов."
+              title={t("lines.list.emptyTitle")}
+              description={t("lines.list.emptyDesc")}
               action={
                 <Button
                   variant="secondary"
@@ -532,7 +535,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                   onClick={handleCreateNew}
                   disabled={isUiLocked}
                 >
-                  Создать шаблон
+                  {t("lines.list.createButton")}
                 </Button>
               }
             />
@@ -563,11 +566,11 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                     ) : null}
 
                     <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-                      {line.deal_type ? `Тип: ${line.deal_type} · ` : ""}
+                      {line.deal_type ? t("lines.list.typePrefix", { type: line.deal_type }) : ""}
                       {line.jurisdiction
-                        ? `Юрисдикция: ${line.jurisdiction} · `
+                        ? t("lines.list.jurisdictionPrefix", { jurisdiction: line.jurisdiction })
                         : ""}
-                      {line.language ? `Язык: ${line.language}` : ""}
+                      {line.language ? t("lines.list.languagePrefix", { language: line.language }) : ""}
                     </div>
                   </button>
                 </li>
@@ -578,75 +581,75 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
 
         <PageSection
           className="lg:col-span-2"
-          title={currentLine ? "Редактирование шаблона" : "Новый шаблон"}
+          title={currentLine ? t("lines.form.editTitle") : t("lines.form.newTitle")}
           rightSlot={
             currentLine ? (
               <span className="text-[11px] text-[var(--text-muted)]">
-                ID: {currentLine.id}
+                {t("lines.form.idLabel", { id: currentLine.id })}
               </span>
             ) : undefined
           }
         >
           {isDetailLoading ? (
             <div className="mb-3">
-              <LoadingBlock text="Загружаем данные шаблона..." rows={4} />
+              <LoadingBlock text={t("lines.form.loadingDetail")} rows={4} />
             </div>
           ) : null}
 
           <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
-            <Field label="Название" required>
+            <Field label={t("lines.form.nameLabel")} required>
               <input
                 type="text"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 disabled={isUiLocked}
                 className={inputClassName}
-                placeholder="Например: Real estate RU / M&A RU..."
+                placeholder={t("lines.form.namePlaceholder")}
               />
             </Field>
 
-            <Field label="Тип сделки">
+            <Field label={t("lines.form.dealTypeLabel")}>
               <input
                 type="text"
                 value={dealType}
                 onChange={(event) => setDealType(event.target.value)}
                 disabled={isUiLocked}
                 className={inputClassName}
-                placeholder="real_estate, mna, nda..."
+                placeholder={t("lines.form.dealTypePlaceholder")}
               />
             </Field>
 
-            <Field label="Юрисдикция">
+            <Field label={t("lines.form.jurisdictionLabel")}>
               <input
                 type="text"
                 value={jurisdiction}
                 onChange={(event) => setJurisdiction(event.target.value)}
                 disabled={isUiLocked}
                 className={inputClassName}
-                placeholder="RU, EN, DE..."
+                placeholder={t("lines.form.jurisdictionPlaceholder")}
               />
             </Field>
 
-            <Field label="Язык">
+            <Field label={t("lines.form.languageLabel")}>
               <input
                 type="text"
                 value={language}
                 onChange={(event) => setLanguage(event.target.value)}
                 disabled={isUiLocked}
                 className={inputClassName}
-                placeholder="ru, en..."
+                placeholder={t("lines.form.languagePlaceholder")}
               />
             </Field>
 
             <div className="md:col-span-2">
-              <Field label="Описание">
+              <Field label={t("lines.form.descriptionLabel")}>
                 <textarea
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   disabled={isUiLocked}
                   className={inputClassName}
                   rows={2}
-                  placeholder="Краткое описание, для каких проектов используется этот шаблон."
+                  placeholder={t("lines.form.descriptionPlaceholder")}
                 />
               </Field>
             </div>
@@ -655,13 +658,13 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
           <div className="mt-4">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-xs font-semibold text-[var(--text-primary)]">
-                Состав шаблона (темы / проверки)
+                {t("lines.items.title")}
               </h3>
 
               <div className="flex items-center gap-2">
                 {!canAddItems && topics.length === 0 ? (
                   <span className="text-[11px] text-[var(--text-muted)]">
-                    Каталог тем не загружен
+                    {t("lines.items.catalogNotLoaded")}
                   </span>
                 ) : null}
 
@@ -671,20 +674,20 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                   onClick={handleAddItem}
                   disabled={!canAddItems}
                 >
-                  + Элемент
+                  {t("lines.items.addItem")}
                 </Button>
               </div>
             </div>
 
             {topics.length === 0 ? (
               <EmptyState
-                title="Каталог тем недоступен"
-                description="Каталог тем и проверок не загружен или пуст. Проверьте endpoint /playbooks/catalog."
+                title={t("lines.items.catalogUnavailableTitle")}
+                description={t("lines.items.catalogUnavailableDesc")}
               />
             ) : items.length === 0 ? (
               <EmptyState
-                title="Состав шаблона пуст"
-                description="Добавьте тему или проверку, чтобы сформировать содержимое playbook‑шаблона."
+                title={t("lines.items.emptyTitle")}
+                description={t("lines.items.emptyDesc")}
                 action={
                   <Button
                     variant="secondary"
@@ -692,7 +695,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                     onClick={handleAddItem}
                     disabled={!canAddItems}
                   >
-                    Добавить элемент
+                    {t("lines.items.emptyButton")}
                   </Button>
                 }
               />
@@ -705,19 +708,19 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                         #
                       </th>
                       <th className="w-24 px-2 py-1 text-left font-medium">
-                        Тип
+                        {t("lines.items.type")}
                       </th>
                       <th className="w-64 px-2 py-1 text-left font-medium">
-                        Topic
+                        {t("lines.items.topic")}
                       </th>
                       <th className="px-2 py-1 text-left font-medium">
-                        Check
+                        {t("lines.items.check")}
                       </th>
                       <th className="w-24 px-2 py-1 text-left font-medium">
-                        Порядок
+                        {t("lines.items.order")}
                       </th>
                       <th className="w-16 px-2 py-1 text-left font-medium">
-                        Удалить
+                        {t("lines.items.delete")}
                       </th>
                     </tr>
                   </thead>
@@ -764,7 +767,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                               disabled={isUiLocked}
                               className={fullSelectClassName}
                             >
-                              <option value="">— не выбрано —</option>
+                              <option value="">{t("lines.items.notSelected")}</option>
                               {topics.map((topicEntry) => (
                                 <option
                                   key={topicEntry.topic_code}
@@ -780,11 +783,11 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                           <td className="px-2 py-1">
                             {item.kind === "topic" ? (
                               <span className="text-[11px] text-[var(--text-muted)]">
-                                Для типа topic check не используется
+                                {t("lines.items.topicCheckUnused")}
                               </span>
                             ) : checks.length === 0 ? (
                               <span className="text-[11px] text-[var(--text-muted)]">
-                                Нет проверок для выбранной темы
+                                {t("lines.items.noChecksForTopic")}
                               </span>
                             ) : (
                               <select
@@ -800,7 +803,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                                 className={fullSelectClassName}
                               >
                                 <option value="">
-                                  — выберите проверку —
+                                  {t("lines.items.selectCheck")}
                                 </option>
                                 {checks.map((check) => (
                                   <option key={check.code} value={check.code}>
@@ -863,11 +866,11 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                   onClick={openDeleteDialog}
                   disabled={!canDelete}
                 >
-                  Удалить шаблон
+                  {t("lines.buttons.deleteTemplate")}
                 </Button>
               ) : (
                 <span className="text-[11px] text-[var(--text-muted)]">
-                  Сначала сохраните шаблон, затем его можно будет удалить.
+                  {t("lines.buttons.saveFirstHint")}
                 </span>
               )}
 
@@ -879,7 +882,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                   disabled={!canSave}
                   isLoading={isSaving}
                 >
-                  Сохранить шаблон
+                  {t("lines.buttons.saveTemplate")}
                 </Button>
               </div>
             </div>
@@ -900,8 +903,8 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
         </div>
       ) : (
         <PageSection
-          title="Конструктор шаблонов playbook"
-          subtitle="Настройка логических линий (шаблонов) и их состава для проектов."
+          title={t("lines.header.title")}
+          subtitle={t("lines.header.subtitle")}
           rightSlot={headerActions}
           contentClassName="px-5 pt-2 pb-4"
         >
@@ -911,14 +914,14 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
 
       <ConfirmDialog
         open={isDeleteDialogOpen}
-        title="Удалить шаблон?"
+        title={t("lines.confirm.deleteTitle")}
         description={
           currentLine
-            ? `Шаблон "${currentLine.title}" будет удалён без возможности восстановления. Если он используется в проектах или исторических запусках анализа, сервер отклонит удаление.`
-            : "Шаблон будет удалён без возможности восстановления."
+            ? t("lines.confirm.deleteDescWithTitle", { title: currentLine.title })
+            : t("lines.confirm.deleteDescGeneric")
         }
-        confirmLabel="Удалить"
-        cancelLabel="Отмена"
+        confirmLabel={t("lines.confirm.deleteButton")}
+        cancelLabel={t("lines.confirm.cancelButton")}
         isConfirming={isDeleting}
         onConfirm={handleDeleteConfirmed}
         onCancel={closeDeleteDialog}

@@ -18,7 +18,20 @@
     "placeholder": "Search...",
     "clear": "Clear search"
   },
-  "loading": "Loading..."
+  "loading": "Loading...",
+  "auditActions": {
+    "IMPORT": "Import",
+    "EXPORT": "Export",
+    "SANITIZE": "Sanitization",
+    "QC_CONFIRM": "QC confirm",
+    "QC_REJECT": "QC reject",
+    "QC_OVERRIDE": "QC override",
+    "DOCUMENT_REPLACE": "Document replace",
+    "RUN_START": "Run analysis",
+    "PLAYBOOK_PROMOTE": "Playbook promote",
+    "SET_DEAL_PLAYBOOK": "Set deal playbook",
+    "RECLASSIFY": "Reclassification",
+    "YAML_INSTRUCTION_APPLY": "Apply YAML instruction"
+  }
 }
-
 

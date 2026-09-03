@@ -5,6 +5,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -21,51 +22,30 @@ import Button from "../components/ui/Button";
 // Утилиты
 // ─────────────────────────────────────────────────────────────
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("ru-RU", {
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
 }
 
-// Статус проекта → человекочитаемая метка + цвет
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; className: string }
-> = {
-  active: {
-    label: "Активен",
-    className:
-      "bg-[var(--color-success-bg)] text-[var(--color-success-text)] border-[var(--color-success-border)]",
-  },
-  draft: {
-    label: "Черновик",
-    className:
-      "bg-[var(--bg-elevated-soft)] text-[var(--text-muted)] border-[var(--border-soft)]",
-  },
-  archived: {
-    label: "Архив",
-    className:
-      "bg-[var(--bg-elevated-soft)] text-[var(--text-muted)] border-[var(--border-soft)]",
-  },
-  completed: {
-    label: "Завершён",
-    className:
-      "bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] border-[var(--border-soft)]",
-  },
-};
+function getStatusConfig(
+  status: string,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+) {
+  const baseClass = "bg-[var(--bg-elevated-soft)] text-[var(--text-muted)] border-[var(--border-soft)]";
+  const classMap: Record<string, string> = {
+    active: "bg-[var(--color-success-bg)] text-[var(--color-success-text)] border-[var(--color-success-border)]",
+  };
 
-function getStatusConfig(status: string) {
-  return (
-    STATUS_CONFIG[status] ?? {
-      label: status,
-      className:
-        "bg-[var(--bg-elevated-soft)] text-[var(--text-muted)] border-[var(--border-soft)]",
-    }
-  );
+  const label = tFn(`tenantProjects.statuses.${status}`, { defaultValue: status });
+  return {
+    label,
+    className: classMap[status] ?? baseClass,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -74,10 +54,12 @@ function getStatusConfig(status: string) {
 
 interface DealCardProps {
   deal: TenantDeal;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  locale: string;
 }
 
-const DealCard: React.FC<DealCardProps> = ({ deal }) => {
-  const statusCfg = getStatusConfig(deal.status);
+const DealCard: React.FC<DealCardProps> = ({ deal, t, locale }) => {
+  const statusCfg = getStatusConfig(deal.status, t);
 
   return (
     <article className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md">
@@ -103,7 +85,7 @@ const DealCard: React.FC<DealCardProps> = ({ deal }) => {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
           <Calendar className="h-3 w-3 shrink-0" />
-          <span>Создан: {formatDate(deal.created_at)}</span>
+          <span>{t("tenantProjects.created", { date: formatDate(deal.created_at, locale) })}</span>
         </div>
 
         {deal.created_by_email && (
@@ -115,12 +97,12 @@ const DealCard: React.FC<DealCardProps> = ({ deal }) => {
 
         <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
           <FileText className="h-3 w-3 shrink-0" />
-          <span>Документов: {deal.documents_count}</span>
+          <span>{t("tenantProjects.documents", { count: deal.documents_count })}</span>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
           <Users className="h-3 w-3 shrink-0" />
-          <span>Участников: {deal.members_count}</span>
+          <span>{t("tenantProjects.members", { count: deal.members_count })}</span>
         </div>
       </div>
     </article>
@@ -132,6 +114,7 @@ const DealCard: React.FC<DealCardProps> = ({ deal }) => {
 // ─────────────────────────────────────────────────────────────
 
 const AdminTenantProjectsPage: React.FC = () => {
+  const { t, i18n } = useTranslation("admin");
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
 
@@ -169,7 +152,7 @@ const AdminTenantProjectsPage: React.FC = () => {
         <div className="animate-fadein">
           <div className="max-w-4xl rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <p className="text-sm text-[var(--text-secondary)]">
-              Клиент не найден.
+              {t("tenantProjects.notFound")}
             </p>
             <Button
               size="sm"
@@ -177,7 +160,7 @@ const AdminTenantProjectsPage: React.FC = () => {
               className="mt-4"
               onClick={() => navigate("/admin")}
             >
-              ← Все клиенты
+              {t("tenantProjects.back")}
             </Button>
           </div>
         </div>
@@ -202,14 +185,14 @@ const AdminTenantProjectsPage: React.FC = () => {
           </button>
 
           <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-            Проекты клиента
+            {t("tenantProjects.title")}
           </h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             <Link
               to="/admin"
               className="rounded-sm transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
             >
-              Клиенты
+              {t("tenantProjects.breadcrumbClients")}
             </Link>
             <span className="mx-1.5">·</span>
             <Link
@@ -219,14 +202,14 @@ const AdminTenantProjectsPage: React.FC = () => {
               {tenant.name}
             </Link>
             <span className="mx-1.5">·</span>
-            Всего проектов: {dealList.length}
+            {t("tenantProjects.totalProjects", { count: dealList.length })}
           </p>
         </header>
 
         {/* ── Ошибка ───────────────────────────────────────── */}
         {error && (
           <div className="max-w-3xl rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-5 text-sm text-[var(--color-error-text)]">
-            Не удалось загрузить проекты клиента.
+            {t("tenantProjects.error")}
           </div>
         )}
 
@@ -235,7 +218,7 @@ const AdminTenantProjectsPage: React.FC = () => {
           <div className="max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <FolderOpen className="mx-auto mb-3 h-8 w-8 text-[var(--text-muted)]" />
             <p className="text-sm text-[var(--text-secondary)]">
-              У клиента пока нет проектов.
+              {t("tenantProjects.empty")}
             </p>
           </div>
         )}
@@ -244,7 +227,12 @@ const AdminTenantProjectsPage: React.FC = () => {
         {!error && dealList.length > 0 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {dealList.map((deal) => (
-              <DealCard key={deal.id} deal={deal} />
+              <DealCard
+                key={deal.id}
+                deal={deal}
+                t={t}
+                locale={i18n.language}
+              />
             ))}
           </div>
         )}

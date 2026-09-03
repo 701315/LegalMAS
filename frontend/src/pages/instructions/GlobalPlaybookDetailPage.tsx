@@ -2,6 +2,7 @@
 // Detail страница global playbook — список версий + переход к версии.
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, GitBranch, RefreshCw } from "lucide-react";
 
@@ -16,6 +17,7 @@ import InlineAlert from "../../components/InlineAlert";
 import Button from "../../components/ui/Button";
 
 const GlobalPlaybookDetailPage: React.FC = () => {
+  const { t } = useTranslation("playbooks");
   const { playbookId } = useParams<{ playbookId: string }>();
   const navigate = useNavigate();
 
@@ -52,11 +54,11 @@ const GlobalPlaybookDetailPage: React.FC = () => {
                 className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                Global Playbooks
+                {t("globalPlaybookDetail.backToList")}
               </button>
 
               <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                {playbook?.title ?? playbookId ?? "Playbook"}
+                {playbook?.title ?? playbookId ?? t("globalPlaybookDetail.fallbackTitle")}
               </h1>
 
               {playbook?.description && (
@@ -70,10 +72,10 @@ const GlobalPlaybookDetailPage: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={() => void refetch()}
-              aria-label="Обновить версии"
+              aria-label={t("globalPlaybookDetail.refreshAriaVersions")}
               leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
             >
-              Обновить
+              {t("globalPlaybookDetail.refreshAction")}
             </Button>
           </div>
         </header>
@@ -82,7 +84,7 @@ const GlobalPlaybookDetailPage: React.FC = () => {
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              Версии
+              {t("globalPlaybookDetail.versionsSectionTitle")}
             </h2>
             <div className="flex items-center gap-1.5">
               <GitBranch
@@ -96,20 +98,20 @@ const GlobalPlaybookDetailPage: React.FC = () => {
           </div>
 
           {isLoading && (
-            <LoadingBlock text="Загружаем версии..." rows={4} />
+            <LoadingBlock text={t("globalPlaybookDetail.loadingVersions")} rows={4} />
           )}
 
           {isError && (
             <InlineAlert
               tone="error"
-              message="Не удалось загрузить версии playbook."
+              message={t("globalPlaybookDetail.versionsLoadError")}
             />
           )}
 
           {!isLoading && !isError && (!versions || versions.length === 0) && (
             <EmptyState
-              title="Версий нет"
-              description="Для этого playbook ещё не создано ни одной версии."
+              title={t("globalPlaybookDetail.emptyVersionsTitle")}
+              description={t("globalPlaybookDetail.emptyVersionsDescription")}
             />
           )}
 

@@ -18,6 +18,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ProjectErrorItem } from "../../../api/tenantAdmin";
 import Button from "../../../components/ui/Button";
@@ -42,10 +43,13 @@ const ErrorRow: React.FC<ErrorRowProps> = ({
   onToggle,
   onOpenLogs,
 }) => {
+  const { t, i18n } = useTranslation("tenantAdmin");
   const isDoc = item.kind === "document";
+
   const title = isDoc
-    ? item.document_filename || `Документ ${item.document_id?.slice(0, 8) ?? ""}…`
-    : `Run ${item.run_id?.slice(0, 8) ?? ""}…`;
+    ? item.document_filename ||
+      t("errorRow.documentFallback", { id: item.document_id?.slice(0, 8) ?? "" })
+    : t("errorRow.runFallback", { id: item.run_id?.slice(0, 8) ?? "" });
 
   const statusText = isDoc
     ? item.document_status ?? "—"
@@ -80,7 +84,7 @@ const ErrorRow: React.FC<ErrorRowProps> = ({
               />
             )}
             <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-              {isDoc ? "Документ" : "Run"}
+              {isDoc ? t("errorRow.document") : t("errorRow.run")}
             </span>
           </div>
         </td>
@@ -89,7 +93,7 @@ const ErrorRow: React.FC<ErrorRowProps> = ({
             {title}
           </p>
           <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-            {formatDateTime(item.occurred_at)}
+            {formatDateTime(item.occurred_at, i18n.language)}
           </p>
         </td>
         <td className="px-4 py-3 align-top">
@@ -106,7 +110,7 @@ const ErrorRow: React.FC<ErrorRowProps> = ({
           </span>
           {item.stage && (
             <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-              stage: {item.stage}
+              {t("errorRow.stageLabel", { stage: item.stage })}
             </p>
           )}
         </td>
@@ -132,7 +136,7 @@ const ErrorRow: React.FC<ErrorRowProps> = ({
               onOpenLogs();
             }}
           >
-            Логи
+            {t("errorRow.logs")}
           </Button>
         </td>
       </tr>
@@ -148,22 +152,34 @@ const ErrorRow: React.FC<ErrorRowProps> = ({
                       label="Document ID"
                       value={item.document_id}
                     />
-                    <MetaField label="Файл" value={item.document_filename} />
+                    <MetaField
+                      label={t("errorRow.file")}
+                      value={item.document_filename}
+                    />
                   </>
                 )}
                 {!isDoc && (
                   <MetaField label="Run ID" value={item.run_id} />
                 )}
                 <MetaField label="Stage" value={item.stage} />
-                <MetaField label="Тип ошибки" value={item.error_type} />
-                <MetaField label="Причина" value={item.error_reason} />
-                <MetaField label="Время" value={item.occurred_at} />
+                <MetaField
+                  label={t("errorRow.errorType")}
+                  value={item.error_type}
+                />
+                <MetaField
+                  label={t("errorRow.reason")}
+                  value={item.error_reason}
+                />
+                <MetaField
+                  label={t("errorRow.time")}
+                  value={formatDateTime(item.occurred_at, i18n.language)}
+                />
               </div>
 
               {item.error_details &&
                 Object.keys(item.error_details).length > 0 && (
                   <div>
-                    <p className={LABEL_XS}>Raw error_details</p>
+                    <p className={LABEL_XS}>{t("errorRow.rawDetails")}</p>
                     <pre className="mt-1.5 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[10px] leading-5 text-[var(--text-secondary)]">
                       {JSON.stringify(item.error_details, null, 2)}
                     </pre>

@@ -24,6 +24,67 @@
     "monitoring": "Monitoring",
     "logs": "Logs",
     "alerts": "Alerts"
+  },
+  "meta": {
+    "showAll": "Show all"
+  },
+  "projectRow": {
+    "createdAt": "Created {{date}}",
+    "errorsInline": "errors: {{count}}",
+    "quarantineInline": "quarantine: {{count}}",
+    "notLaunched": "Not launched",
+    "open": "Open"
+  },
+  "userRow": {
+    "active": "Active",
+    "deactivated": "Deactivated"
+  },
+  "errorRow": {
+    "document": "Document",
+    "run": "Run",
+    "documentFallback": "Document {{id}}…",
+    "runFallback": "Run {{id}}…",
+    "stageLabel": "stage: {{stage}}",
+    "logs": "Logs",
+    "file": "File",
+    "errorType": "Error type",
+    "reason": "Reason",
+    "time": "Time",
+    "rawDetails": "Raw error_details"
+  },
+  "logs": {
+    "modeSwitch": {
+      "operational": "Platform events",
+      "debug": "Debug (all logs)"
+    },
+    "table": {
+      "headers": {
+        "timestamp": "Timestamp",
+        "level": "Level",
+        "event": "Event",
+        "stage": "Stage",
+        "queue": "Queue",
+        "worker": "Worker"
+      },
+      "groupTooltip": "Group of repeating events",
+      "runSuffix": " · run {{id}}…"
+    },
+    "details": {
+      "emptyTitle": "Select a log entry",
+      "emptySubtitle": "Click a row in the table to view details",
+      "title": "Log Details",
+      "actions": {
+        "copied": "Copied",
+        "copyJson": "JSON",
+        "allRunLogs": "All run logs",
+        "allDocLogs": "All document logs",
+        "allTaskLogs": "All task logs"
+      },
+      "groupTooltip": "Group of repeating events",
+      "event": "Event",
+      "seenRange": "First: {{first}} · Last: {{last}}",
+      "rawJson": "Raw JSON"
+    }  
   }
 }
 

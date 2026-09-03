@@ -4,6 +4,7 @@
 
 import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   FileText,
   AlertTriangle,
@@ -42,9 +43,12 @@ function groupKeyOf(parent: string | null): string {
   return parent ?? UNGROUPED_KEY;
 }
 
-function formatParentLabel(parent: string | null): string {
+function formatParentLabel(
+  parent: string | null,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): string {
   if (parent === null) {
-    return "Без родительского класса";
+    return tFn("docTypeList.ungroupedLabel");
   }
 
   return parent.replace(/_/g, " ");
@@ -63,42 +67,47 @@ interface SearchInputProps {
 const SearchInput: React.FC<SearchInputProps> = ({
   value,
   onChange,
-  placeholder = "Поиск…",
-}) => (
-  <div className="relative w-full sm:w-96">
-    <Search
-      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
-      aria-hidden="true"
-    />
-    <input
-      type="search"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      autoComplete="off"
-      spellCheck={false}
-      className={[
-        "w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)]",
-        "py-2 pl-9 pr-9 text-sm text-[var(--text-primary)]",
-        "outline-none transition-colors",
-        "placeholder:text-[var(--text-muted)]",
-        "focus:border-[var(--accent-primary)]",
-        "focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35",
-        "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
-      ].join(" ")}
-    />
-    {value.length > 0 && (
-      <button
-        type="button"
-        onClick={() => onChange("")}
-        aria-label="Очистить поиск"
-        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    )}
-  </div>
-);
+  placeholder,
+}) => {
+  const { t } = useTranslation("common");
+  const resolvedPlaceholder = placeholder ?? t("search.placeholder");
+  return (
+    <div className="relative w-full sm:w-96">
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+        aria-hidden="true"
+      />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={resolvedPlaceholder}
+        autoComplete="off"
+        spellCheck={false}
+        className={[
+          "w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)]",
+          "py-2 pl-9 pr-9 text-sm text-[var(--text-primary)]",
+          "outline-none transition-colors",
+          "placeholder:text-[var(--text-muted)]",
+          "focus:border-[var(--accent-primary)]",
+          "focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35",
+          "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+        ].join(" ")}
+      />
+      {value.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label={t("search.clear")}
+          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+};
+
 
 // ─────────────────────────────────────────────────────────────
 // DocTypeCatalogItemCard
@@ -113,6 +122,7 @@ const DocTypeCatalogItemCard: React.FC<DocTypeCatalogItemCardProps> = ({
   item,
   onClick,
 }) => {
+  const { t } = useTranslation("instructions");
   const hasPublished = item.has_published;
   const hasDraft = item.latest_draft_version_id !== null;
   const draftIsInvalid = hasDraft && item.latest_draft_is_valid === false;
@@ -148,8 +158,9 @@ const DocTypeCatalogItemCard: React.FC<DocTypeCatalogItemCardProps> = ({
 
         <div className="flex shrink-0 flex-col items-end gap-1.5 text-[11px] text-[var(--text-muted)]">
           <span>
-            {item.total_versions_count}{" "}
-            {item.total_versions_count === 1 ? "версия" : "версий"}
+            {t("docTypeList.card.versionsCount", {
+              count: item.total_versions_count,
+            })}
           </span>
 
           <div className="flex items-center gap-1">
@@ -164,7 +175,11 @@ const DocTypeCatalogItemCard: React.FC<DocTypeCatalogItemCardProps> = ({
                 aria-hidden="true"
               />
             )}
-            <span>{hasPublished ? "Published" : "Нет published"}</span>
+            <span>
+              {hasPublished
+                ? t("docTypeList.card.hasPublished")
+                : t("docTypeList.card.noPublished")}
+            </span>
           </div>
 
           {hasDraft && (
@@ -181,7 +196,9 @@ const DocTypeCatalogItemCard: React.FC<DocTypeCatalogItemCardProps> = ({
                 />
               )}
               <span>
-                {draftIsInvalid ? "Черновик (invalid)" : "Черновик"}
+                {draftIsInvalid
+                  ? t("docTypeList.card.draftInvalid")
+                  : t("docTypeList.card.draft")}
               </span>
             </div>
           )}
@@ -210,7 +227,8 @@ const GroupSection: React.FC<GroupSectionProps> = ({
   onToggle,
   onItemClick,
 }) => {
-  const displayName = formatParentLabel(parent);
+  const { t } = useTranslation("instructions");
+  const displayName = formatParentLabel(parent, t);
   const groupId = `group-${groupKeyOf(parent)}`;
 
   return (
@@ -244,8 +262,8 @@ const GroupSection: React.FC<GroupSectionProps> = ({
           </div>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
             {isCollapsed
-              ? "Раздел свёрнут"
-              : "Выберите тип документа для просмотра версий и управления черновиками."}
+              ? t("docTypeList.group.collapsedHint")
+              : t("docTypeList.group.expandedHint")}
           </p>
         </div>
       </button>
@@ -274,6 +292,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
 
 const DocTypeInstructionsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation("instructions");
   const [search, setSearch] = useState("");
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
@@ -305,10 +324,10 @@ const DocTypeInstructionsPage: React.FC = () => {
         item.doc_type_code.toLowerCase().includes(q) ||
         item.name.toLowerCase().includes(q) ||
         (item.parent?.toLowerCase().includes(q) ?? false) ||
-        formatParentLabel(item.parent).toLowerCase().includes(q)
+        formatParentLabel(item.parent, t).toLowerCase().includes(q)
       );
     });
-  }, [items, search]);
+  }, [items, search, t]);
 
   const groupedItems = useMemo(() => {
     const groups = new Map<string | null, InstructionCatalogItem[]>();
@@ -324,9 +343,9 @@ const DocTypeInstructionsPage: React.FC = () => {
     return Array.from(groups.entries()).sort(([a], [b]) => {
       if (a === null) return 1;
       if (b === null) return -1;
-      return a.localeCompare(b, "ru");
+      return a.localeCompare(b, i18n.language);
     });
-  }, [filteredItems]);
+  }, [filteredItems, i18n.language]);
 
   const handleOpen = useCallback(
     (docTypeCode: string) => {
@@ -354,7 +373,7 @@ const DocTypeInstructionsPage: React.FC = () => {
           body: {
             source_yaml: payload.sourceYaml,
             name: payload.name ?? payload.code,
-            change_summary: "Импорт из YAML",
+            change_summary: t("docTypeList.import.changeSummary"),
           },
         });
         setIsImportOpen(false);
@@ -364,11 +383,13 @@ const DocTypeInstructionsPage: React.FC = () => {
         );
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Не удалось импортировать YAML.";
+          err instanceof Error
+            ? err.message
+            : t("docTypeList.import.fallbackError");
         setImportError(message);
       }
     },
-    [createDraft, navigate, refetch],
+    [createDraft, navigate, refetch, t],
   );
 
   const toggleGroup = useCallback((parent: string | null) => {
@@ -426,26 +447,26 @@ const DocTypeInstructionsPage: React.FC = () => {
                 className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                Инструкции
+                {t("docTypeList.backToInstructions")}
               </button>
 
               <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Инструкции по типам документов
+                {t("docTypeList.title")}
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Выберите тип документа для управления версиями инструкции.
+                {t("docTypeList.description")}
               </p>
 
               {!isLoading && !isError && totalCount > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
                   <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
-                    Всего: {totalCount}
+                    {t("docTypeList.stats.total", { count: totalCount })}
                   </span>
                   <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-1 text-[var(--color-success-text)]">
-                    Published: {publishedCount}
+                    {t("docTypeList.stats.published", { count: publishedCount })}
                   </span>
                   <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
-                    С черновиком: {draftCount}
+                    {t("docTypeList.stats.withDraft", { count: draftCount })}
                   </span>
                 </div>
               )}
@@ -457,7 +478,7 @@ const DocTypeInstructionsPage: React.FC = () => {
               onClick={handleImportOpen}
               leftIcon={<Plus className="h-3.5 w-3.5" />}
             >
-              Добавить инструкцию
+              {t("docTypeList.addInstruction")}
             </Button>
           </div>
         </header>
@@ -476,12 +497,15 @@ const DocTypeInstructionsPage: React.FC = () => {
                 <SearchInput
                   value={search}
                   onChange={setSearch}
-                  placeholder="Поиск по коду, названию или классу…"
+                  placeholder={t("docTypeList.toolbar.searchPlaceholder")}
                 />
 
                 {isSearching && (
                   <p className="hidden text-xs text-[var(--text-muted)] sm:block">
-                    Найдено: {filteredCount} из {totalCount}
+                    {t("docTypeList.toolbar.foundOf", {
+                      filtered: filteredCount,
+                      total: totalCount,
+                    })}
                   </p>
                 )}
               </div>
@@ -501,7 +525,9 @@ const DocTypeInstructionsPage: React.FC = () => {
                       )
                     }
                   >
-                    {allCollapsed ? "Развернуть все" : "Свернуть все"}
+                    {allCollapsed
+                      ? t("docTypeList.toolbar.expandAll")
+                      : t("docTypeList.toolbar.collapseAll")}
                   </Button>
                 </div>
               )}
@@ -509,30 +535,30 @@ const DocTypeInstructionsPage: React.FC = () => {
 
             {isSearching && (
               <p className="mt-2 text-xs text-[var(--text-muted)] sm:hidden">
-                Найдено: {filteredCount} из {totalCount}
+                {t("docTypeList.toolbar.foundOf", {
+                  filtered: filteredCount,
+                  total: totalCount,
+                })}
               </p>
             )}
           </div>
         )}
 
         {isLoading && (
-          <LoadingBlock
-            text="Загружаем каталог doc-type инструкций…"
-            rows={6}
-          />
+          <LoadingBlock text={t("docTypeList.loading")} rows={6} />
         )}
 
         {isError && (
           <InlineAlert
             tone="error"
-            message="Не удалось загрузить каталог doc-type инструкций."
+            message={t("docTypeList.loadError")}
           />
         )}
 
         {!isLoading && !isError && items.length === 0 && (
           <EmptyState
-            title="Doc-type инструкции не найдены"
-            description="Каталог пуст. Обратитесь к администратору платформы."
+            title={t("docTypeList.empty.noItems.title")}
+            description={t("docTypeList.empty.noItems.description")}
           />
         )}
 
@@ -541,15 +567,15 @@ const DocTypeInstructionsPage: React.FC = () => {
           items.length > 0 &&
           filteredItems.length === 0 && (
             <EmptyState
-              title="Ничего не найдено"
-              description="Попробуйте изменить поисковый запрос."
+              title={t("docTypeList.empty.noSearchResults.title")}
+              description={t("docTypeList.empty.noSearchResults.description")}
               action={
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => setSearch("")}
                 >
-                  Очистить поиск
+                  {t("docTypeList.empty.noSearchResults.action")}
                 </Button>
               }
             />

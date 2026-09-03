@@ -5,6 +5,7 @@
 // =============================================================
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -26,21 +27,6 @@ import {
 import type { ApiError } from "../types";
 import Button from "../components/ui/Button";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
-
-// ─────────────────────────────────────────────────────────────
-// Константы
-// ─────────────────────────────────────────────────────────────
-
-const ROLE_LABEL: Record<string, string> = {
-  superadmin: "Супер-администратор",
-  tenant_admin: "Администратор клиента",
-  member: "Участник",
-};
-
-const SYSTEM_ROLE_OPTIONS = [
-  { value: "tenant_admin", label: "Администратор клиента" },
-  { value: "member", label: "Участник" },
-] as const;
 
 // ─────────────────────────────────────────────────────────────
 // Формы
@@ -76,15 +62,16 @@ const EMPTY_EDIT_FORM: EditUserForm = {
 
 type FormMode = "create" | "edit" | null;
 
-// ─────────────────────────────────────────────────────────────
 // AdminTenantDetailPage
 // ─────────────────────────────────────────────────────────────
 
 const AdminTenantDetailPage: React.FC = () => {
+  const { t } = useTranslation("admin");
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
 
   const [formMode, setFormMode] = useState<FormMode>(null);
+  
   const [createForm, setCreateForm] =
     useState<CreateUserForm>(EMPTY_CREATE_FORM);
   const [editForm, setEditForm] = useState<EditUserForm>(EMPTY_EDIT_FORM);
@@ -152,11 +139,11 @@ const AdminTenantDetailPage: React.FC = () => {
     setFormError(null);
 
     if (!createForm.email.trim()) {
-      setFormError("Укажите email.");
+      setFormError(t("tenantDetail.errors.emailRequired"));
       return;
     }
     if (!createForm.password.trim() || createForm.password.length < 6) {
-      setFormError("Пароль должен быть не менее 6 символов.");
+      setFormError(t("tenantDetail.errors.passwordMin"));
       return;
     }
 
@@ -175,7 +162,7 @@ const AdminTenantDetailPage: React.FC = () => {
       const detail =
         (apiErr as ApiError)?.detail ??
         (apiErr as { message?: string })?.message ??
-        "Не удалось создать пользователя.";
+        t("tenantDetail.errors.createFailed");
       setFormError(String(detail));
     }
   };
@@ -185,7 +172,7 @@ const AdminTenantDetailPage: React.FC = () => {
     setFormError(null);
 
     if (editForm.newPassword && editForm.newPassword.length < 6) {
-      setFormError("Пароль должен быть не менее 6 символов.");
+      setFormError(t("tenantDetail.errors.passwordMin"));
       return;
     }
 
@@ -210,7 +197,7 @@ const AdminTenantDetailPage: React.FC = () => {
       const detail =
         (apiErr as ApiError)?.detail ??
         (apiErr as { message?: string })?.message ??
-        "Не удалось обновить пользователя.";
+        t("tenantDetail.errors.updateFailed");
       setFormError(String(detail));
     }
   };
@@ -242,7 +229,7 @@ const AdminTenantDetailPage: React.FC = () => {
         <div className="animate-fadein p-4 md:p-5">
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <p className="text-sm text-[var(--text-secondary)]">
-              Клиент не найден.
+              {t("tenantDetail.notFound")}
             </p>
             <Button
               size="sm"
@@ -250,7 +237,7 @@ const AdminTenantDetailPage: React.FC = () => {
               className="mt-4"
               onClick={() => navigate("/admin")}
             >
-              ← Все клиенты
+              {t("tenantDetail.back")}
             </Button>
           </div>
         </div>
@@ -273,7 +260,7 @@ const AdminTenantDetailPage: React.FC = () => {
             className="mb-3 inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] rounded-lg px-1 py-0.5"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Все клиенты
+            {t("tenantDetail.back")}
           </button>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -282,7 +269,7 @@ const AdminTenantDetailPage: React.FC = () => {
             </h1>
             {!tenant.is_active && (
               <span className="shrink-0 rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
-                Деактивирован
+                {t("tenantDetail.deactivated")}
               </span>
             )}
           </div>
@@ -294,10 +281,10 @@ const AdminTenantDetailPage: React.FC = () => {
               to={`/admin/tenants/${tenant.id}/projects`}
               className="hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
             >
-              Проектов: {tenant.deals_count}
+              {t("tenantDetail.projectsCount", { count: tenant.deals_count })}
             </Link>
             <span className="mx-1.5 text-[var(--text-muted)]">·</span>
-            Пользователей: {activeUsers} из {tenant.users_count}
+            {t("tenantDetail.usersCount", { active: activeUsers, total: tenant.users_count })}
           </p>
 
           {tenant.notes && (
@@ -313,7 +300,7 @@ const AdminTenantDetailPage: React.FC = () => {
           {/* Заголовок секции */}
           <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
             <h2 className="text-base font-semibold text-[var(--text-primary)]">
-              Пользователи
+              {t("tenantDetail.usersTitle")}
             </h2>
             {tenant.is_active && (
               <Button
@@ -322,7 +309,7 @@ const AdminTenantDetailPage: React.FC = () => {
                 onClick={openCreateForm}
                 leftIcon={<UserPlus className="h-4 w-4" />}
               >
-                Добавить
+                {t("tenantDetail.addUser")}
               </Button>
             )}
           </div>
@@ -331,7 +318,7 @@ const AdminTenantDetailPage: React.FC = () => {
           {formMode === "create" && (
             <div className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)] px-5 py-4">
               <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">
-                Новый пользователь
+                {t("tenantDetail.createTitle")}
               </h3>
 
               {formError && (
@@ -344,7 +331,7 @@ const AdminTenantDetailPage: React.FC = () => {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Email *
+                      {t("tenantDetail.emailLabel")}
                     </label>
                     <input
                       type="email"
@@ -353,13 +340,13 @@ const AdminTenantDetailPage: React.FC = () => {
                         handleCreateFormChange("email", e.target.value)
                       }
                       className="input-base w-full"
-                      placeholder="user@company.com"
+                      placeholder={t("tenantDetail.emailPlaceholder")}
                     />
                   </div>
 
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Пароль *
+                      {t("tenantDetail.passwordLabel")}
                     </label>
                     <div className="relative">
                       <input
@@ -369,14 +356,14 @@ const AdminTenantDetailPage: React.FC = () => {
                           handleCreateFormChange("password", e.target.value)
                         }
                         className="input-base w-full pr-10"
-                        placeholder="Минимум 6 символов"
+                        placeholder={t("tenantDetail.passwordPlaceholder")}
                       />
                       <button
                         type="button"
                         onClick={() => setShowCreatePassword((v) => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] focus-visible:outline-none"
                         tabIndex={-1}
-                        aria-label={showCreatePassword ? "Скрыть пароль" : "Показать пароль"}
+                        aria-label={showCreatePassword ? t("tenantDetail.hidePassword") : t("tenantDetail.showPassword")}
                       >
                         {showCreatePassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -389,7 +376,7 @@ const AdminTenantDetailPage: React.FC = () => {
 
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Полное имя
+                      {t("tenantDetail.fullNameLabel")}
                     </label>
                     <input
                       type="text"
@@ -398,13 +385,13 @@ const AdminTenantDetailPage: React.FC = () => {
                         handleCreateFormChange("full_name", e.target.value)
                       }
                       className="input-base w-full"
-                      placeholder="Иванов Иван Иванович"
+                      placeholder={t("tenantDetail.fullNamePlaceholder")}
                     />
                   </div>
 
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Системная роль
+                      {t("tenantDetail.roleLabel")}
                     </label>
                     <select
                       value={createForm.system_role}
@@ -413,9 +400,9 @@ const AdminTenantDetailPage: React.FC = () => {
                       }
                       className="input-base w-full"
                     >
-                      {SYSTEM_ROLE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
+                      {(["tenant_admin", "member"] as const).map((role) => (
+                        <option key={role} value={role}>
+                          {t(`tenantDetail.roles.${role}`)}
                         </option>
                       ))}
                     </select>
@@ -429,7 +416,7 @@ const AdminTenantDetailPage: React.FC = () => {
                     variant="secondary"
                     onClick={closeForm}
                   >
-                    Отмена
+                    {t("tenantDetail.cancelButton")}
                   </Button>
                   <Button
                     type="submit"
@@ -437,7 +424,7 @@ const AdminTenantDetailPage: React.FC = () => {
                     variant="primary"
                     isLoading={createUserMutation.isPending}
                   >
-                    Создать
+                    {t("actions.create", { ns: "common" })}
                   </Button>
                 </div>
               </form>
@@ -448,7 +435,7 @@ const AdminTenantDetailPage: React.FC = () => {
           {formMode === "edit" && (
             <div className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)] px-5 py-4">
               <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">
-                Редактирование пользователя
+                {t("tenantDetail.editTitle")}
               </h3>
 
               {formError && (
@@ -461,7 +448,7 @@ const AdminTenantDetailPage: React.FC = () => {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Полное имя
+                      {t("tenantDetail.fullNameLabel")}
                     </label>
                     <input
                       type="text"
@@ -470,13 +457,13 @@ const AdminTenantDetailPage: React.FC = () => {
                         handleEditFormChange("full_name", e.target.value)
                       }
                       className="input-base w-full"
-                      placeholder="Иванов Иван Иванович"
+                      placeholder={t("tenantDetail.fullNamePlaceholder")}
                     />
                   </div>
 
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Системная роль
+                      {t("tenantDetail.roleLabel")}
                     </label>
                     <select
                       value={editForm.system_role}
@@ -485,9 +472,9 @@ const AdminTenantDetailPage: React.FC = () => {
                       }
                       className="input-base w-full"
                     >
-                      {SYSTEM_ROLE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
+                      {(["tenant_admin", "member"] as const).map((role) => (
+                        <option key={role} value={role}>
+                          {t(`tenantDetail.roles.${role}`)}
                         </option>
                       ))}
                     </select>
@@ -495,7 +482,7 @@ const AdminTenantDetailPage: React.FC = () => {
 
                   <div className="sm:col-span-2">
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Новый пароль (оставьте пустым, чтобы не менять)
+                      {t("tenantDetail.newPasswordLabel")}
                     </label>
                     <div className="relative max-w-sm">
                       <input
@@ -505,14 +492,14 @@ const AdminTenantDetailPage: React.FC = () => {
                           handleEditFormChange("newPassword", e.target.value)
                         }
                         className="input-base w-full pr-10"
-                        placeholder="Минимум 6 символов"
+                        placeholder={t("tenantDetail.passwordPlaceholder")}
                       />
                       <button
                         type="button"
                         onClick={() => setShowEditPassword((v) => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] focus-visible:outline-none"
                         tabIndex={-1}
-                        aria-label={showEditPassword ? "Скрыть пароль" : "Показать пароль"}
+                        aria-label={showEditPassword ? t("tenantDetail.hidePassword") : t("tenantDetail.showPassword")}
                       >
                         {showEditPassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -531,7 +518,7 @@ const AdminTenantDetailPage: React.FC = () => {
                     variant="secondary"
                     onClick={closeForm}
                   >
-                    Отмена
+                    {t("tenantDetail.cancelButton")}
                   </Button>
                   <Button
                     type="submit"
@@ -539,7 +526,7 @@ const AdminTenantDetailPage: React.FC = () => {
                     variant="primary"
                     isLoading={updateUserMutation.isPending}
                   >
-                    Сохранить
+                    {t("actions.save", { ns: "common" })}
                   </Button>
                 </div>
               </form>
@@ -557,7 +544,7 @@ const AdminTenantDetailPage: React.FC = () => {
 
             {!usersLoading && usersList.length === 0 && (
               <div className="px-5 py-6 text-center text-sm text-[var(--text-muted)]">
-                Пользователей пока нет. Добавьте первого.
+                {t("tenantDetail.emptyUsers")}
               </div>
             )}
 
@@ -578,11 +565,11 @@ const AdminTenantDetailPage: React.FC = () => {
                   <p className="text-xs text-[var(--text-muted)]">{u.email}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
-                      {ROLE_LABEL[u.system_role] ?? u.system_role}
+                      {t(`tenantDetail.roles.${u.system_role}`, { defaultValue: u.system_role })}
                     </span>
                     {!u.is_active && (
                       <span className="rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
-                        Деактивирован
+                        {t("tenantDetail.deactivated")}
                       </span>
                     )}
                   </div>
@@ -595,7 +582,7 @@ const AdminTenantDetailPage: React.FC = () => {
                         size="sm"
                         variant="ghost"
                         onClick={() => openEditForm(u)}
-                        aria-label="Редактировать пользователя"
+                        aria-label={t("tenantDetail.editAria")}
                         className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -605,7 +592,7 @@ const AdminTenantDetailPage: React.FC = () => {
                         variant="danger"
                         onClick={() => setDeactivateTarget(u)}
                       >
-                        Деактивировать
+                        {t("tenantDetail.deactivateButton")}
                       </Button>
                     </>
                   )}
@@ -619,10 +606,10 @@ const AdminTenantDetailPage: React.FC = () => {
 
       <ConfirmDialog
         open={deactivateTarget !== null}
-        title="Деактивировать пользователя?"
-        description={`«${deactivateTarget?.full_name ?? deactivateTarget?.email ?? ""}» потеряет доступ к системе. Данные не удаляются.`}
-        confirmLabel="Деактивировать"
-        cancelLabel="Отмена"
+        title={t("tenantDetail.confirmTitle")}
+        description={t("tenantDetail.confirmDesc", { name: deactivateTarget?.full_name ?? deactivateTarget?.email ?? "" })}
+        confirmLabel={t("tenantDetail.confirmButton")}
+        cancelLabel={t("tenantDetail.cancelButton")}
         confirmVariant="danger"
         isLoading={deactivateMutation.isPending}
         onConfirm={handleDeactivateConfirm}

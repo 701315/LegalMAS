@@ -18,6 +18,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { TenantUserDTO } from "../../../api/tenantAdmin";
 import { ROLE_LABELS, FOCUS_RING } from "../constants";
@@ -40,6 +41,7 @@ const UserRow: React.FC<UserRowProps> = ({
   onToggle,
   onOpenProject,
 }) => {
+  const { t, i18n } = useTranslation("tenantAdmin");
   const hasProjects = user.projects_count > 0;
 
   return (
@@ -90,11 +92,11 @@ const UserRow: React.FC<UserRowProps> = ({
           {user.is_active ? (
             <span className="inline-flex items-center gap-1.5 text-[10px] text-[var(--color-success-text)]">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-success)]" />
-              Активен
+              {t("userRow.active")}
             </span>
           ) : (
             <span className="text-[10px] text-[var(--text-muted)]">
-              Деактивирован
+              {t("userRow.deactivated")}
             </span>
           )}
         </td>
@@ -104,7 +106,7 @@ const UserRow: React.FC<UserRowProps> = ({
           </span>
         </td>
         <td className="px-4 py-3 text-[10px] text-[var(--text-muted)]">
-          {formatDate(user.created_at)}
+          {formatDate(user.created_at, i18n.language)}
         </td>
       </tr>
 

@@ -4,6 +4,7 @@
 // =============================================================
 
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, Loader2, Upload } from "lucide-react";
 import { ProcessingTracePanel } from "./pipeline/ProcessingTracePanel";
 import { ClassificationDecisionPanel } from "./pipeline/ClassificationDecisionPanel";
@@ -149,18 +150,6 @@ type StructuredSegmentGroup = {
   values: ExtractedValue[];
 };
 
-function getSegmentLabel(segment: StructuredSegmentGroup): string {
-  if (segment.segmentTitle && segment.segmentTitle.trim()) {
-    return segment.segmentTitle.trim();
-  }
-
-  if (segment.segmentType && segment.segmentType.trim()) {
-    return segment.segmentType.trim();
-  }
-
-  return "Документ целиком";
-}
-
 function groupExtractedValuesBySegment(
   structured: StructuredDataView | null,
 ): StructuredSegmentGroup[] {
@@ -203,7 +192,9 @@ function groupExtractedValuesBySegment(
 
     if (aOrder !== bOrder) return aOrder - bOrder;
 
-    return getSegmentLabel(a).localeCompare(getSegmentLabel(b), "ru");
+    const aLabel = a.segmentTitle?.trim() || a.segmentType?.trim() || "";
+    const bLabel = b.segmentTitle?.trim() || b.segmentType?.trim() || "";
+    return aLabel.localeCompare(bLabel);
   });
 }
 
@@ -240,6 +231,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   initialDocType,
   onOpenPipelineStagePreview,
 }) => {
+  const { t, i18n } = useTranslation("documents");
   const [isDragging, setIsDragging] = useState(false);
   const [showReclassifyForm, setShowReclassifyForm] = useState(false);
   const [reclassifyDocType, setReclassifyDocType] = useState(
@@ -267,7 +259,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
     return (
       <div className="flex h-full items-center justify-center bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]">
         <Loader2 className="mr-2 animate-spin" size={20} />
-        Загрузка…
+        {t("details.loading")}
       </div>
     );
   }
@@ -275,7 +267,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   if (notFound) {
     return (
       <div className="flex h-full items-center justify-center bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]">
-        Документ не найден
+        {t("details.notFound")}
       </div>
     );
   }
@@ -285,7 +277,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       <div className="flex h-full flex-col items-center justify-center bg-[var(--accent-muted)] px-4 text-center">
         <AlertTriangle className="mb-2 text-[var(--color-error)]" size={20} />
         <p className="mb-1 text-sm font-semibold text-[var(--color-error-text)]">
-          Ошибка загрузки документа
+          {t("details.loadError")}
         </p>
         <p className="max-w-sm text-xs text-[var(--text-muted)]">{error}</p>
       </div>
@@ -295,7 +287,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   if (!doc) {
     return (
       <div className="flex h-full items-center justify-center bg-[var(--accent-muted)] text-sm text-[var(--text-muted)]">
-        Документ не найден
+        {t("details.notFound")}
       </div>
     );
   }
@@ -371,7 +363,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       window.URL.revokeObjectURL(objectUrl);
     } catch (downloadError) {
       console.error("Failed to download original file", downloadError);
-      alert("Не удалось скачать оригинал файла.");
+      alert(t("quarantine.downloadError"));
     } finally {
       setIsDownloadingOriginal(false);
     }
@@ -394,19 +386,19 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
           }
         />
 
-        <Section title="Информация">
+        <Section title={t("details.sectionInfo")}>
           <InfoRow
-            label="Тип документа"
-            value={doc.doc_type || "Не определён"}
+            label={t("info.docType")}
+            value={doc.doc_type || t("info.docTypeUnknown")}
           />
-          <InfoRow label="Язык" value={doc.language || "—"} />
+          <InfoRow label={t("info.language")} value={doc.language || t("info.empty")} />
           <InfoRow
-            label="Страниц"
-            value={doc.page_count ? String(doc.page_count) : "—"}
+            label={t("info.pages")}
+            value={doc.page_count ? String(doc.page_count) : t("info.empty")}
           />
           <InfoRow
-            label="Загружен"
-            value={new Date(doc.created_at).toLocaleDateString("ru-RU", {
+            label={t("info.uploaded")}
+            value={new Date(doc.created_at).toLocaleDateString(i18n.language, {
               day: "numeric",
               month: "long",
               year: "numeric",
@@ -423,8 +415,8 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 <div className="space-y-1">
                   <p className="font-semibold">
                     {processingError.type === "quarantine"
-                      ? "Документ в карантине"
-                      : "Ошибка обработки"}
+                      ? t("processingError.quarantineTitle")
+                      : t("processingError.errorTitle")}
                     {(() => {
                       const stageLabel = getErrorStageLabel(processingError);
                       return stageLabel && stageLabel !== "Неизвестная стадия"
@@ -442,20 +434,20 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                   <div className="flex flex-wrap gap-1 text-[11px]">
                     {processingError.reason && (
                       <span className="rounded-full border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-2 py-0.5 text-[var(--color-error-text)]">
-                        Причина: {processingError.reason}
+                        {t("processingError.reasonPrefix")} {processingError.reason}
                       </span>
                     )}
                     {processingError.timestamp && (
                       <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[var(--text-muted)]">
-                        Время:{" "}
+                        {t("processingError.timePrefix")}{" "}
                         {new Date(processingError.timestamp).toLocaleString(
-                          "ru-RU",
+                          i18n.language,
                         )}
                       </span>
                     )}
                     {processingError.run_id && (
                       <span className="rounded-full border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] px-2 py-0.5 text-[var(--color-blue)]">
-                        Run: {processingError.run_id}
+                        {t("processingError.runPrefix")} {processingError.run_id}
                       </span>
                     )}
                   </div>
@@ -466,7 +458,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
           <div className="mt-2 flex items-center justify-between">
             <span className="font-medium text-[var(--text-primary)] text-[11px]">
-              Проверка юриста не требуется
+              {t("info.reviewNotRequired")}
             </span>
             <label className="inline-flex items-center gap-2">
               <input
@@ -481,7 +473,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </Section>
 
         {doc.status === "language_selection_required" && (
-          <Section title="Требуется действие">
+          <Section title={t("details.sectionActionRequired")}>
             <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2.5">
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 text-[var(--color-warning-text)]">
@@ -489,11 +481,11 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-[var(--color-warning-text)]">
-                    Нужно выбрать основной язык проверки
+                    {t("languageSelection.title")}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-[var(--color-warning-text)]">
                     {statusConfig?.description ||
-                      "Загрузка документов завершена. Для документов, в которых определено несколько языков, дальнейшая обработка не будет продолжена, пока не выбран основной язык проверки. По умолчанию установлен русский язык."}
+                      t("languageSelection.descriptionFallback")}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Button
@@ -504,11 +496,11 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                         // TODO: открыть модал/панель выбора основного языка документа
                       }}
                     >
-                      Выбрать основной язык
+                      {t("languageSelection.chooseButton")}
                     </Button>
 
                     <span className="text-[11px] text-[var(--color-warning-text)]">
-                      Текущий язык по умолчанию: русский
+                      {t("languageSelection.currentDefault")}
                     </span>
                   </div>
                 </div>
@@ -517,41 +509,41 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
           </Section>
         )}
 
-        <Section title="Классификация документа">
+        <Section title={t("details.sectionClassification")}>
           <div className="space-y-3">
             {classification ? (
               <>
                 <div className="flex flex-wrap items-center gap-2">
                   {classification.doc_type && (
                     <span className="text-xs font-medium text-[var(--text-primary)]">
-                      Тип документа: {classification.doc_type}
+                      {t("classification.docTypePrefix")} {classification.doc_type}
                     </span>
                   )}
                   {needsManualReview && (
                     <span className="inline-flex items-center rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--color-warning-text)]">
-                      Нужна ручная проверка
+                      {t("classification.needsManualReview")}
                     </span>
                   )}
                 </div>
 
                 {classification.yaml_instruction_available ? (
                   <p className="flex items-center gap-1 text-xs text-[var(--text-primary)]">
-                    ✅ YAML-инструкция загружена
+                    {t("classification.yamlAvailable")}
                   </p>
                 ) : (
                   <p className="flex items-center gap-1 text-xs text-[var(--text-primary)]">
-                    ⬜ YAML-инструкция не найдена
+                    {t("classification.yamlMissing")}
                   </p>
                 )}
 
                 {lowConfidence && (
                   <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2">
                     <p className="text-xs text-[var(--color-warning-text)]">
-                      ⚠️ Низкая уверенность классификации (
-                      {Math.round(
-                        (classification.classification_confidence || 0) * 100,
-                      )}
-                      %) — рекомендуется проверить тип документа
+                      {t("classification.lowConfidence", {
+                        percent: Math.round(
+                          (classification.classification_confidence || 0) * 100,
+                        ),
+                      })}
                     </p>
                   </div>
                 )}
@@ -560,22 +552,21 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                   classification.applicable_triggers.length > 0 && (
                     <div className="space-y-1.5">
                       <p className="text-xs font-medium text-[var(--text-primary)]">
-                        Активные триггеры (профиль документа):
+                        {t("classification.triggersTitle")}
                       </p>
                       <TriggerList
                         triggers={classification.applicable_triggers}
                         maxVisible={4}
                       />
                       <p className="text-xs leading-5 text-[var(--text-primary)]">
-                        Тип документа и перечисленные триггеры вместе описывают 
-                        сценарии по проверке документа
+                        {t("classification.triggersHint")}
                       </p>
                     </div>
                   )}
               </>
             ) : (
               <p className="text-xs text-[var(--text-primary)]">
-                Классификация не выполнена или документ в обработке
+                {t("classification.notPerformed")}
               </p>
             )}
 
@@ -589,19 +580,19 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                   setShowReclassifyForm(true);
                 }}
               >
-                Изменить классификацию вручную
+                {t("classification.manualReclassifyButton")}
               </Button>
             )}
 
             {showReclassifyForm && (
               <div className="mt-2.5 space-y-3 rounded-2xl border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] p-3">
                 <p className="text-xs font-semibold text-[var(--color-blue-strong)]">
-                  Ручная переклассификация
+                  {t("classification.manualPanelTitle")}
                 </p>
 
                 <div className="space-y-1">
                   <label className="block text-[11px] text-[var(--text-muted)]">
-                    Новый тип документа
+                    {t("classification.newDocTypeLabel")}
                   </label>
 
                   <select
@@ -609,7 +600,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     onChange={(e) => setReclassifyDocType(e.target.value)}
                     className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-blue-highlight)]"
                   >
-                    <option value="">— Выберите тип документа —</option>
+                    <option value="">{t("classification.selectDocTypePlaceholder")}</option>
                     {availableDocTypes.map((opt) => (
                       <option key={opt.type} value={opt.type}>
                         {opt.name}
@@ -619,20 +610,20 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
                   {reclassifyDocType && (
                     <p className="text-[11px] text-[var(--text-faint)]">
-                      Выбран код типа: <code>{reclassifyDocType}</code>
+                      {t("classification.selectedCodeLabel")} <code>{reclassifyDocType}</code>
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-1">
                   <label className="block text-[11px] text-[var(--text-muted)]">
-                    Причина изменения
+                    {t("classification.reasonLabel")}
                   </label>
                   <textarea
                     value={reclassifyReason}
                     onChange={(e) => setReclassifyReason(e.target.value)}
                     rows={2}
-                    placeholder="Опишите причину..."
+                    placeholder={t("classification.reasonPlaceholder")}
                     className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-blue-highlight)]"
                   />
                 </div>
@@ -651,14 +642,14 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                         } as ReclassifyInput);
                         setShowReclassifyForm(false);
                       } catch {
-                        alert("Ошибка переклассификации");
+                        alert(t("classification.reclassifyError"));
                       }
                     }}
                     disabled={!reclassifyDocType.trim() || isReclassifyPending}
                     isLoading={isReclassifyPending}
                     className="min-w-[120px]"
                   >
-                    Применить
+                    {t("classification.applyButton")}
                   </Button>
 
                   <Button
@@ -668,25 +659,24 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     onClick={() => setShowReclassifyForm(false)}
                     className="min-w-[120px]"
                   >
-                    Отмена
+                    {t("actions.cancel", { ns: "common" })}
                   </Button>
                 </div>
 
                 {lastReclassifyResult && (
                   <>
                     <p className="text-[11px] text-[var(--color-success-text)]">
-                      ✅ Тип изменён на «{lastReclassifyResult.new_doc_type}»
+                      {t("classification.reclassifiedSuccess", {
+                        type: lastReclassifyResult.new_doc_type,
+                      })}
                       {lastReclassifyResult.yaml_instruction_found
-                        ? " · YAML-инструкция найдена"
-                        : " · YAML-инструкция не найдена"}
+                        ? t("classification.yamlFoundSuffix")
+                        : t("classification.yamlNotFoundSuffix")}
                     </p>
 
                     <div className="mt-2 rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2">
                       <p className="text-[11px] text-[var(--color-error-text)]">
-                        Документ переклассифицирован. Анализ рисков по новому
-                        типу будет произведён только после перезапуска анализа
-                        рисков по всей сделке. После будет внедрён механизм
-                        отдельного пересчёта рисков по одному документу.
+                        {t("classification.reclassifiedWarning")}
                       </p>
                     </div>
                   </>
@@ -698,23 +688,23 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </Section>
 
         {hasFamily && family && (
-          <Section title="Семейство документов">
+          <Section title={t("details.sectionFamily")}>
             {family.master && (
-              <FamilyRow icon="📄" label="Основной" doc={family.master} />
+              <FamilyRow icon="📄" label={t("family.master")} doc={family.master} />
             )}
             {family.appendices.map((d) => (
-              <FamilyRow key={d.id} icon="📎" label="Приложение" doc={d} />
+              <FamilyRow key={d.id} icon="📎" label={t("family.appendix")} doc={d} />
             ))}
             {family.amendments.map((d) => (
-              <FamilyRow key={d.id} icon="✏️" label="Дополнение" doc={d} />
+              <FamilyRow key={d.id} icon="✏️" label={t("family.amendment")} doc={d} />
             ))}
             {family.versions.map((d) => (
-              <FamilyRow key={d.id} icon="🔄" label="Версия" doc={d} />
+              <FamilyRow key={d.id} icon="🔄" label={t("family.version")} doc={d} />
             ))}
           </Section>
         )}
 
-        <Section title="Структурированные данные">
+        <Section title={t("details.sectionStructuredData")}>
           <div id="document-structured-data-panel" className="sr-only" />
 
           <StructuredDataSection
@@ -741,7 +731,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </Section>
 
         {reviewData && (
-          <Section title="Результаты проверки">
+          <Section title={t("details.sectionReviewResults")}>
             <ReviewSection
               documentId={documentId}
               reviewData={reviewData}
@@ -752,11 +742,11 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
           </Section>
         )}
 
-        <Section title="История обработки">
+        <Section title={t("details.sectionProcessingHistory")}>
           <ProcessingTracePanel documentId={documentId} />
         </Section>
 
-        <Section title="Информационный блок по документу">
+        <Section title={t("details.sectionDocumentInfoBlock")}>
           <DocumentPipelinePanel
             documentId={documentId}
             onOpenAtLocation={onOpenAtLocation}
@@ -765,7 +755,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </Section>
 
         {doc.status === "quarantine" && (
-          <Section title="Карантин / повторная загрузка">
+          <Section title={t("details.sectionQuarantine")}>
             <div className="mb-3 rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-3">
               <div className="flex items-start gap-2">
                 <AlertTriangle
@@ -773,11 +763,8 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                   className="mt-0.5 shrink-0 text-[var(--color-error)]"
                 />
                 <div className="text-xs text-[var(--color-error-text)]">
-                  <p className="mb-1 font-medium">Документ в карантине</p>
-                  <p className="text-[11px]">
-                    Замените файл корректной версией, чтобы запустить повторную
-                    обработку.
-                  </p>
+                  <p className="mb-1 font-medium">{t("quarantine.title")}</p>
+                  <p className="text-[11px]">{t("quarantine.hint")}</p>
                 </div>
               </div>
             </div>
@@ -800,10 +787,10 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 size={28}
               />
               <p className="mb-2 text-sm text-[var(--text-primary)]">
-                Перетащите файл сюда
+                {t("quarantine.dropzoneText")}
               </p>
               <label className="inline-flex cursor-pointer items-center rounded-full bg-[var(--accent-primary)] px-4 py-1.5 text-sm font-medium text-[var(--text-inverse)] transition hover:bg-[var(--accent-hover)]">
-                Выбрать файл
+                {t("quarantine.chooseFileButton")}
                 <input
                   type="file"
                   accept=".pdf"
@@ -816,7 +803,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
               </label>
             </div>
           </Section>
-        )}
+      )}
       </div>
 
       <PdfPreviewModal

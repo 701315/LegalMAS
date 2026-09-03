@@ -3,6 +3,7 @@
 // Доступно только для superadmin.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Building2,
@@ -52,10 +53,10 @@ interface SortOption {
 }
 
 const SORT_OPTIONS: SortOption[] = [
-  { key: "name", label: "По имени", defaultDir: "asc" },
-  { key: "created_at", label: "По дате создания", defaultDir: "desc" },
-  { key: "deals_count", label: "По количеству проектов", defaultDir: "desc" },
-  { key: "users_count", label: "По количеству пользователей", defaultDir: "desc" },
+  { key: "name", label: "name", defaultDir: "asc" },
+  { key: "created_at", label: "created_at", defaultDir: "desc" },
+  { key: "deals_count", label: "deals_count", defaultDir: "desc" },
+  { key: "users_count", label: "users_count", defaultDir: "desc" },
 ];
 
 const LS_VIEW_MODE = "adminPage.viewMode";
@@ -66,10 +67,10 @@ const LS_SORT_DIR = "adminPage.sortDir";
 // Утилиты
 // ─────────────────────────────────────────────────────────────
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("ru-RU", {
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -87,8 +88,13 @@ function filterTenants(list: Tenant[], query: string): Tenant[] {
   );
 }
 
-function sortTenants(list: Tenant[], key: SortKey, dir: SortDir): Tenant[] {
-  const collator = new Intl.Collator("ru-RU", { sensitivity: "base" });
+function sortTenants(
+  list: Tenant[],
+  key: SortKey,
+  dir: SortDir,
+  locale: string,
+): Tenant[] {
+  const collator = new Intl.Collator(locale, { sensitivity: "base" });
   const multiplier = dir === "asc" ? 1 : -1;
 
   return [...list].sort((a, b) => {
@@ -146,40 +152,45 @@ interface SearchInputProps {
 const SearchInput: React.FC<SearchInputProps> = ({
   value,
   onChange,
-  placeholder = "Поиск…",
-}) => (
-  <div className="relative w-full sm:w-96">
-    <Search
-      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
-      aria-hidden="true"
-    />
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      autoComplete="off"
-      spellCheck={false}
-      className={[
-        "w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)]",
-        "py-2 pl-9 pr-9 text-sm text-[var(--text-primary)]",
-        "outline-none transition-colors",
-        "placeholder:text-[var(--text-muted)]",
-        "focus:border-[var(--accent-primary)]",
-      ].join(" ")}
-    />
-    {value.length > 0 && (
-      <button
-        type="button"
-        onClick={() => onChange("")}
-        aria-label="Очистить поиск"
-        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)]"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    )}
-  </div>
-);
+  placeholder,
+}) => {
+  const { t } = useTranslation("admin");
+  const resolvedPlaceholder = placeholder || t("clients.search.placeholder");
+
+  return (
+    <div className="relative w-full sm:w-96">
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+        aria-hidden="true"
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={resolvedPlaceholder}
+        autoComplete="off"
+        spellCheck={false}
+        className={[
+          "w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)]",
+          "py-2 pl-9 pr-9 text-sm text-[var(--text-primary)]",
+          "outline-none transition-colors",
+          "placeholder:text-[var(--text-muted)]",
+          "focus:border-[var(--accent-primary)]",
+        ].join(" ")}
+      />
+      {value.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label={t("search.clear", { ns: "common" })}
+          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)]"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // ViewToggle
@@ -190,44 +201,48 @@ interface ViewToggleProps {
   onChange: (mode: ViewMode) => void;
 }
 
-const ViewToggle: React.FC<ViewToggleProps> = ({ value, onChange }) => (
-  <div
-    role="group"
-    aria-label="Режим отображения"
-    className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
-  >
-    <button
-      type="button"
-      onClick={() => onChange("cards")}
-      aria-pressed={value === "cards"}
-      title="Карточки"
-      className={[
-        "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-1",
-        value === "cards"
-          ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-          : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
-      ].join(" ")}
+const ViewToggle: React.FC<ViewToggleProps> = ({ value, onChange }) => {
+  const { t } = useTranslation("admin");
+  return (
+    <div
+      role="group"
+      aria-label={t("clients.views.ariaLabel")}
+      className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
     >
-      <LayoutGrid className="h-4 w-4" />
-    </button>
-    <button
-      type="button"
-      onClick={() => onChange("table")}
-      aria-pressed={value === "table"}
-      title="Таблица"
-      className={[
-        "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-1",
-        value === "table"
-          ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-          : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
-      ].join(" ")}
-    >
-      <List className="h-4 w-4" />
-    </button>
-  </div>
-);
+      <button
+        type="button"
+        onClick={() => onChange("cards")}
+        aria-pressed={value === "cards"}
+        title={t("clients.views.cards")}
+        className={[
+          "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-1",
+          value === "cards"
+            ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+            : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
+        ].join(" ")}
+      >
+        <LayoutGrid className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("table")}
+        aria-pressed={value === "table"}
+        title={t("clients.views.table")}
+        className={[
+          "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-1",
+          value === "table"
+            ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+            : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
+        ].join(" ")}
+      >
+        <List className="h-4 w-4" />
+      </button>
+    </div>
+  );
+};
+
 
 // ─────────────────────────────────────────────────────────────
 // ExportMenu
@@ -252,6 +267,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
   onExportPDF,
   disabled = false,
 }) => {
+  const { t } = useTranslation("admin");
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -298,7 +314,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
             : ""
         }
       >
-        Сохранить список клиентов
+        {t("clients.export.button")}
       </Button>
 
       <div
@@ -312,13 +328,13 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
       >
         <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-2 py-1.5 shadow-sm">
           <Button size="sm" variant="secondary" onClick={onExportExcel}>
-            Excel
+            {t("clients.export.excel")}
           </Button>
           <Button size="sm" variant="secondary" onClick={onExportWord}>
-            Word
+            {t("clients.export.word")}
           </Button>
           <Button size="sm" variant="secondary" onClick={onExportPDF}>
-            PDF
+            {t("clients.export.pdf")}
           </Button>
         </div>
       </div>
@@ -341,6 +357,7 @@ const SortDropdown: React.FC<SortDropdownProps> = ({
   sortDir,
   onChange,
 }) => {
+  const { t } = useTranslation("admin");
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -400,9 +417,9 @@ const SortDropdown: React.FC<SortDropdownProps> = ({
         }
       >
         <span className="hidden text-[var(--text-muted)] sm:inline">
-          Сортировка:{" "}
+          {t("clients.sort.prefix")}
         </span>
-        {activeOption?.label}
+        {t(`clients.sort.options.${activeOption?.key}`)}
       </Button>
 
       {isOpen && (
@@ -412,7 +429,7 @@ const SortDropdown: React.FC<SortDropdownProps> = ({
         >
           <div className="border-b border-[var(--border)] px-3 py-2">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-              Сортировать по
+              {t("clients.sort.by")}
             </p>
           </div>
 
@@ -432,21 +449,21 @@ const SortDropdown: React.FC<SortDropdownProps> = ({
                       : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
                   ].join(" ")}
                 >
-                  <span className="font-medium">{option.label}</span>
+                  <span className="font-medium">{t(`clients.sort.options.${option.key}`)}</span>
                   <span className="flex items-center gap-1 text-xs">
                     {isActive &&
                       (sortDir === "asc" ? (
                         <>
                           <ArrowUp className="h-3 w-3 text-[var(--accent-primary)]" />
                           <span className="text-[var(--accent-primary)]">
-                            возр.
+                            {t("clients.sort.asc")}
                           </span>
                         </>
                       ) : (
                         <>
                           <ArrowDown className="h-3 w-3 text-[var(--accent-primary)]" />
                           <span className="text-[var(--accent-primary)]">
-                            убыв.
+                            {t("clients.sort.desc")}
                           </span>
                         </>
                       ))}
@@ -458,7 +475,7 @@ const SortDropdown: React.FC<SortDropdownProps> = ({
 
           <div className="border-t border-[var(--border)] bg-[var(--bg-elevated-soft)] px-3 py-2">
             <p className="text-[10px] text-[var(--text-muted)]">
-              Повторный клик по активному полю меняет направление
+              {t("clients.sort.directionsHint")}
             </p>
           </div>
         </div>
@@ -472,6 +489,7 @@ const SortDropdown: React.FC<SortDropdownProps> = ({
 // ─────────────────────────────────────────────────────────────
 
 const CopyableId: React.FC<{ id: string }> = ({ id }) => {
+  const { t } = useTranslation("admin");
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -500,7 +518,7 @@ const CopyableId: React.FC<{ id: string }> = ({ id }) => {
       <button
         type="button"
         onClick={handleCopy}
-        aria-label={copied ? "Скопировано" : "Скопировать ID"}
+        aria-label={copied ? t("clients.card.copied") : t("clients.card.copyId")}
         className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-1"
       >
         {copied ? (
@@ -529,105 +547,110 @@ const TenantCard: React.FC<TenantCardProps> = ({
   onDeactivate,
   onActivate,
   onManage,
-}) => (
-  <article
-    className={[
-      "rounded-2xl border bg-[var(--bg-card)] p-5 shadow-sm transition-all duration-200",
-      tenant.is_active
-        ? "border-[var(--border)] hover:border-[var(--border-strong)] hover:shadow-md"
-        : "border-[var(--border-soft)] opacity-60",
-    ].join(" ")}
-  >
-    <div className="min-w-0">
-      <div className="flex items-center gap-2">
-        <Building2 className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-        <h2 className="truncate text-base font-semibold text-[var(--text-primary)]">
-          {tenant.name}
-        </h2>
-        {!tenant.is_active && (
-          <span className="shrink-0 rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
-            Деактивирован
-          </span>
-        )}
+}) => {
+  const { t, i18n } = useTranslation("admin");
+
+  return (
+    <article
+      className={[
+        "rounded-2xl border bg-[var(--bg-card)] p-5 shadow-sm transition-all duration-200",
+        tenant.is_active
+          ? "border-[var(--border)] hover:border-[var(--border-strong)] hover:shadow-md"
+          : "border-[var(--border-soft)] opacity-60",
+      ].join(" ")}
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+          <h2 className="truncate text-base font-semibold text-[var(--text-primary)]">
+            {tenant.name}
+          </h2>
+          {!tenant.is_active && (
+            <span className="shrink-0 rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
+              {t("clients.card.deactivated")}
+            </span>
+          )}
+        </div>
+
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          slug: {tenant.slug}
+        </p>
+
+        <CopyableId id={tenant.id} />
+
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          {t("clients.card.created", { date: formatDate(tenant.created_at, i18n.language) })}
+        </p>
       </div>
 
-      <p className="mt-1 text-xs text-[var(--text-muted)]">
-        slug: {tenant.slug}
-      </p>
-
-      <CopyableId id={tenant.id} />
-
-      <p className="mt-1 text-xs text-[var(--text-muted)]">
-        Создан: {formatDate(tenant.created_at)}
-      </p>
-    </div>
-
-    <div className="mt-4 grid grid-cols-2 gap-3">
-      <Link
-        to={`/admin/tenants/${tenant.id}`}
-        className="group rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-      >
-        <div className="flex items-center gap-1.5">
-          <Users className="h-3.5 w-3.5 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]" />
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]">
-            Пользователи
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <Link
+          to={`/admin/tenants/${tenant.id}`}
+          className="group rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+        >
+          <div className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]">
+              {t("clients.card.users")}
+            </p>
+          </div>
+          <p className="mt-1 text-lg font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
+            {tenant.users_count}
           </p>
-        </div>
-        <p className="mt-1 text-lg font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
-          {tenant.users_count}
-        </p>
-      </Link>
+        </Link>
 
-      <Link
-        to={`/admin/tenants/${tenant.id}/projects`}
-        className="group rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-      >
-        <div className="flex items-center gap-1.5">
-          <FolderOpen className="h-3.5 w-3.5 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]" />
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]">
-            Проекты
+        <Link
+          to={`/admin/tenants/${tenant.id}/projects`}
+          className="group rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+        >
+          <div className="flex items-center gap-1.5">
+            <FolderOpen className="h-3.5 w-3.5 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]">
+              {t("clients.card.projects")}
+            </p>
+          </div>
+          <p className="mt-1 text-lg font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
+            {tenant.deals_count}
           </p>
-        </div>
-        <p className="mt-1 text-lg font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
-          {tenant.deals_count}
+        </Link>
+      </div>
+
+      {tenant.notes && (
+        <p className="mt-3 text-xs text-[var(--text-secondary)]">
+          {tenant.notes}
         </p>
-      </Link>
-    </div>
-
-    {tenant.notes && (
-      <p className="mt-3 text-xs text-[var(--text-secondary)]">
-        {tenant.notes}
-      </p>
-    )}
-
-    <div className="mt-4 flex flex-wrap items-center gap-2">
-      <Button
-        size="sm"
-        variant="secondary"
-        className="flex-1"
-        onClick={onManage}
-      >
-        Управление
-      </Button>
-
-      {tenant.is_active ? (
-        <Button size="sm" variant="danger" onClick={onDeactivate}>
-          Деактивировать
-        </Button>
-      ) : (
-        <Button size="sm" variant="secondary" onClick={onActivate}>
-          Активировать
-        </Button>
       )}
-    </div>
-  </article>
-);
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          className="flex-1"
+          onClick={onManage}
+        >
+          {t("clients.card.manage")}
+        </Button>
+
+        {tenant.is_active ? (
+          <Button size="sm" variant="danger" onClick={onDeactivate}>
+            {t("clients.card.deactivate")}
+          </Button>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={onActivate}>
+            {t("clients.card.activate")}
+          </Button>
+        )}
+      </div>
+    </article>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // AdminPage
 // ─────────────────────────────────────────────────────────────
 
 const AdminPage: React.FC = () => {
+  const { t, i18n } = useTranslation("admin");
   const navigate = useNavigate();
 
   const [includeInactive, setIncludeInactive] = useState(false);
@@ -695,8 +718,8 @@ const AdminPage: React.FC = () => {
 
   const processedList = useMemo(() => {
     const filtered = filterTenants(tenantList, searchQuery);
-    return sortTenants(filtered, sortKey, sortDir);
-  }, [tenantList, searchQuery, sortKey, sortDir]);
+    return sortTenants(filtered, sortKey, sortDir, i18n.language);
+  }, [tenantList, searchQuery, sortKey, sortDir, i18n.language]);
 
   const isSearching = searchQuery.trim().length > 0;
   const filteredCount = processedList.length;
@@ -707,7 +730,7 @@ const AdminPage: React.FC = () => {
       setIsExportMenuOpen(false);
     } catch (err) {
       console.error(err);
-      alert("Не удалось экспортировать в Excel");
+      alert(t("clients.export.errorExcel"));
     }
   };
 
@@ -717,7 +740,7 @@ const AdminPage: React.FC = () => {
       setIsExportMenuOpen(false);
     } catch (err) {
       console.error(err);
-      alert("Не удалось экспортировать в Word");
+      alert(t("clients.export.errorWord"));
     }
   };
 
@@ -727,7 +750,7 @@ const AdminPage: React.FC = () => {
       setIsExportMenuOpen(false);
     } catch (err) {
       console.error(err);
-      alert("Не удалось экспортировать в PDF");
+      alert(t("clients.export.errorPdf"));
     }
   };
 
@@ -740,12 +763,12 @@ const AdminPage: React.FC = () => {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Клиенты
+                {t("clients.header.title")}
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Всего: {totalCount}
+                {t("clients.header.total", { count: totalCount })}
                 <span className="mx-1.5 text-[var(--text-muted)]">·</span>
-                Активных: {activeCount}
+                {t("clients.header.active", { count: activeCount })}
                 <span className="mx-1.5 text-[var(--text-muted)]">·</span>
                 <label className="inline-flex cursor-pointer items-center gap-1.5 align-middle hover:text-[var(--text-primary)]">
                   <input
@@ -754,7 +777,7 @@ const AdminPage: React.FC = () => {
                     onChange={(e) => setIncludeInactive(e.target.checked)}
                     className="h-3.5 w-3.5 rounded border-[var(--border)] align-middle"
                   />
-                  Показать деактивированных
+                  {t("clients.header.showDeactivated")}
                 </label>
               </p>
             </div>
@@ -765,7 +788,7 @@ const AdminPage: React.FC = () => {
               onClick={() => navigate("/admin/tenants/new")}
               leftIcon={<Plus className="h-4 w-4" />}
             >
-              Новый клиент
+              {t("clients.header.newClient")}
             </Button>
           </div>
         </header>
@@ -784,11 +807,11 @@ const AdminPage: React.FC = () => {
                 <SearchInput
                   value={searchQuery}
                   onChange={setSearchQuery}
-                  placeholder="Поиск по названию, slug или ID…"
+                  placeholder={t("clients.search.placeholder")}
                 />
                 {isSearching && (
                   <p className="hidden text-xs text-[var(--text-muted)] sm:block">
-                    Найдено: {filteredCount} из {totalCount}
+                    {t("catalog.searchResults", { ns: "instructions", filtered: filteredCount, total: totalCount })}
                   </p>
                 )}
               </div>
@@ -814,7 +837,7 @@ const AdminPage: React.FC = () => {
 
             {isSearching && (
               <p className="mt-2 text-xs text-[var(--text-muted)] sm:hidden">
-                Найдено: {filteredCount} из {totalCount}
+                {t("catalog.searchResults", { ns: "instructions", filtered: filteredCount, total: totalCount })}
               </p>
             )}
           </div>
@@ -839,7 +862,7 @@ const AdminPage: React.FC = () => {
         {/* ── Ошибка ───────────────────────────────────────────── */}
         {error && !isLoading && (
           <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-5 text-sm text-[var(--color-error-text)]">
-            Не удалось загрузить список клиентов.
+            {t("clients.error")}
           </div>
         )}
 
@@ -848,7 +871,7 @@ const AdminPage: React.FC = () => {
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <Building2 className="mx-auto mb-3 h-8 w-8 text-[var(--text-muted)]" />
             <p className="text-sm text-[var(--text-secondary)]">
-              Клиентов пока нет.
+              {t("clients.empty.title")}
             </p>
             <div className="mt-4 flex justify-center">
               <Button
@@ -856,7 +879,7 @@ const AdminPage: React.FC = () => {
                 variant="secondary"
                 onClick={() => navigate("/admin/tenants/new")}
               >
-                Создать первого клиента
+                {t("clients.empty.button")}
               </Button>
             </div>
           </div>
@@ -867,7 +890,7 @@ const AdminPage: React.FC = () => {
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <Search className="mx-auto mb-3 h-8 w-8 text-[var(--text-muted)]" />
             <p className="text-sm text-[var(--text-secondary)]">
-              По запросу «{searchQuery.trim()}» ничего не найдено.
+              {t("clients.notFound.title", { query: searchQuery.trim() })}
             </p>
             <div className="mt-4 flex justify-center">
               <Button
@@ -875,7 +898,7 @@ const AdminPage: React.FC = () => {
                 variant="secondary"
                 onClick={() => setSearchQuery("")}
               >
-                Сбросить поиск
+                {t("clients.notFound.button")}
               </Button>
             </div>
           </div>
@@ -926,18 +949,18 @@ const AdminPage: React.FC = () => {
         open={confirmTarget !== null}
         title={
           confirmAction === "deactivate"
-            ? `Деактивировать клиента «${confirmTarget?.name ?? ""}»?`
-            : `Активировать клиента «${confirmTarget?.name ?? ""}»?`
+            ? t("clients.confirm.deactivateTitle", { name: confirmTarget?.name ?? "" })
+            : t("clients.confirm.activateTitle", { name: confirmTarget?.name ?? "" })
         }
         description={
           confirmAction === "deactivate"
-            ? "Все пользователи этого клиента потеряют доступ к системе. Данные не удаляются."
-            : "Пользователи клиента снова смогут войти в систему."
+            ? t("clients.confirm.deactivateDesc")
+            : t("clients.confirm.activateDesc")
         }
         confirmLabel={
-          confirmAction === "deactivate" ? "Деактивировать" : "Активировать"
+          confirmAction === "deactivate" ? t("clients.confirm.deactivateButton") : t("clients.confirm.activateButton")
         }
-        cancelLabel="Отмена"
+        cancelLabel={t("clients.confirm.cancelButton")}
         confirmVariant={confirmAction === "deactivate" ? "danger" : "primary"}
         isLoading={
           deactivateMutation.isPending || activateMutation.isPending

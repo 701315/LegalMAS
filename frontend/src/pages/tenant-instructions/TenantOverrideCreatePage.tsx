@@ -1,6 +1,7 @@
 // src/pages/tenant-instructions/TenantOverrideCreatePage.tsx
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
@@ -62,6 +63,7 @@ const selectClassName =
 // ─────────────────────────────────────────────────────────────
 
 const TenantOverrideCreatePage: React.FC = () => {
+  const { t } = useTranslation("instructions");
   const navigate = useNavigate();
   const { tenantId } = useAuth();
 
@@ -173,15 +175,15 @@ const TenantOverrideCreatePage: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!tenantId) {
-      setErrorText("Не удалось определить tenant. Выйдите и войдите снова.");
+      setErrorText(t("tenantOverride.createPage.errors.noTenant"));
       return;
     }
     if (!selectedBaseVersionId) {
-      setErrorText("Выберите базовую published-версию инструкции.");
+      setErrorText(t("tenantOverride.createPage.errors.noBaseVersion"));
       return;
     }
     if (patchOps.length === 0) {
-      setErrorText("Добавьте хотя бы одну JSON Patch операцию.");
+      setErrorText(t("tenantOverride.createPage.errors.noPatchOps"));
       return;
     }
 
@@ -225,7 +227,7 @@ const TenantOverrideCreatePage: React.FC = () => {
       setErrorText(
         err instanceof Error
           ? err.message
-          : "Не удалось создать override draft.",
+          : t("tenantOverride.createPage.errors.submitFallback"),
       );
     }
   };
@@ -244,14 +246,14 @@ const TenantOverrideCreatePage: React.FC = () => {
                 className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                Overrides
+                {t("tenantOverride.createPage.backLabel")}
               </button>
 
               <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Создать Tenant Override
+                {t("tenantOverride.createPage.title")}
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Создайте draft override поверх published-версии базовой инструкции.
+                {t("tenantOverride.createPage.subtitle")}
               </p>
             </div>
 
@@ -261,7 +263,7 @@ const TenantOverrideCreatePage: React.FC = () => {
               onClick={() => navigate("/tenant-admin/instructions/overrides")}
               disabled={isSubmitting}
             >
-              Отмена
+              {t("tenantOverride.createPage.cancel")}
             </Button>
           </div>
         </header>
@@ -272,7 +274,7 @@ const TenantOverrideCreatePage: React.FC = () => {
         {/* ── Базовая инструкция ───────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            Базовая инструкция
+            {t("tenantOverride.createPage.baseSection.title")}
           </h2>
 
           <div className="mt-4 space-y-4">
@@ -286,7 +288,7 @@ const TenantOverrideCreatePage: React.FC = () => {
                   onChange={() => setKind("doc-type")}
                   disabled={isSubmitting}
                 />
-                Doc-Type instruction
+                {t("tenantOverride.createPage.baseSection.kindDocType")}
               </label>
               <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
                 <input
@@ -296,25 +298,25 @@ const TenantOverrideCreatePage: React.FC = () => {
                   onChange={() => setKind("global")}
                   disabled={isSubmitting}
                 />
-                Global instruction
+                {t("tenantOverride.createPage.baseSection.kindGlobal")}
               </label>
             </div>
 
             {/* Catalog selector */}
             {isCatalogLoading ? (
               <LoadingBlock
-                text="Загружаем каталог базовых инструкций…"
+                text={t("tenantOverride.createPage.baseSection.catalogLoading")}
                 rows={3}
               />
             ) : hasCatalogError ? (
               <InlineAlert
                 tone="error"
-                message="Не удалось загрузить каталог базовых инструкций."
+                message={t("tenantOverride.createPage.baseSection.catalogError")}
               />
             ) : kind === "doc-type" ? (
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                  Тип документа
+                  {t("tenantOverride.createPage.baseSection.docTypeLabel")}
                 </label>
                 <select
                   className={selectClassName}
@@ -332,7 +334,7 @@ const TenantOverrideCreatePage: React.FC = () => {
             ) : (
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                  Global instruction
+                  {t("tenantOverride.createPage.baseSection.globalLabel")}
                 </label>
                 <select
                   className={selectClassName}
@@ -356,16 +358,16 @@ const TenantOverrideCreatePage: React.FC = () => {
 
             {/* Version selector */}
             {isVersionsLoading ? (
-              <LoadingBlock text="Загружаем published-версии…" rows={2} />
+              <LoadingBlock text={t("tenantOverride.createPage.baseSection.versionLoading")} rows={2} />
             ) : baseVersions.length === 0 ? (
               <EmptyState
-                title="Published-версии не найдены"
-                description="Для выбранной базовой инструкции нет published-версий, поверх которых можно создать override."
+                title={t("tenantOverride.createPage.baseSection.noVersionsTitle")}
+                description={t("tenantOverride.createPage.baseSection.noVersionsDesc")}
               />
             ) : (
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                  Published base version
+                  {t("tenantOverride.createPage.baseSection.versionLabel")}
                 </label>
                 <select
                   className={selectClassName}
@@ -388,11 +390,11 @@ const TenantOverrideCreatePage: React.FC = () => {
         {/* ── Метаданные ───────────────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            Метаданные
+            {t("tenantOverride.createPage.metadataSection.title")}
           </h2>
           <div className="mt-4 space-y-1.5">
             <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-              Change summary
+              {t("tenantOverride.createPage.metadataSection.changeSummaryLabel")}
             </label>
             <input
               type="text"
@@ -400,7 +402,7 @@ const TenantOverrideCreatePage: React.FC = () => {
               value={changeSummary}
               onChange={(e) => setChangeSummary(e.target.value)}
               disabled={isSubmitting}
-              placeholder="Например: ослабить порог warning, добавить tenant-specific wording"
+              placeholder={t("tenantOverride.createPage.metadataSection.changeSummaryPlaceholder") || ""}
             />
           </div>
         </section>
@@ -408,13 +410,13 @@ const TenantOverrideCreatePage: React.FC = () => {
         {/* ── JSON Patch Operations ────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            JSON Patch Operations
+            {t("tenantOverride.createPage.patchSection.title")}
           </h2>
           <PatchOpsEditor
             value={patchOps}
             onChange={setPatchOps}
             disabled={isSubmitting}
-            label="RFC 6902 patch operations"
+            label={t("tenantOverride.createPage.patchSection.label")}
           />
         </section>
 
@@ -426,7 +428,7 @@ const TenantOverrideCreatePage: React.FC = () => {
             onClick={() => navigate("/tenant-admin/instructions/overrides")}
             disabled={isSubmitting}
           >
-            Отмена
+            {t("tenantOverride.createPage.actions.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -435,7 +437,7 @@ const TenantOverrideCreatePage: React.FC = () => {
             disabled={!canSubmit}
             isLoading={isSubmitting}
           >
-            Создать draft override
+            {t("tenantOverride.createPage.actions.submit")}
           </Button>
         </div>
       </div>

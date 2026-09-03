@@ -1,6 +1,7 @@
 // src/pages/instructions/PlaybookStudioPage.tsx
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -198,6 +199,7 @@ const InstructionPicker: React.FC<InstructionPickerProps> = ({
   disabled,
   onAdd,
 }) => {
+  const { t, i18n } = useTranslation("playbooks");
   const [selectedGroup, setSelectedGroup] = useState<string>("__all__");
   const [selectedCode, setSelectedCode] = useState<string>("");
 
@@ -206,8 +208,8 @@ const InstructionPicker: React.FC<InstructionPickerProps> = ({
     for (const c of globalChecks) {
       if (c.group) set.add(c.group);
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "ru"));
-  }, [globalChecks]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, i18n.language));
+  }, [globalChecks, i18n.language]);
 
   const filteredChecks = useMemo(() => {
     const filtered =
@@ -242,13 +244,13 @@ const InstructionPicker: React.FC<InstructionPickerProps> = ({
   return (
     <div className="space-y-3">
       <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-        Добавить инструкцию
+        {t("picker.title")}
       </h3>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            Группа
+            {t("picker.group")}
           </label>
           <select
             className={selectClassName}
@@ -256,7 +258,7 @@ const InstructionPicker: React.FC<InstructionPickerProps> = ({
             onChange={(e) => setSelectedGroup(e.target.value)}
             disabled={disabled}
           >
-            <option value="__all__">Все группы</option>
+            <option value="__all__">{t("picker.allGroups")}</option>
             {groups.map((g) => (
               <option key={g} value={g}>
                 {g}
@@ -266,7 +268,7 @@ const InstructionPicker: React.FC<InstructionPickerProps> = ({
         </div>
         <div>
           <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            Инструкция
+            {t("picker.instruction")}
           </label>
           <select
             className={selectClassName}
@@ -275,7 +277,7 @@ const InstructionPicker: React.FC<InstructionPickerProps> = ({
             disabled={disabled || filteredChecks.length === 0}
           >
             {filteredChecks.length === 0 ? (
-              <option value="">Все добавлены</option>
+              <option value="">{t("picker.allAdded")}</option>
             ) : (
               filteredChecks.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -320,7 +322,7 @@ const InstructionPicker: React.FC<InstructionPickerProps> = ({
           disabled={disabled || !selectedCode || filteredChecks.length === 0}
           leftIcon={<Plus className="h-3.5 w-3.5" />}
         >
-          Добавить
+          {t("picker.addButton")}
         </Button>
       </div>
     </div>
@@ -344,6 +346,7 @@ const TemplateItemsTable: React.FC<TemplateItemsTableProps> = ({
   disabled,
   onRemove,
 }) => {
+  const { t } = useTranslation("playbooks");
   const checksMap = useMemo(() => {
     const map = new Map<string, GlobalCheckInfo>();
     for (const c of globalChecks) map.set(c.id, c);
@@ -353,7 +356,7 @@ const TemplateItemsTable: React.FC<TemplateItemsTableProps> = ({
   if (items.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--text-muted)]">
-        Состав пуст. Используйте блок выше чтобы добавить инструкции.
+        {t("composition.empty")}
       </div>
     );
   }
@@ -426,7 +429,8 @@ const TemplateItemsTable: React.FC<TemplateItemsTableProps> = ({
 // PlaybookStudioPage
 // ─────────────────────────────────────────────────────────────
 
-const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
+export const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
+  const { t } = useTranslation("playbooks");
   const navigate = useNavigate();
 
   const [selectedPlaybookId, setSelectedPlaybookId] = useState<string | null>(null);
@@ -546,7 +550,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
         setIsNewTemplateMode(false);
       } catch {
         if (!cancelled) {
-          setErrorText("Не удалось загрузить детали шаблона.");
+          setErrorText(t("errors.loadTemplateDetail"));
         }
       }
     }
@@ -571,16 +575,16 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
     scope === "admin"
       ? {
           backPath: "/admin/instructions",
-          backLabel: "Инструкции",
-          title: "Playbook Studio",
-          subtitle: "Создание и управление шаблонами playbook и их версиями.",
+          backLabel: t("studio.backLabel"),
+          title: t("studio.title"),
+          subtitle: t("studio.subtitle"),
           modelConfigsPath: "/admin/model-configs",
         }
       : {
           backPath: "/tenant-admin/instructions",
-          backLabel: "Инструкции",
-          title: "Playbook Studio",
-          subtitle: "Создание и управление шаблонами playbook и их версиями.",
+          backLabel: t("studio.backLabel"),
+          title: t("studio.title"),
+          subtitle: t("studio.subtitle"),
           modelConfigsPath: "/admin/model-configs",
         };
 
@@ -640,11 +644,11 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
     const itemsPayload = buildLineItemsPayload(templateItems);
 
     if (!normalizedTitle) {
-      setErrorText("Укажите название шаблона playbook.");
+      setErrorText(t("errors.validationTitle"));
       return null;
     }
     if (itemsPayload.length === 0) {
-      setErrorText("Добавьте хотя бы одну инструкцию в состав шаблона.");
+      setErrorText(t("errors.validationItems"));
       return null;
     }
 
@@ -669,11 +673,11 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
     }
 
     if (!selectedPlaybookId) {
-      setErrorText("Не выбран шаблон для сохранения.");
+      setErrorText(t("errors.validationNoSelect"));
       return null;
     }
     if (!templateEtag) {
-      setErrorText("Не удалось определить версию шаблона. Обновите страницу.");
+      setErrorText(t("errors.validationEtag"));
       return null;
     }
 
@@ -729,7 +733,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
       if (andPublish) {
         try {
           await client.post(`/api/v1/playbooks/${newVersionId}/publish`);
-          setSuccessText("Шаблон сохранён. Версия playbook создана и опубликована.");
+          setSuccessText(t("version.publishSuccess"));
         } catch (publishErr) {
           setErrorText(
             extractApiErrorMessage(
@@ -739,7 +743,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
           );
         }
       } else {
-        setSuccessText("Шаблон сохранён. Черновик версии playbook создан.");
+        setSuccessText(t("version.draftSuccess"));
       }
 
       await versionsQuery.refetch();
@@ -785,10 +789,10 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
               variant="secondary"
               size="sm"
               onClick={() => void handleRefresh()}
-              aria-label="Обновить данные"
+              aria-label={t("studio.refresh")}
               leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
             >
-              Обновить
+              {t("studio.refresh")}
             </Button>
           </div>
         </header>
@@ -803,7 +807,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
           {/* ── Левая: Шаблоны ──────────────────────────────────── */}
           <div className="xl:col-span-3">
             <SectionCard
-              title="Шаблоны"
+              title={t("studio.templates")}
               rightSlot={
                 <Button
                   variant="secondary"
@@ -812,24 +816,24 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                   disabled={isBusy}
                   leftIcon={<Plus className="h-3.5 w-3.5" />}
                 >
-                  Новый
+                  {t("studio.new")}
                 </Button>
               }
             >
               {playbooksQuery.isLoading && (
-                <LoadingBlock text="Загружаем шаблоны…" rows={6} />
+                <LoadingBlock text={t("errors.loadingTemplates")} rows={6} />
               )}
 
               {playbooksQuery.isError && (
-                <InlineAlert tone="error" message="Не удалось загрузить шаблоны." />
+                <InlineAlert tone="error" message={t("errors.loadTemplates")} />
               )}
 
               {!playbooksQuery.isLoading &&
                 !playbooksQuery.isError &&
                 playbooks.length === 0 && (
                   <EmptyState
-                    title="Шаблонов нет"
-                    description="Создайте первый шаблон playbook."
+                    title={t("templates.emptyTitle")}
+                    description={t("templates.emptyDesc")}
                   />
                 )}
 
@@ -889,19 +893,19 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
           {/* ── Центральная: Редактор шаблона ───────────────────── */}
           <div className="xl:col-span-5">
             <SectionCard
-              title={isNewTemplateMode ? "Новый шаблон" : "Редактор шаблона"}
+              title={isNewTemplateMode ? t("studio.newTemplate") : t("studio.templateEditor")}
             >
               {!isNewTemplateMode && !selectedPlaybookId ? (
                 <EmptyState
-                  title="Шаблон не выбран"
-                  description="Выберите существующий шаблон слева или создайте новый."
+                  title={t("templates.emptyEditorTitle")}
+                  description={t("templates.emptyEditorDesc")}
                 />
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                        Название
+                        {t("form.title")}
                       </label>
                       <input
                         type="text"
@@ -909,13 +913,13 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                         value={templateTitle}
                         onChange={(e) => setTemplateTitle(e.target.value)}
                         disabled={isBusy}
-                        placeholder="Например: Real Estate DD RU"
+                        placeholder={t("form.titlePlaceholder")}
                       />
                     </div>
 
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                        Описание
+                        {t("form.description")}
                       </label>
                       <textarea
                         className={textareaClassName}
@@ -923,13 +927,13 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                         value={templateDescription}
                         onChange={(e) => setTemplateDescription(e.target.value)}
                         disabled={isBusy}
-                        placeholder="Короткое описание назначения шаблона…"
+                        placeholder={t("form.descriptionPlaceholder")}
                       />
                     </div>
 
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                        Тип сделки
+                        {t("form.dealType")}
                       </label>
                       <input
                         type="text"
@@ -937,13 +941,13 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                         value={templateDealType}
                         onChange={(e) => setTemplateDealType(e.target.value)}
                         disabled={isBusy}
-                        placeholder="mna / real_estate / nda …"
+                        placeholder={t("form.dealTypePlaceholder")}
                       />
                     </div>
 
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                        Юрисдикция
+                        {t("form.jurisdiction")}
                       </label>
                       <input
                         type="text"
@@ -951,13 +955,13 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                         value={templateJurisdiction}
                         onChange={(e) => setTemplateJurisdiction(e.target.value)}
                         disabled={isBusy}
-                        placeholder="RU / EN / DE …"
+                        placeholder={t("form.jurisdictionPlaceholder")}
                       />
                     </div>
 
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                        Язык
+                        {t("form.language")}
                       </label>
                       <input
                         type="text"
@@ -965,7 +969,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                         value={templateLanguage}
                         onChange={(e) => setTemplateLanguage(e.target.value)}
                         disabled={isBusy}
-                        placeholder="ru / en / de …"
+                        placeholder={t("form.languagePlaceholder")}
                       />
                     </div>
                   </div>
@@ -981,7 +985,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
 
                   <div>
                     <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      Состав шаблона
+                      {t("composition.title")}
                       <span className="ml-1.5 normal-case tracking-normal text-[var(--text-faint)]">
                         · {templateItems.length}
                       </span>
@@ -1001,20 +1005,20 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
           {/* ── Правая: Версия playbook ──────────────────────────── */}
           <div className="xl:col-span-4">
             <SectionCard
-              title="Версия playbook"
-              subtitle="Сохранение шаблона и создание версии — одним действием."
+              title={t("version.title")}
+              subtitle={t("version.subtitle")}
             >
               {!selectedPlaybookId && !isNewTemplateMode ? (
                 <EmptyState
-                  title="Шаблон не выбран"
-                  description="Чтобы создать версию, сначала выберите или создайте шаблон."
+                  title={t("templates.emptyVersionTitle")}
+                  description={t("templates.emptyVersionDesc")}
                 />
               ) : (
                 <div className="space-y-4">
                   {selectedPlaybook && !isNewTemplateMode && (
                     <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-3">
                       <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                        Шаблон
+                        {t("studio.newTemplate")}
                       </div>
                       <div className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
                         {selectedPlaybook.title}
@@ -1028,17 +1032,17 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                   {isNewTemplateMode && (
                     <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-3">
                       <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                        Шаблон
+                        {t("studio.newTemplate")}
                       </div>
                       <div className="mt-1 text-sm text-[var(--text-secondary)]">
-                        Новый шаблон (будет создан автоматически)
+                        {t("version.newTemplateAuto")}
                       </div>
                     </div>
                   )}
 
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      Название версии
+                      {t("form.versionName")}
                     </label>
                     <input
                       type="text"
@@ -1046,13 +1050,13 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                       value={newVersionName}
                       onChange={(e) => setNewVersionName(e.target.value)}
                       disabled={isBusy}
-                      placeholder="Например: Real Estate DD RU v1"
+                      placeholder={t("form.versionNamePlaceholder")}
                     />
                   </div>
 
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      Номер версии
+                      {t("form.versionNumber")}
                     </label>
                     <input
                       type="text"
@@ -1060,14 +1064,14 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                       value={newVersionSemver}
                       onChange={(e) => setNewVersionSemver(e.target.value)}
                       disabled={isBusy}
-                      placeholder="0.1.0"
+                      placeholder={t("form.versionNumberPlaceholder")}
                     />
                   </div>
 
                   <div>
                     <div className="mb-1 flex items-center justify-between">
                       <label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                        Конфигурация модели
+                        {t("form.modelConfig")}
                       </label>
                       <button
                         type="button"
@@ -1075,15 +1079,15 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                         className="flex items-center gap-1 text-[10px] text-[var(--accent-primary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
                       >
                         <Settings className="h-3 w-3" />
-                        Настроить
+                        {t("studio.configure")}
                       </button>
                     </div>
                     {modelConfigsQuery.isLoading ? (
-                      <LoadingBlock text="Загружаем…" rows={2} />
+                      <LoadingBlock text={t("form.modelConfigLoading")} rows={2} />
                     ) : modelConfigs.length === 0 ? (
                       <div className="space-y-2">
                         <p className="text-xs text-[var(--text-muted)]">
-                          Конфигурации моделей не найдены.
+                          {t("form.modelConfigMissing")}
                         </p>
                         <Button
                           variant="secondary"
@@ -1091,7 +1095,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                           onClick={() => navigate(scopeConfig.modelConfigsPath)}
                           leftIcon={<Settings className="h-3.5 w-3.5" />}
                         >
-                          Создать конфигурацию
+                          {t("form.modelConfigCreate")}
                         </Button>
                       </div>
                     ) : (
@@ -1118,7 +1122,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                       disabled={isBusy || !selectedModelConfigId}
                       isLoading={isCreatingVersion}
                     >
-                      Сохранить черновик
+                      {t("version.draftButton")}
                     </Button>
                     <Button
                       variant="primary"
@@ -1127,7 +1131,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                       disabled={isBusy || !selectedModelConfigId}
                       isLoading={isPublishingVersion}
                     >
-                      Опубликовать
+                      {t("version.publishButton")}
                     </Button>
                   </div>
 
@@ -1139,7 +1143,7 @@ const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope }) => {
                           aria-hidden="true"
                         />
                         <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                          Существующие версии
+                          {t("version.existing")}
                         </span>
                       </div>
 

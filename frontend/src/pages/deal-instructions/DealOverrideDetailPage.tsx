@@ -3,6 +3,7 @@
 // Включает rebase flow — только deal overrides имеют rebase endpoint.
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
 
@@ -32,6 +33,7 @@ const inputClassName =
   "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const DealOverrideDetailPage: React.FC = () => {
+  const { t } = useTranslation("instructions");
   const { dealId, docType: overrideId } = useParams<{
     dealId: string;
     docType: string;
@@ -74,7 +76,7 @@ const DealOverrideDetailPage: React.FC = () => {
       const result = await validateMutation.mutateAsync({ dealId, overrideId });
       setValidationResult(result);
     } catch {
-      setActionError("Не удалось выполнить валидацию.");
+      setActionError(t("deal.detailPage.errors.validate"));
     }
   };
 
@@ -83,10 +85,10 @@ const DealOverrideDetailPage: React.FC = () => {
     setActionError(null);
     try {
       await activateMutation.mutateAsync({ dealId, overrideId });
-      setActionSuccess("Override активирован.");
+      setActionSuccess(t("deal.detailPage.success.activate"));
       await refetch();
     } catch {
-      setActionError("Не удалось активировать override.");
+      setActionError(t("deal.detailPage.errors.activate"));
     }
   };
 
@@ -95,11 +97,11 @@ const DealOverrideDetailPage: React.FC = () => {
     try {
       await archiveMutation.mutateAsync({ dealId, overrideId });
       setShowArchiveDialog(false);
-      setActionSuccess("Override архивирован.");
+      setActionSuccess(t("deal.detailPage.success.archive"));
       await refetch();
     } catch {
       setShowArchiveDialog(false);
-      setActionError("Не удалось архивировать override.");
+      setActionError(t("deal.detailPage.errors.archive"));
     }
   };
 
@@ -115,13 +117,11 @@ const DealOverrideDetailPage: React.FC = () => {
           new_patch_ops: rebasePatchOps,
         },
       });
-      setActionSuccess("Rebase выполнен успешно. Override привязан к новой базовой версии.");
+      setActionSuccess(t("deal.detailPage.success.rebase"));
       setShowRebaseForm(false);
       await refetch();
     } catch {
-      setActionError(
-        "Не удалось выполнить rebase. Проверьте корректность новой базовой версии и patch ops.",
-      );
+      setActionError(t("deal.detailPage.errors.rebase"));
     }
   };
 
@@ -129,7 +129,7 @@ const DealOverrideDetailPage: React.FC = () => {
     return (
       <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
         <div className="mx-auto max-w-4xl">
-          <LoadingBlock text="Загружаем override..." rows={4} />
+          <LoadingBlock text={t("deal.detailPage.loading")} rows={4} />
         </div>
       </div>
     );
@@ -139,9 +139,9 @@ const DealOverrideDetailPage: React.FC = () => {
     return (
       <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
         <div className="mx-auto max-w-4xl space-y-3">
-          <InlineAlert tone="error" message="Override не найден." />
+          <InlineAlert tone="error" message={t("deal.detailPage.notFound")} />
           <Button variant="secondary" size="sm" onClick={() => navigate(-1)}>
-            ← Назад
+            &larr; {t("deal.detailPage.rebaseForm.cancel", { ns: "common" }) || "Back"}
           </Button>
         </div>
       </div>
@@ -156,18 +156,18 @@ const DealOverrideDetailPage: React.FC = () => {
         {/* Header */}
         <InstructionPageHeader
           breadcrumbs={[
-            { label: "Проект", to: `/projects/${dealId}` },
+            { label: t("deal.breadcrumbs.project"), to: `/projects/${dealId}` },
             {
-              label: "Инструкции",
+              label: t("deal.breadcrumbs.instructions"),
               to: `/projects/${dealId}/instructions`,
             },
             {
-              label: "Overrides",
+              label: t("deal.breadcrumbs.overrides"),
               to: `/projects/${dealId}/instructions/overrides`,
             },
             { label: override.id.slice(0, 8) + "…" },
           ]}
-          title="Deal Override"
+          title={t("deal.detailPage.title")}
           subtitle={override.change_summary ?? override.id}
           rightSlot={
             <div className="flex items-center gap-2">
@@ -180,7 +180,7 @@ const DealOverrideDetailPage: React.FC = () => {
                 variant="secondary"
                 size="sm"
                 onClick={() => void refetch()}
-                aria-label="Обновить"
+                aria-label={t("actions.refresh", { ns: "common" }) || "Refresh"}
               >
                 <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
@@ -207,7 +207,7 @@ const DealOverrideDetailPage: React.FC = () => {
         <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[11px] sm:grid-cols-3">
           <div>
             <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Override ID
+              {t("deal.detailPage.meta.id")}
             </div>
             <div className="mt-0.5 font-mono text-[10px] text-[var(--text-primary)]">
               {override.id}
@@ -215,7 +215,7 @@ const DealOverrideDetailPage: React.FC = () => {
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Base Version
+              {t("deal.detailPage.meta.baseVersion")}
             </div>
             <div className="mt-0.5 font-mono text-[10px] text-[var(--text-primary)]">
               {override.instruction_version_id?.slice(0, 8) ?? "…"}
@@ -223,7 +223,7 @@ const DealOverrideDetailPage: React.FC = () => {
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Scope
+              {t("deal.detailPage.meta.scope")}
             </div>
             <div className="mt-0.5 font-semibold text-[var(--text-primary)]">
               {override.override_scope}
@@ -232,32 +232,30 @@ const DealOverrideDetailPage: React.FC = () => {
         </div>
 
         {/* Patch ops */}
-        <PageSection title="Patch Operations">
+        <PageSection title={t("deal.detailPage.patchOps.title")}>
           <PatchOpsEditor
             value={override.patch_ops}
             onChange={() => {}}
             disabled={true}
-            label="Текущие patch operations (RFC 6902)"
+            label={t("deal.detailPage.patchOps.label")}
           />
         </PageSection>
 
         {/* Rebase form */}
         {showRebaseForm && (
-          <PageSection title="Rebase на новую базовую версию">
+          <PageSection title={t("deal.detailPage.rebaseForm.title")}>
             <div className="space-y-3">
               <p className="text-[11px] text-[var(--text-secondary)]">
-                Укажите ID новой базовой instruction version и при необходимости
-                скорректируйте patch operations. После rebase override перестанет
-                быть stale.
+                {t("deal.detailPage.rebaseForm.description")}
               </p>
 
-              <Field label="Новая базовая version ID" required>
+              <Field label={t("deal.detailPage.rebaseForm.newBaseVersionId")} required>
                 <input
                   type="text"
                   value={newBaseVersionId}
                   onChange={(e) => setNewBaseVersionId(e.target.value)}
                   className={inputClassName}
-                  placeholder="uuid новой базовой версии..."
+                  placeholder={t("deal.detailPage.rebaseForm.newBaseVersionPlaceholder") || "uuid..."}
                   disabled={rebaseMutation.isPending}
                 />
               </Field>
@@ -266,7 +264,7 @@ const DealOverrideDetailPage: React.FC = () => {
                 value={rebasePatchOps}
                 onChange={setRebasePatchOps}
                 disabled={rebaseMutation.isPending}
-                label="Patch operations для новой базы"
+                label={t("deal.detailPage.rebaseForm.patchOpsLabel")}
               />
 
               <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
@@ -276,7 +274,7 @@ const DealOverrideDetailPage: React.FC = () => {
                   onClick={() => setShowRebaseForm(false)}
                   disabled={rebaseMutation.isPending}
                 >
-                  Отмена
+                  {t("actions.cancel", { ns: "common" })}
                 </Button>
                 <Button
                   variant="primary"
@@ -287,7 +285,7 @@ const DealOverrideDetailPage: React.FC = () => {
                     !newBaseVersionId.trim() || rebaseMutation.isPending
                   }
                 >
-                  Выполнить Rebase
+                  {t("deal.detailPage.rebaseForm.submit")}
                 </Button>
               </div>
             </div>
@@ -296,7 +294,7 @@ const DealOverrideDetailPage: React.FC = () => {
 
         {/* Validation */}
         {override.status === "draft" && (
-          <PageSection title="Валидация">
+          <PageSection title={t("deal.detailPage.validation.title")}>
             <div className="space-y-3">
               {validationResult && (
                 <div
@@ -316,8 +314,8 @@ const DealOverrideDetailPage: React.FC = () => {
                     ].join(" ")}
                   >
                     {validationResult.is_valid
-                      ? "Валидация успешна"
-                      : "Валидация не прошла"}
+                      ? t("deal.detailPage.validation.success")
+                      : t("deal.detailPage.validation.failed")}
                   </div>
                   {validationResult.errors.length > 0 && (
                     <ul className="mt-2 space-y-1">
@@ -342,14 +340,14 @@ const DealOverrideDetailPage: React.FC = () => {
                 isLoading={validateMutation.isPending}
                 disabled={validateMutation.isPending}
               >
-                Валидировать
+                {t("deal.detailPage.validation.action")}
               </Button>
             </div>
           </PageSection>
         )}
 
         {/* Actions */}
-        <PageSection title="Действия">
+        <PageSection title={t("deal.detailPage.actions.title")}>
           <div className="flex flex-wrap items-center gap-2">
             {canActivate && (
               <Button
@@ -359,12 +357,12 @@ const DealOverrideDetailPage: React.FC = () => {
                 isLoading={activateMutation.isPending}
                 disabled={activateMutation.isPending}
               >
-                Активировать
+                {t("deal.detailPage.actions.activate")}
               </Button>
             )}
             {override.is_stale && (
               <p className="text-[11px] text-[var(--color-error-text)]">
-                Выполните rebase перед активацией.
+                {t("deal.detailPage.actions.rebaseWarning")}
               </p>
             )}
             {canArchive && (
@@ -376,7 +374,7 @@ const DealOverrideDetailPage: React.FC = () => {
                   archiveMutation.isPending || activateMutation.isPending
                 }
               >
-                Архивировать
+                {t("deal.detailPage.actions.archive")}
               </Button>
             )}
           </div>
@@ -385,10 +383,10 @@ const DealOverrideDetailPage: React.FC = () => {
 
       <ConfirmDialog
         open={showArchiveDialog}
-        title="Архивировать override?"
-        description="Override будет архивирован. Это действие нельзя отменить."
-        confirmLabel="Архивировать"
-        cancelLabel="Отмена"
+        title={t("deal.detailPage.archiveDialog.title")}
+        description={t("deal.detailPage.archiveDialog.description")}
+        confirmLabel={t("deal.detailPage.actions.archive")}
+        cancelLabel={t("actions.cancel", { ns: "common" })}
         isConfirming={archiveMutation.isPending}
         onConfirm={() => void handleArchiveConfirm()}
         onCancel={() => setShowArchiveDialog(false)}

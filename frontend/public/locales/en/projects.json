@@ -1,0 +1,249 @@
+{
+  "pages": {
+    "playbook": {
+      "noPermission": "You do not have permission to edit the playbook for this project.",
+      "backToProject": "Back to project",
+      "notCreated": "Playbook for this project has not been created yet.",
+      "loadError": "Failed to load playbook. Please try again later.",
+      "readError": "Failed to read YAML file.",
+      "fileLoaded": "File loaded: {{name}}",
+      "emptySaveError": "Cannot save empty playbook.",
+      "saveSuccess": "Playbook successfully saved.",
+      "saveError": "Failed to save playbook. Check YAML syntax and try again.",
+      "badge": "Playbook YAML",
+      "title": "Project YAML Playbook",
+      "projectLabel": "Project: {{id}}",
+      "warningDesc": "This editor is intended for direct editing of the playbook YAML configuration for a specific project. Use it only if you understand the schema structure.",
+      "editorTitle": "YAML Playbook Editor",
+      "editorDesc": "Edit text manually or upload a ready YAML file. Upon saving, the configuration will apply only to this project.",
+      "uploadButton": "Upload YAML file",
+      "loading": "Loading current playbook…",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "save": "Save"
+    },
+    "relaunch": {
+      "loading": "Loading project…",
+      "loadError": "Failed to load project",
+      "backToProjects": "Back to projects",
+      "cancel": "Cancel",
+      "relaunchTitle": "Relaunch analysis",
+      "launchTitle": "Launch analysis",
+      "relaunchDesc": "Configure parameters and relaunch the analysis",
+      "launchDesc": "Configure parameters and launch the first analysis"
+    }
+  },
+  "newProject": {
+    "header": {
+      "title": "Launch new project",
+      "subtitle": "Step-by-step project configuration and analysis launch.",
+      "readyProgress": "{{done}} of {{total}} ready",
+      "defer": "Defer setup",
+      "cancel": "Cancel"
+    },
+    "steps": {
+      "step1Title": "Project name",
+      "step2Title": "Upload documents",
+      "step3Title": "Select playbook",
+      "step4Title": "Model profile",
+      "step5Title": "Primary analysis language",
+      "step6Title": "Launch analysis",
+      "closeEdit": "Close editing"
+    },
+    "defaults": {
+      "defaultModelConfig": "Default"
+    },
+    "errors": {
+      "nameRequired": "Please specify project name.",
+      "createFailed": "Project creation error.",
+      "launchFailed": "Failed to launch analysis."
+    },
+    "exitConfirm": {
+      "titleDefer": "Defer setup?",
+      "titleCancel": "Cancel creation?",
+      "descDefer": "Project is already saved in the system. You can return to uploading documents and selecting settings later from the project list on the dashboard.",
+      "descCancel": "Project has not been created yet. If you exit now, entered data will not be saved.",
+      "confirmExit": "Exit to dashboard",
+      "confirmCancel": "Cancel",
+      "stay": "Stay"
+    }
+  },
+  "dealPage": {
+    "tabs": {
+      "overview": "Overview",
+      "documents": "Documents",
+      "dd_grid": "DD Grid",
+      "requests": "Requests",
+      "report": "Report",
+      "audit": "Audit",
+      "counterparties": "Counterparties",
+      "real_estate": "Real estate"
+    },
+    "sidebar": {
+      "navAria": "Project navigation",
+      "groupDocuments": "Document analysis for deal",
+      "groupCounterparties": "Counterparty analysis",
+      "groupRealEstate": "Real estate analysis",
+      "groupActions": "Additional actions",
+      "counterparties": "Counterparties",
+      "realEstate": "Real estate",
+      "relaunch": "Relaunch project",
+      "soonBadge": "Soon"
+    },
+    "header": {
+      "backToProjects": "Back to projects list",
+      "cancel": "Cancel",
+      "relaunch": "Relaunch",
+      "back": "Back",
+      "sectionsAria": "Project sections"
+    },
+    "runRequired": {
+      "documentsTitle": "Documents list not available yet",
+      "documentsDesc": "Document review cards will appear after the first project analysis.",
+      "gridTitle": "DD Grid not available yet",
+      "gridDesc": "Analysis has not been launched for this project yet. Run the first analysis to open the checks matrix.",
+      "requestsTitle": "Requests not available yet",
+      "requestsDesc": "At least one analysis run is needed first for the system to generate follow-up requests for identified risks."
+    },
+    "relaunch": {
+      "relaunchTitle": "Relaunch analysis",
+      "launchTitle": "Launch analysis",
+      "relaunchDesc": "Check documents and current project settings before a new run.",
+      "launchDesc": "Check documents and project settings before the first run.",
+      "cancel": "Cancel",
+      "relaunchButton": "Relaunch analysis",
+      "launchButton": "Launch analysis"
+    }
+  },
+  "dashboard": {
+    "title": "My Projects",
+    "subtitle": "Manage projects available to the current user.",
+    "userLabel": "User: {{name}}",
+    "projectsCount": "Projects: {{count}}",
+    "loadError": "Failed to load projects.",
+    "empty": "You don't have access to any projects yet.",
+    "createFirst": "Create first project",
+    "created": "Created: {{date}}",
+    "role": "Role in project: {{role}}",
+    "notConfigured": "Not configured",
+    "analysisCompleted": "Analysis completed",
+    "contactPerson": "Contact person",
+    "notSpecified": "Not specified",
+    "dealId": "Deal ID",
+    "openProject": "Open project",
+    "deleting": "Deleting…",
+    "delete": "Delete",
+    "deleteError": "Failed to delete project. There may be related data in the system.",
+    "confirmTitle": "Delete project \"{{name}}\"?",
+    "confirmDesc": "This action cannot be undone. All related data may be permanently deleted.",
+    "confirmButton": "Delete",
+    "cancelButton": "Cancel"
+  },
+  "dealList": {
+    "loading": "Loading deals list…",
+    "loadError": "Failed to load deals.",
+    "badge": "Projects",
+    "title": "Deals",
+    "found": "Found: {{count}}",
+    "statusLabel": "Status: {{status}}",
+    "allStatuses": "all",
+    "page": "Page",
+    "pageOf": "of",
+    "filterStatus": "Status",
+    "all": "All",
+    "tenantId": "Tenant ID",
+    "empty": "No deals found",
+    "emptyDesc": "The list is empty for the current filters. Change the status or tenant to see other projects.",
+    "prev": "← Back",
+    "next": "Next →"
+  },
+  "flowSummary": {
+    "title": "Project summary",
+    "notSet": "Not set",
+    "labels": {
+      "name": "Name",
+      "documents": "Documents",
+      "playbook": "Playbook",
+      "modelProfile": "Model profile",
+      "primaryLanguage": "Primary language"
+    },
+    "documentsCount_one": "{{count}} document",
+    "documentsCount_other": "{{count}} documents"
+  },
+  "flowInstructions": {
+    "stepLabel": "Step {{step}} of {{total}}",
+    "overviewLabel": "Process overview",
+    "intro": {
+      "title": "How to create a project",
+      "description": "Fill in six blocks in order. Each next block opens automatically once the previous one is complete.",
+      "bullets": {
+        "0": "Project name and owner",
+        "1": "Document upload",
+        "2": "Playbook and model profile",
+        "3": "Primary language and check mode",
+        "4": "Analysis launch"
+      },
+      "iconLabel": "Overview"
+    },
+    "step1": {
+      "title": "Project information",
+      "description": "Set the project name and assign the responsible user. The name can be changed later in settings.",
+      "bullets": {
+        "0": "Use a short working name",
+        "1": "The responsible user gets the project administrator role",
+        "2": "The responsible user can be assigned later — this step is optional"
+      },
+      "iconLabel": "Project"
+    },
+    "step2": {
+      "title": "Document upload",
+      "description": "Upload files for analysis. PDF, DOCX, XLSX and other common formats are supported.",
+      "bullets": {
+        "0": "You can upload one or several files at once",
+        "1": "Files are processed in the background — you can continue configuring",
+        "2": "Additional files can be added later"
+      },
+      "iconLabel": "Documents"
+    },
+    "step3": {
+      "title": "Playbook",
+      "description": "Choose a playbook — the set of checks to be applied to the documents. Only published versions are available.",
+      "bullets": {
+        "0": "Select a template first, then a version",
+        "1": "The playbook defines the checks and the DD Grid",
+        "2": "The playbook can be changed later in project settings"
+      },
+      "iconLabel": "Playbook"
+    },
+    "step4": {
+      "title": "Model profile",
+      "description": "Defines semantic search parameters and weights for hybrid retrieval. Optional step.",
+      "bullets": {
+        "0": "The profile applies to all project documents",
+        "1": "If skipped, the default profile will be used",
+        "2": "Can be changed later in settings"
+      },
+      "iconLabel": "Model"
+    },
+    "step5": {
+      "title": "Primary language",
+      "description": "The system automatically detects document languages. Once processing completes, select the primary analysis language.",
+      "bullets": {
+        "0": "Language detection runs in the background",
+        "1": "The primary language defines the primary source for the checks",
+        "2": "The selection becomes available once processing completes"
+      },
+      "iconLabel": "Language"
+    },
+    "step6": {
+      "title": "Launch analysis",
+      "description": "Select the check mode and launch the analysis. After launch you will be redirected to the project page.",
+      "bullets": {
+        "0": "Recommended mode — Playbook and document types",
+        "1": "Force reclassify is useful after manual reclassification",
+        "2": "Analysis progress is shown on the Overview tab"
+      },
+      "iconLabel": "Launch"
+    }
+  }
+}

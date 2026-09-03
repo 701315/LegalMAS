@@ -16,6 +16,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { LogsMode } from "../../../api/tenantAdmin";
 import { FOCUS_RING } from "../constants";
 
@@ -26,33 +27,36 @@ export interface ModeSwitchProps {
   onChange: (v: LogsMode) => void;
 }
 
-const ModeSwitch: React.FC<ModeSwitchProps> = ({ value, onChange }) => (
-  <div className="inline-flex overflow-hidden rounded-xl border border-[var(--border)] text-xs">
-    <button
-      type="button"
-      onClick={() => onChange("operational")}
-      className={`px-3 py-1.5 transition-colors ${FOCUS_RING} ${
-        value === "operational"
-          ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
-      }`}
-    >
-      События платформы
-    </button>
-    <button
-      type="button"
-      onClick={() => onChange("debug")}
-      className={`border-l border-[var(--border)] px-3 py-1.5 transition-colors ${FOCUS_RING} ${
-        value === "debug"
-          ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
-      }`}
-    >
-      Debug (все логи)
-    </button>
-  </div>
-);
+const ModeSwitch: React.FC<ModeSwitchProps> = ({ value, onChange }) => {
+  const { t } = useTranslation("tenantAdmin");
+
+  return (
+    <div className="inline-flex overflow-hidden rounded-xl border border-[var(--border)] text-xs">
+      <button
+        type="button"
+        onClick={() => onChange("operational")}
+        className={`px-3 py-1.5 transition-colors ${FOCUS_RING} ${
+          value === "operational"
+            ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+            : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
+        }`}
+      >
+        {t("logs.modeSwitch.operational")}
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("debug")}
+        className={`border-l border-[var(--border)] px-3 py-1.5 transition-colors ${FOCUS_RING} ${
+          value === "debug"
+            ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+            : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
+        }`}
+      >
+        {t("logs.modeSwitch.debug")}
+      </button>
+    </div>
+  );
+};
 
 export default ModeSwitch;
-
 

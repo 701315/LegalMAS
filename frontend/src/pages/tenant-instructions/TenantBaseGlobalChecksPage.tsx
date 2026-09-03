@@ -1,6 +1,7 @@
 // frontend/src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx
 
 import React, { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -34,10 +35,13 @@ function groupKeyOf(groupName: string | null): string {
   return groupName ?? UNGROUPED_KEY;
 }
 
-function formatDate(value: string | null | undefined): string | null {
+function formatDate(
+  value: string | null | undefined,
+  locale: string,
+): string | null {
   if (!value) return null;
   try {
-    return new Date(value).toLocaleDateString("ru-RU");
+    return new Date(value).toLocaleDateString(locale);
   } catch {
     return null;
   }
@@ -56,33 +60,38 @@ interface SearchInputProps {
 const SearchInput: React.FC<SearchInputProps> = ({
   value,
   onChange,
-  placeholder = "Поиск…",
-}) => (
-  <div className="relative w-full sm:w-96">
-    <Search
-      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
-      aria-hidden="true"
-    />
-    <input
-      type="search"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      autoComplete="off"
-      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-    />
-    {value.length > 0 && (
-      <button
-        type="button"
-        onClick={() => onChange("")}
-        aria-label="Очистить поиск"
-        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    )}
-  </div>
-);
+  placeholder,
+}) => {
+  const { t } = useTranslation("common");
+  const resolvedPlaceholder = placeholder ?? t("search.placeholder");
+
+  return (
+    <div className="relative w-full sm:w-96">
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+        aria-hidden="true"
+      />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={resolvedPlaceholder}
+        autoComplete="off"
+        className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+      />
+      {value.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label={t("search.clear")}
+          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // CheckCard
@@ -92,7 +101,8 @@ const CheckCard: React.FC<{
   item: GlobalInstructionCatalogItem;
   onClick: () => void;
 }> = ({ item, onClick }) => {
-  const publishedAt = formatDate(item.latest_published_at);
+  const { t, i18n } = useTranslation("instructions");
+  const publishedAt = formatDate(item.latest_published_at, i18n.language);
 
   return (
     <button
@@ -127,8 +137,9 @@ const CheckCard: React.FC<{
 
         <div className="flex shrink-0 flex-col items-end gap-1.5 text-[11px] text-[var(--text-muted)]">
           <span>
-            {item.total_versions_count}{" "}
-            {item.total_versions_count === 1 ? "версия" : "версий"}
+            {t("tenantBase.common.versionsCount", {
+              count: item.total_versions_count,
+            })}
           </span>
 
           <div className="flex items-center gap-1">
@@ -143,7 +154,11 @@ const CheckCard: React.FC<{
                 aria-hidden="true"
               />
             )}
-            <span>{item.has_published ? "Published" : "Нет published"}</span>
+            <span>
+              {item.has_published
+                ? t("tenantBase.common.hasPublished")
+                : t("tenantBase.common.noPublished")}
+            </span>
           </div>
 
           {publishedAt && <span>{publishedAt}</span>}
@@ -172,7 +187,8 @@ const GroupSection: React.FC<GroupSectionProps> = ({
   onToggle,
   onItemClick,
 }) => {
-  const displayName = groupName ?? "Без группы";
+  const { t } = useTranslation("instructions");
+  const displayName = groupName ?? t("tenantBase.common.ungrouped");
   const groupId = `group-${groupKeyOf(groupName)}`;
 
   return (
@@ -206,8 +222,8 @@ const GroupSection: React.FC<GroupSectionProps> = ({
           </div>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
             {isCollapsed
-              ? "Раздел свёрнут"
-              : "Нажмите на инструкцию, чтобы просмотреть её содержимое и версии."}
+              ? t("tenantBase.common.collapsed")
+              : t("tenantBase.common.expanded")}
           </p>
         </div>
       </button>
@@ -232,6 +248,7 @@ const GroupSection: React.FC<GroupSectionProps> = ({
 // ─────────────────────────────────────────────────────────────
 
 const TenantBaseGlobalChecksPage: React.FC = () => {
+  const { t, i18n } = useTranslation("instructions");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
@@ -262,9 +279,9 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
     return Array.from(map.entries()).sort(([a], [b]) => {
       if (a === null) return 1;
       if (b === null) return -1;
-      return a.localeCompare(b, "ru");
+      return a.localeCompare(b, i18n.language);
     });
-  }, [filtered]);
+  }, [filtered, i18n.language]);
 
   const handleItemClick = useCallback(
     (code: string) => {
@@ -320,26 +337,32 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
                 className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                Инструкции
+                {t("tenantBase.backToInstructions")}
               </button>
 
               <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Базовые Global Instructions
+                {t("tenantBase.globalChecks.title")}
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Read-only каталог базовых глобальных проверок платформы.
+                {t("tenantBase.globalChecks.description")}
               </p>
 
               {!isLoading && !isError && items.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
                   <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
-                    Всего: {items.length}
+                    {t("tenantBase.globalChecks.stats.total", {
+                      count: items.length,
+                    })}
                   </span>
                   <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-1 text-[var(--color-success-text)]">
-                    Published: {publishedCount}
+                    {t("tenantBase.globalChecks.stats.published", {
+                      count: publishedCount,
+                    })}
                   </span>
                   <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
-                    Групп: {grouped.length}
+                    {t("tenantBase.globalChecks.stats.groups", {
+                      count: grouped.length,
+                    })}
                   </span>
                 </div>
               )}
@@ -351,7 +374,7 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
               onClick={() => void refetch()}
               leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
             >
-              Обновить
+              {t("tenantBase.common.refresh")}
             </Button>
           </div>
         </header>
@@ -359,13 +382,11 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
         {/* ── Инфо ────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-            Как использовать
+            {t("tenantBase.globalChecks.infoTitle")}
           </div>
           <div className="mt-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3">
             <p className="text-sm leading-6 text-[var(--text-secondary)]">
-              Базовые инструкции управляются superadmin. Нажмите на инструкцию,
-              чтобы просмотреть её содержимое и версии. Для создания
-              переопределений перейдите в{" "}
+              {t("tenantBase.globalChecks.infoText")}
               <button
                 type="button"
                 onClick={() =>
@@ -373,9 +394,9 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
                 }
                 className="font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
               >
-                Global Overrides
+                {t("tenantBase.globalChecks.infoLinkLabel")}
               </button>
-              .
+              {t("tenantBase.globalChecks.infoTextTail")}
             </p>
           </div>
         </section>
@@ -394,12 +415,15 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
                 <SearchInput
                   value={search}
                   onChange={setSearch}
-                  placeholder="Поиск по коду, названию, группе…"
+                  placeholder={t("tenantBase.globalChecks.searchPlaceholder")}
                 />
 
                 {isSearching && (
                   <p className="hidden text-xs text-[var(--text-muted)] sm:block">
-                    Найдено: {filtered.length} из {items.length}
+                    {t("tenantBase.common.foundOf", {
+                      filtered: filtered.length,
+                      total: items.length,
+                    })}
                   </p>
                 )}
               </div>
@@ -418,14 +442,19 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
                     )
                   }
                 >
-                  {allCollapsed ? "Развернуть все" : "Свернуть все"}
+                  {allCollapsed
+                    ? t("tenantBase.common.expandAll")
+                    : t("tenantBase.common.collapseAll")}
                 </Button>
               )}
             </div>
 
             {isSearching && (
               <p className="mt-2 text-xs text-[var(--text-muted)] sm:hidden">
-                Найдено: {filtered.length} из {items.length}
+                {t("tenantBase.common.foundOf", {
+                  filtered: filtered.length,
+                  total: items.length,
+                })}
               </p>
             )}
           </div>
@@ -434,7 +463,7 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
         {/* ── States ──────────────────────────────────────────── */}
         {isLoading && (
           <LoadingBlock
-            text="Загружаем базовые global instructions…"
+            text={t("tenantBase.globalChecks.loading")}
             rows={6}
           />
         )}
@@ -442,28 +471,28 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
         {isError && (
           <InlineAlert
             tone="error"
-            message="Не удалось загрузить базовые global instructions."
+            message={t("tenantBase.globalChecks.loadError")}
           />
         )}
 
         {!isLoading && !isError && items.length === 0 && (
           <EmptyState
-            title="Global instructions не найдены"
-            description="Каталог базовых global instructions пока недоступен."
+            title={t("tenantBase.globalChecks.emptyTitle")}
+            description={t("tenantBase.globalChecks.emptyDesc")}
           />
         )}
 
         {!isLoading && !isError && items.length > 0 && filtered.length === 0 && (
           <EmptyState
-            title="Ничего не найдено"
-            description="Попробуйте изменить поисковый запрос."
+            title={t("tenantBase.globalChecks.noResultsTitle")}
+            description={t("tenantBase.globalChecks.noResultsDesc")}
             action={
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setSearch("")}
               >
-                Очистить поиск
+                {t("tenantBase.common.clearSearch")}
               </Button>
             }
           />

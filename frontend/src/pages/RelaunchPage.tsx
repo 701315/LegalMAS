@@ -17,6 +17,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
@@ -46,9 +47,11 @@ function shouldPollDealLanguageDiscovery(
 }
 
 const RelaunchPage: React.FC = () => {
+  const { t } = useTranslation("projects");
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+
   const { userId } = useAuth();
 
   const {
@@ -97,7 +100,7 @@ const RelaunchPage: React.FC = () => {
   if (isLoading || !dealId) {
     return (
       <div className="flex h-full items-center justify-center p-8 text-sm text-[var(--text-muted)]">
-        Загрузка проекта…
+        {t("pages.relaunch.loading")}
       </div>
     );
   }
@@ -108,14 +111,14 @@ const RelaunchPage: React.FC = () => {
         <p className="text-[var(--color-error-text)]">
           {error instanceof Error
             ? error.message
-            : "Не удалось загрузить проект"}
+            : t("pages.relaunch.loadError")}
         </p>
         <Button
           variant="secondary"
           size="sm"
           onClick={() => navigate("/dashboard")}
         >
-          Вернуться к проектам
+          {t("pages.relaunch.backToProjects")}
         </Button>
       </div>
     );
@@ -231,13 +234,13 @@ const RelaunchPage: React.FC = () => {
               </button>
               <span className="text-xs text-[var(--text-muted)]">›</span>
               <span className="text-xs font-semibold text-[var(--accent-primary)]">
-                {hasCurrentRun ? "Перезапуск анализа" : "Запуск анализа"}
+                {hasCurrentRun ? t("pages.relaunch.relaunchTitle") : t("pages.relaunch.launchTitle")}
               </span>
             </div>
             <h1 className="mt-2 truncate text-base font-semibold text-[var(--text-primary)]">
               {hasCurrentRun
-                ? "Настройте параметры и перезапустите анализ"
-                : "Настройте параметры и запустите первый анализ"}
+                ? t("pages.relaunch.relaunchDesc")
+                : t("pages.relaunch.launchDesc")}
             </h1>
           </div>
 
@@ -247,12 +250,12 @@ const RelaunchPage: React.FC = () => {
               size="sm"
               onClick={handleCancel}
             >
-              Отмена
+              {t("pages.relaunch.cancel")}
             </Button>
           </div>
         </div>
       </header>
-
+      
       {/* ── Launch content ─────────────────────────────────────────────
           LaunchWideOverlay с variant="inline" рендерится in-flow внутри
           scroll-контейнера страницы. Все subpanes (Upload, Playbook,

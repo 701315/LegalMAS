@@ -30,6 +30,67 @@
     "monitoring": "Мониторинг",
     "logs": "Логи",
     "alerts": "Алерты"
+  },
+  "meta": {
+    "showAll": "Показать всё"
+  },
+  "projectRow": {
+    "createdAt": "Создан {{date}}",
+    "errorsInline": "ошибок: {{count}}",
+    "quarantineInline": "карантин: {{count}}",
+    "notLaunched": "Не запускался",
+    "open": "Открыть"
+  },
+  "userRow": {
+    "active": "Активен",
+    "deactivated": "Деактивирован"
+  },
+  "errorRow": {
+    "document": "Документ",
+    "run": "Run",
+    "documentFallback": "Документ {{id}}…",
+    "runFallback": "Run {{id}}…",
+    "stageLabel": "stage: {{stage}}",
+    "logs": "Логи",
+    "file": "Файл",
+    "errorType": "Тип ошибки",
+    "reason": "Причина",
+    "time": "Время",
+    "rawDetails": "Raw error_details"
+  },
+  "logs": {
+    "modeSwitch": {
+      "operational": "События платформы",
+      "debug": "Debug (все логи)"
+    },
+    "table": {
+      "headers": {
+        "timestamp": "Timestamp",
+        "level": "Level",
+        "event": "Event",
+        "stage": "Stage",
+        "queue": "Queue",
+        "worker": "Worker"
+      },
+      "groupTooltip": "Группа повторяющихся событий",
+      "runSuffix": " · run {{id}}…"
+    },
+    "details": {
+      "emptyTitle": "Выберите запись лога",
+      "emptySubtitle": "Нажмите на строку в таблице, чтобы увидеть подробности",
+      "title": "Детали лога",
+      "actions": {
+        "copied": "Скопировано",
+        "copyJson": "JSON",
+        "allRunLogs": "Все логи run",
+        "allDocLogs": "Все логи документа",
+        "allTaskLogs": "Все логи task"
+      },
+      "groupTooltip": "Группа повторяющихся событий",
+      "event": "Event",
+      "seenRange": "Первое: {{first}} · Последнее: {{last}}",
+      "rawJson": "Raw JSON"
+    }
   }
 }
 

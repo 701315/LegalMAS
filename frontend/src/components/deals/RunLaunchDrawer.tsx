@@ -1,6 +1,7 @@
 // src/components/deals/RunLaunchDrawer.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { Deal } from "../../types/deals";
 import Drawer from "../ui/Drawer";
 import Button from "../ui/Button";
@@ -55,16 +56,18 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
   onPrimaryLanguageChange,
   onSubmit,
 }) => {
+  const { t } = useTranslation("analysis");
+
   const documentLanguages = deal.languages ?? [];
   const hasMultipleDocumentLanguages = documentLanguages.length > 1;
   const selectedPrimaryLanguage = deal.primary_language ?? "";
   const hasPlaybook = !!deal.playbook_version_id;
 
   const readinessLabel = !hasPlaybook
-    ? "Нужно выбрать playbook, чтобы запустить анализ."
+    ? t("runLaunch.readiness.needPlaybook")
     : hasMultipleDocumentLanguages && !selectedPrimaryLanguage
-      ? "Нужно выбрать основной язык анализа."
-      : "Параметры готовы к запуску анализа.";
+      ? t("runLaunch.readiness.needPrimaryLanguage")
+      : t("runLaunch.readiness.ready");
 
   const handleSubmit = () => {
     if (!canLaunchRun) return;
@@ -75,12 +78,12 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
     <Drawer
       open={open}
       onClose={onClose}
-      title="Запуск анализа"
-      description="Проверьте параметры анализа для этой сделки."
+      title={t("runLaunch.title")}
+      description={t("runLaunch.description")}
       footer={
         <div className="flex items-center justify-between gap-3">
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Отмена
+            {t("runLaunch.cancel")}
           </Button>
 
           <div className="flex items-center gap-3">
@@ -96,7 +99,7 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
               disabled={!canLaunchRun}
               isLoading={isSubmitting}
             >
-              Запустить анализ
+              {t("runLaunch.submit")}
             </Button>
           </div>
         </div>
@@ -109,8 +112,7 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
           </p>
           {currentRunId && (
             <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Последний анализ уже запускался. Новый запуск обновит результаты
-              по текущим документам.
+              {t("runLaunch.previousRunHint")}
             </p>
           )}
         </div>
@@ -119,16 +121,15 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                Документы
+                {t("runLaunch.documents.title")}
               </h4>
               <p className="mt-1 text-xs text-[var(--text-secondary)]">
                 {typeof documentsCount === "number"
-                  ? `В проект загружено ${documentsCount} документ(ов).`
-                  : "Загружаем информацию о документах…"}
+                  ? t("runLaunch.documents.countInfo", { count: documentsCount })
+                  : t("runLaunch.documents.loadingInfo")}
               </p>
               <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                Для добавления новых документов используйте отдельный сценарий
-                загрузки.
+                {t("runLaunch.documents.hint")}
               </p>
             </div>
             <Button
@@ -138,32 +139,32 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
               disabled={!canUploadDocuments}
               className={SECONDARY_ACTION_BUTTON_CLASS}
             >
-              Загрузить документы
+              {t("runLaunch.documents.uploadButton")}
             </Button>
           </div>
         </section>
 
         <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
           <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-            Режим проверки
+            {t("runLaunch.checksMode.title")}
           </h4>
           <div className="mt-3 space-y-2">
             {(
               [
                 {
                   value: "global_and_doc_type",
-                  title: "Playbook и типы документов",
-                  hint: "Рекомендуемый режим: комбинирует глобальный playbook и типовые проверки.",
+                  title: t("runLaunch.checksMode.global_and_doc_type_title"),
+                  hint: t("runLaunch.checksMode.global_and_doc_type_hint"),
                 },
                 {
                   value: "global_only",
-                  title: "Только Playbook",
-                  hint: "Анализ только по правилам playbook без привязки к типу документа.",
+                  title: t("runLaunch.checksMode.global_only_title"),
+                  hint: t("runLaunch.checksMode.global_only_hint"),
                 },
                 {
                   value: "doc_type_only",
-                  title: "Только типы документов",
-                  hint: "Используются проверки, привязанные к типам документов.",
+                  title: t("runLaunch.checksMode.doc_type_only_title"),
+                  hint: t("runLaunch.checksMode.doc_type_only_hint"),
                 },
               ] as { value: ChecksMode; title: string; hint: string }[]
             ).map(({ value, title, hint }) => (
@@ -201,10 +202,10 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                Playbook проекта
+                {t("runLaunch.playbook.title")}
               </h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Используется для формирования проверок и DD Grid.
+                {t("runLaunch.playbook.hint")}
               </p>
             </div>
             <Button
@@ -213,19 +214,17 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
               onClick={onOpenPlaybook}
               className={SECONDARY_ACTION_BUTTON_CLASS}
             >
-              Открыть Playbook
+              {t("runLaunch.playbook.openButton")}
             </Button>
           </div>
           <p className="mt-3 text-xs leading-5">
             {hasPlaybook ? (
               <span className="text-[var(--text-secondary)]">
-                Playbook выбран. При необходимости вы можете изменить его перед
-                запуском.
+                {t("runLaunch.playbook.selected")}
               </span>
             ) : (
               <span className="text-[var(--color-error-text)]">
-                Playbook не выбран. Нельзя запустить анализ без выбранного
-                playbook.
+                {t("runLaunch.playbook.notSelected")}
               </span>
             )}
           </p>
@@ -235,10 +234,10 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                Профиль модели
+                {t("runLaunch.modelProfile.title")}
               </h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Настройка профиля модели для специальных сценариев анализа.
+                {t("runLaunch.modelProfile.hint")}
               </p>
             </div>
             {onOpenModelConfig && (
@@ -248,20 +247,20 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
                 onClick={onOpenModelConfig}
                 className={SECONDARY_ACTION_BUTTON_CLASS}
               >
-                Настроить профиль модели
+                {t("runLaunch.modelProfile.configureButton")}
               </Button>
             )}
           </div>
           <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
             {deal.model_config_name
-              ? `Текущий профиль: ${deal.model_config_name}.`
-              : "Будет использован профиль, привязанный к проекту или playbook."}
+              ? t("runLaunch.modelProfile.current", { name: deal.model_config_name })
+              : t("runLaunch.modelProfile.fallback")}
           </p>
         </section>
 
         <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
           <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-            Основной язык анализа
+            {t("runLaunch.primaryLanguage.title")}
           </h4>
           <div className="mt-3 flex items-center gap-2">
             <select
@@ -272,8 +271,8 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
             >
               <option value="">
                 {hasMultipleDocumentLanguages
-                  ? "Выберите основной язык"
-                  : "Авто (единственный язык сделки)"}
+                  ? t("runLaunch.primaryLanguage.placeholderMulti")
+                  : t("runLaunch.primaryLanguage.placeholderAuto")}
               </option>
               {documentLanguages.map((lang) => (
                 <option key={lang} value={lang}>
@@ -283,21 +282,22 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
             </select>
             {isSubmitting && (
               <span className="text-[11px] text-[var(--text-muted)]">
-                Сохраняем…
+                {t("runLaunch.primaryLanguage.saving")}
               </span>
             )}
           </div>
 
           {documentLanguages.length > 0 && (
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              Языки документов: {documentLanguages.join(", ")}
+              {t("runLaunch.primaryLanguage.documentLanguages", {
+                list: documentLanguages.join(", "),
+              })}
             </p>
           )}
 
           {hasMultipleDocumentLanguages && !selectedPrimaryLanguage && (
             <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning-text)]">
-              В сделке есть документы на нескольких языках. Перед запуском
-              анализа выберите основной язык.
+              {t("runLaunch.primaryLanguage.warningMulti")}
             </p>
           )}
         </section>
@@ -305,7 +305,7 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
         {deal.has_pending_manual_reclassifications && (
           <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
             <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-              Дополнительные параметры
+              {t("runLaunch.extra.title")}
             </h4>
             <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] px-3 py-3 text-xs text-[var(--text-secondary)]">
               <input
@@ -317,11 +317,10 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
               />
               <span>
                 <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                  Принудительно переклассифицировать документы
+                  {t("runLaunch.extra.forceReclassifyTitle")}
                 </span>
                 <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Используйте после ручной переклассификации, чтобы обновить
-                  типы документов.
+                  {t("runLaunch.extra.forceReclassifyHint")}
                 </span>
               </span>
             </label>

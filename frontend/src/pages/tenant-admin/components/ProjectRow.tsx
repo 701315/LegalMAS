@@ -17,6 +17,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "lucide-react";
 import type { ProjectHealthDTO } from "../../../api/tenantAdmin";
 import Button from "../../../components/ui/Button";
@@ -31,6 +32,7 @@ export interface ProjectRowProps {
 }
 
 const ProjectRow: React.FC<ProjectRowProps> = ({ project, onOpen }) => {
+  const { t, i18n } = useTranslation("tenantAdmin");
   const run = project.last_run;
   const cfg = run?.status ? RUN_STATUS_CONFIG[run.status] : null;
 
@@ -71,7 +73,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onOpen }) => {
               {project.deal_name}
             </p>
             <p className="text-[10px] text-[var(--text-muted)]">
-              Создан {formatDate(project.created_at)}
+              {t("projectRow.createdAt", {
+                date: formatDate(project.created_at, i18n.language) ?? "—",
+              })}
             </p>
           </div>
         </div>
@@ -86,7 +90,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onOpen }) => {
           <p className="text-[10px]">
             {project.failed_documents > 0 && (
               <span className="text-[var(--color-error-text)]">
-                ошибок: {project.failed_documents}
+                {t("projectRow.errorsInline", {
+                  count: project.failed_documents,
+                })}
               </span>
             )}
             {project.failed_documents > 0 &&
@@ -94,7 +100,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onOpen }) => {
               " · "}
             {project.quarantine_documents > 0 && (
               <span className="text-[var(--color-warning-text)]">
-                карантин: {project.quarantine_documents}
+                {t("projectRow.quarantineInline", {
+                  count: project.quarantine_documents,
+                })}
               </span>
             )}
           </p>
@@ -109,13 +117,13 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onOpen }) => {
             </p>
             {run.completed_at && (
               <p className="text-[10px] text-[var(--text-muted)]">
-                {formatDateTime(run.completed_at)}
+                {formatDateTime(run.completed_at, i18n.language)}
               </p>
             )}
           </div>
         ) : (
           <span className="text-[10px] text-[var(--text-muted)]">
-            Не запускался
+            {t("projectRow.notLaunched")}
           </span>
         )}
       </td>
@@ -152,7 +160,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onOpen }) => {
             onOpen(project.deal_id);
           }}
         >
-          Открыть
+          {t("projectRow.open")}
         </Button>
       </td>
     </tr>

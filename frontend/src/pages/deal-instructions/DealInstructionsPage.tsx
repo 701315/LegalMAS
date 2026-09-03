@@ -1,11 +1,13 @@
 // src/pages/deal-instructions/DealInstructionsPage.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { GitBranch } from "lucide-react";
 import InstructionPageHeader from "../../components/instructions/InstructionPageHeader";
 
 const DealInstructionsPage: React.FC = () => {
+  const { t } = useTranslation("instructions");
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
 
@@ -14,11 +16,11 @@ const DealInstructionsPage: React.FC = () => {
       <div className="mx-auto max-w-4xl space-y-4">
         <InstructionPageHeader
           breadcrumbs={[
-            { label: "Проект", to: `/projects/${dealId}` },
-            { label: "Инструкции" },
+            { label: t("deal.breadcrumbs.project"), to: `/projects/${dealId}` },
+            { label: t("deal.breadcrumbs.instructions") },
           ]}
-          title="Инструкции проекта"
-          subtitle="Управление override-инструкциями для этого проекта."
+          title={t("deal.instructionsPage.title")}
+          subtitle={t("deal.instructionsPage.subtitle")}
         />
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -38,10 +40,10 @@ const DealInstructionsPage: React.FC = () => {
               </div>
               <div>
                 <div className="text-sm font-semibold text-[var(--text-primary)]">
-                  Deal Overrides
+                  {t("deal.instructionsPage.overridesCard.title")}
                 </div>
                 <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                  Переопределения инструкций для этого проекта.
+                  {t("deal.instructionsPage.overridesCard.description")}
                 </div>
               </div>
             </div>

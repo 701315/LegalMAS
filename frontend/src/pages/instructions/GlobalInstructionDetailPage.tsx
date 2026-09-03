@@ -6,6 +6,7 @@
 //   /admin/instructions/global-checks/:instructionCode?version=<id>
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Copy, Eye, Plus, GitBranch, Archive } from "lucide-react";
 
@@ -67,10 +68,10 @@ evidence:
 // Утилиты
 // ─────────────────────────────────────────────────────────────
 
-function formatDate(value: string | null | undefined): string | null {
+function formatDate(value: string | null | undefined, locale: string): string | null {
   if (!value) return null;
   try {
-    return new Date(value).toLocaleDateString("ru-RU");
+    return new Date(value).toLocaleDateString(locale);
   } catch {
     return null;
   }
@@ -107,76 +108,80 @@ const InstructionInfoCard: React.FC<InstructionInfoCardProps> = ({
   totalVersions,
   hasPublished,
   draftCount,
-}) => (
-  <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-    <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-      Об инструкции
-    </h3>
+}) => {
+  const { t } = useTranslation("instructions");
 
-    <div className="mt-3 space-y-3">
-      <div>
-        <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-          Название
-        </div>
-        <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-          {name}
-        </div>
-      </div>
+  return (
+    <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        {t("card.about")}
+      </h3>
 
-      <div>
-        <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-          Код
-        </div>
-        <div className="mt-0.5 break-all font-mono text-xs text-[var(--text-secondary)]">
-          {instructionCode}
-        </div>
-      </div>
-
-      {group && (
+      <div className="mt-3 space-y-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            Группа
+            {t("card.name")}
           </div>
-          <div className="mt-0.5 text-xs text-[var(--text-primary)]">{group}</div>
+          <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+            {name}
+          </div>
         </div>
-      )}
 
-      <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
-            Всего
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+            {t("card.code")}
           </div>
-          <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-            {totalVersions}
+          <div className="mt-0.5 break-all font-mono text-xs text-[var(--text-secondary)]">
+            {instructionCode}
           </div>
         </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
-            Published
+
+        {group && (
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              {t("card.group")}
+            </div>
+            <div className="mt-0.5 text-xs text-[var(--text-primary)]">{group}</div>
           </div>
-          <div
-            className={[
-              "mt-0.5 text-sm font-semibold",
-              hasPublished
-                ? "text-[var(--color-success-text)]"
-                : "text-[var(--text-muted)]",
-            ].join(" ")}
-          >
-            {hasPublished ? "да" : "нет"}
+        )}
+
+        <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              {t("card.total")}
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+              {totalVersions}
+            </div>
           </div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
-            Draft
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              {t("card.published")}
+            </div>
+            <div
+              className={[
+                "mt-0.5 text-sm font-semibold",
+                hasPublished
+                  ? "text-[var(--color-success-text)]"
+                  : "text-[var(--text-muted)]",
+              ].join(" ")}
+            >
+              {hasPublished ? t("detail.hasPublishedYes") : t("detail.hasPublishedNo")}
+            </div>
           </div>
-          <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-            {draftCount}
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              {t("card.draft")}
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+              {draftCount}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // SelectedVersionCard
@@ -190,118 +195,122 @@ interface SelectedVersionCardProps {
 const SelectedVersionCard: React.FC<SelectedVersionCardProps> = ({
   version,
   onNavigateToParent,
-}) => (
-  <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-    <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-      Выбранная версия
-    </h3>
+}) => {
+  const { t, i18n } = useTranslation("instructions");
 
-    {version ? (
-      <div className="mt-3 space-y-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            Название
+  return (
+    <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        {t("card.selectedVersion")}
+      </h3>
+
+      {version ? (
+        <div className="mt-3 space-y-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              {t("card.name")}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-[var(--text-primary)]">
+                {version.name ?? t("card.untitled")}
+              </span>
+              <VersionStatusBadge status={version.version_status} size="xs" />
+            </div>
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-[var(--text-primary)]">
-              {version.name ?? "Без названия"}
-            </span>
-            <VersionStatusBadge status={version.version_status} size="xs" />
+
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              ID
+            </div>
+            <div className="mt-0.5 break-all font-mono text-[11px] text-[var(--text-secondary)]">
+              {version.id}
+            </div>
           </div>
+
+          {(version.semver || version.published_at) && (
+            <div className="grid grid-cols-2 gap-2">
+              {version.semver && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                    {t("card.semver")}
+                  </div>
+                  <div className="mt-0.5 font-mono text-xs text-[var(--text-primary)]">
+                    v{version.semver}
+                  </div>
+                </div>
+              )}
+              {version.published_at && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                    {t("card.publishedLabel")}
+                  </div>
+                  <div className="mt-0.5 text-xs text-[var(--text-primary)]">
+                    {formatDate(version.published_at, i18n.language)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {version.change_summary && (
+            <div className="border-t border-[var(--border-soft)] pt-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                {t("card.changeSummary")}
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+                {version.change_summary}
+              </p>
+            </div>
+          )}
+
+          {version.parent_version_id && (
+            <div className="border-t border-[var(--border-soft)] pt-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                {t("card.basedOn")}
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigateToParent(version.parent_version_id!)}
+                className="mt-1 break-all font-mono text-[11px] text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
+              >
+                {version.parent_version_id}
+              </button>
+            </div>
+          )}
         </div>
-
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            ID
+      ) : (
+        <div className="mt-3 space-y-3" aria-hidden="true">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              {t("card.name")}
+            </div>
+            <div className="mt-1 h-4 w-3/4 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
           </div>
-          <div className="mt-0.5 break-all font-mono text-[11px] text-[var(--text-secondary)]">
-            {version.id}
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              ID
+            </div>
+            <div className="mt-1 h-3 w-full animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
           </div>
-        </div>
-
-        {(version.semver || version.published_at) && (
           <div className="grid grid-cols-2 gap-2">
-            {version.semver && (
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  Semver
-                </div>
-                <div className="mt-0.5 font-mono text-xs text-[var(--text-primary)]">
-                  v{version.semver}
-                </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                {t("card.semver")}
               </div>
-            )}
-            {version.published_at && (
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  Published
-                </div>
-                <div className="mt-0.5 text-xs text-[var(--text-primary)]">
-                  {formatDate(version.published_at)}
-                </div>
+              <div className="mt-1 h-3 w-12 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                {t("card.publishedLabel")}
               </div>
-            )}
-          </div>
-        )}
-
-        {version.change_summary && (
-          <div className="border-t border-[var(--border-soft)] pt-3">
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-              Описание изменений
+              <div className="mt-1 h-3 w-20 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
-              {version.change_summary}
-            </p>
-          </div>
-        )}
-
-        {version.parent_version_id && (
-          <div className="border-t border-[var(--border-soft)] pt-3">
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-              На основе версии
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigateToParent(version.parent_version_id!)}
-              className="mt-1 break-all font-mono text-[11px] text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
-            >
-              {version.parent_version_id}
-            </button>
-          </div>
-        )}
-      </div>
-    ) : (
-      <div className="mt-3 space-y-3" aria-hidden="true">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            Название
-          </div>
-          <div className="mt-1 h-4 w-3/4 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            ID
-          </div>
-          <div className="mt-1 h-3 w-full animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-              Semver
-            </div>
-            <div className="mt-1 h-3 w-12 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-              Published
-            </div>
-            <div className="mt-1 h-3 w-20 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
           </div>
         </div>
-      </div>
-    )}
-  </section>
-);
+      )}
+    </section>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // VersionSidebarItem
@@ -318,8 +327,9 @@ const VersionSidebarItem: React.FC<VersionSidebarItemProps> = ({
   isSelected,
   onClick,
 }) => {
-  const publishedAt = formatDate(version.published_at);
-  const updatedAt = formatDate(version.updated_at);
+  const { t, i18n } = useTranslation("instructions");
+  const publishedAt = formatDate(version.published_at, i18n.language);
+  const updatedAt = formatDate(version.updated_at, i18n.language);
   const displayDate = publishedAt ?? updatedAt;
 
   return (
@@ -338,7 +348,7 @@ const VersionSidebarItem: React.FC<VersionSidebarItemProps> = ({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-semibold text-[var(--text-primary)]">
-            {version.name ?? "Без названия"}
+            {version.name ?? t("card.untitled")}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--text-muted)]">
             <span className="font-mono">{version.id.slice(0, 8)}…</span>
@@ -395,6 +405,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
   isLoading,
   isError,
 }) => {
+  const { t } = useTranslation("instructions");
   const drafts = versions.filter((v) => v.version_status === "draft");
   const published = versions.filter((v) => v.version_status === "published");
   const archived = versions.filter((v) => v.version_status === "archived");
@@ -403,7 +414,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
     <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-          Версии
+          {t("card.versions")}
         </h3>
         <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
           <GitBranch className="h-3.5 w-3.5" aria-hidden="true" />
@@ -412,18 +423,18 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
       </div>
 
       <div className="mt-3">
-        {isLoading && <LoadingBlock text="Загружаем версии…" rows={3} />}
+        {isLoading && <LoadingBlock text={t("card.loadingVersions")} rows={3} />}
 
         {isError && (
           <InlineAlert
             tone="error"
-            message="Не удалось загрузить версии инструкции."
+            message={t("card.versionsError")}
           />
         )}
 
         {!isLoading && !isError && versions.length === 0 && (
           <p className="rounded-lg border border-dashed border-[var(--border)] px-3 py-4 text-center text-[11px] text-[var(--text-muted)]">
-            Для этой инструкции ещё нет версий.
+            {t("card.emptyVersions")}
           </p>
         )}
 
@@ -431,7 +442,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
           <div className="space-y-4">
             {drafts.length > 0 && (
               <VersionGroup
-                label="Черновики"
+                label={t("card.draftsGroup")}
                 count={drafts.length}
                 versions={drafts}
                 selectedVersionId={selectedVersionId}
@@ -440,7 +451,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
             )}
             {published.length > 0 && (
               <VersionGroup
-                label="Published"
+                label={t("card.publishedGroup")}
                 count={published.length}
                 versions={published}
                 selectedVersionId={selectedVersionId}
@@ -449,7 +460,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
             )}
             {archived.length > 0 && (
               <VersionGroup
-                label="Archived"
+                label={t("card.archivedGroup")}
                 count={archived.length}
                 versions={archived}
                 selectedVersionId={selectedVersionId}
@@ -482,6 +493,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
   onVersionLoaded,
   onDraftCreated,
 }) => {
+  const { t } = useTranslation("instructions");
   const navigate = useNavigate();
 
   const {
@@ -525,12 +537,14 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       const newDraft = await cloneDraft.mutateAsync({
         versionId,
         body: {
-          change_summary: `Клон версии ${version?.name ?? versionId}`,
+          change_summary: t("editor.cloneSummary", {
+            name: version?.name ?? versionId,
+          }),
         },
       });
       onDraftCreated(newDraft.id);
     } catch {
-      setActionError("Не удалось создать черновик. Попробуйте ещё раз.");
+      setActionError(t("editor.cloneDraftError"));
     }
   };
 
@@ -541,7 +555,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       const result = await validateDraft.mutateAsync({ versionId });
       setValidationResult(result);
     } catch {
-      setActionError("Не удалось выполнить валидацию. Попробуйте ещё раз.");
+      setActionError(t("editor.validateDraftError"));
     }
   };
 
@@ -553,16 +567,14 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       await refetch();
     } catch {
       setShowPublishDialog(false);
-      setActionError(
-        "Не удалось опубликовать версию. Убедитесь что валидация прошла успешно.",
-      );
+      setActionError(t("editor.publishDraftError"));
     }
   };
 
   if (isLoading) {
     return (
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-        <LoadingBlock text="Загружаем версию инструкции…" rows={6} />
+        <LoadingBlock text={t("detail.loading")} rows={6} />
       </section>
     );
   }
@@ -572,7 +584,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
         <InlineAlert
           tone="error"
-          message="Не удалось загрузить версию инструкции. Проверьте корректность ссылки."
+          message={t("detail.error")}
         />
         <div className="mt-3">
           <Button
@@ -583,7 +595,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             }
             leftIcon={<ArrowLeft className="h-3.5 w-3.5" />}
           >
-            К списку версий
+            {t("detail.backButton")}
           </Button>
         </div>
       </section>
@@ -598,7 +610,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       await refetch();
     } catch {
       setShowArchiveDialog(false);
-      setActionError("Не удалось архивировать версию. Попробуйте ещё раз.");
+      setActionError(t("editor.archiveVersionError"));
     }
   };
 
@@ -616,12 +628,12 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Редактировать эту версию
+                  {t("editor.editPublished")}
                 </h3>
                 <p className="mt-0.5 max-w-2xl text-xs text-[var(--text-muted)]">
                   {hasAnyDraft
-                    ? "У инструкции уже есть активный черновик. Откройте его в списке версий слева, чтобы продолжить редактирование."
-                    : "Published-версия immutable. Создайте черновик на основе этой версии, чтобы внести изменения."}
+                    ? t("editor.hasDraftActive")
+                    : t("editor.immutablePublished")}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -632,7 +644,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                     onClick={() => onDraftCreated("__navigate_to_draft__")}
                     leftIcon={<Eye className="h-3.5 w-3.5" />}
                   >
-                    Открыть черновик
+                    {t("editor.openDraftButton")}
                   </Button>
                 ) : (
                   <Button
@@ -643,7 +655,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                     disabled={cloneDraft.isPending}
                     leftIcon={<Copy className="h-3.5 w-3.5" />}
                   >
-                    Создать черновик
+                    {t("editor.createDraftButton")}
                   </Button>
                 )}
 
@@ -655,7 +667,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                   disabled={archiveVersion.isPending}
                   leftIcon={<Archive className="h-3.5 w-3.5" />}
                 >
-                  Архивировать
+                  {t("editor.archiveButton")}
                 </Button>
               </div>
             </div>
@@ -667,10 +679,10 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
-                  Archived-версия
+                  {t("editor.archivedVersionTitle")}
                 </h3>
                 <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  Эта версия выведена из активного использования. При необходимости можно создать новый черновик на её основе.
+                  {t("editor.archivedVersionDesc")}
                 </p>
               </div>
 
@@ -683,7 +695,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                 leftIcon={<Copy className="h-3.5 w-3.5" />}
                 className="shrink-0"
               >
-                Восстановить как черновик
+                {t("editor.restoreAsDraftButton")}
               </Button>
             </div>
           </section>
@@ -693,7 +705,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
           <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
             <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                Source YAML
+                {t("editor.sourceYaml")}
               </h3>
               <Eye
                 className="h-3.5 w-3.5 text-[var(--text-muted)]"
@@ -707,10 +719,10 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
         )}
         <ConfirmDialog
           open={showArchiveDialog}
-          title="Архивировать эту версию?"
-          description={`Инструкция "${version.name ?? version.instruction_code}" перестанет быть доступной клиентам для нового использования. Исторические данные не изменятся.`}
-          confirmLabel="Архивировать"
-          cancelLabel="Отмена"
+          title={t("editor.archiveConfirmTitle")}
+          description={t("editor.archiveConfirmDesc", { name: version.name ?? version.instruction_code })}
+          confirmLabel={t("editor.archiveConfirmLabel")}
+          cancelLabel={t("actions.cancel", { ns: "common" })}
           confirmVariant="danger"
           isLoading={archiveVersion.isPending}
           onConfirm={() => void handleArchiveConfirm()}
@@ -726,7 +738,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
 
       <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">
-          Редактирование черновика
+          {t("editor.editDraft")}
         </h3>
         <DraftEditForm
           versionId={version.id}
@@ -739,11 +751,10 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Валидация
+            {t("editor.validation")}
           </h3>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            Проверьте черновик перед публикацией. Валидация выполняется на
-            сервере.
+            {t("editor.validationDesc")}
           </p>
         </div>
 
@@ -756,9 +767,9 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             <p className="text-xs text-[var(--text-muted)]">
               {validationResult
                 ? validationResult.is_valid
-                  ? "Валидация прошла. Можно публиковать."
-                  : "Исправьте ошибки и валидируйте снова."
-                : "Запустите валидацию перед публикацией."}
+                  ? t("editor.validationSuccess")
+                  : t("editor.validationFailed")
+                : t("editor.validationPrompt")}
             </p>
             <Button
               variant="secondary"
@@ -769,7 +780,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
               disabled={validateDraft.isPending}
               className="shrink-0"
             >
-              Валидировать
+              {t("editor.validateButton")}
             </Button>
           </div>
         </div>
@@ -778,18 +789,18 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Публикация
+            {t("editor.publishing")}
           </h3>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            Доступна только после успешной валидации.
+            {t("editor.publishingDesc")}
           </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-[var(--text-muted)]">
             {canPublish
-              ? "Черновик готов к публикации. После публикации версия станет immutable."
-              : "Сначала выполните валидацию и убедитесь, что ошибок нет."}
+              ? t("editor.publishingReady")
+              : t("editor.publishingPrompt")}
           </p>
           <Button
             variant="primary"
@@ -799,7 +810,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             disabled={!canPublish}
             className="shrink-0"
           >
-            Опубликовать
+            {t("editor.publishButton")}
           </Button>
         </div>
       </section>
@@ -821,6 +832,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
 // ─────────────────────────────────────────────────────────────
 
 const GlobalInstructionDetailPage: React.FC = () => {
+  const { t } = useTranslation("instructions");
   const { instructionCode } = useParams<{ instructionCode: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -910,19 +922,21 @@ const GlobalInstructionDetailPage: React.FC = () => {
     if (!instructionCode) return;
     setCreateDraftError(null);
     try {
+      const localizedYaml = EMPTY_INSTRUCTION_YAML_SKELETON.replace(
+        "Новая инструкция",
+        t("detail.newInstructionSkeletonName"),
+      );
       const newDraft = await createDraft.mutateAsync({
         instructionCode,
         body: {
-          source_yaml: EMPTY_INSTRUCTION_YAML_SKELETON,
-          change_summary: "Первый черновик",
+          source_yaml: localizedYaml,
+          change_summary: t("detail.firstDraftSummary"),
         },
       });
       pendingVersionIdRef.current = newDraft.id;
       setSearchParams({ version: newDraft.id }, { replace: false });
     } catch {
-      setCreateDraftError(
-        "Не удалось создать черновик. Попробуйте обновить страницу и повторить.",
-      );
+      setCreateDraftError(t("detail.createDraftError"));
     }
   };
 
@@ -932,7 +946,7 @@ const GlobalInstructionDetailPage: React.FC = () => {
   const hasAnyDraft = draftCount > 0;
 
   const displayName =
-    catalogItem?.name ?? instructionCode ?? "Global Instruction";
+    catalogItem?.name ?? instructionCode ?? t("detail.fallbackTitle");
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 md:px-5 md:py-5">
@@ -947,7 +961,7 @@ const GlobalInstructionDetailPage: React.FC = () => {
               className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Global Instructions
+              {t("detail.backToList")}
             </button>
 
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
@@ -973,8 +987,8 @@ const GlobalInstructionDetailPage: React.FC = () => {
       {/* ── Empty state ───────────────────────────────────────── */}
       {!isVersionsLoading && !isVersionsError && versions.length === 0 && (
         <EmptyState
-          title="Версий нет"
-          description="Для этой инструкции ещё не создано ни одной версии."
+          title={t("detail.emptyVersionsTitle")}
+          description={t("detail.emptyVersionsDesc")}
           action={
             <Button
               variant="secondary"
@@ -984,7 +998,7 @@ const GlobalInstructionDetailPage: React.FC = () => {
               disabled={createDraft.isPending}
               leftIcon={<Plus className="h-3.5 w-3.5" />}
             >
-              Создать первый черновик
+              {t("detail.createFirstDraft")}
             </Button>
           }
         />
@@ -1035,7 +1049,7 @@ const GlobalInstructionDetailPage: React.FC = () => {
             ) : (
               <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
                 <p className="text-sm text-[var(--text-muted)]">
-                  Выберите версию из списка слева.
+                  {t("detail.selectVersionPrompt")}
                 </p>
               </section>
             )}
@@ -1047,4 +1061,5 @@ const GlobalInstructionDetailPage: React.FC = () => {
 };
 
 export default GlobalInstructionDetailPage;
+
 

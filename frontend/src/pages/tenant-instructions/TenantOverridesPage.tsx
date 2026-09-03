@@ -1,6 +1,7 @@
 // src/pages/tenant-instructions/TenantOverridesPage.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus } from "lucide-react";
 
@@ -21,13 +22,15 @@ const OverrideCard: React.FC<{
   override: InstructionOverrideItem;
   onClick: () => void;
 }> = ({ override, onClick }) => {
+  const { t, i18n } = useTranslation("instructions");
+
   const updatedAt = override.updated_at
-    ? new Date(override.updated_at).toLocaleDateString("ru-RU")
+    ? new Date(override.updated_at).toLocaleDateString(i18n.language)
     : null;
 
   const baseLabel = override.global_instruction_version_id
-    ? "Global Override"
-    : "Doc-Type Override";
+    ? t("tenantOverride.listPage.card.globalOverride")
+    : t("tenantOverride.listPage.card.docTypeOverride");
 
   const baseId =
     override.global_instruction_version_id ??
@@ -62,11 +65,11 @@ const OverrideCard: React.FC<{
           <p className="mt-2 text-[10px] text-[var(--text-muted)]">
             <span className="font-mono">id: {override.id.slice(0, 8)}…</span>
             <span className="mx-1.5">·</span>
-            {override.patch_ops.length} ops
+            {override.patch_ops.length} {t("tenantOverride.listPage.card.ops")}
             {updatedAt && (
               <>
                 <span className="mx-1.5">·</span>
-                Обновлён: {updatedAt}
+                {t("tenantOverride.listPage.card.updated")}: {updatedAt}
               </>
             )}
           </p>
@@ -87,6 +90,7 @@ const OverrideCard: React.FC<{
 // ─────────────────────────────────────────────────────────────
 
 const TenantOverridesPage: React.FC = () => {
+  const { t } = useTranslation("instructions");
   const navigate = useNavigate();
   const { tenantId: authTenantId } = useAuth();
   const tenantId = authTenantId ?? "";
@@ -112,35 +116,42 @@ const TenantOverridesPage: React.FC = () => {
                 className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                Инструкции
+                {t("tenantOverride.breadcrumbs.instructions")}
               </button>
 
               <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Instruction Overrides
+                {t("tenantOverride.listPage.title")}
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Переопределения инструкций на уровне tenant. Применяются поверх
-                базовых published-версий.
+                {t("tenantOverride.listPage.subtitle")}
               </p>
 
               {!isLoading && !isError && overrides.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
                   <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
-                    Всего: {overrides.length}
+                    {t("tenantOverride.listPage.stats.total", {
+                      count: overrides.length,
+                    })}
                   </span>
                   {activeCount > 0 && (
                     <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-1 text-[var(--color-success-text)]">
-                      Active: {activeCount}
+                      {t("tenantOverride.listPage.stats.active", {
+                        count: activeCount,
+                      })}
                     </span>
                   )}
                   {draftCount > 0 && (
                     <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
-                      Draft: {draftCount}
+                      {t("tenantOverride.listPage.stats.draft", {
+                        count: draftCount,
+                      })}
                     </span>
                   )}
                   {staleCount > 0 && (
                     <span className="rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-1 text-[var(--color-warning-text)]">
-                      Stale: {staleCount}
+                      {t("tenantOverride.listPage.stats.stale", {
+                        count: staleCount,
+                      })}
                     </span>
                   )}
                 </div>
@@ -155,7 +166,7 @@ const TenantOverridesPage: React.FC = () => {
               }
               leftIcon={<Plus className="h-3.5 w-3.5" />}
             >
-              Новый override
+              {t("tenantOverride.listPage.newButton")}
             </Button>
           </div>
         </header>
@@ -163,29 +174,31 @@ const TenantOverridesPage: React.FC = () => {
         {/* ── Stale warning ────────────────────────────────────── */}
         {staleCount > 0 && (
           <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-5 py-4 text-sm text-[var(--color-warning-text)]">
-            {staleCount}{" "}
-            {staleCount === 1 ? "override устарел" : "overrides устарели"} —
-            базовая версия инструкции была обновлена. Создайте новые overrides
-            на актуальной версии.
+            {t("tenantOverride.listPage.staleWarning", { count: staleCount })}
           </div>
         )}
 
         {/* ── Loading ──────────────────────────────────────────── */}
-        {isLoading && <LoadingBlock text="Загружаем overrides…" rows={4} />}
+        {isLoading && (
+          <LoadingBlock
+            text={t("tenantOverride.listPage.loading")}
+            rows={4}
+          />
+        )}
 
         {/* ── Error ────────────────────────────────────────────── */}
         {isError && (
           <InlineAlert
             tone="error"
-            message="Не удалось загрузить overrides. Проверьте подключение."
+            message={t("tenantOverride.listPage.loadError")}
           />
         )}
 
         {/* ── Empty ────────────────────────────────────────────── */}
         {!isLoading && !isError && overrides.length === 0 && (
           <EmptyState
-            title="Overrides не созданы"
-            description="Создайте первый override, чтобы переопределить базовую инструкцию для вашего tenant."
+            title={t("tenantOverride.listPage.empty.title")}
+            description={t("tenantOverride.listPage.empty.description")}
             action={
               <Button
                 variant="primary"
@@ -194,7 +207,7 @@ const TenantOverridesPage: React.FC = () => {
                   navigate("/tenant-admin/instructions/overrides/new")
                 }
               >
-                Создать override
+                {t("tenantOverride.listPage.empty.action")}
               </Button>
             }
           />
@@ -223,6 +236,5 @@ const TenantOverridesPage: React.FC = () => {
 };
 
 export default TenantOverridesPage;
-
 
 

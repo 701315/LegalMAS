@@ -1,6 +1,246 @@
 {
+  "instructionsHub": {
+    "title": "Инструкции",
+    "subtitle": "Управление базовыми инструкциями платформы, playbook studio и версиями базовых playbooks. Изменения публикуются через flow draft → validate → publish.",
+    "groups": {
+      "platform": "Платформа",
+      "platformDesc": "Универсальные инструкции и базовые настройки по типам документов, которые используются как основа для tenant-override и сборки playbooks.",
+      "studio": "Studio",
+      "studioDesc": "Единая среда для сборки, проверки, предпросмотра и публикации версий playbook перед их применением в проектах.",
+      "registry": "Реестр",
+      "registryDesc": "Опубликованные стандартные playbooks платформы, доступные для использования в проектах и просмотра их состава."
+    },
+    "cards": {
+      "globalTitle": "Global Instructions",
+      "globalDesc": "Универсальные проверки для любых документов: конфиденциальность, применимое право, срок действия и др.",
+      "docTypeTitle": "Doc-type Instructions",
+      "docTypeDesc": "Инструкции по типам документов. Базовые настройки extraction, checks, retrieval.",
+      "studioTitle": "Playbook Studio",
+      "studioDesc": "Templates, version builder, compiled preview, publish и дальнейшее применение в проектах.",
+      "registryTitle": "Реестр стандартных playbook",
+      "registryDesc": "Просмотр состава опубликованных playbook и экспорт в Excel / Word."
+    }
+  },
+  "modelConfigs": {
+    "back": "Назад",
+    "title": "Конфигурации моделей",
+    "subtitle": "Управление профилями моделей для playbook-версий и проектов."
+  },
   "membersPage": {
     "backButton": "Назад к проекту"
+  },
+  "monitoring": {
+    "loading": "Загружаем monitoring links…",
+    "error": {
+      "loadFailed": "Не удалось загрузить ссылки мониторинга",
+      "checkBackend": "Проверьте backend config и доступность admin API",
+      "retry": "Попробовать снова"
+    },
+    "header": {
+      "title": "Мониторинг",
+      "subtitle": "Инструменты наблюдаемости платформы. Ссылки берутся из backend-конфигурации контура и не зависят от browser localhost.",
+      "refresh": "Обновить ссылки"
+    },
+    "empty": "Backend не вернул доступных monitoring links для текущего контура.",
+    "groups": {
+      "dashboards": {
+        "title": "Обзорные дашборды",
+        "description": "Deep links в Grafana. URL берутся из backend-конфигурации текущего контура."
+      },
+      "services": {
+        "title": "Сервисы observability",
+        "description": "Прямые ссылки на Grafana, Prometheus, Alertmanager, Loki, Tempo, MinIO, API docs и Ollama."
+      }
+    }
+  },
+  "clients": {
+    "header": {
+      "title": "Клиенты",
+      "total": "Всего: {{count}}",
+      "active": "Активных: {{count}}",
+      "showDeactivated": "Показать деактивированных",
+      "newClient": "Новый клиент"
+    },
+    "search": {
+      "placeholder": "Поиск по названию, slug или ID…"
+    },
+    "export": {
+      "button": "Сохранить список клиентов",
+      "excel": "Excel",
+      "word": "Word",
+      "pdf": "PDF",
+      "errorExcel": "Не удалось экспортировать в Excel",
+      "errorWord": "Не удалось экспортировать в Word",
+      "errorPdf": "Не удалось экспортировать в PDF"
+    },
+    "sort": {
+      "prefix": "Сортировка: ",
+      "by": "Сортировать по",
+      "asc": "возр.",
+      "desc": "убыв.",
+      "options": {
+        "name": "По имени",
+        "created_at": "По дате создания",
+        "deals_count": "По количеству проектов",
+        "users_count": "По количеству пользователей"
+      },
+      "directionsHint": "Повторный клик по активному полю меняет направление"
+    },
+    "views": {
+      "ariaLabel": "Режим отображения",
+      "cards": "Карточки",
+      "table": "Таблица"
+    },
+    "card": {
+      "deactivated": "Деактивирован",
+      "created": "Создан: {{date}}",
+      "users": "Пользователи",
+      "projects": "Проекты",
+      "manage": "Управление",
+      "deactivate": "Деактивировать",
+      "activate": "Активировать",
+      "copyId": "Скопировать ID",
+      "copied": "Скопировано"
+    },
+    "loading": "Загружаем список клиентов…",
+    "error": "Не удалось загрузить список клиентов.",
+    "empty": {
+      "title": "Клиентов пока нет.",
+      "button": "Создать первого клиента"
+    },
+    "notFound": {
+      "title": "По запросу «{{query}}» ничего не найдено.",
+      "button": "Сбросить поиск"
+    },
+    "confirm": {
+      "deactivateTitle": "Деактивировать клиента «{{name}}»?",
+      "activateTitle": "Активировать клиента «{{name}}»?",
+      "deactivateDesc": "Все пользователи этого клиента потеряют доступ к системе. Данные не удаляются.",
+      "activateDesc": "Пользователи клиента снова смогут войти в систему.",
+      "deactivateButton": "Деактивировать",
+      "activateButton": "Активировать",
+      "cancelButton": "Отмена"
+    }
+  },
+  "versions": {
+    "back": "Инструкции",
+    "title": "Версии плейбуков и профили моделей",
+    "subtitle": "Переназначение профиля модели для версии playbook. Позволяет освободить старые ModelConfig для удаления.",
+    "contextPrefix": "Открыто из профиля модели: ",
+    "refresh": "Обновить",
+    "listTitle": "Версии плейбуков",
+    "loading": "Загружаем версии…",
+    "emptyTitle": "Версий пока нет",
+    "emptyDesc": "Когда версии появятся, их можно будет выбрать и переназначить профиль модели.",
+    "profileTitle": "Профиль модели для версии",
+    "profileSubtitle": "Выберите новый ModelConfig для этой версии playbook.",
+    "noVersionTitle": "Версия не выбрана",
+    "noVersionDesc": "Выберите версию плейбука слева, чтобы назначить ей профиль модели.",
+    "noConfigsTitle": "Профили моделей не найдены",
+    "noConfigsDesc": "Сначала создайте хотя бы один профиль модели.",
+    "openConfigs": "Открыть профили моделей",
+    "selectedVersion": "Выбранная версия",
+    "modelConfigLabel": "Профиль модели (ModelConfig)",
+    "noProfileOption": "— Без явного профиля (дефолтные настройки) —",
+    "selectedProfilePrefix": "Выбран профиль: ",
+    "explanation": "После сохранения версия перестанет ссылаться на старый ModelConfig. Если он больше нигде не используется, его можно будет удалить со страницы профилей моделей.",
+    "saveButton": "Сохранить профиль",
+    "errors": {
+      "loadVersions": "Не удалось загрузить список версий плейбуков.",
+      "loadConfigs": "Не удалось загрузить профили моделей.",
+      "saveFailed": "Не удалось обновить профиль модели для версии."
+    },
+    "success": "Профиль модели для версии обновлён."
+  },
+  "tenantDetail": {
+    "back": "Все клиенты",
+    "deactivated": "Деактивирован",
+    "projectsCount": "Проектов: {{count}}",
+    "usersCount": "Пользователей: {{active}} из {{total}}",
+    "usersTitle": "Пользователи",
+    "addUser": "Добавить",
+    "createTitle": "Новый пользователь",
+    "editTitle": "Редактирование пользователя",
+    "emailLabel": "Email *",
+    "emailPlaceholder": "user@company.com",
+    "passwordLabel": "Пароль *",
+    "passwordPlaceholder": "Минимум 6 символов",
+    "fullNameLabel": "Полное имя",
+    "fullNamePlaceholder": "Иванов Иван Иванович",
+    "roleLabel": "Системная роль",
+    "newPasswordLabel": "Новый пароль (оставьте пустым, чтобы не менять)",
+    "showPassword": "Показать пароль",
+    "hidePassword": "Скрыть пароль",
+    "notFound": "Клиент не найден.",
+    "emptyUsers": "Пользователей пока нет. Добавьте первого.",
+    "editAria": "Редактировать пользователя",
+    "deactivateButton": "Деактивировать",
+    "confirmTitle": "Деактивировать пользователя?",
+    "confirmDesc": "«{{name}}» потеряет доступ к системе. Данные не удаляются.",
+    "confirmButton": "Деактивировать",
+    "cancelButton": "Отмена",
+    "errors": {
+      "emailRequired": "Укажите email.",
+      "passwordMin": "Пароль должен быть не менее 6 символов.",
+      "createFailed": "Не удалось создать пользователя.",
+      "updateFailed": "Не удалось обновить пользователя."
+    },
+    "roles": {
+      "superadmin": "Супер-администратор",
+      "tenant_admin": "Администратор клиента",
+      "member": "Участник"
+    }
+  },
+  "tenantNew": {
+    "back": "Все клиенты",
+    "title": "Новый клиент",
+    "subtitle": "Создайте нового клиента системы. После создания можно будет добавить его пользователей.",
+    "nameLabel": "Название клиента *",
+    "namePlaceholder": "Например: Ромашка Лигал",
+    "slugLabel": "Slug *",
+    "slugPlaceholder": "romashka-legal",
+    "slugHint": "Только строчные латинские буквы, цифры и дефис. Генерируется автоматически из названия.",
+    "notesLabel": "Заметки",
+    "notesPlaceholder": "Произвольные заметки администратора...",
+    "creating": "Создаём…",
+    "createButton": "Создать клиента",
+    "errors": {
+      "nameRequired": "Укажите название клиента.",
+      "slugRequired": "Укажите slug.",
+      "createFailed": "Не удалось создать клиента. Попробуйте позже."
+    },
+    "slugHelp": {
+      "title": "Что такое slug?",
+      "p1": "Slug — уникальный технический идентификатор клиента в URL и системных конфигурациях.",
+      "p2": "Используется только латинские буквы в нижнем регистре, цифры и дефис. Например: ",
+      "p3": "Slug генерируется автоматически из названия, но можно задать вручную."
+    },
+    "afterCreation": {
+      "title": "После создания",
+      "step1Label": "Шаг 1",
+      "step1Desc": "Откроется страница клиента — можно сразу добавить пользователей.",
+      "step2Label": "Шаг 2",
+      "step2Desc": "Tenant admin клиента сможет настроить организацию: участников, playbooks, инструкции."
+    }
+  },
+  "tenantProjects": {
+    "back": "Все клиенты",
+    "title": "Проекты клиента",
+    "breadcrumbClients": "Клиенты",
+    "totalProjects": "Всего проектов: {{count}}",
+    "notFound": "Клиент не найден.",
+    "error": "Не удалось загрузить проекты клиента.",
+    "empty": "У клиента пока нет проектов.",
+    "created": "Создан: {{date}}",
+    "documents": "Документов: {{count}}",
+    "members": "Участников: {{count}}",
+    "statuses": {
+      "active": "Активен",
+      "draft": "Черновик",
+      "archived": "Архив",
+      "completed": "Завершён"
+    }
   }
 }
+
 

@@ -18,7 +18,20 @@
     "placeholder": "Поиск...",
     "clear": "Очистить поиск"
   },
-  "loading": "Загрузка..."
+  "loading": "Загрузка...",
+  "auditActions": {
+    "IMPORT": "Импорт",
+    "EXPORT": "Экспорт",
+    "SANITIZE": "Обезличивание",
+    "QC_CONFIRM": "QC подтверждение",
+    "QC_REJECT": "QC отклонение",
+    "QC_OVERRIDE": "QC изменение",
+    "DOCUMENT_REPLACE": "Замена документа",
+    "RUN_START": "Запуск анализа",
+    "PLAYBOOK_PROMOTE": "Промоут playbook",
+    "SET_DEAL_PLAYBOOK": "Изменение playbook сделки",
+    "RECLASSIFY": "Переклассификация",
+    "YAML_INSTRUCTION_APPLY": "Применение YAML-инструкции"
+  }
 }
-
 

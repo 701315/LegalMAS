@@ -1,4 +1,7 @@
+// frontend/src/pages/tenant-instructions/TenantInstructionsPage.tsx
+
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -50,6 +53,7 @@ const NavCard: React.FC<NavCardProps> = ({
 );
 
 const TenantInstructionsPage: React.FC = () => {
+  const { t } = useTranslation("instructions");
   const navigate = useNavigate();
 
   return (
@@ -60,11 +64,10 @@ const TenantInstructionsPage: React.FC = () => {
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Инструкции
+              {t("tenantInstructionsIndex.title")}
             </h1>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Базовые инструкции платформы, playbook studio и переопределения
-              для вашей организации.
+              {t("tenantInstructionsIndex.subtitle")}
             </p>
           </div>
         </header>
@@ -79,30 +82,29 @@ const TenantInstructionsPage: React.FC = () => {
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
               <div className="mb-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Платформа
+                  {t("tenantInstructionsIndex.platform.label")}
                 </div>
                 <h2 className="mt-2 text-base font-semibold text-[var(--text-primary)]">
-                  Базовые инструкции платформы
+                  {t("tenantInstructionsIndex.platform.title")}
                 </h2>
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                  Управляются superadmin. Доступны вам для просмотра и как основа
-                  для создания overrides.
+                  {t("tenantInstructionsIndex.platform.description")}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <NavCard
                   icon={<Shield className="h-4 w-4" aria-hidden="true" />}
-                  title="Базовые Global Instructions"
-                  description="Универсальные проверки, применимые к любым документам."
+                  title={t("tenantInstructionsIndex.platform.globalTitle")}
+                  description={t("tenantInstructionsIndex.platform.globalDesc")}
                   onClick={() =>
                     navigate("/tenant-admin/instructions/base-global-checks")
                   }
                 />
                 <NavCard
                   icon={<FileText className="h-4 w-4" aria-hidden="true" />}
-                  title="Базовые Doc-Type Instructions"
-                  description="Инструкции для конкретных типов документов."
+                  title={t("tenantInstructionsIndex.platform.docTypeTitle")}
+                  description={t("tenantInstructionsIndex.platform.docTypeDesc")}
                   onClick={() =>
                     navigate("/tenant-admin/instructions/base-doc-types")
                   }
@@ -114,21 +116,21 @@ const TenantInstructionsPage: React.FC = () => {
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
               <div className="mb-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Studio
+                  {t("tenantInstructionsIndex.studio.label")}
                 </div>
                 <h2 className="mt-2 text-base font-semibold text-[var(--text-primary)]">
-                  Playbook Studio
+                  {t("tenantInstructionsIndex.studio.title")}
                 </h2>
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                  Сборка playbooks из базовых инструкций и подготовка версий для применения.
+                  {t("tenantInstructionsIndex.studio.description")}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2">
                 <NavCard
                   icon={<BookOpen className="h-4 w-4" aria-hidden="true" />}
-                  title="Playbook Studio"
-                  description="Создание шаблонов и сборка версий."
+                  title={t("tenantInstructionsIndex.studio.cardTitle")}
+                  description={t("tenantInstructionsIndex.studio.cardDesc")}
                   onClick={() =>
                     navigate("/tenant-admin/instructions/playbook-studio")
                   }
@@ -140,37 +142,37 @@ const TenantInstructionsPage: React.FC = () => {
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
               <div className="mb-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Организация
+                  {t("tenantInstructionsIndex.org.label")}
                 </div>
                 <h2 className="mt-2 text-base font-semibold text-[var(--text-primary)]">
-                  Переопределения вашей организации
+                  {t("tenantInstructionsIndex.org.title")}
                 </h2>
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                  Настройки уровня tenant. Overrides применяются поверх базовых версий.
+                  {t("tenantInstructionsIndex.org.description")}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <NavCard
                   icon={<Globe className="h-4 w-4" aria-hidden="true" />}
-                  title="Global Overrides"
-                  description="Переопределения базовых global instructions."
+                  title={t("tenantInstructionsIndex.org.globalTitle")}
+                  description={t("tenantInstructionsIndex.org.globalDesc")}
                   onClick={() =>
                     navigate("/tenant-admin/instructions/overrides?tab=global")
                   }
                 />
                 <NavCard
                   icon={<GitBranch className="h-4 w-4" aria-hidden="true" />}
-                  title="Doc-Type Overrides"
-                  description="Переопределения doc-type instructions."
+                  title={t("tenantInstructionsIndex.org.docTypeTitle")}
+                  description={t("tenantInstructionsIndex.org.docTypeDesc")}
                   onClick={() =>
                     navigate("/tenant-admin/instructions/overrides?tab=doc-type")
                   }
                 />
                 <NavCard
                   icon={<Layers className="h-4 w-4" aria-hidden="true" />}
-                  title="Playbooks организации"
-                  description="Собственные playbooks вашей организации."
+                  title={t("tenantInstructionsIndex.org.playbooksTitle")}
+                  description={t("tenantInstructionsIndex.org.playbooksDesc")}
                   onClick={() =>
                     navigate("/tenant-admin/instructions/my-playbooks")
                   }

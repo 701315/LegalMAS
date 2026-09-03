@@ -15,19 +15,22 @@ import { PROJECT_ROLE_LABELS } from "./constants";
 // ─── Date Formatting ─────────────────────────────────────────────────────
 
 /**
- * Форматирует ISO datetime string в русскую локализованную строку
+ * Форматирует ISO datetime string в локализованную строку
  * с датой и временем.
  *
  * @example
- * formatDateTime("2026-08-08T15:30:00Z") // "08.08.2026, 18:30"
+ * formatDateTime("2026-08-08T15:30:00Z", "ru") // "08.08.2026, 18:30"
  * formatDateTime(null) // "—"
  * formatDateTime("invalid") // "—"
  */
-export function formatDateTime(iso: string | null | undefined): string {
+export function formatDateTime(
+  iso: string | null | undefined,
+  locale?: string,
+): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("ru-RU", {
+  return d.toLocaleDateString(locale ?? "ru-RU", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -37,18 +40,21 @@ export function formatDateTime(iso: string | null | undefined): string {
 }
 
 /**
- * Форматирует ISO datetime string в русскую локализованную дату
+ * Форматирует ISO datetime string в локализованную дату
  * без времени, с полным названием месяца.
  *
  * @example
- * formatDate("2026-08-08T15:30:00Z") // "8 августа 2026 г."
+ * formatDate("2026-08-08T15:30:00Z", "ru") // "08 августа 2026 г."
  * formatDate(null) // "—"
  */
-export function formatDate(iso: string | null | undefined): string {
+export function formatDate(
+  iso: string | null | undefined,
+  locale?: string,
+): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("ru-RU", {
+  return d.toLocaleDateString(locale ?? "ru-RU", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -58,51 +64,69 @@ export function formatDate(iso: string | null | undefined): string {
 // ─── Number Formatting ───────────────────────────────────────────────────
 
 /**
- * Форматирует число с русскими разделителями тысяч.
+ * Форматирует число с разделителями тысяч в соответствии с локалью.
  *
  * @example
- * fmt(1234567) // "1 234 567"
+ * fmt(1234567, "ru") // "1 234 567"
  * fmt(0) // "0"
  * fmt(null) // "—"
  */
-export function fmt(value: number | null | undefined): string {
+export function fmt(value: number | null | undefined, locale?: string): string {
   if (value == null || Number.isNaN(value)) return "—";
-  return new Intl.NumberFormat("ru-RU").format(value);
+  return new Intl.NumberFormat(locale ?? "ru-RU").format(value);
 }
 
 /**
- * Форматирует миллисекунды с суффиксом "мс".
+ * Форматирует миллисекунды с суффиксом "мс" / "ms".
  * Для значений < 10 показывает 2 знака после запятой.
- * Для значений < 1 показывает "< 1 мс".
+ * Для значений < 1 показывает "< 1 мс" / "< 1 ms".
  *
  * @example
- * fmtMs(1234) // "1 234 мс"
- * fmtMs(5.678) // "5.68 мс"
- * fmtMs(0.5) // "< 1 мс"
+ * fmtMs(1234, "ru") // "1 234 мс"
+ * fmtMs(5.678, "en") // "5.68 ms"
+ * fmtMs(0.5, "ru") // "< 1 мс"
  */
-export function fmtMs(value: number | null | undefined): string {
+export function fmtMs(
+  value: number | null | undefined,
+  locale?: string,
+): string {
   if (value == null || Number.isNaN(value)) return "—";
-  if (value < 1) return "< 1 мс";
-  return `${new Intl.NumberFormat("ru-RU", {
+  const isEn = locale?.startsWith("en");
+  if (value < 1) return isEn ? "< 1 ms" : "< 1 мс";
+
+  const formatted = new Intl.NumberFormat(locale ?? "ru-RU", {
     maximumFractionDigits: value < 10 ? 2 : 0,
-  }).format(value)} мс`;
+  }).format(value);
+
+  return isEn ? `${formatted} ms` : `${formatted} мс`;
 }
 
 /**
- * Форматирует длительность в секундах.
+ * Форматирует длительность в секундах с учётом локали.
  * Для значений < 60 сек показывает секунды с 1 знаком после запятой.
  * Для больших значений разбивает на минуты и секунды.
  *
  * @example
- * fmtDurationSeconds(45.5) // "45.5 с"
- * fmtDurationSeconds(125) // "2 мин 5 с"
+ * fmtDurationSeconds(45.5, "ru") // "45.5 с"
+ * fmtDurationSeconds(125, "en") // "2 min 5 s"
  */
-export function fmtDurationSeconds(sec: number | null | undefined): string {
+export function fmtDurationSeconds(
+  sec: number | null | undefined,
+  locale?: string,
+): string {
   if (sec == null || Number.isNaN(sec)) return "—";
-  if (sec < 60) return `${sec.toFixed(1)} с`;
+  const isEn = locale?.startsWith("en");
+
+  if (sec < 60) {
+    return isEn ? `${sec.toFixed(1)} s` : `${sec.toFixed(1)} с`;
+  }
+
   const mins = Math.floor(sec / 60);
   const rest = Math.round(sec - mins * 60);
-  return `${mins} мин ${rest} с`;
+
+  return isEn
+    ? `${mins} min ${rest} s`
+    : `${mins} мин ${rest} с`;
 }
 
 // ─── Log Level Normalization ─────────────────────────────────────────────

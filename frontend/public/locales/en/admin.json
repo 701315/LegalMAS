@@ -1,6 +1,244 @@
 {
+  "instructionsHub": {
+    "title": "Instructions",
+    "subtitle": "Management of platform base instructions, playbook studio and base playbooks versions. Changes are published via flow draft → validate → publish.",
+    "groups": {
+      "platform": "Platform",
+      "platformDesc": "Universal instructions and base settings by document types used as foundation for tenant-override and playbook composition.",
+      "studio": "Studio",
+      "studioDesc": "Unified environment for composition, validation, preview and publishing of playbook versions before their application in projects.",
+      "registry": "Registry",
+      "registryDesc": "Published standard platform playbooks available for use in projects and composition preview."
+    },
+    "cards": {
+      "globalTitle": "Global Instructions",
+      "globalDesc": "Universal checks for any documents: confidentiality, governing law, term, etc.",
+      "docTypeTitle": "Doc-type Instructions",
+      "docTypeDesc": "Instructions by document types. Base settings for extraction, checks, retrieval.",
+      "studioTitle": "Playbook Studio",
+      "studioDesc": "Templates, version builder, compiled preview, publish and further application in projects.",
+      "registryTitle": "Standard playbook registry",
+      "registryDesc": "View composition of published playbooks and export to Excel / Word."
+    }
+  },
+  "modelConfigs": {
+    "back": "Back",
+    "title": "Model configurations",
+    "subtitle": "Management of model profiles for playbook versions and projects."
+  },
   "membersPage": {
     "backButton": "Back to project"
+  },
+  "monitoring": {
+    "loading": "Loading monitoring links…",
+    "error": {
+      "loadFailed": "Failed to load monitoring links",
+      "checkBackend": "Check backend config and admin API availability",
+      "retry": "Try again"
+    },
+    "header": {
+      "title": "Monitoring",
+      "subtitle": "Platform observability tools. Links come from the backend configuration and do not depend on browser localhost.",
+      "refresh": "Refresh links"
+    },
+    "empty": "Backend returned no available monitoring links for the current environment.",
+    "groups": {
+      "dashboards": {
+        "title": "Overview dashboards",
+        "description": "Deep links to Grafana. URLs come from the backend configuration for the current environment."
+      },
+      "services": {
+        "title": "Observability services",
+        "description": "Direct links to Grafana, Prometheus, Alertmanager, Loki, Tempo, MinIO, API docs and Ollama."
+      }
+    }
+  },
+  "clients": {
+    "header": {
+      "title": "Clients",
+      "total": "Total: {{count}}",
+      "active": "Active: {{count}}",
+      "showDeactivated": "Show deactivated",
+      "newClient": "New client"
+    },
+    "search": {
+      "placeholder": "Search by name, slug or ID…"
+    },
+    "export": {
+      "button": "Save client list",
+      "excel": "Excel",
+      "word": "Word",
+      "pdf": "PDF",
+      "errorExcel": "Failed to export to Excel",
+      "errorWord": "Failed to export to Word",
+      "errorPdf": "Failed to export to PDF"
+    },
+    "sort": {
+      "prefix": "Sort: ",
+      "by": "Sort by",
+      "asc": "asc",
+      "desc": "desc",
+      "options": {
+        "name": "By name",
+        "created_at": "By date created",
+        "deals_count": "By projects count",
+        "users_count": "By users count"
+      },
+      "directionsHint": "Clicking an active option again reverses direction"
+    },
+    "views": {
+      "ariaLabel": "Display mode",
+      "cards": "Cards",
+      "table": "Table"
+    },
+    "card": {
+      "deactivated": "Deactivated",
+      "created": "Created: {{date}}",
+      "users": "Users",
+      "projects": "Projects",
+      "manage": "Manage",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "copyId": "Copy ID",
+      "copied": "Copied"
+    },
+    "loading": "Loading client list…",
+    "error": "Failed to load client list.",
+    "empty": {
+      "title": "No clients yet.",
+      "button": "Create first client"
+    },
+    "notFound": {
+      "title": "Nothing found for \"{{query}}\".",
+      "button": "Reset search"
+    },
+    "confirm": {
+      "deactivateTitle": "Deactivate client \"{{name}}\"?",
+      "activateTitle": "Activate client \"{{name}}\"?",
+      "deactivateDesc": "All users of this client will lose access to the system. Data is not deleted.",
+      "activateDesc": "Client users will be able to log in to the system again.",
+      "deactivateButton": "Deactivate",
+      "activateButton": "Activate",
+      "cancelButton": "Cancel"
+    }
+  },
+  "versions": {
+    "back": "Instructions",
+    "title": "Playbook versions & model profiles",
+    "subtitle": "Reassign model profile for a playbook version. Allows freeing old ModelConfigs for deletion.",
+    "contextPrefix": "Opened from model profile: ",
+    "refresh": "Refresh",
+    "listTitle": "Playbook versions",
+    "loading": "Loading versions…",
+    "emptyTitle": "No versions yet",
+    "emptyDesc": "When versions appear, you can select them and reassign the model profile.",
+    "profileTitle": "Model profile for version",
+    "profileSubtitle": "Select a new ModelConfig for this playbook version.",
+    "noVersionTitle": "No version selected",
+    "noVersionDesc": "Select a playbook version on the left to assign a model profile.",
+    "noConfigsTitle": "No model profiles found",
+    "noConfigsDesc": "Create at least one model profile first.",
+    "openConfigs": "Open model profiles",
+    "selectedVersion": "Selected version",
+    "modelConfigLabel": "Model profile (ModelConfig)",
+    "noProfileOption": "— No explicit profile (default settings) —",
+    "selectedProfilePrefix": "Selected profile: ",
+    "explanation": "After saving, the version will no longer reference the old ModelConfig. If it is not used elsewhere, it can be deleted from the model profiles page.",
+    "saveButton": "Save profile",
+    "errors": {
+      "loadVersions": "Failed to load playbook versions list.",
+      "loadConfigs": "Failed to load model profiles.",
+      "saveFailed": "Failed to update model profile for version."
+    },
+    "success": "Model profile for version updated."
+  },
+  "tenantDetail": {
+    "back": "All clients",
+    "deactivated": "Deactivated",
+    "projectsCount": "Projects: {{count}}",
+    "usersCount": "Users: {{active}} of {{total}}",
+    "usersTitle": "Users",
+    "addUser": "Add",
+    "createTitle": "New user",
+    "editTitle": "Edit user",
+    "emailLabel": "Email *",
+    "emailPlaceholder": "user@company.com",
+    "passwordLabel": "Password *",
+    "passwordPlaceholder": "Minimum 6 characters",
+    "fullNameLabel": "Full name",
+    "fullNamePlaceholder": "John Doe",
+    "roleLabel": "System role",
+    "newPasswordLabel": "New password (leave empty to keep current)",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "notFound": "Client not found.",
+    "emptyUsers": "No users yet. Add the first one.",
+    "editAria": "Edit user",
+    "deactivateButton": "Deactivate",
+    "confirmTitle": "Deactivate user?",
+    "confirmDesc": "\"{{name}}\" will lose access to the system. Data is not deleted.",
+    "confirmButton": "Deactivate",
+    "cancelButton": "Cancel",
+    "errors": {
+      "emailRequired": "Please specify email.",
+      "passwordMin": "Password must be at least 6 characters.",
+      "createFailed": "Failed to create user.",
+      "updateFailed": "Failed to update user."
+    },
+    "roles": {
+      "superadmin": "Super administrator",
+      "tenant_admin": "Client administrator",
+      "member": "Member"
+    }
+  },
+  "tenantNew": {
+    "back": "All clients",
+    "title": "New client",
+    "subtitle": "Create a new system client. After creation you can add users.",
+    "nameLabel": "Client name *",
+    "namePlaceholder": "e.g. Romashka Legal",
+    "slugLabel": "Slug *",
+    "slugPlaceholder": "romashka-legal",
+    "slugHint": "Lowercase Latin letters, digits and hyphens only. Auto-generated from name.",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "Arbitrary admin notes…",
+    "creating": "Creating…",
+    "createButton": "Create client",
+    "errors": {
+      "nameRequired": "Please specify client name.",
+      "slugRequired": "Please specify slug.",
+      "createFailed": "Failed to create client. Please try again later."
+    },
+    "slugHelp": {
+      "title": "What is a slug?",
+      "p1": "Slug is a unique technical identifier for the client in URLs and system configurations.",
+      "p2": "Only lowercase Latin letters, digits and hyphens are used. Example: ",
+      "p3": "Slug is auto-generated from the name, but can be set manually."
+    },
+    "afterCreation": {
+      "title": "After creation",
+      "step1Label": "Step 1",
+      "step1Desc": "The client page will open — you can immediately add users.",
+      "step2Label": "Step 2",
+      "step2Desc": "The client's tenant admin will be able to configure the organization: members, playbooks, instructions."
+    }
+  },
+  "tenantProjects": {
+    "back": "All clients",
+    "title": "Client projects",
+    "breadcrumbClients": "Clients",
+    "totalProjects": "Total projects: {{count}}",
+    "notFound": "Client not found.",
+    "error": "Failed to load client projects.",
+    "empty": "This client has no projects yet.",
+    "created": "Created: {{date}}",
+    "documents": "Documents: {{count}}",
+    "members": "Members: {{count}}",
+    "statuses": {
+      "active": "Active",
+      "draft": "Draft",
+      "archived": "Archived",
+      "completed": "Completed"
+    }
   }
 }
-

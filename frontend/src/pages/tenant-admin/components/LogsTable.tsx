@@ -19,6 +19,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Layers } from "lucide-react";
 import type { LogEntry } from "../../../api/tenantAdmin";
 import { LABEL_XS } from "../constants";
@@ -45,87 +46,103 @@ const LogsTable: React.FC<LogsTableProps> = ({
   selectedIdx,
   onSelect,
   compact = false,
-}) => (
-  <table
-    className={`w-full ${compact ? "min-w-[720px]" : "min-w-[920px]"} border-collapse`}
-  >
-    <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
-      <tr className="border-b border-[var(--border)]">
-        <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Timestamp</th>
-        <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Level</th>
-        <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Event</th>
-        <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Stage</th>
-        {!compact && (
-          <>
-            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Queue</th>
-            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Worker</th>
-          </>
-        )}
-      </tr>
-    </thead>
-    <tbody>
-      {logs.map((entry, idx) => {
-        const sel = selectedIdx === idx;
-        const grouped = (entry.count ?? 1) > 1;
+}) => {
+  const { t, i18n } = useTranslation("tenantAdmin");
 
-        return (
-          <tr
-            key={idx}
-            className={`cursor-pointer border-b border-[var(--border-subtle)] transition-colors ${
-              sel
-                ? "bg-[var(--accent-muted)]"
-                : "hover:bg-[var(--bg-elevated-soft)]"
-            }`}
-            onClick={() => onSelect(idx)}
-          >
-            <td className="px-4 py-2.5 align-top text-[10px] text-[var(--text-secondary)]">
-              {formatDateTime(entry.timestamp)}
-            </td>
-            <td className="px-4 py-2.5 align-top">
-              <div className="flex flex-wrap items-center gap-1">
-                <LevelBadge level={entry.level} />
-                {grouped && (
-                  <span
-                    className="inline-flex items-center gap-0.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]"
-                    title="Группа повторяющихся событий"
-                  >
-                    <Layers size={9} />×{entry.count}
-                  </span>
-                )}
-              </div>
-            </td>
-            <td className="px-4 py-2.5 align-top">
-              <div className={compact ? "max-w-[340px]" : "max-w-[400px]"}>
-                <p className="truncate text-sm font-medium text-[var(--text-primary)]">
-                  {entry.event || "—"}
-                </p>
-                <p className="mt-0.5 truncate text-[10px] text-[var(--text-muted)]">
-                  {entry.logger || "—"}
-                  {entry.run_id ? ` · run ${entry.run_id.slice(0, 8)}…` : ""}
-                </p>
-              </div>
-            </td>
-            <td className="px-4 py-2.5 align-top text-sm text-[var(--text-secondary)]">
-              {entry.stage || "—"}
-            </td>
-            {!compact && (
-              <>
-                <td className="px-4 py-2.5 align-top text-sm text-[var(--text-secondary)]">
-                  {entry.queue || "—"}
-                </td>
-                <td className="px-4 py-2.5 align-top text-sm text-[var(--text-secondary)]">
-                  <span className="inline-block max-w-[180px] truncate">
-                    {entry.worker_hostname || "—"}
-                  </span>
-                </td>
-              </>
-            )}
-          </tr>
-        );
-      })}
-    </tbody>
-  </table>
-);
+  return (
+    <table
+      className={`w-full ${compact ? "min-w-[720px]" : "min-w-[920px]"} border-collapse`}
+    >
+      <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+        <tr className="border-b border-[var(--border)]">
+          <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+            {t("logs.table.headers.timestamp")}
+          </th>
+          <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+            {t("logs.table.headers.level")}
+          </th>
+          <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+            {t("logs.table.headers.event")}
+          </th>
+          <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+            {t("logs.table.headers.stage")}
+          </th>
+          {!compact && (
+            <>
+              <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+                {t("logs.table.headers.queue")}
+              </th>
+              <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+                {t("logs.table.headers.worker")}
+              </th>
+            </>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {logs.map((entry, idx) => {
+          const sel = selectedIdx === idx;
+          const grouped = (entry.count ?? 1) > 1;
+
+          return (
+            <tr
+              key={idx}
+              className={`cursor-pointer border-b border-[var(--border-subtle)] transition-colors ${
+                sel
+                  ? "bg-[var(--accent-muted)]"
+                  : "hover:bg-[var(--bg-elevated-soft)]"
+              }`}
+              onClick={() => onSelect(idx)}
+            >
+              <td className="px-4 py-2.5 align-top text-[10px] text-[var(--text-secondary)]">
+                {formatDateTime(entry.timestamp, i18n.language)}
+              </td>
+              <td className="px-4 py-2.5 align-top">
+                <div className="flex flex-wrap items-center gap-1">
+                  <LevelBadge level={entry.level} />
+                  {grouped && (
+                    <span
+                      className="inline-flex items-center gap-0.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]"
+                      title={t("logs.table.groupTooltip")}
+                    >
+                      <Layers size={9} />×{entry.count}
+                    </span>
+                  )}
+                </div>
+              </td>
+              <td className="px-4 py-2.5 align-top">
+                <div className={compact ? "max-w-[340px]" : "max-w-[400px]"}>
+                  <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+                    {entry.event || "—"}
+                  </p>
+                  <p className="mt-0.5 truncate text-[10px] text-[var(--text-muted)]">
+                    {entry.logger || "—"}
+                    {entry.run_id ? t("logs.table.runSuffix", { id: entry.run_id.slice(0, 8) }) : ""}
+                  </p>
+                </div>
+              </td>
+              <td className="px-4 py-2.5 align-top text-sm text-[var(--text-secondary)]">
+                {entry.stage || "—"}
+              </td>
+              {!compact && (
+                <>
+                  <td className="px-4 py-2.5 align-top text-sm text-[var(--text-secondary)]">
+                    {entry.queue || "—"}
+                  </td>
+                  <td className="px-4 py-2.5 align-top text-sm text-[var(--text-secondary)]">
+                    <span className="inline-block max-w-[180px] truncate">
+                      {entry.worker_hostname || "—"}
+                    </span>
+                  </td>
+                </>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+};
 
 export default LogsTable;
 

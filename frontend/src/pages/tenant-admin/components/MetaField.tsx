@@ -14,6 +14,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { LABEL_XS, FOCUS_RING } from "../constants";
 
 export interface MetaFieldProps {
@@ -23,7 +24,7 @@ export interface MetaFieldProps {
   value: string | null | undefined;
   /** Опциональный callback для action button */
   onClick?: () => void;
-  /** Кастомный текст action button (default: "Показать всё") */
+  /** Кастомный текст action button (default: t("meta.showAll")) */
   actionLabel?: string;
 }
 
@@ -32,25 +33,30 @@ const MetaField: React.FC<MetaFieldProps> = ({
   value,
   onClick,
   actionLabel,
-}) => (
-  <div className="rounded-xl border border-[var(--border)] px-3 py-2">
-    <div className="flex items-start justify-between gap-2">
-      <p className={LABEL_XS}>{label}</p>
-      {value && onClick && (
-        <button
-          type="button"
-          onClick={onClick}
-          className={`text-[10px] font-medium text-[var(--accent-primary)] hover:underline ${FOCUS_RING}`}
-        >
-          {actionLabel ?? "Показать всё"}
-        </button>
-      )}
+}) => {
+  const { t } = useTranslation("tenantAdmin");
+  const resolvedActionLabel = actionLabel ?? t("meta.showAll");
+
+  return (
+    <div className="rounded-xl border border-[var(--border)] px-3 py-2">
+      <div className="flex items-start justify-between gap-2">
+        <p className={LABEL_XS}>{label}</p>
+        {value && onClick && (
+          <button
+            type="button"
+            onClick={onClick}
+            className={`text-[10px] font-medium text-[var(--accent-primary)] hover:underline ${FOCUS_RING}`}
+          >
+            {resolvedActionLabel}
+          </button>
+        )}
+      </div>
+      <p className="mt-0.5 break-all text-sm text-[var(--text-primary)]">
+        {value || "—"}
+      </p>
     </div>
-    <p className="mt-0.5 break-all text-sm text-[var(--text-primary)]">
-      {value || "—"}
-    </p>
-  </div>
-);
+  );
+};
 
 export default MetaField;
 

@@ -4,10 +4,7 @@
 // Панель деталей выбранного log entry. Показывается справа от
 // LogsTable на xl+ viewport, или снизу (as card) на меньших.
 //
-// Отображает:
-// - Header с timestamp + "JSON" (copy) + "✕" (clear) buttons
-// - Level badge + Stage/Queue chips + Grouped indicator
-// - Event card (full text)
+// Event card (full text)
 // - MetaFields grid (Logger, Worker, Deal ID, Run ID, Document ID, ...)
 // - Raw JSON pre-block
 //
@@ -22,6 +19,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Copy, Layers } from "lucide-react";
 import type { LogEntry } from "../../../api/tenantAdmin";
 import Button from "../../../components/ui/Button";
@@ -61,15 +59,17 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
   onClear,
   correlations,
 }) => {
+  const { t, i18n } = useTranslation("tenantAdmin");
+
   if (!entry) {
     return (
       <div className="flex h-full items-center justify-center p-5">
         <div className="text-center">
           <p className="text-sm font-semibold text-[var(--text-primary)]">
-            Выберите запись лога
+            {t("logs.details.emptyTitle")}
           </p>
           <p className="mt-1 text-[10px] text-[var(--text-muted)]">
-            Нажмите на строку в таблице, чтобы увидеть подробности
+            {t("logs.details.emptySubtitle")}
           </p>
         </div>
       </div>
@@ -86,10 +86,10 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
         >
           <div className="min-w-0">
             <p className="text-sm font-semibold text-[var(--text-primary)]">
-              Детали лога
+              {t("logs.details.title")}
             </p>
             <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-              {formatDateTime(entry.timestamp)}
+              {formatDateTime(entry.timestamp, i18n.language)}
             </p>
           </div>
           <div className="flex shrink-0 gap-1.5">
@@ -99,7 +99,7 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
               onClick={onCopy}
               leftIcon={<Copy size={12} />}
             >
-              {copied ? "Скопировано" : "JSON"}
+              {copied ? t("logs.details.actions.copied") : t("logs.details.actions.copyJson")}
             </Button>
             <Button size="sm" variant="ghost" onClick={onClear}>
               ✕
@@ -126,7 +126,7 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
             {isGrouped && (
               <span
                 className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]"
-                title="Группа повторяющихся событий"
+                title={t("logs.details.groupTooltip")}
               >
                 <Layers size={10} />×{entry.count}
               </span>
@@ -134,14 +134,16 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
           </div>
 
           <div className="rounded-xl border border-[var(--border)] px-3 py-2">
-            <p className={LABEL_XS}>Event</p>
+            <p className={LABEL_XS}>{t("logs.details.event")}</p>
             <p className="mt-1 text-sm leading-6 text-[var(--text-primary)]">
               {entry.event || "—"}
             </p>
             {isGrouped && entry.first_seen && entry.last_seen && (
               <p className="mt-2 text-[10px] text-[var(--text-muted)]">
-                Первое: {formatDateTime(entry.first_seen)} · Последнее:{" "}
-                {formatDateTime(entry.last_seen)}
+                {t("logs.details.seenRange", {
+                  first: formatDateTime(entry.first_seen, i18n.language),
+                  last: formatDateTime(entry.last_seen, i18n.language),
+                })}
               </p>
             )}
           </div>
@@ -158,7 +160,7 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
                   ? () => correlations.onFilterByRun?.(entry.run_id as string)
                   : undefined
               }
-              actionLabel="Все логи run"
+              actionLabel={t("logs.details.actions.allRunLogs")}
             />
             <MetaField
               label="Document ID"
@@ -171,7 +173,7 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
                       )
                   : undefined
               }
-              actionLabel="Все логи документа"
+              actionLabel={t("logs.details.actions.allDocLogs")}
             />
             <MetaField
               label="Task ID"
@@ -181,14 +183,14 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
                   ? () => correlations.onFilterByTask?.(entry.task_id as string)
                   : undefined
               }
-              actionLabel="Все логи task"
+              actionLabel={t("logs.details.actions.allTaskLogs")}
             />
             <MetaField label="Task name" value={entry.task_name} />
-            <MetaField label="Timestamp" value={entry.timestamp} />
+            <MetaField label="Timestamp" value={formatDateTime(entry.timestamp, i18n.language)} />
           </div>
 
           <div>
-            <p className={LABEL_XS}>Raw JSON</p>
+            <p className={LABEL_XS}>{t("logs.details.rawJson")}</p>
             <pre className="mt-1.5 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-4 py-3 text-[10px] leading-5 text-[var(--text-secondary)]">
               {JSON.stringify(entry.raw, null, 2)}
             </pre>

@@ -4,6 +4,7 @@
 // и базовые playbooks.
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 import { BookOpen, FileText, Layers, Shield } from "lucide-react";
 
@@ -55,6 +56,8 @@ const NavCard: React.FC<NavCardProps> = ({
 // ─────────────────────────────────────────────────────────────
 
 const InstructionsIndexPage: React.FC = () => {
+  const { t } = useTranslation("admin");
+
   return (
     <div className="h-full overflow-y-auto overscroll-contain">
       <div className="animate-fadein space-y-4 p-4 md:p-5">
@@ -62,12 +65,10 @@ const InstructionsIndexPage: React.FC = () => {
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Инструкции
+              {t("instructionsHub.title")}
             </h1>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Управление базовыми инструкциями платформы, playbook studio и
-              версиями базовых playbooks. Изменения публикуются через flow
-              draft → validate → publish.
+              {t("instructionsHub.subtitle")}
             </p>
           </div>
         </header>
@@ -75,26 +76,24 @@ const InstructionsIndexPage: React.FC = () => {
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <div className="mb-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              Платформа
+              {t("instructionsHub.groups.platform")}
             </div>
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              Универсальные инструкции и базовые настройки по типам документов,
-              которые используются как основа для tenant-override и сборки
-              playbooks.
+              {t("instructionsHub.groups.platformDesc")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <NavCard
               to="/admin/instructions/global-checks"
-              title="Global Instructions"
-              description="Универсальные проверки для любых документов: конфиденциальность, применимое право, срок действия и др."
+              title={t("instructionsHub.cards.globalTitle")}
+              description={t("instructionsHub.cards.globalDesc")}
               icon={Shield}
             />
             <NavCard
               to="/admin/instructions/doc-types"
-              title="Doc-type Instructions"
-              description="Инструкции по типам документов. Базовые настройки extraction, checks, retrieval."
+              title={t("instructionsHub.cards.docTypeTitle")}
+              description={t("instructionsHub.cards.docTypeDesc")}
               icon={FileText}
             />
           </div>
@@ -103,19 +102,18 @@ const InstructionsIndexPage: React.FC = () => {
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <div className="mb-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              Studio
+              {t("instructionsHub.groups.studio")}
             </div>
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              Единая среда для сборки, проверки, предпросмотра и публикации
-              версий playbook перед их применением в проектах.
+              {t("instructionsHub.groups.studioDesc")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <NavCard
               to="/admin/instructions/playbook-studio"
-              title="Playbook Studio"
-              description="Templates, version builder, compiled preview, publish и дальнейшее применение в проектах."
+              title={t("instructionsHub.cards.studioTitle")}
+              description={t("instructionsHub.cards.studioDesc")}
               icon={BookOpen}
             />
           </div>
@@ -124,19 +122,18 @@ const InstructionsIndexPage: React.FC = () => {
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <div className="mb-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              Реестр
+              {t("instructionsHub.groups.registry")}
             </div>
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              Опубликованные стандартные playbooks платформы, доступные для
-              использования в проектах и просмотра их состава.
+              {t("instructionsHub.groups.registryDesc")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <NavCard
               to="/admin/instructions/playbooks-registry"
-              title="Реестр стандартных playbook"
-              description="Просмотр состава опубликованных playbook и экспорт в Excel / Word."
+              title={t("instructionsHub.cards.registryTitle")}
+              description={t("instructionsHub.cards.registryDesc")}
               icon={Layers}
             />
           </div>

@@ -1,0 +1,602 @@
+{
+  "tenantPlaybooks": {
+    "backToInstructions": "Instructions",
+    "title": "Organization Playbooks",
+    "subtitle": "Your tenant's own playbooks. Visible only to you, not available to other platform clients.",
+    "stats": "Playbooks: {{count}}",
+    "refresh": "Refresh",
+    "createInStudio": "Create in Playbook Studio",
+    "infoTitle": "How to use",
+    "infoTextPrefix": "Playbook creation and editing is performed in ",
+    "infoLinkText": "Playbook Studio",
+    "infoTextSuffix": ". This page displays a ready catalog of tenant-owned playbooks only — platform global templates are not shown here.",
+    "searchPlaceholder": "Search by title, code, description…",
+    "searchFound": "{{filtered}} of {{total}}",
+    "loading": "Loading organization playbooks…",
+    "loadError": "Failed to load organization playbooks.",
+    "emptyTitle": "Organization playbooks not created yet",
+    "emptyDesc": "Create the first playbook in Playbook Studio. It will only be visible to your organization.",
+    "noResultsTitle": "Nothing found",
+    "noResultsDesc": "Try adjusting your search query.",
+    "clearSearch": "Clear search",
+    "card": {
+      "deal": "deal",
+      "jurisdiction": "jurisdiction",
+      "language": "language",
+      "risk": "risk"
+    }
+  },
+  "tenantBase": {
+    "backToInstructions": "Instructions",
+    "docTypes": {
+      "title": "Base Doc-Type Instructions",
+      "description": "Read-only catalog of base document type instructions.",
+      "infoTitle": "How to use",
+      "infoText": "Base instructions are managed by superadmin. Click an instruction to view its content and versions. To create overrides go to ",
+      "infoLinkLabel": "Doc-Type Overrides",
+      "infoTextTail": ".",
+      "searchPlaceholder": "Search by code, name, parent, category…",
+      "loading": "Loading base doc-type instructions…",
+      "loadError": "Failed to load doc-type instruction catalog.",
+      "emptyTitle": "Doc-type instructions not found",
+      "emptyDesc": "The base doc-type instruction catalog is not yet available.",
+      "noResultsTitle": "Nothing found",
+      "noResultsDesc": "Try adjusting your search query.",
+      "stats": {
+        "total": "Total: {{count}}",
+        "published": "Published: {{count}}",
+        "groups": "Groups: {{count}}"
+      }
+    },
+    "globalChecks": {
+      "title": "Base Global Instructions",
+      "description": "Read-only catalog of base global platform checks.",
+      "infoTitle": "How to use",
+      "infoText": "Base instructions are managed by superadmin. Click an instruction to view its content and versions. To create overrides go to ",
+      "infoLinkLabel": "Global Overrides",
+      "infoTextTail": ".",
+      "searchPlaceholder": "Search by code, name, group…",
+      "loading": "Loading base global instructions…",
+      "loadError": "Failed to load base global instructions.",
+      "emptyTitle": "Global instructions not found",
+      "emptyDesc": "The base global instruction catalog is not yet available.",
+      "noResultsTitle": "Nothing found",
+      "noResultsDesc": "Try adjusting your search query.",
+      "stats": {
+        "total": "Total: {{count}}",
+        "published": "Published: {{count}}",
+        "groups": "Groups: {{count}}"
+      }
+    },
+    "common": {
+      "refresh": "Refresh",
+      "ungrouped": "Without group",
+      "collapsed": "Section collapsed",
+      "expanded": "Click an instruction to view its content and versions.",
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all",
+      "foundOf": "Found: {{filtered}} of {{total}}",
+      "clearSearch": "Clear search",
+      "versionsCount_one": "{{count}} version",
+      "versionsCount_other": "{{count}} versions",
+      "hasPublished": "Published",
+      "noPublished": "No published"
+    },
+    "detail": {
+      "backToDocTypes": "Base Doc-Type Instructions",
+      "backToGlobalChecks": "Base Global Instructions",
+      "fallbackDocType": "Doc-Type",
+      "fallbackGlobal": "Global Instruction",
+      "info": {
+        "aboutDocType": "About document type",
+        "aboutInstruction": "About instruction",
+        "name": "Name",
+        "code": "Code",
+        "parent": "Parent",
+        "risk": "Risk",
+        "language": "Language",
+        "jurisdiction": "Jurisdiction",
+        "group": "Group",
+        "total": "Total",
+        "published": "Published",
+        "draft": "Draft",
+        "yes": "yes",
+        "no": "no"
+      },
+      "sidebar": {
+        "title": "Versions",
+        "loading": "Loading versions…",
+        "loadError": "Failed to load instruction versions.",
+        "emptyDocType": "There are no versions for this document type yet.",
+        "emptyGlobal": "There are no versions for this instruction yet.",
+        "drafts": "Drafts",
+        "published": "Published",
+        "archived": "Archived",
+        "unnamed": "Untitled"
+      },
+      "viewer": {
+        "loading": "Loading instruction version…",
+        "loadError": "Failed to load version content.",
+        "sourceYaml": "Source YAML",
+        "noYaml": "Source YAML is not available for this version."
+      },
+      "empty": {
+        "title": "No versions",
+        "descDocType": "No versions have been created for this document type yet.",
+        "descGlobal": "No versions have been created for this instruction yet."
+      },
+      "selectPrompt": "Select a version from the list on the left."
+    }
+  },
+  "tenantOverride": {
+    "breadcrumbs": {
+      "instructions": "Instructions",
+      "overrides": "Overrides"
+    },
+    "listPage": {
+      "title": "Instruction Overrides",
+      "subtitle": "Instruction overrides at the tenant level. Applied on top of base published versions.",
+      "newButton": "New override",
+      "stats": {
+        "total": "Total: {{count}}",
+        "active": "Active: {{count}}",
+        "draft": "Draft: {{count}}",
+        "stale": "Stale: {{count}}"
+      },
+      "staleWarning_one": "1 override is stale — the base instruction version was updated. Create new overrides on the current version.",
+      "staleWarning_other": "{{count}} overrides are stale — the base instruction version was updated. Create new overrides on the current version.",
+      "loading": "Loading overrides…",
+      "loadError": "Failed to load overrides. Check your connection.",
+      "empty": {
+        "title": "No overrides created",
+        "description": "Create your first override to redefine a base instruction for your tenant.",
+        "action": "Create override"
+      },
+      "card": {
+        "globalOverride": "Global Override",
+        "docTypeOverride": "Doc-Type Override",
+        "ops": "ops",
+        "updated": "Updated"
+      }
+    },
+    "createPage": {
+      "backLabel": "Overrides",
+      "title": "Create Tenant Override",
+      "subtitle": "Create a draft override on top of a published base instruction version.",
+      "cancel": "Cancel",
+      "errors": {
+        "noTenant": "Could not determine tenant. Please sign out and sign in again.",
+        "noBaseVersion": "Select a published base instruction version.",
+        "noPatchOps": "Add at least one JSON Patch operation.",
+        "submitFallback": "Failed to create override draft."
+      },
+      "baseSection": {
+        "title": "Base instruction",
+        "kindDocType": "Doc-Type instruction",
+        "kindGlobal": "Global instruction",
+        "catalogLoading": "Loading base instruction catalog…",
+        "catalogError": "Failed to load base instruction catalog.",
+        "docTypeLabel": "Document type",
+        "globalLabel": "Global instruction",
+        "versionLoading": "Loading published versions…",
+        "noVersionsTitle": "No published versions found",
+        "noVersionsDesc": "The selected base instruction has no published versions to create an override on.",
+        "versionLabel": "Published base version"
+      },
+      "metadataSection": {
+        "title": "Metadata",
+        "changeSummaryLabel": "Change summary",
+        "changeSummaryPlaceholder": "E.g. relax warning threshold, add tenant-specific wording"
+      },
+      "patchSection": {
+        "title": "JSON Patch Operations",
+        "label": "RFC 6902 patch operations"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "submit": "Create draft override"
+      }
+    },
+    "detailPage": {
+      "backLabel": "Overrides",
+      "backToList": "Back to overrides",
+      "title": "Tenant Override",
+      "loading": "Loading override…",
+      "notFound": "Override not found or no access.",
+      "errors": {
+        "validate": "Failed to perform validation.",
+        "activate": "Failed to activate override. The override may be stale or already active.",
+        "archive": "Failed to archive override."
+      },
+      "success": {
+        "activate": "Override activated.",
+        "archive": "Override archived."
+      },
+      "details": {
+        "title": "Details",
+        "overrideId": "Override ID",
+        "baseVersion": "Base Version",
+        "baseHash": "Base Hash",
+        "scope": "Scope",
+        "scopeGlobal": "Global instruction",
+        "scopeDocType": "Doc-type instruction",
+        "patchOps": "Patch ops",
+        "patchOpsCount": "{{count}} operations"
+      },
+      "patchOps": {
+        "title": "Patch Operations",
+        "label": "Current patch operations (RFC 6902)",
+        "readOnlyHint": "To change patch operations, create a new override draft with updated operations."
+      },
+      "validation": {
+        "title": "Validation",
+        "success": "Validation successful",
+        "failed": "Validation failed",
+        "action": "Validate"
+      },
+      "actions": {
+        "title": "Actions",
+        "activate": "Activate",
+        "staleWarning": "Cannot activate a stale override — create a new one.",
+        "archive": "Archive",
+        "archivedHint": "Override is archived. Create a new one if needed."
+      },
+      "archiveDialog": {
+        "title": "Archive override?",
+        "description": "The override will be archived and will stop being applied. This action cannot be undone.",
+        "confirm": "Archive"
+      }
+    }
+  },
+  "tenantInstructionsIndex": {
+    "title": "Instructions",
+    "subtitle": "Base platform instructions, playbook studio and overrides for your organization.",
+    "platform": {
+      "label": "Platform",
+      "title": "Base platform instructions",
+      "description": "Managed by superadmin. Available for viewing and as a basis for creating overrides.",
+      "globalTitle": "Base Global Instructions",
+      "globalDesc": "Universal checks applicable to any documents.",
+      "docTypeTitle": "Base Doc-Type Instructions",
+      "docTypeDesc": "Instructions for specific document types."
+    },
+    "studio": {
+      "label": "Studio",
+      "title": "Playbook Studio",
+      "description": "Build playbooks from base instructions and prepare versions for deployment.",
+      "cardTitle": "Playbook Studio",
+      "cardDesc": "Create templates and build versions."
+    },
+    "org": {
+      "label": "Organization",
+      "title": "Your organization overrides",
+      "description": "Tenant-level settings. Overrides are applied on top of base versions.",
+      "globalTitle": "Global Overrides",
+      "globalDesc": "Overrides of base global instructions.",
+      "docTypeTitle": "Doc-Type Overrides",
+      "docTypeDesc": "Overrides of doc-type instructions.",
+      "playbooksTitle": "Organization playbooks",
+      "playbooksDesc": "Your organization's own playbooks."
+    }
+  },
+  "deal": {
+    "breadcrumbs": {
+      "project": "Project",
+      "instructions": "Instructions",
+      "overrides": "Overrides"
+    },
+    "instructionsPage": {
+      "title": "Project Instructions",
+      "subtitle": "Manage override instructions for this project.",
+      "overridesCard": {
+        "title": "Deal Overrides",
+        "description": "Instruction overrides for this project."
+      }
+    },
+    "overridesPage": {
+      "title": "Deal Overrides",
+      "subtitle": "Instruction overrides at the project level.",
+      "newButton": "New override",
+      "staleCount_one": "1 override is stale. Perform a rebase for each stale override.",
+      "staleCount_other": "{{count}} overrides are stale. Perform a rebase for each stale override.",
+      "sectionTitle": "Overrides",
+      "loading": "Loading overrides…",
+      "loadError": "Failed to load project overrides.",
+      "empty": {
+        "title": "No overrides created",
+        "description": "Create an override to redefine instructions for this project.",
+        "action": "Create override"
+      },
+      "card": {
+        "globalOverride": "Deal Global Override",
+        "dealOverride": "Deal Override",
+        "patchOpsBase": "base",
+        "patchOpsCount_one": "{{count}} patch op",
+        "patchOpsCount_other": "{{count}} patch ops"
+      }
+    },
+    "detailPage": {
+      "loading": "Loading override…",
+      "notFound": "Override not found.",
+      "title": "Deal Override",
+      "errors": {
+        "validate": "Failed to perform validation.",
+        "activate": "Failed to activate override.",
+        "archive": "Failed to archive override.",
+        "rebase": "Failed to perform rebase. Verify new base version ID and patch ops."
+      },
+      "success": {
+        "activate": "Override activated.",
+        "archive": "Override archived.",
+        "rebase": "Rebase completed successfully. Override attached to the new base version."
+      },
+      "meta": {
+        "id": "Override ID",
+        "baseVersion": "Base Version",
+        "scope": "Scope"
+      },
+      "patchOps": {
+        "title": "Patch Operations",
+        "label": "Current patch operations (RFC 6902)"
+      },
+      "rebaseForm": {
+        "title": "Rebase to new base version",
+        "description": "Specify the ID of the new base instruction version and adjust the patch operations if necessary. After rebase, the override will no longer be stale.",
+        "newBaseVersionId": "New base version ID",
+        "newBaseVersionPlaceholder": "uuid of new base version...",
+        "patchOpsLabel": "Patch operations for the new base",
+        "submit": "Perform Rebase"
+      },
+      "validation": {
+        "title": "Validation",
+        "success": "Validation successful",
+        "failed": "Validation failed",
+        "action": "Validate"
+      },
+      "actions": {
+        "title": "Actions",
+        "activate": "Activate",
+        "rebaseWarning": "Perform rebase before activation.",
+        "archive": "Archive"
+      },
+      "archiveDialog": {
+        "title": "Archive override?",
+        "description": "The override will be archived. This action cannot be undone."
+      }
+    }
+  },
+  "docTypeList": {
+    "ungroupedLabel": "Without parent class",
+    "backToInstructions": "Instructions",
+    "title": "Doc-type instructions",
+    "description": "Select a document type to manage its instruction versions.",
+    "addInstruction": "Add instruction",
+    "stats": {
+      "total": "Total: {{count}}",
+      "published": "Published: {{count}}",
+      "withDraft": "With draft: {{count}}"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search by code, name or class…",
+      "foundOf": "Found: {{filtered}} of {{total}}",
+      "collapseAll": "Collapse all",
+      "expandAll": "Expand all"
+    },
+    "group": {
+      "collapsedHint": "Section collapsed",
+      "expandedHint": "Select a document type to view its versions and manage drafts."
+    },
+    "card": {
+      "versionsCount_one": "{{count}} version",
+      "versionsCount_other": "{{count}} versions",
+      "hasPublished": "Published",
+      "noPublished": "No published",
+      "draft": "Draft",
+      "draftInvalid": "Draft (invalid)",
+      "publishedLabel": "Published",
+      "about": "About Instruction"
+    },
+    "loading": "Loading doc-type instruction catalog…",
+    "loadError": "Failed to load doc-type instruction catalog.",
+    "empty": {
+      "noItems": {
+        "title": "No doc-type instructions found",
+        "description": "The catalog is empty. Contact the platform administrator."
+      },
+      "noSearchResults": {
+        "title": "Nothing found",
+        "description": "Try adjusting your search query.",
+        "action": "Clear search"
+      }
+    },
+    "import": {
+      "changeSummary": "Import from YAML",
+      "fallbackError": "Failed to import YAML."
+    }
+  },
+  "docTypeDetail": {
+    "backToList": "Doc-type instructions",
+    "fallbackDocTypeLabel": "Doc-Type",
+    "info": {
+      "title": "About document type",
+      "nameLabel": "Name",
+      "codeLabel": "Code",
+      "totalLabel": "Total",
+      "publishedLabel": "Published",
+      "draftLabel": "Draft",
+      "hasPublishedYes": "yes",
+      "hasPublishedNo": "no"
+    },
+    "selected": {
+      "title": "Selected version",
+      "nameLabel": "Name",
+      "unnamed": "Untitled",
+      "idLabel": "ID",
+      "semverLabel": "Semver",
+      "publishedLabel": "Published",
+      "changeSummaryLabel": "Change summary",
+      "basedOnLabel": "Based on version"
+    },
+    "sidebar": {
+      "title": "Versions",
+      "loading": "Loading versions…",
+      "loadError": "Failed to load instruction versions.",
+      "empty": "There are no versions for this document type yet.",
+      "groups": {
+        "drafts": "Drafts",
+        "published": "Published",
+        "archived": "Archived"
+      }
+    },
+    "editor": {
+      "loading": "Loading instruction version…",
+      "loadError": "Failed to load instruction version. Verify the link is correct.",
+      "backToDocType": "Back to document type",
+      "publishedTitle": "Edit this version",
+      "publishedHintHasDraft": "This document type already has an active draft. Open it from the list on the left to continue editing.",
+      "publishedHintNoDraft": "A published version is immutable. Create a draft based on this version to make changes.",
+      "openDraft": "Open draft",
+      "createDraft": "Create draft",
+      "archiveAction": "Archive",
+      "archivedTitle": "Archived version",
+      "archivedHint": "This version has been retired. If needed, you can create a new draft based on it.",
+      "restoreAsDraft": "Restore as draft",
+      "sourceYamlTitle": "Source YAML",
+      "cloneSummary": "Clone of version {{name}}",
+      "errors": {
+        "clone": "Failed to create draft. Please try again.",
+        "validate": "Validation failed. Please try again.",
+        "publish": "Failed to publish version. Make sure validation passed successfully.",
+        "archive": "Failed to archive version. Please try again."
+      },
+      "draftSectionTitle": "Editing draft",
+      "validation": {
+        "title": "Validation",
+        "description": "Check the draft before publishing. Validation runs on the server.",
+        "hintValid": "Validation passed. You can publish now.",
+        "hintInvalid": "Fix the errors and validate again.",
+        "hintPending": "Run validation before publishing.",
+        "action": "Validate"
+      },
+      "publish": {
+        "title": "Publish",
+        "description": "Available only after successful validation.",
+        "hintReady": "The draft is ready to publish. Once published the version becomes immutable.",
+        "hintNotReady": "Run validation first and make sure there are no errors.",
+        "action": "Publish"
+      },
+      "archiveDialog": {
+        "title": "Archive this version?",
+        "description": "Instruction \"{{name}}\" will no longer be available to clients for new use. Historical data will not change.",
+        "confirm": "Archive"
+      }
+    },
+    "empty": {
+      "title": "No versions",
+      "description": "No versions have been created for this document type yet.",
+      "action": "Create first draft"
+    },
+    "mainEmpty": "Select a version from the list on the left."
+  },
+  "catalog": {
+    "title": "Global Instructions",
+    "subtitle": "Universal checks applicable to any document type. Select an instruction to manage versions.",
+    "searchPlaceholder": "Search by code, name, or group…",
+    "total": "Total: {{count}}",
+    "published": "Published: {{count}}",
+    "withDraft": "With draft: {{count}}",
+    "toggleCollapseAll": "Collapse all",
+    "toggleExpandAll": "Expand all",
+    "loading": "Loading global instructions catalog…",
+    "error": "Failed to load global instructions catalog.",
+    "emptyTitle": "Global instructions not found",
+    "emptyDesc": "Catalog is empty. Create the first global instruction or contact an administrator.",
+    "emptySearchTitle": "Nothing found",
+    "emptySearchDesc": "Try changing your search query.",
+    "addInstruction": "Add instruction",
+    "sectionCollapsed": "Section collapsed",
+    "noPublished": "No published",
+    "searchResults": "Found: {{filtered}} of {{total}}",
+    "importError": "Failed to import YAML.",
+    "publishedLabel": "Published",
+    "draftLabel": "Draft",
+    "draftInvalidLabel": "Draft (invalid)",
+    "importChangeSummary": "Import from YAML"
+  },
+  "detail": {
+    "loading": "Loading instruction version…",
+    "error": "Failed to load instruction version. Check if the link is correct.",
+    "backButton": "Global Instructions",
+    "emptyVersionsTitle": "No versions",
+    "emptyVersionsDesc": "No versions have been created for this instruction yet.",
+    "createFirstDraft": "Create first draft",
+    "createDraftError": "Failed to create draft. Try refreshing the page and repeating.",
+    "selectVersionPrompt": "Select a version from the list on the left.",
+    "draftCount_one": "{{count}} version",
+    "draftCount_other": "{{count}} versions",
+    "hasPublished": "Published",
+    "hasPublishedYes": "yes",
+    "hasPublishedNo": "no",
+    "backToList": "Global Instructions",
+    "fallbackTitle": "Global Instruction",
+    "newInstructionSkeletonName": "New Instruction",
+    "firstDraftSummary": "First draft"
+  },
+  "card": {
+    "about": "About instruction",
+    "name": "Name",
+    "code": "Code",
+    "group": "Group",
+    "total": "Total",
+    "published": "Published",
+    "draft": "Draft",
+    "selectedVersion": "Selected version",
+    "untitled": "Untitled",
+    "semver": "Semver",
+    "changeSummary": "Change log",
+    "basedOn": "Based on version",
+    "versions": "Versions",
+    "loadingVersions": "Loading versions…",
+    "versionsError": "Failed to load instruction versions.",
+    "emptyVersions": "There are no versions for this instruction yet.",
+    "draftsGroup": "Drafts",
+    "publishedGroup": "Published",
+    "archivedGroup": "Archived",
+    "ungrouped": "Ungrouped"
+  },
+  "editor": {
+    "editDraft": "Edit draft",
+    "validation": "Validation",
+    "validationDesc": "Verify draft before publishing. Validation is performed on the server.",
+    "validationPrompt": "Run validation before publishing.",
+    "validationSuccess": "Validation passed. Ready to publish.",
+    "validationFailed": "Correct errors and validate again.",
+    "validateButton": "Validate",
+    "publishing": "Publishing",
+    "publishingDesc": "Only available after successful validation.",
+    "publishingPrompt": "First perform validation and ensure there are no errors.",
+    "publishingReady": "Draft is ready for publishing. After publishing, the version will become immutable.",
+    "publishButton": "Publish",
+    "editPublished": "Edit this version",
+    "hasDraftActive": "The instruction already has an active draft. Open it in the version list on the left to continue editing.",
+    "immutablePublished": "Published version is immutable. Create a draft based on this version to make changes.",
+    "openDraftButton": "Open draft",
+    "createDraftButton": "Create draft",
+    "archiveButton": "Archive",
+    "archivedVersionTitle": "Archived version",
+    "archivedVersionDesc": "This version is decommissioned from active use. You can create a new draft based on it if needed.",
+    "restoreAsDraftButton": "Restore as draft",
+    "sourceYaml": "Source YAML",
+    "archiveConfirmTitle": "Archive this version?",
+    "archiveConfirmDesc": "The instruction \"{{name}}\" will no longer be available to clients for new use. Historical data will not change.",
+    "archiveConfirmLabel": "Archive",
+    "cancelLabel": "Cancel",
+    "cloneDraftError": "Failed to create draft. Please try again.",
+    "validateDraftError": "Failed to perform validation. Please try again.",
+    "publishDraftError": "Failed to publish version. Make sure validation was successful.",
+    "archiveVersionError": "Failed to archive version. Please try again.",
+    "cloneSummary": "Clone of version {{name}}"
+  }
+}
+
+

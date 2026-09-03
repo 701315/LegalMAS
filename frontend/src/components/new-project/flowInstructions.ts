@@ -3,14 +3,17 @@
 //
 // Инструкции для правой колонки FlowRightRail.
 //
-// Для каждого шага (1..6) и для intro (нет активного шага):
-//   - title       — короткий заголовок
-//   - description — 1-2 предложения контекста
-//   - bullets     — 2-4 буллета "что учесть"
-//   - icon        — lucide-иконка для крупной "иллюстрации"
-//   - iconLabel   — короткая подпись под иконкой (кодовое название шага)
+// Тексты (title, description, bullets, iconLabel) хранятся в
+// словаре projects.flowInstructions.* и разрешаются на стороне
+// UI-компонента через useTranslation("projects"). Здесь мы
+// возвращаем только СТРУКТУРУ: icon (компонент lucide) и
+// набор i18n-ключей, из которых UI сам собирает текст.
 //
-// Все иконки берутся из lucide-react — новых зависимостей не добавляем.
+// Такой подход:
+//   - не тянет useTranslation в файл констант
+//   - позволяет компоненту прочитать столько буллетов, сколько
+//     реально есть в словаре текущей локали
+//   - устраняет хардкод русского текста в исходниках
 // =============================================================
 
 import {
@@ -24,124 +27,121 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-export interface FlowStepInstruction {
-  title: string;
-  description: string;
-  bullets: string[];
+/**
+ * Дескриптор одного шага мастера. Все текстовые поля выражены
+ * как i18n-ключи внутри namespace "projects".
+ */
+export interface FlowStepInstructionDescriptor {
+  /** i18n-ключ заголовка, например "flowInstructions.step1.title" */
+  titleKey: string;
+  /** i18n-ключ описания */
+  descriptionKey: string;
+  /**
+   * Префикс i18n-ключей для буллетов. Реальные ключи:
+   *   `${bulletsKeyPrefix}.0`, `${bulletsKeyPrefix}.1`, …
+   * UI должен читать буллеты, пока t() возвращает не-пустое значение.
+   */
+  bulletsKeyPrefix: string;
+  /** i18n-ключ короткой подписи под иконкой */
+  iconLabelKey: string;
+  /** Иконка lucide (не переводится) */
   icon: LucideIcon;
-  iconLabel: string;
 }
 
+const NS = "flowInstructions";
+
 // ── Intro: активного шага ещё нет ─────────────────────────
-// Показывается до того, как пользователь начал работу.
-export const FLOW_INTRO: FlowStepInstruction = {
-  title: "Как создать проект",
-  description:
-    "Заполните шесть блоков по порядку. Каждый следующий блок открывается автоматически, когда предыдущий готов.",
-  bullets: [
-    "Название проекта и ответственный",
-    "Загрузка документов",
-    "Playbook и профиль модели",
-    "Основной язык и режим проверки",
-    "Запуск анализа",
-  ],
+export const FLOW_INTRO: FlowStepInstructionDescriptor = {
+  titleKey: `${NS}.intro.title`,
+  descriptionKey: `${NS}.intro.description`,
+  bulletsKeyPrefix: `${NS}.intro.bullets`,
+  iconLabelKey: `${NS}.intro.iconLabel`,
   icon: Sparkles,
-  iconLabel: "Обзор",
 };
 
 // ── Инструкции по шагам ────────────────────────────────────
-export const FLOW_STEP_INSTRUCTIONS: Record<number, FlowStepInstruction> = {
+export const FLOW_STEP_INSTRUCTIONS: Record<number, FlowStepInstructionDescriptor> = {
   1: {
-    title: "Информация о проекте",
-    description:
-      "Задайте название проекта и назначьте ответственного пользователя. Название можно изменить позже в настройках.",
-    bullets: [
-      "Используйте короткое рабочее название",
-      "Ответственный получит роль администратора проекта",
-      "Ответственного можно назначить позже — этот шаг необязателен",
-    ],
+    titleKey: `${NS}.step1.title`,
+    descriptionKey: `${NS}.step1.description`,
+    bulletsKeyPrefix: `${NS}.step1.bullets`,
+    iconLabelKey: `${NS}.step1.iconLabel`,
     icon: Info,
-    iconLabel: "Проект",
   },
-
   2: {
-    title: "Загрузка документов",
-    description:
-      "Загрузите файлы для анализа. Поддерживаются документы форматов PDF, DOCX, XLSX и другие типовые форматы.",
-    bullets: [
-      "Можно загрузить один или несколько файлов сразу",
-      "Файлы обрабатываются в фоне — можно продолжать настройку",
-      "Дополнительные файлы можно добавить позже",
-    ],
+    titleKey: `${NS}.step2.title`,
+    descriptionKey: `${NS}.step2.description`,
+    bulletsKeyPrefix: `${NS}.step2.bullets`,
+    iconLabelKey: `${NS}.step2.iconLabel`,
     icon: Upload,
-    iconLabel: "Документы",
   },
-
   3: {
-    title: "Playbook",
-    description:
-      "Выберите playbook — набор проверок, который будет применён к документам. Доступны только опубликованные версии.",
-    bullets: [
-      "Сначала выберите шаблон, затем версию",
-      "Playbook определяет состав проверок и DD Grid",
-      "Можно сменить playbook позже в настройках проекта",
-    ],
+    titleKey: `${NS}.step3.title`,
+    descriptionKey: `${NS}.step3.description`,
+    bulletsKeyPrefix: `${NS}.step3.bullets`,
+    iconLabelKey: `${NS}.step3.iconLabel`,
     icon: BookOpen,
-    iconLabel: "Playbook",
   },
-
   4: {
-    title: "Профиль модели",
-    description:
-      "Определяет параметры семантического поиска и веса для гибридного retrieval. Опциональный шаг.",
-    bullets: [
-      "Профиль применяется ко всем документам проекта",
-      "Если пропустить — будет использован профиль по умолчанию",
-      "Можно изменить позже в настройках",
-    ],
+    titleKey: `${NS}.step4.title`,
+    descriptionKey: `${NS}.step4.description`,
+    bulletsKeyPrefix: `${NS}.step4.bullets`,
+    iconLabelKey: `${NS}.step4.iconLabel`,
     icon: Cpu,
-    iconLabel: "Модель",
   },
-
   5: {
-    title: "Основной язык",
-    description:
-      "Система автоматически определяет языки документов. После завершения обработки выберите основной язык анализа.",
-    bullets: [
-      "Определение языков идёт в фоне",
-      "Основной язык определяет primary source для проверок",
-      "Выбор станет доступен, когда обработка завершится",
-    ],
+    titleKey: `${NS}.step5.title`,
+    descriptionKey: `${NS}.step5.description`,
+    bulletsKeyPrefix: `${NS}.step5.bullets`,
+    iconLabelKey: `${NS}.step5.iconLabel`,
     icon: Globe,
-    iconLabel: "Язык",
   },
-
   6: {
-    title: "Запуск анализа",
-    description:
-      "Выберите режим проверки и запустите анализ. После запуска вы будете перенаправлены на страницу проекта.",
-    bullets: [
-      "Рекомендуемый режим — Playbook и типы документов",
-      "Force reclassify пригодится после ручной переклассификации",
-      "Прогресс анализа отображается на вкладке «Обзор»",
-    ],
+    titleKey: `${NS}.step6.title`,
+    descriptionKey: `${NS}.step6.description`,
+    bulletsKeyPrefix: `${NS}.step6.bullets`,
+    iconLabelKey: `${NS}.step6.iconLabel`,
     icon: Rocket,
-    iconLabel: "Запуск",
   },
 };
 
 /**
- * Возвращает инструкцию для правой колонки.
- * Если активного шага нет — возвращает FLOW_INTRO.
+ * Возвращает дескриптор инструкции. UI-компонент сам вызовет
+ * useTranslation("projects") и подставит переводы.
  */
 export function getFlowInstruction(
   activeStep: number | null,
-): FlowStepInstruction {
+): FlowStepInstructionDescriptor {
   if (activeStep === null) {
     return FLOW_INTRO;
   }
-
   return FLOW_STEP_INSTRUCTIONS[activeStep] ?? FLOW_INTRO;
+}
+
+/**
+ * Хелпер: сколько буллетов существует в текущей локали для дескриптора.
+ * Читает ключи `${prefix}.0`, `${prefix}.1`, … пока получает валидные строки.
+ *
+ * @param tFn      — функция t из useTranslation("projects")
+ * @param prefix   — bulletsKeyPrefix из дескриптора
+ * @param maxCount — верхняя граница на всякий случай (по умолчанию 10)
+ * @returns массив локализованных строк-буллетов
+ */
+export function collectBullets(
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+  prefix: string,
+  maxCount = 10,
+): string[] {
+  const bullets: string[] = [];
+  for (let i = 0; i < maxCount; i++) {
+    const key = `${prefix}.${i}`;
+    const value = tFn(key, { defaultValue: "" });
+    if (!value) {
+      break;
+    }
+    bullets.push(value);
+  }
+  return bullets;
 }
 
 

@@ -5,6 +5,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { useDeals } from "../api/deals";
 import DealCard from "../components/DealCard";
@@ -19,6 +20,7 @@ const filterInputClassName =
   "rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)] placeholder:text-[var(--text-muted)]";
 
 const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
+  const { t } = useTranslation("projects");
   const [page, setPage] = React.useState(1);
   const [status, setStatus] = React.useState<string | undefined>(undefined);
   const [tenantId, setTenantId] = React.useState<string | undefined>(undefined);
@@ -32,7 +34,7 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-5 text-center text-sm text-[var(--text-secondary)] shadow-sm">
-          Загружаем список сделок…
+          {t("dealList.loading")}
         </div>
       </div>
     );
@@ -42,7 +44,7 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-6 py-5 text-center text-sm text-[var(--color-error-text)] shadow-sm">
-          Не удалось загрузить сделки.
+          {t("dealList.loadError")}
         </div>
       </div>
     );
@@ -86,28 +88,28 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
               <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                Projects
+                {t("dealList.badge")}
               </div>
 
               <h1 className="mt-3 text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Сделки
+                {t("dealList.title")}
               </h1>
 
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Найдено: {total}
+                {t("dealList.found", { count: total })}
                 {" · "}
-                Статус: {status ?? "все"}
+                {t("dealList.statusLabel", { status: status ?? t("dealList.allStatuses") })}
               </p>
             </div>
 
             <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-              Страница{" "}
+              {t("dealList.page")}{" "}
               <span className="font-semibold text-[var(--text-primary)]">
                 {page}
               </span>
               {totalPages > 1 && (
                 <>
-                  {" "}из{" "}
+                  {" "}{t("dealList.pageOf")}{" "}
                   <span className="font-semibold text-[var(--text-primary)]">
                     {totalPages}
                   </span>
@@ -120,14 +122,14 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
           <div className="mt-5 grid gap-3 border-t border-[var(--border-soft)] pt-4 md:grid-cols-3">
             <label className="block">
               <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                Статус
+                {t("dealList.filterStatus")}
               </span>
               <select
                 value={status ?? ""}
                 onChange={handleStatusChange}
                 className={`${filterInputClassName} w-full`}
               >
-                <option value="">Все</option>
+                <option value="">{t("dealList.all")}</option>
                 <option value="created">created</option>
                 <option value="draft">draft</option>
                 <option value="in_progress">in_progress</option>
@@ -137,7 +139,7 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
 
             <label className="block md:col-span-2">
               <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                Tenant ID
+                {t("dealList.tenantId")}
               </span>
               <input
                 type="text"
@@ -155,11 +157,10 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-sm">
             <div className="mx-auto max-w-md">
               <div className="text-base font-semibold text-[var(--text-primary)]">
-                Сделки не найдены
+                {t("dealList.empty")}
               </div>
               <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                Для текущих фильтров список пуст. Измените статус или tenant,
-                чтобы увидеть другие проекты.
+                {t("dealList.emptyDesc")}
               </p>
             </div>
           </div>
@@ -190,15 +191,15 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
                 onClick={handlePrev}
                 disabled={!hasPrevious}
               >
-                ← Назад
+                {t("dealList.prev")}
               </Button>
 
               <div className="text-sm text-[var(--text-secondary)]">
-                Страница{" "}
+                {t("dealList.page")}{" "}
                 <span className="font-semibold text-[var(--text-primary)]">
                   {page}
                 </span>{" "}
-                из{" "}
+                {t("dealList.pageOf")}{" "}
                 <span className="font-semibold text-[var(--text-primary)]">
                   {totalPages}
                 </span>
@@ -211,7 +212,7 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
                 onClick={handleNext}
                 disabled={!hasNext}
               >
-                Вперёд →
+                {t("dealList.next")}
               </Button>
             </div>
           </>

@@ -7,6 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, Copy, Eye, GitBranch, Plus, Archive } from "lucide-react";
 
 import {
@@ -38,10 +39,13 @@ import type {
 // Утилиты
 // ─────────────────────────────────────────────────────────────
 
-function formatDate(value: string | null | undefined): string | null {
+function formatDate(
+  value: string | null | undefined,
+  locale: string,
+): string | null {
   if (!value) return null;
   try {
-    return new Date(value).toLocaleDateString("ru-RU");
+    return new Date(value).toLocaleDateString(locale);
   } catch {
     return null;
   }
@@ -76,67 +80,72 @@ const DocTypeInfoCard: React.FC<DocTypeInfoCardProps> = ({
   totalVersions,
   hasPublished,
   draftCount,
-}) => (
-  <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-    <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-      О типе документа
-    </h3>
+}) => {
+  const { t } = useTranslation("instructions");
+  return (
+    <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        {t("docTypeDetail.info.title")}
+      </h3>
 
-    <div className="mt-3 space-y-3">
-      <div>
-        <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-          Название
-        </div>
-        <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-          {name}
-        </div>
-      </div>
-
-      <div>
-        <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-          Код
-        </div>
-        <div className="mt-0.5 break-all font-mono text-xs text-[var(--text-secondary)]">
-          {docTypeCode}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3">
+      <div className="mt-3 space-y-3">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
-            Всего
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+            {t("docTypeDetail.info.nameLabel")}
           </div>
           <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-            {totalVersions}
+            {name}
           </div>
         </div>
+
         <div>
-          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
-            Published
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+            {t("docTypeDetail.info.codeLabel")}
           </div>
-          <div
-            className={[
-              "mt-0.5 text-sm font-semibold",
-              hasPublished
-                ? "text-[var(--color-success-text)]"
-                : "text-[var(--text-muted)]",
-            ].join(" ")}
-          >
-            {hasPublished ? "да" : "нет"}
+          <div className="mt-0.5 break-all font-mono text-xs text-[var(--text-secondary)]">
+            {docTypeCode}
           </div>
         </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
-            Draft
+
+        <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              {t("docTypeDetail.info.totalLabel")}
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+              {totalVersions}
+            </div>
           </div>
-          <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-            {draftCount}
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              {t("docTypeDetail.info.publishedLabel")}
+            </div>
+            <div
+              className={[
+                "mt-0.5 text-sm font-semibold",
+                hasPublished
+                  ? "text-[var(--color-success-text)]"
+                  : "text-[var(--text-muted)]",
+              ].join(" ")}
+            >
+              {hasPublished
+                ? t("docTypeDetail.info.hasPublishedYes")
+                : t("docTypeDetail.info.hasPublishedNo")}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
+              {t("docTypeDetail.info.draftLabel")}
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+              {draftCount}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // SelectedVersionCard
@@ -151,118 +160,121 @@ interface SelectedVersionCardProps {
 const SelectedVersionCard: React.FC<SelectedVersionCardProps> = ({
   version,
   onNavigateToParent,
-}) => (
-  <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-    <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-      Выбранная версия
-    </h3>
+}) => {
+  const { t, i18n } = useTranslation("instructions");
+  return (
+    <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        {t("docTypeDetail.selected.title")}
+      </h3>
 
-    {version ? (
-      <div className="mt-3 space-y-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            Название
+      {version ? (
+        <div className="mt-3 space-y-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              {t("docTypeDetail.selected.nameLabel")}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-[var(--text-primary)]">
+                {version.name ?? t("docTypeDetail.selected.unnamed")}
+              </span>
+              <VersionStatusBadge status={version.version_status} size="xs" />
+            </div>
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-[var(--text-primary)]">
-              {version.name ?? "Без названия"}
-            </span>
-            <VersionStatusBadge status={version.version_status} size="xs" />
+
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              {t("docTypeDetail.selected.idLabel")}
+            </div>
+            <div className="mt-0.5 break-all font-mono text-[11px] text-[var(--text-secondary)]">
+              {version.id}
+            </div>
           </div>
+
+          {(version.semver || version.published_at) && (
+            <div className="grid grid-cols-2 gap-2">
+              {version.semver && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                    {t("docTypeDetail.selected.semverLabel")}
+                  </div>
+                  <div className="mt-0.5 font-mono text-xs text-[var(--text-primary)]">
+                    v{version.semver}
+                  </div>
+                </div>
+              )}
+              {version.published_at && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                    {t("docTypeDetail.selected.publishedLabel")}
+                  </div>
+                  <div className="mt-0.5 text-xs text-[var(--text-primary)]">
+                    {formatDate(version.published_at, i18n.language)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {version.change_summary && (
+            <div className="border-t border-[var(--border-soft)] pt-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                {t("docTypeDetail.selected.changeSummaryLabel")}
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+                {version.change_summary}
+              </p>
+            </div>
+          )}
+
+          {version.parent_version_id && (
+            <div className="border-t border-[var(--border-soft)] pt-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                {t("docTypeDetail.selected.basedOnLabel")}
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigateToParent(version.parent_version_id!)}
+                className="mt-1 break-all font-mono text-[11px] text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
+              >
+                {version.parent_version_id}
+              </button>
+            </div>
+          )}
         </div>
-
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            ID
+      ) : (
+        <div className="mt-3 space-y-3" aria-hidden="true">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              {t("docTypeDetail.selected.nameLabel")}
+            </div>
+            <div className="mt-1 h-4 w-3/4 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
           </div>
-          <div className="mt-0.5 break-all font-mono text-[11px] text-[var(--text-secondary)]">
-            {version.id}
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+              {t("docTypeDetail.selected.idLabel")}
+            </div>
+            <div className="mt-1 h-3 w-full animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
           </div>
-        </div>
-
-        {(version.semver || version.published_at) && (
           <div className="grid grid-cols-2 gap-2">
-            {version.semver && (
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  Semver
-                </div>
-                <div className="mt-0.5 font-mono text-xs text-[var(--text-primary)]">
-                  v{version.semver}
-                </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                {t("docTypeDetail.selected.semverLabel")}
               </div>
-            )}
-            {version.published_at && (
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  Published
-                </div>
-                <div className="mt-0.5 text-xs text-[var(--text-primary)]">
-                  {formatDate(version.published_at)}
-                </div>
+              <div className="mt-1 h-3 w-12 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
+                {t("docTypeDetail.selected.publishedLabel")}
               </div>
-            )}
-          </div>
-        )}
-
-        {version.change_summary && (
-          <div className="border-t border-[var(--border-soft)] pt-3">
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-              Описание изменений
+              <div className="mt-1 h-3 w-20 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
-              {version.change_summary}
-            </p>
-          </div>
-        )}
-
-        {version.parent_version_id && (
-          <div className="border-t border-[var(--border-soft)] pt-3">
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-              На основе версии
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigateToParent(version.parent_version_id!)}
-              className="mt-1 break-all font-mono text-[11px] text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
-            >
-              {version.parent_version_id}
-            </button>
-          </div>
-        )}
-      </div>
-    ) : (
-      <div className="mt-3 space-y-3" aria-hidden="true">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            Название
-          </div>
-          <div className="mt-1 h-4 w-3/4 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            ID
-          </div>
-          <div className="mt-1 h-3 w-full animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-              Semver
-            </div>
-            <div className="mt-1 h-3 w-12 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
-              Published
-            </div>
-            <div className="mt-1 h-3 w-20 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
           </div>
         </div>
-      </div>
-    )}
-  </section>
-);
+      )}
+    </section>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // VersionSidebarItem
@@ -279,8 +291,9 @@ const VersionSidebarItem: React.FC<VersionSidebarItemProps> = ({
   isSelected,
   onClick,
 }) => {
-  const publishedAt = formatDate(version.published_at);
-  const updatedAt = formatDate(version.updated_at);
+  const { t, i18n } = useTranslation("instructions");
+  const publishedAt = formatDate(version.published_at, i18n.language);
+  const updatedAt = formatDate(version.updated_at, i18n.language);
   const displayDate = publishedAt ?? updatedAt;
 
   return (
@@ -299,7 +312,7 @@ const VersionSidebarItem: React.FC<VersionSidebarItemProps> = ({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-semibold text-[var(--text-primary)]">
-            {version.name ?? "Без названия"}
+            {version.name ?? t("docTypeDetail.selected.unnamed")}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--text-muted)]">
             <span className="font-mono">{version.id.slice(0, 8)}…</span>
@@ -356,6 +369,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
   isLoading,
   isError,
 }) => {
+  const { t } = useTranslation("instructions");
   const drafts = versions.filter((v) => v.version_status === "draft");
   const published = versions.filter((v) => v.version_status === "published");
   const archived = versions.filter((v) => v.version_status === "archived");
@@ -364,7 +378,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
     <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-          Версии
+          {t("docTypeDetail.sidebar.title")}
         </h3>
         <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
           <GitBranch className="h-3.5 w-3.5" aria-hidden="true" />
@@ -373,18 +387,20 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
       </div>
 
       <div className="mt-3">
-        {isLoading && <LoadingBlock text="Загружаем версии…" rows={3} />}
+        {isLoading && (
+          <LoadingBlock text={t("docTypeDetail.sidebar.loading")} rows={3} />
+        )}
 
         {isError && (
           <InlineAlert
             tone="error"
-            message="Не удалось загрузить версии инструкции."
+            message={t("docTypeDetail.sidebar.loadError")}
           />
         )}
 
         {!isLoading && !isError && versions.length === 0 && (
           <p className="rounded-lg border border-dashed border-[var(--border)] px-3 py-4 text-center text-[11px] text-[var(--text-muted)]">
-            Для этого типа документа ещё нет версий.
+            {t("docTypeDetail.sidebar.empty")}
           </p>
         )}
 
@@ -392,7 +408,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
           <div className="space-y-4">
             {drafts.length > 0 && (
               <VersionGroup
-                label="Черновики"
+                label={t("docTypeDetail.sidebar.groups.drafts")}
                 count={drafts.length}
                 versions={drafts}
                 selectedVersionId={selectedVersionId}
@@ -401,7 +417,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
             )}
             {published.length > 0 && (
               <VersionGroup
-                label="Published"
+                label={t("docTypeDetail.sidebar.groups.published")}
                 count={published.length}
                 versions={published}
                 selectedVersionId={selectedVersionId}
@@ -410,7 +426,7 @@ const VersionsSidebar: React.FC<VersionsSidebarProps> = ({
             )}
             {archived.length > 0 && (
               <VersionGroup
-                label="Archived"
+                label={t("docTypeDetail.sidebar.groups.archived")}
                 count={archived.length}
                 versions={archived}
                 selectedVersionId={selectedVersionId}
@@ -444,6 +460,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
   onDraftCreated,
 }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation("instructions");
 
   const {
     data: version,
@@ -486,12 +503,14 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       const newDraft = await cloneDraft.mutateAsync({
         versionId,
         body: {
-          change_summary: `Клон версии ${version?.name ?? versionId}`,
+          change_summary: t("docTypeDetail.editor.cloneSummary", {
+            name: version?.name ?? versionId,
+          }),
         },
       });
       onDraftCreated(newDraft.id);
     } catch {
-      setActionError("Не удалось создать черновик. Попробуйте ещё раз.");
+      setActionError(t("docTypeDetail.editor.errors.clone"));
     }
   };
 
@@ -502,7 +521,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       const result = await validateDraft.mutateAsync({ versionId });
       setValidationResult(result);
     } catch {
-      setActionError("Не удалось выполнить валидацию. Попробуйте ещё раз.");
+      setActionError(t("docTypeDetail.editor.errors.validate"));
     }
   };
 
@@ -514,16 +533,14 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       await refetch();
     } catch {
       setShowPublishDialog(false);
-      setActionError(
-        "Не удалось опубликовать версию. Убедитесь что валидация прошла успешно.",
-      );
+      setActionError(t("docTypeDetail.editor.errors.publish"));
     }
   };
 
   if (isLoading) {
     return (
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-        <LoadingBlock text="Загружаем версию инструкции…" rows={6} />
+        <LoadingBlock text={t("docTypeDetail.editor.loading")} rows={6} />
       </section>
     );
   }
@@ -533,7 +550,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
         <InlineAlert
           tone="error"
-          message="Не удалось загрузить версию инструкции. Проверьте корректность ссылки."
+          message={t("docTypeDetail.editor.loadError")}
         />
         <div className="mt-3">
           <Button
@@ -544,7 +561,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             }
             leftIcon={<ArrowLeft className="h-3.5 w-3.5" />}
           >
-            К типу документа
+            {t("docTypeDetail.editor.backToDocType")}
           </Button>
         </div>
       </section>
@@ -559,7 +576,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       await refetch();
     } catch {
       setShowArchiveDialog(false);
-      setActionError("Не удалось архивировать версию. Попробуйте ещё раз.");
+      setActionError(t("docTypeDetail.editor.errors.archive"));
     }
   };
 
@@ -577,12 +594,12 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Редактировать эту версию
+                  {t("docTypeDetail.editor.publishedTitle")}
                 </h3>
                 <p className="mt-0.5 max-w-2xl text-xs text-[var(--text-muted)]">
                   {hasAnyDraft
-                    ? "У этого типа документа уже есть активный черновик. Откройте его в списке версий слева, чтобы продолжить редактирование."
-                    : "Published-версия immutable. Создайте черновик на основе этой версии, чтобы внести изменения."}
+                    ? t("docTypeDetail.editor.publishedHintHasDraft")
+                    : t("docTypeDetail.editor.publishedHintNoDraft")}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -593,7 +610,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                     onClick={() => onDraftCreated("__navigate_to_draft__")}
                     leftIcon={<Eye className="h-3.5 w-3.5" />}
                   >
-                    Открыть черновик
+                    {t("docTypeDetail.editor.openDraft")}
                   </Button>
                 ) : (
                   <Button
@@ -604,7 +621,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                     disabled={cloneDraft.isPending}
                     leftIcon={<Copy className="h-3.5 w-3.5" />}
                   >
-                    Создать черновик
+                    {t("docTypeDetail.editor.createDraft")}
                   </Button>
                 )}
 
@@ -616,7 +633,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                   disabled={archiveVersion.isPending}
                   leftIcon={<Archive className="h-3.5 w-3.5" />}
                 >
-                  Архивировать
+                  {t("docTypeDetail.editor.archiveAction")}
                 </Button>
               </div>
             </div>
@@ -628,10 +645,10 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
-                  Archived-версия
+                  {t("docTypeDetail.editor.archivedTitle")}
                 </h3>
                 <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  Эта версия выведена из активного использования. При необходимости можно создать новый черновик на её основе.
+                  {t("docTypeDetail.editor.archivedHint")}
                 </p>
               </div>
 
@@ -644,7 +661,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
                 leftIcon={<Copy className="h-3.5 w-3.5" />}
                 className="shrink-0"
               >
-                Восстановить как черновик
+                {t("docTypeDetail.editor.restoreAsDraft")}
               </Button>
             </div>
           </section>
@@ -654,7 +671,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
           <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
             <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                Source YAML
+                {t("docTypeDetail.editor.sourceYamlTitle")}
               </h3>
               <Eye
                 className="h-3.5 w-3.5 text-[var(--text-muted)]"
@@ -668,10 +685,12 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
         )}
         <ConfirmDialog
           open={showArchiveDialog}
-          title="Архивировать эту версию?"
-          description={`Инструкция "${version.name ?? version.doc_type_code}" перестанет быть доступной клиентам для нового использования. Исторические данные не изменятся.`}
-          confirmLabel="Архивировать"
-          cancelLabel="Отмена"
+          title={t("docTypeDetail.editor.archiveDialog.title")}
+          description={t("docTypeDetail.editor.archiveDialog.description", {
+            name: version.name ?? version.doc_type_code,
+          })}
+          confirmLabel={t("docTypeDetail.editor.archiveDialog.confirm")}
+          cancelLabel={t("actions.cancel", { ns: "common" })}
           confirmVariant="danger"
           isLoading={archiveVersion.isPending}
           onConfirm={() => void handleArchiveConfirm()}
@@ -687,7 +706,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
 
       <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">
-          Редактирование черновика
+          {t("docTypeDetail.editor.draftSectionTitle")}
         </h3>
         <DraftEditForm
           versionId={version.id}
@@ -700,11 +719,10 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Валидация
+            {t("docTypeDetail.editor.validation.title")}
           </h3>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            Проверьте черновик перед публикацией. Валидация выполняется на
-            сервере.
+            {t("docTypeDetail.editor.validation.description")}
           </p>
         </div>
 
@@ -717,9 +735,9 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             <p className="text-xs text-[var(--text-muted)]">
               {validationResult
                 ? validationResult.is_valid
-                  ? "Валидация прошла. Можно публиковать."
-                  : "Исправьте ошибки и валидируйте снова."
-                : "Запустите валидацию перед публикацией."}
+                  ? t("docTypeDetail.editor.validation.hintValid")
+                  : t("docTypeDetail.editor.validation.hintInvalid")
+                : t("docTypeDetail.editor.validation.hintPending")}
             </p>
             <Button
               variant="secondary"
@@ -730,7 +748,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
               disabled={validateDraft.isPending}
               className="shrink-0"
             >
-              Валидировать
+              {t("docTypeDetail.editor.validation.action")}
             </Button>
           </div>
         </div>
@@ -739,18 +757,18 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
       <section className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Публикация
+            {t("docTypeDetail.editor.publish.title")}
           </h3>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            Доступна только после успешной валидации.
+            {t("docTypeDetail.editor.publish.description")}
           </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-[var(--text-muted)]">
             {canPublish
-              ? "Черновик готов к публикации. После публикации версия станет immutable."
-              : "Сначала выполните валидацию и убедитесь, что ошибок нет."}
+              ? t("docTypeDetail.editor.publish.hintReady")
+              : t("docTypeDetail.editor.publish.hintNotReady")}
           </p>
           <Button
             variant="primary"
@@ -760,7 +778,7 @@ const VersionEditorPane: React.FC<VersionEditorPaneProps> = ({
             disabled={!canPublish}
             className="shrink-0"
           >
-            Опубликовать
+            {t("docTypeDetail.editor.publish.action")}
           </Button>
         </div>
       </section>
@@ -785,6 +803,7 @@ const DocTypeDetailPage: React.FC = () => {
   const { docType } = useParams<{ docType: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useTranslation("instructions");
 
   const versionParam = searchParams.get("version");
 
@@ -875,7 +894,8 @@ const DocTypeDetailPage: React.FC = () => {
   const totalVersions = versions.length;
   const hasAnyDraft = draftCount > 0;
 
-  const displayName = catalogItem?.name ?? docType ?? "Doc-Type";
+  const displayName =
+    catalogItem?.name ?? docType ?? t("docTypeDetail.fallbackDocTypeLabel");
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 md:px-5 md:py-5">
@@ -890,7 +910,7 @@ const DocTypeDetailPage: React.FC = () => {
               className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Инструкции по типам документов
+              {t("docTypeDetail.backToList")}
             </button>
 
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
@@ -909,8 +929,8 @@ const DocTypeDetailPage: React.FC = () => {
       {/* ── Empty state ───────────────────────────────────────── */}
       {!isVersionsLoading && !isVersionsError && versions.length === 0 && (
         <EmptyState
-          title="Версий нет"
-          description="Для этого типа документа ещё не создано ни одной версии."
+          title={t("docTypeDetail.empty.title")}
+          description={t("docTypeDetail.empty.description")}
           action={
             <Button
               variant="secondary"
@@ -922,7 +942,7 @@ const DocTypeDetailPage: React.FC = () => {
                 )
               }
             >
-              Создать первый draft
+              {t("docTypeDetail.empty.action")}
             </Button>
           }
         />
@@ -973,7 +993,7 @@ const DocTypeDetailPage: React.FC = () => {
             ) : (
               <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
                 <p className="text-sm text-[var(--text-muted)]">
-                  Выберите версию из списка слева.
+                  {t("docTypeDetail.mainEmpty")}
                 </p>
               </section>
             )}

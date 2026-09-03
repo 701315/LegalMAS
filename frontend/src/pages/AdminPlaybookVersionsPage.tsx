@@ -9,6 +9,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, GitBranch, RefreshCw, Save } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import client from "../api/client";
 import Button from "../components/ui/Button";
@@ -73,6 +74,7 @@ const SectionCard: React.FC<SectionCardProps> = ({
 // ─────────────────────────────────────────────────────────────
 
 const AdminPlaybookVersionsPage: React.FC = () => {
+  const { t } = useTranslation("admin");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const modelConfigIdFromQuery = searchParams.get("modelConfigId");
@@ -111,7 +113,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
         isLoading: false,
         error:
           apiErr.detail ||
-          "Не удалось загрузить список версий плейбуков.",
+          t("versions.errors.loadVersions"),
       }));
     }
   };
@@ -127,7 +129,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
         error:
           prev.error ||
           apiErr.detail ||
-          "Не удалось загрузить профили моделей.",
+          t("versions.errors.loadConfigs"),
       }));
     }
   };
@@ -165,11 +167,11 @@ const AdminPlaybookVersionsPage: React.FC = () => {
       await client.patch(`/api/v1/playbooks/${selectedVersionId}/model-config`, {
         model_config_id: selectedModelConfigId,
       });
-      setSaveSuccess("Профиль модели для версии обновлён.");
+      setSaveSuccess(t("versions.success"));
     } catch (err) {
       const apiErr = err as ApiError;
       setSaveError(
-        apiErr.detail || "Не удалось обновить профиль модели для версии.",
+        apiErr.detail || t("versions.errors.saveFailed"),
       );
     } finally {
       setIsSaving(false);
@@ -198,22 +200,21 @@ const AdminPlaybookVersionsPage: React.FC = () => {
           className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Инструкции
+          {t("versions.back")}
         </button>
 
         {/* ── Header ───────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4">
           <header>
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Версии плейбуков и профили моделей
+              {t("versions.title")}
             </h1>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Переназначение профиля модели для версии playbook. Позволяет
-              освободить старые ModelConfig для удаления.
+              {t("versions.subtitle")}
             </p>
             {modelConfigIdFromQuery && (
               <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                Открыто из профиля модели:{" "}
+                {t("versions.contextPrefix")}{" "}
                 <span className="font-mono text-[var(--text-secondary)]">
                   {modelConfigIdFromQuery.slice(0, 12)}…
                 </span>
@@ -225,7 +226,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
             variant="secondary"
             size="sm"
             onClick={() => void handleRefresh()}
-            aria-label="Обновить"
+            aria-label={t("versions.refresh")}
             leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
           />
         </div>
@@ -239,7 +240,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(320px,1fr)_2fr]">
           {/* ── Список версий ─────────────────────────────── */}
           <SectionCard
-            title="Версии плейбуков"
+            title={t("versions.listTitle")}
             rightSlot={
               !state.isLoading && state.versions.length > 0 ? (
                 <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
@@ -250,11 +251,11 @@ const AdminPlaybookVersionsPage: React.FC = () => {
             }
           >
             {state.isLoading ? (
-              <LoadingBlock text="Загружаем версии…" rows={5} />
+              <LoadingBlock text={t("versions.loading")} rows={5} />
             ) : state.versions.length === 0 ? (
               <EmptyState
-                title="Версий пока нет"
-                description="Когда версии появятся, их можно будет выбрать и переназначить профиль модели."
+                title={t("versions.emptyTitle")}
+                description={t("versions.emptyDesc")}
               />
             ) : (
               <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto">
@@ -301,25 +302,25 @@ const AdminPlaybookVersionsPage: React.FC = () => {
 
           {/* ── Профиль модели для версии ─────────────────── */}
           <SectionCard
-            title="Профиль модели для версии"
-            subtitle="Выберите новый ModelConfig для этой версии playbook."
+            title={t("versions.profileTitle")}
+            subtitle={t("versions.profileSubtitle")}
           >
             {!selectedVersionId ? (
               <EmptyState
-                title="Версия не выбрана"
-                description="Выберите версию плейбука слева, чтобы назначить ей профиль модели."
+                title={t("versions.noVersionTitle")}
+                description={t("versions.noVersionDesc")}
               />
             ) : state.modelConfigs.length === 0 ? (
               <EmptyState
-                title="Профили моделей не найдены"
-                description="Сначала создайте хотя бы один профиль модели."
+                title={t("versions.noConfigsTitle")}
+                description={t("versions.noConfigsDesc")}
                 action={
                   <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => navigate("/admin/model-configs")}
                   >
-                    Открыть профили моделей
+                    {t("versions.openConfigs")}
                   </Button>
                 }
               />
@@ -328,7 +329,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                 {/* Selected version context */}
                 <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                    Выбранная версия
+                    {t("versions.selectedVersion")}
                   </div>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-sm font-semibold text-[var(--text-primary)]">
@@ -350,7 +351,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                 {/* ModelConfig select */}
                 <div>
                   <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                    Профиль модели (ModelConfig)
+                    {t("versions.modelConfigLabel")}
                   </label>
                   <select
                     value={selectedModelConfigId || ""}
@@ -359,7 +360,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                     disabled={isSaving}
                   >
                     <option value="">
-                      — Без явного профиля (дефолтные настройки) —
+                      {t("versions.noProfileOption")}
                     </option>
                     {state.modelConfigs.map((mc) => (
                       <option key={mc.id} value={mc.id}>
@@ -369,7 +370,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                   </select>
                   {selectedModelConfigName && (
                     <p className="mt-1.5 text-[10px] text-[var(--text-muted)]">
-                      Выбран профиль:{" "}
+                      {t("versions.selectedProfilePrefix")}{" "}
                       <span className="font-semibold text-[var(--text-primary)]">
                         {selectedModelConfigName}
                       </span>
@@ -379,9 +380,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
 
                 {/* Explanation */}
                 <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
-                  После сохранения версия перестанет ссылаться на старый
-                  ModelConfig. Если он больше нигде не используется, его можно
-                  будет удалить со страницы профилей моделей.
+                  {t("versions.explanation")}
                 </div>
 
                 {/* Save */}
@@ -395,7 +394,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                     isLoading={isSaving}
                     leftIcon={<Save className="h-3.5 w-3.5" />}
                   >
-                    Сохранить профиль
+                    {t("versions.saveButton")}
                   </Button>
                 </div>
               </div>
