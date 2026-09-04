@@ -1,4 +1,230 @@
 {
+  "importWizard": {
+    "badge": "Import wizard",
+    "title": "Импорт документов",
+    "dealLabel": "Сделка: {{id}}",
+    "step1Title": "Шаг 1. Выбор файлов",
+    "step1Desc": "Выберите документы или архив Data Room для импорта. Пока это заглушка интерфейса, но визуально она уже соответствует рабочему мастеру.",
+    "filesSelected": "Выбрано файлов: ",
+    "noFilesSelected": "Пока файлы не выбраны.",
+    "step2Title": "Шаг 2. Параметры анализа",
+    "step2Desc": "Уточните параметры перед запуском импорта и предварительной обработки документов.",
+    "forceReclassifyLabel": "Принудительная переклассификация",
+    "forceReclassifyDesc": "Перезапустить HybridClassifier для всех документов перед анализом. Это полезно, если документы были переименованы или структура Data Room изменилась.",
+    "stepFiles": "Файлы",
+    "stepParams": "Параметры",
+    "backBtn": "Назад",
+    "nextBtn": "Далее",
+    "launchBtn": "Запустить импорт",
+    "stubMessage": "Импорт запущен (заглушка). Настройка force_reclassify сохранена."
+  },
+  "viewer": {
+    "ariaLabel": "Просмотр документа",
+    "defaultTitle": "Документ",
+    "documentIdTitle": "Документ {{id}}",
+    "pageLabel": "Страница {{page}}",
+    "pageDefault": "Страница 1",
+    "clauseLabel": "Клауза {{clause}}",
+    "closeBtn": "Закрыть",
+    "navLabel": "Навигация:",
+    "pageOf": "Стр. {{current}} из {{total}}",
+    "pageCurrent": "Стр. {{current}}",
+    "exitHint": "Esc или «Закрыть», чтобы выйти",
+    "noPdfUrl": "Не удалось получить ссылку на PDF.",
+    "loadingPdf": "Загружаем PDF…",
+    "loadError": "Не удалось загрузить PDF."
+  },
+  "prepared": {
+    "title": "Подготовленные к загрузке файлы",
+    "subtitle": "Проверьте состав набора перед отправкой в проект.",
+    "uploadBtn": "Загрузить",
+    "clearBtn": "Очистить",
+    "empty": "Нет файлов, подготовленных к загрузке.",
+    "selectAllAria": "Выбрать все файлы",
+    "selectFileAria": "Выбрать файл {{name}}",
+    "columns": {
+      "file": "Файл",
+      "type": "Тип",
+      "size": "Размер",
+      "path": "Путь",
+      "action": "Действие"
+    },
+    "removeBtn": "Удалить"
+  },
+  "dropzone": {
+    "title": "Перетащите документы сюда",
+    "desc": "Поддерживается загрузка отдельных файлов или содержимого папки. После подготовки набора можно перейти к загрузке в проект.",
+    "pickFiles": "Выбрать файлы",
+    "pickFolder": "Выбрать папку",
+    "preparedCount": "Подготовлено файлов: {{count}}",
+    "noFiles": "Файлы ещё не выбраны"
+  },
+  "workflow": {
+    "title": "Workflow",
+    "steps": {
+      "0": "После выбора файлов и загрузки далее перейдём к блоку запуска анализа документов.",
+      "1": "Перед запуском анализа документов необходимо будет выбрать набор рисков для анализа документов.",
+      "2": "После запуска программа выполнит extraction, chunking, classification и анализ рисков.",
+      "3": "По результатам анализа на выбранные риски программа построит DD Grid рисков документов."
+    }
+  },
+  "reviewCheckCard": {
+    "unclear": "Неясно",
+    "chunkNumber": "Чанк №{{index}}",
+    "evidenceSnippet": "Фрагмент текста (Evidence)",
+    "pageLabel": "Страница: {{page}}",
+    "clauseLabel": "Пункт (Clause): {{clause}}",
+    "segmentContext": "Контекст сегмента",
+    "segmentLabel": "Сегмент: ",
+    "primaryLabel": "(основной)",
+    "typeLabel": "Тип: ",
+    "chunkIndexLabel": "Чанк №: ",
+    "extractedFields": "Извлеченные поля",
+    "detailsInMatrix": "Детали в DD Matrix",
+    "openInDocument": "Открыть в документе"
+  },
+  "layoutDebug": {
+    "title": "Документ до и после санитизации",
+    "subtitle": "В левой колонке подсвечены только изменившиеся слова.",
+    "description": "Слева исходный текст, справа санитизированный. Если строка изменилась, в левой колонке подсвечиваются только изменённые слова; если строка удалена полностью, подсвечивается вся строка.",
+    "loading": "Загрузка сравнения…",
+    "loadError": "Ошибка загрузки данных",
+    "empty": "Нет данных для сравнения raw / sanitized layout.",
+    "emptyDesc": "Проверь, что запрос debug-layouts вызывается с includeraw=true и includesanitized=true.",
+    "beforeSanitation": "До санитизации",
+    "afterSanitation": "После санитизации",
+    "pageTitle": "Страница {{page}}",
+    "noText": "Нет текста",
+    "deletedAfterSanitation": "Удалено после санитизации",
+    "badges": {
+      "id": "match: id",
+      "heuristic": "match: similar text",
+      "removed": "удалено",
+      "added": "добавлено"
+    }
+  },
+  "tree": {
+    "searchPlaceholder": "Поиск по имени документа…",
+    "shownInfo": "Показано: {{shown}} из {{total}} документов",
+    "notFound": "Документы не найдены",
+    "badges": {
+      "multi": "multi",
+      "composite": "composite",
+      "needsReview": "нужна проверка"
+    },
+    "tooltips": {
+      "multi": "Файл содержит несколько логических документов",
+      "segmentCount": "Количество сегментов / логических документов",
+      "primarySegment": "Основной сегмент: {{name}}",
+      "composite": "Composite file: содержит несколько юридических документов",
+      "needsReview": "Классификатор не уверен, требуется ручной просмотр"
+    },
+    "actions": {
+      "deleteTitle": "Удалить документ",
+      "deleteAria": "Удалить документ {{name}}"
+    }
+  },
+  "chunksModal": {
+    "title": "Документ в формате чанков",
+    "description": "Этот просмотр показывает документ так, как его «видит» система чанкинга: один чанк за другим, с заголовками и служебной информацией. Прокрутите вниз, чтобы увидеть весь документ.",
+    "loading": "Загрузка файла чанков…",
+    "empty": "Нет данных для отображения чанков документа.",
+    "errors": {
+      "title": "Ошибка при загрузке файла чанков",
+      "loadFailed": "Не удалось загрузить файл чанков"
+    }
+  },
+  "upload": {
+    "restricted": "У вас нет прав на загрузку документов в этот проект.",
+    "header": {
+      "title": "Загрузка документов",
+      "subtitle": "Подготовьте набор файлов и загрузите его в проект."
+    },
+    "existing": {
+      "title": "Уже загруженные документы",
+      "subtitle": "Документы, которые уже присутствуют в проекте.",
+      "loading": "Загрузка…",
+      "empty": "В проекте пока нет загруженных документов.",
+      "table": {
+        "filename": "Имя файла",
+        "status": "Статус",
+        "uploaded": "Загружен"
+      }
+    },
+    "errors": {
+      "loadDocsFailed": "Ошибка загрузки документов.",
+      "selectFilesFirst": "Сначала выберите файлы или папку для загрузки.",
+      "uploadFailed": "Не удалось загрузить документы.",
+      "refreshFailed": "Не удалось обновить список документов."
+    }
+  },
+  "documentsTab": {
+    "loading": {
+      "title": "Загружаем документы…",
+      "error": "Не удалось загрузить документы."
+    },
+    "emptyState": {
+      "title": "Документов пока нет",
+      "subtitle": "Загрузите документы через вкладку «Обзор»"
+    },
+    "title": "Документы",
+    "subtitle": "В проекте анализируется {{count}} {{label}}",
+    "subtitleEmpty": "В проекте пока нет загруженных документов",
+    "toolbar": {
+      "configureColumns": "Настроить колонки"
+    },
+    "alerts": {
+      "exportExcelFailed": "Не удалось экспортировать в Excel",
+      "exportWordFailed": "Не удалось экспортировать в Word",
+      "exportPdfFailed": "Не удалось экспортировать в PDF"
+    },
+    "cell": {
+      "yes": "Да",
+      "no": "Нет",
+      "needsReview": "Требует проверки классификации"
+    },
+    "detailsPanel": {
+      "header": "Детали документа",
+      "backMobile": "← Назад",
+      "closeLabel": "Закрыть панель деталей документа"
+    },
+
+    "classificationBanner": {
+      "title": "Требуют проверки классификации",
+      "show": "Показать ▼",
+      "hide": "Скрыть ▲",
+      "typeUnknown": "Тип не определён"
+    },
+    "columnSelector": {
+      "title": "Отображаемые колонки",
+      "subtitle": "Нажмите на поле, чтобы показать или скрыть его в таблице",
+      "defaults": "По умолчанию",
+      "cancel": "Отмена",
+      "apply": "Применить",
+      "applyTitle": "Применить изменения отображаемых колонок",
+      "applyTitleDisabled": "Сначала измените набор отображаемых колонок"
+    },
+    "exportMenu": {
+      "saveShort": "Сохранить",
+      "saveLong": "Сохранить список документов",
+      "excel": "Excel",
+      "word": "Word",
+      "pdf": "PDF"
+    },
+    "utils": {
+      "risk": {
+        "low": "Низкий",
+        "medium": "Средний",
+        "high": "Высокий",
+        "critical": "Критический"
+      },
+      "documentsCount_one": "документ",
+      "documentsCount_few": "документа",
+      "documentsCount_many": "документов",
+      "documentsCount_other": "документа",
+      "unknownStage": "Неизвестная стадия"
+    }
+  },
   "details": {
     "loading": "Загрузка…",
     "notFound": "Документ не найден",
@@ -133,5 +359,95 @@
   },
   "shared": {
     "docTypeNotSpecified": "тип не указан"
+  },
+  "columns": {
+    "filename": {
+      "label": "Название документа",
+      "description": "Имя файла документа в Data Room."
+    },
+    "folder_path": {
+      "label": "Папка",
+      "description": "Путь к документу в структуре Data Room."
+    },
+    "doc_type": {
+      "label": "Тип документа",
+      "description": "Классифицированный тип документа (SPA, NDA и т.п.)."
+    },
+    "status": {
+      "label": "Статус обработки",
+      "description": "Текущий статус обработки документа в пайплайне."
+    },
+    "human_review_status": {
+      "label": "Проверка юриста",
+      "description": "Человекочитаемый статус проверки юристом."
+    },
+    "reviewed_by_person": {
+      "label": "Флаг проверки",
+      "description": "Логический флаг: документ проверен юристом."
+    },
+    "classification_requires_review": {
+      "label": "Нужна проверка",
+      "description": "Флаг, что классификатор пометил документ как требующий ручной проверки (низкая уверенность)."
+    },
+    "risk_level": {
+      "label": "Риск",
+      "description": "Уровень риска документа: low/medium/high/critical."
+    },
+    "language": {
+      "label": "Язык",
+      "description": "Основной язык документа (RU, EN и т.п.)."
+    },
+    "jurisdiction_guess": {
+      "label": "Юрисдикция",
+      "description": "Предполагаемая юрисдикция документа."
+    },
+    "page_count": {
+      "label": "Страницы",
+      "description": "Количество страниц в документе."
+    },
+    "classification_level": {
+      "label": "Уровень классификации",
+      "description": "Уровень, на котором был определён тип документа (L0–L4, L_manual)."
+    },
+    "classification_confidence": {
+      "label": "Уверенность классификации",
+      "description": "Число 0–1, показывающее уверенность в типе документа."
+    },
+    "applicable_triggers_count": {
+      "label": "Триггеры",
+      "description": "Количество сработавших триггеров проверок для документа."
+    },
+    "created_at": {
+      "label": "Создан",
+      "description": "Дата и время добавления документа в сделку."
+    },
+    "updated_at": {
+      "label": "Обновлён",
+      "description": "Дата и время последнего обновления документа."
+    },
+    "id": {
+      "label": "ID документа",
+      "description": "Технический идентификатор документа (UUID)."
+    },
+    "deal_id": {
+      "label": "ID сделки",
+      "description": "Идентификатор сделки, к которой относится документ."
+    },
+    "composition_type": {
+      "label": "Композиция",
+      "description": "Single- или multi-document файл (по структуре сегментов)."
+    },
+    "segment_count": {
+      "label": "Сегменты",
+      "description": "Количество сегментов / логических документов в файле."
+    },
+    "primary_segment_label": {
+      "label": "Основной сегмент",
+      "description": "Название основного сегмента (например, основной SPA)."
+    },
+    "is_composite_file": {
+      "label": "Composite file",
+      "description": "Флаг, что файл содержит несколько логических документов."
+    }
   }
 }

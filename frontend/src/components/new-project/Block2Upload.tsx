@@ -14,6 +14,7 @@
 
 import React from "react";
 import { Loader2, FileCheck2, AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import ProjectUploadPanel from "../upload/ProjectUploadPanel";
 import Button from "../ui/Button";
@@ -43,6 +44,7 @@ const Block2Upload: React.FC<Block2UploadProps> = ({
   isDocumentsLoading,
   onRefetchDocuments,
 }) => {
+  const { t } = useTranslation("projects");
   const [isWaitingForDocs, setIsWaitingForDocs] = React.useState(false);
   const [waitingTimedOut, setWaitingTimedOut] = React.useState(false);
 
@@ -138,11 +140,10 @@ const Block2Upload: React.FC<Block2UploadProps> = ({
 
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-[var(--text-primary)]">
-                  Документы пока не появились в списке
+                  {t("newProject.block2.waitingTitle")}
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Файлы были успешно загружены, но серверу потребовалось больше
-                  времени для их обработки. Попробуйте обновить список вручную.
+                  {t("newProject.block2.waitingDesc")}
                 </p>
 
                 <div className="mt-3">
@@ -153,7 +154,7 @@ const Block2Upload: React.FC<Block2UploadProps> = ({
                     onClick={handleManualRetry}
                     disabled={isDocumentsLoading}
                   >
-                    Проверить снова
+                    {t("newProject.block2.checkAgainBtn")}
                   </Button>
                 </div>
               </div>
@@ -166,12 +167,12 @@ const Block2Upload: React.FC<Block2UploadProps> = ({
               />
               <div className="min-w-0">
                 <p className="text-sm text-[var(--text-primary)]">
-                  Файлы загружены, ожидаем подтверждения от сервера…
+                  {t("newProject.block2.loadingTitle")}
                 </p>
                 <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                   {isDocumentsLoading
-                    ? "Сервер обрабатывает и публикует список документов."
-                    : "Список документов обновится автоматически."}
+                    ? t("newProject.block2.loadingDescProcessing")
+                    : t("newProject.block2.loadingDescAuto")}
                 </p>
               </div>
             </div>
@@ -191,16 +192,12 @@ const Block2Upload: React.FC<Block2UploadProps> = ({
 
             <div className="min-w-0">
               <p className="text-sm font-medium text-[var(--text-primary)]">
-                {confirmedDocumentsCount}{" "}
-                {confirmedDocumentsCount === 1
-                  ? "документ загружен"
-                  : confirmedDocumentsCount < 5
-                    ? "документа загружено"
-                    : "документов загружено"}
+                {t("newProject.block2.documentsUploadedCount", {
+                  count: confirmedDocumentsCount,
+                })}
               </p>
               <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-                Можно продолжить настройку проекта. При необходимости загрузите
-                дополнительные файлы ниже.
+                {t("newProject.block2.successDesc")}
               </p>
             </div>
           </div>
@@ -218,5 +215,4 @@ const Block2Upload: React.FC<Block2UploadProps> = ({
 };
 
 export default Block2Upload;
-
 

@@ -18,7 +18,8 @@
 // - заменить alert() на реальный export flow
 // =============================================================
 
-import React from "react";
+import React, { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ChevronDown,
   ChevronLeft,
@@ -242,41 +243,45 @@ const CriticalObjectsTable: React.FC<{
     region: string;
     reasons: string[];
   }>;
-}> = ({ items }) => (
-  <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead className="bg-[var(--bg-elevated-soft)]">
-          <tr>
-            <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">Объект</th>
-            <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">Регион</th>
-            <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-              Основания критичности
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.name} className="border-t border-[var(--border-subtle)] align-top">
-              <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{item.name}</td>
-              <td className="px-4 py-3 text-[var(--text-secondary)]">{item.region}</td>
-              <td className="px-4 py-3 text-[var(--text-secondary)]">
-                <ul className="space-y-1">
-                  {item.reasons.map((reason) => (
-                    <li key={reason} className="flex gap-2">
-                      <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-error)]" />
-                      <span>{reason}</span>
-                    </li>
-                  ))}
-                </ul>
-              </td>
+}> = ({ items }) => {
+  const { t } = useTranslation("realEstate");
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-[var(--bg-elevated-soft)]">
+            <tr>
+              <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">{t("criticalTable.headers.object")}</th>
+              <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">{t("criticalTable.headers.region")}</th>
+              <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                {t("criticalTable.headers.reasons")}
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.name} className="border-t border-[var(--border-subtle)] align-top">
+                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{item.name}</td>
+                <td className="px-4 py-3 text-[var(--text-secondary)]">{item.region}</td>
+                <td className="px-4 py-3 text-[var(--text-secondary)]">
+                  <ul className="space-y-1">
+                    {item.reasons.map((reason) => (
+                      <li key={reason} className="flex gap-2">
+                        <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-error)]" />
+                        <span>{reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const DrilldownModal: React.FC<{
   title: string;
@@ -284,6 +289,7 @@ const DrilldownModal: React.FC<{
   onClose: () => void;
   children: React.ReactNode;
 }> = ({ title, open, onClose, children }) => {
+  const { t } = useTranslation("realEstate");
   if (!open) return null;
 
   return (
@@ -293,11 +299,11 @@ const DrilldownModal: React.FC<{
           <div>
             <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Демонстрационный drilldown по выбранному показателю
+              {t("drilldown.subtitle")}
             </p>
           </div>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Закрыть
+            {t("drilldown.close")}
           </Button>
         </div>
         <div className="max-h-[calc(85vh-84px)] overflow-y-auto px-5 py-4">{children}</div>
@@ -311,53 +317,57 @@ const ExportMenuButton: React.FC<{
   open: boolean;
   onToggle: () => void;
   onSelect: (format: ExportFormat) => void;
-}> = ({ label, open, onToggle, onSelect }) => (
-  <div className="relative">
-    <Button
-      variant="secondary"
-      size="sm"
-      onClick={onToggle}
-      rightIcon={
-        <ChevronDown
-          className={`h-4 w-4 transition-transform duration-200 ${
-            open ? "rotate-180" : "rotate-0"
-          }`}
-          aria-hidden
-        />
-      }
-      aria-expanded={open}
-      aria-haspopup="menu"
-    >
-      {label}
-    </Button>
+}> = ({ label, open, onToggle, onSelect }) => {
+  const { t } = useTranslation("realEstate");
 
-    {open ? (
-      <div className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[160px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl">
-        <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Формат сохранения
-          </p>
+  return (
+    <div className="relative">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onToggle}
+        rightIcon={
+          <ChevronDown
+            className={`h-4 w-4 transition-transform duration-200 ${
+              open ? "rotate-180" : "rotate-0"
+            }`}
+            aria-hidden
+          />
+        }
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        {label}
+      </Button>
+
+      {open ? (
+        <div className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[160px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl">
+          <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("export.formatLabel")}
+            </p>
+          </div>
+          <div className="p-2">
+            {[
+              { key: "excel", label: "Excel" },
+              { key: "docx", label: "Docx" },
+              { key: "pdf", label: "Pdf" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => onSelect(item.key as ExportFormat)}
+                className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--bg-elevated-soft)]"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="p-2">
-          {[
-            { key: "excel", label: "Excel" },
-            { key: "docx", label: "Docx" },
-            { key: "pdf", label: "Pdf" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => onSelect(item.key as ExportFormat)}
-              className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--bg-elevated-soft)]"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    ) : null}
-  </div>
-);
+      ) : null}
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Icons
@@ -420,62 +430,56 @@ const IconEncumbrance = () => (
 const IntroScreen: React.FC<{
   onOpenDemo: () => void;
 }> = ({ onOpenDemo }) => {
-  /*
-    Dual-mode scroll contract:
-    
-    Mobile (<lg): плоский document flow.
-      - НЕТ flex column на root — flex column с несколькими детьми
-        и вложенными flex-1 контейнерами (PageSection body) вызывает
-        нестабильный layout: браузер интерпретирует flex-1 без height
-        chain по-разному, и кнопка визуально "уплывает" вверх.
-      - Обычный <div> с контентом и кнопкой один за другим → tabpanel
-        (DealPage) скроллит страницу естественно.
-    
-    Desktop (lg+): flex column + internal scroll.
-      - Content area scrollable, кнопка pinned внизу через shrink-0.
-  */
+  const { t } = useTranslation("realEstate");
+
+  const coverageRows = useMemo(() => {
+    const localized = t("coverageRows", { returnObjects: true });
+    if (Array.isArray(localized) && localized.length > 0) {
+      return localized;
+    }
+    return COVERAGE_ROWS;
+  }, [t]);
+
   return (
     <div className="lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
       {/* Content */}
       <div className="space-y-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
         <PageSection
-          title="Демонстрационный сценарий работы раздела"
-          subtitle="Как будет выглядеть анализ недвижимого имущества"
-          rightSlot={<Badge tone="success">Preview</Badge>}
+          title={t("intro.title")}
+          subtitle={t("intro.subtitle")}
+          rightSlot={<Badge tone="success">{t("intro.preview")}</Badge>}
         >
           <p className="max-w-4xl text-sm leading-6 text-[var(--text-secondary)]">
-            Этот раздел будет автоматически выявлять объекты недвижимого имущества в документах
-            сделки, сопоставлять их с реестровыми и внутренними источниками, а затем формировать
-            рабочую область для юридического анализа прав, обременений и реестрового статуса.
+            {t("intro.description")}
           </p>
         </PageSection>
 
         <PageSection
-          title="Как это будет работать"
-          subtitle="Основной сценарий обработки объектов"
+          title={t("intro.howItWorks.title")}
+          subtitle={t("intro.howItWorks.subtitle")}
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <FeatureCard
               icon={<IconBuilding />}
-              title="Выявление объектов"
-              description="Система извлекает адреса, кадастровые номера, площади и описания объектов из документов сделки."
+              title={t("intro.howItWorks.detection.title")}
+              description={t("intro.howItWorks.detection.description")}
             />
             <FeatureCard
               icon={<IconCadaster />}
-              title="Реестровая верификация"
-              description="Выявленные объекты сопоставляются с внешними registry sources и внутренним реестром активов."
+              title={t("intro.howItWorks.verification.title")}
+              description={t("intro.howItWorks.verification.description")}
             />
             <FeatureCard
               icon={<IconEncumbrance />}
-              title="Юридическая проверка"
-              description="Интерфейс показывает ownership status, encumbrances, title issues и документные ссылки по каждому объекту."
+              title={t("intro.howItWorks.legal.title")}
+              description={t("intro.howItWorks.legal.description")}
             />
           </div>
         </PageSection>
 
         <PageSection
-          title="Источники данных"
-          subtitle="Внешние и внутренние источники по недвижимости"
+          title={t("intro.dataSources.title")}
+          subtitle={t("intro.dataSources.subtitle")}
         >
           <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
             <div className="overflow-x-auto">
@@ -483,21 +487,21 @@ const IntroScreen: React.FC<{
                 <thead className="bg-[var(--bg-elevated-soft)]">
                   <tr>
                     <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                      Юрисдикция
+                      {t("intro.dataSources.headers.jurisdiction")}
                     </th>
                     <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                      Источники
+                      {t("intro.dataSources.headers.sources")}
                     </th>
                     <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                      Что проверяется
+                      {t("intro.dataSources.headers.checked")}
                     </th>
                     <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                      Комментарий
+                      {t("intro.dataSources.headers.remarks")}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {COVERAGE_ROWS.map((row) => (
+                  {coverageRows.map((row) => (
                     <tr
                       key={row.jurisdiction}
                       className="border-t border-[var(--border-subtle)] align-top"
@@ -531,7 +535,7 @@ const IntroScreen: React.FC<{
           onClick={onOpenDemo}
           className="w-full sm:w-auto"
         >
-          Перейти на демостраницу работы блока
+          {t("intro.cta")}
         </Button>
       </div>
     </div>
@@ -549,18 +553,10 @@ const SortableHeader: React.FC<{
   onSort: (key: SortKey) => void;
   className?: string;
 }> = ({ label, sortKey, currentSort, onSort, className = "" }) => {
+  const { t } = useTranslation("realEstate");
   const isActive = currentSort.key === sortKey;
   const isAscending = isActive && currentSort.direction === "asc";
   const isDescending = isActive && currentSort.direction === "desc";
-
-  /*
-    Иконка отражает текущее состояние сортировки:
-    - ChevronsUpDown — колонка не отсортирована
-    - ChevronUp      — активна сортировка по возрастанию
-    - ChevronDown    — активна сортировка по убыванию
-    Иконки помечены aria-hidden — их роль сугубо визуальная,
-    фактический sort state доступен screen reader через aria-sort на <th>.
-  */
   const SortIcon = isAscending ? ChevronUp : isDescending ? ChevronDown : ChevronsUpDown;
 
   return (
@@ -573,7 +569,7 @@ const SortableHeader: React.FC<{
         type="button"
         onClick={() => onSort(sortKey)}
         className="inline-flex items-center gap-2 text-left transition hover:text-[var(--accent-primary)]"
-        title={`Сортировать по колонке ${label}`}
+        title={t("table.sortTitle", { label })}
       >
         <span>{label}</span>
         <SortIcon
@@ -597,144 +593,161 @@ const RealEstateTable: React.FC<{
   onSelect: (id: string) => void;
   sort: SortState;
   onSort: (key: SortKey) => void;
-}> = ({ items, selectedId, onSelect, sort, onSort }) => (
-  /*
-    Dual-mode scroll contract:
-    Mobile (<lg):  overflow-x-auto обеспечивает горизонтальный скролл
-                   для 8-колоночной таблицы. Вертикальный скролл —
-                   страничный через tabpanel. Sticky header на mobile
-                   НЕ применяется: wrapper не создаёт scroll context
-                   (нет overflow-y), поэтому sticky привязался бы к
-                   следующему выше scrollable ancestor и визуально
-                   ломал бы таблицу.
-    Desktop (lg+): h-full + overflow-auto → internal scroll context.
-                   Sticky header корректно привязывается к wrapper.
-  */
-  <div className="overflow-x-auto rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
-    <table className="min-w-full text-left text-sm">
-      <thead className="bg-[var(--bg-elevated-soft)] lg:sticky lg:top-0 lg:z-10">
-        <tr>
-          <SortableHeader
-            label="№"
-            sortKey="index"
-            currentSort={sort}
-            onSort={onSort}
-            className="w-14"
-          />
-          <SortableHeader
-            label="Адрес / объект"
-            sortKey="address"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Регион"
-            sortKey="region"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Тип"
-            sortKey="objectType"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Площадь"
-            sortKey="area"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Документы"
-            sortKey="documentCount"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Обременение"
-            sortKey="encumbrance"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Риск"
-            sortKey="risk"
-            currentSort={sort}
-            onSort={onSort}
-          />
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item, index) => {
-          const isSelected = item.id === selectedId;
-          const risk = buildRiskMeta(item);
+}> = ({ items, selectedId, onSelect, sort, onSort }) => {
+  const { t, i18n } = useTranslation("realEstate");
 
-          return (
-            <tr
-              key={item.id}
-              className={[
-                "border-t border-[var(--border-subtle)] transition",
-                isSelected
-                  ? "bg-[color:color-mix(in_srgb,var(--accent-primary)_7%,var(--bg-card))]"
-                  : "hover:bg-[var(--bg-elevated-soft)]",
-              ].join(" ")}
-            >
-              <td className="px-4 py-3 tabular-nums text-[var(--text-muted)]">{index + 1}</td>
-              <td className="px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => onSelect(item.id)}
-                  className="text-left"
-                >
-                  <span className="block text-sm font-medium text-[var(--accent-primary)] underline decoration-transparent transition hover:decoration-current">
-                    {item.address ?? "Без адреса"}
-                  </span>
-                  <span className="mt-1 block text-[12px] text-[var(--text-muted)]">
-                    {item.cadastral_number ?? "Кадастровый номер не указан"}
-                  </span>
-                </button>
-              </td>
-              <td className="px-4 py-3 text-[var(--text-secondary)]">{item.region}</td>
-              <td className="px-4 py-3 text-[var(--text-secondary)]">
-                {objectTypeShortLabel(item.object_type)}
-              </td>
-              <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
-                {item.area_sqm ? `${item.area_sqm.toLocaleString("ru-RU")} м²` : "—"}
-              </td>
-              <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
-                {item.document_count}
-              </td>
-              <td className="px-4 py-3">
-                <Badge
-                  tone={
-                    item.encumbrance === true
-                      ? "high"
+  const translateLabel = (label: string): string => {
+    const map: Record<string, string> = {
+      "Высокий": t("detail.encumbrances.types.high", { defaultValue: "High" }),
+      "Средний": t("detail.encumbrances.types.medium", { defaultValue: "Medium" }),
+      "Низкий": t("detail.encumbrances.types.low", { defaultValue: "Low" }),
+      "Да": t("table.encumbranceYes"),
+      "Нет": t("table.encumbranceNo"),
+      "Проверка": t("table.encumbranceCheck"),
+      "Земельный участок": t("detail.registry.types.land", { defaultValue: "Land Plot" }),
+      "Здания": t("detail.registry.types.building", { defaultValue: "Building" }),
+      "Здание": t("detail.registry.types.building", { defaultValue: "Building" }),
+      "Помещение": t("detail.registry.types.premises", { defaultValue: "Premises" }),
+      "Земля": t("detail.registry.types.land", { defaultValue: "Land" }),
+      "ЗУ": t("detail.registry.typesShort.land", { defaultValue: "LP" }),
+      "Зд": t("detail.registry.typesShort.building", { defaultValue: "Bld" }),
+      "Пом": t("detail.registry.typesShort.premises", { defaultValue: "Prem" }),
+      "ОК": t("table.ok", { ns: "common", defaultValue: "OK" }),
+      "Внимание": t("table.warning", { ns: "common", defaultValue: "Warning" }),
+      "Критично": t("table.critical", { ns: "common", defaultValue: "Critical" }),
+    };
+    return map[label] ?? label;
+  };
+
+  const areaUnit = t("areaUnit", { defaultValue: "м²" });
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
+      <table className="min-w-full text-left text-sm">
+        <thead className="bg-[var(--bg-elevated-soft)] lg:sticky lg:top-0 lg:z-10">
+          <tr>
+            <SortableHeader
+              label={t("table.headers.index")}
+              sortKey="index"
+              currentSort={sort}
+              onSort={onSort}
+              className="w-14"
+            />
+            <SortableHeader
+              label={t("table.headers.address")}
+              sortKey="address"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.region")}
+              sortKey="region"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.type")}
+              sortKey="objectType"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.area")}
+              sortKey="area"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.documents")}
+              sortKey="documentCount"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.encumbrance")}
+              sortKey="encumbrance"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.risk")}
+              sortKey="risk"
+              currentSort={sort}
+              onSort={onSort}
+            />
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, index) => {
+            const isSelected = item.id === selectedId;
+            const risk = buildRiskMeta(item);
+
+            return (
+              <tr
+                key={item.id}
+                className={[
+                  "border-t border-[var(--border-subtle)] transition",
+                  isSelected
+                    ? "bg-[color:color-mix(in_srgb,var(--accent-primary)_7%,var(--bg-card))]"
+                    : "hover:bg-[var(--bg-elevated-soft)]",
+                ].join(" ")}
+              >
+                <td className="px-4 py-3 tabular-nums text-[var(--text-muted)]">{index + 1}</td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => onSelect(item.id)}
+                    className="text-left"
+                  >
+                    <span className="block text-sm font-medium text-[var(--accent-primary)] underline decoration-transparent transition hover:decoration-current">
+                      {item.address ?? t("table.noAddress")}
+                    </span>
+                    <span className="mt-1 block text-[12px] text-[var(--text-muted)]">
+                      {item.cadastral_number ?? t("table.noCadastral")}
+                    </span>
+                  </button>
+                </td>
+                <td className="px-4 py-3 text-[var(--text-secondary)]">{item.region}</td>
+                <td className="px-4 py-3 text-[var(--text-secondary)]">
+                  {translateLabel(objectTypeShortLabel(item.object_type))}
+                </td>
+                <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
+                  {item.area_sqm ? `${item.area_sqm.toLocaleString(i18n.language)} ${areaUnit}` : "—"}
+                </td>
+                <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
+                  {item.document_count}
+                </td>
+                <td className="px-4 py-3">
+                  <Badge
+                    tone={
+                      item.encumbrance === true
+                        ? "high"
+                        : item.encumbrance === false
+                          ? "low"
+                          : "medium"
+                    }
+                  >
+                    {item.encumbrance === true
+                      ? t("table.encumbranceYes")
                       : item.encumbrance === false
-                        ? "low"
-                        : "medium"
-                  }
-                >
-                  {item.encumbrance === true
-                    ? "Да"
-                    : item.encumbrance === false
-                      ? "Нет"
-                      : "Проверка"}
-                </Badge>
-              </td>
-              <td className="px-4 py-3">
-                <Badge tone={risk.tone}>{risk.label}</Badge>
-              </td>
-            </tr>
-          );
-        })}
-        <tr aria-hidden="true">
-          <td colSpan={8} className="h-2 bg-transparent" />
-        </tr>
-      </tbody>
-    </table>
-  </div>
-);
+                        ? t("table.encumbranceNo")
+                        : t("table.encumbranceCheck")}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge tone={risk.tone}>{translateLabel(risk.label)}</Badge>
+                </td>
+              </tr>
+            );
+          })}
+          <tr aria-hidden="true">
+            <td colSpan={8} className="h-2 bg-transparent" />
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Detail panel
@@ -744,14 +757,37 @@ const RealEstateDetailPanel: React.FC<{
   object: RealEstateObjectAggregate;
   detail: RealEstateObjectDetail;
 }> = ({ object, detail }) => {
+  const { t } = useTranslation("realEstate");
   const risk = buildRiskMeta(object);
+
+  const translateLabel = (label: string): string => {
+    const map: Record<string, string> = {
+      "Высокий": t("detail.encumbrances.types.high", { defaultValue: "High" }),
+      "Средний": t("detail.encumbrances.types.medium", { defaultValue: "Medium" }),
+      "Низкий": t("detail.encumbrances.types.low", { defaultValue: "Low" }),
+      "Да": t("table.encumbranceYes"),
+      "Нет": t("table.encumbranceNo"),
+      "Проверка": t("table.encumbranceCheck"),
+      "Земельный участок": t("detail.registry.types.land", { defaultValue: "Land Plot" }),
+      "Здание": t("detail.registry.types.building", { defaultValue: "Building" }),
+      "Помещение": t("detail.registry.types.premises", { defaultValue: "Premises" }),
+      "Земля": t("detail.registry.types.land", { defaultValue: "Land" }),
+      "ЗУ": t("detail.registry.typesShort.land", { defaultValue: "LP" }),
+      "Зд": t("detail.registry.typesShort.building", { defaultValue: "Bld" }),
+      "Пом": t("detail.registry.typesShort.premises", { defaultValue: "Prem" }),
+      "ОК": t("table.ok", { ns: "common", defaultValue: "OK" }),
+      "Внимание": t("table.warning", { ns: "common", defaultValue: "Warning" }),
+      "Критично": t("table.critical", { ns: "common", defaultValue: "Critical" }),
+    };
+    return map[label] ?? label;
+  };
 
   return (
     <div className="space-y-4 pb-2">
       <PageSection
-        title="Карточка объекта"
-        subtitle="Детальная информация по объекту недвижимости"
-        rightSlot={<Badge tone={risk.tone}>{risk.label}</Badge>}
+        title={t("detail.card.title")}
+        subtitle={t("detail.card.subtitle")}
+        rightSlot={<Badge tone={risk.tone}>{translateLabel(risk.label)}</Badge>}
       >
         <div className="space-y-3">
           <div>
@@ -760,7 +796,7 @@ const RealEstateDetailPanel: React.FC<{
                 {detail.registry.addressLabel}
               </p>
               <Badge>{object.region}</Badge>
-              <Badge>{objectTypeLabel(object.object_type)}</Badge>
+              <Badge>{translateLabel(objectTypeLabel(object.object_type))}</Badge>
             </div>
             <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               {detail.shortDescription}
@@ -770,8 +806,8 @@ const RealEstateDetailPanel: React.FC<{
       </PageSection>
 
       <PageSection
-        title="Упоминания в документах"
-        subtitle="Документы сделки, в которых фигурирует объект"
+        title={t("detail.documents.title")}
+        subtitle={t("detail.documents.subtitle")}
       >
         <div className="space-y-3">
           {detail.documents.map((doc) => (
@@ -785,7 +821,7 @@ const RealEstateDetailPanel: React.FC<{
                 <Badge>{doc.section}</Badge>
               </div>
               <div className="mt-2 text-sm text-[var(--text-secondary)]">
-                <span className="font-medium text-[var(--text-primary)]">Role:</span>{" "}
+                <span className="font-medium text-[var(--text-primary)]">{t("detail.documents.role")}</span>{" "}
                 {doc.mentionRole}
               </div>
             </div>
@@ -794,13 +830,13 @@ const RealEstateDetailPanel: React.FC<{
       </PageSection>
 
       <PageSection
-        title="Registry snapshot"
-        subtitle="Ключевые атрибуты объекта по реестровому и документному контуру"
+        title={t("detail.registry.title")}
+        subtitle={t("detail.registry.subtitle")}
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Registry source
+              {t("detail.registry.source")}
             </p>
             <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
               {detail.registry.registrySource}
@@ -812,7 +848,7 @@ const RealEstateDetailPanel: React.FC<{
 
           <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Owner
+              {t("detail.registry.owner")}
             </p>
             <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
               {detail.registry.ownerName}
@@ -824,10 +860,10 @@ const RealEstateDetailPanel: React.FC<{
 
           <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Object type
+              {t("detail.registry.objectType")}
             </p>
             <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-              {detail.registry.objectTypeLabel}
+              {translateLabel(detail.registry.objectTypeLabel)}
             </p>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
               {detail.registry.areaLabel}
@@ -836,7 +872,7 @@ const RealEstateDetailPanel: React.FC<{
 
           <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Address
+              {t("detail.registry.address")}
             </p>
             <p className="mt-1 text-sm leading-6 text-[var(--text-primary)]">
               {detail.registry.addressLabel}
@@ -846,16 +882,16 @@ const RealEstateDetailPanel: React.FC<{
       </PageSection>
 
       <PageSection
-        title="Обременения"
-        subtitle="Ипотека, аресты, сервитуты и иные ограничения"
+        title={t("detail.encumbrances.title")}
+        subtitle={t("detail.encumbrances.subtitle")}
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {(
             [
-              { label: "Encumbrances", key: "hasEncumbrances" },
-              { label: "Mortgage", key: "mortgage" },
-              { label: "Arrest", key: "arrest" },
-              { label: "Easement", key: "easement" },
+              { label: t("detail.encumbrances.types.encumbrances"), key: "hasEncumbrances" },
+              { label: t("detail.encumbrances.types.mortgage"), key: "mortgage" },
+              { label: t("detail.encumbrances.types.arrest"), key: "arrest" },
+              { label: t("detail.encumbrances.types.easement"), key: "easement" },
             ] as const
           ).map(({ label, key }) => (
             <div key={key} className="rounded-2xl border border-[var(--border)] px-4 py-4">
@@ -864,7 +900,7 @@ const RealEstateDetailPanel: React.FC<{
               </p>
               <div className="mt-2">
                 <Badge tone={riskBadgeTone(detail.encumbrances[key])}>
-                  {riskBadgeLabel(detail.encumbrances[key])}
+                  {translateLabel(riskBadgeLabel(detail.encumbrances[key]))}
                 </Badge>
               </div>
             </div>
@@ -872,7 +908,7 @@ const RealEstateDetailPanel: React.FC<{
         </div>
 
         <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
-          <p className="text-sm font-semibold text-[var(--text-primary)]">Encumbrance notes</p>
+          <p className="text-sm font-semibold text-[var(--text-primary)]">{t("detail.encumbrances.notes")}</p>
           <ul className="mt-2 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
             {detail.encumbrances.notes.map((note) => (
               <li key={note} className="flex gap-2">
@@ -885,15 +921,15 @@ const RealEstateDetailPanel: React.FC<{
       </PageSection>
 
       <PageSection
-        title="Legal checks"
-        subtitle="Title chain, registry match и zoning / land use"
+        title={t("detail.legal.title")}
+        subtitle={t("detail.legal.subtitle")}
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {(
             [
-              { label: "Title chain", key: "titleChain" },
-              { label: "Registry match", key: "registryMatch" },
-              { label: "Zoning / use", key: "zoning" },
+              { label: t("detail.legal.types.titleChain"), key: "titleChain" },
+              { label: t("detail.legal.types.registryMatch"), key: "registryMatch" },
+              { label: t("detail.legal.types.zoning"), key: "zoning" },
             ] as const
           ).map(({ label, key }) => (
             <div key={key} className="rounded-2xl border border-[var(--border)] px-4 py-4">
@@ -902,7 +938,7 @@ const RealEstateDetailPanel: React.FC<{
               </p>
               <div className="mt-2">
                 <Badge tone={checkTone(detail.legalChecks[key])}>
-                  {checkLabel(detail.legalChecks[key])}
+                  {translateLabel(checkLabel(detail.legalChecks[key]))}
                 </Badge>
               </div>
             </div>
@@ -910,7 +946,7 @@ const RealEstateDetailPanel: React.FC<{
         </div>
 
         <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
-          <p className="text-sm font-semibold text-[var(--text-primary)]">Legal notes</p>
+          <p className="text-sm font-semibold text-[var(--text-primary)]">{t("detail.legal.notes")}</p>
           <ul className="mt-2 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
             {detail.legalChecks.notes.map((note) => (
               <li key={note} className="flex gap-2">
@@ -923,13 +959,13 @@ const RealEstateDetailPanel: React.FC<{
       </PageSection>
 
       <PageSection
-        title="Карта / контекст"
-        subtitle="Региональный и географический контур объекта"
+        title={t("detail.map.title")}
+        subtitle={t("detail.map.subtitle")}
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Region
+              {t("detail.map.region")}
             </p>
             <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
               {detail.mapContext.region}
@@ -940,7 +976,7 @@ const RealEstateDetailPanel: React.FC<{
           </div>
           <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Geo note
+              {t("detail.map.geoNote")}
             </p>
             <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
               {detail.mapContext.geoNote}
@@ -956,24 +992,13 @@ const RealEstateDetailPanel: React.FC<{
 // Mobile fullscreen drawer
 // ---------------------------------------------------------------------------
 
-/**
- * Fullscreen drawer для отображения RealEstateDetailPanel на мобильных
- * viewport.
- *
- * Паттерн повторяет CounterpartiesTab и DocumentsTab:
- * fixed inset-0 z-50 + затемнение фона + body scroll lock + Escape close.
- * Отображается только на < lg; компонент помечен lg:hidden, поэтому
- * даже если случайно отрендерится на десктопе — визуально не появится.
- *
- * Body scroll lock критичен для мобильного UX: без него страница под
- * drawer'ом продолжит скроллиться при инерционном touch scroll внутри
- * drawer'а, что визуально ломает immersion.
- */
 const MobileDetailDrawer: React.FC<{
   object: RealEstateObjectAggregate;
   detail: RealEstateObjectDetail;
   onClose: () => void;
 }> = ({ object, detail, onClose }) => {
+  const { t } = useTranslation("realEstate");
+
   // Escape close
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -1016,14 +1041,14 @@ const MobileDetailDrawer: React.FC<{
             onClick={onClose}
             leftIcon={<ChevronLeft className="h-4 w-4" aria-hidden />}
           >
-            Назад к реестру
+            {t("drawer.back")}
           </Button>
 
           <div
             id="re-mobile-drawer-title"
             className="truncate text-sm font-semibold text-[var(--text-primary)]"
           >
-            {object.address ?? "Без адреса"}
+            {object.address ?? t("drawer.noAddress")}
           </div>
 
           {/* Балансирующий spacer для центрирования title */}
@@ -1046,6 +1071,7 @@ const MobileDetailDrawer: React.FC<{
 const DemoScreen: React.FC<{
   onBack: () => void;
 }> = ({ onBack }) => {
+  const { t, i18n } = useTranslation("realEstate");
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [drilldown, setDrilldown] = React.useState<DrilldownKind>(null);
   const [openExportMenu, setOpenExportMenu] = React.useState<ExportMenuKind>(null);
@@ -1054,30 +1080,86 @@ const DemoScreen: React.FC<{
     direction: "asc",
   });
 
-  // Все derive-вычисления вынесены в utils.ts и мемоизированы.
-  // DEMO_OBJECTS статичен → зависимостей нет, пересчёт не нужен.
-  const { totalObjects, totalLand, totalBuildingsAndPremises, totalEncumbered } =
-    React.useMemo(() => buildRealEstateTotals(DEMO_OBJECTS), []);
+  // Локализация демо-объектов реестра
+  const localizedDemoObjects = useMemo(() => {
+    return DEMO_OBJECTS.map((obj) => {
+      const regionEn = t(`demoData.regions.${obj.region}`, { defaultValue: obj.region });
+      const demoObj = t(`demoData.objects.${obj.id}`, { returnObjects: true }) as any;
+      return {
+        ...obj,
+        region: regionEn,
+        address: (demoObj && typeof demoObj === "object" && demoObj.address) ? demoObj.address : obj.address,
+      };
+    });
+  }, [t, i18n.language]);
 
-  const topByArea = React.useMemo(() => buildTopByArea(DEMO_OBJECTS), []);
-  const encumberedObjects = React.useMemo(() => buildEncumberedObjects(DEMO_OBJECTS), []);
-  const regionStructure = React.useMemo(() => buildRegionStructure(DEMO_OBJECTS), []);
-  const criticalObjects = React.useMemo(() => buildCriticalObjects(DEMO_OBJECTS), []);
+  const { totalObjects, totalLand, totalBuildingsAndPremises, totalEncumbered } =
+    React.useMemo(() => buildRealEstateTotals(localizedDemoObjects), [localizedDemoObjects]);
+
+  const topByArea = React.useMemo(
+    () => buildTopByArea(localizedDemoObjects, t, i18n.language),
+    [localizedDemoObjects, t, i18n.language]
+  );
+  const encumberedObjects = React.useMemo(
+    () => buildEncumberedObjects(localizedDemoObjects, t),
+    [localizedDemoObjects, t]
+  );
+  const regionStructure = React.useMemo(
+    () => buildRegionStructure(localizedDemoObjects),
+    [localizedDemoObjects]
+  );
+  const criticalObjects = React.useMemo(
+    () => buildCriticalObjects(localizedDemoObjects, t),
+    [localizedDemoObjects, t]
+  );
 
   const sortedObjects = React.useMemo(
-    () => sortRealEstateObjects(DEMO_OBJECTS, sort),
-    [sort]
+    () => sortRealEstateObjects(localizedDemoObjects, sort, i18n.language, t),
+    [localizedDemoObjects, sort, i18n.language, t]
   );
 
   const selectedObject = selectedId
-    ? DEMO_OBJECTS.find((item) => item.id === selectedId) ?? null
+    ? localizedDemoObjects.find((item) => item.id === selectedId) ?? null
     : null;
 
-  const selectedDetail = selectedObject ? DEMO_DETAILS[selectedObject.id] ?? null : null;
+  const rawDetail = selectedObject ? DEMO_DETAILS[selectedObject.id] ?? null : null;
+
+  // Локализация детальной карточки объекта
+  const selectedDetail = useMemo(() => {
+    if (!selectedObject || !rawDetail) return null;
+    const demoObj = t(`demoData.objects.${selectedObject.id}`, { returnObjects: true }) as any;
+    if (!demoObj || typeof demoObj !== "object") return rawDetail;
+
+    return {
+      ...rawDetail,
+      shortDescription: demoObj.shortDescription ?? rawDetail.shortDescription,
+      registry: {
+        ...rawDetail.registry,
+        registrySource: demoObj.registrySource ?? rawDetail.registry.registrySource,
+        ownershipStatus: demoObj.ownershipStatus ?? rawDetail.registry.ownershipStatus,
+        ownerName: demoObj.ownerName ?? rawDetail.registry.ownerName,
+        addressLabel: demoObj.address ?? rawDetail.registry.addressLabel,
+      },
+      encumbrances: {
+        ...rawDetail.encumbrances,
+        notes: demoObj.encumbranceNotes ?? rawDetail.encumbrances.notes,
+      },
+      legalChecks: {
+        ...rawDetail.legalChecks,
+        notes: demoObj.legalNotes ?? rawDetail.legalChecks.notes,
+      },
+      mapContext: {
+        ...rawDetail.mapContext,
+        region: selectedObject.region,
+        district: demoObj.district ?? rawDetail.mapContext.district,
+        geoNote: demoObj.geoNote ?? rawDetail.mapContext.geoNote,
+      },
+    };
+  }, [selectedObject, rawDetail, t, i18n.language]);
 
   const handleExport = (format: ExportFormat) => {
     setOpenExportMenu(null);
-    window.alert(`Сохранить список объектов недвижимости: ${format.toUpperCase()}`);
+    window.alert(t("export.alert", { format: format.toUpperCase() }));
   };
 
   const handleSort = (key: SortKey) => {
@@ -1086,12 +1168,12 @@ const DemoScreen: React.FC<{
 
   const drilldownTitle =
     drilldown === "geography"
-      ? "География выявленных объектов"
+      ? t("drilldown.geography")
       : drilldown === "encumbrances"
-        ? "Объекты с признаками обременений"
+        ? t("drilldown.encumbrances")
         : drilldown === "area_top"
-          ? "Топ-5 объектов по площади"
-          : "Критические объекты недвижимости";
+          ? t("drilldown.areaTop")
+          : t("drilldown.critical");
 
   return (
     <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
@@ -1099,41 +1181,40 @@ const DemoScreen: React.FC<{
       <div className="mb-4 shrink-0 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">
-            Выявленные объекты недвижимости
+            {t("demo.title")}
           </h2>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Реестр активов, выявленных в документах сделки, с верификацией по реестровому и
-            юридическому контуру
+            {t("demo.subtitle")}
           </p>
         </div>
         <Button variant="secondary" size="sm" onClick={onBack}>
-          Назад к описанию
+          {t("demo.back")}
         </Button>
       </div>
 
       {/* KPI row */}
       <div className="mb-4 shrink-0 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
-          label="Объектов выявлено"
+          label={t("demo.kpi.totalObjects")}
           value={`${totalObjects}`}
-          hint="Нажмите, чтобы открыть географию"
+          hint={t("demo.kpi.hintGeography")}
           onClick={() => setDrilldown("geography")}
         />
         <KpiCard
-          label="Земельных участков"
+          label={t("demo.kpi.totalLand")}
           value={`${totalLand}`}
-          hint="В составе реестра"
+          hint={t("demo.kpi.hintRegistry")}
         />
         <KpiCard
-          label="Зданий и помещений"
+          label={t("demo.kpi.buildings")}
           value={`${totalBuildingsAndPremises}`}
-          hint="Нажмите, чтобы открыть топ по площади"
+          hint={t("demo.kpi.hintArea")}
           onClick={() => setDrilldown("area_top")}
         />
         <KpiCard
-          label="С обременениями"
+          label={t("demo.kpi.encumbered")}
           value={`${totalEncumbered}`}
-          hint="Нажмите, чтобы открыть список"
+          hint={t("demo.kpi.hintList")}
           accent
           onClick={() => setDrilldown("encumbrances")}
         />
@@ -1141,27 +1222,16 @@ const DemoScreen: React.FC<{
 
       {/* Main workspace */}
       <div className="min-h-0 flex-1">
-        {/*
-          ═══════════════════════════════════════════════════════════════
-          Desktop render-path (lg+): split-view при выбранном объекте,
-          обычная таблица без выбранного.
-
-          Mobile render-path (< lg): всегда обычная таблица;
-          RealEstateDetailPanel рендерится отдельно как fullscreen
-          drawer ниже.
-          ═══════════════════════════════════════════════════════════════
-        */}
-
         {/* Desktop: split-view при selectedObject */}
         {selectedObject && selectedDetail ? (
           <div className="hidden lg:block lg:h-full">
             <PageSection
-              title="Рабочая область анализа"
-              subtitle="Реестр объектов и карточка выбранного объекта"
+              title={t("demo.workspace.title")}
+              subtitle={t("demo.workspace.subtitle")}
               rightSlot={
                 <div className="flex items-center gap-2">
                   <ExportMenuButton
-                    label="Сохранить список объектов"
+                    label={t("export.saveList")}
                     open={openExportMenu === "list"}
                     onToggle={() =>
                       setOpenExportMenu((prev) => (prev === "list" ? null : "list"))
@@ -1173,7 +1243,7 @@ const DemoScreen: React.FC<{
                     size="sm"
                     onClick={() => setSelectedId(null)}
                   >
-                    Закрыть карточку
+                    {t("demo.workspace.closeCard")}
                   </Button>
                 </div>
               }
@@ -1187,10 +1257,10 @@ const DemoScreen: React.FC<{
                   <div className="flex h-full min-h-0 flex-col p-5">
                     <div className="mb-4 shrink-0">
                       <p className="text-sm font-semibold text-[var(--text-primary)]">
-                        Реестр объектов
+                        {t("demo.registry.title")}
                       </p>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">
-                        Выберите объект в таблице, чтобы просмотреть детальную карточку справа
+                        {t("demo.workspace.selectHint")}
                       </p>
                     </div>
                     <div className="min-h-0 flex-1 lg:overflow-hidden">
@@ -1223,11 +1293,11 @@ const DemoScreen: React.FC<{
         {(!selectedObject || !selectedDetail) && (
           <div className="hidden lg:block lg:h-full">
             <PageSection
-              title="Реестр объектов"
-              subtitle="Недвижимое имущество, выявленное в документах сделки"
+              title={t("demo.registry.title")}
+              subtitle={t("demo.registry.subtitle")}
               rightSlot={
                 <ExportMenuButton
-                  label="Сохранить список объектов"
+                  label={t("export.saveList")}
                   open={openExportMenu === "list"}
                   onToggle={() =>
                     setOpenExportMenu((prev) => (prev === "list" ? null : "list"))
@@ -1240,8 +1310,7 @@ const DemoScreen: React.FC<{
             >
               <div className="mb-3 shrink-0">
                 <p className="text-sm text-[var(--text-secondary)]">
-                  В демонстрационном реестре добавлено больше объектов, чтобы таблица имела
-                  собственную внутреннюю прокрутку.
+                  {t("demo.registry.demoHintDesktop")}
                 </p>
               </div>
               <div className="min-h-0 flex-1 lg:overflow-hidden">
@@ -1260,11 +1329,11 @@ const DemoScreen: React.FC<{
         {/* Mobile: всегда plain table */}
         <div className="lg:hidden">
           <PageSection
-            title="Реестр объектов"
-            subtitle="Недвижимое имущество, выявленное в документах сделки"
+            title={t("demo.registry.title")}
+            subtitle={t("demo.registry.subtitle")}
             rightSlot={
               <ExportMenuButton
-                label="Сохранить список объектов"
+                label={t("export.saveList")}
                 open={openExportMenu === "list"}
                 onToggle={() =>
                   setOpenExportMenu((prev) => (prev === "list" ? null : "list"))
@@ -1275,8 +1344,7 @@ const DemoScreen: React.FC<{
           >
             <div className="mb-3">
               <p className="text-sm text-[var(--text-secondary)]">
-                В демонстрационном реестре добавлено больше объектов. Нажмите на адрес объекта,
-                чтобы открыть детальную карточку.
+                {t("demo.registry.demoHintMobile")}
               </p>
             </div>
             <RealEstateTable
@@ -1290,17 +1358,6 @@ const DemoScreen: React.FC<{
         </div>
       </div>
 
-      {/*
-        ═══════════════════════════════════════════════════════════════
-        Mobile fullscreen drawer с RealEstateDetailPanel.
-
-        Активируется только на < lg при selectedObject.
-        На lg+ этот блок не рендерится (lg:hidden в MobileDetailDrawer).
-
-        Паттерн — аналог CounterpartiesTab и DocumentsTab:
-        fixed inset-0 z-50 + backdrop + body scroll lock + Escape close.
-        ═══════════════════════════════════════════════════════════════
-      */}
       {selectedObject && selectedDetail ? (
         <MobileDetailDrawer
           object={selectedObject}
@@ -1318,9 +1375,9 @@ const DemoScreen: React.FC<{
         {drilldown === "geography" ? (
           <RegionStructureCard items={regionStructure} />
         ) : drilldown === "encumbrances" ? (
-          <RankedListCard title="Объекты с признаками обременений" items={encumberedObjects} />
+          <RankedListCard title={t("drilldown.encumberedList")} items={encumberedObjects} />
         ) : drilldown === "area_top" ? (
-          <RankedListCard title="Топ-5 объектов по площади" items={topByArea} />
+          <RankedListCard title={t("drilldown.areaTopList")} items={topByArea} />
         ) : (
           <CriticalObjectsTable items={criticalObjects} />
         )}
@@ -1340,13 +1397,6 @@ const RealEstateTab: React.FC<RealEstateTabProps> = ({
   const [mode, setMode] = React.useState<PreviewMode>("intro");
 
   return (
-    /*
-      Dual-mode scroll contract (root):
-      Mobile (<lg): no flex, no height constraint — content-driven,
-      tabpanel (DealPage) скроллит страницу естественно. flex появляется
-      только на lg:, синхронно с IntroScreen/DemoScreen contract.
-      Desktop (lg+): h-full + overflow-hidden, internal scroll per section
-    */
     <div className="lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
       {mode === "intro" ? (
         <IntroScreen onOpenDemo={() => setMode("demo")} />

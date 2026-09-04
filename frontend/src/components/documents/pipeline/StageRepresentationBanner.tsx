@@ -1,6 +1,7 @@
 // src/components/documents/pipeline/StageRepresentationBanner.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Braces, Sparkles, Database, FileText } from "lucide-react";
 import type {
   StageMetaDTO,
@@ -54,34 +55,38 @@ export const StageRepresentationBanner: React.FC<Props> = ({
   representation,
   meta,
 }) => {
+  const { t } = useTranslation("pipeline");
+
   const isCanonical = representation.is_canonical;
   const previewSourceLabel = representation.provenance?.preview_source_label;
   const textEnriched = meta?.text_enriched === true;
 
-  const modeLabel = isCanonical ? "Canonical" : "Friendly";
+  const modeLabel = isCanonical
+    ? t("stageBanner.modeLabelCanonical")
+    : t("stageBanner.modeLabelFriendly");
+
   const modeHint = isCanonical
-    ? "Каноническое представление стадии"
-    : "Дружественное представление стадии";
+    ? t("stageBanner.modeHintCanonical")
+    : t("stageBanner.modeHintFriendly");
 
   const localizedRepresentationLabel =
     representation.label ||
-    (isCanonical ? "Каноническое представление" : "Дружественное представление");
+    (isCanonical
+      ? t("stageBanner.defaultCanonicalLabel")
+      : t("stageBanner.defaultFriendlyLabel"));
 
   const localizedDescription =
     representation.description ||
     (isCanonical
-      ? "Отображаются канонические данные стадии без дополнительного пользовательского обогащения."
-      : "Отображаются данные стадии в пользовательском режиме просмотра.");
+      ? t("stageBanner.defaultCanonicalDesc")
+      : t("stageBanner.defaultFriendlyDesc"));
 
-  const localizedPreviewSource =
-    previewSourceLabel === "CHUNKS"
-      ? "Источник preview: CHUNKS"
-      : previewSourceLabel
-        ? `Источник preview: ${previewSourceLabel}`
-        : null;
+  const localizedPreviewSource = previewSourceLabel
+    ? t("stageBanner.previewSource", { source: previewSourceLabel })
+    : null;
 
   const localizedEnrichment = textEnriched
-    ? "Текст обогащён из CHUNKS"
+    ? t("stageBanner.textEnriched")
     : null;
 
   const shouldRender =
@@ -96,7 +101,7 @@ export const StageRepresentationBanner: React.FC<Props> = ({
 
   return (
     <section
-      aria-label="Режим представления стадии"
+      aria-label={t("stageBanner.ariaLabel")}
       className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-3"
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -122,7 +127,7 @@ export const StageRepresentationBanner: React.FC<Props> = ({
           <MetaPill
             tone="warning"
             icon={<Database size={12} aria-hidden="true" />}
-            title="Источник данных preview"
+            title={t("stageBanner.previewSourceTitle")}
           >
             {localizedPreviewSource}
           </MetaPill>
@@ -132,7 +137,7 @@ export const StageRepresentationBanner: React.FC<Props> = ({
           <MetaPill
             tone="success"
             icon={<FileText size={12} aria-hidden="true" />}
-            title="Текстовое обогащение"
+            title={t("stageBanner.textEnrichmentTitle")}
           >
             {localizedEnrichment}
           </MetaPill>

@@ -116,7 +116,9 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
         <div className="ml-5 mt-1 space-y-2 rounded-b-xl border border-t-0 border-[var(--border-subtle)] px-3 py-3 text-[11px]">
           {hasWarnings && (
             <div className="status-border-warning status-bg-warning rounded-lg border px-2 py-2">
-              <div className="font-medium status-text-warning">Warnings</div>
+              <div className="font-medium status-text-warning">
+                {t("trace.warnings")}
+              </div>
               <ul className="mt-1 list-inside list-disc text-[var(--color-warning-text)]">
                 {warnings.map((w, i) => (
                   <li key={i}>{String(w)}</li>
@@ -128,7 +130,7 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
             Object.keys(stage.input_summary).length > 0 && (
               <div>
                 <div className="mb-1 font-medium text-[var(--text-muted)]">
-                  Input
+                  {t("trace.input")}
                 </div>
                 <pre className="overflow-auto rounded-lg bg-[var(--bg-elevated-soft)] p-2 text-[10px] text-[var(--text-secondary)]">
                   {JSON.stringify(stage.input_summary, null, 2)}
@@ -140,7 +142,7 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
             Object.keys(stage.output_summary).length > 0 && (
               <div>
                 <div className="mb-1 font-medium text-[var(--text-muted)]">
-                  Output
+                  {t("trace.output")}
                 </div>
                 <pre className="overflow-auto rounded-lg bg-[var(--bg-elevated-soft)] p-2 text-[10px] text-[var(--text-secondary)]">
                   {JSON.stringify(stage.output_summary, null, 2)}
@@ -152,7 +154,7 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
             Object.keys(stage.artifact_refs).length > 0 && (
               <div>
                 <div className="mb-1 font-medium text-[var(--text-muted)]">
-                  Artifacts
+                  {t("trace.artifacts")}
                 </div>
                 {Object.entries(stage.artifact_refs).map(([k, v]) => (
                   <div key={k} className="flex gap-1">
@@ -167,7 +169,9 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
 
           {stage.error_details && (
             <div>
-              <div className="mb-1 font-medium status-text-error">Error</div>
+              <div className="mb-1 font-medium status-text-error">
+                {t("trace.errorLabel")}
+              </div>
               <pre className="status-bg-error status-text-error overflow-auto rounded-lg p-2 text-[10px]">
                 {JSON.stringify(stage.error_details, null, 2)}
               </pre>
@@ -252,4 +256,6 @@ export function ProcessingTracePanel({ documentId }: Props) {
 }
 
 export default ProcessingTracePanel;
+
+
 

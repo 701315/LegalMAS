@@ -1,25 +1,18 @@
 // =============================================================
 // src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx
 // Три равные карточки: Документы · Контрагенты · Имущество
-//
-// Активная карточка визуально "врастает" в панель "Детали
-// результатов анализа" снизу:
-//   - Плоский нижний бордер (bottom-border убран)
-//   - rounded-b убран (углы снизу — прямые)
-//   - bg === bg панели ниже (var(--bg-card))
-//   - Left accent border вместо full-border accent
-//
-// На mobile connected эффект не применяется — карточки стакаются,
-// активная может быть не последней в ряду, и "connect" ломается.
+// (докстринг исходника сохранён)
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { Deal } from "../../../types";
 import { useRunProgress } from "../../../api/runs";
 import { DEMO_AGGREGATES } from "../counterparties/constants";
 import { DEMO_OBJECTS } from "../real-estate/constants";
 
 type DomainKey = "documents" | "counterparties" | "real_estate";
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 
 interface ProjectDomainsOverviewPanelProps {
   runId: string | null;
@@ -28,22 +21,25 @@ interface ProjectDomainsOverviewPanelProps {
   onDomainSelect: (d: DomainKey) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatRelativeTime(iso: string | undefined | null): string {
+function formatRelativeTime(
+  iso: string | undefined | null,
+  tFn: TranslateFn,
+): string {
   if (!iso) return "";
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 5) return "только что";
-  if (diff < 60) return `${diff} сек назад`;
-  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
-  return `${Math.floor(diff / 3600)} ч назад`;
+  if (diff < 5) return tFn("overviewPanels.pipelineStep.justNow");
+  if (diff < 60) {
+    return tFn("overviewPanels.pipelineStep.secAgo", { count: diff });
+  }
+  if (diff < 3600) {
+    return tFn("overviewPanels.pipelineStep.minAgo", {
+      count: Math.floor(diff / 60),
+    });
+  }
+  return tFn("overviewPanels.pipelineStep.hrAgo", {
+    count: Math.floor(diff / 3600),
+  });
 }
-
-// ---------------------------------------------------------------------------
-// DomainCard (компактный + connected для активной на xl+)
-// ---------------------------------------------------------------------------
 
 const DomainCard: React.FC<{
   isActive: boolean;
@@ -59,31 +55,22 @@ const DomainCard: React.FC<{
     className={[
       "relative flex min-h-[4rem] w-full min-w-0 flex-col px-2 py-1.5 text-left shadow-sm transition sm:min-h-[4.5rem] sm:px-3 sm:py-2",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
-      // Базовые скругления — на mobile всегда полные
       "rounded-2xl",
-      // На xl+ у активной карточки убираем нижние скругления —
-      // она визуально сливается с панелью деталей ниже.
       isActive ? "xl:rounded-b-none" : "",
       isActive
         ? [
-            // Активная карточка на всех размерах:
-            // - border вокруг (base border, не accent)
-            // - но на xl+ убираем bottom-border (сливается с панелью)
             "border border-[var(--border)]",
             "xl:border-b-0",
-            // Bg === bg панели ниже — ключевой connect-эффект
             "bg-[var(--bg-card)]",
             "shadow-md",
           ].join(" ")
         : [
-            // Неактивная — стандартная карточка
             "border border-[var(--border)]",
             "bg-[var(--bg-card)]",
             "hover:bg-[var(--bg-elevated-soft)]",
           ].join(" "),
     ].join(" ")}
   >
-    {/* Left accent border для активной карточки — визуальный маркер выбора */}
     {isActive && (
       <div
         className="pointer-events-none absolute inset-y-0 left-0 w-[3px] rounded-l-2xl bg-[var(--accent-primary)] xl:rounded-bl-none"
@@ -125,25 +112,28 @@ const DomainCard: React.FC<{
   </button>
 );
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
 export const ProjectDomainsOverviewPanel: React.FC<
   ProjectDomainsOverviewPanelProps
 > = ({ runId, activeDomain, onDomainSelect }) => {
+  const { t } = useTranslation("projects");
   const { data: progress } = useRunProgress(runId);
 
-  // ── Документы ──
   const docStatus = (() => {
-    if (!runId) return "Не запущен";
-    if (!progress) return "Загрузка...";
-    if (progress.run_status === "completed") return "Завершён";
-    if (progress.run_status === "completed_with_errors")
-      return "Завершён с ошибками";
-    if (progress.run_status === "failed") return "Ошибка";
-    if (progress.run_status === "running") return "Выполняется";
-    return "Ожидание";
+    if (!runId) return t("overviewPanels.domainsOverview.docStatus.notStarted");
+    if (!progress) return t("overviewPanels.domainsOverview.docStatus.loading");
+    if (progress.run_status === "completed") {
+      return t("overviewPanels.domainsOverview.docStatus.completed");
+    }
+    if (progress.run_status === "completed_with_errors") {
+      return t("overviewPanels.domainsOverview.docStatus.completedWithErrors");
+    }
+    if (progress.run_status === "failed") {
+      return t("overviewPanels.domainsOverview.docStatus.failed");
+    }
+    if (progress.run_status === "running") {
+      return t("overviewPanels.domainsOverview.docStatus.running");
+    }
+    return t("overviewPanels.domainsOverview.docStatus.pending");
   })();
 
   const docRunning = progress?.run_status === "running";
@@ -154,96 +144,111 @@ export const ProjectDomainsOverviewPanel: React.FC<
 
   const docLines: React.ReactNode[] = [];
   if (currentStep) {
-    docLines.push(`Этап: ${currentStep}`);
+    docLines.push(
+      t("overviewPanels.domainsOverview.stage", { title: currentStep }),
+    );
   }
   if (subProgress && subProgress.total > 0) {
+    const kind = t(
+      `overviewPanels.domainsOverview.subKinds.${subProgress.kind}`,
+      { defaultValue: subProgress.kind },
+    );
     docLines.push(
-      `${subProgress.current} из ${subProgress.total} ${
-        subProgress.kind === "legal_units"
-          ? "блоков"
-          : subProgress.kind === "segments"
-            ? "сегментов"
-            : subProgress.kind === "checks"
-              ? "проверок"
-              : "документов"
-      }`
+      t("overviewPanels.domainsOverview.subProgress", {
+        current: subProgress.current,
+        total: subProgress.total,
+        kind,
+      }),
     );
   }
   if (progress?.last_activity_at && docRunning && docLines.length < 2) {
-    docLines.push(`обновлено ${formatRelativeTime(progress.last_activity_at)}`);
+    docLines.push(
+      t("overviewPanels.domainsOverview.updated", {
+        time: formatRelativeTime(progress.last_activity_at, t),
+      }),
+    );
   }
   if (progress?.documents_total && docLines.length === 0) {
-    docLines.push(`Документов: ${progress.documents_total}`);
+    docLines.push(
+      t("overviewPanels.domainsOverview.documentsTotal", {
+        count: progress.documents_total,
+      }),
+    );
   }
 
-  // ── Контрагенты ──
   const totalCounterparties = DEMO_AGGREGATES.length;
   const needsAttention = DEMO_AGGREGATES.filter(
     (item) =>
-      item.reviewStatus === "critical" || item.reviewStatus === "needs_review"
+      item.reviewStatus === "critical" || item.reviewStatus === "needs_review",
   ).length;
   const sanctionsBankruptcy = DEMO_AGGREGATES.filter(
-    (item) => item.sanctionsFlag || item.bankruptcyFlag
+    (item) => item.sanctionsFlag || item.bankruptcyFlag,
   ).length;
 
-  // ── Имущество ──
   const totalObjects = DEMO_OBJECTS.length;
   const encumbered = DEMO_OBJECTS.filter(
-    (item) => item.encumbrance === true
+    (item) => item.encumbrance === true,
   ).length;
   const ownershipReview = DEMO_OBJECTS.filter(
     (item) =>
       item.ownership_status === "review" ||
-      item.ownership_status === "not_confirmed"
+      item.ownership_status === "not_confirmed",
   ).length;
 
   return (
     <section
       className={[
-        // Убираем нижние скругления секции на xl+ — секция плавно
-        // переходит в панель деталей ниже.
         "rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm",
         "xl:rounded-b-none xl:border-b-0 xl:shadow-none",
       ].join(" ")}
     >
       <div className="px-5 py-2">
         <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-          Состояние направлений проекта
+          {t("overviewPanels.domainsOverview.sectionTitle")}
         </h2>
       </div>
 
       <div className="grid grid-cols-3 gap-1.5 px-3 pb-3 sm:gap-2 sm:px-5">
-        {/* Документы */}
         <DomainCard
           isActive={activeDomain === "documents"}
           onClick={() => onDomainSelect("documents")}
-          title="Документы"
+          title={t("overviewPanels.domainsOverview.domains.documents")}
           statusLine={docStatus}
           lines={docLines}
           isRunning={docRunning}
         />
 
-        {/* Контрагенты */}
         <DomainCard
           isActive={activeDomain === "counterparties"}
           onClick={() => onDomainSelect("counterparties")}
-          title="Контрагенты"
-          statusLine={`${totalCounterparties} выявлено`}
+          title={t("overviewPanels.domainsOverview.domains.counterparties")}
+          statusLine={t("overviewPanels.domainsOverview.counterpartiesFound", {
+            count: totalCounterparties,
+          })}
           lines={[
-            `${needsAttention} требуют внимания`,
-            `${sanctionsBankruptcy} санкции / банкротство`,
+            t("overviewPanels.domainsOverview.needAttention", {
+              count: needsAttention,
+            }),
+            t("overviewPanels.domainsOverview.sanctionsBankruptcy", {
+              count: sanctionsBankruptcy,
+            }),
           ]}
         />
 
-        {/* Имущество */}
         <DomainCard
           isActive={activeDomain === "real_estate"}
           onClick={() => onDomainSelect("real_estate")}
-          title="Имущество"
-          statusLine={`${totalObjects} объектов`}
+          title={t("overviewPanels.domainsOverview.domains.realEstate")}
+          statusLine={t("overviewPanels.domainsOverview.objectsCount", {
+            count: totalObjects,
+          })}
           lines={[
-            `${encumbered} с обременением`,
-            `${ownershipReview} ownership review`,
+            t("overviewPanels.domainsOverview.encumbered", {
+              count: encumbered,
+            }),
+            t("overviewPanels.domainsOverview.ownershipReview", {
+              count: ownershipReview,
+            }),
           ]}
         />
       </div>

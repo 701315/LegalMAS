@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { Deal } from "../../types";
 import { useUpdateDeal } from "../../api/deals";
 import Button from "../../components/ui/Button";
@@ -31,6 +32,7 @@ const DealInfoCard: React.FC<{
   onChangeSummary: (value: string) => void;
   onSaveSummary: () => void;
 }> = ({ deal, projectSummary, isSaving, isDirty, onChangeSummary, onSaveSummary }) => {
+  const { t } = useTranslation("projects");
   const [isOpen, setIsOpen] = React.useState(false);
 
   const hasContent = (projectSummary ?? "").trim().length > 0;
@@ -44,7 +46,7 @@ const DealInfoCard: React.FC<{
       >
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            О проекте
+            {t("overviewTab.about.title")}
           </h2>
           {!isOpen && hasContent && (
             <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
@@ -54,7 +56,7 @@ const DealInfoCard: React.FC<{
           )}
           {!isOpen && !hasContent && (
             <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-              Нажмите, чтобы добавить описание
+              {t("overviewTab.about.hintAdd")}
             </p>
           )}
         </div>
@@ -77,7 +79,7 @@ const DealInfoCard: React.FC<{
               value={projectSummary}
               onChange={(e) => onChangeSummary(e.target.value)}
               rows={5}
-              placeholder="Например: продажа группы компаний, buy-side DD, корпоративный блок, ключевые договоры и IP..."
+              placeholder={t("overviewTab.about.placeholder")}
               className="w-full resize-none overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-4 py-3 text-sm leading-6 text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
               style={{ minHeight: "7rem", maxHeight: "14rem" }}
             />
@@ -89,7 +91,7 @@ const DealInfoCard: React.FC<{
                 isLoading={isSaving}
                 disabled={isSaving || !isDirty}
               >
-                Сохранить
+                {t("overviewTab.about.save")}
               </Button>
             </div>
           </div>
@@ -104,6 +106,7 @@ const DealInfoCard: React.FC<{
 // ---------------------------------------------------------------------------
 
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
+  const { t } = useTranslation("projects");
   const updateDeal = useUpdateDeal(deal.id);
 
   const [activeDomain, setActiveDomain] = React.useState<
@@ -139,11 +142,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
           {deal.has_pending_manual_reclassifications && currentRunId && (
             <div className="shrink-0 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
               <p className="text-xs font-semibold text-[var(--color-warning-text)]">
-                Обновите результаты
+                {t("overviewTab.warningReclassifications.title")}
               </p>
               <p className="mt-1 text-xs leading-5 text-[var(--color-warning-text)]">
-                Вы изменили типы документов вручную. Рекомендуем перезапустить
-                анализ, чтобы обновить результаты проекта.
+                {t("overviewTab.warningReclassifications.description")}
               </p>
             </div>
           )}
@@ -186,4 +188,5 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
 };
 
 export default OverviewTab;
+
 

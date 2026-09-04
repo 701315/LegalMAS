@@ -2,6 +2,7 @@
 // Бейдж статуса версии инструкции.
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { InstructionVersionStatus } from "../../types/instructions";
 
 interface VersionStatusBadgeProps {
@@ -11,20 +12,20 @@ interface VersionStatusBadgeProps {
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; className: string }
+  { labelKey: string; className: string }
 > = {
   draft: {
-    label: "Draft",
+    labelKey: "versionStatus.draft",
     className:
       "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
   },
   published: {
-    label: "Published",
+    labelKey: "versionStatus.published",
     className:
       "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
   },
   archived: {
-    label: "Archived",
+    labelKey: "versionStatus.archived",
     className:
       "border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
   },
@@ -34,11 +35,13 @@ const VersionStatusBadge: React.FC<VersionStatusBadgeProps> = ({
   status,
   size = "sm",
 }) => {
-  const config = STATUS_CONFIG[status] ?? {
-    label: status,
-    className:
-      "border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
-  };
+  const { t } = useTranslation("instructions");
+
+  const config = STATUS_CONFIG[status];
+  const label = config ? t(config.labelKey) : status;
+  const className =
+    config?.className ??
+    "border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]";
 
   const sizeClass =
     size === "xs"
@@ -50,14 +53,15 @@ const VersionStatusBadge: React.FC<VersionStatusBadgeProps> = ({
       className={[
         "inline-flex items-center rounded-full border font-semibold uppercase",
         sizeClass,
-        config.className,
+        className,
       ].join(" ")}
     >
-      {config.label}
+      {label}
     </span>
   );
 };
 
 export default VersionStatusBadge;
+
 
 

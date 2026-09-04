@@ -145,10 +145,22 @@ function CandidateRow({
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[var(--text-muted)]">
           {candidate.confidence != null && (
-            <span>conf: {formatConfidence(candidate.confidence)}</span>
+            <span>
+              {t("classification.candidate.conf", {
+                value: formatConfidence(candidate.confidence),
+              })}
+            </span>
           )}
-          {candidate.level && <span>level: {candidate.level}</span>}
-          {candidate.method && <span>method: {candidate.method}</span>}
+          {candidate.level && (
+            <span>
+              {t("classification.candidate.level", { value: candidate.level })}
+            </span>
+          )}
+          {candidate.method && (
+            <span>
+              {t("classification.candidate.method", { value: candidate.method })}
+            </span>
+          )}
         </div>
         {candidate.evidence && (
           <p className="mt-1 text-[10px] italic text-[var(--text-muted)]">
@@ -272,7 +284,7 @@ function DecisionContent({ data }: { data: ClassificationDecisionDTO }) {
       {/* Playbook version */}
       {data.playbook_version_id && (
         <p className="text-[10px] text-[var(--text-faint)]">
-          Playbook version: {data.playbook_version_id}
+          {t("classification.playbookVersion", { version: data.playbook_version_id })}
         </p>
       )}
     </div>
@@ -340,4 +352,5 @@ export function ClassificationDecisionPanel({ documentId }: Props) {
 }
 
 export default ClassificationDecisionPanel;
+
 

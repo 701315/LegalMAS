@@ -1,5 +1,6 @@
 import React from "react";
 import { Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 // ── Marketing pages ───────────────────────────────────────────
 import HomePage from "./marketing/pages/HomePage";
@@ -19,7 +20,7 @@ import AuditCompliancePage from "./marketing/pages/solutions/AuditCompliancePage
 import CounterpartiesPage from "./marketing/pages/solutions/CounterpartiesPage";
 import RealEstatePage from "./marketing/pages/solutions/RealEstatePage";
 
-// ── App pages — существующие ──────────────────────────────────
+// ── App pages ──────────────────────────────────
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import DealPage from "./pages/DealPage";
@@ -88,6 +89,7 @@ const POLL_INTERVAL = 4000;
 
 function DealRouteWrapper() {
   const { dealId } = useParams<{ dealId: string }>();
+  const { t } = useTranslation("common");
   const {
     data: deal,
     isLoading,
@@ -102,12 +104,12 @@ function DealRouteWrapper() {
         : false,
   });
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <div>{t("loading")}</div>;
 
   if (isError || !deal) {
     return (
       <div>
-        {error instanceof Error ? error.message : "Ошибка загрузки проекта"}
+        {error instanceof Error ? error.message : t("projectLoadError")}
       </div>
     );
   }
@@ -356,14 +358,14 @@ function App() {
                 }
               />
 
-            <Route
-              path="/projects/:dealId/relaunch"
-              element={
-                <ProjectRouteGuard requiredCapability="canStartRun">
-                  <RelaunchPage />
-                </ProjectRouteGuard>
-              }
-            />
+              <Route
+                path="/projects/:dealId/relaunch"
+                element={
+                  <ProjectRouteGuard requiredCapability="canStartRun">
+                    <RelaunchPage />
+                  </ProjectRouteGuard>
+                }
+              />
 
               <Route
                 path="/admin/model-configs"

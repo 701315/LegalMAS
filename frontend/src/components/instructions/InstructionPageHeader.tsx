@@ -7,6 +7,7 @@
 
 import React from "react";
 import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export interface BreadcrumbItem {
   label: string;
@@ -24,33 +25,37 @@ interface InstructionPageHeaderProps {
 // Breadcrumbs как inline-подзаголовок
 // ─────────────────────────────────────────────────────────────
 
-const BreadcrumbTrail: React.FC<{ items: BreadcrumbItem[] }> = ({ items }) => (
-  <nav
-    aria-label="Breadcrumb"
-    className="text-sm text-[var(--text-muted)]"
-  >
-    {items.map((crumb, index) => {
-      const isLast = index === items.length - 1;
-      return (
-        <React.Fragment key={index}>
-          {index > 0 && <span className="mx-1.5">·</span>}
-          {crumb.to && !isLast ? (
-            <NavLink
-              to={crumb.to}
-              className="transition-colors hover:text-[var(--text-secondary)]"
-            >
-              {crumb.label}
-            </NavLink>
-          ) : (
-            <span className={isLast ? "text-[var(--text-secondary)]" : ""}>
-              {crumb.label}
-            </span>
-          )}
-        </React.Fragment>
-      );
-    })}
-  </nav>
-);
+const BreadcrumbTrail: React.FC<{ items: BreadcrumbItem[] }> = ({ items }) => {
+  const { t } = useTranslation("navigation");
+
+  return (
+    <nav
+      aria-label={t("breadcrumbs", { defaultValue: "Breadcrumb" })}
+      className="text-sm text-[var(--text-muted)]"
+    >
+      {items.map((crumb, index) => {
+        const isLast = index === items.length - 1;
+        return (
+          <React.Fragment key={index}>
+            {index > 0 && <span className="mx-1.5">·</span>}
+            {crumb.to && !isLast ? (
+              <NavLink
+                to={crumb.to}
+                className="transition-colors hover:text-[var(--text-secondary)]"
+              >
+                {crumb.label}
+              </NavLink>
+            ) : (
+              <span className={isLast ? "text-[var(--text-secondary)]" : ""}>
+                {crumb.label}
+              </span>
+            )}
+          </React.Fragment>
+        );
+      })}
+    </nav>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // InstructionPageHeader

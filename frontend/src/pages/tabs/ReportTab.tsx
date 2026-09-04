@@ -3,6 +3,7 @@
 // =============================================================
 
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useRun } from "../../api/runs";
 import { useRequestExport, useExportStatus, downloadExport } from "../../api/exports";
 import type { ExportType } from "../../types/exports";
@@ -25,11 +26,14 @@ interface Props {
   runId: string | null;
 }
 
-function formatFileSizeKb(bytes?: number | null): string | null {
+function formatFileSizeKb(
+  bytes: number | null | undefined,
+  tFn: (key: string, options?: any) => string,
+): string | null {
   if (typeof bytes !== "number" || Number.isNaN(bytes) || bytes <= 0) {
     return null;
   }
-  return `${Math.round(bytes / 1024)} КБ`;
+  return tFn("reportTab.fileSize", { count: Math.round(bytes / 1024) });
 }
 
 interface ExportCardProps {
@@ -49,6 +53,8 @@ function ExportCard({
   onGenerate,
   isGenerating,
 }: ExportCardProps) {
+  const { t } = useTranslation("exports");
+
   return (
     <div className="card-surface card-surface-hover flex h-full flex-col justify-between p-4">
       <div className="space-y-3">
@@ -82,7 +88,7 @@ function ExportCard({
           isLoading={isGenerating}
           leftIcon={!isGenerating ? <Download size={14} /> : undefined}
         >
-          Генерировать
+          {t("reportTab.cards.generate")}
         </Button>
       </div>
     </div>
@@ -113,6 +119,7 @@ function extractErrorMessage(err: unknown): string | null {
 }
 
 export const ReportTab: React.FC<Props> = ({ runId }) => {
+  const { t } = useTranslation("exports");
   const { data: run } = useRun(runId);
   const requestExport = useRequestExport();
 
@@ -145,24 +152,20 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
   const exportFailedMessage =
     (typeof exportData?.error_message === "string" &&
       exportData.error_message.trim()) ||
-    "Экспорт завершился ошибкой. Попробуйте ещё раз или проверьте backend-логи.";
+    t("reportTab.statusSection.failedFallback");
 
-  const completedFileSizeLabel = formatFileSizeKb(exportData?.file_size_bytes);
+  const completedFileSizeLabel = formatFileSizeKb(exportData?.file_size_bytes, t);
 
   const handleGenerate = async (exportType: ExportType) => {
     setLastError(null);
 
     if (!run?.id) {
-      setLastError(
-        "Анализ не завершён. Запустите анализ на вкладке «Обзор».",
-      );
+      setLastError(t("reportTab.errors.analysisNotFinished"));
       return;
     }
 
     if (!isRunExportable) {
-      setLastError(
-        "Экспорт доступен только после завершения анализа (completed или completed_with_errors).",
-      );
+      setLastError(t("reportTab.errors.exportUnavailable"));
       return;
     }
 
@@ -189,7 +192,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
         (error as { response?: { data?: unknown } })?.response?.data,
       );
 
-      setLastError(detail ?? "Ошибка запроса экспорта");
+      setLastError(detail ?? t("reportTab.errors.requestFailed"));
     }
   };
 
@@ -205,7 +208,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
     } catch (error: unknown) {
       const detail = extractErrorMessage(error);
       console.error("Download failed:", error);
-      setLastError(detail ?? "Не удалось скачать файл. Попробуйте ещё раз.");
+      setLastError(detail ?? t("reportTab.errors.downloadFailed"));
     } finally {
       setIsDownloading(false);
     }
@@ -220,14 +223,11 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
           </div>
 
           <h2 className="mb-2 text-sm font-semibold text-[var(--text-primary)]">
-            Отчёт будет доступен после завершения анализа
+            {t("reportTab.emptyState.title")}
           </h2>
 
           <p className="max-w-md text-[12px] leading-5 text-[var(--text-secondary)]">
-            Экспорт доступен только для последнего run со статусом{" "}
-            <span className="font-medium">completed</span> или{" "}
-            <span className="font-medium">completed_with_errors</span>.
-            Запустите анализ и дождитесь его завершения.
+            {t("reportTab.emptyState.description")}
           </p>
         </div>
       </div>
@@ -237,8 +237,8 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
   return (
     <div className="space-y-6">
       <PageSection
-        title="Отчёт"
-        subtitle="Выберите формат и запустите генерацию. Отчёт будет сформирован по последнему завершённому анализу."
+        title={t("reportTab.pageSection.title")}
+        subtitle={t("reportTab.pageSection.subtitle")}
       >
         <div className="space-y-4">
           {lastError ? (
@@ -247,43 +247,43 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <ExportCard
-              title="DD Grid"
-              description="Полная таблица результатов проверок с цветовым кодированием severity."
+              title={t("reportTab.cards.ddGrid.title")}
+              description={t("reportTab.cards.ddGrid.description")}
               icon={
                 <FileSpreadsheet
                   size={22}
                   className="text-[var(--color-success)]"
                 />
               }
-              format="Excel (.xlsx)"
+              format={t("reportTab.cards.ddGrid.format")}
               onGenerate={() => handleGenerate("grid_xlsx")}
               isGenerating={isGenerating}
             />
 
             <ExportCard
-              title="Deal Summary"
-              description="KPI, Top Risks, разбивка по типам документов и список запросов."
+              title={t("reportTab.cards.dealSummary.title")}
+              description={t("reportTab.cards.dealSummary.description")}
               icon={
                 <FileSpreadsheet
                   size={22}
                   className="text-[var(--color-blue)]"
                 />
               }
-              format="Excel (.xlsx)"
+              format={t("reportTab.cards.dealSummary.format")}
               onGenerate={() => handleGenerate("deal_summary_xlsx")}
               isGenerating={isGenerating}
             />
 
             <ExportCard
-              title="Отчёт DD"
-              description="Executive Summary, критические находки, качество анализа, запросы."
+              title={t("reportTab.cards.ddReport.title")}
+              description={t("reportTab.cards.ddReport.description")}
               icon={
                 <FileText
                   size={22}
                   className="text-[var(--color-purple)]"
                 />
               }
-              format="Word (.docx)"
+              format={t("reportTab.cards.ddReport.format")}
               onGenerate={() => handleGenerate("report_docx")}
               isGenerating={isGenerating}
             />
@@ -293,13 +293,13 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
 
       {activeExportId && (
         <PageSection
-          title="Статус экспорта"
-          subtitle="Следите за генерацией и скачайте готовый файл после завершения."
+          title={t("reportTab.statusSection.title")}
+          subtitle={t("reportTab.statusSection.subtitle")}
           rightSlot={
             isFetchingExportStatus ? (
               <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
                 <RefreshCw size={14} className="animate-spin" />
-                <span>Обновляем статус…</span>
+                <span>{t("reportTab.statusSection.updating")}</span>
               </div>
             ) : null
           }
@@ -309,7 +309,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
               <AlertCircle size={20} className="mt-0.5 shrink-0" />
               <div className="space-y-1">
                 <div className="text-sm font-medium">
-                  Не удалось получить статус экспорта
+                  {t("reportTab.statusSection.fetchError")}
                 </div>
                 <div className="text-xs leading-5">{statusErrorMessage}</div>
               </div>
@@ -320,7 +320,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
             <div className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3 text-[var(--accent-primary)]">
               <Loader2 className="animate-spin" size={18} />
               <span className="text-xs">
-                Генерируем файл… Обычно это занимает 10–30 секунд.
+                {t("reportTab.statusSection.generating")}
               </span>
             </div>
           ) : exportData.status === "completed" ? (
@@ -328,7 +328,9 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
               <div className="flex flex-wrap items-center gap-3 text-[var(--color-success-text)]">
                 <CheckCircle size={20} />
                 <span className="text-sm font-medium">
-                  {exportTitle || "Файл"} готов к скачиванию
+                  {exportTitle
+                    ? t("reportTab.statusSection.ready", { title: exportTitle })
+                    : t("reportTab.statusSection.readyFallback")}
                 </span>
                 {completedFileSizeLabel && (
                   <span className="text-[11px] text-[var(--color-success-text)] opacity-70">
@@ -346,7 +348,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
                 isLoading={isDownloading}
                 leftIcon={!isDownloading ? <Download size={14} /> : undefined}
               >
-                {isDownloading ? "Скачиваем…" : "Скачать файл"}
+                {isDownloading ? t("reportTab.statusSection.downloading") : t("reportTab.statusSection.downloadBtn")}
               </Button>
             </div>
           ) : exportData.status === "failed" ? (
@@ -356,8 +358,8 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
                 <div className="space-y-1">
                   <div className="text-sm font-medium">
                     {exportTitle
-                      ? `${exportTitle}: ошибка генерации`
-                      : "Ошибка генерации экспорта"}
+                      ? t("reportTab.statusSection.failedWithTitle", { title: exportTitle })
+                      : t("reportTab.statusSection.failed")}
                   </div>
                   <div className="text-xs leading-5">
                     {exportFailedMessage}
@@ -366,8 +368,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
               </div>
 
               <p className="text-[11px] text-[var(--text-muted)]">
-                После устранения причины ошибки можно повторно запустить
-                генерацию этого формата отчёта.
+                {t("reportTab.statusSection.failedHint")}
               </p>
             </div>
           ) : (
@@ -375,10 +376,10 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
               <AlertCircle size={20} className="mt-0.5 shrink-0" />
               <div className="space-y-1">
                 <div className="text-sm font-medium">
-                  Неожиданный статус экспорта
+                  {t("reportTab.statusSection.unexpectedStatus")}
                 </div>
                 <div className="text-xs">
-                  Текущий статус:{" "}
+                  {t("reportTab.statusSection.currentStatus")}
                   <span className="font-semibold">{exportData.status}</span>
                 </div>
               </div>

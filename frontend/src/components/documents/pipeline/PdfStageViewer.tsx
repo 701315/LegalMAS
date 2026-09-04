@@ -3,6 +3,7 @@
 // =============================================================
 
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2, AlertTriangle } from "lucide-react";
 import type { PdfPreviewDTO, PipelineStageViewDTO } from "../../../types";
 import client from "../../../api/client";
@@ -23,6 +24,7 @@ interface Props {
  * Это совместимо с приватным MinIO и bearer-header auth model.
  */
 export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
+  const { t } = useTranslation("pipeline");
   const preview = stage.preview as PdfPreviewDTO | null | undefined;
   const inlineUrl = preview?.inline_url ?? null;
 
@@ -58,7 +60,7 @@ export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
       } catch (e) {
         if (disposed) return;
         const msg =
-          e instanceof Error ? e.message : "Не удалось загрузить PDF стадии";
+          e instanceof Error ? e.message : t("pdfViewer.loadError");
         setLoadError(msg);
       } finally {
         if (!disposed) {
@@ -75,12 +77,12 @@ export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
         URL.revokeObjectURL(currentBlobUrl);
       }
     };
-  }, [inlineUrl]);
+  }, [inlineUrl, t]);
 
   if (!preview) {
     return (
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
-        PDF-превью недоступно.
+        {t("pdfViewer.unavailable")}
       </div>
     );
   }
@@ -90,10 +92,10 @@ export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
       <div className="flex h-full min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 text-center">
         <div>
           <p className="text-sm font-medium text-[var(--text-primary)]">
-            PDF недоступен для встроенного просмотра
+            {t("pdfViewer.notAvailableEmbedded")}
           </p>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Для этой стадии не найден inline preview.
+            {t("pdfViewer.noInlinePreview")}
           </p>
         </div>
       </div>
@@ -104,7 +106,7 @@ export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
     return (
       <div className="flex h-full min-h-[240px] items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 text-sm text-[var(--text-muted)] shadow-sm">
         <Loader2 className="mr-2 animate-spin" size={18} />
-        Загрузка PDF стадии…
+        {t("pdfViewer.loading")}
       </div>
     );
   }
@@ -118,7 +120,7 @@ export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
             className="mx-auto mb-2 text-[var(--color-error-text)]"
           />
           <p className="text-sm font-medium text-[var(--color-error-text)]">
-            Не удалось загрузить PDF стадии
+            {t("pdfViewer.loadError")}
           </p>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             {loadError}
@@ -144,10 +146,10 @@ export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
     <div className="flex h-full min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 text-center">
       <div>
         <p className="text-sm font-medium text-[var(--text-primary)]">
-          PDF недоступен для встроенного просмотра
+          {t("pdfViewer.notAvailableEmbedded")}
         </p>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Для этой стадии не найден inline preview.
+          {t("pdfViewer.noInlinePreview")}
         </p>
       </div>
     </div>

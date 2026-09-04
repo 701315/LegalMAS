@@ -2,6 +2,7 @@
 
 import React from "react";
 import { CheckCircle2, Clock, RotateCcw, ShieldAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { ReviewQcStatus } from "../../types/dealReview";
 
 interface QcStatusBadgeProps {
@@ -19,13 +20,14 @@ interface QcStatusVisual {
 function getVisual(
   status: ReviewQcStatus | string | null | undefined,
   iconSize: number,
+  t: (key: string, options?: any) => string,
 ): QcStatusVisual | null {
   if (!status) return null;
 
   switch (status) {
     case "approved":
       return {
-        label: "Approved",
+        label: t("qcStatus.approved"),
         toneClass:
           "border-[var(--color-success-border)] " +
           "bg-[var(--color-success-bg)] " +
@@ -34,7 +36,7 @@ function getVisual(
       };
     case "rejected":
       return {
-        label: "Rejected",
+        label: t("qcStatus.rejected"),
         toneClass:
           "border-[var(--color-error-border)] " +
           "bg-[var(--color-error-bg)] " +
@@ -43,7 +45,7 @@ function getVisual(
       };
     case "needs_review":
       return {
-        label: "Needs review",
+        label: t("qcStatus.needs_review"),
         toneClass:
           "border-[var(--color-warning-border)] " +
           "bg-[var(--color-warning-bg)] " +
@@ -51,7 +53,14 @@ function getVisual(
         icon: <RotateCcw width={iconSize} height={iconSize} />,
       };
     case "pending":
-      return null;
+      return {
+        label: t("qcStatus.pending"),
+        toneClass:
+          "border-[var(--border-subtle)] " +
+          "bg-[var(--bg-elevated-soft)] " +
+          "text-[var(--text-secondary)]",
+        icon: <Clock width={iconSize} height={iconSize} />,
+      };
     default:
       return {
         label: String(status),
@@ -69,8 +78,9 @@ export const QcStatusBadge: React.FC<QcStatusBadgeProps> = ({
   size = "xs",
   className,
 }) => {
+  const { t } = useTranslation("common");
   const iconSize = size === "sm" ? 12 : 10;
-  const visual = getVisual(status, iconSize);
+  const visual = getVisual(status, iconSize, t);
   if (!visual) return null;
 
   const sizeClass =
@@ -88,7 +98,7 @@ export const QcStatusBadge: React.FC<QcStatusBadgeProps> = ({
       ]
         .filter(Boolean)
         .join(" ")}
-      title={`QC: ${visual.label}`}
+      title={t("qcStatus.ariaTitle", { status: visual.label })}
     >
       {visual.icon}
       <span>{visual.label}</span>

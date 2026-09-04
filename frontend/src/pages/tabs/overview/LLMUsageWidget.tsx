@@ -1,10 +1,9 @@
 // =============================================================
 // src/pages/tabs/overview/LLMUsageWidget.tsx
-// Виджет потребления LLM-токенов по проекту.
-// Встраивается в правую колонку ProjectDomainDetailsPanel.
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type {
   LLMUsageSummary,
   LLMStageUsage,
@@ -21,42 +20,21 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
-const STAGE_LABELS: Record<string, string> = {
-  classification_l4: "Классификация L4",
-  checks_detection_llm: "Проверки — детекция",
-  checks_extraction_llm: "Проверки — извлечение",
-  structure_semantic_enrichment: "Обогащение",
-  heading_refiner: "Заголовки",
-};
+// ---------------------------------------------------------------------------
+// DocumentRow Fallback
+// ---------------------------------------------------------------------------
 
-/**
- * Плюрализация "ошибки парсинга" по русским правилам.
- * 1 → "ошибка парсинга"
- * 2-4 → "ошибки парсинга"
- * 5+ → "ошибок парсинга"
- */
-function pluralizeParseErrors(count: number): string {
-  const mod10 = Math.abs(count) % 10;
-  const mod100 = Math.abs(count) % 100;
-  if (mod100 >= 11 && mod100 <= 19) return "ошибок парсинга";
-  if (mod10 === 1) return "ошибка парсинга";
-  if (mod10 >= 2 && mod10 <= 4) return "ошибки парсинга";
-  return "ошибок парсинга";
+function formatFallbackDocumentLabel(documentId: string): string {
+  return `${documentId.slice(0, 8)}…`;
 }
-
-const PARSE_ERROR_TOOLTIP =
-  "Модель вернула ответ, который не удалось корректно распарсить. " +
-  "Это техническая ошибка — при возможности использовался повторный вызов. " +
-  "На бизнес-результат обычно не влияет.";
-
-
 
 // ---------------------------------------------------------------------------
 // StageRow
 // ---------------------------------------------------------------------------
 
 const StageRow: React.FC<{ stage: LLMStageUsage }> = ({ stage }) => {
-  const label = STAGE_LABELS[stage.stage] ?? stage.stage;
+  const { t } = useTranslation("projects");
+  const label = t(`overviewPanels.llmWidget.stages.${stage.stage}`, { defaultValue: stage.stage });
 
   return (
     <div className="flex items-start justify-between gap-2 py-1.5">
@@ -65,14 +43,13 @@ const StageRow: React.FC<{ stage: LLMStageUsage }> = ({ stage }) => {
           {label}
         </p>
         <p className="text-[10px] text-[var(--text-muted)]">
-          {stage.calls} вызовов
+          {t("overviewPanels.llmWidget.callsShort", { count: stage.calls })}
           {stage.parse_failures > 0 && (
             <span
               className="ml-1 cursor-help text-[var(--color-warning-text)]"
-              title={PARSE_ERROR_TOOLTIP}
+              title={t("overviewPanels.llmWidget.parseErrorTooltip")}
             >
-              · {stage.parse_failures}{" "}
-              {pluralizeParseErrors(stage.parse_failures)}
+              · {t("overviewPanels.llmWidget.parseFailures", { count: stage.parse_failures })}
             </span>
           )}
         </p>
@@ -88,22 +65,11 @@ const StageRow: React.FC<{ stage: LLMStageUsage }> = ({ stage }) => {
 // DocumentRow
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// DocumentRow
-// ---------------------------------------------------------------------------
-
-/**
- * Fallback-название документа, если имя не найдено в documentNames map.
- * Показываем короткий префикс UUID — стабильный человеко-различимый идентификатор.
- */
-function formatFallbackDocumentLabel(documentId: string): string {
-  return `${documentId.slice(0, 8)}…`;
-}
-
 const DocumentRow: React.FC<{
   doc: LLMDocumentUsage;
   filename: string | null;
 }> = ({ doc, filename }) => {
+  const { t } = useTranslation("projects");
   const displayName = filename ?? formatFallbackDocumentLabel(doc.document_id);
 
   return (
@@ -116,14 +82,13 @@ const DocumentRow: React.FC<{
           {displayName}
         </p>
         <p className="text-[10px] text-[var(--text-muted)]">
-          {doc.calls} вызовов
+          {t("overviewPanels.llmWidget.callsShort", { count: doc.calls })}
           {doc.parse_failures > 0 && (
             <span
               className="ml-1 cursor-help text-[var(--color-warning-text)]"
-              title={PARSE_ERROR_TOOLTIP}
+              title={t("overviewPanels.llmWidget.parseErrorTooltip")}
             >
-              · {doc.parse_failures}{" "}
-              {pluralizeParseErrors(doc.parse_failures)}
+              · {t("overviewPanels.llmWidget.parseFailures", { count: doc.parse_failures })}
             </span>
           )}
         </p>
@@ -136,7 +101,7 @@ const DocumentRow: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// Skeleton
+// Skeleton / Empty
 // ---------------------------------------------------------------------------
 
 export const LLMUsageWidgetSkeleton: React.FC = () => (
@@ -145,29 +110,25 @@ export const LLMUsageWidgetSkeleton: React.FC = () => (
     <div className="h-7 w-28 rounded-lg bg-[var(--bg-elevated-soft)]" />
     <div className="space-y-1.5 pt-1">
       {[1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className="h-8 rounded-lg bg-[var(--bg-elevated-soft)]"
-        />
+        <div key={i} className="h-8 rounded-lg bg-[var(--bg-elevated-soft)]" />
       ))}
     </div>
   </div>
 );
 
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-
-export const LLMUsageWidgetEmpty: React.FC = () => (
-  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-4 text-center">
-    <p className="text-[11px] text-[var(--text-muted)]">
-      Токены ещё не использованы
-    </p>
-    <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-      Данные появятся после запуска анализа
-    </p>
-  </div>
-);
+export const LLMUsageWidgetEmpty: React.FC = () => {
+  const { t } = useTranslation("projects");
+  return (
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-4 text-center">
+      <p className="text-[11px] text-[var(--text-muted)]">
+        {t("overviewPanels.llmWidget.emptyTitle")}
+      </p>
+      <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+        {t("overviewPanels.llmWidget.emptySub")}
+      </p>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Main
@@ -177,12 +138,6 @@ interface LLMUsageWidgetProps {
   data: LLMUsageSummary | undefined;
   isLoading: boolean;
   isError: boolean;
-  /**
-   * Опциональная карта document_id → filename.
-   * Если передана — блок "По документам" покажет реальные имена файлов
-   * вместо коротких префиксов UUID. Если для конкретного document_id
-   * имени нет — используется fallback (первые 8 символов UUID).
-   */
   documentNames?: Record<string, string>;
 }
 
@@ -192,13 +147,15 @@ export const LLMUsageWidget: React.FC<LLMUsageWidgetProps> = ({
   isError,
   documentNames,
 }) => {
+  const { t } = useTranslation("projects");
+
   if (isLoading) return <LLMUsageWidgetSkeleton />;
 
   if (isError || !data) {
     return (
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3">
         <p className="text-[11px] text-[var(--text-muted)]">
-          Не удалось загрузить данные
+          {t("overviewPanels.llmWidget.loadError")}
         </p>
       </div>
     );
@@ -210,28 +167,26 @@ export const LLMUsageWidget: React.FC<LLMUsageWidgetProps> = ({
 
   return (
     <div className="space-y-2">
-      {/* Итого */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3">
         <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-          Итого токенов
+          {t("overviewPanels.llmWidget.title")}
         </p>
         <p className="mt-1 text-xl font-semibold tracking-tight tabular-nums text-[var(--text-primary)]">
           {formatTokens(data.total_tokens)}
         </p>
         <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-          {data.total_calls} LLM-вызовов
+          {t("overviewPanels.llmWidget.calls", { count: data.total_calls })}
         </p>
         {model && (
           <p className="mt-1 truncate text-[10px] text-[var(--text-muted)]">
-            Модель: {model}
+            {t("overviewPanels.llmWidget.model", { model })}
           </p>
         )}
       </div>
 
-      {/* По стадиям */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2">
         <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-          По стадиям
+          {t("overviewPanels.llmWidget.byStage")}
         </p>
         <div className="divide-y divide-[var(--border-subtle)]">
           {data.by_stage.map((stage) => (
@@ -243,11 +198,10 @@ export const LLMUsageWidget: React.FC<LLMUsageWidgetProps> = ({
         </div>
       </div>
 
-      {/* По документам */}
       {data.by_document.length > 0 && (
         <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2">
           <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-            По документам
+            {t("overviewPanels.llmWidget.byDocument")}
           </p>
           <div className="divide-y divide-[var(--border-subtle)]">
             {data.by_document.map((doc) => (
@@ -265,4 +219,5 @@ export const LLMUsageWidget: React.FC<LLMUsageWidgetProps> = ({
 };
 
 export default LLMUsageWidget;
+
 

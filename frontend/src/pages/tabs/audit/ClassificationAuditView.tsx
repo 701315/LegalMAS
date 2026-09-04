@@ -10,6 +10,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Loader2,
   ChevronLeft,
@@ -28,8 +29,8 @@ interface ClassificationAuditViewProps {
 
 const INVESTIGATION_PER_PAGE = 20;
 
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("ru-RU", {
+function formatDateTime(value: string, locale: string): string {
+  return new Date(value).toLocaleString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -47,21 +48,23 @@ function formatConfidence(value: number | null): string {
 }
 
 function ConfidenceZoneBadge({ zone }: { zone: string | null }) {
+  const { t } = useTranslation("projects");
+
   if (!zone) {
     return <span className="text-xs text-[var(--text-muted)]">—</span>;
   }
 
-  const config: Record<string, { label: string; cls: string }> = {
+  const config: Record<string, { labelKey: string; cls: string }> = {
     confident: {
-      label: "Уверенная",
+      labelKey: "auditTab.classification.view.zone.confident",
       cls: "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
     },
     low: {
-      label: "Низкая",
+      labelKey: "auditTab.classification.view.zone.low",
       cls: "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
     },
     unknown: {
-      label: "Неопр.",
+      labelKey: "auditTab.classification.view.zone.unknown",
       cls: "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
     },
   };
@@ -76,22 +79,25 @@ function ConfidenceZoneBadge({ zone }: { zone: string | null }) {
           "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
       )}
     >
-      {c?.label ?? zone}
+      {c ? t(c.labelKey) : zone}
     </span>
   );
 }
 
-function getRowBadges(row: ClassificationInvestigationRow): string[] {
+function getRowBadges(
+  row: ClassificationInvestigationRow,
+  tFn: (key: string) => string,
+): string[] {
   const badges: string[] = [];
 
   if (row.classification_requires_review) {
-    badges.push("Требует проверки");
+    badges.push(tFn("auditTab.classification.view.badges.requiresReview"));
   }
   if (row.contradiction_detected) {
-    badges.push("Есть противоречие");
+    badges.push(tFn("auditTab.classification.view.badges.contradiction"));
   }
   if (row.l4_triggered) {
-    badges.push("L4 triggered");
+    badges.push(tFn("auditTab.classification.view.badges.l4Triggered"));
   }
   if (row.classification_level) {
     badges.push(row.classification_level);
@@ -103,15 +109,12 @@ function getRowBadges(row: ClassificationInvestigationRow): string[] {
 const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
   dealId,
 }) => {
-  // ── Pagination ─────────────────────────────────────────────
-  const [page, setPage] = React.useState(1);
+  const { t, i18n } = useTranslation(["projects", "common"]);
 
-  // ── Selection state (persisted after drawer close) ─────────
+  const [page, setPage] = React.useState(1);
   const [selectedDocumentId, setSelectedDocumentId] = React.useState<
     string | null
   >(null);
-
-  // ── Drawer visibility (independent from selection) ─────────
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
 
   const { data, isLoading, isFetching, isError, error } =
@@ -125,13 +128,17 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
 
   const pageDescription = React.useMemo(() => {
     if (!data || data.total === 0 || items.length === 0) {
-      return "Документы не найдены";
+      return t("auditTab.classification.view.pageEmpty");
     }
 
     const from = (data.page - 1) * data.per_page + 1;
     const to = from + items.length - 1;
-    return `Показаны ${from}–${to} из ${data.total}`;
-  }, [data, items.length]);
+    return t("auditTab.classification.view.pageRange", {
+      from,
+      to,
+      total: data.total,
+    });
+  }, [data, items.length, t]);
 
   const selectedRow = React.useMemo(
     () =>
@@ -141,7 +148,6 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
     [items, selectedDocumentId],
   );
 
-  // Если раскрытый документ пропал с текущей страницы — снимаем selection
   React.useEffect(() => {
     if (!selectedDocumentId || items.length === 0) {
       return;
@@ -154,7 +160,6 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
     }
   }, [items, selectedDocumentId]);
 
-  // ── Row click handler: set selection + open drawer ─────────
   const toggleRow = React.useCallback((documentId: string) => {
     setSelectedDocumentId(documentId);
     setIsDrawerOpen(true);
@@ -170,13 +175,10 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
     [toggleRow],
   );
 
-  // ── Close drawer only, keep selection active ───────────────
   const handleCloseDrawer = React.useCallback(() => {
     setIsDrawerOpen(false);
-    // НЕ сбрасываем selectedDocumentId — строка остаётся активной
   }, []);
 
-  // ── Body overflow lock для mobile fullscreen drawer ────────
   React.useEffect(() => {
     const hasAnyDrawerOpen = isDrawerOpen && selectedDocumentId !== null;
     if (!hasAnyDrawerOpen) return;
@@ -189,7 +191,6 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
     };
   }, [isDrawerOpen, selectedDocumentId]);
 
-  // ── Derived visibility (drawer open only if both flags set) ─
   const hasDrawerOpen = isDrawerOpen && selectedDocumentId !== null;
 
   if (isError) {
@@ -197,12 +198,12 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 shadow-sm">
         <div className="mx-auto max-w-2xl text-center">
           <h3 className="text-base font-semibold text-[var(--text-primary)]">
-            Не удалось загрузить аудит классификации
+            {t("auditTab.classification.view.loadErrorTitle")}
           </h3>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
             {error instanceof Error
               ? error.message
-              : "Сервис временно недоступен или данные ещё не готовы."}
+              : t("auditTab.classification.view.loadErrorFallback")}
           </p>
         </div>
       </div>
@@ -218,17 +219,14 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
           : "grid-cols-1",
       )}
     >
-      {/* ── Основная секция: таблица ─────────────────────────── */}
       <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-        {/* Header */}
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-              Логи классификации документов проекта
+              {t("auditTab.classification.view.headerTitle")}
             </h3>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Нажмите на строку документа, чтобы открыть панель с полным путём
-              классификации, кандидатами, voting и raw explainability payload.
+              {t("auditTab.classification.view.headerSubtitle")}
             </p>
           </div>
 
@@ -236,7 +234,7 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
             {isFetching && !isLoading ? (
               <span className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
                 <Loader2 size={14} className="animate-spin" />
-                Обновляем…
+                {t("auditTab.classification.view.updating")}
               </span>
             ) : null}
 
@@ -253,12 +251,11 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
               size={20}
             />
             <span className="text-sm text-[var(--text-muted)]">
-              Загружаем аудит классификации…
+              {t("auditTab.classification.view.loading")}
             </span>
           </div>
         ) : (
           <>
-            {/* Scrollable table area */}
             <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
               <table className="w-full min-w-[1120px] border-collapse">
                 <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
@@ -267,64 +264,76 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
                       scope="col"
                       className="w-72 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                     >
-                      Документ
+                      {t("auditTab.classification.view.headers.document")}
                     </th>
                     <th
                       scope="col"
                       className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                     >
-                      Тип
+                      {t("auditTab.classification.view.headers.type")}
                     </th>
                     <th
                       scope="col"
                       className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                     >
-                      Уровень
+                      {t("auditTab.classification.view.headers.level")}
                     </th>
                     <th
                       scope="col"
                       className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                     >
-                      Confidence
+                      {t("auditTab.classification.view.headers.confidence")}
                     </th>
                     <th
                       scope="col"
                       className="w-32 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                     >
-                      Зона
+                      {t("auditTab.classification.view.headers.zone")}
                     </th>
                     <th
                       scope="col"
                       className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                     >
-                      Решение
+                      {t("auditTab.classification.view.headers.decision")}
                     </th>
                     <th
                       scope="col"
                       className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                     >
-                      Сигналы
+                      {t("auditTab.classification.view.headers.signals")}
                     </th>
                     <th
                       scope="col"
                       className="w-44 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                     >
-                      Сегментация
+                      {t("auditTab.classification.view.headers.segmentation")}
                     </th>
                     <th
                       scope="col"
                       className="w-44 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                     >
-                      Обновлено
+                      {t("auditTab.classification.view.headers.updated")}
                     </th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {items.map((row) => {
-                    const badges = getRowBadges(row);
+                    const badges = getRowBadges(row, t);
                     const isSelected =
                       selectedDocumentId === row.document_id;
+
+                    const segmentCount =
+                      row.segment_summary?.segment_count ?? "—";
+                    const primaryLabel =
+                      row.segment_summary?.primary_segment_label ?? "—";
+
+                    const yesNo =
+                      row.segment_summary?.has_segment_classification == null
+                        ? "—"
+                        : row.segment_summary.has_segment_classification
+                          ? t("auditTab.classification.drawer.yes")
+                          : t("auditTab.classification.drawer.no");
 
                     return (
                       <tr
@@ -363,7 +372,9 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
                             ) : null}
 
                             <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                              Статус: {row.status}
+                              {t("auditTab.classification.view.statusPrefix", {
+                                status: row.status,
+                              })}
                             </p>
                           </div>
                         </td>
@@ -410,29 +421,28 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
                         <td className="px-3 py-3 text-[11px] text-[var(--text-secondary)]">
                           <div className="space-y-1">
                             <p>
-                              Сегментов:{" "}
-                              {row.segment_summary?.segment_count ?? "—"}
+                              {t(
+                                "auditTab.classification.view.segmentation.segments",
+                                { count: segmentCount },
+                              )}
                             </p>
                             <p>
-                              Primary:{" "}
-                              {row.segment_summary?.primary_segment_label ??
-                                "—"}
+                              {t(
+                                "auditTab.classification.view.segmentation.primary",
+                                { label: primaryLabel },
+                              )}
                             </p>
                             <p>
-                              Segment classification:{" "}
-                              {row.segment_summary
-                                ?.has_segment_classification == null
-                                ? "—"
-                                : row.segment_summary
-                                    .has_segment_classification
-                                  ? "Да"
-                                  : "Нет"}
+                              {t(
+                                "auditTab.classification.view.segmentation.segmentClassification",
+                                { value: yesNo },
+                              )}
                             </p>
                           </div>
                         </td>
 
                         <td className="px-3 py-3 text-[11px] text-[var(--text-secondary)]">
-                          {formatDateTime(row.updated_at)}
+                          {formatDateTime(row.updated_at, i18n.language)}
                         </td>
                       </tr>
                     );
@@ -443,17 +453,15 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
               {items.length === 0 && (
                 <div className="py-10 text-center">
                   <p className="mb-1 text-sm text-[var(--text-secondary)]">
-                    Данные по классификации не найдены
+                    {t("auditTab.classification.view.emptyTitle")}
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">
-                    Для этого проекта ещё нет документов или
-                    explainability-данные пока не собраны.
+                    {t("auditTab.classification.view.emptySubtitle")}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Pagination footer */}
             {totalPages > 1 && (
               <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-[var(--border)] px-4 py-4">
                 <Button
@@ -464,11 +472,14 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
                   disabled={page <= 1}
                   leftIcon={<ChevronLeft size={14} />}
                 >
-                  Назад
+                  {t("actions.back", { ns: "common", defaultValue: "Back" })}
                 </Button>
 
                 <span className="text-xs text-[var(--text-muted)]">
-                  Страница {page} из {totalPages}
+                  {t("auditTab.pagination.pageInfo", {
+                    current: page,
+                    total: totalPages,
+                  })}
                 </span>
 
                 <Button
@@ -481,7 +492,10 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
                   disabled={page >= totalPages}
                   rightIcon={<ChevronRight size={14} />}
                 >
-                  Вперёд
+                  {t("actions.forward", {
+                    ns: "common",
+                    defaultValue: "Forward",
+                  })}
                 </Button>
               </div>
             )}
@@ -489,13 +503,10 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
         )}
       </section>
 
-      {/* ── Side panel: explainability drawer ────────────────── */}
       {hasDrawerOpen && selectedDocumentId ? (
         <>
-          {/* Mobile backdrop */}
           <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" />
 
-          {/* Mobile fullscreen drawer */}
           <div className="fixed inset-0 z-50 flex min-h-0 flex-col lg:hidden">
             <ClassificationInvestigationDrawer
               documentId={selectedDocumentId}
@@ -504,7 +515,6 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
             />
           </div>
 
-          {/* Desktop inline drawer с ограничением высоты */}
           <div className="hidden min-h-0 lg:block">
             <ClassificationInvestigationDrawer
               documentId={selectedDocumentId}

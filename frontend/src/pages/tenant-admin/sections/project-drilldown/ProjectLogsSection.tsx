@@ -4,6 +4,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Filter, Loader2 } from "lucide-react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type {
@@ -53,6 +54,8 @@ const ProjectLogsSection: React.FC<ProjectLogsSectionProps> = ({
   correlationTaskId,
   onCorrelationChange,
 }) => {
+  const { t } = useTranslation("tenantAdmin");
+
   // ───────────────── Derived data ─────────────────
 
   const logs = logsQ.data?.entries ?? [];
@@ -98,7 +101,7 @@ const ProjectLogsSection: React.FC<ProjectLogsSectionProps> = ({
           <ModeSwitch value={logsMode} onChange={onLogsModeChange} />
 
           <label className="inline-flex items-center gap-1.5">
-            <span className={LABEL_XS}>Период:</span>
+            <span className={LABEL_XS}>{t("drillDown.logs.period")}</span>
             <select
               value={String(projectLogsSince)}
               onChange={(e) =>
@@ -110,7 +113,7 @@ const ProjectLogsSection: React.FC<ProjectLogsSectionProps> = ({
             >
               {SINCE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(`logsTab.periodOptions.${opt.value}`, { defaultValue: opt.label })}
                 </option>
               ))}
             </select>
@@ -134,15 +137,17 @@ const ProjectLogsSection: React.FC<ProjectLogsSectionProps> = ({
               {correlationTaskId && (
                 <span>task: {correlationTaskId.slice(0, 8)}…</span>
               )}
-              <span className="ml-1 text-[10px] opacity-70">✕ сбросить</span>
+              <span className="ml-1 text-[10px] opacity-70">
+                {t("logsTab.reset")}
+              </span>
             </button>
           )}
 
           {logsStats && (
             <p className="text-[10px] text-[var(--text-muted)]">
-              Показано {logsStats.returned}
+              {t("drillDown.logs.shownCount", { count: logsStats.returned })}
               {logsStats.filtered_out_by_mode > 0
-                ? ` · скрыто info: ${logsStats.filtered_out_by_mode}`
+                ? t("drillDown.logs.hiddenCount", { count: logsStats.filtered_out_by_mode })
                 : ""}
             </p>
           )}
@@ -152,7 +157,7 @@ const ProjectLogsSection: React.FC<ProjectLogsSectionProps> = ({
       {/* Loki warning */}
       {!lokiUp && logsQ.data && (
         <div className="mb-3 shrink-0 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-xs text-[var(--color-warning-text)]">
-          Loki временно недоступен.
+          {t("drillDown.logs.lokiUnavailableDegraded")}
         </div>
       )}
 
@@ -161,13 +166,13 @@ const ProjectLogsSection: React.FC<ProjectLogsSectionProps> = ({
         {logsQ.isLoading && !logsQ.data ? (
           <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
             <Loader2 size={20} className="animate-spin" />
-            <span className="ml-3 text-sm">Загружаем логи…</span>
+            <span className="ml-3 text-sm">{t("logsTab.loading")}</span>
           </div>
         ) : logsQ.error && !logsQ.data ? (
           <div className="flex h-full w-full items-center justify-center p-5 text-center">
             <div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Не удалось загрузить логи
+                {t("logsTab.loadError")}
               </p>
               <Button
                 size="sm"
@@ -175,13 +180,13 @@ const ProjectLogsSection: React.FC<ProjectLogsSectionProps> = ({
                 onClick={() => logsQ.refetch()}
                 className="mt-3"
               >
-                Повторить
+                {t("actions.retry", { ns: "common" })}
               </Button>
             </div>
           </div>
         ) : !lokiUp ? (
           <div className="flex h-full w-full items-center justify-center text-sm text-[var(--text-muted)]">
-            Loki недоступен
+            {t("logsTab.lokiUnavailable")}
           </div>
         ) : (
           <div className="grid h-full w-full grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
@@ -189,8 +194,8 @@ const ProjectLogsSection: React.FC<ProjectLogsSectionProps> = ({
               {logs.length === 0 ? (
                 <div className="flex h-full items-center justify-center p-6 text-center text-sm text-[var(--text-muted)]">
                   {logsMode === "operational"
-                    ? "Проблемных событий не найдено. Переключитесь на «Debug» или используйте раздел «Проблемы и ошибки» в Обзоре — данные из БД доступны всегда."
-                    : "Логи в Loki не найдены. Возможно, они уже удалены по retention — см. «Проблемы и ошибки» в Обзоре."}
+                    ? t("drillDown.logs.noOperationalLogsFound")
+                    : t("drillDown.logs.noLogsFoundDebug")}
                 </div>
               ) : (
                 <div className="min-h-0 flex-1 overflow-auto">

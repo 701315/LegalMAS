@@ -1,3 +1,7 @@
+// =============================================================
+// src/pages/tabs/real-estate/utils.ts
+// =============================================================
+
 import {
   OBJECT_TYPE_LABELS,
   OBJECT_TYPE_SHORT_LABELS,
@@ -14,11 +18,31 @@ import type {
   SortState,
 } from "./types";
 
-export const objectTypeLabel = (value: RealEstateObjectType): string =>
-  OBJECT_TYPE_LABELS[value] ?? "Неопределённо";
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 
-export const objectTypeShortLabel = (value: RealEstateObjectType): string =>
-  OBJECT_TYPE_SHORT_LABELS[value] ?? "Unknown";
+export const objectTypeLabel = (
+  value: RealEstateObjectType,
+  tFn?: TranslateFn,
+): string => {
+  if (tFn) {
+    return tFn(`detail.registry.types.${value}`, {
+      defaultValue: OBJECT_TYPE_LABELS[value] ?? "Unknown",
+    });
+  }
+  return OBJECT_TYPE_LABELS[value] ?? "Unknown";
+};
+
+export const objectTypeShortLabel = (
+  value: RealEstateObjectType,
+  tFn?: TranslateFn,
+): string => {
+  if (tFn) {
+    return tFn(`detail.registry.typesShort.${value}`, {
+      defaultValue: OBJECT_TYPE_SHORT_LABELS[value] ?? "Unknown",
+    });
+  }
+  return OBJECT_TYPE_SHORT_LABELS[value] ?? "Unknown";
+};
 
 export const riskBadgeTone = (value: "yes" | "no" | "review"): "high" | "low" | "medium" => {
   if (value === "yes") return "high";
@@ -32,20 +56,35 @@ export const riskBadgeLabel = (value: "yes" | "no" | "review"): string => {
   return "No";
 };
 
-export const buildRiskMeta = (item: RealEstateObjectAggregate): RiskMeta => {
+export const buildRiskMeta = (
+  item: RealEstateObjectAggregate,
+  tFn?: TranslateFn,
+): RiskMeta => {
   if (
     item.risk === "high" ||
     item.encumbrance === true ||
     item.ownership_status === "not_confirmed"
   ) {
-    return { label: "Высокий", tone: "high", rank: 3 };
+    return {
+      label: tFn ? tFn("detail.encumbrances.types.high", { defaultValue: "High" }) : "High",
+      tone: "high",
+      rank: 3,
+    };
   }
 
   if (item.risk === "medium" || item.ownership_status === "review") {
-    return { label: "Средний", tone: "medium", rank: 2 };
+    return {
+      label: tFn ? tFn("detail.encumbrances.types.medium", { defaultValue: "Medium" }) : "Medium",
+      tone: "medium",
+      rank: 2,
+    };
   }
 
-  return { label: "Низкий", tone: "low", rank: 1 };
+  return {
+    label: tFn ? tFn("detail.encumbrances.types.low", { defaultValue: "Low" }) : "Low",
+    tone: "low",
+    rank: 1,
+  };
 };
 
 export const checkTone = (value: "ok" | "review" | "issue"): "low" | "medium" | "high" => {
@@ -97,27 +136,38 @@ export const buildRealEstateTotals = (items: RealEstateObjectAggregate[]) => ({
 });
 
 export const buildTopByArea = (
-  items: RealEstateObjectAggregate[]
-): RankedListItem[] =>
-  [...items]
+  items: RealEstateObjectAggregate[],
+  tFn?: TranslateFn,
+  locale: string = "en-US",
+): RankedListItem[] => {
+  const noAddress = tFn ? tFn("table.noAddress", { defaultValue: "No address" }) : "No address";
+  const unit = tFn ? tFn("areaUnit", { defaultValue: "m²" }) : "m²";
+
+  return [...items]
     .sort((a, b) => (b.area_sqm ?? 0) - (a.area_sqm ?? 0))
     .slice(0, 5)
     .map((item) => ({
-      name: item.address ?? "Без адреса",
+      name: item.address ?? noAddress,
       subtitle: item.region,
-      value: item.area_sqm ? `${item.area_sqm.toLocaleString("ru-RU")} м²` : "—",
+      value: item.area_sqm ? `${item.area_sqm.toLocaleString(locale)} ${unit}` : "—",
     }));
+};
 
 export const buildEncumberedObjects = (
-  items: RealEstateObjectAggregate[]
-): RankedListItem[] =>
-  items
+  items: RealEstateObjectAggregate[],
+  tFn?: TranslateFn,
+): RankedListItem[] => {
+  const noAddress = tFn ? tFn("table.noAddress", { defaultValue: "No address" }) : "No address";
+  const noCadastral = tFn ? tFn("table.noCadastral", { defaultValue: "No cadastral number" }) : "No cadastral number";
+
+  return items
     .filter((item) => item.encumbrance === true)
     .map((item) => ({
-      name: item.address ?? "Без адреса",
-      subtitle: item.cadastral_number ?? "Нет номера",
-      value: buildRiskMeta(item).label,
+      name: item.address ?? noAddress,
+      subtitle: item.cadastral_number ?? noCadastral,
+      value: buildRiskMeta(item, tFn).label,
     }));
+};
 
 export const buildRegionStructure = (
   items: RealEstateObjectAggregate[]
@@ -134,23 +184,30 @@ export const buildRegionStructure = (
 };
 
 export const buildCriticalObjects = (
-  items: RealEstateObjectAggregate[]
-): CriticalObjectItem[] =>
-  items.reduce<CriticalObjectItem[]>((acc, item) => {
+  items: RealEstateObjectAggregate[],
+  tFn?: TranslateFn,
+): CriticalObjectItem[] => {
+  const noAddress = tFn ? tFn("table.noAddress", { defaultValue: "No address" }) : "No address";
+
+  return items.reduce<CriticalObjectItem[]>((acc, item) => {
     const reasons: string[] = [];
 
-    if (item.encumbrance === true) reasons.push("Выявлены признаки обременения.");
-    if (item.risk === "high") reasons.push("Объект имеет высокий уровень риска.");
+    if (item.encumbrance === true) {
+      reasons.push(tFn ? tFn("criticalTable.reasons.encumbrance", { defaultValue: "Encumbrance indicators detected." }) : "Encumbrance indicators detected.");
+    }
+    if (item.risk === "high") {
+      reasons.push(tFn ? tFn("criticalTable.reasons.highRisk", { defaultValue: "Object has a high level of risk." }) : "Object has a high level of risk.");
+    }
     if (item.ownership_status === "not_confirmed") {
-      reasons.push("Право собственности не подтверждено.");
+      reasons.push(tFn ? tFn("criticalTable.reasons.notConfirmed", { defaultValue: "Ownership is not confirmed." }) : "Ownership is not confirmed.");
     }
     if (item.object_type === "unfinished") {
-      reasons.push("Объект незавершённого строительства требует отдельной проверки.");
+      reasons.push(tFn ? tFn("criticalTable.reasons.unfinished", { defaultValue: "Unfinished construction object requires separate verification." }) : "Unfinished construction object requires separate verification.");
     }
 
     if (reasons.length > 0) {
       acc.push({
-        name: item.address ?? "Без адреса",
+        name: item.address ?? noAddress,
         region: item.region,
         reasons,
       });
@@ -158,15 +215,18 @@ export const buildCriticalObjects = (
 
     return acc;
   }, []);
+};
 
 export const sortRealEstateObjects = (
   items: RealEstateObjectAggregate[],
-  sort: SortState
+  sort: SortState,
+  locale: string = "en-US",
+  tFn?: TranslateFn,
 ): RealEstateObjectAggregate[] => {
   const withIndex = items.map((item, index) => ({
     ...item,
     originalIndex: index + 1,
-    riskMeta: buildRiskMeta(item),
+    riskMeta: buildRiskMeta(item, tFn),
   }));
 
   const sorted = [...withIndex].sort((a, b) => {
@@ -177,13 +237,13 @@ export const sortRealEstateObjects = (
         comparison = a.originalIndex - b.originalIndex;
         break;
       case "address":
-        comparison = (a.address ?? "").localeCompare(b.address ?? "");
+        comparison = (a.address ?? "").localeCompare(b.address ?? "", locale);
         break;
       case "region":
-        comparison = a.region.localeCompare(b.region);
+        comparison = a.region.localeCompare(b.region, locale);
         break;
       case "objectType":
-        comparison = objectTypeLabel(a.object_type).localeCompare(objectTypeLabel(b.object_type));
+        comparison = objectTypeLabel(a.object_type, tFn).localeCompare(objectTypeLabel(a.object_type, tFn), locale);
         break;
       case "area":
         comparison = (a.area_sqm ?? 0) - (b.area_sqm ?? 0);

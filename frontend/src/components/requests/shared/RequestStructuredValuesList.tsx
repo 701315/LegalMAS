@@ -4,13 +4,11 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { StructuredValueView } from "../../../viewAdapters/requestPresentation";
 
 interface RequestStructuredValuesListProps {
   values: StructuredValueView[];
-  /**
-   * Максимальная высота списка в пикселях (для overflow-y-auto).
-   */
   maxHeight?: string;
 }
 
@@ -22,18 +20,16 @@ function formatKeyLabel(key: string): string {
   return key.replace(/_/g, " ");
 }
 
-/**
- * Отображает список извлечённых значений в виде key-value списка.
- * Поддерживает форматы: money, date, entity_name, text.
- */
 export const RequestStructuredValuesList: React.FC<
   RequestStructuredValuesListProps
 > = ({ values, maxHeight = "10rem" }) => {
+  const { t } = useTranslation("requests");
+
   if (values.length === 0) {
     return (
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 py-3">
         <p className="text-[12px] text-[var(--text-muted)]">
-          Извлечённые данные отсутствуют
+          {t("shared.structuredValuesList.empty")}
         </p>
       </div>
     );

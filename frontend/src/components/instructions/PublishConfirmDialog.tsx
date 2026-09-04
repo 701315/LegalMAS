@@ -4,6 +4,7 @@
 
 import React from "react";
 import { AlertTriangle } from "lucide-react";
+import { useTranslation, Trans } from "react-i18next";
 import Button from "../ui/Button";
 
 interface PublishConfirmDialogProps {
@@ -23,6 +24,8 @@ const PublishConfirmDialog: React.FC<PublishConfirmDialogProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useTranslation("instructions");
+
   if (!open) return null;
 
   return (
@@ -35,7 +38,7 @@ const PublishConfirmDialog: React.FC<PublishConfirmDialogProps> = ({
       <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-2xl">
         {/* Header */}
         <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-          Подтверждение публикации
+          {t("publishConfirmDialog.header")}
         </div>
 
         <div className="flex items-start gap-3">
@@ -50,23 +53,21 @@ const PublishConfirmDialog: React.FC<PublishConfirmDialogProps> = ({
               id="publish-dialog-title"
               className="text-sm font-semibold text-[var(--text-primary)]"
             >
-              Опубликовать версию?
+              {t("publishConfirmDialog.title")}
             </h2>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Версия{" "}
-              <span className="font-semibold text-[var(--text-primary)]">
-                {versionName}
-              </span>{" "}
-              для типа документа{" "}
-              <span className="font-mono text-[var(--text-primary)]">
-                {docTypeCode}
-              </span>{" "}
-              будет опубликована.
+              <Trans
+                ns="instructions"
+                i18nKey="publishConfirmDialog.desc1"
+                values={{ versionName, docTypeCode }}
+                components={{
+                  bold: <span className="font-semibold text-[var(--text-primary)]" />,
+                  mono: <span className="font-mono text-[var(--text-primary)]" />,
+                }}
+              />
             </p>
             <p className="mt-2 text-xs text-[var(--text-muted)]">
-              После публикации версия станет immutable и будет использоваться
-              как базовая для всех tenant. Это действие нельзя отменить —
-              только создать новую версию.
+              {t("publishConfirmDialog.desc2")}
             </p>
           </div>
         </div>
@@ -80,7 +81,7 @@ const PublishConfirmDialog: React.FC<PublishConfirmDialogProps> = ({
             onClick={onCancel}
             disabled={isPublishing}
           >
-            Отмена
+            {t("publishConfirmDialog.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -90,7 +91,7 @@ const PublishConfirmDialog: React.FC<PublishConfirmDialogProps> = ({
             isLoading={isPublishing}
             disabled={isPublishing}
           >
-            Опубликовать
+            {t("publishConfirmDialog.publish")}
           </Button>
         </div>
       </div>
@@ -99,5 +100,6 @@ const PublishConfirmDialog: React.FC<PublishConfirmDialogProps> = ({
 };
 
 export default PublishConfirmDialog;
+
 
 

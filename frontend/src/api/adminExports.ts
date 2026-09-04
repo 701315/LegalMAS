@@ -21,6 +21,15 @@
 import type { Tenant } from "./admin";
 
 // ─────────────────────────────────────────────────────────────
+// Контракт интернационализации для экспорта
+// ─────────────────────────────────────────────────────────────
+
+export interface AdminExportI18n {
+  t: (key: string, options?: Record<string, unknown>) => string;
+  locale: string;
+}
+
+// ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
 
@@ -39,19 +48,19 @@ function downloadBlob(blob: Blob, filename: string): void {
   window.URL.revokeObjectURL(url);
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("ru-RU", {
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
 }
 
-function formatFullTimestamp(): string {
+function formatFullTimestamp(locale: string): string {
   const d = new Date();
-  return d.toLocaleString("ru-RU", {
+  return d.toLocaleString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -87,36 +96,54 @@ interface ExportRow {
   status: string;
 }
 
+interface ColumnDef {
+  key: keyof ExportRow;
+  labelKey: string;
+  fallback: string;
+}
+
 /**
- * Порядок колонок для всех форматов. Меняется только здесь.
+ * Порядок колонок для всех форматов с поддержкой i18n-ключей.
  */
-const COLUMNS: Array<{ key: keyof ExportRow; label: string }> = [
-  { key: "order", label: "№" },
-  { key: "name", label: "Название клиента" },
-  { key: "created_at", label: "Создан" },
-  { key: "slug", label: "Slug" },
-  { key: "id", label: "ID" },
-  { key: "users_count", label: "Пользователей" },
-  { key: "deals_count", label: "Проектов" },
-  { key: "status", label: "Статус" },
+const COLUMNS: ColumnDef[] = [
+  { key: "order", labelKey: "admin:tenantExport.columns.order", fallback: "#" },
+  { key: "name", labelKey: "admin:tenantExport.columns.clientName", fallback: "Client name" },
+  { key: "created_at", labelKey: "admin:tenantExport.columns.created", fallback: "Created" },
+  { key: "slug", labelKey: "admin:tenantExport.columns.slug", fallback: "Slug" },
+  { key: "id", labelKey: "admin:tenantExport.columns.id", fallback: "ID" },
+  { key: "users_count", labelKey: "admin:tenantExport.columns.users", fallback: "Users" },
+  { key: "deals_count", labelKey: "admin:tenantExport.columns.projects", fallback: "Projects" },
+  { key: "status", labelKey: "admin:tenantExport.columns.status", fallback: "Status" },
 ];
 
-function toRow(tenant: Tenant, index: number): ExportRow {
+function getColLabel(col: ColumnDef, t?: AdminExportI18n["t"]): string {
+  return t?.(col.labelKey) ?? col.fallback;
+}
+
+function toRow(
+  tenant: Tenant,
+  index: number,
+  t?: AdminExportI18n["t"],
+  locale?: string,
+): ExportRow {
+  const activeLabel = t?.("admin:tenantExport.active") ?? "Active";
+  const deactivatedLabel = t?.("admin:tenantExport.deactivated") ?? "Deactivated";
+
   return {
     order: index + 1,
     name: tenant.name,
-    created_at: formatDate(tenant.created_at),
+    created_at: formatDate(tenant.created_at, locale ?? "en-US"),
     slug: tenant.slug,
     id: tenant.id,
     users_count: tenant.users_count,
     deals_count: tenant.deals_count,
-    status: tenant.is_active ? "Активен" : "Деактивирован",
+    status: tenant.is_active ? activeLabel : deactivatedLabel,
   };
 }
 
-function assertNonEmpty(tenants: Tenant[]): void {
+function assertNonEmpty(tenants: Tenant[], t?: AdminExportI18n["t"]): void {
   if (tenants.length === 0) {
-    throw new Error("Нет клиентов для экспорта");
+    throw new Error(t?.("admin:tenantExport.noData") ?? "No clients to export");
   }
 }
 
@@ -124,13 +151,18 @@ function assertNonEmpty(tenants: Tenant[]): void {
 // Excel (.xlsx)
 // ─────────────────────────────────────────────────────────────
 
-export async function exportTenantsExcel(tenants: Tenant[]): Promise<void> {
-  assertNonEmpty(tenants);
+export async function exportTenantsExcel(
+  tenants: Tenant[],
+  i18n?: AdminExportI18n,
+): Promise<void> {
+  const t = i18n?.t;
+  const locale = i18n?.locale ?? "en-US";
+  assertNonEmpty(tenants, t);
 
   const XLSX = await import("xlsx");
 
-  const rows = tenants.map(toRow);
-  const headerRow = COLUMNS.map((c) => c.label);
+  const rows = tenants.map((tn, idx) => toRow(tn, idx, t, locale));
+  const headerRow = COLUMNS.map((c) => getColLabel(c, t));
   const dataRows = rows.map((r) => COLUMNS.map((c) => r[c.key]));
 
   const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
@@ -138,14 +170,15 @@ export async function exportTenantsExcel(tenants: Tenant[]): Promise<void> {
   // Автоширина колонок по максимальной длине содержимого
   worksheet["!cols"] = COLUMNS.map((col, colIdx) => {
     const maxContent = Math.max(
-      String(col.label).length,
+      String(getColLabel(col, t)).length,
       ...dataRows.map((row) => String(row[colIdx] ?? "").length),
     );
     return { wch: Math.min(maxContent + 2, 50) };
   });
 
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Клиенты");
+  const sheetName = t?.("admin:tenantExport.sheetName") ?? "Clients";
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
   XLSX.writeFile(workbook, buildFileName("xlsx"));
 }
@@ -154,8 +187,13 @@ export async function exportTenantsExcel(tenants: Tenant[]): Promise<void> {
 // Word (.docx)
 // ─────────────────────────────────────────────────────────────
 
-export async function exportTenantsWord(tenants: Tenant[]): Promise<void> {
-  assertNonEmpty(tenants);
+export async function exportTenantsWord(
+  tenants: Tenant[],
+  i18n?: AdminExportI18n,
+): Promise<void> {
+  const t = i18n?.t;
+  const locale = i18n?.locale ?? "en-US";
+  assertNonEmpty(tenants, t);
 
   const {
     Document,
@@ -171,21 +209,22 @@ export async function exportTenantsWord(tenants: Tenant[]): Promise<void> {
     BorderStyle,
   } = await import("docx");
 
-  const rows = tenants.map(toRow);
+  const rows = tenants.map((tn, idx) => toRow(tn, idx, t, locale));
+  const headerLabels = COLUMNS.map((c) => getColLabel(c, t));
 
   const border = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
   const cellBorders = { top: border, bottom: border, left: border, right: border };
 
   const headerRow = new TableRow({
     tableHeader: true,
-    children: COLUMNS.map(
-      (col) =>
+    children: headerLabels.map(
+      (label) =>
         new TableCell({
           borders: cellBorders,
           shading: { fill: "F3F3F3" },
           children: [
             new Paragraph({
-              children: [new TextRun({ text: col.label, bold: true, size: 20 })],
+              children: [new TextRun({ text: label, bold: true, size: 20 })],
             }),
           ],
         }),
@@ -216,20 +255,26 @@ export async function exportTenantsWord(tenants: Tenant[]): Promise<void> {
     rows: [headerRow, ...dataRows],
   });
 
+  const title = t?.("admin:tenantExport.title") ?? "Client list";
+  const subtitle = t?.("admin:tenantExport.subtitle", {
+    timestamp: formatFullTimestamp(locale),
+    count: rows.length,
+  }) ?? `Export: ${formatFullTimestamp(locale)}. Total records: ${rows.length}.`;
+
   const doc = new Document({
     sections: [
       {
         properties: {},
         children: [
           new Paragraph({
-            text: "Список клиентов",
+            text: title,
             heading: HeadingLevel.HEADING_1,
             alignment: AlignmentType.LEFT,
           }),
           new Paragraph({
             children: [
               new TextRun({
-                text: `Экспорт: ${formatFullTimestamp()}. Всего записей: ${rows.length}.`,
+                text: subtitle,
                 italics: true,
                 size: 18,
                 color: "666666",
@@ -250,19 +295,6 @@ export async function exportTenantsWord(tenants: Tenant[]): Promise<void> {
 // ─────────────────────────────────────────────────────────────
 // PDF (.pdf)
 // ─────────────────────────────────────────────────────────────
-//
-// ВНИМАНИЕ: jsPDF в стандартной поставке не поддерживает
-// кириллицу через встроенные шрифты. Для корректного
-// отображения русского текста в PDF нужно подключать custom
-// TTF-шрифт (например, Roboto через jspdf.plugin.roboto).
-//
-// В данной версии PDF генерируется со встроенным шрифтом —
-// латиница/цифры/ID отображаются корректно, кириллица может
-// показываться некорректно.
-//
-// TODO: если критична кириллица в PDF, добавить подключение
-// Roboto (см. https://github.com/parallax/jsPDF#use-of-utf-8--ttf).
-// ─────────────────────────────────────────────────────────────
 
 interface JsPDFWithAutoTable {
   autoTable: (options: Record<string, unknown>) => void;
@@ -273,15 +305,20 @@ interface JsPDFWithAutoTable {
   text: (text: string, x: number, y: number) => void;
 }
 
-export async function exportTenantsPDF(tenants: Tenant[]): Promise<void> {
-  assertNonEmpty(tenants);
+export async function exportTenantsPDF(
+  tenants: Tenant[],
+  i18n?: AdminExportI18n,
+): Promise<void> {
+  const t = i18n?.t;
+  const locale = i18n?.locale ?? "en-US";
+  assertNonEmpty(tenants, t);
 
   const jsPDFModule = await import("jspdf");
   const JsPDF = jsPDFModule.default;
-  // autoTable расширяет прототип jsPDF, важно импортировать после
   await import("jspdf-autotable");
 
-  const rows = tenants.map(toRow);
+  const rows = tenants.map((tn, idx) => toRow(tn, idx, t, locale));
+  const headerLabels = COLUMNS.map((c) => getColLabel(c, t));
 
   const doc = new JsPDF({
     orientation: "landscape",
@@ -289,23 +326,25 @@ export async function exportTenantsPDF(tenants: Tenant[]): Promise<void> {
     format: "a4",
   }) as unknown as JsPDFWithAutoTable;
 
+  const title = t?.("admin:tenantExport.title") ?? "Client list";
+  const subtitle = t?.("admin:tenantExport.subtitle", {
+    timestamp: formatFullTimestamp(locale),
+    count: rows.length,
+  }) ?? `Export: ${formatFullTimestamp(locale)}. Total records: ${rows.length}.`;
+
   // Заголовок
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Список клиентов", 14, 15);
+  doc.text(title, 14, 15);
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text(
-    `Экспорт: ${formatFullTimestamp()}. Всего записей: ${rows.length}.`,
-    14,
-    21,
-  );
+  doc.text(subtitle, 14, 21);
 
   doc.autoTable({
     startY: 26,
-    head: [COLUMNS.map((c) => c.label)],
+    head: [headerLabels],
     body: rows.map((r) => COLUMNS.map((c) => String(r[c.key]))),
     styles: {
       fontSize: 8,
@@ -330,6 +369,5 @@ export async function exportTenantsPDF(tenants: Tenant[]): Promise<void> {
 
   doc.save(buildFileName("pdf"));
 }
-
 
 

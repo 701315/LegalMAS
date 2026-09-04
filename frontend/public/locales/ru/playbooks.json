@@ -1,4 +1,88 @@
 {
+  "selectorPanel": {
+    "title": "Playbook проекта",
+    "subtitle": "Выбор, применение и просмотр состава playbook для текущей сделки.",
+    "subtitleEmbedded": "Выбор, применение и просмотр состава playbook.",
+    "backLink": "← Назад к проекту",
+    "noPermissions": "У вас нет прав для настройки playbook этого проекта.",
+    "backButton": "Вернуться назад",
+    "currentVersion": "Текущая версия: <bold>{{versionId}}</bold>",
+    "noVersionSelected": "Для проекта ещё не выбран playbook.",
+    "status": {
+      "draft": "Черновик",
+      "published": "Опубликована",
+      "archived": "Архив"
+    },
+    "templates": {
+      "title": "Шаблоны playbook",
+      "loading": "Загружаем шаблоны playbook...",
+      "emptyTitle": "Шаблоны не настроены",
+      "emptyDesc": "Создайте первый шаблон playbook в административном разделе.",
+      "meta": {
+        "type": "Тип: {{type}}",
+        "jurisdiction": "Юрисдикция: {{jurisdiction}}",
+        "language": "Язык: {{language}}"
+      }
+    },
+    "versions": {
+      "title": "Версии playbook",
+      "emptyLineTitle": "Шаблон не выбран",
+      "emptyLineDesc": "Сначала выберите шаблон playbook в левой колонке.",
+      "emptyVersionsTitle": "Версий пока нет",
+      "emptyVersionsDesc": "Для выбранного шаблона ещё нет версий. Выберите модель и создайте первую.",
+      "modelConfigLabel": "Модель (ModelConfig)",
+      "loadingModels": "Загружаем список моделей...",
+      "noModelsTitle": "Модели недоступны",
+      "noModelsDesc": "Нет доступных моделей. Обратитесь к администратору.",
+      "createDraftButton": "Создать версию из шаблона",
+      "draftWarning": "Черновик нельзя применить к проекту — сначала опубликуйте версию в Playbook Studio.",
+      "alreadyApplied": "Уже применено",
+      "applyButton": "Применить к проекту",
+      "loading": "Загружаем версии..."
+    },
+    "details": {
+      "title": "Состав playbook",
+      "editTemplate": "Редактировать шаблон",
+      "emptyTitle": "Ничего не выбрано",
+      "emptyDesc": "Выберите шаблон playbook, затем версию.",
+      "generalInfo": "Общая информация",
+      "sectionsProfiles": "Секции / профили",
+      "sectionsEmpty": "Section markers не заданы.",
+      "ddRequests": "DD-запросы",
+      "ddRequestsEmpty": "DD request templates не заданы.",
+      "template": "Шаблон",
+      "checks": "Проверки шаблона",
+      "checksEmpty": "В шаблоне пока нет элементов.",
+      "loading": "Загружаем состав playbook..."
+    },
+    "history": {
+      "title": "История смен playbook",
+      "loading": "Загружаем историю...",
+      "emptyTitle": "История пока пустая",
+      "emptyDesc": "Нет записей об изменении playbook для этой сделки.",
+      "wasNotSet": "не задано",
+      "notSet": "не задано",
+      "was": "Было: {{oldValue}}",
+      "to": "→ {{newValue}}"
+    },
+    "confirm": {
+      "title": "Заменить текущий playbook?",
+      "description": "Текущая версия playbook будет заменена. Продолжить?",
+      "confirmLabel": "Да, заменить",
+      "cancelLabel": "Отмена"
+    },
+    "errors": {
+      "noVersion": "Сначала выберите версию playbook.",
+      "conflict": "Не удалось применить playbook: конфликт состояния.",
+      "applyFailed": "Не удалось применить playbook к проекту. Попробуйте позже.",
+      "noModel": "Сначала выберите модель (ModelConfig) для этого playbook.",
+      "createFailed": "Не удалось создать версию playbook.",
+      "historyLoadFailed": "Не удалось загрузить историю смен playbook.",
+      "modelsLoadFailed": "Не удалось загрузить список моделей. Обратитесь к администратору.",
+      "defaultNewVersion": "Новая версия",
+      "draftCreated": "Черновик версии создан. Опубликуйте его в Playbook Studio, затем примените к проекту."
+    }
+  },
   "globalPlaybookDetail": {
     "backToList": "Global Playbooks",
     "fallbackTitle": "Playbook",

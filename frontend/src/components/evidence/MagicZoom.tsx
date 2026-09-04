@@ -4,6 +4,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { useEvidence } from "../../api/evidence";
 import type { EvidenceDetail } from "../../api/evidence";
 import type { CheckResult, OpenViewerAtFn, QCStatus } from "../../types";
@@ -31,12 +32,16 @@ interface EvidenceDetailLike extends EvidenceDetail {
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-function getSnippet(evidence: EvidenceDetailLike | undefined, result: CheckResult): string {
+function getSnippet(
+  evidence: EvidenceDetailLike | undefined,
+  result: CheckResult,
+  tFn: (key: string) => string,
+): string {
   return (
     evidence?.snippet ||
     evidence?.quote ||
     result.value_text ||
-    "(нет фрагмента текста)"
+    tFn("evidencePanel.noSnippet")
   );
 }
 
@@ -52,13 +57,13 @@ function getEvidenceClauseUid(
     : undefined;
 }
 
-function formatCreatedAt(value: string | null | undefined): string {
+function formatCreatedAt(value: string | null | undefined, locale: string): string {
   if (!value) return "—";
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
 
-  return date.toLocaleString();
+  return date.toLocaleString(locale);
 }
 
 export const MagicZoom: React.FC<MagicZoomProps> = ({
@@ -68,6 +73,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
   onQcChange,
   onOpenAtLocation,
 }) => {
+  const { t, i18n } = useTranslation("findings");
   const { data: evidence, isLoading, error } = useEvidence(result.id);
 
   const modalRoot = typeof document !== "undefined" ? document.body : null;
@@ -143,7 +149,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
 
   const evidenceObj = (evidence ?? undefined) as EvidenceDetailLike | undefined;
 
-  const snippet = getSnippet(evidenceObj, result);
+  const snippet = getSnippet(evidenceObj, result, t);
   const page = getEvidencePage(evidenceObj);
   const clauseUid = getEvidenceClauseUid(evidenceObj);
 
@@ -213,29 +219,29 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] px-5 py-4">
           <div className="min-w-0 space-y-1">
             <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-              Документ
+              {t("magicZoom.title")}
             </div>
 
             <h2
               id={titleId}
               className="truncate text-sm font-semibold text-[var(--text-primary)]"
             >
-              {result.document_name || "Без имени"}
+              {result.document_name || t("magicZoom.noName")}
             </h2>
 
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
-              {result.doc_type && <span>Тип: {result.doc_type}</span>}
+              {result.doc_type && <span>{t("magicZoom.typePrefix", { type: result.doc_type })}</span>}
 
               {triggered && (
                 <span
                   className="inline-flex items-center gap-1 rounded-full border border-[color:color-mix(in_srgb,var(--color-purple)_20%,transparent)] bg-[var(--color-purple-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-purple)]"
                   title={
                     triggerName
-                      ? `Условная проверка по триггеру: ${triggerName}`
-                      : "Условная проверка (conditional)"
+                      ? t("magicZoom.conditionalTrigger", { name: triggerName })
+                      : t("magicZoom.conditionalGeneric")
                   }
                 >
-                  ⚡ {triggerName || "условная"}
+                  ⚡ {triggerName || t("magicZoom.conditionalBadge")}
                 </span>
               )}
             </div>
@@ -255,11 +261,11 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
               </div>
 
               <span className="text-[11px] text-[var(--text-muted)]">
-                Результат: {result.result}
+                {t("magicZoom.resultPrefix", { result: result.result })}
               </span>
 
               <span className="text-[11px] text-[var(--text-muted)]">
-                QC: {qcStatus}
+                {t("magicZoom.qcPrefix", { status: qcStatus })}
                 {result.qc_by ? ` · ${result.qc_by}` : ""}
               </span>
             </div>
@@ -268,7 +274,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              aria-label="Закрыть"
+              aria-label={t("actions.close", { ns: "common" })}
               className="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
               ✕
@@ -279,7 +285,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
         <div className="space-y-4 px-5 py-4">
           <div>
             <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-              Проверка
+              {t("magicZoom.check")}
             </div>
 
             <div className="mt-0.5 text-sm font-medium text-[var(--text-primary)]">
@@ -287,42 +293,42 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
             </div>
 
             <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-              {detector ? `Источник: ${detector}` : "Источник: —"}
+              {detector ? t("magicZoom.sourcePrefix", { source: detector }) : t("magicZoom.sourceFallback")}
             </div>
           </div>
 
           {isLoading && (
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-xs text-[var(--text-muted)]">
-              Загружаем фрагмент документа…
+              {t("magicZoom.loading")}
             </div>
           )}
 
           {error && (
             <div className="rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
-              Не удалось загрузить evidence.
+              {t("magicZoom.loadError")}
             </div>
           )}
 
           {!isLoading && !error && (page || clauseUid || segmentId || chunkIndex != null || chunkId) && (
             <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
-              {page != null && <span>Стр. {page}</span>}
-              {clauseUid && <span>Clause: {clauseUid}</span>}
+              {page != null && <span>{t("magicZoom.pageLabel", { page })}</span>}
+              {clauseUid && <span>{t("magicZoom.clauseLabel", { clause: clauseUid })}</span>}
 
               {segmentId && (
                 <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--accent-primary)_20%,transparent)] bg-[var(--bg-elevated-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent-primary)]">
-                  Сегмент: {segmentId}
+                  {t("magicZoom.segmentLabel", { segment: segmentId })}
                 </span>
               )}
 
               {chunkIndex != null && (
                 <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-text)]">
-                  Chunk #{chunkIndex}
+                  {t("magicZoom.chunkNumber", { index: chunkIndex })}
                 </span>
               )}
 
               {!segmentId && chunkId && (
                 <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]">
-                  Chunk ID: {chunkId}
+                  {t("magicZoom.chunkIdLabel", { id: chunkId })}
                 </span>
               )}
             </div>
@@ -338,9 +344,9 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
         <div className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-3">
           <div className="text-[11px] text-[var(--text-faint)]">
             {result.confidence != null && (
-              <>Уверенность: {Math.round(result.confidence * 100)}% · </>
+              <>{t("magicZoom.confidencePrefix", { percent: Math.round(result.confidence * 100) })} · </>
             )}
-            Создано: {formatCreatedAt(result.created_at)}
+            {t("magicZoom.createdAt", { date: formatCreatedAt(result.created_at, i18n.language) })}
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -352,7 +358,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
                   size="sm"
                   onClick={handleApprove}
                 >
-                  ✅ Согласен
+                  {t("magicZoom.agreeBtn")}
                 </Button>
 
                 <Button
@@ -361,7 +367,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
                   size="sm"
                   onClick={handleReject}
                 >
-                  ❌ Не согласен
+                  {t("magicZoom.disagreeBtn")}
                 </Button>
               </>
             )}
@@ -375,11 +381,11 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
                 disabled={!canOpenInDocument}
                 title={
                   canOpenInDocument
-                    ? "Открыть в документе"
-                    : "Недостаточно данных для перехода в документ"
+                    ? t("magicZoom.viewInDocumentTitle")
+                    : t("magicZoom.noDataToOpenDoc")
                 }
               >
-                В документ
+                {t("magicZoom.viewInDocument")}
               </Button>
             )}
 
@@ -389,7 +395,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
               size="sm"
               onClick={onClose}
             >
-              Закрыть
+              {t("actions.close", { ns: "common" })}
             </Button>
 
             <Button
@@ -399,7 +405,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
               onClick={handleOpenFull}
               disabled={!onOpenFull}
             >
-              Открыть полностью
+              {t("magicZoom.openFullBtn")}
             </Button>
           </div>
         </div>

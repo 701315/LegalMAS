@@ -1,6 +1,7 @@
 // src/components/ui/LoadingBlock.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 
 interface LoadingBlockProps {
@@ -16,10 +17,13 @@ function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 const LoadingBlock: React.FC<LoadingBlockProps> = ({
-  text = "Загрузка данных…",
+  text,
   rows = 3,
   className,
 }) => {
+  const { t } = useTranslation("common");
+  const resolvedText = text ?? t("loadingBlock.text", { defaultValue: "Загрузка данных…" });
+
   const normalizedRows = Number.isFinite(rows)
     ? Math.max(1, Math.floor(rows))
     : 3;
@@ -29,13 +33,13 @@ const LoadingBlock: React.FC<LoadingBlockProps> = ({
       role="status"
       aria-live="polite"
       aria-busy="true"
-      aria-label={text}
+      aria-label={resolvedText}
       className={cn(
         "rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4",
         className,
       )}
     >
-      <span className="sr-only">{text}</span>
+      <span className="sr-only">{resolvedText}</span>
 
       <div className="space-y-2.5">
         {Array.from({ length: normalizedRows }).map((_, index) => (

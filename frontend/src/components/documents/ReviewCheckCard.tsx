@@ -1,6 +1,7 @@
 // src/components/documents/ReviewCheckCard.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, ExternalLink, Table2 } from "lucide-react";
 import type { DocumentReviewCheckView } from "./DocumentDetails";
 import type { OpenViewerAtFn } from "../../types";
@@ -20,6 +21,7 @@ export const ReviewCheckCard: React.FC<Props> = ({
   onOpenCell,
   onOpenAtLocation,
 }) => {
+  const { t } = useTranslation("documents");
   const [expanded, setExpanded] = React.useState(false);
 
   const hasSegment = Boolean(check.segmentId || check.segmentTitle);
@@ -62,7 +64,7 @@ export const ReviewCheckCard: React.FC<Props> = ({
 
             {check.result === "unclear" && (
               <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-gold-text)]">
-                Unclear
+                {t("reviewCheckCard.unclear")}
               </span>
             )}
           </div>
@@ -74,7 +76,7 @@ export const ReviewCheckCard: React.FC<Props> = ({
               </span>
               {check.chunkIndex != null && (
                 <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-                  Chunk #{check.chunkIndex}
+                  {t("reviewCheckCard.chunkNumber", { index: check.chunkIndex })}
                 </span>
               )}
             </div>
@@ -98,7 +100,7 @@ export const ReviewCheckCard: React.FC<Props> = ({
           {check.snippet && (
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-3">
               <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
-                Evidence snippet
+                {t("reviewCheckCard.evidenceSnippet")}
               </div>
               <div className="text-sm italic leading-6 text-[var(--text-secondary)]">
                 &ldquo;{check.snippet}&rdquo;
@@ -110,13 +112,13 @@ export const ReviewCheckCard: React.FC<Props> = ({
             <div className="flex flex-wrap gap-2">
               {check.page != null && (
                 <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
-                  Страница: {check.page}
+                  {t("reviewCheckCard.pageLabel", { page: check.page })}
                 </span>
               )}
 
               {check.clauseUid && (
                 <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
-                  Clause: {check.clauseUid}
+                  {t("reviewCheckCard.clauseLabel", { clause: check.clauseUid })}
                 </span>
               )}
             </div>
@@ -125,17 +127,17 @@ export const ReviewCheckCard: React.FC<Props> = ({
           {hasSegment && (
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-3">
               <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
-                Segment context
+                {t("reviewCheckCard.segmentContext")}
               </div>
 
               <div className="space-y-1.5 text-xs text-[var(--text-secondary)]">
                 {check.segmentTitle && (
                   <div>
-                    <span className="text-[var(--text-faint)]">Сегмент: </span>
+                    <span className="text-[var(--text-faint)]">{t("reviewCheckCard.segmentLabel")}</span>
                     {check.segmentTitle}
                     {check.isPrimarySegment && (
                       <span className="ml-1.5 font-medium text-[var(--accent-primary)]">
-                        (основной)
+                        {t("reviewCheckCard.primaryLabel")}
                       </span>
                     )}
                   </div>
@@ -143,14 +145,14 @@ export const ReviewCheckCard: React.FC<Props> = ({
 
                 {check.segmentType && (
                   <div>
-                    <span className="text-[var(--text-faint)]">Тип: </span>
+                    <span className="text-[var(--text-faint)]">{t("reviewCheckCard.typeLabel")}</span>
                     {check.segmentType}
                   </div>
                 )}
 
                 {check.chunkIndex != null && (
                   <div>
-                    <span className="text-[var(--text-faint)]">Chunk #: </span>
+                    <span className="text-[var(--text-faint)]">{t("reviewCheckCard.chunkIndexLabel")}</span>
                     {check.chunkIndex}
                   </div>
                 )}
@@ -161,7 +163,7 @@ export const ReviewCheckCard: React.FC<Props> = ({
           {check.extractedFields.length > 0 && (
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-3">
               <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
-                Extracted fields
+                {t("reviewCheckCard.extractedFields")}
               </div>
 
               <div className="space-y-2">
@@ -192,7 +194,7 @@ export const ReviewCheckCard: React.FC<Props> = ({
                 className="gap-1.5"
               >
                 <Table2 size={14} />
-                Детали в DD Matrix
+                {t("reviewCheckCard.detailsInMatrix")}
               </Button>
             )}
 
@@ -205,7 +207,7 @@ export const ReviewCheckCard: React.FC<Props> = ({
                 className="gap-1.5 text-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--accent-primary)]"
               >
                 <ExternalLink size={14} />
-                Открыть в документе
+                {t("reviewCheckCard.openInDocument")}
               </Button>
             )}
           </div>

@@ -1,11 +1,12 @@
 // frontend/src/components/admin/ExternalToolsBar.tsx
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ExternalLink, Wrench } from "lucide-react";
 import { useExternalTools } from "../../api/alerts";
 
 /**
- * Dropdown "Внешние инструменты метрик и логирования".
+ * Dropdown "External Metrics & Logging Tools".
  *
  * Показывается только superadmin. Внутри:
  *   - секция Grafana Dashboards (deep links на конкретные дашборды)
@@ -17,6 +18,7 @@ import { useExternalTools } from "../../api/alerts";
  * через ваш UI (Monitoring / Logs / Alerts вкладки).
  */
 export function ExternalToolsBar() {
+  const { t } = useTranslation("admin");
   const { data, isLoading } = useExternalTools();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -74,9 +76,11 @@ export function ExternalToolsBar() {
       >
         <Wrench size={12} />
         <span className="hidden sm:inline">
-          Внешние инструменты метрик и логирования
+          {t("externalTools.buttonLabel")}
         </span>
-        <span className="sm:hidden">Инструменты</span>
+        <span className="sm:hidden">
+          {t("externalTools.buttonLabelShort")}
+        </span>
         <ChevronDown
           size={12}
           className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -92,7 +96,7 @@ export function ExternalToolsBar() {
           {hasDashboards && (
             <div className="px-3 py-2">
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                📊 Grafana Dashboards
+                {t("externalTools.grafanaDashboards")}
               </p>
               <div className="space-y-0.5">
                 {data.dashboards.map((d) => (
@@ -130,7 +134,7 @@ export function ExternalToolsBar() {
           {hasServices && (
             <div className="px-3 py-2">
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                🛠 Сервисы
+                {t("externalTools.services")}
               </p>
               <div className="space-y-0.5">
                 {data.services.map((s) => (
@@ -163,7 +167,7 @@ export function ExternalToolsBar() {
 
           <div className="border-t border-[var(--border-subtle)] px-3 py-2">
             <p className="text-[10px] text-[var(--text-muted)]">
-              Виден только суперадмину · открывается в новой вкладке
+              {t("externalTools.footer")}
             </p>
           </div>
         </div>

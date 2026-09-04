@@ -18,6 +18,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Bot, Loader2 } from "lucide-react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import Button from "../../../components/ui/Button";
@@ -78,11 +79,12 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
   metricsQ,
   globalRole,
 }) => {
+  const { t, i18n } = useTranslation("tenantAdmin");
   const md = metricsQ.data;
   const promUp = md?.prometheus_available ?? false;
 
   const metricVal = (v: number | null | undefined) =>
-    promUp ? fmt(v ?? 0) : "—";
+    promUp ? fmt(v ?? 0, i18n.language) : "—";
 
   // Loading state
   if (metricsQ.isLoading && !md) {
@@ -90,7 +92,7 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="flex h-full items-center justify-center text-[var(--text-muted)]">
           <Loader2 size={20} className="animate-spin" />
-          <span className="ml-3 text-sm">Загружаем метрики…</span>
+          <span className="ml-3 text-sm">{t("monitoringTab.loading")}</span>
         </div>
       </div>
     );
@@ -103,7 +105,7 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
         <div className="flex h-full items-center justify-center p-5">
           <div className="text-center">
             <p className="text-sm font-semibold text-[var(--text-primary)]">
-              Не удалось загрузить метрики
+              {t("monitoringTab.loadError")}
             </p>
             <Button
               size="sm"
@@ -111,7 +113,7 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
               onClick={() => metricsQ.refetch()}
               className="mt-3"
             >
-              Повторить
+              {t("actions.retry", { ns: "common" })}
             </Button>
           </div>
         </div>
@@ -125,24 +127,30 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
         {/* Top-level KpiCards: Prometheus status + high-level metrics */}
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           <KpiCard
-            label="Prometheus"
-            value={promUp ? "Доступен" : "Недоступен"}
+            label={t("monitoringTab.prometheus")}
+            value={
+              promUp
+                ? t("monitoringTab.available")
+                : t("monitoringTab.unavailable")
+            }
             tone={promUp ? "ok" : "warn"}
-            sub={`Обновлено: ${formatDateTime(md?.collected_at)}`}
+            sub={t("monitoringTab.updatedAt", {
+              date: formatDateTime(md?.collected_at, i18n.language),
+            })}
           />
           <KpiCard
-            label="DLQ size"
+            label={t("monitoringTab.dlqSize")}
             value={metricVal(md?.pipeline.dlq_size)}
             tone={
               promUp && (md?.pipeline.dlq_size ?? 0) > 0 ? "warn" : "default"
             }
           />
           <KpiCard
-            label="Active runs"
+            label={t("monitoringTab.activeRuns")}
             value={metricVal(md?.pipeline.active_runs)}
           />
           <KpiCard
-            label="Stuck executions"
+            label={t("monitoringTab.stuckExecutions")}
             value={metricVal(md?.pipeline.stuck_executions)}
             tone={
               promUp && (md?.pipeline.stuck_executions ?? 0) > 0
@@ -154,14 +162,13 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
 
         {globalRole === "tenant_admin" && (
           <p className="text-[10px] text-[var(--text-muted)]">
-            Метрики Prometheus — инфраструктурные и глобальные. Для метрик по
-            проекту откройте проект во вкладке «Проекты».
+            {t("monitoringTab.infrastructureHint")}
           </p>
         )}
 
         {!promUp && (
           <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-xs text-[var(--color-warning-text)]">
-            Метрики временно недоступны — деградированный режим.
+            {t("monitoringTab.degradedMode")}
           </div>
         )}
 
@@ -170,17 +177,17 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
           <div className={SECTION_HEADER_WRAP}>
             <div className={SECTION_HEADER_INNER}>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Pipeline
+                {t("monitoringTab.pipeline")}
               </p>
               <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-                Документы за последний час
+                {t("monitoringTab.docsLastHour")}
               </p>
             </div>
             <div className={SECTION_DIVIDER} />
           </div>
           <div className="grid grid-cols-2 gap-2 px-5 py-4">
             <KpiCard
-              label="Processed / 1h"
+              label={t("monitoringTab.processedHour")}
               value={metricVal(md?.pipeline.docs_processed_last_hour)}
               tone={
                 promUp && (md?.pipeline.docs_processed_last_hour ?? 0) > 0
@@ -189,7 +196,7 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
               }
             />
             <KpiCard
-              label="Failed / 1h"
+              label={t("monitoringTab.failedHour")}
               value={metricVal(md?.pipeline.docs_failed_last_hour)}
               tone={
                 promUp && (md?.pipeline.docs_failed_last_hour ?? 0) > 0
@@ -205,10 +212,10 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
           <div className={SECTION_HEADER_WRAP}>
             <div className={SECTION_HEADER_INNER}>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                API
+                {t("monitoringTab.api.title")}
               </p>
               <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-                Топ-5 endpoint&apos;ов по запросам за час
+                {t("monitoringTab.api.subtitle")}
               </p>
             </div>
             <div className={SECTION_DIVIDER} />
@@ -217,8 +224,8 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
             {!promUp || (md?.api.top_endpoints ?? []).length === 0 ? (
               <p className="text-[10px] text-[var(--text-muted)]">
                 {promUp
-                  ? "Нет данных — метрики появятся после накопления трафика."
-                  : "Prometheus недоступен."}
+                  ? t("monitoringTab.api.noData")
+                  : t("monitoringTab.api.promUnavailable")}
               </p>
             ) : (
               <div className="overflow-auto">
@@ -226,16 +233,16 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
                   <thead className="bg-[var(--bg-elevated-soft)]">
                     <tr className="border-b border-[var(--border)]">
                       <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                        Endpoint
+                        {t("monitoringTab.api.headers.endpoint")}
                       </th>
                       <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                        Requests
+                        {t("monitoringTab.api.headers.requests")}
                       </th>
                       <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                        Errors
+                        {t("monitoringTab.api.headers.errors")}
                       </th>
                       <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                        P95
+                        {t("monitoringTab.api.headers.p95")}
                       </th>
                     </tr>
                   </thead>
@@ -254,7 +261,7 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
                           </p>
                         </td>
                         <td className="px-3 py-2 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                          {fmt(ep.requests)}
+                          {fmt(ep.requests, i18n.language)}
                         </td>
                         <td className="px-3 py-2 text-sm tabular-nums">
                           <span
@@ -264,11 +271,11 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
                                 : "text-[var(--text-secondary)]"
                             }
                           >
-                            {fmt(ep.errors)}
+                            {fmt(ep.errors, i18n.language)}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-sm text-[var(--text-secondary)]">
-                          {fmtMs(ep.p95_ms)}
+                          {fmtMs(ep.p95_ms, i18n.language)}
                         </td>
                       </tr>
                     ))}
@@ -286,10 +293,10 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
             <div className={SECTION_HEADER_WRAP}>
               <div className={SECTION_HEADER_INNER}>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">
-                  LLM
+                  {t("monitoringTab.llm.title")}
                 </p>
                 <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-                  Запросы и таймауты за час
+                  {t("monitoringTab.llm.subtitle")}
                 </p>
               </div>
               <div className={SECTION_DIVIDER} />
@@ -298,8 +305,8 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
               {!promUp || (md?.llm.providers ?? []).length === 0 ? (
                 <p className="text-[10px] text-[var(--text-muted)]">
                   {promUp
-                    ? "Нет LLM-метрик — появятся после прогона pipeline."
-                    : "Prometheus недоступен."}
+                    ? t("monitoringTab.llm.noData")
+                    : t("monitoringTab.api.promUnavailable")}
                 </p>
               ) : (
                 <div className="grid gap-2">
@@ -316,13 +323,17 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         <div>
-                          <p className={LABEL_XS}>Requests</p>
+                          <p className={LABEL_XS}>
+                            {t("monitoringTab.llm.headers.requests")}
+                          </p>
                           <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                            {fmt(prov.requests_last_hour)}
+                            {fmt(prov.requests_last_hour, i18n.language)}
                           </p>
                         </div>
                         <div>
-                          <p className={LABEL_XS}>Timeouts</p>
+                          <p className={LABEL_XS}>
+                            {t("monitoringTab.llm.headers.timeouts")}
+                          </p>
                           <p
                             className={`mt-0.5 text-sm font-semibold tabular-nums ${
                               prov.timeouts_last_hour > 0
@@ -330,7 +341,7 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
                                 : "text-[var(--text-primary)]"
                             }`}
                           >
-                            {fmt(prov.timeouts_last_hour)}
+                            {fmt(prov.timeouts_last_hour, i18n.language)}
                           </p>
                         </div>
                       </div>
@@ -346,10 +357,10 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
             <div className={SECTION_HEADER_WRAP}>
               <div className={SECTION_HEADER_INNER}>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">
-                  Celery
+                  {t("monitoringTab.celery.title")}
                 </p>
                 <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-                  Ошибки задач за час
+                  {t("monitoringTab.celery.subtitle")}
                 </p>
               </div>
               <div className={SECTION_DIVIDER} />
@@ -359,8 +370,8 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
               (md?.celery.task_failures_last_hour ?? []).length === 0 ? (
                 <p className="text-[10px] text-[var(--text-muted)]">
                   {promUp
-                    ? "Нет ошибок Celery за последний час."
-                    : "Prometheus недоступен."}
+                    ? t("monitoringTab.celery.noData")
+                    : t("monitoringTab.api.promUnavailable")}
                 </p>
               ) : (
                 <div className="overflow-auto">
@@ -368,31 +379,31 @@ const MonitoringTab: React.FC<MonitoringTabProps> = ({
                     <thead className="bg-[var(--bg-elevated-soft)]">
                       <tr className="border-b border-[var(--border)]">
                         <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                          Task
+                          {t("monitoringTab.celery.headers.task")}
                         </th>
                         <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                          Failures
+                          {t("monitoringTab.celery.headers.failures")}
                         </th>
                         <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                          Types
+                          {t("monitoringTab.celery.headers.types")}
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {(md?.celery.task_failures_last_hour ?? []).map((t) => (
+                      {(md?.celery.task_failures_last_hour ?? []).map((tName) => (
                         <tr
-                          key={t.task_name}
+                          key={tName.task_name}
                           className="border-b border-[var(--border-subtle)] last:border-b-0"
                         >
                           <td className="px-3 py-2 font-mono text-[10px] text-[var(--text-primary)]">
-                            {t.task_name}
+                            {tName.task_name}
                           </td>
                           <td className="px-3 py-2 text-sm font-semibold tabular-nums text-[var(--color-error-text)]">
-                            {fmt(t.failures_last_hour)}
+                            {fmt(tName.failures_last_hour, i18n.language)}
                           </td>
                           <td className="px-3 py-2 text-sm text-[var(--text-secondary)]">
-                            {t.failure_types.length > 0
-                              ? t.failure_types.join(", ")
+                            {tName.failure_types.length > 0
+                              ? tName.failure_types.join(", ")
                               : "—"}
                           </td>
                         </tr>

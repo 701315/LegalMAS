@@ -249,7 +249,6 @@ function getQcStatusMeta(
   }
 }
 
-
 // -------------------------------------------------------------
 // Row builder
 // -------------------------------------------------------------
@@ -266,9 +265,6 @@ function buildV1ListRows(
   includePassResults: boolean,
   tFn: (key: string, options?: Record<string, unknown>) => string,
 ): V1ListRow[] {
-  // V1-native: берём данные напрямую из model
-  // legacyRows и legacyColumns больше не нужны
-
   // Собираем все check nodes из V1 иерархии
   const allChecks: DDGridV1CheckNode[] = [];
   const seenCheckIds = new Set<string>();
@@ -302,19 +298,14 @@ function buildV1ListRows(
     for (const check of allChecks) {
       if (visibleCheckSet && !visibleCheckSet.has(check.checkId)) continue;
 
-      // 3-уровневый lookup: doc_id → segment_id → check_id
       const segmentId = v1Row.segmentId ?? "_default";
       const drawer =
         model.drawerContents[v1Row.documentId]?.[segmentId]?.[check.checkId] ?? null;
 
-      // Если drawer нет для этой пары — не создаём строку
-      // (значит check не выполнялся для этого документа)
       if (!drawer) continue;
 
       const statusMeta = getReviewStatusMeta(drawer.review_status, tFn);
 
-
-      // includePassResults toggle: если false — скрываем "OK" статусы
       if (
         !includePassResults &&
         (drawer.review_status === "no_issue_detected" ||
@@ -323,9 +314,9 @@ function buildV1ListRows(
         continue;
       }
 
-      const detectionLevelInfo = resolveDDGridV1DetectionLevel(drawer);
+      const detectionLevelInfo = resolveDDGridV1DetectionLevel(drawer, tFn); // 🌟 Заменили t на tFn
       const confidenceInfo = resolveDDGridV1Confidence(drawer);
-      const qualityFlags = resolveDDGridV1QualityFlags(drawer);
+      const qualityFlags = resolveDDGridV1QualityFlags(drawer, tFn); // 🌟 Заменили t на tFn
       const qcAuditInfo = resolveDDGridV1QcAuditInfo(drawer);
       const qcStatusMeta = getQcStatusMeta(qcAuditInfo.status, tFn);
       const observability = resolveDDGridV1Observability(drawer);
@@ -335,9 +326,9 @@ function buildV1ListRows(
         v1Row,
         checkNode: check,
         drawerContent: drawer,
-        legacyCellQcStatus: drawer.qc_status ?? null,  // ✅ Из drawer
-        legacyCellQcComment: drawer.qc_comment ?? null,  // ✅ Из drawer
-        documentName: v1Row.filename || "[no name]",
+        legacyCellQcStatus: drawer.qc_status ?? null,
+        legacyCellQcComment: drawer.qc_comment ?? null,
+        documentName: v1Row.filename || tFn("unnamedDocument"),
         docType: v1Row.docType || "—",
         checkName: check.checkName || check.checkId,
         displayText: drawer.display_text?.trim() || null,
@@ -412,8 +403,8 @@ interface SelectedDrawerState {
 export interface DDGridV1ListProps {
   runId: string;
   model: DDGridV1DerivedModel;
-  rows: DDGridV1MatrixRow[];  // ✅
-  columns: DDGridV1CheckNode[];  // ✅
+  rows: DDGridV1MatrixRow[];
+  columns: DDGridV1CheckNode[];
 
   visibleCheckIds?: readonly string[];
   includePassResults?: boolean;
@@ -436,58 +427,59 @@ export interface DDGridV1ExtraColumnMeta {
 
 /**
  * Полный список доступных extra колонок.
- * Parent (toolbar) использует этот массив для рендера чекбоксов выбора.
+ * Содержит канонические английские наименования/описания,
+ * при отрисовке они автоматически мапятся на i18next через extra.[id].label.
  */
 export const DD_GRID_V1_EXTRA_COLUMNS: readonly DDGridV1ExtraColumnMeta[] = [
   {
     id: "detectionLevel",
-    label: "Метод анализа",
-    description: "Уровень детекции: L1 (правила), L2 (LLM), L3 (RAG+LLM), L4 (ручная)",
+    label: "Analysis method",
+    description: "Detection level: L1 (rules), L2 (LLM), L3 (RAG+LLM), L4 (manual)",
   },
   {
     id: "qcStatus",
-    label: "QC",
-    description: "Статус ручной проверки юристом",
+    label: "QC Status",
+    description: "Manual verification status by legal expert",
   },
   {
     id: "confidence",
-    label: "Уверенность",
-    description: "Уверенность модели в результате (0.0–1.0)",
+    label: "Confidence",
+    description: "Model confidence in the result (0.0–1.0)",
   },
   {
     id: "qualityFlags",
-    label: "Предупреждения",
-    description: "Технические флаги качества выполнения проверки",
+    label: "Warnings",
+    description: "Technical execution quality flags for the check",
   },
   {
     id: "agentName",
-    label: "Агент",
-    description: "Имя детектора / агента, выполнившего проверку",
+    label: "Agent name",
+    description: "Name of the detector or agent that ran the check",
   },
   {
     id: "modelVersion",
-    label: "Модель",
-    description: "Версия LLM модели",
+    label: "Model version",
+    description: "LLM model version",
   },
   {
     id: "executionTime",
-    label: "Время выполнения",
-    description: "Длительность выполнения проверки в мс",
+    label: "Execution time",
+    description: "Check execution duration in milliseconds",
   },
   {
     id: "retryAttempts",
-    label: "Попытки LLM",
-    description: "Количество попыток вызова LLM",
+    label: "LLM attempts",
+    description: "Number of LLM call retry attempts",
   },
   {
     id: "inputTokens",
     label: "Input tokens",
-    description: "Количество входных токенов LLM",
+    description: "LLM input token count",
   },
   {
     id: "outputTokens",
     label: "Output tokens",
-    description: "Количество выходных токенов LLM",
+    description: "LLM output token count",
   },
 ] as const;
 
@@ -519,9 +511,6 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
     row: null,
   });
 
-  // ID активной строки для визуальной подсветки.
-  // Ref используется в getRowClass, потому что AG Grid не пересоздаёт
-  // callback при изменении React state — closure остаётся stale.
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const activeRowIdRef = useRef<string | null>(null);
 
@@ -565,7 +554,6 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
   const closeDrawer = useCallback(() => {
     const previousActiveRowId = activeRowIdRef.current;
 
-    // Закрываем drawer
     setSelectedDrawer({ open: false, row: null });
 
     if (!gridApi || !previousActiveRowId) return;
@@ -575,10 +563,7 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
       if (!node) return;
 
       try {
-        // ✅ 1. Прокручиваем к строке
         gridApi.ensureNodeVisible(node, "middle");
-
-        // ✅ 2. Перерисовываем её (чтобы сохранить подсветку)
         gridApi.redrawRows({ rowNodes: [node] });
       } catch {
         /* noop */
@@ -586,54 +571,43 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
     });
   }, [gridApi]);
 
-const openDrawerForRow = useCallback(
-  (row: V1ListRow) => {
-    console.log('🔍 [1] openDrawerForRow вызвана');
-    console.log('   rowId:', row.rowId);
-    console.log('   drawerContent:', row.drawerContent);
-    console.log('   checkId:', row.checkNode?.checkId);
-    
-    if (!row.drawerContent) {
-      console.error('❌ drawerContent is NULL — drawer не откроется!');
-      return;
-    }
-    
-    console.log('✅ drawerContent существует, открываем...');
-    
-    const previousActiveRowId = activeRowIdRef.current;
-
-    console.log('   Устанавливаем selectedDrawer.open = true');
-    setSelectedDrawer({ open: true, row });
-    setActiveRowId(row.rowId);
-    activeRowIdRef.current = row.rowId;
-
-    if (!gridApi) {
-      console.warn('️ gridApi is null');
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      const rowIdsToRefresh: string[] = [row.rowId];
-      if (previousActiveRowId && previousActiveRowId !== row.rowId) {
-        rowIdsToRefresh.push(previousActiveRowId);
+  const openDrawerForRow = useCallback(
+    (row: V1ListRow) => {
+      if (!row.drawerContent) {
+        return;
       }
 
-      const rowNodes = rowIdsToRefresh
-        .map((id) => gridApi.getRowNode(id))
-       .filter((node): node is NonNullable<typeof node> => node != null);
+      const previousActiveRowId = activeRowIdRef.current;
 
-      if (rowNodes.length > 0) {
-        try {
-          gridApi.redrawRows({ rowNodes });
-          console.log('✅ gridApi.redrawRows вызван');
-        } catch (err) {
-          console.error(' Ошибка при redrawRows:', err);
+      setSelectedDrawer({ open: true, row });
+      setActiveRowId(row.rowId);
+      activeRowIdRef.current = row.rowId;
+
+      if (!gridApi) {
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        const rowIdsToRefresh: string[] = [row.rowId];
+        if (previousActiveRowId && previousActiveRowId !== row.rowId) {
+          rowIdsToRefresh.push(previousActiveRowId);
         }
-      }
-    });
-  },
-  [gridApi],
-);
+
+        const rowNodes = rowIdsToRefresh
+          .map((id) => gridApi.getRowNode(id))
+          .filter((node): node is NonNullable<typeof node> => node != null);
+
+        if (rowNodes.length > 0) {
+          try {
+            gridApi.redrawRows({ rowNodes });
+          } catch {
+            /* noop */
+          }
+        }
+      });
+    },
+    [gridApi],
+  );
 
   const defaultColDef = useMemo<ColDef<V1ListRow>>(
     () => ({
@@ -799,7 +773,6 @@ const openDrawerForRow = useCallback(
           const row = params.data;
           if (!row) return null;
 
-          // Проверяем, есть ли текст локации и передана ли функция открытия viewer
           const canOpenViewer = Boolean(row.locationText && onOpenAtLocation);
 
           if (!canOpenViewer) {
@@ -811,17 +784,12 @@ const openDrawerForRow = useCallback(
           }
 
           const handleClick = (e: React.MouseEvent) => {
-            // Останавливаем всплытие, чтобы клик по ссылке не открывал drawer всей строки
             e.stopPropagation();
-            
+
             if (row.drawerContent) {
-              // Берем первое поле, так как все поля одной проверки обычно 
-              // ссылаются на одно и то же место в документе
               const firstField = row.drawerContent.fields?.[0];
-              
+
               if (firstField) {
-                // Используем прямые, очищенные данные с бэкенда.
-                // Regex-парсинг на фронте больше не нужен.
                 onOpenAtLocation?.({
                   documentId: row.v1Row.documentId,
                   page: firstField.location_page ?? undefined,
@@ -855,7 +823,6 @@ const openDrawerForRow = useCallback(
       return baseColumns;
     }
 
-    // Все возможные extra колонки, ключ = colId (совпадает с DD_GRID_V1_EXTRA_COLUMNS.id)
     const extraColumnsMap: Record<string, ColDef<V1ListRow>> = {
       detectionLevel: {
         headerName: t("extra.detectionLevel.label"),
@@ -1101,7 +1068,6 @@ const openDrawerForRow = useCallback(
       },
     };
 
-    // Сохраняем порядок из DD_GRID_V1_EXTRA_COLUMNS
     const orderedExtras: ColDef<V1ListRow>[] = [];
     for (const meta of DD_GRID_V1_EXTRA_COLUMNS) {
       if (visibleExtras.has(meta.id)) {
@@ -1131,7 +1097,7 @@ const openDrawerForRow = useCallback(
       try {
         event.api.sizeColumnsToFit();
       } catch {
-        // noop
+        /* noop */
       }
     });
   }, []);
@@ -1142,7 +1108,7 @@ const openDrawerForRow = useCallback(
       try {
         gridApi.sizeColumnsToFit();
       } catch {
-        // noop
+        /* noop */
       }
     });
     return () => cancelAnimationFrame(id);
@@ -1156,7 +1122,7 @@ const openDrawerForRow = useCallback(
     try {
       gridApi.deselectAll();
     } catch {
-      // noop
+      /* noop */
     }
   }, [gridApi, clearSelectionToken]);
 
@@ -1175,11 +1141,6 @@ const openDrawerForRow = useCallback(
       ref={rootRef}
       className={`flex gap-4 ${isMobile ? "" : "h-full min-h-0"}`}
     >
-      {/* Блок грида.
-          Desktop: h-full + overflow-hidden → AG Grid scroll внутри.
-          Mobile: натуральная высота (autoHeight AG Grid + отсутствие
-          overflow-hidden) → таблица занимает столько, сколько нужно
-          для всех строк, скроллится страница целиком. */}
       <div
         className={`flex min-w-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm transition-all duration-200 ${
           isMobile ? "w-full" : "h-full min-h-0 overflow-hidden"
@@ -1209,8 +1170,6 @@ const openDrawerForRow = useCallback(
                 if (event.column.getColId() === "ag-Grid-SelectionColumn") {
                   return;
                 }
-                // Пропускаем клики по элементам, которые управляют
-                // своим действием самостоятельно (например, кнопка "Локация")
                 const target = event.event?.target as HTMLElement | null;
                 if (target?.closest("[data-skip-row-click]")) {
                   return;
@@ -1231,7 +1190,6 @@ const openDrawerForRow = useCallback(
         </div>
       </div>
 
-      {/* Блок Drawer: появляется справа только когда открыт */}
       {isDrawerOpen && (
         <div
           className={
@@ -1245,7 +1203,6 @@ const openDrawerForRow = useCallback(
               : { width: "clamp(360px, 38%, 640px)" }
           }
         >
-          {/* ✅ MOBILE HEADER */}
           {isMobile && (
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
               <button
@@ -1260,12 +1217,10 @@ const openDrawerForRow = useCallback(
                 {t("details")}
               </div>
 
-              {/* Балансирующий элемент для центрирования */}
               <div className="w-12" />
             </div>
           )}
 
-          {/* ✅ ORIGINAL DRAWER CONTENT */}
           <DDGridV1Drawer
             open={true}
             onClose={closeDrawer}
@@ -1295,4 +1250,5 @@ const openDrawerForRow = useCallback(
 };
 
 export default DDGridV1List;
+
 

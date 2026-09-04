@@ -1,6 +1,7 @@
 // src/components/model-config/ModelConfigManagerPanel.tsx
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { Pencil, Plus } from "lucide-react";
 import client from "../../api/client";
 
@@ -88,6 +89,8 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
   onFinished,
   onDealPatched,
 }) => {
+  const { t } = useTranslation("admin");
+
   const [state, setState] = useState<PanelState>({
     items: [],
     isLoading: false,
@@ -151,11 +154,11 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
       setState({
         items: [],
         isLoading: false,
-        error: apiErr.detail || "Не удалось загрузить профили моделей.",
+        error: apiErr.detail || t("modelConfig.validation.loadFailed"),
         usage: {},
       });
     }
-  }, [loadUsageForConfigs]);
+  }, [loadUsageForConfigs, t]);
 
   useEffect(() => {
     void loadConfigs();
@@ -223,21 +226,21 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
 
   const validateForm = useCallback((): boolean => {
     if (!formValues.name.trim()) {
-      setFormError("Имя профиля обязательно.");
+      setFormError(t("modelConfig.validation.nameRequired"));
       return false;
     }
     if (
       typeof formValues.candidate_n !== "number" ||
       formValues.candidate_n <= 0
     ) {
-      setFormError("candidate_n должен быть положительным числом.");
+      setFormError(t("modelConfig.validation.candidateNPositive"));
       return false;
     }
     if (
       typeof formValues.llm_context_k !== "number" ||
       formValues.llm_context_k <= 0
     ) {
-      setFormError("llm_context_k должен быть положительным числом.");
+      setFormError(t("modelConfig.validation.contextKPositive"));
       return false;
     }
     if (
@@ -245,7 +248,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
       typeof formValues.sparse_weight !== "number" ||
       typeof formValues.metadata_boost !== "number"
     ) {
-      setFormError("Все веса должны быть числами.");
+      setFormError(t("modelConfig.validation.weightsNumeric"));
       return false;
     }
     const sum =
@@ -253,12 +256,12 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
       (formValues.sparse_weight || 0) +
       (formValues.metadata_boost || 0);
     if (sum <= 0) {
-      setFormError("Сумма весов должна быть больше нуля.");
+      setFormError(t("modelConfig.validation.sumPositive"));
       return false;
     }
     setFormError(null);
     return true;
-  }, [formValues]);
+  }, [formValues, t]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -289,7 +292,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             "/api/v1/model-configs",
             payload,
           );
-          setSuccessText("Профиль модели создан.");
+          setSuccessText(t("modelConfig.validation.createSuccess"));
           await loadConfigs();
           setSelectedId(res.data.id);
           setRightMode("view");
@@ -298,18 +301,18 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             `/api/v1/model-configs/${selectedId}`,
             payload as ModelConfigUpdateInput,
           );
-          setSuccessText("Профиль модели обновлён.");
+          setSuccessText(t("modelConfig.validation.updateSuccess"));
           await loadConfigs();
           setRightMode("view");
         }
       } catch (err) {
         const apiErr = err as ApiError;
-        setFormError(apiErr.detail || "Не удалось сохранить профиль модели.");
+        setFormError(apiErr.detail || t("modelConfig.validation.saveFailed"));
       } finally {
         setIsSubmitting(false);
       }
     },
-    [formValues, loadConfigs, rightMode, selectedId, validateForm],
+    [formValues, loadConfigs, rightMode, selectedId, t, validateForm],
   );
 
   const handleDelete = useCallback(
@@ -321,12 +324,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           (usage.deals?.length ?? 0) > 0);
 
       if (isUsed) {
-        setDeleteError(
-          "Нельзя удалить профиль, который используется. Сначала переназначьте зависимости.",
-        );
+        setDeleteError(t("modelConfig.validation.deleteUsed"));
         return;
       }
-      if (!window.confirm(`Удалить профиль «${config.name}»?`)) return;
+      if (!window.confirm(t("modelConfig.confirm.delete", { name: config.name }))) return;
 
       setIsDeleting(true);
       setDeleteError(null);
@@ -339,21 +340,21 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           setSelectedId(null);
           setRightMode(null);
         }
-        setSuccessText(`Профиль «${config.name}» удалён.`);
+        setSuccessText(t("modelConfig.validation.deleteSuccess", { name: config.name }));
       } catch (err) {
         const apiErr = err as ApiError;
-        setDeleteError(apiErr.detail || "Не удалось удалить профиль.");
+        setDeleteError(apiErr.detail || t("modelConfig.validation.deleteFailed"));
       } finally {
         setIsDeleting(false);
       }
     },
-    [loadConfigs, selectedId, state.usage],
+    [loadConfigs, selectedId, state.usage, t],
   );
 
   const handleSelectForDeal = useCallback(
     async (config: ModelConfig) => {
       if (!dealId) return;
-      if (!window.confirm(`Выбрать профиль «${config.name}» для этого проекта?`))
+      if (!window.confirm(t("modelConfig.confirm.select", { name: config.name })))
         return;
 
       setIsSelecting(true);
@@ -368,16 +369,16 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           model_config_id: config.id,
           model_config_name: config.name,
         });
-        setSuccessText(`Для проекта выбран профиль «${config.name}».`);
+        setSuccessText(t("modelConfig.validation.selectSuccess", { name: config.name }));
         onFinished?.();
       } catch (err) {
         const apiErr = err as ApiError;
-        setSelectError(apiErr.detail || "Не удалось назначить профиль проекту.");
+        setSelectError(apiErr.detail || t("modelConfig.validation.selectFailed"));
       } finally {
         setIsSelecting(false);
       }
     },
-    [dealId, onDealPatched, onFinished],
+    [dealId, onDealPatched, onFinished, t],
   );
 
   // ── Derived ─────────────────────────────────────────────
@@ -395,7 +396,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-            Имя профиля
+            {t("modelConfig.form.profileName")}
           </label>
           <input
             type="text"
@@ -403,7 +404,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             value={formValues.name}
             onChange={(e) => handleInputChange(e, false)}
             className={inputClassName}
-            placeholder="например: default-v1, fast-v1"
+            placeholder={t("modelConfig.form.placeholder")}
           />
         </div>
         <div className="flex shrink-0 items-center gap-2 pt-5">
@@ -413,7 +414,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             variant="secondary"
             onClick={handleCancelEdit}
           >
-            Отмена
+            {t("modelConfig.form.cancel")}
           </Button>
           <Button
             type="submit"
@@ -421,7 +422,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             variant="primary"
             isLoading={isSubmitting}
           >
-            {rightMode === "create" ? "Создать" : "Сохранить"}
+            {rightMode === "create" ? t("modelConfig.form.create") : t("modelConfig.form.save")}
           </Button>
         </div>
       </div>
@@ -430,11 +431,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
       <div className="space-y-3 border-t border-[var(--border-soft)] pt-4">
         <div>
           <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Модели эмбеддингов
+            {t("modelConfig.form.embeddings.title")}
           </h3>
           <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-            Преобразуют текст документа и запросы в векторы для семантического
-            поиска.
+            {t("modelConfig.form.embeddings.subtitle")}
           </p>
         </div>
 
@@ -443,10 +443,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                Основная
+                {t("modelConfig.form.embeddings.primaryLabel")}
               </span>
               <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-0.5 text-[9px] font-semibold uppercase text-[var(--text-muted)]">
-                primary
+                {t("modelConfig.form.embeddings.primary")}
               </span>
             </div>
             <input
@@ -457,8 +457,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               className={`${elevatedSoftInputClassName} mt-1.5 font-mono`}
             />
             <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-muted)]">
-              Microsoft E5 (large). Мультиязычная, работает с RU/EN и
-              смешанными текстами. Рекомендуется как основная.
+              {t("modelConfig.form.embeddings.primaryDesc")}
             </p>
           </div>
 
@@ -466,10 +465,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                Запасная
+                {t("modelConfig.form.embeddings.fallbackLabel")}
               </span>
               <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-0.5 text-[9px] font-semibold uppercase text-[var(--text-muted)]">
-                fallback
+                {t("modelConfig.form.embeddings.fallback")}
               </span>
             </div>
             <input
@@ -478,11 +477,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               value={formValues.embeddings_fallback ?? ""}
               onChange={(e) => handleInputChange(e, false)}
               className={`${elevatedSoftInputClassName} mt-1.5 font-mono`}
-              placeholder="Пусто = отключено"
+              placeholder={t("modelConfig.form.embeddings.fallbackPlaceholder")}
             />
             <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-muted)]">
-              LaBSE. Подключается автоматически если основная недоступна.
-              Компактнее и быстрее, но менее точная.
+              {t("modelConfig.form.embeddings.fallbackDesc")}
             </p>
           </div>
         </div>
@@ -492,11 +490,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
       <div className="space-y-3 border-t border-[var(--border-soft)] pt-4">
         <div>
           <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Параметры поиска
+            {t("modelConfig.form.searchParams.title")}
           </h3>
           <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-            Управляют объёмом данных для анализа. Больше — точнее, но
-            медленнее.
+            {t("modelConfig.form.searchParams.subtitle")}
           </p>
         </div>
 
@@ -505,7 +502,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                candidate_n
+                {t("modelConfig.form.searchParams.candidateNLabel")}
               </span>
               <input
                 type="number"
@@ -516,23 +513,22 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               />
             </div>
             <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-              Сколько фрагментов извлекать из индекса на первом этапе. Из них
-              отбираются лучшие для LLM.
+              {t("modelConfig.form.searchParams.candidateNDesc")}
             </p>
             <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
               <div className="font-semibold text-[var(--text-secondary)]">
-                Ориентиры:
+                {t("modelConfig.form.searchParams.benchmarks.title")}
               </div>
               <div className="mt-0.5">
-                20–30 — быстро, короткие документы
+                {t("modelConfig.form.searchParams.benchmarks.fastShort")}
               </div>
               <div>
                 <span className="font-semibold text-[var(--text-primary)]">
                   50
                 </span>{" "}
-                — баланс (по умолчанию)
+                — {t("modelConfig.form.searchParams.benchmarks.balance")}
               </div>
-              <div>80–100 — сложные многостраничные</div>
+              <div>{t("modelConfig.form.searchParams.benchmarks.complexMulti")}</div>
             </div>
           </div>
 
@@ -540,7 +536,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                llm_context_k
+                {t("modelConfig.form.searchParams.contextKLabel")}
               </span>
               <input
                 type="number"
@@ -551,21 +547,20 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               />
             </div>
             <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-              Сколько лучших фрагментов передавать LLM как контекст для каждой
-              проверки.
+              {t("modelConfig.form.searchParams.contextKDesc")}
             </p>
             <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
               <div className="font-semibold text-[var(--text-secondary)]">
-                Ориентиры:
+                {t("modelConfig.form.searchParams.benchmarks.title")}
               </div>
-              <div className="mt-0.5">3 — быстрый режим</div>
+              <div className="mt-0.5">{t("modelConfig.form.searchParams.benchmarks.fastMode")}</div>
               <div>
                 <span className="font-semibold text-[var(--text-primary)]">
                   5
                 </span>{" "}
-                — стандарт (по умолчанию)
+                — {t("modelConfig.form.searchParams.benchmarks.standard")}
               </div>
-              <div>8–10 — сложные проверки</div>
+              <div>{t("modelConfig.form.searchParams.benchmarks.complexChecks")}</div>
             </div>
           </div>
         </div>
@@ -575,11 +570,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
       <div className="space-y-3 border-t border-[var(--border-soft)] pt-4">
         <div>
           <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Веса гибридного поиска
+            {t("modelConfig.form.hybridWeights.title")}
           </h3>
           <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-            Три источника сигнала: семантика, ключевые слова, метаданные.
-            Сумма должна быть больше нуля.
+            {t("modelConfig.form.hybridWeights.subtitle")}
           </p>
         </div>
 
@@ -588,7 +582,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                dense_weight
+                {t("modelConfig.form.hybridWeights.denseLabel")}
               </span>
               <input
                 type="number"
@@ -600,17 +594,16 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               />
             </div>
             <div className="mt-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-              Семантический поиск
+              {t("modelConfig.form.hybridWeights.denseTitle")}
             </div>
             <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-              Embedding-similarity. Находит перефразированные формулировки и
-              кросс-языковые совпадения.
+              {t("modelConfig.form.hybridWeights.denseDesc")}
             </p>
             <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] text-[var(--text-muted)]">
               <span className="font-semibold text-[var(--text-secondary)]">
                 Увеличить:
               </span>{" "}
-              мультиязычные документы, поиск по смыслу.
+              {t("modelConfig.form.hybridWeights.denseIncrease")}
             </div>
           </div>
 
@@ -618,7 +611,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                sparse_weight
+                {t("modelConfig.form.hybridWeights.sparseLabel")}
               </span>
               <input
                 type="number"
@@ -630,17 +623,16 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               />
             </div>
             <div className="mt-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-              Ключевой поиск (BM25)
+              {t("modelConfig.form.hybridWeights.sparseTitle")}
             </div>
             <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-              Классический поиск по токенам. Точно находит термины, номера
-              статей, специфичные формулировки.
+              {t("modelConfig.form.hybridWeights.sparseDesc")}
             </p>
             <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] text-[var(--text-muted)]">
               <span className="font-semibold text-[var(--text-secondary)]">
                 Увеличить:
               </span>{" "}
-              одноязычные документы, поиск конкретных пунктов.
+              {t("modelConfig.form.hybridWeights.sparseIncrease")}
             </div>
           </div>
 
@@ -648,7 +640,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
           <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                metadata_boost
+                {t("modelConfig.form.hybridWeights.metaLabel")}
               </span>
               <input
                 type="number"
@@ -660,17 +652,16 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               />
             </div>
             <div className="mt-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-              Структурный бонус
+              {t("modelConfig.form.hybridWeights.metaTitle")}
             </div>
             <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-              Бонус за совпадение метаданных: заголовки разделов, позиция
-              фрагмента в документе.
+              {t("modelConfig.form.hybridWeights.metaDesc")}
             </p>
             <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] text-[var(--text-muted)]">
               <span className="font-semibold text-[var(--text-secondary)]">
                 Увеличить:
               </span>{" "}
-              хорошо структурированные документы.
+              {t("modelConfig.form.hybridWeights.metaIncrease")}
             </div>
           </div>
 
@@ -692,7 +683,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
                     : "text-[var(--color-error-text)]",
                 ].join(" ")}
               >
-                Сумма весов
+                {t("modelConfig.form.hybridWeights.sumLabel")}
               </span>
               <span
                 className={[
@@ -714,8 +705,8 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               ].join(" ")}
             >
               {weightsSum > 0
-                ? "Валидная конфигурация. Сумма пересчитывается при изменении весов."
-                : "Сумма должна быть больше нуля."}
+                ? t("modelConfig.form.hybridWeights.sumValid")
+                : t("modelConfig.form.hybridWeights.sumError")}
             </p>
           </div>
         </div>
@@ -751,7 +742,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             onClick={handleStartEdit}
             leftIcon={<Pencil className="h-3.5 w-3.5" />}
           >
-            Изменить
+            {t("modelConfig.form.edit")}
           </Button>
         </div>
 
@@ -759,11 +750,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
         <div className="space-y-3 border-t border-[var(--border-soft)] pt-4">
           <div>
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Модели эмбеддингов
+              {t("modelConfig.form.embeddings.title")}
             </h3>
             <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-              Преобразуют текст документа и запросы в векторы для семантического
-              поиска.
+              {t("modelConfig.form.embeddings.subtitle")}
             </p>
           </div>
 
@@ -772,18 +762,17 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  Основная
+                  {t("modelConfig.form.embeddings.primaryLabel")}
                 </span>
                 <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-0.5 text-[9px] font-semibold uppercase text-[var(--text-muted)]">
-                  primary
+                  {t("modelConfig.form.embeddings.primary")}
                 </span>
               </div>
               <div className="mt-1.5 break-all font-mono text-xs font-semibold text-[var(--text-primary)]">
                 intfloat/multilingual-e5-large
               </div>
               <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-muted)]">
-                Microsoft E5 (large). Мультиязычная, работает с RU/EN и
-                смешанными текстами. Рекомендуется как основная.
+                {t("modelConfig.form.embeddings.primaryDesc")}
               </p>
             </div>
 
@@ -791,18 +780,17 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  Запасная
+                  {t("modelConfig.form.embeddings.fallbackLabel")}
                 </span>
                 <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-0.5 text-[9px] font-semibold uppercase text-[var(--text-muted)]">
-                  fallback
+                  {t("modelConfig.form.embeddings.fallback")}
                 </span>
               </div>
               <div className="mt-1.5 break-all font-mono text-xs font-semibold text-[var(--text-primary)]">
                 cointegrated/LaBSE
               </div>
               <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-muted)]">
-                LaBSE. Подключается автоматически если основная недоступна.
-                Компактнее и быстрее, но менее точная.
+                {t("modelConfig.form.embeddings.fallbackDesc")}
               </p>
             </div>
           </div>
@@ -812,11 +800,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
         <div className="space-y-3 border-t border-[var(--border-soft)] pt-4">
           <div>
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Параметры поиска
+              {t("modelConfig.form.searchParams.title")}
             </h3>
             <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-              Управляют объёмом данных для анализа. Больше — точнее, но
-              медленнее.
+              {t("modelConfig.form.searchParams.subtitle")}
             </p>
           </div>
 
@@ -825,30 +812,29 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  candidate_n
+                  {t("modelConfig.form.searchParams.candidateNLabel")}
                 </span>
                 <span className="font-mono text-sm font-semibold text-[var(--text-primary)]">
                   50
                 </span>
               </div>
               <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-                Сколько фрагментов извлекать из индекса на первом этапе. Из них
-                отбираются лучшие для LLM.
+                {t("modelConfig.form.searchParams.candidateNDesc")}
               </p>
               <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
                 <div className="font-semibold text-[var(--text-secondary)]">
-                  Ориентиры:
+                  {t("modelConfig.form.searchParams.benchmarks.title")}
                 </div>
                 <div className="mt-0.5">
-                  20–30 — быстро, короткие документы
+                  {t("modelConfig.form.searchParams.benchmarks.fastShort")}
                 </div>
                 <div>
                   <span className="font-semibold text-[var(--text-primary)]">
                     50
                   </span>{" "}
-                  — баланс (по умолчанию)
+                  — {t("modelConfig.form.searchParams.benchmarks.balance")}
                 </div>
-                <div>80–100 — сложные многостраничные</div>
+                <div>{t("modelConfig.form.searchParams.benchmarks.complexMulti")}</div>
               </div>
             </div>
 
@@ -856,28 +842,27 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  llm_context_k
+                  {t("modelConfig.form.searchParams.contextKLabel")}
                 </span>
                 <span className="font-mono text-sm font-semibold text-[var(--text-primary)]">
                   5
                 </span>
               </div>
               <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-                Сколько лучших фрагментов передавать LLM как контекст для каждой
-                проверки.
+                {t("modelConfig.form.searchParams.contextKDesc")}
               </p>
               <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
                 <div className="font-semibold text-[var(--text-secondary)]">
-                  Ориентиры:
+                  {t("modelConfig.form.searchParams.benchmarks.title")}
                 </div>
-                <div className="mt-0.5">3 — быстрый режим</div>
+                <div className="mt-0.5">{t("modelConfig.form.searchParams.benchmarks.fastMode")}</div>
                 <div>
                   <span className="font-semibold text-[var(--text-primary)]">
                     5
                   </span>{" "}
-                  — стандарт (по умолчанию)
+                  — {t("modelConfig.form.searchParams.benchmarks.standard")}
                 </div>
-                <div>8–10 — сложные проверки</div>
+                <div>{t("modelConfig.form.searchParams.benchmarks.complexChecks")}</div>
               </div>
             </div>
           </div>
@@ -887,11 +872,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
         <div className="space-y-3 border-t border-[var(--border-soft)] pt-4">
           <div>
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Веса гибридного поиска
+              {t("modelConfig.form.hybridWeights.title")}
             </h3>
             <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-              Три источника сигнала: семантика, ключевые слова, метаданные.
-              Сумма должна быть больше нуля.
+              {t("modelConfig.form.hybridWeights.subtitle")}
             </p>
           </div>
 
@@ -900,24 +884,23 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  dense_weight
+                  {t("modelConfig.form.hybridWeights.denseLabel")}
                 </span>
                 <span className="font-mono text-sm font-semibold text-[var(--text-primary)]">
                   0.6
                 </span>
               </div>
               <div className="mt-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-                Семантический поиск
+                {t("modelConfig.form.hybridWeights.denseTitle")}
               </div>
               <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-                Embedding-similarity. Находит перефразированные формулировки и
-                кросс-языковые совпадения.
+                {t("modelConfig.form.hybridWeights.denseDesc")}
               </p>
               <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] text-[var(--text-muted)]">
                 <span className="font-semibold text-[var(--text-secondary)]">
                   Увеличить:
                 </span>{" "}
-                мультиязычные документы, поиск по смыслу.
+                {t("modelConfig.form.hybridWeights.denseIncrease")}
               </div>
             </div>
 
@@ -925,24 +908,23 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  sparse_weight
+                  {t("modelConfig.form.hybridWeights.sparseLabel")}
                 </span>
                 <span className="font-mono text-sm font-semibold text-[var(--text-primary)]">
                   0.3
                 </span>
               </div>
               <div className="mt-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-                Ключевой поиск (BM25)
+                {t("modelConfig.form.hybridWeights.sparseTitle")}
               </div>
               <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-                Классический поиск по токенам. Точно находит термины, номера
-                статей, специфичные формулировки.
+                {t("modelConfig.form.hybridWeights.sparseDesc")}
               </p>
               <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] text-[var(--text-muted)]">
                 <span className="font-semibold text-[var(--text-secondary)]">
                   Увеличить:
                 </span>{" "}
-                одноязычные документы, поиск конкретных пунктов.
+                {t("modelConfig.form.hybridWeights.sparseIncrease")}
               </div>
             </div>
 
@@ -950,24 +932,23 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  metadata_boost
+                  {t("modelConfig.form.hybridWeights.metaLabel")}
                 </span>
                 <span className="font-mono text-sm font-semibold text-[var(--text-primary)]">
                   0.1
                 </span>
               </div>
               <div className="mt-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-                Структурный бонус
+                {t("modelConfig.form.hybridWeights.metaTitle")}
               </div>
               <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--text-muted)]">
-                Бонус за совпадение метаданных: заголовки разделов, позиция
-                фрагмента в документе.
+                {t("modelConfig.form.hybridWeights.metaDesc")}
               </p>
               <div className="mt-2 rounded bg-[var(--bg-base)] px-2 py-1.5 text-[10px] text-[var(--text-muted)]">
                 <span className="font-semibold text-[var(--text-secondary)]">
                   Увеличить:
                 </span>{" "}
-                хорошо структурированные документы.
+                {t("modelConfig.form.hybridWeights.metaIncrease")}
               </div>
             </div>
 
@@ -975,14 +956,14 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             <div className="rounded-lg border border-[var(--color-success-border)] bg-[var(--color-success-bg)] p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-success-text)]">
-                  Сумма весов
+                  {t("modelConfig.form.hybridWeights.sumLabel")}
                 </span>
                 <span className="font-mono text-sm font-semibold text-[var(--color-success-text)]">
                   1.0
                 </span>
               </div>
               <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--color-success-text)]">
-                0.6 + 0.3 + 0.1 = 1.0. Валидная конфигурация.
+                {t("modelConfig.form.hybridWeights.sumFormula")}
               </p>
             </div>
           </div>
@@ -991,21 +972,21 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
         {/* ── Использование ───────────────────────────── */}
         <div className="space-y-2 border-t border-[var(--border-soft)] pt-4">
           <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Использование
+            {t("modelConfig.form.usage.title")}
           </h3>
 
           {!usage ? (
-            <p className="text-[11px] text-[var(--text-muted)]">Загружаем…</p>
+            <p className="text-[11px] text-[var(--text-muted)]">{t("modelConfig.form.usage.loading")}</p>
           ) : !isUsed ? (
             <p className="text-[11px] text-[var(--color-success-text)]">
-              Не используется ни в одной playbook-версии или проекте.
+              {t("modelConfig.form.usage.notUsed")}
             </p>
           ) : (
             <div className="space-y-1.5 text-[11px] text-[var(--text-muted)]">
               {(usage.playbook_versions?.length ?? 0) > 0 && (
                 <div>
                   <span className="font-semibold text-[var(--text-secondary)]">
-                    Playbook-версии:
+                    {t("modelConfig.form.usage.playbooks")}
                   </span>{" "}
                   {usage.playbook_versions
                     .slice(0, 3)
@@ -1017,7 +998,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               {(usage.deals?.length ?? 0) > 0 && (
                 <div>
                   <span className="font-semibold text-[var(--text-secondary)]">
-                    Проекты:
+                    {t("modelConfig.form.usage.projects")}
                   </span>{" "}
                   {usage.deals
                     .slice(0, 3)
@@ -1040,7 +1021,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               isLoading={isSelecting}
               disabled={isSelecting}
             >
-              Выбрать для проекта
+              {t("modelConfig.form.selectForProject")}
             </Button>
           )}
 
@@ -1050,7 +1031,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             disabled={isDeleting || isUsed}
             className="ml-auto text-[10px] text-[var(--text-muted)] transition-colors hover:text-[var(--color-error-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Удалить профиль
+            {t("modelConfig.form.deleteProfile")}
           </button>
         </div>
       </div>
@@ -1063,10 +1044,14 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
       {/* Embedded: текущий профиль сделки */}
       {isEmbedded && currentDeal?.model_config_name && (
         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
-          Текущий профиль сделки:{" "}
-          <span className="font-medium text-[var(--text-primary)]">
-            {currentDeal.model_config_name}
-          </span>
+          <Trans
+            t={t}
+            i18nKey="modelConfig.currentDealProfile"
+            values={{ name: currentDeal.model_config_name }}
+            components={{
+              bold: <span className="font-medium text-[var(--text-primary)]" />,
+            }}
+          />
         </div>
       )}
 
@@ -1082,7 +1067,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              Профили
+              {t("modelConfig.list.title")}
             </h2>
             <Button
               size="sm"
@@ -1090,17 +1075,17 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               onClick={handleStartCreate}
               leftIcon={<Plus className="h-3.5 w-3.5" />}
             >
-              Новый
+              {t("modelConfig.list.newBtn")}
             </Button>
           </div>
 
           {state.isLoading ? (
             <p className="text-xs text-[var(--text-muted)]">
-              Загружаем профили…
+              {t("modelConfig.list.loading")}
             </p>
           ) : state.items.length === 0 ? (
             <p className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--text-muted)]">
-              Нет профилей. Создайте первый.
+              {t("modelConfig.list.empty")}
             </p>
           ) : (
             <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto">
@@ -1145,7 +1130,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
                           </span>
                           {isCurrentDealConfig && (
                             <span className="shrink-0 rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                              Текущий
+                              {t("modelConfig.list.currentBadge")}
                             </span>
                           )}
                         </div>
@@ -1161,10 +1146,10 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
                             {cfg.id.slice(0, 8)}…
                           </span>
                           {isUsed ? (
-                            <span>Используется</span>
+                            <span>{t("modelConfig.list.inUse")}</span>
                           ) : usage ? (
                             <span className="text-[var(--color-success-text)]">
-                              Свободен
+                              {t("modelConfig.list.free")}
                             </span>
                           ) : null}
                         </div>
@@ -1181,17 +1166,17 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
             {rightMode === "create"
-              ? "Новый профиль"
+              ? t("modelConfig.rightPanel.newProfile")
               : rightMode === "edit"
-                ? "Редактирование"
+                ? t("modelConfig.rightPanel.editing")
                 : rightMode === "view"
-                  ? "Профиль"
-                  : "Детали профиля"}
+                  ? t("modelConfig.rightPanel.profile")
+                  : t("modelConfig.rightPanel.details")}
           </h2>
 
           {rightMode === null && (
             <p className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--text-muted)]">
-              Выберите профиль слева для просмотра или нажмите «Новый».
+              {t("modelConfig.rightPanel.emptyPrompt")}
             </p>
           )}
 

@@ -4,6 +4,7 @@
 
 import React, { useEffect, useMemo, useCallback } from "react";
 import { ExternalLink } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { DDRequestDTO } from "../../types/dealReview";
 import type { OpenViewerAtFn, OpenViewerAtPayload } from "../../types";
 import {
@@ -28,6 +29,8 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
   onClose,
   onOpenAtLocation,
 }) => {
+  const { t } = useTranslation("requests");
+
   useEffect(() => {
     if (!request) return;
 
@@ -62,7 +65,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
     if (!viewModel) return undefined;
 
     if (!viewerTarget) {
-      return "Переход к месту в документе будет доступен после обновления API (document_id в запросе).";
+      return t("reviewPanel.jumpDisabledApi");
     }
 
     const hasSegmentContext = !!(
@@ -70,11 +73,11 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
     );
 
     if (!hasSegmentContext) {
-      return "Segment context отсутствует — переход невозможен.";
+      return t("reviewPanel.jumpDisabledNoSegment");
     }
 
     return undefined;
-  }, [onOpenAtLocation, viewModel, viewerTarget]);
+  }, [onOpenAtLocation, viewModel, viewerTarget, t]);
 
   const handleJumpToViewer = useCallback(() => {
     if (!canJumpToViewer || !onOpenAtLocation || !viewerTarget) return;
@@ -103,7 +106,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
       <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-            Review-запрос
+            {t("reviewPanel.title")}
           </p>
           <h2
             id="review-request-panel-title"
@@ -113,7 +116,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
           </h2>
           {viewModel.addressee && (
             <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Адресат: {viewModel.addressee}
+              {t("reviewTable.addresseePrefix", { name: viewModel.addressee })}
             </p>
           )}
         </div>
@@ -121,7 +124,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Закрыть панель запроса"
+          aria-label={t("reviewPanel.closeAria")}
           className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
         >
           ✕
@@ -132,24 +135,23 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
       <div className="flex-1 space-y-5 overflow-y-auto px-4 py-3">
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-            Режим
+            {t("reviewPanel.modeTitle")}
           </p>
           <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-            Только просмотр
+            {t("reviewPanel.modeValue")}
           </p>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Запрос сформирован в review-контексте run-scoped API и не
-            редактируется из этой панели.
+            {t("reviewPanel.modeDesc")}
           </p>
         </div>
 
-        <Field label="Приоритет">
+        <Field label={t("reviewPanel.priority")}>
           <div className="mt-1">
             <RequestPriorityBadge priority={viewModel.priority} />
           </div>
         </Field>
 
-        <Field label="Текст запроса">
+        <Field label={t("reviewPanel.text")}>
           <div className="mt-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
             <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">
               {viewModel.text}
@@ -158,7 +160,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
         </Field>
 
         {viewModel.documents.length > 0 && (
-          <Field label={`Документы (${viewModel.documents.length})`}>
+          <Field label={t("reviewPanel.documents", { count: viewModel.documents.length })}>
             <div className="mt-1">
               <RequestDocumentsList documents={viewModel.documents} />
             </div>
@@ -166,7 +168,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
         )}
 
         {viewModel.docTypes.length > 0 && (
-          <Field label="Типы документов">
+          <Field label={t("reviewPanel.docTypes")}>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {viewModel.docTypes.map((dt, i) => (
                 <span
@@ -181,7 +183,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
         )}
 
         {viewModel.segment && (
-          <Field label="Контекст сегмента">
+          <Field label={t("reviewPanel.segmentContext")}>
             <div className="mt-1 space-y-3">
               <RequestSegmentSummary
                 segment={viewModel.segment}
@@ -200,7 +202,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
                     disabled={!canJumpToViewer}
                     leftIcon={<ExternalLink className="h-4 w-4" />}
                   >
-                    Открыть в viewer
+                    {t("reviewPanel.openInViewer")}
                   </Button>
                 </div>
               )}
@@ -215,7 +217,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
         )}
 
         {viewModel.checkId && (
-          <Field label="Проверка (check_id)">
+          <Field label={t("reviewPanel.checkId")}>
             <div className="mt-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
               <p className="font-mono text-sm text-[var(--text-secondary)]">
                 {viewModel.checkId}
@@ -226,7 +228,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
 
         {viewModel.structuredValues.length > 0 && (
           <Field
-            label={`Извлечённые данные (${viewModel.structuredValues.length})`}
+            label={t("reviewPanel.structuredValues", { count: viewModel.structuredValues.length })}
           >
             <div className="mt-1">
               <RequestStructuredValuesList values={viewModel.structuredValues} />
@@ -256,5 +258,6 @@ function Field({
 }
 
 export default ReviewRequestSidePanel;
+
 
 

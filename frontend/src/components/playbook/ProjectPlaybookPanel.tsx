@@ -3,6 +3,7 @@
 // =============================================================
 
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import client from "../../api/client";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import Button from "../ui/Button";
@@ -26,6 +27,7 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
   onFinished,
   onCancel,
 }) => {
+  const { t } = useTranslation("projects");
   const [yamlText, setYamlText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -61,12 +63,11 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
         ) {
           if (!cancelled) {
             setYamlText("");
-            setInfoText("Playbook для этого проекта ещё не создан.");
+            setInfoText(t("pages.playbook.notCreated"));
           }
         } else if (!cancelled) {
           setErrorText(
-            apiErr.detail ||
-              "Не удалось загрузить playbook. Попробуйте позже.",
+            apiErr.detail || t("pages.playbook.loadError"),
           );
         }
       } finally {
@@ -81,7 +82,7 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [dealId]);
+  }, [dealId, t]);
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -92,10 +93,10 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
     try {
       const text = await file.text();
       setYamlText(text);
-      setInfoText(`Загружен файл: ${file.name}`);
+      setInfoText(t("pages.playbook.fileLoaded", { name: file.name }));
       setErrorText(null);
     } catch {
-      setErrorText("Не удалось прочитать файл YAML.");
+      setErrorText(t("pages.playbook.readError"));
     }
   };
 
@@ -104,7 +105,7 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
     setInfoText(null);
 
     if (!yamlText.trim()) {
-      setErrorText("Нельзя сохранить пустой playbook.");
+      setErrorText(t("pages.playbook.emptySaveError"));
       return;
     }
 
@@ -115,13 +116,12 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
         yaml: yamlText,
       });
 
-      setInfoText("Playbook успешно сохранён.");
+      setInfoText(t("pages.playbook.saveSuccess"));
       onFinished?.();
     } catch (err) {
       const apiErr = err as ApiError;
       setErrorText(
-        apiErr.detail ||
-          "Не удалось сохранить playbook. Проверьте YAML и попробуйте ещё раз.",
+        apiErr.detail || t("pages.playbook.saveError"),
       );
     } finally {
       setIsSaving(false);
@@ -144,12 +144,12 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
         >
           <div className="w-full max-w-md rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center shadow-sm">
             <p className="mb-4 text-sm text-[var(--text-secondary)]">
-              У вас нет прав для редактирования playbook этого проекта.
+              {t("pages.playbook.noPermission")}
             </p>
 
             {onCancel && (
               <Button variant="secondary" size="sm" onClick={onCancel}>
-                Вернуться назад
+                {t("pages.playbook.backToProject")}
               </Button>
             )}
           </div>
@@ -175,27 +175,25 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
           <header className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                Playbook YAML
+                {t("pages.playbook.badge")}
               </div>
 
               <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-[var(--text-primary)]">
-                YAML-playbook проекта
+                {t("pages.playbook.title")}
               </h1>
 
               <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                Проект: {dealId}
+                {t("pages.playbook.projectLabel", { id: dealId })}
               </p>
 
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Этот редактор предназначен для прямого редактирования
-                YAML-конфигурации playbook для конкретного проекта. Используйте
-                его только если понимаете структуру схемы.
+                {t("pages.playbook.warningDesc")}
               </p>
             </div>
 
             {onCancel && (
               <Button variant="secondary" size="sm" onClick={onCancel}>
-                ← Назад к проекту
+                ← {t("pages.playbook.backToProject")}
               </Button>
             )}
           </header>
@@ -213,17 +211,16 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
           <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] pb-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Редактор YAML-playbook
+                {t("pages.playbook.editorTitle")}
               </p>
               <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                Отредактируйте текст вручную или загрузите готовый YAML-файл.
-                При сохранении конфигурация применится только к этому проекту.
+                {t("pages.playbook.editorDesc")}
               </p>
             </div>
 
             <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--accent-primary)]">
               <span className="rounded-2xl border border-[var(--accent-primary)] px-3 py-1.5 text-[var(--accent-primary)] transition hover:bg-[var(--accent-muted)]">
-                Загрузить YAML-файл
+                {t("pages.playbook.uploadButton")}
               </span>
               <input
                 type="file"
@@ -243,7 +240,7 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
           >
             {isLoading ? (
               <p className="text-sm text-[var(--text-secondary)]">
-                Загружаем текущий playbook…
+                {t("pages.playbook.loading")}
               </p>
             ) : (
               <textarea
@@ -266,7 +263,7 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
                   onClick={onCancel}
                   disabled={isSaving}
                 >
-                  Отмена
+                  {t("pages.playbook.cancel")}
                 </Button>
               )}
 
@@ -277,7 +274,7 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
                 disabled={isSaving || isLoading}
                 isLoading={isSaving}
               >
-                {isSaving ? "Сохраняем..." : "Сохранить"}
+                {isSaving ? t("pages.playbook.saving") : t("pages.playbook.save")}
               </Button>
             </div>
           </div>
@@ -288,5 +285,4 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
 };
 
 export default ProjectPlaybookPanel;
-
 

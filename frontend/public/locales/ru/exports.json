@@ -1,8 +1,75 @@
 {
+  "reportTab": {
+    "fileSize": "{{count}} КБ",
+    "emptyState": {
+      "title": "Отчёт будет доступен после завершения анализа",
+      "description": "Экспорт доступен только для последнего run со статусом completed или completed_with_errors. Запустите анализ и дождитесь его завершения."
+    },
+    "pageSection": {
+      "title": "Отчёт",
+      "subtitle": "Выберите формат и запустите генерацию. Отчёт будет сформирован по последнему завершённому анализу."
+    },
+    "statusSection": {
+      "title": "Статус экспорта",
+      "subtitle": "Следите за генерацией и скачайте готовый файл после завершения.",
+      "updating": "Обновляем статус…",
+      "fetchError": "Не удалось получить статус экспорта",
+      "generating": "Генерируем файл… Обычно это занимает 10–30 секунд.",
+      "ready": "{{title}} готов к скачиванию",
+      "readyFallback": "Файл готов к скачиванию",
+      "downloading": "Скачиваем…",
+      "downloadBtn": "Скачать файл",
+      "failed": "Ошибка генерации экспорта",
+      "failedWithTitle": "{{title}}: ошибка генерации",
+      "failedFallback": "Экспорт завершился ошибкой. Попробуйте ещё раз или проверьте backend-логи.",
+      "failedHint": "После устранения причины ошибки можно повторно запустить генерацию этого формата отчёта.",
+      "unexpectedStatus": "Неожиданный статус экспорта",
+      "currentStatus": "Текущий статус: "
+    },
+    "cards": {
+      "ddGrid": {
+        "title": "DD Grid",
+        "description": "Полная таблица результатов проверок с цветовым кодированием severity.",
+        "format": "Excel (.xlsx)"
+      },
+      "dealSummary": {
+        "title": "Deal Summary",
+        "description": "KPI, Top Risks, разбивка по типам документов и список запросов.",
+        "format": "Excel (.xlsx)"
+      },
+      "ddReport": {
+        "title": "Отчёт DD",
+        "description": "Executive Summary, критические находки, качество анализа, запросы.",
+        "format": "Word (.docx)"
+      },
+      "generate": "Генерировать"
+    },
+    "errors": {
+      "analysisNotFinished": "Анализ не завершён. Запустите анализ на вкладке «Обзор».",
+      "exportUnavailable": "Экспорт доступен только после завершения анализа (completed или completed_with_errors).",
+      "requestFailed": "Ошибка запроса экспорта",
+      "downloadFailed": "Не удалось скачать файл. Попробуйте ещё раз."
+    }
+  },
   "types": {
     "grid_xlsx": "DD Grid (Excel)",
     "deal_summary_xlsx": "Deal Summary (Excel)",
     "report_docx": "Отчёт DD (Word)"
+  },
+  "ddGridExport": {
+    "title": "DD Grid V1 — Экспорт",
+    "titleMatrix": "DD Grid V1 — Экспорт (матрица)",
+    "titleSingle": "DD Grid V1 — Экспорт (единая таблица)",
+    "titleSectioned": "DD Grid V1 — Экспорт ({{suffix}})",
+    "meta": {
+      "project": "Проект",
+      "runId": "Run ID",
+      "date": "Дата формирования",
+      "rows": "Количество записей",
+      "columns": "Количество колонок"
+    },
+    "pageFooter": "Страница {{current}} из {{total}}",
+    "metadataSheet": "Metadata"
   }
 }
 

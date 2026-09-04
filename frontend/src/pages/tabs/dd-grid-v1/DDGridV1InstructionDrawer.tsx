@@ -3,9 +3,12 @@
 // Side-panel drawer со списком проверок doc_type, зафиксированных
 // в снапшоте Run. Без собственного fetch: данные приходят как пропсы
 // из уже загруженной DDGridV1DerivedModel.
+//
+// i18n: все UI-строки локализованы через namespace "ddGrid", ключи instructionDrawer.*
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import type {
   DDGridV1InstructionSnapshotDTO,
@@ -88,6 +91,8 @@ export interface DDGridV1InstructionDrawerProps {
 export const DDGridV1InstructionDrawer: React.FC<
   DDGridV1InstructionDrawerProps
 > = ({ open, onClose, documentName, snapshot }) => {
+  const { t } = useTranslation("ddGrid");
+
   React.useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -104,7 +109,7 @@ export const DDGridV1InstructionDrawer: React.FC<
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
         <div>
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Инструкция проверки
+            {t("instructionDrawer.title")}
           </h3>
           <div className="mt-0.5 text-xs text-[var(--text-muted)]">
             {documentName ?? "—"}
@@ -115,7 +120,7 @@ export const DDGridV1InstructionDrawer: React.FC<
           type="button"
           onClick={onClose}
           className="rounded p-1 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-          aria-label="Закрыть"
+          aria-label={t("instructionDrawer.close")}
         >
           <X className="h-4 w-4" />
         </button>
@@ -124,18 +129,18 @@ export const DDGridV1InstructionDrawer: React.FC<
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         {!snapshot ? (
           <div className="text-sm text-[var(--text-faint)]">
-            Тип документа не классифицирован — инструкция не применялась.
+            {t("instructionDrawer.unclassified")}
           </div>
         ) : (
           <>
             <div className="flex items-center gap-2">
               {snapshot.is_persisted_snapshot ? (
                 <span className="inline-flex items-center rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-success-text)]">
-                  Зафиксирована в момент запуска Run
+                  {t("instructionDrawer.persistedBadge")}
                 </span>
               ) : (
                 <span className="inline-flex items-center rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-warning-text)]">
-                  Legacy Run — версия не зафиксирована
+                  {t("instructionDrawer.legacyBadge")}
                 </span>
               )}
               {snapshot.version_id ? (
@@ -148,14 +153,14 @@ export const DDGridV1InstructionDrawer: React.FC<
             {snapshot.global_checks.length === 0 &&
             snapshot.doc_type_checks.length === 0 ? (
               <div className="text-sm text-[var(--text-faint)]">
-                Список проверок недоступен для этого doc_type.
+                {t("instructionDrawer.noChecksAvailable")}
               </div>
             ) : (
               <>
                 {snapshot.global_checks.length > 0 && (
                   <CheckGroupSection
-                    title="Глобальные проверки"
-                    hint="Применяются ко всем документам сделки"
+                    title={t("instructionDrawer.globalChecksTitle")}
+                    hint={t("instructionDrawer.globalChecksHint")}
                     accentClassName="border-l-[var(--color-blue)]"
                     checks={snapshot.global_checks}
                     defaultOpen
@@ -163,7 +168,7 @@ export const DDGridV1InstructionDrawer: React.FC<
                 )}
                 {snapshot.doc_type_checks.length > 0 && (
                   <CheckGroupSection
-                    title="Проверки типа документа"
+                    title={t("instructionDrawer.docTypeChecksTitle")}
                     hint={snapshot.doc_type}
                     accentClassName="border-l-[var(--color-purple)]"
                     checks={snapshot.doc_type_checks}

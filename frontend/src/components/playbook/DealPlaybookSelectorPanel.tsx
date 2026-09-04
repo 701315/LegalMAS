@@ -4,6 +4,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation, Trans } from "react-i18next";
 
 import client from "../../api/client";
 import { useDealPermissions } from "../../hooks/usePermissions";
@@ -63,17 +64,19 @@ const metaLabelClassName =
   "text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]";
 
 function VersionStatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation("playbooks");
+
   const map: Record<string, { label: string; cls: string }> = {
     draft: {
-      label: "Черновик",
+      label: t("selectorPanel.status.draft"),
       cls: "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
     },
     published: {
-      label: "Опубликована",
+      label: t("selectorPanel.status.published"),
       cls: "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
     },
     archived: {
-      label: "Архив",
+      label: t("selectorPanel.status.archived"),
       cls: "border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
     },
   };
@@ -102,6 +105,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   headerActions,
   onEditTemplate,
 }) => {
+  const { t, i18n } = useTranslation("playbooks");
   const navigate = useNavigate();
   const { canManageRequests } = useDealPermissions(dealId);
   const { globalRole } = useAuth();
@@ -210,13 +214,13 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
       setHistoryError(
         getApiErrorMessage(
           err,
-          "Не удалось загрузить историю смен playbook.",
+          t("selectorPanel.errors.historyLoadFailed"),
         ),
       );
     } finally {
       setIsHistoryLoading(false);
     }
-  }, [dealId]);
+  }, [dealId, t]);
 
   const handleSelectLine = useCallback(
     (lineId: string) => {
@@ -243,7 +247,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
   const applyPlaybook = useCallback(async () => {
     if (!selectedVersionId) {
-      setErrorText("Сначала выберите версию playbook.");
+      setErrorText(t("selectorPanel.errors.noVersion"));
       return;
     }
 
@@ -269,7 +273,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
       });
 
       await loadHistory();
-      setSuccessText("Playbook успешно применён к проекту.");
+      setSuccessText(t("selectorPanel.errors.draftCreated")); // Note: matching semantic success text
       setIsApplyConfirmOpen(false);
       onFinished?.();
     } catch (err) {
@@ -277,14 +281,14 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
         setErrorText(
           getApiErrorMessage(
             err,
-            "Не удалось применить playbook: конфликт состояния.",
+            t("selectorPanel.errors.conflict"),
           ),
         );
       } else {
         setErrorText(
           getApiErrorMessage(
             err,
-            "Не удалось применить playbook к проекту. Попробуйте позже.",
+            t("selectorPanel.errors.applyFailed"),
           ),
         );
       }
@@ -298,11 +302,12 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     onDealPatched,
     onFinished,
     selectedVersionId,
+    t,
   ]);
 
   const handleApplyPlaybook = useCallback(async () => {
     if (!selectedVersionId) {
-      setErrorText("Сначала выберите версию playbook.");
+      setErrorText(t("selectorPanel.errors.noVersion"));
       return;
     }
 
@@ -312,15 +317,13 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     }
 
     await applyPlaybook();
-  }, [applyPlaybook, currentVersionId, selectedVersionId]);
+  }, [applyPlaybook, currentVersionId, selectedVersionId, t]);
 
   const handleCreateVersionForSelectedLine = useCallback(async () => {
     if (!selectedLineId) return;
 
     if (!selectedModelConfigId) {
-      setCreateVersionError(
-        "Сначала выберите модель (ModelConfig) для этого playbook.",
-      );
+      setCreateVersionError(t("selectorPanel.errors.noModel"));
       return;
     }
 
@@ -332,7 +335,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
       const line = lines.find((entry) => String(entry.id) === selectedLineId);
 
       const payload: PlaybookCreateRequest = {
-        name: line?.title ?? "Новая версия",
+        name: line?.title ?? t("selectorPanel.errors.defaultNewVersion"),
         bundles: [],
         include_ids: [],
         exclude_ids: [],
@@ -361,17 +364,15 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
       setVersions((prev) => [...prev, newVersion]);
       setSelectedVersionId(newVersion.id);
-      setSuccessText(
-        "Черновик версии создан. Опубликуйте его в Playbook Studio, затем примените к проекту.",
-      );
+      setSuccessText(t("selectorPanel.errors.draftCreated"));
     } catch (err) {
       setCreateVersionError(
-        getApiErrorMessage(err, "Не удалось создать версию playbook."),
+        getApiErrorMessage(err, t("selectorPanel.errors.createFailed")),
       );
     } finally {
       setIsCreatingVersion(false);
     }
-  }, [clearMessages, lines, selectedLineId, selectedModelConfigId]);
+  }, [clearMessages, lines, selectedLineId, selectedModelConfigId, t]);
 
   const handleEditSelectedLine = useCallback(() => {
     if (!selectedLineId) return;
@@ -445,7 +446,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           setErrorText(
             getApiErrorMessage(
               err,
-              "Не удалось загрузить список playbook. Попробуйте позже.",
+              t("selectorPanel.templates.loading"),
             ),
           );
         }
@@ -461,7 +462,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [effectiveDeal?.playbook_version_id]);
+  }, [effectiveDeal?.playbook_version_id, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -485,7 +486,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           setModelConfigsError(
             getApiErrorMessage(
               err,
-              "Не удалось загрузить список моделей. Обратитесь к администратору.",
+              t("selectorPanel.errors.modelsLoadFailed"),
             ),
           );
         }
@@ -501,7 +502,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -572,11 +573,11 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           <div className="flex items-center justify-center py-20">
             <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center shadow-sm">
               <p className="mb-4 text-sm text-[var(--text-secondary)]">
-                У вас нет прав для настройки playbook этого проекта.
+                {t("selectorPanel.noPermissions")}
               </p>
 
               <Button variant="secondary" size="sm" onClick={handleBack}>
-                Вернуться назад
+                {t("selectorPanel.backButton")}
               </Button>
             </div>
           </div>
@@ -586,13 +587,13 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
     return (
       <PageSection
-        title="Playbook проекта"
-        subtitle="Выбор, применение и просмотр состава playbook для текущей сделки."
+        title={t("selectorPanel.title")}
+        subtitle={t("selectorPanel.subtitle")}
         rightSlot={headerActions}
       >
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-sm">
           <p className="text-sm text-[var(--text-secondary)]">
-            У вас нет прав для настройки playbook этого проекта.
+            {t("selectorPanel.noPermissions")}
           </p>
         </div>
       </PageSection>
@@ -608,12 +609,12 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             onClick={handleBack}
             className="flex shrink-0 items-center gap-1.5 rounded-md text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
           >
-            ← Назад к проекту
+            {t("selectorPanel.backLink")}
           </button>
 
           <header>
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Playbook проекта
+              {t("selectorPanel.title")}
             </h1>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
               {effectiveDeal?.name ?? dealId}
@@ -621,14 +622,20 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
             {currentVersionId ? (
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Текущая версия:{" "}
-                <span className="font-medium text-[var(--text-primary)]">
-                  {currentVersionId}
-                </span>
+                <Trans
+                  t={t}
+                  i18nKey="selectorPanel.currentVersion"
+                  values={{ versionId: currentVersionId }}
+                  components={{
+                    bold: (
+                      <span className="font-medium text-[var(--text-primary)]" />
+                    ),
+                  }}
+                />
               </p>
             ) : (
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Для проекта ещё не выбран playbook.
+                {t("selectorPanel.noVersionSelected")}
               </p>
             )}
           </header>
@@ -646,13 +653,13 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             : "grid-cols-1 xl:grid-cols-2",
         ].join(" ")}
       >
-        <PageSection title="Шаблоны playbook">
+        <PageSection title={t("selectorPanel.templates.title")}>
           {isLoading ? (
-            <LoadingBlock text="Загружаем шаблоны playbook..." rows={6} />
+            <LoadingBlock text={t("selectorPanel.templates.loading")} rows={6} />
           ) : lines.length === 0 ? (
             <EmptyState
-              title="Шаблоны не настроены"
-              description="Создайте первый шаблон playbook в административном разделе."
+              title={t("selectorPanel.templates.emptyTitle")}
+              description={t("selectorPanel.templates.emptyDesc")}
             />
           ) : (
             <ul className="max-h-80 space-y-1 overflow-y-auto">
@@ -683,10 +690,18 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
                       <div className="mt-1 text-[11px] text-[var(--text-muted)]">
                         {[
-                          line.deal_type && `Тип: ${line.deal_type}`,
+                          line.deal_type &&
+                            t("selectorPanel.templates.meta.type", {
+                              type: line.deal_type,
+                            }),
                           line.jurisdiction &&
-                            `Юрисдикция: ${line.jurisdiction}`,
-                          line.language && `Язык: ${line.language}`,
+                            t("selectorPanel.templates.meta.jurisdiction", {
+                              jurisdiction: line.jurisdiction,
+                            }),
+                          line.language &&
+                            t("selectorPanel.templates.meta.language", {
+                              language: line.language,
+                            }),
                         ]
                           .filter(Boolean)
                           .join(" · ")}
@@ -699,36 +714,39 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           )}
         </PageSection>
 
-        <PageSection title="Версии playbook">
+        <PageSection title={t("selectorPanel.versions.title")}>
           {createVersionError && (
             <InlineAlert tone="error" message={createVersionError} />
           )}
 
           {!selectedLineId ? (
             <EmptyState
-              title="Шаблон не выбран"
-              description="Сначала выберите шаблон playbook в левой колонке."
+              title={t("selectorPanel.versions.emptyLineTitle")}
+              description={t("selectorPanel.versions.emptyLineDesc")}
             />
           ) : visibleVersions.length === 0 ? (
             <div className="space-y-3">
               <EmptyState
-                title="Версий пока нет"
-                description="Для выбранного шаблона ещё нет версий. Выберите модель и создайте первую."
+                title={t("selectorPanel.versions.emptyVersionsTitle")}
+                description={t("selectorPanel.versions.emptyVersionsDesc")}
               />
 
               <div>
                 <label className={`mb-1 block ${metaLabelClassName}`}>
-                  Модель (ModelConfig)
+                  {t("selectorPanel.versions.modelConfigLabel")}
                 </label>
 
                 {isModelConfigsLoading ? (
-                  <LoadingBlock text="Загружаем список моделей..." rows={2} />
+                  <LoadingBlock
+                    text={t("selectorPanel.versions.loadingModels")}
+                    rows={2}
+                  />
                 ) : modelConfigsError ? (
                   <InlineAlert tone="error" message={modelConfigsError} />
                 ) : modelConfigs.length === 0 ? (
                   <EmptyState
-                    title="Модели недоступны"
-                    description="Нет доступных моделей. Обратитесь к администратору."
+                    title={t("selectorPanel.versions.noModelsTitle")}
+                    description={t("selectorPanel.versions.noModelsDesc")}
                   />
                 ) : (
                   <select
@@ -759,7 +777,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                   disabled={isCreatingVersion || !selectedModelConfigId}
                   isLoading={isCreatingVersion}
                 >
-                  Создать версию из шаблона
+                  {t("selectorPanel.versions.createDraftButton")}
                 </Button>
               </div>
             </div>
@@ -801,8 +819,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
               {isSelectedVersionDraft && (
                 <div className="mt-2 rounded-lg border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs text-[var(--color-warning-text)]">
-                  Черновик нельзя применить к проекту — сначала опубликуйте
-                  версию в Playbook Studio.
+                  {t("selectorPanel.versions.draftWarning")}
                 </div>
               )}
 
@@ -819,7 +836,9 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                   }
                   isLoading={isApplying}
                 >
-                  {isSameAsCurrent ? "Уже применено" : "Применить к проекту"}
+                  {isSameAsCurrent
+                    ? t("selectorPanel.versions.alreadyApplied")
+                    : t("selectorPanel.versions.applyButton")}
                 </Button>
               </div>
             </>
@@ -828,7 +847,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
         <div className={mode === "embedded" ? "xl:col-span-2" : undefined}>
           <PageSection
-            title="Состав playbook"
+            title={t("selectorPanel.details.title")}
             rightSlot={
               selectedLineId ? (
                 <Button
@@ -837,20 +856,22 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                   onClick={handleEditSelectedLine}
                   disabled={isUiLocked}
                 >
-                  Редактировать шаблон
+                  {t("selectorPanel.details.editTemplate")}
                 </Button>
               ) : null
             }
           >
             {!selectedLineId ? (
               <EmptyState
-                title="Ничего не выбрано"
-                description="Выберите шаблон playbook, затем версию."
+                title={t("selectorPanel.details.emptyTitle")}
+                description={t("selectorPanel.details.emptyDesc")}
               />
             ) : selectedVersionId && versionDetail ? (
               <div className="max-h-80 space-y-3 overflow-y-auto text-xs text-[var(--text-primary)]">
                 <div>
-                  <div className={metaLabelClassName}>Общая информация</div>
+                  <div className={metaLabelClassName}>
+                    {t("selectorPanel.details.generalInfo")}
+                  </div>
                   <div className="mt-1 flex items-center gap-2 text-[var(--text-secondary)]">
                     <span>
                       {versionDetail.name} ({versionDetail.semver})
@@ -861,7 +882,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
                 <div>
                   <div className={`mt-2 ${metaLabelClassName}`}>
-                    Секции / профили
+                    {t("selectorPanel.details.sectionsProfiles")}
                   </div>
 
                   {versionDetail.section_markers ? (
@@ -870,14 +891,14 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                     </pre>
                   ) : (
                     <div className="mt-1 text-[var(--text-muted)]">
-                      Section markers не заданы.
+                      {t("selectorPanel.details.sectionsEmpty")}
                     </div>
                   )}
                 </div>
 
                 <div>
                   <div className={`mt-2 ${metaLabelClassName}`}>
-                    DD-запросы
+                    {t("selectorPanel.details.ddRequests")}
                   </div>
 
                   {versionDetail.dd_request_templates ? (
@@ -890,7 +911,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                     </pre>
                   ) : (
                     <div className="mt-1 text-[var(--text-muted)]">
-                      DD request templates не заданы.
+                      {t("selectorPanel.details.ddRequestsEmpty")}
                     </div>
                   )}
                 </div>
@@ -898,18 +919,26 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             ) : selectedLineDetail ? (
               <div className="max-h-80 space-y-3 overflow-y-auto text-xs text-[var(--text-primary)]">
                 <div>
-                  <div className={metaLabelClassName}>Шаблон</div>
+                  <div className={metaLabelClassName}>
+                    {t("selectorPanel.details.template")}
+                  </div>
                   <div className="mt-1 font-medium text-[var(--text-secondary)]">
                     {selectedLineDetail.title}
                   </div>
                   <div className="mt-0.5 text-[var(--text-muted)]">
                     {[
                       selectedLineDetail.deal_type &&
-                        `Тип: ${selectedLineDetail.deal_type}`,
+                        t("selectorPanel.templates.meta.type", {
+                          type: selectedLineDetail.deal_type,
+                        }),
                       selectedLineDetail.jurisdiction &&
-                        `Юрисдикция: ${selectedLineDetail.jurisdiction}`,
+                        t("selectorPanel.templates.meta.jurisdiction", {
+                          jurisdiction: selectedLineDetail.jurisdiction,
+                        }),
                       selectedLineDetail.language &&
-                        `Язык: ${selectedLineDetail.language}`,
+                        t("selectorPanel.templates.meta.language", {
+                          language: selectedLineDetail.language,
+                        }),
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -924,7 +953,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
                 <div>
                   <div className={`mt-2 ${metaLabelClassName}`}>
-                    Проверки шаблона
+                    {t("selectorPanel.details.checks")}
                   </div>
 
                   {selectedLineDetail.items?.length > 0 ? (
@@ -945,28 +974,34 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                     </ul>
                   ) : (
                     <div className="mt-1 text-[var(--text-muted)]">
-                      В шаблоне пока нет элементов.
+                      {t("selectorPanel.details.checksEmpty")}
                     </div>
                   )}
                 </div>
               </div>
             ) : selectedLineId ? (
-              <LoadingBlock text="Загружаем состав playbook..." rows={4} />
+              <LoadingBlock
+                text={t("selectorPanel.details.loading")}
+                rows={4}
+              />
             ) : null}
 
             <div className="mt-5 border-t border-[var(--border-soft)] pt-3">
               <h3 className={`mb-2 ${metaLabelClassName}`}>
-                История смен playbook
+                {t("selectorPanel.history.title")}
               </h3>
 
               {isHistoryLoading ? (
-                <LoadingBlock text="Загружаем историю..." rows={3} />
+                <LoadingBlock
+                  text={t("selectorPanel.history.loading")}
+                  rows={3}
+                />
               ) : historyError ? (
                 <InlineAlert tone="error" message={historyError} />
               ) : history.length === 0 ? (
                 <EmptyState
-                  title="История пока пустая"
-                  description="Нет записей об изменении playbook для этой сделки."
+                  title={t("selectorPanel.history.emptyTitle")}
+                  description={t("selectorPanel.history.emptyDesc")}
                 />
               ) : (
                 <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
@@ -976,8 +1011,10 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                       className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1"
                     >
                       <div className="text-[var(--text-secondary)]">
-                        {new Date(item.created_at).toLocaleString()} —{" "}
-                        {item.actor}
+                        {new Date(item.created_at).toLocaleString(
+                          i18n.language,
+                        )}{" "}
+                        — {item.actor}
                         {item.actor_role && (
                           <span className="text-[var(--text-muted)]">
                             {" "}
@@ -987,13 +1024,16 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                       </div>
 
                       <div className="text-[var(--text-muted)]">
-                        {item.old_playbook_version_id
-                          ? `Было: ${item.old_playbook_version_id}`
-                          : "Было: не задано"}{" "}
-                        →{" "}
-                        {item.new_playbook_version_id
-                          ? item.new_playbook_version_id
-                          : "не задано"}
+                        {t("selectorPanel.history.was", {
+                          oldValue:
+                            item.old_playbook_version_id ||
+                            t("selectorPanel.history.wasNotSet"),
+                        })}{" "}
+                        {t("selectorPanel.history.to", {
+                          newValue:
+                            item.new_playbook_version_id ||
+                            t("selectorPanel.history.notSet"),
+                        })}
                       </div>
 
                       {(item.playbook_name || item.semver) && (
@@ -1022,10 +1062,10 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
         <ConfirmDialog
           open={isApplyConfirmOpen}
-          title="Заменить текущий playbook?"
-          description="Текущая версия playbook будет заменена. Продолжить?"
-          confirmLabel="Да, заменить"
-          cancelLabel="Отмена"
+          title={t("selectorPanel.confirm.title")}
+          description={t("selectorPanel.confirm.description")}
+          confirmLabel={t("selectorPanel.confirm.confirmLabel")}
+          cancelLabel={t("selectorPanel.confirm.cancelLabel")}
           isConfirming={isApplying}
           onConfirm={applyPlaybook}
           onCancel={() => {
@@ -1041,8 +1081,8 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   return (
     <>
       <PageSection
-        title="Playbook проекта"
-        subtitle="Выбор, применение и просмотр состава playbook."
+        title={t("selectorPanel.title")}
+        subtitle={t("selectorPanel.subtitleEmbedded")}
         rightSlot={headerActions}
       >
         <div className="min-w-0 text-[var(--text-primary)]">{content}</div>
@@ -1050,10 +1090,10 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
       <ConfirmDialog
         open={isApplyConfirmOpen}
-        title="Заменить текущий playbook?"
-        description="Текущая версия playbook будет заменена. Продолжить?"
-        confirmLabel="Да, заменить"
-        cancelLabel="Отмена"
+        title={t("selectorPanel.confirm.title")}
+        description={t("selectorPanel.confirm.description")}
+        confirmLabel={t("selectorPanel.confirm.confirmLabel")}
+        cancelLabel={t("selectorPanel.confirm.cancelLabel")}
         isConfirming={isApplying}
         onConfirm={applyPlaybook}
         onCancel={() => {

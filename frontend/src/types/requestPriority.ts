@@ -25,12 +25,12 @@ export const REQUEST_PRIORITY_ORDER: Record<RequestPriority, number> = {
 
 export const REQUEST_PRIORITY_META: Record<
   RequestPriority,
-  { label: string }
+  { label: string; labelKey: string }
 > = {
-  critical: { label: "Критичный" },
-  high: { label: "Высокий" },
-  medium: { label: "Средний" },
-  low: { label: "Низкий" },
+  critical: { label: "Critical", labelKey: "common:priorities.critical" },
+  high: { label: "High", labelKey: "common:priorities.high" },
+  medium: { label: "Medium", labelKey: "common:priorities.medium" },
+  low: { label: "Low", labelKey: "common:priorities.low" },
 };
 
 /**

@@ -1,34 +1,46 @@
 // src/pages/tabs/overview/DocumentsPipelinePanel.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useRunProgress } from "../../../api/runs";
 import { PipelineStepCard } from "./PipelineStepCard";
 import { usePipelineLayout } from "./pipelineLayoutContext";
 
-function formatElapsed(seconds: number | undefined | null): string {
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+
+function formatElapsed(seconds: number | undefined | null, tFn: TranslateFn): string {
   if (seconds == null) return "";
-  if (seconds < 60) return `${seconds} сек`;
+  if (seconds < 60) return tFn("overviewPanels.pipelinePanel.elapsedSec", { defaultValue: "{{count}} sec", count: seconds });
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h} ч ${m} мин`;
-  return `${m} мин`;
+  if (h > 0) {
+    return tFn("overviewPanels.pipelinePanel.elapsedHrMin", {
+      defaultValue: "{{h}} h {{m}} min",
+      h,
+      m,
+    });
+  }
+  return tFn("overviewPanels.pipelinePanel.elapsedMin", {
+    defaultValue: "{{count}} min",
+    count: m,
+  });
 }
 
-function formatTime(iso: string | undefined | null): string {
+function formatTime(iso: string | undefined | null, locale: string): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("ru-RU", {
+  return new Date(iso).toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-function formatRelativeTime(iso: string | undefined | null): string {
+function formatRelativeTime(iso: string | undefined | null, tFn: TranslateFn): string {
   if (!iso) return "";
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 5) return "только что";
-  if (diff < 60) return `${diff} сек назад`;
-  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
-  return `${Math.floor(diff / 3600)} ч назад`;
+  if (diff < 5) return tFn("overviewPanels.pipelinePanel.justNow", { defaultValue: "just now" });
+  if (diff < 60) return tFn("overviewPanels.pipelinePanel.secAgo", { defaultValue: "{{count}} sec ago", count: diff });
+  if (diff < 3600) return tFn("overviewPanels.pipelinePanel.minAgo", { defaultValue: "{{count}} min ago", count: Math.floor(diff / 60) });
+  return tFn("overviewPanels.pipelinePanel.hrAgo", { defaultValue: "{{count}} h ago", count: Math.floor(diff / 3600) });
 }
 
 // ---------------------------------------------------------------------------
@@ -51,14 +63,17 @@ const SkeletonCard: React.FC = () => (
 export const DocumentsPipelinePanel: React.FC<{
   runId: string | null;
 }> = ({ runId }) => {
+  const { t, i18n } = useTranslation("projects");
   const { data, isLoading, isError } = useRunProgress(runId);
 
   if (!runId) {
     return (
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-6 text-center">
-        <p className="text-sm text-[var(--text-muted)]">Анализ ещё не запускался</p>
+        <p className="text-sm text-[var(--text-muted)]">
+          {t("overviewPanels.pipelinePanel.notLaunched")}
+        </p>
         <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-          Запустите анализ чтобы увидеть прогресс пайплайна
+          {t("overviewPanels.pipelinePanel.notLaunchedSub")}
         </p>
       </div>
     );
@@ -78,7 +93,7 @@ export const DocumentsPipelinePanel: React.FC<{
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4">
         <p className="text-sm text-[var(--text-muted)]">
-          Не удалось загрузить прогресс анализа
+          {t("overviewPanels.pipelinePanel.loadError")}
         </p>
       </div>
     );
@@ -90,12 +105,12 @@ export const DocumentsPipelinePanel: React.FC<{
     data.run_status === "failed";
 
   const statusLabel = (() => {
-    if (data.run_status === "completed") return "Анализ завершён";
+    if (data.run_status === "completed") return t("overviewPanels.pipelinePanel.status.completed");
     if (data.run_status === "completed_with_errors")
-      return "Анализ завершён с ошибками";
-    if (data.run_status === "failed") return "Анализ завершился с ошибкой";
-    if (data.run_status === "running") return "Анализ выполняется";
-    return "Ожидание";
+      return t("overviewPanels.pipelinePanel.status.completedWithErrors");
+    if (data.run_status === "failed") return t("overviewPanels.pipelinePanel.status.failed");
+    if (data.run_status === "running") return t("overviewPanels.pipelinePanel.status.running");
+    return t("overviewPanels.pipelinePanel.status.pending");
   })();
 
   const statusColor = (() => {
@@ -116,19 +131,22 @@ export const DocumentsPipelinePanel: React.FC<{
           </span>
           {data.started_at && (
             <span className="text-[11px] text-[var(--text-muted)]">
-              · запущен {formatTime(data.started_at)}
+              {t("overviewPanels.pipelinePanel.startedAt", { time: formatTime(data.started_at, i18n.language) })}
             </span>
           )}
           {data.elapsed_seconds != null && (
             <span className="text-[11px] text-[var(--text-muted)]">
-              · {isTerminal ? "за" : "идёт"}{" "}
-              {formatElapsed(data.elapsed_seconds)}
+              {isTerminal
+                ? t("overviewPanels.pipelinePanel.elapsedFinished", { time: formatElapsed(data.elapsed_seconds, t) })
+                : t("overviewPanels.pipelinePanel.elapsedRunning", { time: formatElapsed(data.elapsed_seconds, t) })}
             </span>
           )}
         </div>
         {data.last_activity_at && !isTerminal && (
           <span className="text-[10px] text-[var(--text-muted)]">
-            обновлено {formatRelativeTime(data.last_activity_at)}
+            {t("overviewPanels.pipelinePanel.updatedRelative", {
+              time: formatRelativeTime(data.last_activity_at, t)
+            })}
           </span>
         )}
       </div>
@@ -137,10 +155,10 @@ export const DocumentsPipelinePanel: React.FC<{
       {data.is_stale && (
         <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2">
           <p className="text-[11px] font-medium text-[var(--color-warning-text)]">
-            ⚠ Нет активности более {data.stale_threshold_minutes} минут
+            {t("overviewPanels.pipelinePanel.staleWarning", { threshold: data.stale_threshold_minutes })}
           </p>
           <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-            Возможно, worker завис или потерял соединение.
+            {t("overviewPanels.pipelinePanel.staleSub")}
           </p>
         </div>
       )}
@@ -154,7 +172,7 @@ export const DocumentsPipelinePanel: React.FC<{
           <p className="text-[11px] text-[var(--text-muted)]">
             {data.documents_failed > 0 && (
               <span className="text-[var(--color-error-text)]">
-                Ошибок: {data.documents_failed}
+                {t("overviewPanels.pipelinePanel.errors", { count: data.documents_failed })}
               </span>
             )}
             {data.documents_failed > 0 && data.documents_quarantine > 0 && (
@@ -162,7 +180,7 @@ export const DocumentsPipelinePanel: React.FC<{
             )}
             {data.documents_quarantine > 0 && (
               <span className="text-[var(--color-warning-text)]">
-                Карантин: {data.documents_quarantine}
+                {t("overviewPanels.pipelinePanel.quarantine", { count: data.documents_quarantine })}
               </span>
             )}
           </p>

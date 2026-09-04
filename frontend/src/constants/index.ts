@@ -36,9 +36,10 @@ export const canViewYamlInstructions = (role: UserRole) =>
 
 export interface ClassificationLevelConfig {
   shortLabel: string;
-  label: string; // backward compatibility fallback
+  shortLabelKey?: string;
+  label: string; // backward compatibility fallback (English)
   labelKey: string;
-  description: string; // backward compatibility fallback
+  description: string; // backward compatibility fallback (English)
   descriptionKey: string;
   badgeClassName: string;
 }
@@ -46,36 +47,36 @@ export interface ClassificationLevelConfig {
 export const CLASSIFICATION_LEVELS: Record<string, ClassificationLevelConfig> = {
   L0: {
     shortLabel: "L0",
-    label: "L0 — Нет совпадений",
+    label: "L0 — No match",
     labelKey: "pipeline:classificationLevels.L0.label",
-    description: "Тип документа не определён",
+    description: "Document type not determined",
     descriptionKey: "pipeline:classificationLevels.L0.description",
     badgeClassName:
       "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
   },
   L1: {
     shortLabel: "L1",
-    label: "L1 — Имя файла",
+    label: "L1 — Filename",
     labelKey: "pipeline:classificationLevels.L1.label",
-    description: "Классификация по имени файла",
+    description: "Classification by filename",
     descriptionKey: "pipeline:classificationLevels.L1.description",
     badgeClassName:
       "border-[var(--color-blue)]/18 bg-[var(--color-blue-highlight)] text-[var(--color-blue)]",
   },
   L2: {
     shortLabel: "L2",
-    label: "L2 — Ключевые слова",
+    label: "L2 — Keywords",
     labelKey: "pipeline:classificationLevels.L2.label",
-    description: "Классификация по ключевым словам",
+    description: "Classification by keywords",
     descriptionKey: "pipeline:classificationLevels.L2.description",
     badgeClassName:
       "border-[var(--accent-primary)]/18 bg-[var(--accent-muted)] text-[var(--accent-primary)]",
   },
   L3: {
     shortLabel: "L3",
-    label: "L3 — Семантика",
+    label: "L3 — Semantics",
     labelKey: "pipeline:classificationLevels.L3.label",
-    description: "Семантический поиск (эмбеддинги)",
+    description: "Semantic search (embeddings)",
     descriptionKey: "pipeline:classificationLevels.L3.description",
     badgeClassName:
       "border-[var(--color-purple)]/18 bg-[var(--color-purple-highlight)] text-[var(--color-purple)]",
@@ -84,16 +85,17 @@ export const CLASSIFICATION_LEVELS: Record<string, ClassificationLevelConfig> = 
     shortLabel: "L4",
     label: "L4 — LLM",
     labelKey: "pipeline:classificationLevels.L4.label",
-    description: "Подтверждено языковой моделью",
+    description: "Confirmed by language model",
     descriptionKey: "pipeline:classificationLevels.L4.description",
     badgeClassName:
       "border-[var(--color-success)]/18 bg-[var(--color-success-highlight)] text-[var(--color-success)]",
   },
   L_manual: {
     shortLabel: "Manual",
-    label: "Ручной override",
+    shortLabelKey: "pipeline:classificationLevels.L_manual.shortLabel",
+    label: "Manual override",
     labelKey: "pipeline:classificationLevels.L_manual.label",
-    description: "Тип задан вручную оператором",
+    description: "Type set manually by operator",
     descriptionKey: "pipeline:classificationLevels.L_manual.description",
     badgeClassName:
       "border-[var(--color-gold)]/18 bg-[var(--color-gold-highlight)] text-[var(--color-gold-hover)]",
@@ -107,9 +109,9 @@ export const CONFIDENCE_THRESHOLDS = {
 };
 
 export const DD_REQUEST_STATUS_DISPLAY: Record<string, string> = {
-  open: "🔴 Открыт",
-  in_progress: "🟡 В работе",
-  resolved: "🟢 Закрыт",
+  open: "🔴 Open",
+  in_progress: "🟡 In progress",
+  resolved: "🟢 Resolved",
 };
 
 export const DD_REQUEST_STATUS_KEYS: Record<string, string> = {
@@ -119,7 +121,7 @@ export const DD_REQUEST_STATUS_KEYS: Record<string, string> = {
 };
 
 export interface DdRequestSourceConfig {
-  label: string; // fallback
+  label: string; // fallback (English)
   labelKey: string;
   color: string;
   icon: string;
@@ -127,19 +129,19 @@ export interface DdRequestSourceConfig {
 
 export const DD_REQUEST_SOURCE_DISPLAY: Record<string, DdRequestSourceConfig> = {
   yaml_template: {
-    label: "YAML-шаблон",
+    label: "YAML template",
     labelKey: "requests:source.yaml_template",
     color: "bg-purple-100 text-purple-800",
     icon: "⚡",
   },
   manual: {
-    label: "Вручную",
+    label: "Manual",
     labelKey: "requests:source.manual",
     color: "bg-gray-100 text-gray-700",
     icon: "✍️",
   },
   aggregator: {
-    label: "Автоматически",
+    label: "Automatic",
     labelKey: "requests:source.aggregator",
     color: "bg-blue-100 text-blue-800",
     icon: "🤖",
@@ -147,18 +149,18 @@ export const DD_REQUEST_SOURCE_DISPLAY: Record<string, DdRequestSourceConfig> = 
 };
 
 export const AUDIT_ACTION_LABEL: Record<string, string> = {
-  IMPORT: "Импорт",
-  EXPORT: "Экспорт",
-  SANITIZE: "Обезличивание",
-  QC_CONFIRM: "QC подтверждение",
-  QC_REJECT: "QC отклонение",
-  QC_OVERRIDE: "QC изменение",
-  DOCUMENT_REPLACE: "Замена документа",
-  RUN_START: "Запуск анализа",
-  PLAYBOOK_PROMOTE: "Промоут playbook",
-  SET_DEAL_PLAYBOOK: "Изменение playbook сделки",
-  RECLASSIFY: "Переклассификация",
-  YAML_INSTRUCTION_APPLY: "Применение YAML-инструкции",
+  IMPORT: "Import",
+  EXPORT: "Export",
+  SANITIZE: "Sanitization",
+  QC_CONFIRM: "QC confirm",
+  QC_REJECT: "QC reject",
+  QC_OVERRIDE: "QC override",
+  DOCUMENT_REPLACE: "Document replace",
+  RUN_START: "Run analysis",
+  PLAYBOOK_PROMOTE: "Playbook promote",
+  SET_DEAL_PLAYBOOK: "Set deal playbook",
+  RECLASSIFY: "Reclassification",
+  YAML_INSTRUCTION_APPLY: "Apply YAML instruction",
 };
 
 export const AUDIT_ACTION_KEYS: Record<string, string> = {
@@ -179,7 +181,7 @@ export const AUDIT_ACTION_KEYS: Record<string, string> = {
 export const EXPORT_TYPE_LABEL: Record<string, string> = {
   grid_xlsx: "DD Grid (Excel)",
   deal_summary_xlsx: "Deal Summary (Excel)",
-  report_docx: "Отчёт DD (Word)",
+  report_docx: "DD Report (Word)",
 };
 
 export const EXPORT_TYPE_KEYS: Record<string, string> = {
@@ -187,3 +189,5 @@ export const EXPORT_TYPE_KEYS: Record<string, string> = {
   deal_summary_xlsx: "exports:types.deal_summary_xlsx",
   report_docx: "exports:types.report_docx",
 };
+
+

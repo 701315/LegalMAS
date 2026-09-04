@@ -1,9 +1,12 @@
 // =============================================================
 // src/pages/tabs/dd-grid-v1/DDGridV1ExportLayoutPicker.tsx
 // Inline UI для выбора layout экспорта PDF/Word (matrix mode).
+//
+// i18n: все UI-строки локализованы через namespace "ddGrid", ключи layoutPicker.*
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "lucide-react";
 import Button from "../../../components/ui/Button";
 
@@ -20,26 +23,24 @@ export interface DDGridV1ExportLayoutPickerProps {
 }
 
 // -------------------------------------------------------------
-// Layout catalog
+// Layout catalog (Preview SVG schemas localized on-the-fly)
 // -------------------------------------------------------------
 
 interface LayoutOption {
   id: DDGridV1MatrixLayout;
-  title: string;
-  description: string;
-  warning?: string;
-  preview: React.ReactNode;
+  titleKey: string;
+  descriptionKey: string;
+  warningKey?: string;
+  renderPreview: (tFn: (key: string, options?: Record<string, unknown>) => string) => React.ReactNode;
 }
 
 const LAYOUT_OPTIONS: readonly LayoutOption[] = [
   {
     id: "single",
-    title: "Единая таблица",
-    description:
-      "Одна большая таблица со всеми проверками и параметрами. Точное отображение матрицы как на экране.",
-    warning:
-      "Таблица очень широкая. Некоторые колонки могут быть плохо читаемыми в PDF/Word из-за ограничений формата страницы.",
-    preview: (
+    titleKey: "layoutPicker.layouts.single.title",
+    descriptionKey: "layoutPicker.layouts.single.description",
+    warningKey: "layoutPicker.layouts.single.warning",
+    renderPreview: () => (
       <svg viewBox="0 0 120 60" className="h-14 w-full">
         <rect
           x="2"
@@ -88,10 +89,9 @@ const LAYOUT_OPTIONS: readonly LayoutOption[] = [
   },
   {
     id: "byDocument",
-    title: "По документам (секции)",
-    description:
-      "Каждый документ — отдельная секция. Внутри секции — таблица его проверок в формате «Проверка / Параметр / Значение». Подходит когда документов немного, а проверок много.",
-    preview: (
+    titleKey: "layoutPicker.layouts.byDocument.title",
+    descriptionKey: "layoutPicker.layouts.byDocument.description",
+    renderPreview: (t) => (
       <svg viewBox="0 0 120 60" className="h-14 w-full">
         <text
           x="2"
@@ -101,7 +101,7 @@ const LAYOUT_OPTIONS: readonly LayoutOption[] = [
           opacity="0.7"
           fontWeight="bold"
         >
-          Документ 1
+          {t("layoutPicker.previews.document", { num: 1 })}
         </text>
         <rect
           x="2"
@@ -166,7 +166,7 @@ const LAYOUT_OPTIONS: readonly LayoutOption[] = [
           opacity="0.7"
           fontWeight="bold"
         >
-          Документ 2
+          {t("layoutPicker.previews.document", { num: 2 })}
         </text>
         <rect
           x="2"
@@ -231,7 +231,7 @@ const LAYOUT_OPTIONS: readonly LayoutOption[] = [
           opacity="0.7"
           fontWeight="bold"
         >
-          Документ 3
+          {t("layoutPicker.previews.document", { num: 3 })}
         </text>
         <rect
           x="65"
@@ -260,7 +260,7 @@ const LAYOUT_OPTIONS: readonly LayoutOption[] = [
           opacity="0.7"
           fontWeight="bold"
         >
-          Документ 4
+          {t("layoutPicker.previews.document", { num: 4 })}
         </text>
         <rect
           x="65"
@@ -285,10 +285,9 @@ const LAYOUT_OPTIONS: readonly LayoutOption[] = [
   },
   {
     id: "byScopeGroup",
-    title: "По группам проверок",
-    description:
-      "Каждая группа проверок (например, Confidentiality, Governing Law, проверки по типу документа) — отдельная таблица. Позволяет удобно сравнить одну тему между документами.",
-    preview: (
+    titleKey: "layoutPicker.layouts.byScopeGroup.title",
+    descriptionKey: "layoutPicker.layouts.byScopeGroup.description",
+    renderPreview: (t) => (
       <svg viewBox="0 0 120 60" className="h-14 w-full">
         <text
           x="2"
@@ -380,7 +379,7 @@ const LAYOUT_OPTIONS: readonly LayoutOption[] = [
           opacity="0.7"
           fontWeight="bold"
         >
-          Договор к-п
+          {t("layoutPicker.previews.salesContract")}
         </text>
         <rect
           x="2"
@@ -412,6 +411,7 @@ const LAYOUT_OPTIONS: readonly LayoutOption[] = [
 export const DDGridV1ExportLayoutPicker: React.FC<
   DDGridV1ExportLayoutPickerProps
 > = ({ format, onCancel, onApply }) => {
+  const { t } = useTranslation("ddGrid");
   const [selected, setSelected] =
     React.useState<DDGridV1MatrixLayout>("single");
 
@@ -419,15 +419,17 @@ export const DDGridV1ExportLayoutPicker: React.FC<
     onApply(selected);
   };
 
+  const formatText = format === "pdf" ? "PDF" : "Word";
+
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Формат экспорта в {format === "pdf" ? "PDF" : "Word"}
+            {t("layoutPicker.title", { format: formatText })}
           </p>
           <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-            Выберите, как структурировать данные в файле.
+            {t("layoutPicker.subtitle")}
           </p>
         </div>
 
@@ -438,7 +440,7 @@ export const DDGridV1ExportLayoutPicker: React.FC<
             variant="secondary"
             onClick={onCancel}
           >
-            Отменить
+            {t("layoutPicker.cancel")}
           </Button>
           <Button
             type="button"
@@ -446,7 +448,7 @@ export const DDGridV1ExportLayoutPicker: React.FC<
             variant="primary"
             onClick={handleApply}
           >
-            Экспортировать
+            {t("layoutPicker.export")}
           </Button>
         </div>
       </div>
@@ -474,23 +476,23 @@ export const DDGridV1ExportLayoutPicker: React.FC<
                 />
 
                 <div className="w-24 shrink-0 text-[var(--text-muted)]">
-                  {option.preview}
+                  {option.renderPreview(t)}
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-semibold text-[var(--text-primary)]">
-                    {option.title}
+                    {t(option.titleKey)}
                   </div>
                   <p className="mt-0.5 text-[11px] leading-4 text-[var(--text-muted)]">
-                    {option.description}
+                    {t(option.descriptionKey)}
                   </p>
-                  {option.warning && (
+                  {option.warningKey && (
                     <div className="mt-1.5 flex items-start gap-1 rounded border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-1.5 py-1 text-[10px] text-[var(--color-warning-text)]">
                       <AlertTriangle
                         className="mt-0.5 h-3 w-3 shrink-0"
                         aria-hidden
                       />
-                      <span>{option.warning}</span>
+                      <span>{t(option.warningKey)}</span>
                     </div>
                   )}
                 </div>

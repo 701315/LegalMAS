@@ -1,4 +1,131 @@
 {
+  "shared": {
+    "documentsList": {
+      "empty": "Документы не указаны",
+      "shownCount": "Показано {{visible}} из {{total}} · ещё {{remaining}}"
+    },
+    "priorityBadge": {
+      "ariaLabel": "Приоритет: {{label}}"
+    },
+    "segmentSummary": {
+      "title": "Контекст сегмента",
+      "primaryBadge": "Основной сегмент",
+      "typeLabel": "Тип сегмента",
+      "orderLabel": "Порядок",
+      "openInViewer": "Открыть в viewer"
+    },
+    "structuredValuesList": {
+      "empty": "Извлечённые данные отсутствуют"
+    }
+  },
+  "table": {
+    "eyebrow": "Requests",
+    "title": "Запросы",
+    "newRequest": "Новый запрос",
+    "searchPlaceholder": "Поиск по тексту запроса или ID проверки…",
+    "searchAria": "Поиск по DD-запросам",
+    "columns": {
+      "priority": "Приоритет",
+      "text": "Текст запроса",
+      "documents": "Документы",
+      "status": "Статус",
+      "source": "Источник"
+    },
+    "checkPrefix": "Проверка: {{label}}",
+    "docsSuffix": "{{count}} док.",
+    "empty": {
+      "title": "Запросы не найдены",
+      "descNoRequests": "Запросы появятся после анализа с найденными проблемами или ручного добавления.",
+      "descFiltered": "Попробуйте изменить условия поиска или сбросить фильтр."
+    }
+  },
+  "reviewTable": {
+    "searchPlaceholder": "Поиск по тексту, проверке или документу…",
+    "searchAria": "Поиск по review-запросам",
+    "columns": {
+      "priority": "Приоритет",
+      "text": "Текст запроса",
+      "documents": "Документы",
+      "segment": "Сегмент"
+    },
+    "addresseePrefix": "Адресат: {{name}}",
+    "empty": {
+      "title": "Запросы не найдены",
+      "descNoRequests": "Запросы появятся после анализа документов.",
+      "descFiltered": "Попробуйте изменить условия поиска."
+    }
+  },
+  "reviewPanel": {
+    "title": "Review-запрос",
+    "closeAria": "Закрыть панель запроса",
+    "modeTitle": "Режим",
+    "modeValue": "Только просмотр",
+    "modeDesc": "Запрос сформирован в review-контексте run-scoped API и не редактируется из этой панели.",
+    "priority": "Приоритет",
+    "text": "Текст запроса",
+    "documents": "Документы ({{count}})",
+    "docTypes": "Типы документов",
+    "segmentContext": "Контекст сегмента",
+    "openInViewer": "Открыть в viewer",
+    "checkId": "Проверка (check_id)",
+    "structuredValues": "Извлечённые данные ({{count}})",
+    "jumpDisabledApi": "Переход к месту в документе будет доступен после обновления API (document_id в запросе).",
+    "jumpDisabledNoSegment": "Segment context отсутствует — переход невозможен."
+  },
+  "tab": {
+    "loading": {
+      "title": "Загружаем запросы",
+      "description": "Подготавливаем таблицу и детали запроса."
+    },
+    "errors": {
+      "noPermissions": {
+        "title": "Недостаточно прав",
+        "editDescription": "Редактирование запросов доступно только редакторам и администраторам проекта.",
+        "deleteDescription": "Удаление запросов доступно только редакторам и администраторам проекта."
+      },
+      "exportWordFailed": {
+        "title": "Не удалось экспортировать в Word"
+      },
+      "exportExcelFailed": {
+        "title": "Не удалось экспортировать в Excel"
+      },
+      "exportFailedDescription": "Попробуйте повторить экспорт позже. Если ошибка сохраняется, проверьте состояние сервиса экспорта.",
+      "createUnavailable": {
+        "title": "Создание недоступно",
+        "description": "Создание запросов доступно только редакторам и администраторам проекта."
+      }
+    },
+    "info": {
+      "createRequest": {
+        "title": "Создание нового запроса",
+        "description": "Функция создания нового DD-запроса пока не реализована в текущем интерфейсе."
+      }
+    },
+    "title": "Запросы",
+    "subtitles": {
+      "reviewWithCount_one": "Сформирован запрос по результатам анализа: 1",
+      "reviewWithCount_few": "Сформировано запросов по результатам анализа: {{count}}",
+      "reviewWithCount_many": "Сформировано запросов по результатам анализа: {{count}}",
+      "reviewWithCount_other": "Сформировано запросов по результатам анализа: {{count}}",
+      "reviewEmpty": "Запросы по результатам анализа пока не сформированы",
+      "manualWithCount_one": "Рабочий список DD-запросов по сделке: 1.",
+      "manualWithCount_few": "Рабочий список DD-запросов по сделке: {{count}}.",
+      "manualWithCount_many": "Рабочий список DD-запросов по сделке: {{count}}.",
+      "manualWithCount_other": "Рабочий список DD-запросов по сделке: {{count}}.",
+      "manualEmpty": "Запросы по сделке пока не добавлены."
+    },
+    "buttons": {
+      "newRequest": "Новый запрос"
+    },
+    "viewOnly": {
+      "title": "Режим только для просмотра",
+      "description": "Экспорт доступен, но создание, редактирование и удаление запросов ограничены правами проекта."
+    },
+    "detailsPanel": {
+      "title": "Детали запроса",
+      "back": "← Назад"
+    }
+  },
   "status": {
     "open": "🔴 Открыт",
     "in_progress": "🟡 В работе",

@@ -1,6 +1,9 @@
+// =============================================================
 // src/pages/tabs/overview/LaunchFormPanel.tsx
+// =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { Deal } from "../../../types";
 import type { ChecksMode } from "../OverviewTab";
 import Button from "../../../components/ui/Button";
@@ -9,6 +12,8 @@ import {
   normalizeDiscoveryStatus,
   normalizeLang,
 } from "../../../utils/languageDiscovery";
+
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 
 const SECONDARY_ACTION_BUTTON_CLASS = "w-[220px] shrink-0 justify-center";
 
@@ -29,47 +34,26 @@ interface LaunchFormPanelProps {
   onPrimaryLanguageChange: (value: string) => void;
 }
 
-const CHECKS_MODE_OPTIONS: Array<{
-  value: ChecksMode;
-  title: string;
-  hint: string;
-}> = [
-  {
-    value: "global_and_doc_type",
-    title: "Playbook и типы документов",
-    hint: "Рекомендуемый режим.",
-  },
-  {
-    value: "global_only",
-    title: "Только Playbook",
-    hint: "Только правила playbook.",
-  },
-  {
-    value: "doc_type_only",
-    title: "Только типы документов",
-    hint: "Только проверки по типам документов.",
-  },
-];
-
 type BannerTone = "info" | "warning" | "error" | "success";
 
-function formatLangHint(value: string): string {
+function formatLangHint(value: string, tFn: TranslateFn): string {
   const normalized = normalizeLang(value);
 
   if (normalized === "RU") {
-    return "Анализ будет ориентирован на русский язык.";
+    return tFn("overviewPanels.launchForm.langHint.RU");
   }
 
   if (normalized === "EN") {
-    return "Анализ будет ориентирован на английский язык.";
+    return tFn("overviewPanels.launchForm.langHint.EN");
   }
 
-  return "Выберите этот язык как основной для анализа.";
+  return tFn("overviewPanels.launchForm.langHint.default");
 }
 
 function getDiscoveryBanner(
   status: string | null,
   hasLanguages: boolean,
+  tFn: TranslateFn,
 ): {
   tone: BannerTone;
   text: string;
@@ -77,35 +61,35 @@ function getDiscoveryBanner(
   if (status === "pending") {
     return {
       tone: "info",
-      text: "Определяем языки документов. Настройки станут доступны чуть позже.",
+      text: tFn("overviewPanels.launchForm.discoveryBanner.pending"),
     };
   }
 
   if (status === "processing") {
     return {
       tone: "info",
-      text: "Анализируем языки документов. Подождите пару минут.",
+      text: tFn("overviewPanels.launchForm.discoveryBanner.processing"),
     };
   }
 
   if (status === "failed") {
     return {
       tone: "error",
-      text: "Не удалось определить языки автоматически. Проверьте документы.",
+      text: tFn("overviewPanels.launchForm.discoveryBanner.failed"),
     };
   }
 
   if (status === "partial") {
     return {
       tone: "warning",
-      text: "Языки определены не для всех файлов. Рекомендуем проверить проблемные документы.",
+      text: tFn("overviewPanels.launchForm.discoveryBanner.partial"),
     };
   }
 
   if (status === "completed" && hasLanguages) {
     return {
       tone: "success",
-      text: "Языки определены. Теперь выберите основной язык анализа.",
+      text: tFn("overviewPanels.launchForm.discoveryBanner.completed"),
     };
   }
 
@@ -128,12 +112,15 @@ function getBannerClassName(tone: BannerTone): string {
   return "border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
 }
 
-function getPrimaryLanguageHelperText(params: {
-  isDiscoveryInProgress: boolean;
-  discoveryStatus: string | null;
-  hasLanguages: boolean;
-  primaryLanguageSelected: boolean;
-}): string {
+function getPrimaryLanguageHelperText(
+  params: {
+    isDiscoveryInProgress: boolean;
+    discoveryStatus: string | null;
+    hasLanguages: boolean;
+    primaryLanguageSelected: boolean;
+  },
+  tFn: TranslateFn,
+): string {
   const {
     isDiscoveryInProgress,
     discoveryStatus,
@@ -142,35 +129,38 @@ function getPrimaryLanguageHelperText(params: {
   } = params;
 
   if (isDiscoveryInProgress) {
-    return "Основной язык можно выбрать после того, как система определит языки документов.";
+    return tFn("overviewPanels.launchForm.primaryLangHelper.inProgress");
   }
 
   if (!hasLanguages && discoveryStatus === "failed") {
-    return "Список языков недоступен: автоопределение завершилось ошибкой.";
+    return tFn("overviewPanels.launchForm.primaryLangHelper.failed");
   }
 
   if (!hasLanguages && discoveryStatus === "partial") {
-    return "Языки определены не по всем документам. Проверьте проблемные файлы.";
+    return tFn("overviewPanels.launchForm.primaryLangHelper.partial");
   }
 
   if (!hasLanguages) {
-    return "Языки документов пока не определены.";
+    return tFn("overviewPanels.launchForm.primaryLangHelper.notDetermined");
   }
 
   if (!primaryLanguageSelected) {
-    return "Выберите основной язык анализа.";
+    return tFn("overviewPanels.launchForm.primaryLangHelper.notSelected");
   }
 
-  return "Основной язык выбран. Теперь можно выбрать режим проверки.";
+  return tFn("overviewPanels.launchForm.primaryLangHelper.selected");
 }
 
-function getChecksModeHelperText(params: {
-  documentsCountLoaded: boolean;
-  hasDocuments: boolean;
-  hasPlaybook: boolean;
-  isDiscoveryInProgress: boolean;
-  primaryLanguageSelected: boolean;
-}): string {
+function getChecksModeHelperText(
+  params: {
+    documentsCountLoaded: boolean;
+    hasDocuments: boolean;
+    hasPlaybook: boolean;
+    isDiscoveryInProgress: boolean;
+    primaryLanguageSelected: boolean;
+  },
+  tFn: TranslateFn,
+): string {
   const {
     documentsCountLoaded,
     hasDocuments,
@@ -180,26 +170,26 @@ function getChecksModeHelperText(params: {
   } = params;
 
   if (!documentsCountLoaded) {
-    return "Загружаем данные о документах проекта.";
+    return tFn("overviewPanels.launchForm.checksModeHelper.loadingData");
   }
 
   if (!hasDocuments) {
-    return "Сначала загрузите документы.";
+    return tFn("overviewPanels.launchForm.checksModeHelper.noDocs");
   }
 
   if (!hasPlaybook) {
-    return "Сначала выберите playbook.";
+    return tFn("overviewPanels.launchForm.checksModeHelper.noPlaybook");
   }
 
   if (isDiscoveryInProgress) {
-    return "Режим проверки станет доступен после определения языков документов.";
+    return tFn("overviewPanels.launchForm.checksModeHelper.inProgress");
   }
 
   if (!primaryLanguageSelected) {
-    return "Сначала выберите основной язык анализа.";
+    return tFn("overviewPanels.launchForm.checksModeHelper.noPrimaryLang");
   }
 
-  return "Выберите, какие правила применять при анализе.";
+  return tFn("overviewPanels.launchForm.checksModeHelper.ready");
 }
 
 const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
@@ -217,6 +207,8 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   onOpenUpload,
   onPrimaryLanguageChange,
 }) => {
+  const { t } = useTranslation("projects");
+
   const normalizedDocumentLanguages = React.useMemo(
     () =>
       Array.from(
@@ -231,11 +223,6 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
   const selectedPrimaryLanguage = normalizeLang(deal.primary_language);
 
-  // ────────────────────────────────────────────────────────────────────
-  // Collapsible state для блоков "Основной язык" и "Режим проверки".
-  // По умолчанию свёрнуты — показывают краткое превью текущего значения.
-  // Клик по заголовку раскрывает полный контент с формой выбора.
-  // ────────────────────────────────────────────────────────────────────
   const [isLanguageOpen, setIsLanguageOpen] = React.useState(false);
   const [isChecksModeOpen, setIsChecksModeOpen] = React.useState(false);
 
@@ -265,8 +252,8 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
     primaryLanguageSelected;
 
   const discoveryBanner = React.useMemo(
-    () => getDiscoveryBanner(discoveryStatus, hasLanguages),
-    [discoveryStatus, hasLanguages],
+    () => getDiscoveryBanner(discoveryStatus, hasLanguages, t),
+    [discoveryStatus, hasLanguages, t],
   );
 
   const autoDetectedLanguagesText = React.useMemo(
@@ -279,35 +266,43 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
   const primaryLanguageHelperText = React.useMemo(
     () =>
-      getPrimaryLanguageHelperText({
-        isDiscoveryInProgress,
-        discoveryStatus,
-        hasLanguages,
-        primaryLanguageSelected,
-      }),
+      getPrimaryLanguageHelperText(
+        {
+          isDiscoveryInProgress,
+          discoveryStatus,
+          hasLanguages,
+          primaryLanguageSelected,
+        },
+        t,
+      ),
     [
       isDiscoveryInProgress,
       discoveryStatus,
       hasLanguages,
       primaryLanguageSelected,
+      t,
     ],
   );
 
   const checksModeHelperText = React.useMemo(
     () =>
-      getChecksModeHelperText({
-        documentsCountLoaded,
-        hasDocuments,
-        hasPlaybook,
-        isDiscoveryInProgress,
-        primaryLanguageSelected,
-      }),
+      getChecksModeHelperText(
+        {
+          documentsCountLoaded,
+          hasDocuments,
+          hasPlaybook,
+          isDiscoveryInProgress,
+          primaryLanguageSelected,
+        },
+        t,
+      ),
     [
       documentsCountLoaded,
       hasDocuments,
       hasPlaybook,
       isDiscoveryInProgress,
       primaryLanguageSelected,
+      t,
     ],
   );
 
@@ -333,10 +328,33 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
     ],
   );
 
-  const formTitle = hasCurrentRun ? "Перезапуск анализа" : "Запуск анализа";
+  const formTitle = hasCurrentRun
+    ? t("overviewPanels.launchForm.relaunchTitle")
+    : t("overviewPanels.launchForm.launchTitle");
   const formDescription = hasCurrentRun
-    ? "Вы можете оставить текущие настройки как есть или изменить их перед новым прогоном."
-    : "Проверьте параметры перед первым запуском анализа.";
+    ? t("overviewPanels.launchForm.relaunchDesc")
+    : t("overviewPanels.launchForm.launchDesc");
+
+  const checksModeOptions = React.useMemo(
+    () => [
+      {
+        value: "global_and_doc_type" as const,
+        title: t("overviewPanels.launchForm.checksModeOptions.global_and_doc_type.title"),
+        hint: t("overviewPanels.launchForm.checksModeOptions.global_and_doc_type.hint"),
+      },
+      {
+        value: "global_only" as const,
+        title: t("overviewPanels.launchForm.checksModeOptions.global_only.title"),
+        hint: t("overviewPanels.launchForm.checksModeOptions.global_only.hint"),
+      },
+      {
+        value: "doc_type_only" as const,
+        title: t("overviewPanels.launchForm.checksModeOptions.doc_type_only.title"),
+        hint: t("overviewPanels.launchForm.checksModeOptions.doc_type_only.hint"),
+      },
+    ],
+    [t],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--bg-card)]">
@@ -355,12 +373,12 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Документы
+                  {t("overviewPanels.launchForm.documentsTitle")}
                 </h4>
                 <p className="mt-1 text-xs text-[var(--text-secondary)]">
                   {documentsCountLoaded
-                    ? `В проект загружено ${documentsCount} документ(ов).`
-                    : "Загружаем данные…"}
+                    ? t("overviewPanels.launchForm.documentsLoaded", { count: documentsCount })
+                    : t("overviewPanels.launchForm.loadingData")}
                 </p>
               </div>
 
@@ -371,7 +389,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                 disabled={!canUploadDocuments}
                 className={SECONDARY_ACTION_BUTTON_CLASS}
               >
-                Загрузить новые документы
+                {t("overviewPanels.launchForm.uploadNewDocs")}
               </Button>
             </div>
           </section>
@@ -380,10 +398,10 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Playbook проекта
+                  {t("overviewPanels.launchForm.playbookTitle")}
                 </h4>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Определяет набор проверок для проекта.
+                  {t("overviewPanels.launchForm.playbookSub")}
                 </p>
               </div>
 
@@ -393,18 +411,18 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                 onClick={onOpenPlaybook}
                 className={SECONDARY_ACTION_BUTTON_CLASS}
               >
-                Выбрать Playbook
+                {t("overviewPanels.launchForm.selectPlaybook")}
               </Button>
             </div>
 
             <p className="mt-3 text-xs leading-5">
               {hasPlaybook ? (
                 <span className="text-[var(--text-secondary)]">
-                  Playbook выбран.
+                  {t("overviewPanels.launchForm.playbookSelected")}
                 </span>
               ) : (
                 <span className="text-[var(--color-error-text)]">
-                  Playbook не выбран. Запуск невозможен.
+                  {t("overviewPanels.launchForm.playbookNotSelected")}
                 </span>
               )}
             </p>
@@ -414,10 +432,10 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Профиль модели
+                  {t("overviewPanels.launchForm.modelProfileTitle")}
                 </h4>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Выберите профиль модели для анализа.
+                  {t("overviewPanels.launchForm.modelProfileSub")}
                 </p>
               </div>
 
@@ -428,15 +446,15 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                   onClick={onOpenModelConfig}
                   className={SECONDARY_ACTION_BUTTON_CLASS}
                 >
-                  Настроить профиль
+                  {t("overviewPanels.launchForm.configureProfile")}
                 </Button>
               ) : null}
             </div>
 
             <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
               {deal.model_config_name
-                ? `Используется профиль: ${deal.model_config_name}.`
-                : "Используется стандартный профиль."}
+                ? t("overviewPanels.launchForm.profileUsed", { name: deal.model_config_name })
+                : t("overviewPanels.launchForm.defaultProfileUsed")}
             </p>
           </section>
 
@@ -448,13 +466,13 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
             >
               <div className="min-w-0">
                 <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Основной язык анализа
+                  {t("overviewPanels.launchForm.primaryLangTitle")}
                 </h4>
                 {!isLanguageOpen && (
                   <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
                     {selectedPrimaryLanguage
                       ? formatLangLabel(selectedPrimaryLanguage)
-                      : "Не выбран"}
+                      : t("overviewPanels.launchForm.notSelected")}
                   </p>
                 )}
               </div>
@@ -473,8 +491,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                 <div className="mx-4 border-t border-[var(--border-subtle)]" />
                 <div className="p-4">
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Сначала система определит языки документов. После этого можно
-                    выбрать основной язык анализа.
+                    {t("overviewPanels.launchForm.langDiscoveryIntro")}
                   </p>
 
                   {discoveryBanner ? (
@@ -527,7 +544,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                                   {formatLangLabel(lang)}
                                 </span>
                                 <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                                  {formatLangHint(lang)}
+                                  {formatLangHint(lang, t)}
                                 </span>
                               </span>
                             </label>
@@ -537,19 +554,19 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
                       {!primaryLanguageSelected && !isDiscoveryInProgress && (
                         <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning-text)]">
-                          Перед запуском выберите основной язык анализа.
+                          {t("overviewPanels.launchForm.selectPrimaryLangWarning")}
                         </p>
                       )}
 
                       <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                        Автоопределённые языки документов: {autoDetectedLanguagesText}.
+                        {t("overviewPanels.launchForm.autoDetectedLangs", { langs: autoDetectedLanguagesText })}
                       </p>
                     </>
                   ) : (
                     <p className="mt-3 text-xs text-[var(--text-secondary)]">
                       {discoveryStatus === "failed"
-                        ? "Список языков недоступен: автоопределение завершилось ошибкой."
-                        : "Языки документов ещё не определены. После обработки файлов вы сможете выбрать основной язык."}
+                        ? t("overviewPanels.launchForm.langDiscoveryFailed")
+                        : t("overviewPanels.launchForm.langDiscoveryNotReady")}
                     </p>
                   )}
                 </div>
@@ -565,12 +582,12 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
             >
               <div className="min-w-0">
                 <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Режим проверки
+                  {t("overviewPanels.launchForm.checksModeTitle")}
                 </h4>
                 {!isChecksModeOpen && (
                   <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
-                    {CHECKS_MODE_OPTIONS.find((o) => o.value === checksMode)?.title ??
-                      "Не выбран"}
+                    {checksModeOptions.find((o) => o.value === checksMode)?.title ??
+                      t("overviewPanels.launchForm.notSelected")}
                   </p>
                 )}
               </div>
@@ -593,7 +610,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                   </p>
 
                   <div className="mt-3 space-y-2">
-                    {CHECKS_MODE_OPTIONS.map(({ value, title, hint }) => {
+                    {checksModeOptions.map(({ value, title, hint }) => {
                       const checked = checksMode === value;
                       const disabled = !canSelectChecksMode;
 
@@ -640,7 +657,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
           {deal.has_pending_manual_reclassifications ? (
             <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
               <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                Повторная классификация
+                {t("overviewPanels.launchForm.reclassifySection")}
               </h4>
 
               <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-3 text-xs text-[var(--text-secondary)]">
@@ -654,10 +671,10 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
                 <span>
                   <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                    Переклассифицировать документы заново
+                    {t("overviewPanels.launchForm.reclassifyCheckbox")}
                   </span>
                   <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                    Включите это, если вы вручную изменили типы документов.
+                    {t("overviewPanels.launchForm.reclassifyHint")}
                   </span>
                 </span>
               </label>

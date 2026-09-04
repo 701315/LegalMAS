@@ -1,0 +1,264 @@
+{
+  "intro": {
+    "title": "Demonstration scenario for this section",
+    "subtitle": "What the real estate analysis will look like",
+    "preview": "Preview",
+    "description": "This section will automatically identify real estate objects in deal documents, cross-reference them with registry and internal sources, and then build a workspace for legal analysis of rights, encumbrances, and registry status.",
+    "howItWorks": {
+      "title": "How it will work",
+      "subtitle": "Main object processing scenario",
+      "detection": {
+        "title": "Object Detection",
+        "description": "The system extracts addresses, cadastral numbers, areas, and object descriptions from deal documents."
+      },
+      "verification": {
+        "title": "Registry Verification",
+        "description": "Detected objects are matched against external registry sources and the internal asset register."
+      },
+      "legal": {
+        "title": "Legal Check",
+        "description": "The interface shows ownership status, encumbrances, title issues, and document references for each object."
+      }
+    },
+    "dataSources": {
+      "title": "Data Sources",
+      "subtitle": "External and internal real estate sources",
+      "headers": {
+        "jurisdiction": "Jurisdiction",
+        "sources": "Sources",
+        "checked": "What is checked",
+        "remarks": "Remarks"
+      }
+    },
+    "cta": "Go to demo page"
+  },
+  "coverageRows": [
+    {
+      "jurisdiction": "Russia",
+      "registrySources": "EGRN, public cadastral map",
+      "whatChecked": "Title, cadastral number, area, encumbrances",
+      "remarks": "Main scenario for RU real estate due diligence"
+    },
+    {
+      "jurisdiction": "UAE",
+      "registrySources": "Dubai Land Department / emirate land registries",
+      "whatChecked": "Title, ownership, plot/building registration",
+      "remarks": "Individual local source required per emirate"
+    },
+    {
+      "jurisdiction": "Europe",
+      "registrySources": "National land / property registries",
+      "whatChecked": "Ownership, encumbrances, title data",
+      "remarks": "Source depends on country and local registry"
+    },
+    {
+      "jurisdiction": "Internal company databases",
+      "registrySources": "Asset register, lease register, legal archive",
+      "whatChecked": "Internal asset status, historical documents, usage",
+      "remarks": "Used for cross-check with external registries"
+    }
+  ],
+  "areaUnit": "m²",
+  "table": {
+    "sortTitle": "Sort by column {{label}}",
+    "headers": {
+      "index": "#",
+      "address": "Address / Object",
+      "region": "Region",
+      "type": "Type",
+      "area": "Area",
+      "documents": "Documents",
+      "encumbrance": "Encumbrance",
+      "risk": "Risk"
+    },
+    "noAddress": "No address",
+    "noCadastral": "Cadastral number not specified",
+    "encumbranceYes": "Yes",
+    "encumbranceNo": "No",
+    "encumbranceCheck": "Checking"
+  },
+  "detail": {
+    "card": {
+      "title": "Object Card",
+      "subtitle": "Detailed information about the real estate object"
+    },
+    "documents": {
+      "title": "Document Mentions",
+      "subtitle": "Deal documents referencing this object",
+      "role": "Role:"
+    },
+    "registry": {
+      "title": "Registry Snapshot",
+      "subtitle": "Key object attributes from registry and document records",
+      "source": "Registry source",
+      "owner": "Owner",
+      "objectType": "Object type",
+      "address": "Address"
+    },
+    "encumbrances": {
+      "title": "Encumbrances",
+      "subtitle": "Mortgage, arrests, easements, and other restrictions",
+      "types": {
+        "encumbrances": "Encumbrances",
+        "mortgage": "Mortgage",
+        "arrest": "Arrest",
+        "easement": "Easement"
+      },
+      "notes": "Encumbrance notes"
+    },
+    "legal": {
+      "title": "Legal Checks",
+      "subtitle": "Title chain, registry match, and zoning / land use",
+      "types": {
+        "titleChain": "Title chain",
+        "registryMatch": "Registry match",
+        "zoning": "Zoning / use"
+      },
+      "notes": "Legal notes"
+    },
+    "map": {
+      "title": "Map / Context",
+      "subtitle": "Regional and geographic context of the object",
+      "region": "Region",
+      "geoNote": "Geo note"
+    }
+  },
+  "drawer": {
+    "back": "Back to registry",
+    "noAddress": "No address"
+  },
+  "drilldown": {
+    "subtitle": "Demonstration drilldown for the selected metric",
+    "close": "Close",
+    "geography": "Geography of detected objects",
+    "encumbrances": "Objects with encumbrance indicators",
+    "areaTop": "Top 5 objects by area",
+    "critical": "Critical real estate objects",
+    "encumberedList": "Objects with encumbrance indicators",
+    "areaTopList": "Top 5 objects by area"
+  },
+  "criticalTable": {
+    "headers": {
+      "object": "Object",
+      "region": "Region",
+      "reasons": "Grounds for criticality"
+    },
+    "reasons": {
+      "encumbrance": "Encumbrance indicators detected.",
+      "highRisk": "Object has a high level of risk.",
+      "notConfirmed": "Ownership is not confirmed.",
+      "unfinished": "Unfinished construction object requires separate verification."
+    }
+  },
+  "export": {
+    "formatLabel": "Save format",
+    "saveList": "Save object list",
+    "alert": "Save real estate object list: {{format}}"
+  },
+  "demo": {
+    "title": "Detected Real Estate Objects",
+    "subtitle": "Asset register identified in deal documents, verified against registry and legal records",
+    "back": "Back to description",
+    "kpi": {
+      "totalObjects": "Objects detected",
+      "totalLand": "Land plots",
+      "buildings": "Buildings & premises",
+      "encumbered": "With encumbrances",
+      "hintGeography": "Click to open geography",
+      "hintRegistry": "Part of the register",
+      "hintArea": "Click to open top by area",
+      "hintList": "Click to open list"
+    },
+    "workspace": {
+      "title": "Analysis Workspace",
+      "subtitle": "Object registry and selected object card",
+      "closeCard": "Close card",
+      "selectHint": "Select an object in the table to view the detailed card on the right"
+    },
+    "registry": {
+      "title": "Object Registry",
+      "subtitle": "Real estate identified in deal documents",
+      "demoHintDesktop": "The demo registry includes extra objects so the table has its own internal scroll.",
+      "demoHintMobile": "The demo registry includes extra objects. Tap an address to open the detailed card."
+    }
+  },
+  "demoData": {
+    "regions": {
+      "Москва": "Moscow",
+      "Московская область": "Moscow Region",
+      "Санкт-Петербург": "Saint Petersburg",
+      "Татарстан": "Tatarstan",
+      "Dubai": "Dubai",
+      "Варшава": "Warsaw"
+    },
+    "objects": {
+      "re-1": {
+        "address": "Moscow, Lesnaya st., 12, bld. 3",
+        "shortDescription": "Office building identified in the main deal document package; pledge indicators present, cross-check with registry records required.",
+        "registrySource": "EGRN / Extract",
+        "ownershipStatus": "Ownership by legal entity",
+        "ownerName": "Declarant LLC",
+        "district": "CAD, Tverskoy District",
+        "geoNote": "Prestigious business location within the Third Transport Ring.",
+        "encumbranceNotes": [
+          "Pledge in favor of Sberbank PJSC under 2022 mortgage agreement.",
+          "No registered easements or court arrests found."
+        ],
+        "legalNotes": [
+          "Ownership registered in 2018, chain of title without gaps.",
+          "Permitted use matches actual office operation."
+        ]
+      },
+      "re-2": {
+        "address": "Moscow Region, Khimki, Logisticheskiy pr., 8",
+        "shortDescription": "Logistics complex with warehouse facilities; no registered encumbrances found.",
+        "registrySource": "EGRN / Cadastral chamber",
+        "ownershipStatus": "Ownership by legal entity",
+        "ownerName": "Logistics Hub LLC",
+        "district": "Khimki Urban District",
+        "geoNote": "Transport and logistics zone near Sheremetyevo Airport.",
+        "encumbranceNotes": [
+          "No active encumbrances or restrictions registered."
+        ],
+        "legalNotes": [
+          "Title acquired under 2020 sale agreement.",
+          "Land plot leased from municipality until 2045."
+        ]
+      },
+      "re-3": {
+        "address": "Saint Petersburg, Pulkovskoye hwy., plot 17",
+        "shortDescription": "Land plot for commercial development; leasehold pledge and servitude indicators present.",
+        "registrySource": "Rosreestr / SPb",
+        "ownershipStatus": "Leasehold (Municipal land)",
+        "ownerName": "Development North LLC",
+        "district": "Moskovsky District",
+        "geoNote": "Developing commercial zone near Pulkovo Airport.",
+        "encumbranceNotes": [
+          "Leasehold rights pledged to VTB Bank.",
+          "Utility easement registered along western boundary."
+        ],
+        "legalNotes": [
+          "Long-term lease agreement registered in 2019.",
+          "Zoning permits commercial construction."
+        ]
+      },
+      "re-4": {
+        "address": "Kazan, Tekhnicheskaya st., 25",
+        "shortDescription": "Industrial premises inside production complex; no encumbrances.",
+        "registrySource": "Rosreestr / Tatarstan",
+        "ownershipStatus": "Ownership by legal entity",
+        "ownerName": "Kazan Tech LLC",
+        "district": "Privolzhsky District",
+        "geoNote": "Industrial zone with railway access.",
+        "encumbranceNotes": [
+          "No encumbrances registered."
+        ],
+        "legalNotes": [
+          "Ownership verified, no disputes found."
+        ]
+      }
+    }
+  }
+}
+
+

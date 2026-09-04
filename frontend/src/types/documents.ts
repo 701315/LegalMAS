@@ -173,18 +173,6 @@ export interface DocumentWithComposition extends Document {
   composition?: DocumentCompositionMeta | null;
 }
 
-/**
- * Тип одной строки в списке документов.
- *
- * Почему отдельный alias полезен:
- * - backend list endpoint уже возвращает DocumentResponse с composition;
- * - UI таблицы, пагинация, экспорт и bulk-операции работают именно со списком;
- * - имя DocumentListItem лучше отражает назначение, чем общий DocumentWithComposition.
- *
- * Пока это alias к DocumentWithComposition, чтобы не плодить лишние сущности.
- * Если позже список и detail начнут различаться сильнее, alias можно будет
- * превратить в отдельный interface без массового рефакторинга.
- */
 export type DocumentListItem = DocumentWithComposition;
 
 /** Версия документа (для истории изменений) */
@@ -258,20 +246,17 @@ export interface ExtractedValue {
   field_name: string;
   field_value: string;
 
-  // Формат и дополнительные атрибуты значения могут быть опциональными
   field_format?: string | null;
 
   page?: number | null;
   clause_uid?: string | null;
 
-  // Сегмент, к которому относится значение
   segment_id?: string | null;
   segment_type?: string | null;
   segment_title?: string | null;
   segment_order?: number | null;
   is_primary_segment?: boolean | null;
 
-  // Привязка к чанку внутри сегмента/документа
   chunk_id?: string | null;
   chunk_index?: number | null;
 }
@@ -290,7 +275,6 @@ export type OpenViewerAtPayload = {
   clauseUid?: string;
   elementId?: string;
 
-  // v2: навигация по сегментам / чанкам
   segmentId?: string;
   chunkId?: string;
   chunkIndex?: number;
@@ -321,7 +305,6 @@ export type DocumentColumnId =
   | "id"
   | "deal_id"
   | "classification_requires_review"
-  // Новые колонки composition / сегментов:
   | "composition_type"
   | "segment_count"
   | "primary_segment_label"
@@ -330,13 +313,9 @@ export type DocumentColumnId =
 export interface DocumentColumnDef {
   id: DocumentColumnId;
   label: string;
+  labelKey?: string;
   description: string;
-  /**
-   * Поле, из которого берутся данные для базового рендеринга.
-   * Для composition-полей значение будет вычисляться вручную в компоненте таблицы,
-   * поэтому здесь укажем ближайшее родственное (например, "id"), а в UI
-   * будем использовать отдельный рендерер.
-   */
+  descriptionKey?: string;
   field: keyof Document | "applicable_triggers_count";
   defaultVisible: boolean;
 }
@@ -344,164 +323,202 @@ export interface DocumentColumnDef {
 export const ALL_DOCUMENT_COLUMNS: DocumentColumnDef[] = [
   {
     id: "filename",
-    label: "Название документа",
-    description: "Имя файла документа в Data Room.",
+    label: "Document Name",
+    labelKey: "documents:columns.filename.label",
+    description: "File name of the document in Data Room.",
+    descriptionKey: "documents:columns.filename.description",
     field: "filename",
     defaultVisible: true,
   },
   {
     id: "folder_path",
-    label: "Папка",
-    description: "Путь к документу в структуре Data Room.",
+    label: "Folder",
+    labelKey: "documents:columns.folder_path.label",
+    description: "Folder path in Data Room structure.",
+    descriptionKey: "documents:columns.folder_path.description",
     field: "folder_path",
     defaultVisible: true,
   },
   {
     id: "doc_type",
-    label: "Тип документа",
-    description: "Классифицированный тип документа (SPA, NDA и т.п.).",
+    label: "Document Type",
+    labelKey: "documents:columns.doc_type.label",
+    description: "Classified document type (SPA, NDA, etc.).",
+    descriptionKey: "documents:columns.doc_type.description",
     field: "doc_type",
     defaultVisible: true,
   },
   {
     id: "status",
-    label: "Статус обработки",
-    description: "Текущий статус обработки документа в пайплайне.",
+    label: "Processing Status",
+    labelKey: "documents:columns.status.label",
+    description: "Current processing status of the document in the pipeline.",
+    descriptionKey: "documents:columns.status.description",
     field: "status",
     defaultVisible: true,
   },
   {
     id: "human_review_status",
-    label: "Проверка юриста",
-    description: "Человекочитаемый статус проверки юристом.",
+    label: "Lawyer Review",
+    labelKey: "documents:columns.human_review_status.label",
+    description: "Human-readable lawyer review status.",
+    descriptionKey: "documents:columns.human_review_status.description",
     field: "human_review_status",
     defaultVisible: true,
   },
   {
     id: "reviewed_by_person",
-    label: "Флаг проверки",
-    description: "Логический флаг: документ проверен юристом.",
+    label: "Reviewed Flag",
+    labelKey: "documents:columns.reviewed_by_person.label",
+    description: "Boolean flag indicating whether the document was reviewed by a lawyer.",
+    descriptionKey: "documents:columns.reviewed_by_person.description",
     field: "reviewed_by_person",
     defaultVisible: false,
   },
   {
     id: "classification_requires_review",
-    label: "Нужна проверка",
-    description:
-      "Флаг, что классификатор пометил документ как требующий ручной проверки (низкая уверенность).",
+    label: "Needs Review",
+    labelKey: "documents:columns.classification_requires_review.label",
+    description: "Flag indicating classifier marked document as requiring manual review.",
+    descriptionKey: "documents:columns.classification_requires_review.description",
     field: "classification_requires_review",
     defaultVisible: false,
   },
   {
     id: "risk_level",
-    label: "Риск",
-    description: "Уровень риска документа: low/medium/high/critical.",
+    label: "Risk",
+    labelKey: "documents:columns.risk_level.label",
+    description: "Document risk level: low/medium/high/critical.",
+    descriptionKey: "documents:columns.risk_level.description",
     field: "risk_level",
     defaultVisible: true,
   },
   {
     id: "language",
-    label: "Язык",
-    description: "Основной язык документа (RU, EN и т.п.).",
+    label: "Language",
+    labelKey: "documents:columns.language.label",
+    description: "Primary document language (RU, EN, etc.).",
+    descriptionKey: "documents:columns.language.description",
     field: "language",
     defaultVisible: false,
   },
   {
     id: "jurisdiction_guess",
-    label: "Юрисдикция",
-    description: "Предполагаемая юрисдикция документа.",
+    label: "Jurisdiction",
+    labelKey: "documents:columns.jurisdiction_guess.label",
+    description: "Estimated document jurisdiction.",
+    descriptionKey: "documents:columns.jurisdiction_guess.description",
     field: "jurisdiction_guess",
     defaultVisible: false,
   },
   {
     id: "page_count",
-    label: "Страницы",
-    description: "Количество страниц в документе.",
+    label: "Pages",
+    labelKey: "documents:columns.page_count.label",
+    description: "Number of pages in the document.",
+    descriptionKey: "documents:columns.page_count.description",
     field: "page_count",
     defaultVisible: false,
   },
   {
     id: "classification_level",
-    label: "Уровень классификации",
-    description:
-      "Уровень, на котором был определён тип документа (L0–L4, L_manual).",
+    label: "Classification Level",
+    labelKey: "documents:columns.classification_level.label",
+    description: "Level at which document type was determined (L0–L4, L_manual).",
+    descriptionKey: "documents:columns.classification_level.description",
     field: "classification_level",
     defaultVisible: false,
   },
   {
     id: "classification_confidence",
-    label: "Уверенность классификации",
-    description: "Число 0–1, показывающее уверенность в типе документа.",
+    label: "Classification Confidence",
+    labelKey: "documents:columns.classification_confidence.label",
+    description: "Score 0–1 indicating classification confidence.",
+    descriptionKey: "documents:columns.classification_confidence.description",
     field: "classification_confidence",
     defaultVisible: false,
   },
   {
     id: "applicable_triggers_count",
-    label: "Триггеры",
-    description: "Количество сработавших триггеров проверок для документа.",
+    label: "Triggers",
+    labelKey: "documents:columns.applicable_triggers_count.label",
+    description: "Number of applicable check triggers for the document.",
+    descriptionKey: "documents:columns.applicable_triggers_count.description",
     field: "applicable_triggers_count",
     defaultVisible: false,
   },
   {
     id: "created_at",
-    label: "Создан",
-    description: "Дата и время добавления документа в сделку.",
+    label: "Created",
+    labelKey: "documents:columns.created_at.label",
+    description: "Date and time when the document was added.",
+    descriptionKey: "documents:columns.created_at.description",
     field: "created_at",
     defaultVisible: false,
   },
   {
     id: "updated_at",
-    label: "Обновлён",
-    description: "Дата и время последнего обновления документа.",
+    label: "Updated",
+    labelKey: "documents:columns.updated_at.label",
+    description: "Date and time of last document update.",
+    descriptionKey: "documents:columns.updated_at.description",
     field: "updated_at",
     defaultVisible: true,
   },
   {
     id: "id",
-    label: "ID документа",
-    description: "Технический идентификатор документа (UUID).",
+    label: "Document ID",
+    labelKey: "documents:columns.id.label",
+    description: "Technical document identifier (UUID).",
+    descriptionKey: "documents:columns.id.description",
     field: "id",
     defaultVisible: false,
   },
   {
     id: "deal_id",
-    label: "ID сделки",
-    description: "Идентификатор сделки, к которой относится документ.",
+    label: "Deal ID",
+    labelKey: "documents:columns.deal_id.label",
+    description: "Identifier of the deal the document belongs to.",
+    descriptionKey: "documents:columns.deal_id.description",
     field: "deal_id",
     defaultVisible: false,
   },
-
-  // -----------------------------------------------------------
-  // Новые колонки композиции документа / сегментов
-  // -----------------------------------------------------------
   {
     id: "composition_type",
-    label: "Композиция",
-    description: "Single- или multi-document файл (по структуре сегментов).",
-    // Для composition-полей фактическое значение рендерится вручную.
+    label: "Composition",
+    labelKey: "documents:columns.composition_type.label",
+    description: "Single or multi-document file (by segment structure).",
+    descriptionKey: "documents:columns.composition_type.description",
     field: "id",
     defaultVisible: true,
   },
   {
     id: "segment_count",
-    label: "Сегменты",
-    description: "Количество сегментов / логических документов в файле.",
+    label: "Segments",
+    labelKey: "documents:columns.segment_count.label",
+    description: "Number of segments / logical documents in the file.",
+    descriptionKey: "documents:columns.segment_count.description",
     field: "id",
     defaultVisible: true,
   },
   {
     id: "primary_segment_label",
-    label: "Основной сегмент",
-    description: "Название основного сегмента (например, основной SPA).",
+    label: "Primary Segment",
+    labelKey: "documents:columns.primary_segment_label.label",
+    description: "Name of the primary segment (e.g. main SPA).",
+    descriptionKey: "documents:columns.primary_segment_label.description",
     field: "id",
     defaultVisible: false,
   },
   {
     id: "is_composite_file",
-    label: "Composite file",
-    description: "Флаг, что файл содержит несколько логических документов.",
+    label: "Composite File",
+    labelKey: "documents:columns.is_composite_file.label",
+    description: "Flag indicating the file contains multiple logical documents.",
+    descriptionKey: "documents:columns.is_composite_file.description",
     field: "id",
     defaultVisible: false,
   },
 ];
+
 

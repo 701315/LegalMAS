@@ -9,26 +9,40 @@ import {
 } from "../../../utils/statusConfig";
 import { getCompositionCellValue } from "../../../utils/compositionHelpers";
 
-export function formatRiskLevel(risk: string | null | undefined): string {
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+
+export function formatRiskLevel(
+  risk: string | null | undefined,
+  tFn?: TranslateFn,
+): string {
   if (!risk) return "";
+  const key = `documentsTab.utils.risk.${risk}`;
+  if (tFn) {
+    const translated = tFn(key, { defaultValue: risk });
+    return typeof translated === "string" ? translated : risk;
+  }
+  // Canonical English defaults (source copy)
   switch (risk) {
     case "low":
-      return "Низкий";
+      return "Low";
     case "medium":
-      return "Средний";
+      return "Medium";
     case "high":
-      return "Высокий";
+      return "High";
     case "critical":
-      return "Критический";
+      return "Critical";
     default:
       return risk;
   }
 }
 
-export function formatDateTime(value: string | undefined | null): string {
+export function formatDateTime(
+  value: string | undefined | null,
+  locale?: string,
+): string {
   if (!value) return "";
   try {
-    return new Date(value).toLocaleString();
+    return new Date(value).toLocaleString(locale ?? undefined);
   } catch {
     return value;
   }
@@ -41,22 +55,34 @@ export function hasProcessingError(doc: DocumentListItem): boolean {
   return Boolean(details.message || details.type);
 }
 
-export function getDocumentsCountLabel(count: number): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-
-  if (mod10 === 1 && mod100 !== 11) return "документ";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20))
-    return "документа";
-
-  return "документов";
+/**
+ * Document count noun for UI subtitles.
+ * Prefer i18next pluralization via tFn; English defaults when tFn omitted.
+ */
+export function getDocumentsCountLabel(
+  count: number,
+  tFn?: TranslateFn,
+): string {
+  if (tFn) {
+    return String(
+      tFn("documentsTab.utils.documentsCount", {
+        count,
+        defaultValue: count === 1 ? "document" : "documents",
+      }),
+    );
+  }
+  return count === 1 ? "document" : "documents";
 }
 
 export function resolveDocumentCellValue(
   colId: string,
   colField: string,
   doc: DocumentListItem,
+  options?: { tFn?: TranslateFn; locale?: string },
 ): unknown {
+  const tFn = options?.tFn;
+  const locale = options?.locale;
+
   if (
     colId === "composition_type" ||
     colId === "segment_count" ||
@@ -76,19 +102,17 @@ export function resolveDocumentCellValue(
           ? DOCUMENT_STATUS_CONFIG[doc.status].label
           : doc.status || "";
 
-      return hasProcessingError(doc)
-        ? `${baseLabel} ⚠`
-        : baseLabel;
+      return hasProcessingError(doc) ? `${baseLabel} ⚠` : baseLabel;
     }
 
     case "risk_level":
-      return formatRiskLevel(doc.risk_level);
+      return formatRiskLevel(doc.risk_level, tFn);
 
     case "created_at":
-      return formatDateTime(doc.created_at);
+      return formatDateTime(doc.created_at, locale);
 
     case "updated_at":
-      return formatDateTime(doc.updated_at);
+      return formatDateTime(doc.updated_at, locale);
 
     default: {
       type DocumentKey = keyof DocumentListItem;
@@ -101,13 +125,30 @@ export function resolveDocumentCellTitle(
   colField: string,
   value: unknown,
   doc: DocumentListItem,
+  options?: { tFn?: TranslateFn },
 ): string | undefined {
+  const tFn = options?.tFn;
+  const unknownStage = tFn
+    ? String(
+        tFn("documentsTab.utils.unknownStage", {
+          defaultValue: "Unknown stage",
+        }),
+      )
+    : "Unknown stage";
+
   if (colField === "status" && hasProcessingError(doc)) {
     const details = doc.processing_error_details;
     const stageLabel = getErrorStageLabel(details);
     const message = details?.message;
 
-    if (message && stageLabel !== "Неизвестная стадия") {
+    // Compare against both EN canonical and legacy RU hardcoded stage label
+    const isUnknown =
+      !stageLabel ||
+      stageLabel === unknownStage ||
+      stageLabel === "Неизвестная стадия" ||
+      stageLabel === "Unknown stage";
+
+    if (message && !isUnknown) {
       return `${stageLabel}: ${message}`;
     }
 

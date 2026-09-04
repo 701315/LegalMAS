@@ -1,6 +1,7 @@
 // src/components/ui/Button.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "outline";
@@ -74,6 +75,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref,
   ) => {
+    const { t } = useTranslation("common");
     const isDisabled = disabled || isLoading;
     const isSolid = variant === "primary" || variant === "danger";
 
@@ -122,9 +124,11 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 loadingTextClass,
               )}
             >
-              Загрузка…
+              {t("button.loading")}
             </span>
-            <span className="sr-only">Кнопка занята, идёт выполнение действия</span>
+            <span className="sr-only">
+              {t("button.loadingSrOnly")}
+            </span>
           </span>
         ) : (
           <span className="inline-flex items-center justify-center gap-2">
@@ -151,5 +155,3 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export default Button;
-
-

@@ -3,6 +3,7 @@
 // =============================================================
 
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   useDocuments,
@@ -52,6 +53,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   openViewerAt,
   onViewerLocationConsumed,
 }) => {
+  const { t, i18n } = useTranslation("documents");
   const navigate = useNavigate();
 
   // ── Data fetching ──────────────────────────────────────────
@@ -179,7 +181,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
       setIsExportMenuOpen(false);
     } catch (err) {
       console.error(err);
-      alert("Не удалось экспортировать в Excel");
+      alert(t("documentsTab.alerts.exportExcelFailed"));
     }
   };
 
@@ -189,7 +191,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
       setIsExportMenuOpen(false);
     } catch (err) {
       console.error(err);
-      alert("Не удалось экспортировать в Word");
+      alert(t("documentsTab.alerts.exportWordFailed"));
     }
   };
 
@@ -199,7 +201,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
       setIsExportMenuOpen(false);
     } catch (err) {
       console.error(err);
-      alert("Не удалось экспортировать в PDF");
+      alert(t("documentsTab.alerts.exportPdfFailed"));
     }
   };
 
@@ -212,7 +214,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   const handleCloseDetails = () => {
     setPipelinePreview(null);
     setIsPanelOpen(false);
-    // НЕ сбрасываем selectedDocId — строка остаётся активной
   };
 
   const handleOpenPipelineStagePreview = (
@@ -233,14 +234,14 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
           <span className="truncate">{String(value ?? "")}</span>
           <span
             className="shrink-0 rounded-full bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-warning-text)]"
-            title="Требует проверки классификации"
+            title={t("documentsTab.cell.needsReview")}
           >
             !
           </span>
         </span>
       );
     }
-    if (typeof value === "boolean") return value ? "Да" : "Нет";
+    if (typeof value === "boolean") return value ? t("documentsTab.cell.yes") : t("documentsTab.cell.no");
     if (value === null || value === undefined) return "";
     if (typeof value === "number" || typeof value === "string") return value;
     return String(value);
@@ -270,12 +271,15 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                     id="documents-tab-title"
                     className="text-sm font-semibold text-[var(--text-primary)]"
                   >
-                    Документы
+                    {t("documentsTab.title")}
                   </h2>
                   <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                     {totalDocumentsCount > 0
-                      ? `В проекте анализируется ${totalDocumentsCount} ${getDocumentsCountLabel(totalDocumentsCount)}`
-                      : "В проекте пока нет загруженных документов"}
+                      ? t("documentsTab.subtitle", {
+                          count: totalDocumentsCount,
+                          label: getDocumentsCountLabel(totalDocumentsCount, t),
+                        })
+                      : t("documentsTab.subtitleEmpty")}
                   </p>
                 </div>
 
@@ -297,9 +301,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                         : "",
                     ].join(" ")}
                   >
-                    Настроить колонки
+                    {t("documentsTab.toolbar.configureColumns")}
                   </Button>
-
 
                   <ExportMenu
                     isOpen={isExportMenuOpen}
@@ -329,13 +332,13 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 
             {isLoading && (
               <div className="shrink-0 px-5 py-3 text-sm text-[var(--text-secondary)]">
-                Загружаем документы…
+                {t("documentsTab.loading.title")}
               </div>
             )}
 
             {error && (
               <div className="shrink-0 px-5 py-3 text-sm text-[var(--color-error-text)]">
-                Не удалось загрузить документы.
+                {t("documentsTab.loading.error")}
               </div>
             )}
 
@@ -354,10 +357,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                 ) : (
                   <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
                     {isColumnSelectorOpen && (
-                      // lg:shrink-0: на десктопе панель не сжимается
-                      // flex-родителем и не отдаёт высоту таблице.
-                      // На мобильном обёртка не имеет ограничений —
-                      // панель занимает натуральную высоту в потоке.
                       <div className="lg:shrink-0">
                         <ColumnSelectorInlinePanel
                           tempSelectedIds={tempSelectedIds}
@@ -375,15 +374,24 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                         <table className="w-full border-collapse">
                           <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
                             <tr className="border-b border-[var(--border-subtle)]">
-                              {visibleColumns.map((col) => (
-                                <th
-                                  key={col.id}
-                                  className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                                  title={col.description}
-                                >
-                                  {col.label}
-                                </th>
-                              ))}
+                              {visibleColumns.map((col) => {
+                                const colLabel = col.labelKey
+                                  ? t(col.labelKey, { defaultValue: col.label })
+                                  : col.label;
+                                const colDescription = col.descriptionKey
+                                  ? t(col.descriptionKey, { defaultValue: col.description })
+                                  : col.description;
+
+                                return (
+                                  <th
+                                    key={col.id}
+                                    className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                                    title={colDescription}
+                                  >
+                                    {colLabel}
+                                  </th>
+                                );
+                              })}
                             </tr>
                           </thead>
 
@@ -407,12 +415,14 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                       col.id,
                                       col.field,
                                       doc,
+                                      { tFn: t, locale: i18n.language },
                                     );
 
                                     const title = resolveDocumentCellTitle(
                                       col.field,
                                       value,
                                       doc,
+                                      { tFn: t },
                                     );
 
                                     const isPrimaryCell = col.id === "filename";
@@ -446,10 +456,10 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                   className="px-4 py-12 text-center"
                                 >
                                   <p className="text-sm text-[var(--text-muted)]">
-                                    Документов пока нет
+                                    {t("documentsTab.emptyState.title")}
                                   </p>
                                   <p className="mt-1 text-[11px] text-[var(--text-faint)]">
-                                    Загрузите документы через вкладку «Обзор»
+                                    {t("documentsTab.emptyState.subtitle")}
                                   </p>
                                 </td>
                               </tr>
@@ -485,7 +495,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                 <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      Детали документа
+                      {t("documentsTab.detailsPanel.header")}
                     </span>
                     <span className="text-[var(--text-faint)]">·</span>
                     <span
@@ -504,9 +514,9 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                       text-[var(--text-muted)]
                       transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]
                     "
-                    aria-label="Закрыть панель деталей документа"
+                    aria-label={t("documentsTab.detailsPanel.closeLabel")}
                   >
-                    <span className="lg:hidden">← Назад</span>
+                    <span className="lg:hidden">{t("documentsTab.detailsPanel.backMobile")}</span>
                     <span className="hidden lg:inline">✕</span>
                   </button>
                 </div>
@@ -533,4 +543,5 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 };
 
 export default DocumentsTab;
+
 

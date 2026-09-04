@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { Loader2, Shield, UserPlus, Users } from "lucide-react";
 import {
   useProjectMembers,
@@ -49,18 +50,6 @@ const EMPTY_EDIT_FORM: EditMemberFormState = {
   role: "viewer",
 };
 
-const ROLE_LABEL: Record<ProjectRole, string> = {
-  admin: "Администратор проекта",
-  editor: "Редактор проекта",
-  viewer: "Только просмотр",
-};
-
-const SYSTEM_ROLE_LABEL: Record<string, string> = {
-  superadmin: "Суперадмин",
-  tenant_admin: "Администратор клиента",
-  member: "Участник",
-};
-
 const ALERT_ERROR_CLASS =
   "rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3";
 
@@ -71,6 +60,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
   dealId,
   backButton,
 }) => {
+  const { t } = useTranslation(["admin", "common"]);
   const { canManageRequests } = useDealPermissions(dealId);
   const canManageMembers = canManageRequests;
 
@@ -148,7 +138,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
       try {
         if (formMode === "create") {
           if (!createForm.userId) {
-            setErrorText("Выберите пользователя.");
+            setErrorText(t("projectMembers.errors.selectUser"));
             return;
           }
 
@@ -169,13 +159,15 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
       } catch (error) {
         const apiErr = error as ApiError;
         if (apiErr.detail === "USER_ALREADY_IN_PROJECT") {
-          setErrorText("Пользователь уже добавлен в этот проект.");
+          setErrorText(t("projectMembers.errors.alreadyInProject"));
         } else {
-          setErrorText(apiErr.detail || "Не удалось сохранить участника.");
+          setErrorText(
+            apiErr.detail ?? t("projectMembers.errors.saveFailed"),
+          );
         }
       }
     },
-    [closeForm, createMutation, createForm, editForm, formMode, updateMutation],
+    [closeForm, createMutation, createForm, editForm, formMode, t, updateMutation],
   );
 
   const handleDelete = React.useCallback(async () => {
@@ -189,10 +181,10 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
     } catch (error) {
       const apiErr = error as ApiError;
       setErrorText(
-        apiErr.detail || "Не удалось удалить участника. Попробуйте позже.",
+        apiErr.detail ?? t("projectMembers.errors.deleteFailed"),
       );
     }
-  }, [confirmDelete, deleteMutation]);
+  }, [confirmDelete, deleteMutation, t]);
 
   const getAvailableUserLabel = (user: AvailableProjectUser): string => {
     const name = user.full_name?.trim();
@@ -205,8 +197,8 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
   if (!canManageMembers) {
     return (
       <PageSection
-        title="Участники проекта"
-        subtitle="Управление составом команды проекта и доступами."
+        title={t("projectMembers.title")}
+        subtitle={t("projectMembers.subtitleNoAccess")}
         rightSlot={backButton}
       >
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 shadow-sm">
@@ -216,11 +208,11 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
             </div>
 
             <h2 className="text-base font-semibold text-[var(--text-primary)]">
-              Доступ к управлению участниками ограничен
+              {t("projectMembers.noAccess.heading")}
             </h2>
 
             <p className="mt-2 max-w-md text-sm text-[var(--text-muted)]">
-              У вас нет прав для управления составом команды этого проекта.
+              {t("projectMembers.noAccess.description")}
             </p>
           </div>
         </div>
@@ -230,8 +222,8 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
 
   return (
     <PageSection
-      title="Участники проекта"
-      subtitle="Назначение существующих пользователей клиента в проект и управление их проектными ролями."
+      title={t("projectMembers.title")}
+      subtitle={t("projectMembers.subtitle")}
       rightSlot={
         <div className="flex flex-wrap items-center gap-2">
           {backButton}
@@ -243,7 +235,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
             onClick={openCreateForm}
             disabled={availableUsersList.length === 0}
           >
-            Добавить участника
+            {t("projectMembers.addMember")}
           </Button>
         </div>
       }
@@ -252,7 +244,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
         {errorText && !formMode && !confirmDelete ? (
           <div className={ALERT_ERROR_CLASS}>
             <p className="text-sm font-medium text-[var(--color-error-text)]">
-              Не удалось выполнить действие
+              {t("projectMembers.errors.actionFailed")}
             </p>
             <p className="mt-1 text-sm text-[var(--color-error-text)]">
               {errorText}
@@ -268,7 +260,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                 className="mr-3 animate-spin text-[var(--accent-primary)]"
               />
               <span className="text-sm text-[var(--text-muted)]">
-                Загружаем участников проекта…
+                {t("projectMembers.loading")}
               </span>
             </div>
           ) : membersList.length === 0 ? (
@@ -278,12 +270,11 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
               </div>
 
               <h2 className="text-base font-semibold text-[var(--text-primary)]">
-                Участники ещё не добавлены
+                {t("projectMembers.empty.heading")}
               </h2>
 
               <p className="mx-auto mt-2 max-w-md text-sm text-[var(--text-muted)]">
-                Добавьте первого участника проекта из числа пользователей
-                клиента.
+                {t("projectMembers.empty.description")}
               </p>
 
               <div className="mt-5 flex justify-center">
@@ -295,7 +286,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   onClick={openCreateForm}
                   disabled={availableUsersList.length === 0}
                 >
-                  Добавить участника
+                  {t("projectMembers.addMember")}
                 </Button>
               </div>
             </div>
@@ -305,16 +296,16 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                 <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
                   <tr>
                     <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Пользователь
+                      {t("projectMembers.table.user")}
                     </th>
                     <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Системная роль
+                      {t("projectMembers.table.systemRole")}
                     </th>
                     <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Роль в проекте
+                      {t("projectMembers.table.projectRole")}
                     </th>
                     <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Действия
+                      {t("projectMembers.table.actions")}
                     </th>
                   </tr>
                 </thead>
@@ -336,14 +327,18 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
 
                       <td className="px-3 py-2.5">
                         <span className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
-                          {SYSTEM_ROLE_LABEL[member.system_role] ??
-                            member.system_role}
+                          {t(
+                            `projectMembers.systemRoles.${member.system_role}`,
+                            { defaultValue: member.system_role },
+                          )}
                         </span>
                       </td>
 
                       <td className="px-3 py-2.5">
                         <span className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
-                          {ROLE_LABEL[member.role]}
+                          {t(`projectMembers.roles.${member.role}Full`, {
+                            defaultValue: member.role,
+                          })}
                         </span>
                       </td>
 
@@ -355,7 +350,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                             variant="ghost"
                             onClick={() => openEditForm(member)}
                           >
-                            Роль
+                            {t("projectMembers.table.editRole")}
                           </Button>
 
                           <Button
@@ -368,7 +363,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                               setConfirmDelete(member);
                             }}
                           >
-                            Удалить
+                            {t("projectMembers.table.delete")}
                           </Button>
                         </div>
                       </td>
@@ -384,14 +379,13 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
             <div className="border-b border-[var(--border-subtle)] px-5 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                Новый участник
+                {t("projectMembers.createForm.label")}
               </p>
               <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
-                Добавить пользователя в проект
+                {t("projectMembers.createForm.heading")}
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
-                Выберите существующего пользователя клиента и назначьте ему
-                роль в проекте.
+                {t("projectMembers.createForm.description")}
               </p>
             </div>
 
@@ -399,7 +393,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                    Пользователь
+                    {t("projectMembers.table.user")}
                   </label>
 
                   {isAvailableUsersLoading ? (
@@ -408,7 +402,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                         size={16}
                         className="mr-2 animate-spin text-[var(--accent-primary)]"
                       />
-                      Загружаем список пользователей…
+                      {t("projectMembers.createForm.loadingUsers")}
                     </div>
                   ) : (
                     <select
@@ -418,7 +412,9 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                       }
                       className={selectClassName}
                     >
-                      <option value="">Выберите пользователя</option>
+                      <option value="">
+                        {t("projectMembers.createForm.selectUser")}
+                      </option>
                       {availableUsersList.map((u) => (
                         <option key={u.user_id} value={u.user_id}>
                           {getAvailableUserLabel(u)}
@@ -430,7 +426,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
 
                 <div>
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                    Роль в проекте
+                    {t("projectMembers.table.projectRole")}
                   </label>
                   <select
                     value={createForm.role}
@@ -439,9 +435,15 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                     }
                     className={selectClassName}
                   >
-                    <option value="admin">Администратор</option>
-                    <option value="editor">Редактор</option>
-                    <option value="viewer">Только просмотр</option>
+                    <option value="admin">
+                      {t("projectMembers.roles.admin")}
+                    </option>
+                    <option value="editor">
+                      {t("projectMembers.roles.editor")}
+                    </option>
+                    <option value="viewer">
+                      {t("projectMembers.roles.viewer")}
+                    </option>
                   </select>
                 </div>
               </div>
@@ -449,7 +451,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
               {errorText ? (
                 <div className={ALERT_ERROR_CLASS}>
                   <p className="text-sm font-medium text-[var(--color-error-text)]">
-                    Проверьте данные формы
+                    {t("projectMembers.errors.checkForm")}
                   </p>
                   <p className="mt-1 text-sm text-[var(--color-error-text)]">
                     {errorText}
@@ -464,7 +466,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   variant="ghost"
                   onClick={closeForm}
                 >
-                  Отмена
+                  {t("actions.cancel", { ns: "common" })}
                 </Button>
 
                 <Button
@@ -473,7 +475,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   variant="secondary"
                   isLoading={isSaving}
                 >
-                  Добавить
+                  {t("projectMembers.createForm.add")}
                 </Button>
               </div>
             </form>
@@ -484,20 +486,20 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
             <div className="border-b border-[var(--border-subtle)] px-5 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                Редактирование
+                {t("projectMembers.editForm.label")}
               </p>
               <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
-                Изменить роль участника
+                {t("projectMembers.editForm.heading")}
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
-                Измените роль пользователя внутри проекта.
+                {t("projectMembers.editForm.description")}
               </p>
             </div>
 
             <form className="space-y-4 px-5 py-5" onSubmit={handleSave}>
               <div className="max-w-sm">
                 <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                  Роль в проекте
+                  {t("projectMembers.table.projectRole")}
                 </label>
                 <select
                   value={editForm.role}
@@ -506,16 +508,22 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   }
                   className={selectClassName}
                 >
-                  <option value="admin">Администратор</option>
-                  <option value="editor">Редактор</option>
-                  <option value="viewer">Только просмотр</option>
+                  <option value="admin">
+                    {t("projectMembers.roles.admin")}
+                  </option>
+                  <option value="editor">
+                    {t("projectMembers.roles.editor")}
+                  </option>
+                  <option value="viewer">
+                    {t("projectMembers.roles.viewer")}
+                  </option>
                 </select>
               </div>
 
               {errorText ? (
                 <div className={ALERT_ERROR_CLASS}>
                   <p className="text-sm font-medium text-[var(--color-error-text)]">
-                    Не удалось изменить роль
+                    {t("projectMembers.errors.roleChangeFailed")}
                   </p>
                   <p className="mt-1 text-sm text-[var(--color-error-text)]">
                     {errorText}
@@ -530,7 +538,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   variant="ghost"
                   onClick={closeForm}
                 >
-                  Отмена
+                  {t("actions.cancel", { ns: "common" })}
                 </Button>
 
                 <Button
@@ -539,7 +547,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   variant="secondary"
                   isLoading={isSaving}
                 >
-                  Сохранить
+                  {t("projectMembers.editForm.save")}
                 </Button>
               </div>
             </form>
@@ -550,24 +558,31 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
             <div className="border-b border-[var(--border-subtle)] px-5 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                Подтверждение
+                {t("projectMembers.deleteConfirm.label")}
               </p>
               <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
-                Удалить участника проекта
+                {t("projectMembers.deleteConfirm.heading")}
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
-                Это действие удалит пользователя только из текущего проекта.
-                Сам пользователь останется в системе.
+                {t("projectMembers.deleteConfirm.description")}
               </p>
             </div>
 
             <div className="space-y-4 px-5 py-5">
               <p className="text-sm text-[var(--text-secondary)]">
-                Удалить участника{" "}
-                <span className="font-semibold text-[var(--text-primary)]">
-                  {confirmDelete.full_name || confirmDelete.email}
-                </span>{" "}
-                из проекта?
+                <Trans
+                  t={t}
+                  i18nKey="projectMembers.deleteConfirm.confirmQuestion"
+                  values={{
+                    name:
+                      confirmDelete.full_name || confirmDelete.email,
+                  }}
+                  components={{
+                    bold: (
+                      <span className="font-semibold text-[var(--text-primary)]" />
+                    ),
+                  }}
+                />
               </p>
 
               <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] pt-4">
@@ -577,7 +592,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   variant="ghost"
                   onClick={() => setConfirmDelete(null)}
                 >
-                  Отмена
+                  {t("actions.cancel", { ns: "common" })}
                 </Button>
 
                 <Button
@@ -587,7 +602,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   isLoading={isDeleteLoading}
                   onClick={handleDelete}
                 >
-                  Да, удалить
+                  {t("projectMembers.deleteConfirm.confirmButton")}
                 </Button>
               </div>
             </div>

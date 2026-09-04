@@ -14,9 +14,16 @@ const KNOWN_DISCOVERY_STATUSES: readonly DealLanguageDiscoveryStatus[] = [
 
 const KNOWN_DISCOVERY_STATUS_SET = new Set<string>(KNOWN_DISCOVERY_STATUSES);
 
+/** Canonical English fallback labels. */
 const LANGUAGE_LABELS: Record<string, string> = {
-  RU: "Русский (RU)",
+  RU: "Russian (RU)",
   EN: "English (EN)",
+};
+
+/** i18n keys for supported language codes. */
+export const LANGUAGE_LABEL_KEYS: Record<string, string> = {
+  RU: "common:languages.RU",
+  EN: "common:languages.EN",
 };
 
 export function normalizeDiscoveryStatus(
@@ -48,11 +55,26 @@ export function normalizeLang(value: string | null | undefined): string {
   return String(value ?? "").trim().toUpperCase();
 }
 
-export function formatLangLabel(value: string | null | undefined): string {
+/**
+ * Formats a language code into a human-readable label.
+ * Supports an optional translation function (tFn).
+ */
+export function formatLangLabel(
+  value: string | null | undefined,
+  tFn?: (key: string, options?: Record<string, unknown>) => string,
+): string {
   const lang = normalizeLang(value);
 
   if (!lang) {
     return "";
+  }
+
+  if (tFn) {
+    const key = LANGUAGE_LABEL_KEYS[lang] ?? `common:languages.${lang}`;
+    const localized = tFn(key, { defaultValue: "" });
+    if (localized) {
+      return localized;
+    }
   }
 
   return LANGUAGE_LABELS[lang] ?? lang;

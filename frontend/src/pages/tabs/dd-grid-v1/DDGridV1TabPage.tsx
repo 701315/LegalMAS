@@ -11,9 +11,12 @@
 // - QC bulk actions под панелью;
 // - Grid viewport с V1 матрицей или legacy списком;
 // - Фильтры полностью убраны из UI (могут быть возвращены позже).
+//
+// i18n: все UI-строки через namespace "ddGrid", ключи v1Tab.*
 // =============================================================
 
 import React from "react";
+import { useTranslation, Trans } from "react-i18next";
 import {
   AlertTriangle,
   Check,
@@ -182,37 +185,6 @@ function getErrorMessage(error: unknown): string {
   }
 }
 
-/**
- * Возвращает правильную форму русского слова по количеству.
- * Например: pluralizeRu(1, ["документ", "документа", "документов"]) → "документ"
- *           pluralizeRu(2, [...]) → "документа"
- *           pluralizeRu(5, [...]) → "документов"
- */
-function pluralizeRu(
-  count: number,
-  forms: readonly [string, string, string],
-): string {
-  const abs = Math.abs(count);
-  const mod10 = abs % 10;
-  const mod100 = abs % 100;
-
-  if (mod100 >= 11 && mod100 <= 19) return forms[2];
-  if (mod10 === 1) return forms[0];
-  if (mod10 >= 2 && mod10 <= 4) return forms[1];
-  return forms[2];
-}
-
-/**
- * Форматирует число + слово в правильном падеже.
- * Пример: formatCountRu(9, ["проверка", "проверки", "проверок"]) → "9 проверок"
- */
-function formatCountRu(
-  count: number,
-  forms: readonly [string, string, string],
-): string {
-  return `${count} ${pluralizeRu(count, forms)}`;
-}
-
 // -------------------------------------------------------------
 // DD Grid header summary — компактная строка со статистикой
 // -------------------------------------------------------------
@@ -240,22 +212,20 @@ const DDGridV1SummaryLine: React.FC<DDGridV1SummaryLineProps> = ({
   checksMode,
   className,
 }) => {
-  const docsText = formatCountRu(documentsCount, [
-    "документа",
-    "документов",
-    "документов",
-  ]);
-  const checksText = formatCountRu(checksCount, [
-    "проверка",
-    "проверки",
-    "проверок",
-  ]);
-  const findingsText = `${findingsCount} findings`;
-  const modeText = checksMode || "не указан";
+  const { t } = useTranslation("ddGrid");
+
+  const docsText = t("v1Tab.summary.documentsCount", { count: documentsCount });
+  const checksText = t("v1Tab.summary.checksCount", { count: checksCount });
+  const findingsText = t("v1Tab.summary.findingsCount", { count: findingsCount });
+  const modeText = checksMode ?? t("v1Tab.summary.modeNotSpecified");
 
   const tooltip = [
-    `Runtime параметров: ${runtimeColsCount}`,
-    `Ячеек: определено ${definedCellsCount} · не найдено ${notDefinedCellsCount} · ошибок ${errorCellsCount}`,
+    t("v1Tab.summary.tooltipRuntime", { count: runtimeColsCount }),
+    t("v1Tab.summary.tooltipCells", {
+      defined: definedCellsCount,
+      notFound: notDefinedCellsCount,
+      errors: errorCellsCount,
+    }),
   ].join("\n");
 
   const rootClassName =
@@ -263,23 +233,19 @@ const DDGridV1SummaryLine: React.FC<DDGridV1SummaryLineProps> = ({
 
   return (
     <p className={rootClassName} title={tooltip}>
-      <span>Матрица проверки </span>
-      <span className="font-semibold text-[var(--text-primary)]">
-        {docsText}
-      </span>
-      <span>. Проведено </span>
-      <span className="font-semibold text-[var(--text-primary)]">
-        {checksText}
-      </span>
-      <span>. Выявлено </span>
-      <span className="font-semibold text-[var(--text-primary)]">
-        {findingsText}
-      </span>
-      <span>. Проверка проводилась в режиме: </span>
-      <span className="font-semibold text-[var(--text-primary)]">
-        {modeText}
-      </span>
-      <span>.</span>
+      <Trans
+        i18nKey="v1Tab.summary.line"
+        ns="ddGrid"
+        values={{
+          documents: docsText,
+          checks: checksText,
+          findings: findingsText,
+          mode: modeText,
+        }}
+        components={{
+          bold: <span className="font-semibold text-[var(--text-primary)]" />,
+        }}
+      />
     </p>
   );
 };
@@ -325,6 +291,8 @@ const StatusStateCard: React.FC<StatusStateCardProps> = ({
 };
 
 const RunMetaWarning: React.FC<RunMetaWarningProps> = ({ visible }) => {
+  const { t } = useTranslation("ddGrid");
+
   if (!visible) {
     return null;
   }
@@ -332,10 +300,7 @@ const RunMetaWarning: React.FC<RunMetaWarningProps> = ({ visible }) => {
   return (
     <div className="flex items-start gap-2 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning-text)]">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-      <span>
-        Не удалось загрузить метаданные запуска анализа. DD Grid показан без
-        части run-level метаданных (режим проверок и т.п.).
-      </span>
+      <span>{t("v1Tab.runMetaWarning")}</span>
     </div>
   );
 };
@@ -354,10 +319,17 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
   onCancelLayoutPicker,
   onApplyLayout,
 }) => {
+  const { t } = useTranslation("ddGrid");
+
   const modeDescription =
     mode === "matrix"
-      ? "Файл будет сформирован как двумерная таблица: строки — документы, колонки — параметры проверок, в том же порядке, что на экране."
-      : "Файл будет сформирован как плоский список findings: те же строки, те же колонки, тот же порядок, что на экране.";
+      ? t("v1Tab.export.matrixDescription")
+      : t("v1Tab.export.listDescription");
+
+  const modeLabel =
+    mode === "matrix"
+      ? t("v1Tab.export.modeMatrix")
+      : t("v1Tab.export.modeList");
 
   return (
     <div
@@ -376,7 +348,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  Экспорт данных ({mode === "matrix" ? "матрица" : "список"})
+                  {t("v1Tab.export.panelTitle", { mode: modeLabel })}
                 </p>
                 <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                   {modeDescription}
@@ -430,6 +402,8 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
 // -------------------------------------------------------------
 
 const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
+  const { t } = useTranslation("ddGrid");
+
   const [reviewSelection, setReviewSelection] = React.useState<
     ReviewSelectionItem[]
   >([]);
@@ -490,8 +464,8 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [ddGridV1Response],
   );
 
-// V1 QC хелперы работают напрямую с v1Model — без адаптера
-// legacyAdapter и reviewGrid.qc больше не используются
+  // V1 QC хелперы работают напрямую с v1Model — без адаптера
+  // legacyAdapter и reviewGrid.qc больше не используются
 
   // Компактный список visibleCheckIds для V1 List (аналогично тому,
   // что делает DDGridV1TypedGroups для matrix)
@@ -538,8 +512,8 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   );
 
   const reviewQcCapability = React.useMemo(
-    () => getV1QcCapability(reviewSelection, selectedV1Drawers, runId),
-    [reviewSelection, selectedV1Drawers, runId],
+    () => getV1QcCapability(reviewSelection, selectedV1Drawers, runId, t),
+    [reviewSelection, selectedV1Drawers, runId, t],
   );
 
   const reviewQcDisabledNote = React.useMemo(
@@ -547,7 +521,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [reviewQcCapability],
   );
 
-  const checksModeLabel = humanChecksMode(run?.checks_mode);
+  const checksModeLabel = humanChecksMode(run?.checks_mode, t);
 
   const resetReviewSelection = React.useCallback(() => {
     setReviewSelection([]);
@@ -604,6 +578,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       if (layout === "single") {
         const matrixTable = buildDDGridV1MatrixExportTable({
           model: v1Model,
+          t, // 🌟 Передаём функцию перевода
         });
         if (format === "pdf") {
           await exportMatrixSingleToPdf(matrixTable, fileOpts);
@@ -613,10 +588,11 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       } else if (layout === "byDocument") {
         const sectioned = buildDDGridV1DocumentSectionedExportTable({
           model: v1Model,
+          t, // 🌟 Передаём функцию перевода
         });
         const sectionOpts = {
           ...fileOpts,
-          titleSuffix: "по документам",
+          titleSuffix: t("v1Tab.export.byDocumentSuffix"),
           layoutSuffix: "by_document",
         };
         if (format === "pdf") {
@@ -628,10 +604,11 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
         // byScopeGroup
         const sectioned = buildDDGridV1ScopeGroupSectionedExportTable({
           model: v1Model,
+          t, // 🌟 Передаём функцию перевода
         });
         const sectionOpts = {
           ...fileOpts,
-          titleSuffix: "по группам проверок",
+          titleSuffix: t("v1Tab.export.byScopeSuffix"),
           layoutSuffix: "by_scope",
         };
         if (format === "pdf") {
@@ -644,7 +621,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       // Скрыть picker после успешного экспорта
       setLayoutPickerFormat(null);
     },
-    [dealId, runId, v1Model],
+    [dealId, runId, v1Model, t],
   );
 
   const openViewerAt: OpenViewerAtFn = React.useCallback(async (loc) => {
@@ -682,43 +659,50 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
         sizedChunks: parseSizedChunks(chunksJson),
       });
     } catch (error: unknown) {
+      // NOTE: getErrorMessage is a pure helper; t() is not available inside
+      // this callback without stale closure, so we build the string via
+      // the i18n instance directly.  However, since this is a callback
+      // created with useCallback and we need `t`, we add `t` to deps below.
       setViewerError(
-        `Ошибка при загрузке документа: ${getErrorMessage(error)}`,
+        t("v1Tab.viewer.loadError", { error: getErrorMessage(error) }),
       );
     } finally {
       setIsViewerLoading(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
 
   if (!runId) {
     return (
       <StatusStateCard
-        title="DD Grid станет доступен после запуска анализа"
-        description="Нет выбранного запуска анализа. Сначала запустите анализ на вкладке «Обзор»."
+        title={t("v1Tab.noRunTitle")}
+        description={t("v1Tab.noRunDescription")}
       />
     );
   }
 
   if (isV1Loading) {
-    return <StatusStateCard title="Загружаем матрицу документов…" />;
+    return <StatusStateCard title={t("v1Tab.loadingTitle")} />;
   }
 
   if (v1Error) {
     return (
       <StatusStateCard
-        title="Не удалось загрузить DD Grid V1."
+        title={t("v1Tab.errorTitle")}
         tone="error"
       />
     );
   }
 
   const matrixSectionTitle =
-    gridMode === "matrix" ? "Review DD Matrix" : "Review findings list";
+    gridMode === "matrix"
+      ? t("v1Tab.matrixTitle")
+      : t("v1Tab.listTitle");
 
   const matrixSectionSubtitle =
     gridMode === "matrix"
-      ? "Run-scoped матрица документов и проверок (V1)."
-      : "Плоский список findings из V1 review dataset с фильтрацией и экспортом.";
+      ? t("v1Tab.matrixSubtitle")
+      : t("v1Tab.listSubtitle");
 
   return (
     <div className="flex flex-col gap-4 lg:h-full lg:min-h-0 lg:overflow-hidden">
@@ -780,12 +764,15 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                 </div>
 
                 <div className="flex flex-col gap-1.5 lg:shrink-0">
-                  {/* Невидимый лейбл с теми же классами, что и слева. 
+                  {/* Невидимый лейбл с теми же классами, что и слева.
                       Занимает идентичное вертикальное пространство для идеального выравнивания без магических чисел. */}
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] invisible" aria-hidden="true">
-                    Действия
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] invisible"
+                    aria-hidden="true"
+                  >
+                    {t("v1Tab.actionsLabel")}
                   </span>
-                  
+
                   <div className="flex flex-wrap items-center gap-2">
                     {gridMode === "list" && (
                       <>
@@ -796,13 +783,15 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                           onClick={() => setShowPassInList(!showPassInList)}
                           title={
                             showPassInList
-                              ? "Скрыть pass результаты"
-                              : "Показать pass результаты"
+                              ? t("v1Tab.hidePassTitle")
+                              : t("v1Tab.showPassTitle")
                           }
                           aria-pressed={!showPassInList}
                           className={!showPassInList ? INLINE_PANEL_ACTIVE_CLASS : ""}
                         >
-                          {showPassInList ? "Скрыть pass" : "Показать pass"}
+                          {showPassInList
+                            ? t("v1Tab.hidePass")
+                            : t("v1Tab.showPass")}
                         </Button>
 
                         <Button
@@ -815,7 +804,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                             }
                             setIsExtraColumnsPanelOpen((prev) => !prev);
                           }}
-                          title="Выбрать дополнительные технические колонки для отображения"
+                          title={t("v1Tab.extraColumnsTitle")}
                           aria-expanded={isExtraColumnsPanelOpen}
                           aria-controls="dd-grid-v1-extra-columns-panel"
                           leftIcon={<SlidersHorizontal className="h-4 w-4" />}
@@ -830,7 +819,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                             isExtraColumnsPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
                           }
                         >
-                          Дополнительные данные
+                          {t("v1Tab.extraColumnsButton")}
                           {appliedExtraColumnIds.length > 0
                             ? ` (${appliedExtraColumnIds.length})`
                             : ""}
@@ -843,7 +832,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                       size="sm"
                       variant={isExportPanelOpen ? "outline" : "secondary"}
                       onClick={handleToggleExportPanel}
-                      title="Открыть панель экспорта findings в файл"
+                      title={t("v1Tab.exportTitle")}
                       aria-expanded={isExportPanelOpen}
                       aria-controls="dd-grid-v1-export-panel"
                       leftIcon={<Download className="h-4 w-4" />}
@@ -856,7 +845,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                       }
                       className={isExportPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""}
                     >
-                      Экспорт данных
+                      {t("v1Tab.exportButton")}
                     </Button>
                   </div>
                 </div>
@@ -897,11 +886,10 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                        Выбор дополнительных колонок
+                        {t("v1Tab.extraColumnsPanel.title")}
                       </p>
                       <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                        Отметьте технические показатели, которые нужно
-                        отобразить в таблице.
+                        {t("v1Tab.extraColumnsPanel.description")}
                       </p>
                     </div>
 
@@ -915,7 +903,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                           setIsExtraColumnsPanelOpen(false);
                         }}
                       >
-                        Отменить
+                        {t("v1Tab.extraColumnsPanel.cancel")}
                       </Button>
                       <Button
                         type="button"
@@ -927,7 +915,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                           setIsExtraColumnsPanelOpen(false);
                         }}
                       >
-                        Применить
+                        {t("v1Tab.extraColumnsPanel.apply")}
                       </Button>
                     </div>
                   </div>
@@ -982,7 +970,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                       }
                       className="text-[10px] font-medium text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
                     >
-                      Выбрать все
+                      {t("v1Tab.extraColumnsPanel.selectAll")}
                     </button>
                     <span className="text-[10px] text-[var(--text-faint)]">·</span>
                     <button
@@ -990,7 +978,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                       onClick={() => setDraftExtraColumnIds([])}
                       className="text-[10px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
                     >
-                      Снять все
+                      {t("v1Tab.extraColumnsPanel.deselectAll")}
                     </button>
                   </div>
                 </div>
@@ -1001,10 +989,10 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               <div className="mt-4">
                 <div className="mb-2 flex items-center gap-2">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                    QC: Массовое действие
+                    {t("v1Tab.qc.heading")}
                   </h3>
                   <span className="text-[10px] text-[var(--text-faint)]">
-                    Выберите строки в таблице для применения статуса ко всем findings
+                    {t("v1Tab.qc.hint")}
                   </span>
                 </div>
                 <DDGridV1QcBulkActions
@@ -1063,7 +1051,10 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
         onClose={handleCloseViewer}
         fileUrl={viewerState?.pdfUrl ?? null}
         location={viewerState?.location ?? null}
-        title={viewerError ?? (isViewerLoading ? "Загрузка PDF…" : null)}
+        title={
+          viewerError ??
+          (isViewerLoading ? t("v1Tab.viewer.loadingPdf") : null)
+        }
         layoutElements={viewerState?.layoutElements}
         sizedChunks={viewerState?.sizedChunks}
       />
@@ -1072,5 +1063,4 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 };
 
 export default DDGridV1TabPage;
-
 

@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 import type {
   CheckResult,
@@ -36,20 +37,21 @@ interface EvidenceDetailLike extends EvidenceDetail {
 function getSnippet(
   evidence: EvidenceDetailLike | undefined,
   result: CheckResult,
+  tFn: (key: string) => string,
 ): string {
   return (
     evidence?.quote ||
     evidence?.snippet ||
     result.value_text ||
-    "(нет фрагмента текста)"
+    tFn("evidencePanel.noSnippet")
   );
 }
 
-function formatCreatedAt(value: string | null | undefined): string {
+function formatCreatedAt(value: string | null | undefined, locale: string): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString();
+  return date.toLocaleString(locale);
 }
 
 function getFieldStatus(field: StructuredField): "yes" | "no" | "unclear" {
@@ -61,20 +63,20 @@ function getFieldStatus(field: StructuredField): "yes" | "no" | "unclear" {
   return "unclear";
 }
 
-function renderStatusLabel(field: StructuredField): string {
+function renderStatusLabel(field: StructuredField, tFn: (key: string) => string): string {
   const status = getFieldStatus(field);
-  if (status === "yes") return "Есть";
-  if (status === "no") return "Нет";
-  return "Требует уточнения";
+  if (status === "yes") return tFn("evidencePanel.extracted.statusYes");
+  if (status === "no") return tFn("evidencePanel.extracted.statusNo");
+  return tFn("evidencePanel.extracted.statusUnclear");
 }
 
-function renderLocationLabel(field: StructuredField): string {
+function renderLocationLabel(field: StructuredField, tFn: (key: string, options?: any) => string): string {
   if (!field.location) return "—";
   const { page, clause_uid: clauseUid } = field.location;
-  if (!page && !clauseUid) return "Фрагмент";
-  if (page && clauseUid) return `Стр. ${page}, п. ${clauseUid}`;
-  if (page) return `Стр. ${page}`;
-  return clauseUid || "Фрагмент";
+  if (!page && !clauseUid) return tFn("evidencePanel.extracted.locationFragment");
+  if (page && clauseUid) return tFn("evidencePanel.extracted.locationPageAndClause", { page, clause: clauseUid });
+  if (page) return tFn("evidencePanel.extracted.locationPage", { page });
+  return clauseUid || tFn("evidencePanel.extracted.locationFragment");
 }
 
 function renderQcLabel(field: StructuredField): string {
@@ -92,12 +94,13 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   onQcChange,
   onOpenAtLocation,
 }) => {
+  const { t, i18n } = useTranslation("findings");
   const { data: evidence, isLoading, error } = useEvidence(result.id);
   const { data: provenance } = useCheckProvenance(result.id);
   const contextTrace = provenance?.context_trace ?? [];
 
   const evidenceObj = (evidence ?? undefined) as EvidenceDetailLike | undefined;
-  const snippet = getSnippet(evidenceObj, result);
+  const snippet = getSnippet(evidenceObj, result, t);
 
   const page =
     typeof evidenceObj?.page === "number" ? evidenceObj.page : undefined;
@@ -123,13 +126,13 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   const qualitySummary = React.useMemo(() => {
     const flags: Record<string, boolean> = result.quality_flags ?? {};
     const active: string[] = [];
-    if (flags.structure_degraded) active.push("Структура документа нарушена");
-    if (flags.llm_fallback_used) active.push("Использован LLM fallback");
+    if (flags.structure_degraded) active.push(t("evidencePanel.qualityFlags.structureDegraded"));
+    if (flags.llm_fallback_used) active.push(t("evidencePanel.qualityFlags.llmFallbackUsed"));
     if (!active.length && Object.keys(flags).length)
-      active.push("Есть технические флаги (см. детали ниже)");
-    if (!active.length) return "Флаги качества не установлены.";
+      active.push(t("evidencePanel.qualityFlags.techFlags"));
+    if (!active.length) return t("evidencePanel.qualityFlags.noFlags");
     return active.join(" · ");
-  }, [result.quality_flags]);
+  }, [result.quality_flags, t]);
 
   const structuredEntries: [string, StructuredField][] = React.useMemo(() => {
     if (!result.structured_data || typeof result.structured_data !== "object")
@@ -195,13 +198,13 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
       <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] px-5 py-4">
         <div className="min-w-0 space-y-1">
           <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-            Документ
+            {t("evidencePanel.document")}
           </div>
           <div className="truncate text-sm font-semibold text-[var(--text-primary)]">
-            {result.document_name || "Без имени"}
+            {result.document_name || t("evidencePanel.noName")}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
-            {result.doc_type && <span>Тип: {result.doc_type}</span>}
+            {result.doc_type && <span>{t("evidencePanel.typePrefix", { type: result.doc_type })}</span>}
             <Button
               type="button"
               variant="ghost"
@@ -210,7 +213,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               disabled={!canOpenOriginal}
               className="h-auto min-h-0 px-0 py-0 text-[11px] font-medium text-[var(--accent-primary)] hover:bg-transparent hover:text-[var(--accent-primary)] hover:underline"
             >
-              Просмотреть исходный документ
+              {t("evidencePanel.viewOriginalDoc")}
             </Button>
           </div>
         </div>
@@ -229,10 +232,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               )}
             </div>
             <span className="text-[11px] text-[var(--text-muted)]">
-              Результат: {result.result}
+              {t("evidencePanel.resultPrefix", { result: result.result })}
             </span>
             <span className="text-[11px] text-[var(--text-muted)]">
-              QC: {qcStatus}
+              {t("evidencePanel.qcPrefix", { status: qcStatus })}
               {result.qc_by ? ` · ${result.qc_by}` : ""}
             </span>
           </div>
@@ -241,7 +244,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            aria-label="Закрыть"
+            aria-label={t("actions.close", { ns: "common" })}
             className="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           >
             ✕
@@ -250,25 +253,26 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
       </div>
 
       {/* Основное содержимое */}
-      <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto overflow-x-hidden px-5 py-4 md:grid-cols-3 md:overflow-hidden">        {/* Левая колонка */}
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto overflow-x-hidden px-5 py-4 md:grid-cols-3 md:overflow-hidden">
+        {/* Левая колонка */}
         <div className="col-span-1 space-y-4 overflow-y-auto border-r border-[var(--border-subtle)] pr-4">
           <div>
             <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-              Документ
+              {t("evidencePanel.document")}
             </div>
             <div className="text-sm text-[var(--text-primary)]">
-              {result.document_name || "Без имени"}
+              {result.document_name || t("evidencePanel.noName")}
             </div>
             {result.doc_type && (
               <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                Тип: {result.doc_type}
+                {t("evidencePanel.typePrefix", { type: result.doc_type })}
               </div>
             )}
           </div>
 
           <div>
             <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-              Классификация документа
+              {t("evidencePanel.docClassification")}
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-secondary)]">
               {result.doc_classification_level ? (
@@ -280,12 +284,12 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 />
               ) : (
                 <span className="text-[11px] text-[var(--text-faint)]">
-                  Нет данных классификации
+                  {t("evidencePanel.noClassificationData")}
                 </span>
               )}
               {isLowConfidence && (
                 <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-text)]">
-                  Низкая уверенность
+                  {t("evidencePanel.lowConfidence")}
                 </span>
               )}
             </div>
@@ -294,15 +298,17 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
           {result.conditional_check_triggered && (
             <div>
               <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-                Условная проверка
+                {t("evidencePanel.conditionalCheck")}
               </div>
               <div className="space-y-1">
                 <div className="inline-flex items-center gap-1 rounded-full border border-[color:color-mix(in_srgb,var(--color-purple)_20%,transparent)] bg-[var(--color-purple-highlight)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-purple)]">
-                  ⚡ {result.trigger_name || "Условная проверка"}
+                  ⚡ {result.trigger_name || t("evidencePanel.conditionalCheck")}
                 </div>
                 <div className="text-[11px] leading-5 text-[var(--text-muted)]">
-                  Эта проверка запущена условным правилом
-                  {result.trigger_name ? ` «${result.trigger_name}»` : ""}.
+                  {result.trigger_name 
+                    ? t("evidencePanel.conditionalCheckDesc", { name: result.trigger_name })
+                    : t("evidencePanel.conditionalCheckDescGeneric")
+                  }
                 </div>
               </div>
             </div>
@@ -310,30 +316,29 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
           <div>
             <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-              Проверка
+              {t("evidencePanel.check")}
             </div>
             <div className="text-sm text-[var(--text-primary)]">
               {result.check_name}
             </div>
             {result.detector_used && (
               <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                Источник: {result.detector_used}
+                {t("evidencePanel.sourcePrefix", { source: result.detector_used })}
               </div>
             )}
           </div>
 
           <div>
             <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-              Метаданные
+              {t("evidencePanel.metadata")}
             </div>
             <div className="space-y-0.5 text-[11px] text-[var(--text-muted)]">
               {result.confidence != null && (
                 <div>
-                  Уверенность детектора:{" "}
-                  {Math.round(result.confidence * 100)}%
+                  {t("evidencePanel.detectorConfidence", { percent: Math.round(result.confidence * 100) })}
                 </div>
               )}
-              <div>Создано: {formatCreatedAt(result.created_at)}</div>
+              <div>{t("evidencePanel.createdAt", { date: formatCreatedAt(result.created_at, i18n.language) })}</div>
             </div>
           </div>
         </div>
@@ -342,18 +347,18 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
         <div className="col-span-1 flex flex-col gap-3 overflow-hidden">
           <div className="flex flex-col">
             <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-              Цитата / фрагмент
+              {t("evidencePanel.quoteFragment")}
             </div>
 
             {isLoading && (
               <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-xs text-[var(--text-muted)]">
-                Загружаем evidence…
+                {t("evidencePanel.loading")}
               </div>
             )}
 
             {error && (
               <div className="rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
-                Не удалось загрузить evidence.
+                {t("evidencePanel.loadError")}
               </div>
             )}
 
@@ -365,21 +370,21 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                   chunkIndex != null ||
                   chunkId) && (
                   <div className="mb-2 flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
-                    {page != null && <span>Стр. {page}</span>}
-                    {clauseUid && <span>Clause: {clauseUid}</span>}
+                    {page != null && <span>{t("evidencePanel.pageLabel", { page })}</span>}
+                    {clauseUid && <span>{t("evidencePanel.clauseLabel", { clause: clauseUid })}</span>}
                     {segmentId && (
                       <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--accent-primary)_20%,transparent)] bg-[var(--bg-elevated-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent-primary)]">
-                        Сегмент: {segmentId}
+                        {t("evidencePanel.segmentLabel", { segment: segmentId })}
                       </span>
                     )}
                     {chunkIndex != null && (
                       <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-text)]">
-                        Chunk #{chunkIndex}
+                        {t("evidencePanel.chunkNumber", { index: chunkIndex })}
                       </span>
                     )}
                     {!segmentId && chunkId && (
                       <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]">
-                        Chunk ID: {chunkId}
+                        {t("evidencePanel.chunkIdLabel", { id: chunkId })}
                       </span>
                     )}
                   </div>
@@ -394,32 +399,32 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
           {hasStructuredData && (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-                Извлечённые данные
+                {t("evidencePanel.extractedData")}
               </div>
               <div className="max-h-48 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]">
                 <table className="w-full text-[11px]">
                   <thead>
                     <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]">
                       <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
-                        Поле
+                        {t("evidencePanel.table.field")}
                       </th>
                       <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
-                        Значение
+                        {t("evidencePanel.table.value")}
                       </th>
                       <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
-                        Статус
+                        {t("evidencePanel.table.status")}
                       </th>
                       <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
-                        Источник
+                        {t("evidencePanel.table.source")}
                       </th>
                       <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
-                        Увер.
+                        {t("evidencePanel.table.confidence")}
                       </th>
                       <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
-                        Фрагмент
+                        {t("evidencePanel.table.fragment")}
                       </th>
                       <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
-                        QC
+                        {t("evidencePanel.table.qc")}
                       </th>
                     </tr>
                   </thead>
@@ -445,7 +450,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                             {value}
                           </td>
                           <td className="whitespace-nowrap px-2 py-1 align-top text-[var(--text-secondary)]">
-                            {renderStatusLabel(field)}
+                            {renderStatusLabel(field, t)}
                           </td>
                           <td className="whitespace-nowrap px-2 py-1 align-top text-[var(--text-secondary)]">
                             {source}
@@ -464,7 +469,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                                 }
                                 className="h-auto min-h-0 px-0 py-0 text-[11px] font-medium text-[var(--accent-primary)] hover:bg-transparent hover:text-[var(--accent-primary)] hover:underline"
                               >
-                                {renderLocationLabel(field)}
+                                {renderLocationLabel(field, t)}
                               </Button>
                             ) : (
                               <span className="text-[var(--text-faint)]">
@@ -487,13 +492,13 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
           {hasEvidenceDetails && (
             <div>
               <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-                Детали проверки
+                {t("evidencePanel.checkDetails")}
               </div>
               <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-[11px]">
                 {result.qc_comment && (
                   <>
                     <div className="mb-1 text-[var(--text-muted)]">
-                      Комментарий QC:
+                      {t("evidencePanel.qcCommentLabel")}
                     </div>
                     <div className="mb-2 whitespace-pre-wrap text-xs text-[var(--text-primary)]">
                       {result.qc_comment}
@@ -502,7 +507,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 )}
                 <details>
                   <summary className="cursor-pointer text-[var(--accent-primary)]">
-                    Показать тех. детали
+                    {t("evidencePanel.showTechDetails")}
                   </summary>
                   <pre className="mt-2 overflow-auto rounded-xl bg-[var(--bg-elevated-soft)] p-2 text-[10px] text-[var(--text-secondary)]">
                     {JSON.stringify(evidenceDetails, null, 2)}
@@ -518,7 +523,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
           {/* QC-статус */}
           <div>
             <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-              QC-статус
+              {t("evidencePanel.qcStatusTitle")}
             </div>
             <div className="mb-1 text-sm text-[var(--text-primary)]">
               {qcStatus}
@@ -526,8 +531,8 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             </div>
             <div className="mb-2 text-[11px] leading-5 text-[var(--text-muted)]">
               {isPendingQc
-                ? "Требуется QC-решение по этому результату."
-                : "QC по этому результату уже выставлен."}
+                ? t("evidencePanel.qcRequired")
+                : t("evidencePanel.qcCompleted")}
             </div>
             {onQcChange && (
               <div className="mt-1 flex flex-wrap gap-2">
@@ -538,7 +543,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                   onClick={handleApprove}
                   disabled={!isPendingQc}
                 >
-                  ✅ Согласен
+                  {t("evidencePanel.agreeBtn")}
                 </Button>
                 <Button
                   type="button"
@@ -547,7 +552,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                   onClick={handleReject}
                   disabled={!isPendingQc}
                 >
-                  ❌ Не согласен
+                  {t("evidencePanel.disagreeBtn")}
                 </Button>
               </div>
             )}
@@ -556,7 +561,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
           {/* Флаги качества */}
           <div className="flex-1">
             <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-              Флаги качества
+              {t("evidencePanel.qualityFlagsTitle")}
             </div>
             <div className="max-h-64 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-[11px]">
               <div className="mb-2 text-[var(--text-secondary)]">
@@ -566,7 +571,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 Object.keys(result.quality_flags).length > 0 && (
                   <details>
                     <summary className="cursor-pointer text-[var(--accent-primary)]">
-                      Показать тех. детали
+                      {t("evidencePanel.showTechDetails")}
                     </summary>
                     <pre className="mt-2 overflow-auto rounded-xl bg-[var(--bg-elevated-soft)] p-2 text-[10px] text-[var(--text-secondary)]">
                       {JSON.stringify(result.quality_flags, null, 2)}
@@ -580,7 +585,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
           {contextTrace.length > 0 && (
             <div className="flex-1">
               <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-                Retrieval trace ({contextTrace.length})
+                {t("evidencePanel.retrievalTraceTitle", { count: contextTrace.length })}
               </div>
               <div className="max-h-56 space-y-1.5 overflow-auto">
                 {contextTrace.map((item, i) => {
@@ -638,7 +643,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                       )}
                       {(item.page != null || item.segment_title) && (
                         <div className="mt-1 text-[var(--text-faint)]">
-                          {item.page != null ? `Стр. ${item.page}` : ""}
+                          {item.page != null ? t("evidencePanel.pageLabel", { page: item.page }) : ""}
                           {item.page != null && item.segment_title
                             ? " · "
                             : ""}
@@ -658,6 +663,5 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 };
 
 export default EvidencePanel;
-
 
 

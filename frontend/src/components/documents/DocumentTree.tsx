@@ -4,6 +4,7 @@
 // =============================================================
 
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ClassificationLevel, DocumentListItem } from "../../types";
 import {
   ChevronDown,
@@ -49,10 +50,14 @@ export const DocumentTree: React.FC<Props> = ({
   canDelete = false,
   onDeleteDoc,
 }) => {
+  const { t, i18n } = useTranslation("documents");
   const [searchText, setSearchText] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set([""]));
 
-  const rootNode = useMemo(() => buildTree(documents), [documents]);
+  const rootNode = useMemo(
+    () => buildTree(documents, i18n.language),
+    [documents, i18n.language],
+  );
 
   const displayTree = useMemo(() => {
     if (!searchText.trim()) return rootNode;
@@ -80,7 +85,7 @@ export const DocumentTree: React.FC<Props> = ({
           />
           <input
             type="text"
-            placeholder="Поиск по имени документа…"
+            placeholder={t("tree.searchPlaceholder")}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] py-2 pl-8 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-faint)] outline-none transition focus:border-[var(--accent-primary)]"
@@ -88,14 +93,14 @@ export const DocumentTree: React.FC<Props> = ({
         </div>
 
         <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
-          Показано: {totalShown} из {documents.length} документов
+          {t("tree.shownInfo", { shown: totalShown, total: documents.length })}
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-1.5 py-2">
         {totalShown === 0 ? (
           <p className="py-10 text-center text-sm text-[var(--text-muted)]">
-            Документы не найдены
+            {t("tree.notFound")}
           </p>
         ) : (
           <NodeView
@@ -142,6 +147,7 @@ const NodeView: React.FC<NodeViewProps> = ({
   canDelete,
   onDeleteDoc,
 }) => {
+  const { t } = useTranslation("documents");
   const isOpen = expanded.has(node.fullPath);
   const hasContent = node.children.length > 0 || node.docs.length > 0;
   const paddingLeft = depth * 14 + 8;
@@ -242,16 +248,16 @@ const NodeView: React.FC<NodeViewProps> = ({
                     {compositionBadges.showMultiBadge && (
                       <span
                         className="inline-flex items-center rounded-full border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-blue)]"
-                        title="Файл содержит несколько логических документов"
+                        title={t("tree.tooltips.multi")}
                       >
-                        multi
+                        {t("tree.badges.multi")}
                       </span>
                     )}
 
                     {compositionBadges.showSegmentCount && (
                       <span
                         className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]"
-                        title="Количество сегментов / логических документов"
+                        title={t("tree.tooltips.segmentCount")}
                       >
                         {compositionBadges.segmentCount} seg
                       </span>
@@ -260,7 +266,7 @@ const NodeView: React.FC<NodeViewProps> = ({
                     {compositionBadges.showPrimaryLabel && (
                       <span
                         className="inline-flex max-w-[120px] items-center truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]"
-                        title={`Основной сегмент: ${compositionBadges.primaryLabel}`}
+                        title={t("tree.tooltips.primarySegment", { name: compositionBadges.primaryLabel })}
                       >
                         {compositionBadges.primaryLabel}
                       </span>
@@ -269,9 +275,9 @@ const NodeView: React.FC<NodeViewProps> = ({
                     {compositionBadges.showCompositeBadge && (
                       <span
                         className="inline-flex items-center rounded-full border border-[var(--color-purple)]/20 bg-[var(--color-purple-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-purple)]"
-                        title="Composite file: содержит несколько юридических документов"
+                        title={t("tree.tooltips.composite")}
                       >
-                        composite
+                        {t("tree.badges.composite")}
                       </span>
                     )}
                   </div>
@@ -289,9 +295,9 @@ const NodeView: React.FC<NodeViewProps> = ({
                 {needsReview && (
                   <span
                     className="ml-1 shrink-0 rounded-full border border-[var(--color-gold)]/20 bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-text)]"
-                    title="Классификатор не уверен, требуется ручной просмотр"
+                    title={t("tree.tooltips.needsReview")}
                   >
-                    нужна проверка
+                    {t("tree.badges.needsReview")}
                   </span>
                 )}
 
@@ -319,8 +325,8 @@ const NodeView: React.FC<NodeViewProps> = ({
                       onDeleteDoc(doc);
                     }}
                     className="ml-1 shrink-0 rounded p-0.5 text-[var(--color-error)] transition-colors hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error-text)]"
-                    title="Удалить документ"
-                    aria-label={`Удалить документ ${doc.filename}`}
+                    title={t("tree.actions.deleteTitle")}
+                    aria-label={t("tree.actions.deleteAria", { name: doc.filename })}
                   >
                     ✕
                   </button>
@@ -338,7 +344,7 @@ const NodeView: React.FC<NodeViewProps> = ({
    Утилиты: построение дерева, фильтрация, подсчёт
    ===================================================================== */
 
-function buildTree(documents: DocumentListItem[]): TreeNode {
+function buildTree(documents: DocumentListItem[], locale: string): TreeNode {
   const root: TreeNode = { name: "", fullPath: "", children: [], docs: [] };
 
   for (const doc of documents) {
@@ -369,14 +375,14 @@ function buildTree(documents: DocumentListItem[]): TreeNode {
     current.docs.push(doc);
   }
 
-  sortTree(root);
+  sortTree(root, locale);
   return root;
 }
 
-function sortTree(node: TreeNode) {
-  node.children.sort((a, b) => a.name.localeCompare(b.name, "ru"));
-  node.docs.sort((a, b) => a.filename.localeCompare(b.filename, "ru"));
-  node.children.forEach(sortTree);
+function sortTree(node: TreeNode, locale: string) {
+  node.children.sort((a, b) => a.name.localeCompare(b.name, locale));
+  node.docs.sort((a, b) => a.filename.localeCompare(b.filename, locale));
+  node.children.forEach((child) => sortTree(child, locale));
 }
 
 function filterTree(node: TreeNode, searchLower: string): TreeNode {
@@ -400,5 +406,6 @@ function countDocs(node: TreeNode): number {
 }
 
 export default DocumentTree;
+
 
 

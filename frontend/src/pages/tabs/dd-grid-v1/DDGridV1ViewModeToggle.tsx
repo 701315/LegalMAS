@@ -5,6 +5,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   useDDGridV1UIStore,
@@ -13,20 +14,20 @@ import {
 
 interface ViewModeOption {
   value: DDGridV1GridFormat;
-  label: string;
-  title: string;
+  labelKey: string;
+  titleKey: string;
 }
 
 const VIEW_MODE_OPTIONS: readonly ViewModeOption[] = [
   {
     value: "matrix",
-    label: "Матрица",
-    title: "Табличное представление: документы × проверки",
+    labelKey: "viewSettings.format.matrix.label",
+    titleKey: "viewSettings.format.matrix.title",
   },
   {
     value: "list",
-    label: "Список",
-    title: "Плоский список findings",
+    labelKey: "viewSettings.format.list.label",
+    titleKey: "viewSettings.format.list.title",
   },
 ] as const;
 
@@ -40,6 +41,7 @@ function getTabClassName(
 }
 
 export const DDGridV1ViewModeToggle: React.FC = () => {
+  const { t } = useTranslation("ddGrid");
   const format = useDDGridV1UIStore((state) => state.format);
   const setFormat = useDDGridV1UIStore((state) => state.setFormat);
 
@@ -55,11 +57,11 @@ export const DDGridV1ViewModeToggle: React.FC = () => {
           type="button"
           role="tab"
           aria-selected={format === option.value}
-          title={option.title}
+          title={t(option.titleKey)}
           onClick={() => setFormat(option.value)}
           className={getTabClassName(format, option.value)}
         >
-          {option.label}
+          {t(option.labelKey)}
         </button>
       ))}
     </div>
@@ -67,3 +69,5 @@ export const DDGridV1ViewModeToggle: React.FC = () => {
 };
 
 export default DDGridV1ViewModeToggle;
+
+

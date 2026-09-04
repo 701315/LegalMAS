@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { RequestPriority } from "../../../types/requestPriority";
 import { REQUEST_PRIORITY_META } from "../../../types/requestPriority";
 
@@ -34,14 +35,12 @@ const PRIORITY_DOT_TONE: Record<RequestPriority, string> = {
   low: "bg-[var(--text-muted)]",
 };
 
-/**
- * Отображает цветную плашку с приоритетом запроса.
- */
 export const RequestPriorityBadge: React.FC<RequestPriorityBadgeProps> = ({
   priority,
   size = "md",
   className = "",
 }) => {
+  const { t } = useTranslation("requests");
   const config =
     REQUEST_PRIORITY_META[priority] ?? REQUEST_PRIORITY_META.medium;
 
@@ -63,7 +62,7 @@ export const RequestPriorityBadge: React.FC<RequestPriorityBadgeProps> = ({
         sizeClass,
         className,
       )}
-      aria-label={`Приоритет: ${config.label}`}
+      aria-label={t("shared.priorityBadge.ariaLabel", { label: config.label })}
     >
       <span
         className={cn("shrink-0 rounded-full", dotToneClass, dotClass)}
@@ -75,5 +74,7 @@ export const RequestPriorityBadge: React.FC<RequestPriorityBadgeProps> = ({
 };
 
 export default RequestPriorityBadge;
+
+
 
 

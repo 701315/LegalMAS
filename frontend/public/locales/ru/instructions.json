@@ -1,4 +1,230 @@
 {
+  "versionStatus": {
+    "draft": "Черновик",
+    "published": "Опубликована",
+    "archived": "Архивирована"
+  },
+  "validationResultPanel": {
+    "success": "Валидация прошла успешно",
+    "failed": "Валидация не прошла",
+    "checksCount": "Проверок: {{count}}",
+    "errorsCount": "Ошибки ({{count}})",
+    "warningsCount": "Предупреждения ({{count}})",
+    "allPassed": "Все проверки пройдены. Черновик готов к публикации."
+  },
+  "staleWarningBanner": {
+    "title": "Override устарел",
+    "desc": "Базовая версия инструкции была обновлена после создания этого override. Текущий override помечен как stale и не может быть активирован.",
+    "dealDesc": "Выполните rebase — укажите новую базовую версию и при необходимости скорректируйте patch operations.",
+    "tenantDesc": "Создайте новый override на актуальной базовой версии.",
+    "rebaseBtn": "Rebase"
+  },
+  "publishConfirmDialog": {
+    "header": "Подтверждение публикации",
+    "title": "Опубликовать версию?",
+    "desc1": "Версия <bold>{{versionName}}</bold> для типа документа <mono>{{docTypeCode}}</mono> будет опубликована.",
+    "desc2": "После публикации версия станет immutable и будет использоваться как базовая для всех tenant. Это действие нельзя отменить — только создать новую версию.",
+    "cancel": "Отмена",
+    "publish": "Опубликовать"
+  },
+  "patchOps": {
+    "defaultLabel": "Patch-операции (JSON Patch RFC 6902)",
+    "examplesTitle": "Примеры операций:",
+    "currentOpsCount": "Текущих операций: {{count}}",
+    "errors": {
+      "arrayExpected": "Ожидается JSON массив операций [ {...}, ... ]",
+      "invalidJson": "Некорректный JSON. Проверьте синтаксис."
+    }
+  },
+  "overrideStatusBadge": {
+    "draft": "Черновик",
+    "active": "Активна",
+    "archived": "Архив",
+    "stale": "Устарела"
+  },
+  "importYaml": {
+    "validation": {
+      "empty": "Файл пуст.",
+      "parseError": "Ошибка парсинга YAML: {{message}}",
+      "invalidStructure": "YAML должен быть объектом с полями верхнего уровня.",
+      "missingField": "В YAML отсутствует обязательное поле «{{field}}» (строка).",
+      "readError": "Не удалось прочитать файл: {{message}}",
+      "unknown": "Неизвестная ошибка"
+    },
+    "kinds": {
+      "global": "global-инструкцию",
+      "docType": "doc-type-инструкцию"
+    },
+    "header": {
+      "import": "Импорт",
+      "title": "Загрузить {{kind}} из YAML",
+      "description": "Файл будет сохранён как <bold>черновик</bold>. После импорта вы сможете валидировать и опубликовать его."
+    },
+    "file": {
+      "label": "YAML файл",
+      "select": "Выбрать файл",
+      "clear": "Очистить",
+      "tip": "Формат: .yaml, .yml. Или вставьте содержимое в поле ниже вручную."
+    },
+    "textarea": {
+      "label": "Содержимое YAML",
+      "placeholderGlobal": "id: my_new_check\nname: Моя новая проверка\ngroup: ...\n...",
+      "placeholderDocType": "type: contract_9.2_franchise\nparent: class_9_franchising\nname: ...\n..."
+    },
+    "detected": {
+      "title": "Обнаружено",
+      "name": "name"
+    },
+    "buttons": {
+      "cancel": "Отмена",
+      "createDraft": "Создать черновик"
+    }
+  },
+  "globalEditor": {
+    "parsingErrorTitle": "Ошибка разбора YAML",
+    "parsingErrorDesc": "Не удалось разобрать YAML. Проверьте синтаксис на вкладке YAML.",
+    "tabs": {
+      "ariaLabel": "Секции редактора",
+      "basic": "Basic",
+      "detection": "Detection",
+      "llm": "LLM",
+      "retrieval": "Retrieval",
+      "evidence": "Evidence",
+      "extraction": "Extraction"
+    },
+    "shared": {
+      "add": "Добавить",
+      "addPlaceholder": "Добавить...",
+      "deleteAria": "Удалить: {{value}}",
+      "none": "— не задан —",
+      "inherit": "— наследует базовый —"
+    },
+    "basic": {
+      "identification": "Идентификация",
+      "idLabel": "ID инструкции",
+      "groupLabel": "Группа (group)",
+      "nameLabel": "Название",
+      "descriptionLabel": "Описание",
+      "descriptionHint": "Подробное описание того, что проверяет инструкция",
+      "applicability": "Применимость",
+      "docTypesLabel": "Типы документов (doc_types)",
+      "docTypesHint": "Оставьте пустым — применяется ко всем типам",
+      "severity": "Severity",
+      "baseSeverity": "Базовый severity",
+      "uiMode": "UI режим",
+      "severityIfFail": "severity_if_fail",
+      "severityIfFailHint": "Severity при fail",
+      "severityIfPass": "severity_if_pass",
+      "severityIfPassHint": "Severity при pass",
+      "severityIfUnclear": "severity_if_unclear",
+      "severityIfUnclearHint": "Severity при unclear"
+    },
+    "detection": {
+      "detector": "Детектор",
+      "detectorType": "Тип детектора",
+      "keywordMode": "Режим keywords",
+      "keywords": "Keywords",
+      "keywordsHigh": "High priority keywords",
+      "keywordsHighHint": "Regex паттерны с высоким приоритетом",
+      "keywordsMedium": "Medium priority keywords",
+      "keywordsLow": "Low priority keywords",
+      "regexPatterns": "Regex patterns"
+    },
+    "llm": {
+      "title": "LLM конфигурация",
+      "promptFile": "Prompt file",
+      "promptFileHint": "Путь к файлу промпта относительно playbooks/",
+      "contextK": "Context K",
+      "contextKHint": "Кол-во чанков контекста",
+      "temperature": "Temperature",
+      "maxTokens": "Max tokens"
+    },
+    "retrieval": {
+      "title": "Параметры retrieval",
+      "contextK": "Context K",
+      "contextKHint": "Кол-во релевантных чанков",
+      "maxChunks": "Max chunks",
+      "query": "Retrieval query",
+      "queryHint": "Семантический запрос для поиска релевантных фрагментов",
+      "queryPlaceholder": "конфиденциальная информация NDA...",
+      "rerank": "Rerank",
+      "rerankLabel": "Включить reranking результатов",
+      "boostNegative": "Boost / Negative keywords",
+      "boostKeywords": "Boost keywords",
+      "boostKeywordsHint": "Повышают релевантность чанков",
+      "negativeKeywords": "Negative keywords",
+      "negativeKeywordsHint": "Снижают релевантность чанков",
+      "typeFilters": "Фильтры по типам",
+      "preferredUnitTypes": "Preferred unit types",
+      "excludedUnitTypes": "Excluded unit types",
+      "preferredClauseFunctions": "Preferred clause functions"
+    },
+    "evidence": {
+      "title": "Evidence настройки",
+      "required": "Required",
+      "requiredLabel": "Evidence обязательна для вывода результата",
+      "minSnippet": "Min snippet length",
+      "minSnippetHint": "Минимальная длина фрагмента (символы)",
+      "maxSnippet": "Max snippet length",
+      "maxSnippetHint": "Максимальная длина фрагмента (символы)"
+    },
+    "extraction": {
+      "title": "Extraction",
+      "enable": "Включить extraction",
+      "mode": "Режим extraction",
+      "llmMaxTokens": "LLM max tokens",
+      "storePayload": "Store payload",
+      "storePayloadLabel": "Сохранять extraction payload в результате",
+      "prompt": "LLM prompt (extraction)",
+      "promptHint": "Промпт для LLM extraction. Используйте {context} как placeholder",
+      "promptPlaceholder": "<role>\nТы — юрист...\n</role>\n\n<context>\n{context}\n</context>",
+      "fields": "Поля extraction",
+      "addField": "Добавить поле",
+      "fieldEditor": {
+        "title": "Поле #{{index}}",
+        "removeAria": "Удалить поле",
+        "descriptionPlaceholder": "Краткое описание поля",
+        "allowedValuesHint": "Оставьте пустым если значения произвольные"
+      }
+    }
+  },
+  "draftEditForm": {
+    "conflict": {
+      "title": "Свежие данные с сервера",
+      "name": "Имя: <bold>{{name}}</bold>",
+      "changeSummary": "Описание изменений: {{summary}}",
+      "updatedAt": "Обновлено: {{time}}",
+      "manualHint": "Обновите форму вручную с учётом свежих данных, затем нажмите «Сохранить»."
+    },
+    "fields": {
+      "name": "Название версии",
+      "namePlaceholder": "Например: Initial draft, Updated checks...",
+      "semver": "Semver",
+      "semverPlaceholder": "1.0.0",
+      "changeSummary": "Описание изменений (change summary)",
+      "changeSummaryPlaceholder": "Что изменено в этой версии...",
+      "instructionContent": "Содержимое инструкции",
+      "editor": "Редактор",
+      "yaml": "YAML",
+      "sourceYaml": "Source YAML",
+      "yamlPlaceholder": "# Вставьте YAML-конфигурацию инструкции..."
+    },
+    "status": {
+      "dirty": "Есть несохранённые изменения",
+      "autosaveDebounce": "Черновик сохраняется автоматически с небольшой задержкой.",
+      "autosaveBlur": "Черновик сохраняется автоматически при переходе между полями.",
+      "saveDraft": "Сохранить черновик"
+    }
+  },
+  "concurrency": {
+    "loading": "Загружаем данные версии…",
+    "saving": "Сохраняем черновик…",
+    "stale": "Данные были обновлены на сервере. Нажмите «Сохранить» ещё раз чтобы применить изменения.",
+    "retry": "Повторить",
+    "conflict": "Конфликт редактирования — версия была изменена другим пользователем. Ваши изменения не сохранены. Просмотрите свежие данные и повторно примените изменения.",
+    "dismiss": "Понятно",
+    "saveError": "Ошибка сохранения."
+  },
   "tenantPlaybooks": {
     "backToInstructions": "Инструкции",
     "title": "Playbooks организации",

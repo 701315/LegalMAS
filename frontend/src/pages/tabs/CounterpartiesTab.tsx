@@ -18,7 +18,8 @@
 // - заменить alert() на реальный export flow
 // =============================================================
 
-import React from "react";
+import React, { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ChevronDown,
   ChevronLeft,
@@ -84,17 +85,6 @@ const FeatureCard: React.FC<{
   </div>
 );
 
-/**
- * Badge — семантические тоны:
- *   neutral — нейтральный тэг (страна, тип контракта)
- *   success — accent-статус (Preview badge), терракотовый
- *   high    — критичный / negative signal (красный)
- *   medium  — warning / требует внимания (жёлтый)
- *   low     — позитивный статус (зелёный, semantic success)
- *
- * NB: tone="success" (accent) и tone="low" (semantic success) —
- * это разные визуальные категории с разной семантикой.
- */
 const Badge: React.FC<{
   children: React.ReactNode;
   tone?: "neutral" | "success" | "high" | "medium" | "low";
@@ -243,41 +233,45 @@ const CriticalCounterpartiesTable: React.FC<{
     country: string;
     reasons: string[];
   }>;
-}> = ({ items }) => (
-  <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead className="bg-[var(--bg-elevated-soft)]">
-          <tr>
-            <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">Контрагент</th>
-            <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">Страна</th>
-            <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-              Основания критичности
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.name} className="border-t border-[var(--border-subtle)] align-top">
-              <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{item.name}</td>
-              <td className="px-4 py-3 text-[var(--text-secondary)]">{item.country}</td>
-              <td className="px-4 py-3 text-[var(--text-secondary)]">
-                <ul className="space-y-1">
-                  {item.reasons.map((reason) => (
-                    <li key={reason} className="flex gap-2">
-                      <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-error)]" />
-                      <span>{reason}</span>
-                    </li>
-                  ))}
-                </ul>
-              </td>
+}> = ({ items }) => {
+  const { t } = useTranslation("counterparties");
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-[var(--bg-elevated-soft)]">
+            <tr>
+              <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">{t("drilldown.criticalTable.counterparty")}</th>
+              <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">{t("drilldown.criticalTable.country")}</th>
+              <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                {t("drilldown.criticalTable.reasons")}
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.name} className="border-t border-[var(--border-subtle)] align-top">
+                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{item.name}</td>
+                <td className="px-4 py-3 text-[var(--text-secondary)]">{item.country}</td>
+                <td className="px-4 py-3 text-[var(--text-secondary)]">
+                  <ul className="space-y-1">
+                    {item.reasons.map((reason) => (
+                      <li key={reason} className="flex gap-2">
+                        <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-error)]" />
+                        <span>{reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const DrilldownModal: React.FC<{
   title: string;
@@ -285,6 +279,7 @@ const DrilldownModal: React.FC<{
   onClose: () => void;
   children: React.ReactNode;
 }> = ({ title, open, onClose, children }) => {
+  const { t } = useTranslation("counterparties");
   if (!open) return null;
 
   return (
@@ -294,11 +289,11 @@ const DrilldownModal: React.FC<{
           <div>
             <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Демонстрационный drilldown по выбранному показателю
+              {t("drilldown.subtitle")}
             </p>
           </div>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Закрыть
+            {t("drilldown.close")}
           </Button>
         </div>
         <div className="max-h-[calc(85vh-84px)] overflow-y-auto px-5 py-4">{children}</div>
@@ -312,53 +307,57 @@ const ExportMenuButton: React.FC<{
   open: boolean;
   onToggle: () => void;
   onSelect: (format: ExportFormat) => void;
-}> = ({ label, open, onToggle, onSelect }) => (
-  <div className="relative">
-    <Button
-      variant="secondary"
-      size="sm"
-      onClick={onToggle}
-      rightIcon={
-        <ChevronDown
-          className={`h-4 w-4 transition-transform duration-200 ${
-            open ? "rotate-180" : "rotate-0"
-          }`}
-          aria-hidden
-        />
-      }
-      aria-expanded={open}
-      aria-haspopup="menu"
-    >
-      {label}
-    </Button>
+}> = ({ label, open, onToggle, onSelect }) => {
+  const { t } = useTranslation("counterparties");
 
-    {open ? (
-      <div className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[160px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl">
-        <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Формат сохранения
-          </p>
+  return (
+    <div className="relative">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onToggle}
+        rightIcon={
+          <ChevronDown
+            className={`h-4 w-4 transition-transform duration-200 ${
+              open ? "rotate-180" : "rotate-0"
+            }`}
+            aria-hidden
+          />
+        }
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        {label}
+      </Button>
+
+      {open ? (
+        <div className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[160px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl">
+          <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("export.formatLabel")}
+            </p>
+          </div>
+          <div className="p-2">
+            {[
+              { key: "excel", label: "Excel" },
+              { key: "docx", label: "Docx" },
+              { key: "pdf", label: "Pdf" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => onSelect(item.key as ExportFormat)}
+                className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--bg-elevated-soft)]"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="p-2">
-          {[
-            { key: "excel", label: "Excel" },
-            { key: "docx", label: "Docx" },
-            { key: "pdf", label: "Pdf" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => onSelect(item.key as ExportFormat)}
-              className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--bg-elevated-soft)]"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    ) : null}
-  </div>
-);
+      ) : null}
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Intro screen
@@ -366,104 +365,114 @@ const ExportMenuButton: React.FC<{
 
 const IntroScreen: React.FC<{
   onOpenDemo: () => void;
-}> = ({ onOpenDemo }) => (
-  <div className="flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden">
-    <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto pr-1">
-      <div className="space-y-4">
-        <PageSection
-          title="Демонстрационный сценарий работы раздела"
-          subtitle="Как будет выглядеть анализ выявленных контрагентов"
-          rightSlot={<Badge tone="success">Preview</Badge>}
-        >
-          <p className="max-w-4xl text-sm leading-6 text-[var(--text-secondary)]">
-            Этот раздел будет автоматически выявлять контрагентов в документах сделки,
-            сопоставлять их с внешними и внутренними источниками данных и формировать
-            рабочий интерфейс для юридического и due diligence анализа.
-          </p>
-        </PageSection>
+}> = ({ onOpenDemo }) => {
+  const { t } = useTranslation("counterparties");
 
-        <PageSection
-          title="Как это будет работать"
-          subtitle="Основной сценарий обработки контрагентов"
-        >
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <FeatureCard
-              icon={<Search className="h-5 w-5" aria-hidden />}
-              title="Выявление в документах"
-              description="Система находит контрагентов в тексте, таблицах, приложениях и иных материалах сделки."
-            />
-            <FeatureCard
-              icon={<Link2 className="h-5 w-5" aria-hidden />}
-              title="Сопоставление и enrichment"
-              description="Найденные сущности связываются с глобальными, локальными и внутренними источниками данных."
-            />
-            <FeatureCard
-              icon={<ShieldCheck className="h-5 w-5" aria-hidden />}
-              title="Рабочий интерфейс анализа"
-              description="Пользователь получает сводную картину, список контрагентов и detail panel по выбранной сущности."
-            />
-          </div>
-        </PageSection>
+  const coverageRows = useMemo(() => {
+    const localized = t("coverageRows", { returnObjects: true });
+    if (Array.isArray(localized) && localized.length > 0) {
+      return localized;
+    }
+    return COVERAGE_ROWS;
+  }, [t]);
 
-        <PageSection
-          title="Источники данных"
-          subtitle="Глобальные, локальные и внутренние провайдеры"
-        >
-          <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-[var(--bg-elevated-soft)]">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">Регион</th>
-                    <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                      Глобальные
-                    </th>
-                    <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                      Локальные
-                    </th>
-                    <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                      Внутренние
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {COVERAGE_ROWS.map((row) => (
-                    <tr
-                      key={row.region}
-                      className="border-t border-[var(--border-subtle)] align-top"
-                    >
-                      <td className="px-4 py-3 text-[var(--text-primary)]">{row.region}</td>
-                      <td className="px-4 py-3 text-[var(--text-secondary)]">
-                        {row.globalProviders}
-                      </td>
-                      <td className="px-4 py-3 text-[var(--text-secondary)]">
-                        {row.localSources}
-                      </td>
-                      <td className="px-4 py-3 text-[var(--text-secondary)]">
-                        {row.internalSources}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+  return (
+    <div className="flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden">
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto pr-1">
+        <div className="space-y-4">
+          <PageSection
+            title={t("intro.title")}
+            subtitle={t("intro.subtitle")}
+            rightSlot={<Badge tone="success">{t("intro.preview")}</Badge>}
+          >
+            <p className="max-w-4xl text-sm leading-6 text-[var(--text-secondary)]">
+              {t("intro.description")}
+            </p>
+          </PageSection>
+
+          <PageSection
+            title={t("intro.howItWorks.title")}
+            subtitle={t("intro.howItWorks.subtitle")}
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <FeatureCard
+                icon={<Search className="h-5 w-5" aria-hidden />}
+                title={t("intro.howItWorks.detection.title")}
+                description={t("intro.howItWorks.detection.description")}
+              />
+              <FeatureCard
+                icon={<Link2 className="h-5 w-5" aria-hidden />}
+                title={t("intro.howItWorks.verification.title")}
+                description={t("intro.howItWorks.verification.description")}
+              />
+              <FeatureCard
+                icon={<ShieldCheck className="h-5 w-5" aria-hidden />}
+                title={t("intro.howItWorks.legal.title")}
+                description={t("intro.howItWorks.legal.description")}
+              />
             </div>
-          </div>
-        </PageSection>
+          </PageSection>
+
+          <PageSection
+            title={t("intro.dataSources.title")}
+            subtitle={t("intro.dataSources.subtitle")}
+          >
+            <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-[var(--bg-elevated-soft)]">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">{t("intro.dataSources.headers.region")}</th>
+                      <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                        {t("intro.dataSources.headers.global")}
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                        {t("intro.dataSources.headers.local")}
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                        {t("intro.dataSources.headers.internal")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coverageRows.map((row) => (
+                      <tr
+                        key={row.region}
+                        className="border-t border-[var(--border-subtle)] align-top"
+                      >
+                        <td className="px-4 py-3 text-[var(--text-primary)]">{row.region}</td>
+                        <td className="px-4 py-3 text-[var(--text-secondary)]">
+                          {row.globalProviders}
+                        </td>
+                        <td className="px-4 py-3 text-[var(--text-secondary)]">
+                          {row.localSources}
+                        </td>
+                        <td className="px-4 py-3 text-[var(--text-secondary)]">
+                          {row.internalSources}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </PageSection>
+        </div>
+      </div>
+
+      <div className="mt-4 shrink-0 border-t border-[var(--border-subtle)] pb-2 pt-4">
+        <Button
+          variant="primary"
+          size="md"
+          onClick={onOpenDemo}
+          className="w-full sm:w-auto"
+        >
+          {t("intro.cta")}
+        </Button>
       </div>
     </div>
-
-    <div className="mt-4 shrink-0 border-t border-[var(--border-subtle)] pb-2 pt-4">
-      <Button
-        variant="primary"
-        size="md"
-        onClick={onOpenDemo}
-        className="w-full sm:w-auto"
-      >
-        Перейти на демостраницу работы блока
-      </Button>
-    </div>
-  </div>
-);
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Table header
@@ -476,12 +485,11 @@ const SortableHeader: React.FC<{
   onSort: (key: SortKey) => void;
   className?: string;
 }> = ({ label, sortKey, currentSort, onSort, className = "" }) => {
+  const { t } = useTranslation("counterparties");
   const isActive = currentSort.key === sortKey;
   const isAscending = isActive && currentSort.direction === "asc";
   const isDescending = isActive && currentSort.direction === "desc";
 
-  // Иконка отражает текущее состояние сортировки.
-  // Screen reader получает state через aria-sort на <th>.
   const SortIcon = isAscending ? ChevronUp : isDescending ? ChevronDown : ChevronsUpDown;
 
   return (
@@ -494,7 +502,7 @@ const SortableHeader: React.FC<{
         type="button"
         onClick={() => onSort(sortKey)}
         className="inline-flex items-center gap-2 text-left transition hover:text-[var(--accent-primary)]"
-        title={`Сортировать по колонке ${label}`}
+        title={t("table.sortTitle", { label })}
       >
         <span>{label}</span>
         <SortIcon
@@ -518,102 +526,107 @@ const CounterpartiesTable: React.FC<{
   onSelect: (id: string) => void;
   sort: SortState;
   onSort: (key: SortKey) => void;
-}> = ({ items, selectedId, onSelect, sort, onSort }) => (
-  /*
-    Dual-mode scroll contract:
-    Mobile (<lg):  overflow-x-auto для горизонтального свайпа таблицы.
-                   Вертикальный скролл страничный, sticky-header НЕ применяется
-                   (wrapper не создаёт vertical scroll context → sticky
-                   привязался бы к внешнему ancestor и визуально плавал бы
-                   по viewport).
-    Desktop (lg+): h-full + overflow-auto → internal scroll context.
-                   Sticky-header корректно привязывается к wrapper.
-  */
-  <div className="overflow-x-auto rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
-    <table className="min-w-full text-left text-sm">
-      <thead className="bg-[var(--bg-elevated-soft)] lg:sticky lg:top-0 lg:z-10">
-        <tr>
-          <SortableHeader
-            label="№"
-            sortKey="index"
-            currentSort={sort}
-            onSort={onSort}
-            className="w-14"
-          />
-          <SortableHeader
-            label="Название"
-            sortKey="name"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Страна"
-            sortKey="country"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Кол-во контрактов"
-            sortKey="contractCount"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Сумма контрактов"
-            sortKey="contractValueUsdM"
-            currentSort={sort}
-            onSort={onSort}
-          />
-          <SortableHeader
-            label="Оценка риска"
-            sortKey="risk"
-            currentSort={sort}
-            onSort={onSort}
-          />
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item, index) => {
-          const isSelected = item.id === selectedId;
-          const risk = buildRiskMeta(item);
+}> = ({ items, selectedId, onSelect, sort, onSort }) => {
+  const { t } = useTranslation("counterparties");
 
-          return (
-            <tr
-              key={item.id}
-              className={[
-                "border-t border-[var(--border-subtle)] transition",
-                isSelected
-                  ? "bg-[color:color-mix(in_srgb,var(--accent-primary)_7%,var(--bg-card))]"
-                  : "hover:bg-[var(--bg-elevated-soft)]",
-              ].join(" ")}
-            >
-              <td className="px-4 py-3 tabular-nums text-[var(--text-muted)]">{index + 1}</td>
-              <td className="px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => onSelect(item.id)}
-                  className="text-left text-sm font-medium text-[var(--accent-primary)] underline decoration-transparent transition hover:decoration-current"
-                >
-                  {item.name}
-                </button>
-              </td>
-              <td className="px-4 py-3 text-[var(--text-secondary)]">{item.country}</td>
-              <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
-                {item.contractCount}
-              </td>
-              <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
-                ${item.contractValueUsdM}m
-              </td>
-              <td className="px-4 py-3">
-                <Badge tone={risk.tone}>{risk.label}</Badge>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
-);
+  const translateLabel = (label: string): string => {
+    const lower = label.toLowerCase();
+    if (lower.includes("high") || label === "Высокий") return t("labels.high", { defaultValue: "High" });
+    if (lower.includes("medium") || label === "Средний") return t("labels.medium", { defaultValue: "Medium" });
+    if (lower.includes("low") || label === "Низкий") return t("labels.low", { defaultValue: "Low" });
+    if (lower.includes("critical") || label === "Критично") return t("labels.critical", { defaultValue: "Critical" });
+    if (lower.includes("warning") || label === "Внимание") return t("labels.warning", { defaultValue: "Warning" });
+    if (lower.includes("ok") || label === "ОК") return t("labels.ok", { defaultValue: "OK" });
+    return label;
+  };
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
+      <table className="min-w-full text-left text-sm">
+        <thead className="bg-[var(--bg-elevated-soft)] lg:sticky lg:top-0 lg:z-10">
+          <tr>
+            <SortableHeader
+              label={t("table.headers.index")}
+              sortKey="index"
+              currentSort={sort}
+              onSort={onSort}
+              className="w-14"
+            />
+            <SortableHeader
+              label={t("table.headers.name")}
+              sortKey="name"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.country")}
+              sortKey="country"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.contractCount")}
+              sortKey="contractCount"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.contractValue")}
+              sortKey="contractValueUsdM"
+              currentSort={sort}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label={t("table.headers.risk")}
+              sortKey="risk"
+              currentSort={sort}
+              onSort={onSort}
+            />
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, index) => {
+            const isSelected = item.id === selectedId;
+            const risk = buildRiskMeta(item);
+
+            return (
+              <tr
+                key={item.id}
+                className={[
+                  "border-t border-[var(--border-subtle)] transition",
+                  isSelected
+                    ? "bg-[color:color-mix(in_srgb,var(--accent-primary)_7%,var(--bg-card))]"
+                    : "hover:bg-[var(--bg-elevated-soft)]",
+                ].join(" ")}
+              >
+                <td className="px-4 py-3 tabular-nums text-[var(--text-muted)]">{index + 1}</td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => onSelect(item.id)}
+                    className="text-left text-sm font-medium text-[var(--accent-primary)] underline decoration-transparent transition hover:decoration-current"
+                  >
+                    {item.name}
+                  </button>
+                </td>
+                <td className="px-4 py-3 text-[var(--text-secondary)]">{item.country}</td>
+                <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
+                  {item.contractCount}
+                </td>
+                <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
+                  ${item.contractValueUsdM}m
+                </td>
+                <td className="px-4 py-3">
+                  <Badge tone={risk.tone}>{translateLabel(risk.label)}</Badge>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Detail panel
@@ -622,189 +635,199 @@ const CounterpartiesTable: React.FC<{
 const DetailPanel: React.FC<{
   aggregate: CounterpartyAggregate;
   detail: CounterpartyDetail;
-}> = ({ aggregate, detail }) => (
-  <div className="space-y-4">
-    <PageSection
-      title="Карточка контрагента"
-      subtitle="Детальная информация"
-      rightSlot={
-        <Badge tone={reviewTone(aggregate.reviewStatus)}>
-          {reviewLabel(aggregate.reviewStatus)}
-        </Badge>
-      }
-    >
-      <div className="space-y-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-base font-semibold text-[var(--text-primary)]">
-              {aggregate.name}
-            </p>
-            <Badge>{aggregate.country}</Badge>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-            {detail.shortDescription}
-          </p>
-        </div>
-      </div>
-    </PageSection>
+}> = ({ aggregate, detail }) => {
+  const { t } = useTranslation("counterparties");
 
-    <PageSection
-      title="Упоминания в контрактах"
-      subtitle="Список документов и контрактов, в которых найден контрагент"
-    >
-      <div className="space-y-3">
-        {detail.contracts.map((contract) => (
-          <div
-            key={contract.id}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm"
-          >
+  const translateLabel = (label: string): string => {
+    const lower = label.toLowerCase();
+    if (label === "Sanctions match" || label === "Совпадение по санкциям") return t("detail.ownership.statusMatch", { defaultValue: "Sanctions match" });
+    if (label === "Sanctions review" || label === "Требуется проверка") return t("detail.ownership.statusReview", { defaultValue: "Sanctions review" });
+    if (label === "No sanctions match" || label === "Санкций нет") return t("detail.ownership.statusClear", { defaultValue: "No sanctions match" });
+    if (lower.includes("approved") || label === "Одобрено") return t("labels.approved", { defaultValue: "Approved" });
+    if (lower.includes("review") || label === "На проверке") return t("labels.review", { defaultValue: "Review" });
+    if (lower.includes("rejected") || label === "Отклонено") return t("labels.rejected", { defaultValue: "Rejected" });
+    if (lower.includes("yes") || label === "Да") return t("labels.yes", { defaultValue: "Yes" });
+    if (lower.includes("no") || label === "Нет") return t("labels.no", { defaultValue: "No" });
+    if (lower.includes("checking") || label === "Проверка") return t("labels.checking", { defaultValue: "Checking" });
+    return label;
+  };
+
+  return (
+    <div className="space-y-4">
+      <PageSection
+        title={t("detail.card.title")}
+        subtitle={t("detail.card.subtitle")}
+        rightSlot={
+          <Badge tone={reviewTone(aggregate.reviewStatus)}>
+            {translateLabel(reviewLabel(aggregate.reviewStatus))}
+          </Badge>
+        }
+      >
+        <div className="space-y-3">
+          <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                {contract.title}
+              <p className="text-base font-semibold text-[var(--text-primary)]">
+                {aggregate.name}
               </p>
-              <Badge>{contract.contractType}</Badge>
-              <Badge>{contract.section}</Badge>
+              <Badge>{aggregate.country}</Badge>
             </div>
-            <div className="mt-2 flex flex-wrap gap-4 text-sm text-[var(--text-secondary)]">
-              <span>
-                <span className="font-medium text-[var(--text-primary)]">Role:</span>{" "}
-                {contract.mentionRole}
-              </span>
-              <span>
-                <span className="font-medium text-[var(--text-primary)]">Value:</span>{" "}
-                {contract.contractValueUsdM != null ? `$${contract.contractValueUsdM}m` : "—"}
-              </span>
-            </div>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+              {detail.shortDescription}
+            </p>
           </div>
-        ))}
-      </div>
-    </PageSection>
+        </div>
+      </PageSection>
 
-    <PageSection
-      title="Финансовая выжимка"
-      subtitle="Ключевые финансовые показатели по контрагенту"
-    >
-      <div className="grid grid-cols-2 gap-3">
-        <KpiCard
-          label="Revenue"
-          value={detail.financials.revenue}
-          hint={`${detail.financials.fiscalYear} · ${detail.financials.currency}`}
-        />
-        <KpiCard label="EBITDA" value={detail.financials.ebitda} />
-        <KpiCard label="Assets" value={detail.financials.totalAssets} />
-        <KpiCard label="Employees" value={`${detail.financials.employees}`} />
-      </div>
-    </PageSection>
+      <PageSection
+        title={t("detail.documents.title")}
+        subtitle={t("detail.documents.subtitle")}
+      >
+        <div className="space-y-3">
+          {detail.contracts.map((contract) => (
+            <div
+              key={contract.id}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">
+                  {contract.title}
+                </p>
+                <Badge>{contract.contractType}</Badge>
+                <Badge>{contract.section}</Badge>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-4 text-sm text-[var(--text-secondary)]">
+                <span>
+                  <span className="font-medium text-[var(--text-primary)]">{t("detail.documents.role")}</span>{" "}
+                  {contract.mentionRole}
+                </span>
+                <span>
+                  <span className="font-medium text-[var(--text-primary)]">{t("detail.documents.value")}</span>{" "}
+                  {contract.contractValueUsdM != null ? `$${contract.contractValueUsdM}m` : "—"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </PageSection>
 
-    <PageSection title="Риски" subtitle="Состояние банкротства, санкции и суды">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {(
-          [
-            { label: "Банкротство", key: "bankruptcy" },
-            { label: "Санкции", key: "sanctions" },
-            { label: "Суды", key: "litigation" },
-          ] as const
-        ).map(({ label, key }) => (
-          <div key={key} className="rounded-2xl border border-[var(--border)] px-4 py-4">
+      <PageSection
+        title={t("detail.financials.title")}
+        subtitle={t("detail.financials.subtitle")}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <KpiCard
+            label={t("detail.financials.revenue")}
+            value={detail.financials.revenue}
+            hint={`${detail.financials.fiscalYear} · ${detail.financials.currency}`}
+          />
+          <KpiCard label={t("detail.financials.ebitda")} value={detail.financials.ebitda} />
+          <KpiCard label={t("detail.financials.assets")} value={detail.financials.totalAssets} />
+          <KpiCard label={t("detail.financials.employees")} value={`${detail.financials.employees}`} />
+        </div>
+      </PageSection>
+
+      <PageSection title={t("detail.risks.title")} subtitle={t("detail.risks.subtitle")}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {(
+            [
+              { label: t("detail.risks.types.bankruptcy"), key: "bankruptcy" },
+              { label: t("detail.risks.types.sanctions"), key: "sanctions" },
+              { label: t("detail.risks.types.litigation"), key: "litigation" },
+            ] as const
+          ).map(({ label, key }) => (
+            <div key={key} className="rounded-2xl border border-[var(--border)] px-4 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                {label}
+              </p>
+              <div className="mt-2">
+                <Badge tone={riskBadgeTone(detail.risks[key])}>
+                  {translateLabel(riskBadgeLabel(detail.risks[key]))}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">{t("detail.risks.notes")}</p>
+          <ul className="mt-2 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
+            {detail.risks.notes.map((note) => (
+              <li key={note} className="flex gap-2">
+                <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warning)]" />
+                <span>{note}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </PageSection>
+
+      <PageSection
+        title={t("detail.ownership.title")}
+        subtitle={t("detail.ownership.subtitle")}
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              {label}
+              {t("detail.ownership.owner")}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+              {detail.ownership.ownerName}
+            </p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
+              {detail.ownership.ownerType} · {detail.ownership.ownerJurisdiction}
+              {detail.ownership.ownerShare ? ` · ${detail.ownership.ownerShare}` : ""}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("detail.ownership.ubo")}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+              {detail.ownership.uboName}
             </p>
             <div className="mt-2">
-              <Badge tone={riskBadgeTone(detail.risks[key])}>
-                {riskBadgeLabel(detail.risks[key])}
+              <Badge
+                tone={
+                  detail.ownership.uboSanctionsStatus === "match"
+                    ? "high"
+                    : detail.ownership.uboSanctionsStatus === "review"
+                      ? "medium"
+                      : "low"
+                }
+              >
+                {detail.ownership.uboSanctionsStatus === "match"
+                  ? t("detail.ownership.statusMatch")
+                  : detail.ownership.uboSanctionsStatus === "review"
+                    ? t("detail.ownership.statusReview")
+                    : t("detail.ownership.statusClear")}
               </Badge>
             </div>
           </div>
-        ))}
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">Risk notes</p>
-        <ul className="mt-2 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
-          {detail.risks.notes.map((note) => (
-            <li key={note} className="flex gap-2">
-              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-warning)]" />
-              <span>{note}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </PageSection>
-
-    <PageSection
-      title="Собственник / UBO"
-      subtitle="Ownership context и санкционная проверка UBO"
-    >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Owner
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-            {detail.ownership.ownerName}
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-            {detail.ownership.ownerType} · {detail.ownership.ownerJurisdiction}
-            {detail.ownership.ownerShare ? ` · ${detail.ownership.ownerShare}` : ""}
-          </p>
         </div>
 
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            UBO
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">{t("detail.ownership.note")}</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+            {detail.ownership.ownershipNote}
           </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-            {detail.ownership.uboName}
-          </p>
-          <div className="mt-2">
-            <Badge
-              tone={
-                detail.ownership.uboSanctionsStatus === "match"
-                  ? "high"
-                  : detail.ownership.uboSanctionsStatus === "review"
-                    ? "medium"
-                    : "low"
-              }
-            >
-              {detail.ownership.uboSanctionsStatus === "match"
-                ? "Sanctions match"
-                : detail.ownership.uboSanctionsStatus === "review"
-                  ? "Sanctions review"
-                  : "No sanctions match"}
-            </Badge>
-          </div>
         </div>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">Ownership note</p>
-        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-          {detail.ownership.ownershipNote}
-        </p>
-      </div>
-    </PageSection>
-  </div>
-);
+      </PageSection>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Mobile fullscreen drawer
 // ---------------------------------------------------------------------------
 
-/**
- * Fullscreen drawer для DetailPanel на mobile viewport.
- *
- * Паттерн повторяет DocumentsTab / RealEstateTab: fixed inset-0 z-50
- * + затемнение фона + body scroll lock + Escape close. Отображается
- * только на <lg (компонент помечен lg:hidden).
- *
- * Body scroll lock — критично для мобильного UX: без него страница
- * под drawer'ом продолжит скроллиться при инерционном touch scroll.
- */
 const MobileDetailDrawer: React.FC<{
   aggregate: CounterpartyAggregate;
   detail: CounterpartyDetail;
   onClose: () => void;
 }> = ({ aggregate, detail, onClose }) => {
+  const { t } = useTranslation("counterparties");
+
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -842,7 +865,7 @@ const MobileDetailDrawer: React.FC<{
             onClick={onClose}
             leftIcon={<ChevronLeft className="h-4 w-4" aria-hidden />}
           >
-            Назад к списку
+            {t("drawer.back")}
           </Button>
 
           <div
@@ -870,6 +893,7 @@ const MobileDetailDrawer: React.FC<{
 const DemoScreen: React.FC<{
   onBack: () => void;
 }> = ({ onBack }) => {
+  const { t } = useTranslation("counterparties");
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [drilldown, setDrilldown] = React.useState<DrilldownKind>(null);
   const [openExportMenu, setOpenExportMenu] = React.useState<ExportMenuKind>(null);
@@ -878,35 +902,41 @@ const DemoScreen: React.FC<{
     direction: "asc",
   });
 
-  // Все derive-вычисления мемоизированы. DEMO_AGGREGATES статичен → пересчёт
-  // не нужен; sorted пересчитывается только при изменении sort state.
+  // Локализация стран в демо-данных
+  const localizedAggregates = React.useMemo(() => {
+    return DEMO_AGGREGATES.map((agg) => {
+      const countryEn = t(`demoData.countries.${agg.country}`, { defaultValue: agg.country });
+      return { ...agg, country: countryEn };
+    });
+  }, [t]);
+
   const { totalCounterparties, totalContracts, totalContractValue } = React.useMemo(
-    () => buildCounterpartiesTotals(DEMO_AGGREGATES),
-    []
+    () => buildCounterpartiesTotals(localizedAggregates),
+    [localizedAggregates]
   );
 
-  const topByContracts = React.useMemo(() => buildTopByContracts(DEMO_AGGREGATES), []);
-  const topByValue = React.useMemo(() => buildTopByValue(DEMO_AGGREGATES), []);
-  const countryStructure = React.useMemo(() => buildCountryStructure(DEMO_AGGREGATES), []);
+  const topByContracts = React.useMemo(() => buildTopByContracts(localizedAggregates), [localizedAggregates]);
+  const topByValue = React.useMemo(() => buildTopByValue(localizedAggregates), [localizedAggregates]);
+  const countryStructure = React.useMemo(() => buildCountryStructure(localizedAggregates), [localizedAggregates]);
   const criticalCounterparties = React.useMemo(
-    () => buildCriticalCounterparties(DEMO_AGGREGATES),
-    []
+    () => buildCriticalCounterparties(localizedAggregates),
+    [localizedAggregates]
   );
 
   const sortedAggregates = React.useMemo(
-    () => sortCounterparties(DEMO_AGGREGATES, sort),
-    [sort]
+    () => sortCounterparties(localizedAggregates, sort),
+    [localizedAggregates, sort]
   );
 
   const selectedAggregate = selectedId
-    ? DEMO_AGGREGATES.find((item) => item.id === selectedId) ?? null
+    ? localizedAggregates.find((item) => item.id === selectedId) ?? null
     : null;
 
   const selectedDetail = selectedAggregate ? DEMO_DETAILS[selectedAggregate.id] ?? null : null;
 
   const handleExport = (format: ExportFormat) => {
     setOpenExportMenu(null);
-    window.alert(`Сохранить список контрагентов: ${format.toUpperCase()}`);
+    window.alert(t("export.alert", { format: format.toUpperCase() }));
   };
 
   const handleSort = (key: SortKey) => {
@@ -915,78 +945,67 @@ const DemoScreen: React.FC<{
 
   const drilldownTitle =
     drilldown === "geography"
-      ? "География выявленных контрагентов"
+      ? t("drilldown.geography")
       : drilldown === "contracts_top"
-        ? "Топ-5 контрагентов по количеству контрактов"
+        ? t("drilldown.contractsTop")
         : drilldown === "value_top"
-          ? "Топ-5 контрагентов по сумме контрактов"
-          : "Критические контрагенты";
+          ? t("drilldown.valueTop")
+          : t("drilldown.critical");
 
   return (
     <div className="flex min-h-0 flex-col lg:h-full lg:overflow-hidden">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">
-            Выявленные контрагенты
+            {t("demo.title")}
           </h2>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Агрегированное представление по результатам анализа контрактов и связанных источников
+            {t("demo.subtitle")}
           </p>
         </div>
         <Button variant="secondary" size="sm" onClick={onBack}>
-          Назад к описанию
+          {t("demo.back")}
         </Button>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <KpiCard
-          label="Выявлено контрагентов"
+          label={t("demo.kpi.totalCounterparties")}
           value={`${totalCounterparties}`}
-          hint="Нажмите, чтобы открыть географию"
+          hint={t("demo.kpi.hintGeography")}
           onClick={() => setDrilldown("geography")}
         />
         <KpiCard
-          label="Контрактов с контрагентами"
+          label={t("demo.kpi.totalContracts")}
           value={`${totalContracts}`}
-          hint="Нажмите, чтобы открыть топ-5"
+          hint={t("demo.kpi.hintTop")}
           onClick={() => setDrilldown("contracts_top")}
         />
         <KpiCard
-          label="Сумма контрактов"
+          label={t("demo.kpi.totalValue")}
           value={`$${totalContractValue}m`}
-          hint="Нажмите, чтобы открыть топ-5"
+          hint={t("demo.kpi.hintTop")}
           onClick={() => setDrilldown("value_top")}
         />
         <KpiCard
-          label="Критические контрагенты"
+          label={t("demo.kpi.critical")}
           value={`${criticalCounterparties.length}`}
-          hint="Нажмите, чтобы открыть список"
+          hint={t("demo.kpi.hintList")}
           accent
           onClick={() => setDrilldown("critical")}
         />
       </div>
 
       <div className="min-h-0 flex-1">
-        {/*
-          ═══════════════════════════════════════════════════════════════
-          Desktop render-path (lg+): split-view при выбранном контрагенте,
-          обычная таблица без выбранного.
-
-          Mobile render-path (< lg): всегда обычная таблица; DetailPanel
-          рендерится отдельно как fullscreen drawer ниже.
-          ═══════════════════════════════════════════════════════════════
-        */}
-
-        {/* Desktop: split-view при selectedAggregate */}
         {selectedAggregate && selectedDetail ? (
           <div className="hidden lg:block lg:h-full">
             <PageSection
-              title="Рабочая область анализа"
-              subtitle="Список контрагентов и карточка выбранной компании"
+              title={t("demo.workspace.title")}
+              subtitle={t("demo.workspace.subtitle")}
               rightSlot={
                 <div className="flex items-center gap-2">
                   <ExportMenuButton
-                    label="Сохранить список контрагентов"
+                    label={t("export.saveList")}
                     open={openExportMenu === "list"}
                     onToggle={() =>
                       setOpenExportMenu((prev) => (prev === "list" ? null : "list"))
@@ -998,7 +1017,7 @@ const DemoScreen: React.FC<{
                     size="sm"
                     onClick={() => setSelectedId(null)}
                   >
-                    Закрыть карточку
+                    {t("demo.workspace.closeCard")}
                   </Button>
                 </div>
               }
@@ -1011,10 +1030,10 @@ const DemoScreen: React.FC<{
                   <div className="flex h-full min-h-0 flex-col p-5">
                     <div className="mb-4 shrink-0">
                       <p className="text-sm font-semibold text-[var(--text-primary)]">
-                        Список контрагентов
+                        {t("demo.workspace.listTitle")}
                       </p>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">
-                        Выберите компанию в таблице, чтобы просмотреть детальную карточку справа
+                        {t("demo.workspace.selectHint")}
                       </p>
                     </div>
 
@@ -1043,15 +1062,14 @@ const DemoScreen: React.FC<{
           </div>
         ) : null}
 
-        {/* Desktop: fallback — plain table без выбранного контрагента */}
         {(!selectedAggregate || !selectedDetail) && (
           <div className="hidden lg:block lg:h-full">
             <PageSection
-              title="Список контрагентов"
-              subtitle="Табличный перечень контрагентов, выявленных в документах сделки"
+              title={t("demo.fallback.title")}
+              subtitle={t("demo.fallback.subtitle")}
               rightSlot={
                 <ExportMenuButton
-                  label="Сохранить список контрагентов"
+                  label={t("export.saveList")}
                   open={openExportMenu === "list"}
                   onToggle={() =>
                     setOpenExportMenu((prev) => (prev === "list" ? null : "list"))
@@ -1064,8 +1082,7 @@ const DemoScreen: React.FC<{
             >
               <div className="mb-3 shrink-0">
                 <p className="text-sm text-[var(--text-secondary)]">
-                  В демонстрационном списке добавлено больше компаний, чтобы таблица имела
-                  собственную внутреннюю прокрутку.
+                  {t("demo.fallback.demoHintDesktop")}
                 </p>
               </div>
               <div className="min-h-0 flex-1 lg:overflow-hidden">
@@ -1081,14 +1098,13 @@ const DemoScreen: React.FC<{
           </div>
         )}
 
-        {/* Mobile: всегда plain table (independent от selectedAggregate) */}
         <div className="lg:hidden">
           <PageSection
-            title="Список контрагентов"
-            subtitle="Табличный перечень контрагентов, выявленных в документах сделки"
+            title={t("demo.fallback.title")}
+            subtitle={t("demo.fallback.subtitle")}
             rightSlot={
               <ExportMenuButton
-                label="Сохранить список контрагентов"
+                label={t("export.saveList")}
                 open={openExportMenu === "list"}
                 onToggle={() =>
                   setOpenExportMenu((prev) => (prev === "list" ? null : "list"))
@@ -1099,8 +1115,7 @@ const DemoScreen: React.FC<{
           >
             <div className="mb-3">
               <p className="text-sm text-[var(--text-secondary)]">
-                В демонстрационном списке добавлено больше компаний. Нажмите на имя контрагента,
-                чтобы открыть детальную карточку.
+                {t("demo.fallback.demoHintMobile")}
               </p>
             </div>
             <CounterpartiesTable
@@ -1114,11 +1129,6 @@ const DemoScreen: React.FC<{
         </div>
       </div>
 
-      {/*
-        Mobile fullscreen drawer с DetailPanel. Активируется только на <lg
-        при selectedAggregate. На lg+ этот блок не рендерится (lg:hidden
-        в MobileDetailDrawer), т.к. там используется split-view выше.
-      */}
       {selectedAggregate && selectedDetail ? (
         <MobileDetailDrawer
           aggregate={selectedAggregate}
@@ -1135,9 +1145,9 @@ const DemoScreen: React.FC<{
         {drilldown === "geography" ? (
           <CountryStructureCard items={countryStructure} />
         ) : drilldown === "contracts_top" ? (
-          <RankedListCard title="Топ-5 по количеству контрактов" items={topByContracts} />
+          <RankedListCard title={t("drilldown.contractsTop")} items={topByContracts} />
         ) : drilldown === "value_top" ? (
-          <RankedListCard title="Топ-5 по сумме контрактов" items={topByValue} />
+          <RankedListCard title={t("drilldown.valueTop")} items={topByValue} />
         ) : (
           <CriticalCounterpartiesTable items={criticalCounterparties} />
         )}

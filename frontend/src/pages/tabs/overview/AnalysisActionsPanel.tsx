@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { Deal } from "../../../types";
 import Button from "../../../components/ui/Button";
 import {
@@ -25,6 +26,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
   onOpenRunPanel,
   showReclassBanner,
 }) => {
+  const { t } = useTranslation("projects");
   const hasPlaybook = !!deal.playbook_version_id;
   const documentLanguages = Array.from(
     new Set(
@@ -42,26 +44,28 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
 
   const readinessText = canStartRun
     ? hasCurrentRun
-      ? "Можно перезапустить анализ с текущими настройками или сначала изменить их."
-      : "Проект готов к первому запуску."
+      ? t("overviewPanels.actionsPanel.readiness.canRelaunch")
+      : t("overviewPanels.actionsPanel.readiness.canLaunch")
     : !hasPlaybook
-      ? "Сначала выберите playbook проекта."
+      ? t("overviewPanels.actionsPanel.readiness.noPlaybook")
       : !primaryLanguageSelected
-        ? "Нужно выбрать основной язык анализа."
+        ? t("overviewPanels.actionsPanel.readiness.noPrimaryLang")
         : documentLanguages.length === 0 && discoveryStatus === "processing"
-          ? "Языки документов ещё определяются."
+          ? t("overviewPanels.actionsPanel.readiness.langDiscoveryProcessing")
           : hasCurrentRun
-            ? "Проверьте настройки перед перезапуском."
-            : "Проверьте настройки перед запуском.";
+            ? t("overviewPanels.actionsPanel.readiness.checkSettingsRelaunch")
+            : t("overviewPanels.actionsPanel.readiness.checkSettingsLaunch");
 
-  const panelTitle = hasCurrentRun ? "Перезапуск анализа" : "Запуск анализа";
+  const panelTitle = hasCurrentRun
+    ? t("overviewPanels.actionsPanel.relaunchTitle")
+    : t("overviewPanels.actionsPanel.launchTitle");
   const panelDescription = hasCurrentRun
-    ? "Запустите анализ заново, чтобы обновить результаты проекта."
-    : "Настройте параметры и запустите первый анализ документов по проекту.";
+    ? t("overviewPanels.actionsPanel.relaunchDesc")
+    : t("overviewPanels.actionsPanel.launchDesc");
 
   const buttonLabel = hasCurrentRun
-    ? "Настроить перезапуск"
-    : "Настроить запуск";
+    ? t("overviewPanels.actionsPanel.configureRelaunch")
+    : t("overviewPanels.actionsPanel.configureLaunch");
 
   return (
     <aside
@@ -76,9 +80,9 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
         {/* Заголовок */}
         <div>
           <h2 className="text-base font-semibold text-[var(--text-primary)]">
-            Действия
+            {t("overviewPanels.actionsPanel.title")}
           </h2>
-          <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">
+          <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
             {panelTitle}
           </p>
           <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
@@ -90,12 +94,12 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
         {hasCurrentRun && (
           <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3">
             <p className="text-xs font-semibold text-[var(--text-secondary)]">
-              Когда нужен перезапуск
+              {t("overviewPanels.actionsPanel.whenNeededTitle")}
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-[var(--text-muted)]">
-              <li>Если вы хотите загрузить и проверить новые документы</li>
-              <li>Если вы хотите проверить документы по новому playbook или профилю модели</li>
-              <li>После ручной переклассификации документов</li>
+              <li>{t("overviewPanels.actionsPanel.whenNeeded.newDocs")}</li>
+              <li>{t("overviewPanels.actionsPanel.whenNeeded.newPlaybook")}</li>
+              <li>{t("overviewPanels.actionsPanel.whenNeeded.afterReclass")}</li>
             </ul>
           </div>
         )}
@@ -104,11 +108,10 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
         {showReclassBanner && (
           <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
             <p className="text-xs font-semibold text-[var(--color-warning-text)]">
-              Обновите результаты
+              {t("overviewTab.warningReclassifications.title")}
             </p>
             <p className="mt-1 text-xs leading-5 text-[var(--color-warning-text)]">
-              Вы изменили типы документов вручную. Рекомендуем перезапустить
-              анализ, чтобы обновить результаты проекта.
+              {t("overviewTab.warningReclassifications.description")}
             </p>
           </div>
         )}
@@ -116,7 +119,9 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
         {/* Блок "Готовность к перезапуску" */}
         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            {hasCurrentRun ? "Готовность к перезапуску" : "Готовность к запуску"}
+            {hasCurrentRun
+              ? t("overviewPanels.actionsPanel.readinessRelaunch")
+              : t("overviewPanels.actionsPanel.readinessLaunch")}
           </p>
           <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
             {readinessText}

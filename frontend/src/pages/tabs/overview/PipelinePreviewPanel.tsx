@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { Deal } from "../../../types";
 import type { ChecksMode } from "../OverviewTab";
 import {
@@ -39,34 +40,41 @@ const PipelinePreviewPanel: React.FC<PipelinePreviewPanelProps> = ({
   checksMode,
   forceReclassify,
 }) => {
-  const checksModeLabel =
-    checksMode === "global_and_doc_type"
-      ? "Playbook + типы документов"
-      : checksMode === "global_only"
-        ? "Только Playbook"
-        : "Только типы документов";
+  const { t } = useTranslation("projects");
+
+  const checksModeLabel = t(
+    `overviewPanels.pipelinePreview.checksMode.${checksMode}`,
+  );
 
   const primaryLanguage = normalizeLang(deal.primary_language);
   const primaryLanguageLabel = primaryLanguage
     ? formatLangLabel(primaryLanguage)
-    : "Не выбран";
+    : t("overviewPanels.pipelinePreview.primaryLangNotSelected");
 
   const documentsLabel =
     typeof documentsCount === "number"
-      ? `${documentsCount} документ(ов) в проекте`
-      : "Текущий состав проекта";
+      ? t("overviewPanels.pipelinePreview.documentsCount", {
+          count: documentsCount,
+        })
+      : t("overviewPanels.pipelinePreview.documentsCurrent");
 
   const playbookLabel = deal.playbook_version_id
-    ? "Выбранный playbook проекта"
-    : "Не выбран";
+    ? t("overviewPanels.pipelinePreview.playbookSelected")
+    : t("overviewPanels.pipelinePreview.playbookNotSelected");
 
-  const modelProfileLabel = deal.model_config_name || "Профиль по умолчанию";
+  const modelProfileLabel =
+    deal.model_config_name ||
+    t("overviewPanels.pipelinePreview.defaultModelProfile");
 
-  const panelLabel = hasCurrentRun ? "Повторный анализ" : "Новый анализ";
-  const panelTitle = hasCurrentRun ? "Сводка перезапуска" : "Сводка запуска";
+  const panelLabel = hasCurrentRun
+    ? t("overviewPanels.pipelinePreview.categoryRelaunch")
+    : t("overviewPanels.pipelinePreview.categoryLaunch");
+  const panelTitle = hasCurrentRun
+    ? t("overviewPanels.pipelinePreview.titleRelaunch")
+    : t("overviewPanels.pipelinePreview.titleLaunch");
   const panelDescription = hasCurrentRun
-    ? "Что пойдёт в работу и что изменится после перезапуска."
-    : "Что пойдёт в работу и что будет сформировано после запуска.";
+    ? t("overviewPanels.pipelinePreview.descRelaunch")
+    : t("overviewPanels.pipelinePreview.descLaunch");
 
   return (
     <div className="min-w-0 text-[var(--text-primary)]">
@@ -86,8 +94,7 @@ const PipelinePreviewPanel: React.FC<PipelinePreviewPanelProps> = ({
 
           {hasCurrentRun && (
             <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-              Полезно, если вы добавили документы, сменили playbook или вручную
-              изменили типы документов.
+              {t("overviewPanels.pipelinePreview.relaunchHint")}
             </p>
           )}
         </div>
@@ -95,19 +102,30 @@ const PipelinePreviewPanel: React.FC<PipelinePreviewPanelProps> = ({
         <div className="mt-4 space-y-4">
           <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-4">
             <h5 className="text-sm font-semibold text-[var(--text-primary)]">
-              Что пойдёт в работу
+              {t("overviewPanels.pipelinePreview.whatGoesIn")}
             </h5>
 
             <dl className="mt-4 space-y-3">
-              <SummaryRow label="Документы" value={documentsLabel} />
-              <SummaryRow label="Playbook" value={playbookLabel} />
-              <SummaryRow label="Профиль модели" value={modelProfileLabel} />
               <SummaryRow
-                label="Основной язык"
+                label={t("overviewPanels.pipelinePreview.labels.documents")}
+                value={documentsLabel}
+              />
+              <SummaryRow
+                label={t("overviewPanels.pipelinePreview.labels.playbook")}
+                value={playbookLabel}
+              />
+              <SummaryRow
+                label={t("overviewPanels.pipelinePreview.labels.modelProfile")}
+                value={modelProfileLabel}
+              />
+              <SummaryRow
+                label={t(
+                  "overviewPanels.pipelinePreview.labels.primaryLanguage",
+                )}
                 value={primaryLanguageLabel}
               />
               <SummaryRow
-                label="Режим проверки"
+                label={t("overviewPanels.pipelinePreview.labels.checksMode")}
                 value={checksModeLabel}
               />
             </dl>
@@ -115,7 +133,7 @@ const PipelinePreviewPanel: React.FC<PipelinePreviewPanelProps> = ({
 
           <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-4">
             <h5 className="text-sm font-semibold text-[var(--text-primary)]">
-              Что произойдёт
+              {t("overviewPanels.pipelinePreview.whatHappens")}
             </h5>
 
             <ul className="mt-4 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
@@ -123,17 +141,14 @@ const PipelinePreviewPanel: React.FC<PipelinePreviewPanelProps> = ({
                 <span className="mt-[3px] shrink-0 text-[var(--accent-primary)]">
                   •
                 </span>
-                <span>
-                  В анализ попадут документы из текущего состава проекта.
-                </span>
+                <span>{t("overviewPanels.pipelinePreview.bullets.docsInScope")}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-[3px] shrink-0 text-[var(--accent-primary)]">
                   •
                 </span>
                 <span>
-                  Будут применены текущие настройки проекта и выбранный режим
-                  проверки.
+                  {t("overviewPanels.pipelinePreview.bullets.settingsApplied")}
                 </span>
               </li>
               {forceReclassify && (
@@ -142,7 +157,9 @@ const PipelinePreviewPanel: React.FC<PipelinePreviewPanelProps> = ({
                     •
                   </span>
                   <span className="font-medium text-[var(--text-primary)]">
-                    Документы будут переклассифицированы заново.
+                    {t(
+                      "overviewPanels.pipelinePreview.bullets.forceReclassify",
+                    )}
                   </span>
                 </li>
               )}
@@ -152,8 +169,8 @@ const PipelinePreviewPanel: React.FC<PipelinePreviewPanelProps> = ({
                 </span>
                 <span>
                   {hasCurrentRun
-                    ? "Результаты проекта будут обновлены."
-                    : "Будут сформированы первые результаты проекта."}
+                    ? t("overviewPanels.pipelinePreview.bullets.resultsUpdate")
+                    : t("overviewPanels.pipelinePreview.bullets.resultsFirst")}
                 </span>
               </li>
             </ul>

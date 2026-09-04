@@ -1,20 +1,9 @@
 // =============================================================
 // src/pages/tabs/overview/DocumentsOverviewWidget.tsx
-// Виджет "Обзор документов" — общая статистика по загруженным
-// документам проекта: количество, статусы обработки, топ типов.
-//
-// Внутри виджета:
-//   1) Блок "Документы в проекте" — счётчики (Всего / Готовы /
-//      В работе / Ошибок). duplicate и deleted исключаются
-//      полностью (не в активной работе).
-//   2) Блок "По типам документов" — топ-5 типов.
-//   3) Блок "Требует внимания" — про низкую classification_confidence
-//      (< 0.6). Показывает счётчик + первые 3 файла.
-//   4) Отдельная кнопка "Перейти к списку документов" — всегда внизу,
-//      если в проекте есть хотя бы один документ.
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import type { DocumentListItem } from "../../../types";
@@ -26,17 +15,8 @@ import type { DocumentListItem } from "../../../types";
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
 const MAX_ITEMS_IN_LIST = 3;
 
-// Статусы документа, которые считаем "готовыми" для целей UI.
-// Оба означают что document-level pipeline завершён:
-// - enriched  — прошёл до semantic enrichment включительно
-// - completed — прошёл всё включая checks на этом документе
 const READY_STATUSES = new Set<string>(["enriched", "completed"]);
-
-// Статусы, означающие проблему с документом.
 const ERROR_STATUSES = new Set<string>(["failed", "quarantine"]);
-
-// Статусы, при которых документ вообще исключается из счётчиков
-// (не в активной работе, не считаем ни готовыми, ни в работе).
 const EXCLUDED_STATUSES = new Set<string>(["duplicate", "deleted"]);
 
 // ---------------------------------------------------------------------------
@@ -64,7 +44,6 @@ interface LowConfidenceItem {
 function buildOverviewData(
   documents: DocumentListItem[],
 ): DocumentsOverviewData {
-  // Отфильтровываем excluded документы полностью — они не в активной работе.
   const activeDocuments = documents.filter(
     (doc) => !EXCLUDED_STATUSES.has(doc.status),
   );
@@ -122,18 +101,6 @@ function truncateFilename(filename: string, maxLength = 24): string {
 function formatConfidencePercent(confidence: number | null): string {
   if (confidence === null) return "";
   return `${Math.round(confidence * 100)}%`;
-}
-
-/**
- * Плюрализация "документов" по русским правилам.
- */
-function pluralizeDocumentsGenitive(count: number): string {
-  const mod10 = Math.abs(count) % 10;
-  const mod100 = Math.abs(count) % 100;
-  if (mod100 >= 11 && mod100 <= 19) return "документов";
-  if (mod10 === 1) return "документа";
-  if (mod10 >= 2 && mod10 <= 4) return "документов";
-  return "документов";
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +166,7 @@ interface DocumentsOverviewWidgetProps {
 export const DocumentsOverviewWidget: React.FC<
   DocumentsOverviewWidgetProps
 > = ({ documents, isLoading, isError }) => {
+  const { t } = useTranslation("projects");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -220,7 +188,7 @@ export const DocumentsOverviewWidget: React.FC<
     return (
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3">
         <p className="text-[11px] text-[var(--text-muted)]">
-          Не удалось загрузить документы
+          {t("overviewPanels.documentsWidget.loadError")}
         </p>
       </div>
     );
@@ -230,7 +198,7 @@ export const DocumentsOverviewWidget: React.FC<
     return (
       <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-4 text-center">
         <p className="text-[11px] text-[var(--text-muted)]">
-          Документы ещё не загружены
+          {t("overviewPanels.documentsWidget.notUploaded")}
         </p>
       </div>
     );
@@ -242,33 +210,32 @@ export const DocumentsOverviewWidget: React.FC<
   const hiddenLowConfidenceCount =
     lowConfidenceItems.length - visibleLowConfidence.length;
 
-  const lowConfidenceCounterText = `Требуют уточнения: ${lowConfidenceItems.length} ${pluralizeDocumentsGenitive(
-    lowConfidenceItems.length,
-  )} с низкой уверенностью классификации.`;
+  const lowConfidenceCounterText = t("overviewPanels.documentsWidget.lowConfidenceSummary", {
+    count: lowConfidenceItems.length
+  });
 
   return (
     <div className="space-y-2">
-      {/* Итого */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3">
         <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-          Документы в проекте
+          {t("overviewPanels.documentsWidget.title")}
         </p>
 
         <div className="mt-2 grid grid-cols-3 gap-2">
           <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 py-1.5">
-            <p className="text-[10px] text-[var(--text-muted)]">Готовы</p>
+            <p className="text-[10px] text-[var(--text-muted)]">{t("overviewPanels.documentsWidget.ready")}</p>
             <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--color-success-text)]">
               {data.ready}
             </p>
           </div>
           <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 py-1.5">
-            <p className="text-[10px] text-[var(--text-muted)]">В работе</p>
+            <p className="text-[10px] text-[var(--text-muted)]">{t("overviewPanels.documentsWidget.inProgress")}</p>
             <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
               {data.inProgress}
             </p>
           </div>
           <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 py-1.5">
-            <p className="text-[10px] text-[var(--text-muted)]">Ошибок</p>
+            <p className="text-[10px] text-[var(--text-muted)]">{t("overviewPanels.documentsWidget.errors")}</p>
             <p
               className={`mt-0.5 text-sm font-semibold tabular-nums ${
                 data.errors > 0
@@ -282,11 +249,10 @@ export const DocumentsOverviewWidget: React.FC<
         </div>
       </div>
 
-      {/* По типам */}
       {data.topDocTypes.length > 0 && (
         <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-            По типам документов
+            {t("overviewPanels.documentsWidget.byDocType")}
           </p>
           <div className="space-y-1.5">
             {data.topDocTypes.map(({ docType, count }) => (
@@ -306,17 +272,14 @@ export const DocumentsOverviewWidget: React.FC<
         </div>
       )}
 
-      {/* Требует внимания к классифицированным документам */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-          Требует внимания
+          {t("overviewPanels.documentsWidget.requiresAttention")}
         </p>
 
         {lowConfidenceItems.length === 0 ? (
           <p className="text-[11px] leading-5 text-[var(--text-secondary)]">
-            Все документы классифицированы с высоким уровнем
-            уверенности. Специального внимания специалиста не
-            требуется.
+            {t("overviewPanels.documentsWidget.allHighConfidence")}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -335,21 +298,20 @@ export const DocumentsOverviewWidget: React.FC<
             </div>
             {hiddenLowConfidenceCount > 0 && (
               <p className="text-[10px] text-[var(--text-muted)]">
-                Ещё {hiddenLowConfidenceCount}…
+                {t("overviewPanels.documentsWidget.moreCount", { count: hiddenLowConfidenceCount })}
               </p>
             )}
           </div>
         )}
       </div>
 
-      {/* Отдельная ссылка на страницу со списком документов */}
       <button
         type="button"
         onClick={handleOpenDocuments}
         className="flex w-full items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-left transition-colors hover:bg-[var(--bg-elevated-soft)]"
       >
         <span className="text-xs font-medium text-[var(--text-primary)]">
-          Перейти к списку документов
+          {t("overviewPanels.documentsWidget.goToDocuments")}
         </span>
         <ChevronRight className="h-3.5 w-3.5 text-[var(--text-muted)]" />
       </button>

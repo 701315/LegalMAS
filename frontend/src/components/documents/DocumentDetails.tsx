@@ -419,7 +419,12 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                       : t("processingError.errorTitle")}
                     {(() => {
                       const stageLabel = getErrorStageLabel(processingError);
-                      return stageLabel && stageLabel !== "Неизвестная стадия"
+                      const isUnknown =
+                        stageLabel === "Неизвестная стадия" ||
+                        stageLabel === "Unknown stage" ||
+                        stageLabel === t("stages.unknown", { ns: "pipeline" });
+
+                      return stageLabel && !isUnknown
                         ? ` · ${stageLabel}`
                         : "";
                     })()}
@@ -803,7 +808,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
               </label>
             </div>
           </Section>
-      )}
+        )}
       </div>
 
       <PdfPreviewModal
@@ -819,5 +824,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 };
 
 export default DocumentDetails;
+
 
 

@@ -1,3 +1,7 @@
+// =============================================================
+// src/pages/tabs/counterparties/constants.ts
+// =============================================================
+
 import type {
   CounterpartyAggregate,
   CounterpartyDetail,
@@ -631,7 +635,7 @@ const BASE_DETAILS: Record<string, CounterpartyDetail> = {
 const generateFallbackDetail = (aggregate: CounterpartyAggregate): CounterpartyDetail => ({
   id: aggregate.id,
   shortDescription:
-    "Демонстрационная карточка для расширенного списка контрагентов. В production-режиме здесь будет показано автоматическое обогащение данных из глобальных, локальных и внутренних источников.",
+    "Demonstration card for expanded list of counterparties. In production mode, automated data enrichment from global, local, and internal sources will be displayed here.",
   contracts: [
     {
       id: `fc-${aggregate.id}-1`,
@@ -663,8 +667,8 @@ const generateFallbackDetail = (aggregate: CounterpartyAggregate): CounterpartyD
     sanctions: aggregate.sanctionsFlag ? "yes" : "no",
     litigation: aggregate.litigationFlag ? "review" : "no",
     notes: [
-      "Карточка сформирована на демо-данных для проверки скролла и split-view layout.",
-      "В реальном режиме здесь будут provider hits, структура владения и связка с внутренними базами компании.",
+      "Card generated from demo data to verify scroll and split-view layout.",
+      "In production mode, provider hits, ownership structure, and links to internal databases will be shown here.",
     ],
   },
   ownership: {
@@ -675,7 +679,7 @@ const generateFallbackDetail = (aggregate: CounterpartyAggregate): CounterpartyD
     uboName: "Demo UBO",
     uboSanctionsStatus: aggregate.sanctionsFlag ? "review" : "no_match",
     ownershipNote:
-      "Демо-описание ownership chain. В боевом сценарии поле будет заполняться по результатам внешнего и внутреннего enrichment.",
+      "Demo ownership chain description. In production mode, this field will be populated based on external and internal enrichment results.",
   },
 });
 

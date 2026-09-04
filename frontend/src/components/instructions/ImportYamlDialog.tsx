@@ -1,6 +1,9 @@
+// =============================================================
 // src/components/instructions/ImportYamlDialog.tsx
+// =============================================================
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { AlertCircle, FileUp, X } from "lucide-react";
 import * as yaml from "js-yaml";
 
@@ -40,9 +43,10 @@ interface ParsedInfo {
 function parseYamlAndExtract(
   text: string,
   kind: ImportYamlKind,
+  tFn: (key: string, options?: any) => string,
 ): { ok: true; info: ParsedInfo } | { ok: false; error: string } {
   if (!text.trim()) {
-    return { ok: false, error: "Файл пуст." };
+    return { ok: false, error: tFn("importYaml.validation.empty") };
   }
 
   let parsed: unknown;
@@ -50,13 +54,13 @@ function parseYamlAndExtract(
     parsed = yaml.load(text);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: `Ошибка парсинга YAML: ${message}` };
+    return { ok: false, error: tFn("importYaml.validation.parseError", { message }) };
   }
 
   if (!parsed || typeof parsed !== "object") {
     return {
       ok: false,
-      error: "YAML должен быть объектом с полями верхнего уровня.",
+      error: tFn("importYaml.validation.invalidStructure"),
     };
   }
 
@@ -68,7 +72,7 @@ function parseYamlAndExtract(
   if (typeof rawCode !== "string" || !rawCode.trim()) {
     return {
       ok: false,
-      error: `В YAML отсутствует обязательное поле «${codeFieldName}» (строка).`,
+      error: tFn("importYaml.validation.missingField", { field: codeFieldName }),
     };
   }
 
@@ -93,6 +97,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
   onCancel,
   onSubmit,
 }) => {
+  const { t } = useTranslation("instructions");
   const [fileName, setFileName] = useState<string | null>(null);
   const [content, setContent] = useState<string>("");
   const [parseError, setParseError] = useState<string | null>(null);
@@ -115,7 +120,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
       setParsedInfo(null);
       return;
     }
-    const result = parseYamlAndExtract(content, kind);
+    const result = parseYamlAndExtract(content, kind, t);
     if (result.ok) {
       setParseError(null);
       setParsedInfo(result.info);
@@ -123,7 +128,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
       setParseError(result.error);
       setParsedInfo(null);
     }
-  }, [content, kind]);
+  }, [content, kind, t]);
 
   const handleFileSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,10 +141,10 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
         setContent(text);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        setParseError(`Не удалось прочитать файл: ${message}`);
+        setParseError(t("importYaml.validation.readError", { message }));
       }
     },
-    [],
+    [t],
   );
 
   const handleContentChange = useCallback(
@@ -173,7 +178,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
   const canSubmit = parsedInfo !== null && !isSubmitting;
   const codeFieldLabel = kind === "global" ? "id" : "type";
   const kindLabel =
-    kind === "global" ? "global instruction" : "doc-type instruction";
+    kind === "global" ? t("importYaml.kinds.global") : t("importYaml.kinds.docType");
 
   return (
     <div
@@ -187,23 +192,28 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
         <div className="flex items-start justify-between gap-3 border-b border-[var(--border-soft)] p-5">
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-              Импорт
+              {t("importYaml.header.import")}
             </div>
             <h2
               id="import-yaml-dialog-title"
               className="mt-0.5 text-base font-semibold text-[var(--text-primary)]"
             >
-              Загрузить {kindLabel} из YAML
+              {t("importYaml.header.title", { kind: kindLabel })}
             </h2>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-              Файл будет сохранён как <strong>черновик</strong>. После импорта
-              вы сможете валидировать и опубликовать его.
+              <Trans
+                t={t}
+                i18nKey="importYaml.header.description"
+                components={{
+                  bold: <strong />,
+                }}
+              />
             </p>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            aria-label="Закрыть"
+            aria-label={t("actions.close", { ns: "common" })}
             disabled={isSubmitting}
             className="shrink-0 rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:opacity-40"
           >
@@ -217,7 +227,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
             {/* File picker */}
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                YAML файл
+                {t("importYaml.file.label")}
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -239,7 +249,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
                   ].join(" ")}
                 >
                   <FileUp className="h-3.5 w-3.5" />
-                  Выбрать файл
+                  {t("importYaml.file.select")}
                 </label>
 
                 {fileName && (
@@ -253,21 +263,20 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
                       disabled={isSubmitting}
                       className="ml-auto text-[11px] text-[var(--text-muted)] transition-colors hover:text-[var(--color-error-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:opacity-40"
                     >
-                      Очистить
+                      {t("importYaml.file.clear")}
                     </button>
                   </>
                 )}
               </div>
               <p className="mt-1.5 text-[10px] text-[var(--text-muted)]">
-                Формат: .yaml, .yml. Или вставьте содержимое в поле ниже
-                вручную.
+                {t("importYaml.file.tip")}
               </p>
             </div>
 
             {/* YAML content preview / paste */}
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                Содержимое YAML
+                {t("importYaml.textarea.label")}
               </label>
               <textarea
                 value={content}
@@ -277,8 +286,8 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
                 spellCheck={false}
                 placeholder={
                   kind === "global"
-                    ? "id: my_new_check\nname: Моя новая проверка\ngroup: ...\n..."
-                    : "type: contract_9.2_franchise\nparent: class_9_franchising\nname: ...\n..."
+                    ? t("importYaml.textarea.placeholderGlobal")
+                    : t("importYaml.textarea.placeholderDocType")
                 }
                 className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] p-3 font-mono text-[11px] leading-relaxed text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60"
               />
@@ -295,7 +304,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
             {parsedInfo && (
               <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                  Обнаружено
+                  {t("importYaml.detected.title")}
                 </div>
                 <div className="mt-1 space-y-0.5 text-xs">
                   <div>
@@ -308,7 +317,9 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
                   </div>
                   {parsedInfo.name && (
                     <div>
-                      <span className="text-[var(--text-muted)]">name:</span>{" "}
+                      <span className="text-[var(--text-muted)]">
+                        {t("importYaml.detected.name")}:
+                      </span>{" "}
                       <span className="text-[var(--text-primary)]">
                         {parsedInfo.name}
                       </span>
@@ -334,7 +345,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
             onClick={onCancel}
             disabled={isSubmitting}
           >
-            Отмена
+            {t("importYaml.buttons.cancel")}
           </Button>
           <Button
             type="button"
@@ -344,7 +355,7 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
             disabled={!canSubmit}
             isLoading={isSubmitting}
           >
-            Создать черновик
+            {t("importYaml.buttons.createDraft")}
           </Button>
         </div>
       </div>
@@ -353,5 +364,6 @@ const ImportYamlDialog: React.FC<ImportYamlDialogProps> = ({
 };
 
 export default ImportYamlDialog;
+
 
 

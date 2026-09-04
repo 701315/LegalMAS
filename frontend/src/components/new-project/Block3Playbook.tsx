@@ -15,6 +15,7 @@
 
 import React from "react";
 import { BookOpen, Loader2 } from "lucide-react";
+import { useTranslation, Trans } from "react-i18next";
 
 import client from "../../api/client";
 import type { PlaybookLineShort, PlaybookVersionShort } from "../../types";
@@ -49,6 +50,8 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
   currentVersionId,
   onApplied,
 }) => {
+  const { t } = useTranslation("projects");
+
   // ── Data state ────────────────────────────────────────────
   const [lines, setLines] = React.useState<PlaybookLineShort[]>([]);
   const [versions, setVersions] = React.useState<PlaybookVersionShort[]>([]);
@@ -112,7 +115,7 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
           setLoadError(
             getApiErrorMessage(
               err,
-              "Не удалось загрузить список playbook.",
+              t("newProject.block3.errors.loadLinesFailed"),
             ),
           );
         }
@@ -128,7 +131,7 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [currentVersionId]);
+  }, [currentVersionId, t]);
 
   // ── Derived: published versions for selected line ─────────
   const publishedVersions = React.useMemo(() => {
@@ -193,13 +196,13 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
       setApplyError(
         getApiErrorMessage(
           err,
-          "Не удалось применить playbook к проекту.",
+          t("newProject.block3.errors.applyFailed"),
         ),
       );
     } finally {
       setIsApplying(false);
     }
-  }, [dealId, isApplying, onApplied, selectedVersionId, versions]);
+  }, [dealId, isApplying, onApplied, selectedVersionId, versions, t]);
 
   // ── Loading ───────────────────────────────────────────────
   if (isLoading) {
@@ -210,7 +213,7 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
           aria-hidden="true"
         />
         <span className="text-sm text-[var(--text-muted)]">
-          Загружаем шаблоны playbook…
+          {t("newProject.block3.loadingLines")}
         </span>
       </div>
     );
@@ -229,11 +232,10 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
           <BookOpen className="h-5 w-5 text-[var(--text-muted)]" />
         </div>
         <p className="text-sm font-medium text-[var(--text-primary)]">
-          Шаблоны playbook не настроены
+          {t("newProject.block3.emptyLinesTitle")}
         </p>
         <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-          Создайте первый шаблон в административном разделе, затем вернитесь
-          к настройке проекта.
+          {t("newProject.block3.emptyLinesDesc")}
         </p>
       </div>
     );
@@ -256,22 +258,19 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
 
           <div className="min-w-0">
             <p className="text-sm font-medium text-[var(--text-primary)]">
-              Playbook определяет, какие глобальные риски будут проверяться в проекте
+              {t("newProject.block3.infoTitle")}
             </p>
             <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Глобальные проверки (Global Checks) — это риски, которые
-              анализируются по всем документам проекта независимо от их типа.
-              Ниже доступны готовые playbook, заранее созданные администратором
-              или подготовленные в системе.
+              {t("newProject.block3.infoDesc1")}
             </p>
             <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Если для вашего проекта нужны специфические глобальные проверки,
-              создайте собственный playbook в разделе{" "}
-              <span className="font-medium text-[var(--text-primary)]">
-                Инструкции → Playbook Studio
-              </span>
-              . После публикации он появится в списке ниже, и его можно будет
-              выбрать для запуска проекта.
+              <Trans
+                ns="projects"
+                i18nKey="newProject.block3.infoDesc2"
+                components={{
+                  studio: <span className="font-medium text-[var(--text-primary)]" />,
+                }}
+              />
             </p>
           </div>
         </div>
@@ -281,13 +280,21 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
         {/* ── Шаблоны ────────────────────────────────────── */}
         <div>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Шаблон playbook
+            {t("newProject.block3.templatePlaybook")}
           </p>
 
           <ul className="max-h-64 space-y-1 overflow-y-auto">
             {lines.map((line) => {
               const lineId = String(line.id);
               const isSelected = selectedLineId === lineId;
+
+              const metaString = [
+                line.deal_type && t("newProject.block3.meta.type", { type: line.deal_type }),
+                line.jurisdiction && t("newProject.block3.meta.jurisdiction", { jurisdiction: line.jurisdiction }),
+                line.language && t("newProject.block3.meta.language", { language: line.language }),
+              ]
+                .filter(Boolean)
+                .join(" · ");
 
               return (
                 <li key={lineId}>
@@ -313,16 +320,11 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
                       </div>
                     ) : null}
 
-                    <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-                      {[
-                        line.deal_type && `Тип: ${line.deal_type}`,
-                        line.jurisdiction &&
-                          `Юрисдикция: ${line.jurisdiction}`,
-                        line.language && `Язык: ${line.language}`,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
+                    {metaString ? (
+                      <div className="mt-1 text-[11px] text-[var(--text-muted)]">
+                        {metaString}
+                      </div>
+                    ) : null}
                   </button>
                 </li>
               );
@@ -333,20 +335,19 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
         {/* ── Версии ─────────────────────────────────────── */}
         <div>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Версия playbook
+            {t("newProject.block3.playbookVersion")}
           </p>
 
           {!selectedLineId ? (
             <div className="subtle-panel px-4 py-6 text-center">
               <p className="text-xs text-[var(--text-muted)]">
-                Сначала выберите шаблон слева.
+                {t("newProject.block3.selectTemplatePrompt")}
               </p>
             </div>
           ) : publishedVersions.length === 0 ? (
             <div className="subtle-panel px-4 py-6 text-center">
               <p className="text-xs text-[var(--text-muted)]">
-                Нет опубликованных версий для этого шаблона. Опубликуйте версию
-                в Playbook Studio.
+                {t("newProject.block3.noPublishedVersions")}
               </p>
             </div>
           ) : (
@@ -386,7 +387,7 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
                           </span>
                           {isCurrent ? (
                             <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]">
-                              Текущий
+                              {t("newProject.block3.currentBadge")}
                             </span>
                           ) : null}
                         </div>
@@ -406,8 +407,8 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
                   isLoading={isApplying}
                 >
                   {isSameAsCurrent
-                    ? "Уже применён"
-                    : "Применить к проекту"}
+                    ? t("newProject.block3.alreadyApplied")
+                    : t("newProject.block3.applyBtn")}
                 </Button>
               </div>
             </>

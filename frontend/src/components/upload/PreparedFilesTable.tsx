@@ -2,6 +2,7 @@
 
 import React from "react";
 import { FileSpreadsheet, FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Button from "../ui/Button";
 
 export interface PreparedFileRow {
@@ -45,6 +46,7 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
   onRemoveSelected,
   onRemoveSingle,
 }) => {
+  const { t } = useTranslation("documents");
   const hasRows = rows.length > 0;
   const hasSelection = selectedRowIds.length > 0;
   const allSelected = hasRows && selectedRowIds.length === rows.length;
@@ -54,10 +56,10 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
       <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Подготовленные к загрузке файлы
+            {t("upload.preparedTable.title")}
           </h2>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
-            Проверьте состав набора перед отправкой в проект.
+            {t("upload.preparedTable.subtitle")}
           </p>
         </div>
 
@@ -70,7 +72,7 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
             disabled={!canUpload}
             isLoading={isUploading}
           >
-            Загрузить
+            {t("upload.preparedTable.uploadBtn")}
           </Button>
 
           <Button
@@ -80,14 +82,14 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
             onClick={onRemoveSelected}
             disabled={!hasSelection}
           >
-            Очистить
+            {t("upload.preparedTable.clearBtn")}
           </Button>
         </div>
       </div>
 
       {!hasRows ? (
         <div className="px-5 py-8 text-sm text-[var(--text-muted)]">
-          Нет файлов, подготовленных к загрузке.
+          {t("upload.preparedTable.empty")}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -99,24 +101,24 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
                     type="checkbox"
                     checked={allSelected}
                     onChange={onToggleAll}
-                    aria-label="Выбрать все файлы"
+                    aria-label={t("upload.preparedTable.selectAllAria")}
                     className="h-4 w-4 rounded border-[var(--border)]"
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  Файл
+                  {t("upload.preparedTable.columns.file")}
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  Тип
+                  {t("upload.preparedTable.columns.type")}
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  Размер
+                  {t("upload.preparedTable.columns.size")}
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  Путь
+                  {t("upload.preparedTable.columns.path")}
                 </th>
                 <th className="w-24 px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  Действие
+                  {t("upload.preparedTable.columns.action")}
                 </th>
               </tr>
             </thead>
@@ -135,7 +137,7 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
                         type="checkbox"
                         checked={checked}
                         onChange={() => onToggleRow(row.id)}
-                        aria-label={`Выбрать файл ${row.name}`}
+                        aria-label={t("upload.preparedTable.selectFileAria", { name: row.name })}
                         className="h-4 w-4 rounded border-[var(--border)]"
                       />
                     </td>
@@ -167,11 +169,11 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
                       <Button
                         type="button"
                         size="sm"
-                        variant={checked ? "ghost" : "ghost"}
+                        variant="ghost"
                         onClick={() => onRemoveSingle(row.id)}
                         disabled={!checked}
                       >
-                        Удалить
+                        {t("upload.preparedTable.removeBtn")}
                       </Button>
                     </td>
                   </tr>
@@ -186,4 +188,5 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
 };
 
 export default PreparedFilesTable;
+
 

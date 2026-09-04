@@ -1,4 +1,227 @@
 {
+  "importWizard": {
+    "badge": "Import wizard",
+    "title": "Document import",
+    "dealLabel": "Deal: {{id}}",
+    "step1Title": "Step 1. Select files",
+    "step1Desc": "Select documents or a Data Room archive for import. This is currently a UI placeholder, but it visually matches the working wizard.",
+    "filesSelected": "Files selected: ",
+    "noFilesSelected": "No files selected yet.",
+    "step2Title": "Step 2. Analysis parameters",
+    "step2Desc": "Refine parameters before launching import and document preprocessing.",
+    "forceReclassifyLabel": "Force reclassification",
+    "forceReclassifyDesc": "Re-run HybridClassifier for all documents before analysis. Useful if documents were renamed or the Data Room structure changed.",
+    "stepFiles": "Files",
+    "stepParams": "Parameters",
+    "backBtn": "Back",
+    "nextBtn": "Next",
+    "launchBtn": "Launch import",
+    "stubMessage": "Import launched (stub). force_reclassify setting saved."
+  },
+  "viewer": {
+    "ariaLabel": "Document viewer",
+    "defaultTitle": "Document",
+    "documentIdTitle": "Document {{id}}",
+    "pageLabel": "Page {{page}}",
+    "pageDefault": "Page 1",
+    "clauseLabel": "Clause {{clause}}",
+    "closeBtn": "Close",
+    "navLabel": "Navigation:",
+    "pageOf": "p. {{current}} of {{total}}",
+    "pageCurrent": "p. {{current}}",
+    "exitHint": "Esc or «Close» to exit",
+    "noPdfUrl": "Failed to obtain PDF link.",
+    "loadingPdf": "Loading PDF…",
+    "loadError": "Failed to load PDF."
+  },
+  "prepared": {
+    "title": "Files ready for upload",
+    "subtitle": "Review the file set before sending to the project.",
+    "uploadBtn": "Upload",
+    "clearBtn": "Clear",
+    "empty": "No files prepared for upload.",
+    "selectAllAria": "Select all files",
+    "selectFileAria": "Select file {{name}}",
+    "columns": {
+      "file": "File",
+      "type": "Type",
+      "size": "Size",
+      "path": "Path",
+      "action": "Action"
+    },
+    "removeBtn": "Remove"
+  },
+  "dropzone": {
+    "title": "Drag documents here",
+    "desc": "You can upload individual files or an entire folder. Once the set is ready, proceed to upload to the project.",
+    "pickFiles": "Select files",
+    "pickFolder": "Select folder",
+    "preparedCount": "Files prepared: {{count}}",
+    "noFiles": "No files selected yet"
+  },
+  "workflow": {
+    "title": "Workflow",
+    "steps": {
+      "0": "After selecting and uploading files, we will proceed to the document analysis launch block.",
+      "1": "Before launching the analysis, you will need to select the set of risks to check.",
+      "2": "After launch, the system will perform extraction, chunking, classification, and risk analysis.",
+      "3": "Based on the analysis results, the system will build a DD Grid of document risks."
+    }
+  },
+  "reviewCheckCard": {
+    "unclear": "Unclear",
+    "chunkNumber": "Chunk #{{index}}",
+    "evidenceSnippet": "Evidence snippet",
+    "pageLabel": "Page: {{page}}",
+    "clauseLabel": "Clause: {{clause}}",
+    "segmentContext": "Segment context",
+    "segmentLabel": "Segment: ",
+    "primaryLabel": "(primary)",
+    "typeLabel": "Type: ",
+    "chunkIndexLabel": "Chunk #: ",
+    "extractedFields": "Extracted fields",
+    "detailsInMatrix": "Details in DD Matrix",
+    "openInDocument": "Open in document"
+  },
+  "layoutDebug": {
+    "title": "Document before and after sanitation",
+    "subtitle": "Only changed words are highlighted in the left column.",
+    "description": "Original text is on the left, sanitized is on the right. If a line changed, only modified words are highlighted in the left column; if a line was deleted completely, the entire line is highlighted.",
+    "loading": "Loading comparison…",
+    "loadError": "Failed to load data",
+    "empty": "No data available to compare raw / sanitized layout.",
+    "emptyDesc": "Verify that the debug-layouts request is called with includeraw=true and includesanitized=true.",
+    "beforeSanitation": "Before sanitation",
+    "afterSanitation": "After sanitation",
+    "pageTitle": "Page {{page}}",
+    "noText": "No text",
+    "deletedAfterSanitation": "Deleted after sanitation",
+    "badges": {
+      "id": "match: id",
+      "heuristic": "match: similar text",
+      "removed": "removed",
+      "added": "added"
+    }
+  },
+  "tree": {
+    "searchPlaceholder": "Search by document name…",
+    "shownInfo": "Shown: {{shown}} of {{total}} documents",
+    "notFound": "No documents found",
+    "badges": {
+      "multi": "multi",
+      "composite": "composite",
+      "needsReview": "needs review"
+    },
+    "tooltips": {
+      "multi": "File contains several logical documents",
+      "segmentCount": "Number of segments / logical documents",
+      "primarySegment": "Primary segment: {{name}}",
+      "composite": "Composite file: contains several legal documents",
+      "needsReview": "Classifier is low confidence, manual review required"
+    },
+    "actions": {
+      "deleteTitle": "Delete document",
+      "deleteAria": "Delete document {{name}}"
+    }
+  },
+  "chunksModal": {
+    "title": "Document in Chunk Format",
+    "description": "This view shows the document exactly as the chunking system \"sees\" it: one chunk after another, complete with headers and system metadata. Scroll down to see the entire document.",
+    "loading": "Loading chunk file…",
+    "empty": "No chunk data available to display.",
+    "errors": {
+      "title": "Error loading chunk file",
+      "loadFailed": "Failed to load chunk file"
+    }
+  },
+  "upload": {
+    "restricted": "You do not have permission to upload documents to this project.",
+    "header": {
+      "title": "Upload Documents",
+      "subtitle": "Prepare a set of files and upload them to the project."
+    },
+    "existing": {
+      "title": "Already Uploaded Documents",
+      "subtitle": "Documents that are already present in the project.",
+      "loading": "Loading...",
+      "empty": "There are no uploaded documents in this project yet.",
+      "table": {
+        "filename": "Filename",
+        "status": "Status",
+        "uploaded": "Uploaded"
+      }
+    },
+    "errors": {
+      "loadDocsFailed": "Error loading documents.",
+      "selectFilesFirst": "Please select files or a folder to upload first.",
+      "uploadFailed": "Failed to upload documents.",
+      "refreshFailed": "Failed to refresh document list."
+    }
+  },
+  "documentsTab": {
+    "loading": {
+      "title": "Loading documents...",
+      "error": "Failed to load documents."
+    },
+    "emptyState": {
+      "title": "No documents yet",
+      "subtitle": "Upload documents via the Overview tab"
+    },
+    "title": "Documents",
+    "subtitle": "The project analyzes {{count}} {{label}}",
+    "subtitleEmpty": "No documents have been uploaded to the project yet",
+    "toolbar": {
+      "configureColumns": "Configure columns"
+    },
+    "alerts": {
+      "exportExcelFailed": "Failed to export to Excel",
+      "exportWordFailed": "Failed to export to Word",
+      "exportPdfFailed": "Failed to export to PDF"
+    },
+    "cell": {
+      "yes": "Yes",
+      "no": "No",
+      "needsReview": "Requires classification review"
+    },
+    "detailsPanel": {
+      "header": "Document Details",
+      "backMobile": "← Back",
+      "closeLabel": "Close document details panel"
+    },
+    "classificationBanner": {
+      "title": "Require classification review",
+      "show": "Show ▼",
+      "hide": "Hide ▲",
+      "typeUnknown": "Type not determined"
+    },
+    "columnSelector": {
+      "title": "Visible columns",
+      "subtitle": "Click a field to show or hide it in the table",
+      "defaults": "Defaults",
+      "cancel": "Cancel",
+      "apply": "Apply",
+      "applyTitle": "Apply visible column changes",
+      "applyTitleDisabled": "Change the visible columns set first"
+    },
+    "exportMenu": {
+      "saveShort": "Save",
+      "saveLong": "Save document list",
+      "excel": "Excel",
+      "word": "Word",
+      "pdf": "PDF"
+    },
+    "utils": {
+      "risk": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "critical": "Critical"
+      },
+      "documentsCount_one": "document",
+      "documentsCount_other": "documents",
+      "unknownStage": "Unknown stage"
+    }
+  },
   "details": {
     "loading": "Loading…",
     "notFound": "Document not found",
@@ -131,5 +354,95 @@
   },
   "shared": {
     "docTypeNotSpecified": "type not specified"
+  },
+  "columns": {
+    "filename": {
+      "label": "Document Name",
+      "description": "File name of the document in Data Room."
+    },
+    "folder_path": {
+      "label": "Folder",
+      "description": "Folder path in Data Room structure."
+    },
+    "doc_type": {
+      "label": "Document Type",
+      "description": "Classified document type (SPA, NDA, etc.)."
+    },
+    "status": {
+      "label": "Processing Status",
+      "description": "Current processing status of the document in the pipeline."
+    },
+    "human_review_status": {
+      "label": "Lawyer Review",
+      "description": "Human-readable lawyer review status."
+    },
+    "reviewed_by_person": {
+      "label": "Reviewed Flag",
+      "description": "Boolean flag indicating whether the document was reviewed by a lawyer."
+    },
+    "classification_requires_review": {
+      "label": "Needs Review",
+      "description": "Flag indicating classifier marked document as requiring manual review."
+    },
+    "risk_level": {
+      "label": "Risk",
+      "description": "Document risk level: low/medium/high/critical."
+    },
+    "language": {
+      "label": "Language",
+      "description": "Primary document language (RU, EN, etc.)."
+    },
+    "jurisdiction_guess": {
+      "label": "Jurisdiction",
+      "description": "Estimated document jurisdiction."
+    },
+    "page_count": {
+      "label": "Pages",
+      "description": "Number of pages in the document."
+    },
+    "classification_level": {
+      "label": "Classification Level",
+      "description": "Level at which document type was determined (L0–L4, L_manual)."
+    },
+    "classification_confidence": {
+      "label": "Classification Confidence",
+      "description": "Score 0–1 indicating classification confidence."
+    },
+    "applicable_triggers_count": {
+      "label": "Triggers",
+      "description": "Number of applicable check triggers for the document."
+    },
+    "created_at": {
+      "label": "Created",
+      "description": "Date and time when the document was added."
+    },
+    "updated_at": {
+      "label": "Updated",
+      "description": "Date and time of last document update."
+    },
+    "id": {
+      "label": "Document ID",
+      "description": "Technical document identifier (UUID)."
+    },
+    "deal_id": {
+      "label": "Deal ID",
+      "description": "Identifier of the deal the document belongs to."
+    },
+    "composition_type": {
+      "label": "Composition",
+      "description": "Single or multi-document file (by segment structure)."
+    },
+    "segment_count": {
+      "label": "Segments",
+      "description": "Number of segments / logical documents in the file."
+    },
+    "primary_segment_label": {
+      "label": "Primary Segment",
+      "description": "Name of the primary segment (e.g. main SPA)."
+    },
+    "is_composite_file": {
+      "label": "Composite File",
+      "description": "Flag indicating the file contains multiple logical documents."
+    }
   }
 }

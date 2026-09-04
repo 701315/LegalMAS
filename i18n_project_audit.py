@@ -2,20 +2,15 @@
 from __future__ import annotations
 
 import argparse
-import ast
 import csv
 import json
+import os
 import re
+import sys
 from collections import Counter, defaultdict
-from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
-
-
-# =========================
-# Конфигурация
-# =========================
+from typing import Any, Iterator
 
 SOURCE_EXTENSIONS = {
     ".py",
@@ -24,10 +19,8 @@ SOURCE_EXTENSIONS = {
     ".html", ".htm",
     ".jinja", ".jinja2", ".j2",
     ".md", ".txt",
+    ".css", ".scss",
 }
-
-FRONTEND_EXTENSIONS = {".ts", ".tsx", ".js", ".jsx"}
-TEMPLATE_EXTENSIONS = {".html", ".htm", ".jinja", ".jinja2", ".j2"}
 
 SKIP_DIRS = {
     ".git",
@@ -54,6 +47,24 @@ SKIP_DIRS = {
     "vendor",
     "migrations",
     "alembic",
+    "uploads",
+    "storage",
+    "media",
+    "backups",
+    "archive",
+    "archives",
+    # Артефакты обработки договоров, временные результаты,
+    # служебные скрипты и тестовые данные не относятся к UI i18n scope.
+    "artifacts",
+    "output",
+    "audit-output",
+    "scripts",
+    "tests",
+    "test",
+    "fixtures",
+    "mocks",
+    "examples",
+    "samples",
 }
 
 SKIP_FILE_NAMES = {
@@ -72,16 +83,18 @@ SKIP_SUFFIXES = {
     ".pyc",
 }
 
-CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
-QUOTED_RU_RE = re.compile(
-    r"""(?P<quote>["'`])(?P<text>(?:\\.|(?!\1).)*?[А-Яа-яЁё](?:\\.|(?!\1))*?)(?P=quote)"""
-)
+MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024
+MAX_CANDIDATES_PER_FILE = 500
+PROGRESS_EVERY_FILES = 100
 
-JSX_VISIBLE_TEXT_RE = re.compile(
+CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
+QUOTED_RU_LINE_RE = re.compile(r"""(?P<quote>["'`])(?P<text>.*?[А-Яа-яЁё].*?)(?P=quote)""")
+
+JSX_VISIBLE_TEXT_LINE_RE = re.compile(
     r""">(?P<text>[^<>{}\n]*[А-Яа-яЁё][^<>{}\n]*)<"""
 )
 
-JSX_ATTRIBUTE_RE = re.compile(
+JSX_ATTRIBUTE_LINE_RE = re.compile(
     r"""(?P<attribute>
         aria-label|aria-description|aria-valuetext|
         alt|title|placeholder|label|helperText|
@@ -96,7 +109,7 @@ JSX_ATTRIBUTE_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-UI_OBJECT_RE = re.compile(
+UI_OBJECT_LINE_RE = re.compile(
     r"""(?P<key>
         label|title|description|message|text|name|
         hint|error|success|warning|caption|
@@ -109,6 +122,27 @@ UI_OBJECT_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+HTTP_EXCEPTION_LINE_RE = re.compile(
+    r"""HTTPException\s*\(.*?(?:detail|message)\s*=\s*["'](?P<text>.*?[А-Яа-яЁё].*?)["']""",
+    re.IGNORECASE,
+)
+
+API_RESPONSE_LINE_RE = re.compile(
+    r"""(?:detail|message|error|title|description|reason)\s*[:=]\s*["'](?P<text>.*?[А-Яа-яЁё].*?)["']""",
+    re.IGNORECASE,
+)
+
+LOGGER_LINE_RE = re.compile(
+    r"""(?:logger|logging)\.(?:debug|info|warning|warn|error|exception|critical)\s*\(\s*["'](?P<text>.*?[А-Яа-яЁё].*?)["']""",
+    re.IGNORECASE,
+)
+
+TEST_RE = re.compile(
+    r"""(?:^|/)(?:tests?|__tests__|fixtures?|mocks?|samples?|examples?)(?:/|$)|
+    (?:_test\.py$|\.spec\.[jt]sx?$|\.test\.[jt]sx?$)""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
 URL_RE = re.compile(r"^(https?://|www\.|mailto:|tel:|/|#)")
 UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -117,15 +151,9 @@ UUID_RE = re.compile(
 CODELIKE_RE = re.compile(r"^[A-Z0-9_.:-]+$")
 CLASSLIKE_RE = re.compile(r"^[a-z0-9_:/.\-[\]()%]+$", re.IGNORECASE)
 
-TEST_PATH_RE = re.compile(
-    r"(^|/)(tests?|__tests__|fixtures?|mocks?|samples?|examples?)(/|$)|"
-    r"(_test\.py$|\.test\.[jt]sx?$|\.spec\.[jt]sx?$)",
-    re.IGNORECASE,
-)
-
 EMAIL_WORDS = {
     "email", "emails", "mail", "mailer",
-    "notification", "notifications",
+    "notification", "notifications", "template", "templates",
 }
 
 EXPORT_WORDS = {
@@ -134,81 +162,80 @@ EXPORT_WORDS = {
 }
 
 
-# =========================
-# Модель результата
-# =========================
-
-@dataclass
-class Candidate:
-    report_group: str
-    priority: str
-    category: str
-    project_area: str
-    subsystem: str
-    file: str
-    line: int
-    text: str
-    code: str
-    suggested_action: str
-
-
-# =========================
-# Общие функции
-# =========================
-
 def normalize_text(value: str) -> str:
     value = value.replace("\\n", " ").replace("\\t", " ")
     return re.sub(r"\s+", " ", value).strip()
 
 
-def read_utf8(path: Path) -> str | None:
+def is_output_inside_root(root: Path, output_dir: Path) -> bool:
+    try:
+        output_dir.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def is_skipped_path(path: Path, excluded_output_dir: Path | None) -> bool:
+    if excluded_output_dir is not None:
+        try:
+            path.relative_to(excluded_output_dir)
+            return True
+        except ValueError:
+            pass
+
+    if any(part in SKIP_DIRS for part in path.parts):
+        return True
+
+    name = path.name.lower()
+
+    if name in SKIP_FILE_NAMES or name.startswith(".env"):
+        return True
+
+    return any(name.endswith(suffix) for suffix in SKIP_SUFFIXES)
+
+
+def iter_source_files(
+    root: Path,
+    excluded_output_dir: Path | None,
+) -> Iterator[Path]:
+    for current_root, dir_names, file_names in os.walk(root, followlinks=False):
+        current_path = Path(current_root)
+
+        dir_names[:] = [
+            directory
+            for directory in dir_names
+            if not is_skipped_path(current_path / directory, excluded_output_dir)
+        ]
+
+        for file_name in file_names:
+            path = current_path / file_name
+
+            if is_skipped_path(path, excluded_output_dir):
+                continue
+
+            if path.suffix.lower() not in SOURCE_EXTENSIONS:
+                continue
+
+            try:
+                if path.stat().st_size > MAX_FILE_SIZE_BYTES:
+                    continue
+            except OSError:
+                continue
+
+            yield path
+
+
+def safe_read(path: Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8")
     except (UnicodeDecodeError, OSError):
         return None
 
 
-def is_skipped(path: Path) -> bool:
-    if any(part in SKIP_DIRS for part in path.parts):
-        return True
-
-    name = path.name.lower()
-
-    if name in SKIP_FILE_NAMES:
-        return True
-
-    if name.startswith(".env"):
-        return True
-
-    return any(name.endswith(suffix) for suffix in SKIP_SUFFIXES)
-
-
-def line_at(source: str, line_number: int) -> str:
-    lines = source.splitlines()
-    if 1 <= line_number <= len(lines):
-        return lines[line_number - 1].strip()
-    return ""
-
-
-def line_number_at(source: str, position: int) -> int:
-    return source.count("\n", 0, position) + 1
-
-
-def path_has_any_word(relative: Path, words: set[str]) -> bool:
-    path_words = set(re.split(r"[/_.\-]+", str(relative).lower()))
-    return bool(path_words & words)
-
-
-def classify_area(relative: Path) -> str:
-    lower = str(relative).lower()
+def get_project_area(relative: Path) -> str:
     suffix = relative.suffix.lower()
 
-    if suffix in FRONTEND_EXTENSIONS:
-        if any(word in lower for word in (
-            "frontend", "client", "components", "pages",
-            "screens", "views", "hooks",
-        )):
-            return "frontend"
+    if suffix in {".ts", ".tsx", ".js", ".jsx", ".css", ".scss"}:
         return "frontend"
 
     if suffix in {".py", ".jinja", ".jinja2", ".j2"}:
@@ -217,37 +244,35 @@ def classify_area(relative: Path) -> str:
     return "shared_or_content"
 
 
-def classify_subsystem(relative: Path) -> str:
+def get_subsystem(relative: Path) -> str:
     lower = str(relative).lower()
+    parts = set(re.split(r"[/_.-]+", lower))
 
-    if TEST_PATH_RE.search(lower):
+    if TEST_RE.search(lower):
         return "test_or_fixture"
 
-    if path_has_any_word(relative, EMAIL_WORDS):
+    if parts & EMAIL_WORDS:
         return "email"
 
-    if path_has_any_word(relative, EXPORT_WORDS):
+    if parts & EXPORT_WORDS:
         return "export"
 
-    if any(word in lower for word in ("celery", "tasks/", "_task", "worker")):
+    if any(value in lower for value in ("celery", "/tasks/", "_task", "worker")):
         return "async_or_celery"
 
-    if any(word in lower for word in (
-        "api/", "endpoints/", "routers/", "router",
-        "controller", "views/",
-    )):
+    if any(value in lower for value in ("/api/", "/endpoints/", "/routers/", "endpoint")):
         return "api"
 
-    if any(word in lower for word in ("components/", "component/")):
+    if any(value in lower for value in ("/components/", "/component/")):
         return "component"
 
-    if any(word in lower for word in ("pages/", "screens/", "views/")):
+    if any(value in lower for value in ("/pages/", "/screens/", "/views/")):
         return "page"
 
     return "general"
 
 
-def is_probably_technical(text: str, line: str) -> bool:
+def probably_technical(text: str, line: str) -> bool:
     text = normalize_text(text)
     lower_line = line.lower()
 
@@ -264,552 +289,248 @@ def is_probably_technical(text: str, line: str) -> bool:
         return True
 
     if any(marker in lower_line for marker in (
+        "re.compile(",
+        "re.search(",
+        "re.match(",
+        "re.fullmatch(",
+        "re.findall(",
+        "re.finditer(",
+    )):
+        return True
+
+    return any(marker in lower_line for marker in (
         "data-testid",
         "class=",
         "classname=",
         "import ",
         "from ",
-    )):
-        return True
-
-    return False
+    ))
 
 
-def add_candidate(
-    result: list[Candidate],
-    seen: set[tuple[str, int, str]],
-    candidate: Candidate,
-) -> None:
-    key = (candidate.file, candidate.line, candidate.text)
-
-    if key not in seen:
-        seen.add(key)
-        result.append(candidate)
-
-
-# =========================
-# Frontend и шаблоны
-# =========================
-
-def frontend_action(category: str) -> str:
-    if category in {
-        "jsx_visible_text",
-        "jsx_attribute",
-        "frontend_ui_object",
-        "frontend_notification",
-        "frontend_visible_logic",
-    }:
-        return "Вынести текст в i18n key и заменить отображение на t('namespace.key')."
-
-    return "Проверить вручную: если строка видна пользователю, вынести в i18n key."
-
-
-def scan_frontend_or_template(root: Path, path: Path, source: str) -> list[Candidate]:
-    relative = path.relative_to(root)
-    subsystem = classify_subsystem(relative)
-    area = classify_area(relative)
-
-    result: list[Candidate] = []
-    seen: set[tuple[str, int, str]] = set()
+def classify_line(relative: Path, line: str, text: str) -> tuple[str, str, str]:
+    suffix = relative.suffix.lower()
+    subsystem = get_subsystem(relative)
+    lower = line.lower()
 
     if subsystem == "test_or_fixture":
-        report_group = "content_or_test"
-        priority = "ignore"
-    elif subsystem == "email":
-        report_group = "email_export"
-        priority = "high"
-    elif subsystem == "export":
-        report_group = "email_export"
-        priority = "high"
-    else:
-        report_group = "frontend_ui"
-        priority = "high"
+        return "content_or_test", "ignore", "test_or_fixture"
 
-    patterns: list[tuple[re.Pattern[str], str]] = []
+    if suffix == ".py":
+        if LOGGER_LINE_RE.search(line):
+            return "backend_internal", "ignore", "backend_log_internal"
 
-    if path.suffix.lower() in {".tsx", ".jsx"} | TEMPLATE_EXTENSIONS:
-        patterns.extend([
-            (JSX_VISIBLE_TEXT_RE, "jsx_visible_text"),
-            (JSX_ATTRIBUTE_RE, "jsx_attribute"),
-        ])
+        if probably_technical(text, line):
+            return "content_or_test", "ignore", "technical_literal"
 
-    patterns.extend([
-        (UI_OBJECT_RE, "frontend_ui_object"),
-        (QUOTED_RU_RE, "frontend_visible_logic"),
-    ])
+        if subsystem == "email":
+            return "email_export", "high", "email_visible_text"
 
-    for pattern, category in patterns:
-        for match in pattern.finditer(source):
-            text = normalize_text(match.group("text"))
+        if subsystem == "export":
+            return "email_export", "high", "export_visible_text"
 
-            if not text or not CYRILLIC_RE.search(text):
-                continue
+        if HTTP_EXCEPTION_LINE_RE.search(line):
+            return "backend_user_facing", "high", "api_http_exception"
 
-            line_number = line_number_at(source, match.start())
-            line = line_at(source, line_number)
+        if API_RESPONSE_LINE_RE.search(line):
+            return "backend_user_facing", "high", "api_or_validation_message"
 
-            if is_probably_technical(text, line):
-                continue
+        if subsystem in {"api", "async_or_celery"}:
+            return "backend_user_facing", "medium", "api_or_task_review"
 
-            current_category = category
-            current_priority = priority
-            current_group = report_group
+        if probably_technical(text, line):
+            return "content_or_test", "ignore", "technical_literal"
 
-            lower_line = line.lower()
+        return "backend_internal", "medium", "backend_string_review"
 
-            if any(token in lower_line for token in (
-                "toast", "notification", "snackbar",
-                "alert", "dialog", "modal", "confirm",
-            )):
-                current_category = "frontend_notification"
+    if suffix in {".html", ".htm", ".jinja", ".jinja2", ".j2"}:
+        if subsystem == "email":
+            return "email_export", "high", "email_template_visible_text"
 
-            if subsystem == "test_or_fixture":
-                current_group = "content_or_test"
-                current_priority = "ignore"
-                current_category = "test_or_fixture"
+        if subsystem == "export":
+            return "email_export", "high", "export_template_visible_text"
 
-            add_candidate(
-                result,
-                seen,
-                Candidate(
-                    report_group=current_group,
-                    priority=current_priority,
-                    category=current_category,
-                    project_area=area,
-                    subsystem=subsystem,
-                    file=str(relative),
-                    line=line_number,
-                    text=text,
-                    code=line[:700],
-                    suggested_action=frontend_action(current_category),
-                ),
-            )
+        return "frontend_ui", "high", "html_template_visible_text"
 
-    return result
+    if suffix in {".tsx", ".jsx", ".ts", ".js"}:
+        if JSX_ATTRIBUTE_LINE_RE.search(line):
+            return "frontend_ui", "high", "jsx_accessibility_or_input"
 
+        if JSX_VISIBLE_TEXT_LINE_RE.search(line):
+            return "frontend_ui", "high", "jsx_visible_text"
 
-# =========================
-# Python AST: backend
-# =========================
+        if UI_OBJECT_LINE_RE.search(line):
+            return "frontend_ui", "high", "frontend_ui_object"
 
-def dotted_name(node: ast.AST) -> str:
-    if isinstance(node, ast.Name):
-        return node.id
-
-    if isinstance(node, ast.Attribute):
-        base = dotted_name(node.value)
-        return f"{base}.{node.attr}" if base else node.attr
-
-    return ""
-
-
-def constant_string(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    return None
-
-
-def keyword_string(call: ast.Call, names: set[str]) -> tuple[str, ast.AST] | None:
-    for keyword in call.keywords:
-        if keyword.arg in names:
-            value = constant_string(keyword.value)
-            if value is not None:
-                return value, keyword.value
-    return None
-
-
-def context_contains_export_or_email(relative: Path, function_name: str) -> str | None:
-    value = f"{relative} {function_name}".lower()
-
-    if any(word in value for word in EMAIL_WORDS):
-        return "email"
-
-    if any(word in value for word in EXPORT_WORDS):
-        return "export"
-
-    return None
-
-
-class PythonI18nVisitor(ast.NodeVisitor):
-    def __init__(self, root: Path, path: Path, source: str) -> None:
-        self.root = root
-        self.path = path
-        self.source = source
-        self.relative = path.relative_to(root)
-        self.subsystem = classify_subsystem(self.relative)
-        self.area = "backend"
-        self.function_stack: list[str] = []
-        self.results: list[Candidate] = []
-        self.seen: set[tuple[str, int, str]] = set()
-
-    def current_function(self) -> str:
-        return self.function_stack[-1] if self.function_stack else ""
-
-    def add(
-        self,
-        node: ast.AST,
-        text: str,
-        report_group: str,
-        priority: str,
-        category: str,
-        action: str,
-    ) -> None:
-        text = normalize_text(text)
-
-        if not text or not CYRILLIC_RE.search(text):
-            return
-
-        line_number = getattr(node, "lineno", 1)
-        line = line_at(self.source, line_number)
-
-        add_candidate(
-            self.results,
-            self.seen,
-            Candidate(
-                report_group=report_group,
-                priority=priority,
-                category=category,
-                project_area=self.area,
-                subsystem=self.subsystem,
-                file=str(self.relative),
-                line=line_number,
-                text=text,
-                code=line[:700],
-                suggested_action=action,
-            ),
-        )
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> Any:
-        self.function_stack.append(node.name)
-        self.generic_visit(node)
-        self.function_stack.pop()
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> Any:
-        self.function_stack.append(node.name)
-        self.generic_visit(node)
-        self.function_stack.pop()
-
-    def visit_Call(self, node: ast.Call) -> Any:
-        name = dotted_name(node.func).lower()
-        function_name = self.current_function()
-        special_context = context_contains_export_or_email(
-            self.relative,
-            function_name,
-        )
-
-        # logger.info/error/warning/... — внутренний текст
-        if any(name.endswith(f".{level}") for level in (
-            "debug", "info", "warning", "warn",
-            "error", "exception", "critical",
+        if any(token in lower for token in (
+            "toast", "notification", "alert", "dialog",
+            "modal", "confirm", "snackbar", "message.",
         )):
-            if node.args:
-                text = constant_string(node.args[0])
-                if text:
-                    self.add(
-                        node,
-                        text,
-                        "backend_internal",
-                        "ignore",
-                        "backend_log_internal",
-                        "Не переводить: внутренний лог. При необходимости стандартизировать язык логов отдельно.",
-                    )
+            return "frontend_ui", "high", "frontend_notification"
 
-        # HTTPException(detail="...")
-        if name.endswith("httpexception") or name == "httpexception":
-            found = keyword_string(node, {"detail", "message"})
-            if found:
-                text, value_node = found
-                self.add(
-                    value_node,
-                    text,
-                    "backend_user_facing",
-                    "high",
-                    "api_http_exception",
-                    "Заменить русский detail на error_code + params; frontend локализует текст по коду.",
-                )
+        if probably_technical(text, line):
+            return "content_or_test", "ignore", "technical_literal"
 
-        # JSONResponse / response с message/detail/error
-        if any(part in name for part in (
-            "jsonresponse", "response", "apiresponse",
-        )):
-            found = keyword_string(node, {"content", "data"})
-            if found and isinstance(found[1], ast.Dict):
-                self.scan_response_dict(found[1])
+        return "frontend_ui", "medium", "frontend_string_review"
 
-        # Celery update_state(meta={...})
-        if name.endswith("update_state"):
-            found = keyword_string(node, {"meta"})
-            if found and isinstance(found[1], ast.Dict):
-                self.scan_task_meta(found[1])
+    if suffix == ".json":
+        if any(token in str(relative).lower() for token in ("locale", "i18n", "translation")):
+            return "content_or_test", "ignore", "existing_translation_resource"
 
-        # Email и export: строковые аргументы в специальных функциях
-        if special_context:
-            for arg in node.args:
-                text = constant_string(arg)
-                if text:
-                    category = (
-                        "email_visible_text"
-                        if special_context == "email"
-                        else "export_visible_text"
-                    )
-                    self.add(
-                        arg,
-                        text,
-                        "email_export",
-                        "high",
-                        category,
-                        "Вынести в серверный шаблон/каталог переводов и выбирать по user.ui_locale или export_locale.",
-                    )
+        return "content_or_test", "medium", "json_content_needs_review"
 
-        self.generic_visit(node)
-
-    def visit_Raise(self, node: ast.Raise) -> Any:
-        if isinstance(node.exc, ast.Call):
-            name = dotted_name(node.exc.func).lower()
-
-            if any(token in name for token in (
-                "valueerror", "validationerror",
-                "businesserror", "domainerror",
-                "apierror", "userfacingerror",
-            )):
-                for arg in node.exc.args:
-                    text = constant_string(arg)
-                    if text:
-                        self.add(
-                            arg,
-                            text,
-                            "backend_user_facing",
-                            "high",
-                            "backend_raised_user_message",
-                            "Проверить, уходит ли исключение в API. Если да — заменить на error_code + params.",
-                        )
-
-        self.generic_visit(node)
-
-    def visit_Assign(self, node: ast.Assign) -> Any:
-        export_or_email = context_contains_export_or_email(
-            self.relative,
-            self.current_function(),
-        )
-
-        if export_or_email:
-            text = constant_string(node.value)
-            if text:
-                category = (
-                    "email_visible_text"
-                    if export_or_email == "email"
-                    else "export_visible_text"
-                )
-                self.add(
-                    node.value,
-                    text,
-                    "email_export",
-                    "high",
-                    category,
-                    "Вынести в локализуемый серверный шаблон; язык брать из user/workspace/export locale.",
-                )
-
-        self.generic_visit(node)
-
-    def scan_response_dict(self, node: ast.Dict) -> None:
-        for key, value in zip(node.keys, node.values):
-            key_text = constant_string(key) if key else None
-            value_text = constant_string(value)
-
-            if key_text in {"detail", "message", "error", "title", "description"} and value_text:
-                self.add(
-                    value,
-                    value_text,
-                    "backend_user_facing",
-                    "high",
-                    "api_response_message",
-                    "Заменить текстовый response field на стабильный code + params; текст локализовать в UI.",
-                )
-
-    def scan_task_meta(self, node: ast.Dict) -> None:
-        for key, value in zip(node.keys, node.values):
-            key_text = constant_string(key) if key else None
-            value_text = constant_string(value)
-
-            if key_text in {"message", "detail", "error", "status_text"} and value_text:
-                self.add(
-                    value,
-                    value_text,
-                    "backend_user_facing",
-                    "high",
-                    "celery_task_status_message",
-                    "Заменить пользовательский текст задачи на event_code/status_code + params.",
-                )
-
-    def visit_Constant(self, node: ast.Constant) -> Any:
-        if not isinstance(node.value, str):
-            return
-
-        text = node.value
-
-        if not CYRILLIC_RE.search(text):
-            return
-
-        if self.subsystem == "test_or_fixture":
-            self.add(
-                node,
-                text,
-                "content_or_test",
-                "ignore",
-                "test_or_fixture",
-                "Не переводить как продуктовый UI; оставить в test fixture или sample data.",
-            )
-            return
-
-        # Не создаём generic кандидат, если он уже распознан более точным вызовом.
-        self.generic_visit(node)
+    return "content_or_test", "medium", "content_needs_review"
 
 
-def scan_python(root: Path, path: Path, source: str) -> list[Candidate]:
-    relative = path.relative_to(root)
+def scan_file(root: Path, path: Path) -> list[dict[str, Any]]:
+    content = safe_read(path)
 
-    try:
-        tree = ast.parse(source, filename=str(relative))
-    except SyntaxError:
+    if content is None or not CYRILLIC_RE.search(content):
         return []
 
-    visitor = PythonI18nVisitor(root, path, source)
-    visitor.visit(tree)
+    relative = path.relative_to(root)
+    results: list[dict[str, Any]] = []
+    seen: set[tuple[int, str]] = set()
 
-    # Дополнительный fallback для кириллицы в Python:
-    # охватывает словари, константы и строки, которые AST-контекст
-    # не смог уверенно классифицировать.
-    known = {(item.line, item.text) for item in visitor.results}
-
-    if classify_subsystem(relative) != "test_or_fixture":
-        for match in QUOTED_RU_RE.finditer(source):
-            text = normalize_text(match.group("text"))
-            line_number = line_number_at(source, match.start())
-            line = line_at(source, line_number)
-
-            if (line_number, text) in known:
-                continue
-
-            if is_probably_technical(text, line):
-                continue
-
-            lower_line = line.lower()
-
-            if "logger." in lower_line or "logging." in lower_line:
-                group = "backend_internal"
-                priority = "ignore"
-                category = "backend_log_internal"
-                action = "Не переводить: внутренний лог."
-            elif any(token in lower_line for token in (
-                "detail", "message", "error", "status",
-                "response", "result", "progress",
-            )):
-                group = "backend_user_facing"
-                priority = "medium"
-                category = "backend_string_needs_flow_review"
-                action = "Проверить API/Celery flow. Если текст уходит пользователю — заменить на code + params."
-            else:
-                group = "backend_internal"
-                priority = "medium"
-                category = "backend_string_needs_review"
-                action = "Проверить вручную: лог, документация, доменные данные или будущий user-facing текст."
-
-            visitor.add(
-                type("Node", (), {"lineno": line_number})(),
-                text,
-                group,
-                priority,
-                category,
-                action,
-            )
-
-    return visitor.results
-
-
-# =========================
-# Сканирование проекта
-# =========================
-
-def iter_source_files(root: Path) -> Iterable[Path]:
-    for path in root.rglob("*"):
-        if not path.is_file():
+    for line_number, raw_line in enumerate(content.splitlines(), start=1):
+        if not CYRILLIC_RE.search(raw_line):
             continue
 
-        if is_skipped(path):
+        line = raw_line.strip()
+
+        patterns: list[re.Pattern[str]] = [QUOTED_RU_LINE_RE]
+
+        if path.suffix.lower() in {".tsx", ".jsx", ".html", ".htm", ".jinja", ".jinja2", ".j2"}:
+            patterns.extend([
+                JSX_VISIBLE_TEXT_LINE_RE,
+                JSX_ATTRIBUTE_LINE_RE,
+                UI_OBJECT_LINE_RE,
+            ])
+
+        for pattern in patterns:
+            for match in pattern.finditer(raw_line):
+                text = normalize_text(match.group("text"))
+
+                if not text or not CYRILLIC_RE.search(text):
+                    continue
+
+                key = (line_number, text)
+
+                if key in seen:
+                    continue
+
+                seen.add(key)
+
+                report_group, priority, category = classify_line(
+                    relative,
+                    line,
+                    text,
+                )
+
+                results.append({
+                    "report_group": report_group,
+                    "priority": priority,
+                    "category": category,
+                    "project_area": get_project_area(relative),
+                    "subsystem": get_subsystem(relative),
+                    "file": str(relative),
+                    "line": line_number,
+                    "extension": path.suffix.lower(),
+                    "text": text,
+                    "code": line[:700],
+                })
+
+                if len(results) >= MAX_CANDIDATES_PER_FILE:
+                    return results
+
+    return results
+
+
+def load_package_json(
+    root: Path,
+    excluded_output_dir: Path | None,
+) -> dict[str, Any]:
+    """
+    Находит manifest основного frontend-приложения.
+
+    Приоритет намеренный: frontend/package.json должен быть выбран
+    раньше scripts/package.json и любых package.json из tooling-папок.
+    """
+    preferred_paths = [
+        root / "frontend" / "package.json",
+        root / "client" / "package.json",
+        root / "web" / "package.json",
+        root / "package.json",
+    ]
+
+    checked: set[Path] = set()
+
+    for manifest_path in preferred_paths:
+        if not manifest_path.is_file():
             continue
 
-        if path.suffix.lower() in SOURCE_EXTENSIONS:
-            yield path
+        checked.add(manifest_path.resolve())
+        content = safe_read(manifest_path)
 
-
-def scan_project(root: Path) -> tuple[list[Candidate], int]:
-    candidates: list[Candidate] = []
-    source_file_count = 0
-
-    for path in sorted(iter_source_files(root)):
-        source = read_utf8(path)
-
-        if source is None:
-            continue
-
-        source_file_count += 1
-
-        if not CYRILLIC_RE.search(source):
-            continue
-
-        suffix = path.suffix.lower()
-
-        if suffix == ".py":
-            candidates.extend(scan_python(root, path, source))
-        else:
-            candidates.extend(scan_frontend_or_template(root, path, source))
-
-    priority_order = {"high": 0, "medium": 1, "ignore": 2}
-
-    candidates.sort(
-        key=lambda item: (
-            priority_order.get(item.priority, 9),
-            item.report_group,
-            item.file,
-            item.line,
-        )
-    )
-
-    return candidates, source_file_count
-
-
-# =========================
-# Архитектурный обзор
-# =========================
-
-def load_package_json(root: Path) -> dict[str, Any]:
-    paths = [root / "package.json"] + list(root.glob("*/package.json"))
-
-    for path in paths:
-        source = read_utf8(path)
-
-        if not source:
+        if not content:
             continue
 
         try:
-            return json.loads(source)
-        except json.JSONDecodeError:
+            return json.loads(content)
+        except json.JSONDecodeError as exc:
+            print(
+                f"[warning] Некорректный JSON в {manifest_path}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    for current_root, dir_names, file_names in os.walk(root, followlinks=False):
+        current_path = Path(current_root)
+
+        dir_names[:] = [
+            directory
+            for directory in dir_names
+            if not is_skipped_path(
+                current_path / directory,
+                excluded_output_dir,
+            )
+        ]
+
+        if "package.json" not in file_names:
             continue
+
+        manifest_path = current_path / "package.json"
+
+        if manifest_path.resolve() in checked:
+            continue
+
+        content = safe_read(manifest_path)
+
+        if not content:
+            continue
+
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as exc:
+            print(
+                f"[warning] Некорректный JSON в {manifest_path}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
 
     return {}
 
 
-def detect_frontend_technologies(package_json: dict[str, Any]) -> dict[str, list[str]]:
+def detect_technologies(package_json: dict[str, Any]) -> dict[str, list[str]]:
     deps: dict[str, Any] = {}
     deps.update(package_json.get("dependencies", {}))
     deps.update(package_json.get("devDependencies", {}))
 
     groups = {
-        "framework": ["react", "next", "vite"],
-        "i18n": ["i18next", "react-i18next", "react-intl", "@lingui/core"],
-        "routing": ["react-router-dom", "@tanstack/react-router"],
-        "ui": ["@mui/material", "antd", "@chakra-ui/react", "@mantine/core", "tailwindcss"],
-        "testing": ["vitest", "jest", "@playwright/test", "cypress", "@testing-library/react"],
+        "frontend_framework": ["react", "next", "vite", "vue", "svelte"],
+        "frontend_i18n": ["i18next", "react-i18next", "react-intl", "@formatjs/intl"],
+        "frontend_routing": ["react-router-dom", "@tanstack/react-router"],
+        "frontend_ui": ["@mui/material", "antd", "@chakra-ui/react", "@mantine/core", "tailwindcss"],
+        "frontend_tests": ["vitest", "jest", "@playwright/test", "cypress", "@testing-library/react"],
     }
 
     return {
@@ -819,246 +540,121 @@ def detect_frontend_technologies(package_json: dict[str, Any]) -> dict[str, list
     }
 
 
-def find_architecture_markers(root: Path) -> dict[str, list[str]]:
-    markers: dict[str, list[str]] = {
-        "frontend_i18n_or_locale_files": [],
-        "fastapi_or_api_files": [],
-        "celery_or_task_files": [],
-        "email_files": [],
-        "export_files": [],
-        "template_files": [],
-    }
-
-    for path in root.rglob("*"):
-        if not path.is_file() or is_skipped(path):
-            continue
-
-        relative = path.relative_to(root)
-        lower = str(relative).lower()
-        suffix = path.suffix.lower()
-
-        if any(word in lower for word in ("i18n", "locale", "translation", "intl")):
-            markers["frontend_i18n_or_locale_files"].append(str(relative))
-
-        if suffix == ".py":
-            source = read_utf8(path) or ""
-            source_lower = source.lower()
-
-            if "fastapi" in source_lower or "apirouter" in source_lower:
-                markers["fastapi_or_api_files"].append(str(relative))
-
-            if "celery" in source_lower or "shared_task" in source_lower:
-                markers["celery_or_task_files"].append(str(relative))
-
-        if path_has_any_word(relative, EMAIL_WORDS):
-            markers["email_files"].append(str(relative))
-
-        if path_has_any_word(relative, EXPORT_WORDS):
-            markers["export_files"].append(str(relative))
-
-        if suffix in TEMPLATE_EXTENSIONS:
-            markers["template_files"].append(str(relative))
-
-    return {
-        key: sorted(set(value))[:100]
-        for key, value in markers.items()
-    }
-
-
-# =========================
-# Отчёты
-# =========================
-
-def write_csv(path: Path, rows: list[Candidate]) -> None:
-    fields = [
-        "priority",
-        "category",
-        "project_area",
-        "subsystem",
-        "file",
-        "line",
-        "text",
-        "code",
-        "suggested_action",
-    ]
-
-    with path.open("w", encoding="utf-8", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=fields)
-        writer.writeheader()
-
-        for row in rows:
-            writer.writerow(asdict(row))
-
-
-def make_backlog(rows: list[Candidate]) -> list[dict[str, Any]]:
-    grouped: dict[tuple[str, str], list[Candidate]] = defaultdict(list)
+def make_backlog(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
 
     for row in rows:
-        if row.priority != "ignore":
-            grouped[(row.report_group, row.text)].append(row)
+        if row["priority"] != "ignore":
+            grouped[(row["report_group"], row["text"])].append(row)
 
-    result: list[dict[str, Any]] = []
+    result = []
 
     for (group, text), items in grouped.items():
         first = items[0]
-        occurrences = len(items)
 
         if group == "frontend_ui":
-            namespace = (
-                "common"
-                if first.subsystem in {"general", "component"}
-                else first.subsystem
-            )
-            target = "Frontend locale JSON"
+            namespace = "common" if first["subsystem"] in {"component", "general"} else first["subsystem"]
+            action = "Создать i18n key и заменить user-facing строку на t('namespace.key')."
+            owner = "Frontend + Product"
         elif group == "backend_user_facing":
             namespace = "errors"
-            target = "API code + frontend locale JSON"
+            action = "Заменить текст на error_code/event_code + params; локализовать в frontend."
+            owner = "Backend + Frontend"
         elif group == "email_export":
-            namespace = first.subsystem
-            target = "Backend templates/catalog by locale"
+            namespace = first["subsystem"]
+            action = "Вынести в серверный каталог переводов или template; передавать locale."
+            owner = "Backend + Product"
         else:
             namespace = "review"
-            target = "Manual product decision"
+            action = "Проверить вручную: возможно, это контент, fixture или техническая строка."
+            owner = "Product / Engineering"
 
-        key_hint = re.sub(
-            r"[^a-z0-9]+",
-            "_",
-            text.lower().replace("ё", "е"),
-        ).strip("_")[:70]
+        key_hint = re.sub(r"[^a-z0-9]+", "_", text.lower().replace("ё", "е")).strip("_")[:70]
 
         result.append({
             "workstream": group,
-            "priority": first.priority,
-            "occurrences": occurrences,
-            "target": target,
-            "suggested_namespace": namespace,
-            "suggested_key_hint": key_hint,
+            "priority": first["priority"],
+            "occurrences": len(items),
+            "proposed_namespace": namespace,
+            "proposed_key_hint": key_hint,
             "text": text,
-            "first_file": first.file,
-            "first_line": first.line,
-            "recommended_action": first.suggested_action,
+            "first_file": first["file"],
+            "first_line": first["line"],
+            "recommended_action": action,
+            "owner": owner,
         })
 
-    priority_order = {"high": 0, "medium": 1}
-
+    rank = {"high": 0, "medium": 1}
     return sorted(
         result,
-        key=lambda item: (
-            priority_order.get(item["priority"], 9),
-            -item["occurrences"],
-            item["workstream"],
-        ),
+        key=lambda item: (rank.get(item["priority"], 9), -item["occurrences"], item["workstream"]),
     )
 
 
-def write_backlog(path: Path, rows: list[dict[str, Any]]) -> None:
-    fields = [
-        "workstream",
-        "priority",
-        "occurrences",
-        "target",
-        "suggested_namespace",
-        "suggested_key_hint",
-        "text",
-        "first_file",
-        "first_line",
-        "recommended_action",
-    ]
-
+def write_csv(path: Path, rows: list[dict[str, Any]], fields: list[str]) -> None:
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=fields)
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows({field: row.get(field, "") for field in fields} for row in rows)
 
 
 def write_summary(
     path: Path,
     root: Path,
-    source_files: int,
-    candidates: list[Candidate],
+    output_dir: Path,
+    files_scanned: int,
+    skipped_large: int,
+    candidates: list[dict[str, Any]],
     technologies: dict[str, list[str]],
-    markers: dict[str, list[str]],
     backlog: list[dict[str, Any]],
 ) -> None:
-    by_priority = Counter(item.priority for item in candidates)
-    by_group = Counter(item.report_group for item in candidates)
-    by_subsystem = Counter(item.subsystem for item in candidates)
+    by_priority = Counter(item["priority"] for item in candidates)
+    by_group = Counter(item["report_group"] for item in candidates)
 
     lines = [
         "# I18n Project Audit",
         "",
-        f"Дата создания: {datetime.now(timezone.utc).isoformat()}",
+        f"Дата: {datetime.now(timezone.utc).isoformat()}",
         f"Корень проекта: `{root}`",
+        f"Папка отчётов: `{output_dir}`",
         "",
         "## Масштаб",
         "",
-        f"- Исследовано файлов: **{source_files}**",
-        f"- Всего найдено русскоязычных кандидатов: **{len(candidates)}**",
+        f"- Просканировано файлов: **{files_scanned}**",
+        f"- Пропущено крупных файлов (> {MAX_FILE_SIZE_BYTES // 1024 // 1024} MB): **{skipped_large}**",
+        f"- Найдено кандидатов: **{len(candidates)}**",
         f"- Высокий приоритет: **{by_priority.get('high', 0)}**",
-        f"- Средний приоритет, нужен triage: **{by_priority.get('medium', 0)}**",
+        f"- Средний приоритет: **{by_priority.get('medium', 0)}**",
         f"- Исключено как логи, тесты или технические строки: **{by_priority.get('ignore', 0)}**",
         "",
-        "## По потокам работ",
+        "## По потокам",
         "",
         f"- Frontend UI: **{by_group.get('frontend_ui', 0)}**",
-        f"- Backend user-facing / API / Celery: **{by_group.get('backend_user_facing', 0)}**",
+        f"- Backend user-facing: **{by_group.get('backend_user_facing', 0)}**",
         f"- Email и exports: **{by_group.get('email_export', 0)}**",
         f"- Backend internal: **{by_group.get('backend_internal', 0)}**",
-        f"- Контент, тесты и ручная классификация: **{by_group.get('content_or_test', 0)}**",
+        f"- Контент, fixtures, документация: **{by_group.get('content_or_test', 0)}**",
         "",
-        "## По подсистемам",
+        "## Технологии",
         "",
     ]
-
-    for subsystem, count in by_subsystem.most_common():
-        lines.append(f"- `{subsystem}`: {count}")
-
-    lines.extend([
-        "",
-        "## Обнаруженные frontend-технологии",
-        "",
-    ])
 
     if technologies:
         for group, packages in technologies.items():
             lines.append(f"- **{group}:** {', '.join(packages)}")
     else:
-        lines.append("- package.json не найден либо технологии не определены.")
+        lines.append("- package.json не найден или зависимости не распознаны.")
 
     lines.extend([
         "",
-        "## Архитектурные маркеры",
+        "## Ограничения",
         "",
-    ])
-
-    for marker, files in markers.items():
-        lines.append(f"- **{marker}:** {len(files)} файлов")
-
-    lines.extend([
+        "- Скрипт не сканирует собственную output-папку.",
+        "- Файлы больше 2 MB намеренно пропускаются, чтобы не анализировать generated data, dumps и крупные fixtures.",
+        "- На одном файле анализ ограничен 500 кандидатами.",
+        "- Многострочные JavaScript/Python literals могут требовать отдельной ручной проверки или AST-аудита.",
         "",
-        "## План внедрения",
-        "",
-        "1. Провести triage `i18n_migration_backlog.csv`: присвоить каждой строке статус `translate`, `error_code`, `keep_internal`, `document_content` или `test_fixture`.",
-        "2. Внедрить `i18next + react-i18next`, базовый `en`, fallback `en`, затем перенести app shell, auth, navigation и общие UI-компоненты.",
-        "3. Для FastAPI/Celery закрепить API-контракт: `code`, `params`, `trace_id`; не возвращать русские user-facing строки в `detail` и task meta.",
-        "4. Добавить `user.ui_locale` и `workspace.default_locale`; язык интерфейса не связывать с `document_language` и `analysis_language`.",
-        "5. Для email и экспортов передавать `locale` в задачу/рендерер, чтобы результат создавался в нужной локали и был воспроизводим.",
-        "6. После миграции включить ESLint-правило против новых JSX literal strings и проверку полноты locale-файлов в CI.",
-        "",
-        "## Файлы отчёта",
-        "",
-        "- `frontend_ui_strings.csv` — фронтенд-кандидаты для переноса в translation keys.",
-        "- `backend_user_facing_strings.csv` — API/FastAPI/Celery-кандидаты для перехода на `code + params`.",
-        "- `backend_internal_strings.csv` — внутренние логи и строки, обычно не требующие перевода.",
-        "- `email_export_strings.csv` — письма и экспортируемые документы.",
-        "- `content_or_test_strings.csv` — fixtures, документация и строки, требующие ручного решения.",
-        "- `i18n_migration_backlog.csv` — дедуплицированный рабочий backlog.",
-        "",
-        "## Ограничение аудита",
-        "",
-        "Статический анализ показывает вероятный scope, но не может гарантировать, что каждая backend-строка реально доходит до пользователя. Все строки среднего приоритета нужно проверить по API-flow, task result и UI-обработчикам.",
-        "",
-        "## Первые 30 задач",
+        "## Первые задачи",
         "",
     ])
 
@@ -1073,98 +669,132 @@ def write_summary(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Статический i18n-аудит frontend + backend проекта."
+        description="Быстрый и безопасный статический i18n-аудит frontend + backend."
     )
-    parser.add_argument(
-        "project_dir",
-        nargs="?",
-        default=".",
-        help="Корень проекта; по умолчанию текущая папка.",
-    )
-    parser.add_argument(
-        "--out-dir",
-        default="./i18n-project-audit",
-        help="Папка для итоговых отчётов.",
-    )
+    parser.add_argument("project_dir", nargs="?", default=".")
+    parser.add_argument("--out-dir", default="./i18n-project-audit")
     args = parser.parse_args()
 
     root = Path(args.project_dir).expanduser().resolve()
-    out_dir = Path(args.out_dir).expanduser().resolve()
+    output_dir = Path(args.out_dir).expanduser().resolve()
 
     if not root.is_dir():
-        raise SystemExit(f"Не найден каталог проекта: {root}")
+        raise SystemExit(f"Каталог проекта не найден: {root}")
 
-    candidates, source_files = scan_project(root)
-    groups: dict[str, list[Candidate]] = defaultdict(list)
+    excluded_output_dir = output_dir if is_output_inside_root(root, output_dir) else None
 
-    for candidate in candidates:
-        groups[candidate.report_group].append(candidate)
+    candidates: list[dict[str, Any]] = []
+    source_files_scanned = 0
+    large_files_skipped = 0
 
-    package_json = load_package_json(root)
-    technologies = detect_frontend_technologies(package_json)
-    markers = find_architecture_markers(root)
+    for path in iter_source_files(root, excluded_output_dir):
+        try:
+            if path.stat().st_size > MAX_FILE_SIZE_BYTES:
+                large_files_skipped += 1
+                continue
+        except OSError:
+            continue
+
+        source_files_scanned += 1
+
+        if source_files_scanned % PROGRESS_EVERY_FILES == 0:
+            print(
+                f"[progress] files={source_files_scanned}, candidates={len(candidates)}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+        candidates.extend(scan_file(root, path))
+
+    priority_order = {"high": 0, "medium": 1, "ignore": 2}
+    candidates.sort(
+        key=lambda row: (
+            priority_order.get(row["priority"], 9),
+            row["report_group"],
+            row["file"],
+            row["line"],
+        )
+    )
+
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in candidates:
+        groups[row["report_group"]].append(row)
+
+    technologies = detect_technologies(load_package_json(root, excluded_output_dir))
     backlog = make_backlog(candidates)
 
-    out_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    write_csv(out_dir / "all_candidates.csv", candidates)
-    write_csv(out_dir / "frontend_ui_strings.csv", groups["frontend_ui"])
-    write_csv(
-        out_dir / "backend_user_facing_strings.csv",
-        groups["backend_user_facing"],
-    )
-    write_csv(
-        out_dir / "backend_internal_strings.csv",
-        groups["backend_internal"],
-    )
-    write_csv(out_dir / "email_export_strings.csv", groups["email_export"])
-    write_csv(
-        out_dir / "content_or_test_strings.csv",
-        groups["content_or_test"],
-    )
-    write_backlog(out_dir / "i18n_migration_backlog.csv", backlog)
+    candidate_fields = [
+        "report_group",
+        "priority",
+        "category",
+        "project_area",
+        "subsystem",
+        "file",
+        "line",
+        "extension",
+        "text",
+        "code",
+    ]
+    backlog_fields = [
+        "workstream", "priority", "occurrences",
+        "proposed_namespace", "proposed_key_hint", "text",
+        "first_file", "first_line", "recommended_action", "owner",
+    ]
 
-    full_report = {
-        "project_root": str(root),
+    write_csv(output_dir / "all_candidates.csv", candidates, candidate_fields)
+    write_csv(output_dir / "frontend_ui_strings.csv", groups["frontend_ui"], candidate_fields)
+    write_csv(output_dir / "backend_user_facing_strings.csv", groups["backend_user_facing"], candidate_fields)
+    write_csv(output_dir / "backend_internal_strings.csv", groups["backend_internal"], candidate_fields)
+    write_csv(output_dir / "email_export_strings.csv", groups["email_export"], candidate_fields)
+    write_csv(output_dir / "content_or_test_strings.csv", groups["content_or_test"], candidate_fields)
+    write_csv(output_dir / "i18n_migration_backlog.csv", backlog, backlog_fields)
+
+    report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source_files_scanned": source_files,
-        "technologies": technologies,
-        "architecture_markers": markers,
-        "summary": {
-            "total_candidates": len(candidates),
-            "by_priority": dict(Counter(item.priority for item in candidates)),
-            "by_group": dict(Counter(item.report_group for item in candidates)),
-            "by_category": dict(Counter(item.category for item in candidates)),
-            "by_subsystem": dict(Counter(item.subsystem for item in candidates)),
+        "project_root": str(root),
+        "output_dir": str(output_dir),
+        "limits": {
+            "max_file_size_bytes": MAX_FILE_SIZE_BYTES,
+            "max_candidates_per_file": MAX_CANDIDATES_PER_FILE,
         },
-        "candidates": [asdict(item) for item in candidates],
+        "summary": {
+            "source_files_scanned": source_files_scanned,
+            "large_files_skipped": large_files_skipped,
+            "total_candidates": len(candidates),
+            "by_priority": dict(Counter(row["priority"] for row in candidates)),
+            "by_report_group": dict(Counter(row["report_group"] for row in candidates)),
+            "by_category": dict(Counter(row["category"] for row in candidates)),
+        },
+        "technologies": technologies,
+        "candidates": candidates,
     }
 
-    (out_dir / "i18n_project_audit.json").write_text(
-        json.dumps(full_report, ensure_ascii=False, indent=2),
+    (output_dir / "i18n_project_audit.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
     write_summary(
-        out_dir / "i18n_project_audit_summary.md",
+        output_dir / "i18n_project_audit_summary.md",
         root,
-        source_files,
+        output_dir,
+        source_files_scanned,
+        large_files_skipped,
         candidates,
         technologies,
-        markers,
         backlog,
     )
 
-    print(f"Готово. Проверено исходных файлов: {source_files}")
+    print(f"Готово. Просканировано файлов: {source_files_scanned}")
     print(f"Найдено кандидатов: {len(candidates)}")
-    print(f"Отчёты созданы в: {out_dir}")
+    print(f"Отчёты: {output_dir}")
 
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-
+    
     

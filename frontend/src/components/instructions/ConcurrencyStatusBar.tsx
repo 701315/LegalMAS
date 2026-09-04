@@ -3,6 +3,7 @@
 // Рендерится только когда есть что показать (не idle).
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, Loader2, XCircle } from "lucide-react";
 import type { ETagConcurrencyState } from "../../hooks/instructions/useETagConcurrency";
 import Button from "../ui/Button";
@@ -18,6 +19,8 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
   onRetryAfterStale,
   onDismissConflict,
 }) => {
+  const { t } = useTranslation("instructions");
+
   if (state.status === "idle" || state.status === "success") {
     return null;
   }
@@ -32,8 +35,8 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
         />
         <span className="text-[11px] text-[var(--text-secondary)]">
           {state.status === "loading"
-            ? "Загружаем данные версии…"
-            : "Сохраняем черновик…"}
+            ? t("concurrency.loading")
+            : t("concurrency.saving")}
         </span>
       </div>
     );
@@ -49,8 +52,7 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
             aria-hidden="true"
           />
           <span className="text-[11px] text-[var(--color-warning-text)]">
-            Данные были обновлены на сервере. Нажмите «Сохранить» ещё раз
-            чтобы применить изменения.
+            {t("concurrency.stale")}
           </span>
         </div>
         {onRetryAfterStale && (
@@ -60,7 +62,7 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
             onClick={onRetryAfterStale}
             className="shrink-0"
           >
-            Повторить
+            {t("concurrency.retry")}
           </Button>
         )}
       </div>
@@ -77,9 +79,7 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
             aria-hidden="true"
           />
           <span className="text-[11px] text-[var(--color-error-text)]">
-            Конфликт редактирования — версия была изменена другим
-            пользователем. Ваши изменения не сохранены. Просмотрите свежие
-            данные и повторно примените изменения.
+            {t("concurrency.conflict")}
           </span>
         </div>
         {onDismissConflict && (
@@ -89,7 +89,7 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
             onClick={onDismissConflict}
             className="shrink-0"
           >
-            Понятно
+            {t("concurrency.dismiss")}
           </Button>
         )}
       </div>
@@ -105,7 +105,7 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
           aria-hidden="true"
         />
         <span className="text-[11px] text-[var(--color-error-text)]">
-          {state.errorMessage ?? "Ошибка сохранения."}
+          {state.errorMessage ?? t("concurrency.saveError")}
         </span>
       </div>
     );

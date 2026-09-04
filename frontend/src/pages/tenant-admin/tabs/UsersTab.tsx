@@ -12,12 +12,13 @@
 // - Scroll внутри tab (overflow-auto)
 //
 // State ownership:
-// - expandedUserIds управляется в parent (main component),
+// - expandedUserIds управляется in parent (main component),
 //   потому что нужно управлять множественным expand через Set<string>
 // - При переключении tabs состояние expanded сохраняется
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { TenantUserDTO } from "../../../api/tenantAdmin";
 import { LABEL_XS } from "../constants";
 import UserRow from "../components/UserRow";
@@ -38,40 +39,52 @@ const UsersTab: React.FC<UsersTabProps> = ({
   expandedUserIds,
   onToggleUser,
   onOpenProject,
-}) => (
-  <div className="min-h-0 flex-1 overflow-auto">
-    {users.length === 0 ? (
-      <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-[var(--text-muted)]">
-        Нет пользователей
-      </div>
-    ) : (
-      <table className="w-full min-w-[820px] border-collapse">
-        <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
-          <tr className="border-b border-[var(--border)]">
-            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
-              Пользователь
-            </th>
-            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Роль</th>
-            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Статус</th>
-            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Проекты</th>
-            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>Добавлен</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <UserRow
-              key={u.id}
-              user={u}
-              expanded={expandedUserIds.has(u.id)}
-              onToggle={() => onToggleUser(u.id)}
-              onOpenProject={onOpenProject}
-            />
-          ))}
-        </tbody>
-      </table>
-    )}
-  </div>
-);
+}) => {
+  const { t } = useTranslation("tenantAdmin");
+
+  return (
+    <div className="min-h-0 flex-1 overflow-auto">
+      {users.length === 0 ? (
+        <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-[var(--text-muted)]">
+          {t("usersTab.noUsers")}
+        </div>
+      ) : (
+        <table className="w-full min-w-[820px] border-collapse">
+          <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+            <tr className="border-b border-[var(--border)]">
+              <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+                {t("usersTab.headers.user")}
+              </th>
+              <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+                {t("usersTab.headers.role")}
+              </th>
+              <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+                {t("usersTab.headers.status")}
+              </th>
+              <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+                {t("usersTab.headers.projects")}
+              </th>
+              <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
+                {t("usersTab.headers.added")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <UserRow
+                key={u.id}
+                user={u}
+                expanded={expandedUserIds.has(u.id)}
+                onToggle={() => onToggleUser(u.id)}
+                onOpenProject={onOpenProject}
+              />
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+};
 
 export default UsersTab;
 

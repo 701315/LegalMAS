@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { X, Sparkles, Braces, Loader2 } from "lucide-react";
 import type {
   PipelineStageKind,
@@ -44,7 +45,7 @@ function getDefaultViewMode(stage: PipelineStageViewDTO): StageViewMode {
   return "canonical";
 }
 
-function getErrorMessage(err: unknown): string {
+function getErrorMessage(err: unknown, tFn: (key: string) => string): string {
   if (typeof err === "object" && err !== null) {
     const maybeDetail = (err as { detail?: unknown }).detail;
     if (typeof maybeDetail === "string" && maybeDetail.trim()) {
@@ -57,10 +58,10 @@ function getErrorMessage(err: unknown): string {
     }
   }
 
-  return "Не удалось переключить режим отображения стадии";
+  return tFn("stageModal.switchError");
 }
 
-function getToggleLabels(kind: PipelineStageKind): {
+function getToggleLabels(kind: PipelineStageKind, tFn: (key: string) => string): {
   toFriendly: string;
   toCanonical: string;
   toFriendlyTitle: string;
@@ -68,20 +69,18 @@ function getToggleLabels(kind: PipelineStageKind): {
 } {
   if (kind === "chunks") {
     return {
-      toFriendly: "RAG basis",
-      toCanonical: "Stage artifact",
-      toFriendlyTitle:
-        "Показать retrieval-visible corpus — то, на чём основан анализ рисков",
-      toCanonicalTitle:
-        "Показать полный canonical artifact этапа CHUNKS (все уровни)",
+      toFriendly: tFn("stageModal.toggle.chunksFriendly"),
+      toCanonical: tFn("stageModal.toggle.chunksCanonical"),
+      toFriendlyTitle: tFn("stageModal.toggle.chunksFriendlyTitle"),
+      toCanonicalTitle: tFn("stageModal.toggle.chunksCanonicalTitle"),
     };
   }
 
   return {
-    toFriendly: "Friendly формат",
-    toCanonical: "Canonical формат",
-    toFriendlyTitle: "Показать более удобный для чтения вид",
-    toCanonicalTitle: "Вернуться к каноническому результату этапа",
+    toFriendly: tFn("stageModal.toggle.genericFriendly"),
+    toCanonical: tFn("stageModal.toggle.genericCanonical"),
+    toFriendlyTitle: tFn("stageModal.toggle.genericFriendlyTitle"),
+    toCanonicalTitle: tFn("stageModal.toggle.genericCanonicalTitle"),
   };
 }
 
@@ -92,6 +91,7 @@ export const PipelineStageModal: React.FC<Props> = ({
   onOpenAtLocation,
   onClose,
 }) => {
+  const { t } = useTranslation("pipeline");
   const [currentStage, setCurrentStage] =
     React.useState<PipelineStageViewDTO | null>(stage);
   const [currentStages, setCurrentStages] =
@@ -139,7 +139,7 @@ export const PipelineStageModal: React.FC<Props> = ({
   const canToggleFriendly =
     supportsFriendlyMode(stageData) && stageData.status === "ready";
 
-  const toggleLabels = getToggleLabels(stageData.kind);
+  const toggleLabels = getToggleLabels(stageData.kind, t);
 
   async function handleToggleViewMode() {
     if (!documentId || !canToggleFriendly || loading) return;
@@ -170,7 +170,7 @@ export const PipelineStageModal: React.FC<Props> = ({
       setCurrentStage(updatedStage);
       setViewMode(nextViewMode);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setLoading(false);
     }
@@ -210,7 +210,7 @@ export const PipelineStageModal: React.FC<Props> = ({
       default:
         return (
           <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
-            Для этой стадии пока нет viewer.
+            {t("stageModal.noViewer")}
           </div>
         );
     }
@@ -265,7 +265,7 @@ export const PipelineStageModal: React.FC<Props> = ({
                 {loading ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
-                    Переключение...
+                    {t("stageModal.switching")}
                   </>
                 ) : viewMode === "canonical" ? (
                   <>
@@ -287,7 +287,7 @@ export const PipelineStageModal: React.FC<Props> = ({
               size="sm"
               onClick={onClose}
               disabled={loading}
-              aria-label="Закрыть модальное окно"
+              aria-label={t("stageModal.closeAria")}
               className="px-2 py-1.5"
             >
               <X size={16} />
@@ -312,10 +312,14 @@ export const PipelineStageModal: React.FC<Props> = ({
 
         <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3">
           <p className="text-xs text-[var(--text-muted)]">
-            Режим представления:{" "}
-            <span className="font-medium text-[var(--text-primary)]">
-              {viewMode === "friendly" ? "friendly" : "canonical"}
-            </span>
+            <Trans
+              t={t}
+              i18nKey="stageModal.representationMode"
+              values={{ mode: viewMode === "friendly" ? "friendly" : "canonical" }}
+              components={{
+                bold: <span className="font-medium text-[var(--text-primary)]" />,
+              }}
+            />
           </p>
 
           <Button
@@ -325,7 +329,7 @@ export const PipelineStageModal: React.FC<Props> = ({
             onClick={onClose}
             disabled={loading}
           >
-            Закрыть
+            {t("actions.close", { ns: "common" })}
           </Button>
         </div>
       </div>
@@ -334,5 +338,6 @@ export const PipelineStageModal: React.FC<Props> = ({
 };
 
 export default PipelineStageModal;
+
 
 

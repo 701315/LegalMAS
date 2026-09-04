@@ -4,6 +4,7 @@
 
 import React from "react";
 import { AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { CLASSIFICATION_LEVELS, CONFIDENCE_THRESHOLDS } from "../../constants";
 import type { ClassificationLevel } from "../../types";
 
@@ -24,9 +25,28 @@ export const ClassificationBadge: React.FC<Props> = ({
   showConfidence = true,
   className,
 }) => {
+  const { t } = useTranslation("pipeline");
+
   if (!level) return null;
 
   const meta = CLASSIFICATION_LEVELS[level] || CLASSIFICATION_LEVELS.L0;
+
+  // Безопасное приведение к расширенному типу с i18n-ключами
+  const metaWithKeys = meta as {
+    label: string;
+    shortLabel: string;
+    description: string;
+    badgeClassName: string;
+    labelKey?: string;
+    shortLabelKey?: string;
+    descriptionKey?: string;
+  };
+
+  // Динамически разрешаем переводы по ключам дескрипторов, если они есть.
+  // Если ключей нет в типе констант — используем базовые fallback строки.
+  const label = metaWithKeys.labelKey ? t(metaWithKeys.labelKey) : meta.label;
+  const shortLabel = metaWithKeys.shortLabelKey ? t(metaWithKeys.shortLabelKey) : meta.shortLabel;
+  const description = metaWithKeys.descriptionKey ? t(metaWithKeys.descriptionKey) : meta.description;
 
   const isLowConfidence =
     confidence !== undefined &&
@@ -42,7 +62,7 @@ export const ClassificationBadge: React.FC<Props> = ({
         isLowConfidence && "ring-1 ring-[var(--color-gold)]/35",
         className,
       )}
-      title={`${meta.label}. ${meta.description}`}
+      title={`${label}. ${description}`}
     >
       {isLowConfidence && (
         <AlertTriangle
@@ -52,7 +72,7 @@ export const ClassificationBadge: React.FC<Props> = ({
         />
       )}
 
-      <span>{meta.shortLabel}</span>
+      <span>{shortLabel}</span>
 
       {showConfidence && confidence !== undefined && confidence !== null && (
         <span className="ml-0.5 opacity-75">
@@ -62,5 +82,7 @@ export const ClassificationBadge: React.FC<Props> = ({
     </span>
   );
 };
+
+export default ClassificationBadge;
 
 

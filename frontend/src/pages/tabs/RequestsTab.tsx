@@ -3,6 +3,7 @@
 // =============================================================
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Loader2,
   FileSpreadsheet,
@@ -56,6 +57,7 @@ const InlineBanner: React.FC<{
   description: string;
   onDismiss?: () => void;
 }> = ({ tone, title, description, onDismiss }) => {
+  const { t } = useTranslation("requests");
   const toneClassName =
     tone === "error"
       ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]"
@@ -78,7 +80,7 @@ const InlineBanner: React.FC<{
         </div>
         {onDismiss && (
           <Button variant="ghost" size="sm" onClick={onDismiss}>
-            Закрыть
+            {t("actions.close", { ns: "common", defaultValue: "Close" })}
           </Button>
         )}
       </div>
@@ -90,37 +92,41 @@ const InlineBanner: React.FC<{
 // LoadingState
 // -------------------------------------------------------------
 
-const LoadingState: React.FC = () => (
-  <section
-    className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
-    aria-labelledby="requests-loading-title"
-  >
-    <div className="flex min-h-[320px] flex-col items-center justify-center px-6 py-10 text-center">
-      <div
-        className="inline-flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-4 text-[var(--text-secondary)]"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        <Loader2
-          className="h-5 w-5 animate-spin text-[var(--accent-primary)]"
-          aria-hidden="true"
-        />
-        <div className="text-left">
-          <p
-            id="requests-loading-title"
-            className="text-sm font-medium text-[var(--text-primary)]"
-          >
-            Загружаем запросы
-          </p>
-          <p className="text-[12px] text-[var(--text-muted)]">
-            Подготавливаем таблицу и детали запроса.
-          </p>
+const LoadingState: React.FC = () => {
+  const { t } = useTranslation("requests");
+
+  return (
+    <section
+      className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
+      aria-labelledby="requests-loading-title"
+    >
+      <div className="flex min-h-[320px] flex-col items-center justify-center px-6 py-10 text-center">
+        <div
+          className="inline-flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-4 text-[var(--text-secondary)]"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <Loader2
+            className="h-5 w-5 animate-spin text-[var(--accent-primary)]"
+            aria-hidden="true"
+          />
+          <div className="text-left">
+            <p
+              id="requests-loading-title"
+              className="text-sm font-medium text-[var(--text-primary)]"
+            >
+              {t("tab.loading.title")}
+            </p>
+            <p className="text-[12px] text-[var(--text-muted)]">
+              {t("tab.loading.description")}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 // -------------------------------------------------------------
 // Helpers
@@ -192,6 +198,7 @@ export const RequestsTab: React.FC<Props> = ({
   runId,
   onOpenViewerAt,
 }) => {
+  const { t } = useTranslation("requests");
   const { data: requests, isLoading } = useRequests(dealId);
 
   const updateMutation = useUpdateRequest(dealId);
@@ -308,15 +315,15 @@ export const RequestsTab: React.FC<Props> = ({
       if (!canManageRequests) {
         setInlineMessage({
           tone: "warning",
-          title: "Недостаточно прав",
-          description: "Редактирование запросов доступно только редакторам и администраторам проекта.",
+          title: t("tab.errors.noPermissions.title"),
+          description: t("tab.errors.noPermissions.editDescription"),
         });
         return;
       }
       setInlineMessage(null);
       await updateMutation.mutateAsync({ reqId, data });
     },
-    [updateMutation, canManageRequests],
+    [updateMutation, canManageRequests, t],
   );
 
   const handleDelete = useCallback(
@@ -324,8 +331,8 @@ export const RequestsTab: React.FC<Props> = ({
       if (!canManageRequests) {
         setInlineMessage({
           tone: "warning",
-          title: "Недостаточно прав",
-          description: "Удаление запросов доступно только редакторам и администраторам проекта.",
+          title: t("tab.errors.noPermissions.title"),
+          description: t("tab.errors.noPermissions.deleteDescription"),
         });
         return;
       }
@@ -333,7 +340,7 @@ export const RequestsTab: React.FC<Props> = ({
       await deleteMutation.mutateAsync(reqId);
       setSelectedReq((current) => (current?.id === reqId ? null : current));
     },
-    [deleteMutation, canManageRequests],
+    [deleteMutation, canManageRequests, t],
   );
 
   const downloadBlob = useCallback((blob: Blob, filename: string) => {
@@ -356,11 +363,11 @@ export const RequestsTab: React.FC<Props> = ({
       console.error(e);
       setInlineMessage({
         tone: "error",
-        title: "Не удалось экспортировать в Word",
-        description: "Попробуйте повторить экспорт позже. Если ошибка сохраняется, проверьте состояние сервиса экспорта.",
+        title: t("tab.errors.exportWordFailed.title"),
+        description: t("tab.errors.exportFailedDescription"),
       });
     }
-  }, [dealId, exportRequestsMutation, downloadBlob]);
+  }, [dealId, exportRequestsMutation, downloadBlob, t]);
 
   const handleExportExcel = useCallback(async () => {
     try {
@@ -371,27 +378,27 @@ export const RequestsTab: React.FC<Props> = ({
       console.error(e);
       setInlineMessage({
         tone: "error",
-        title: "Не удалось экспортировать в Excel",
-        description: "Попробуйте повторить экспорт позже. Если ошибка сохраняется, проверьте состояние сервиса экспорта.",
+        title: t("tab.errors.exportExcelFailed.title"),
+        description: t("tab.errors.exportFailedDescription"),
       });
     }
-  }, [dealId, exportRequestsMutation, downloadBlob]);
+  }, [dealId, exportRequestsMutation, downloadBlob, t]);
 
   const handleCreate = useCallback(() => {
     if (!canManageRequests) {
       setInlineMessage({
         tone: "warning",
-        title: "Создание недоступно",
-        description: "Создание запросов доступно только редакторам и администраторам проекта.",
+        title: t("tab.errors.createUnavailable.title"),
+        description: t("tab.errors.createUnavailable.description"),
       });
       return;
     }
     setInlineMessage({
       tone: "info",
-      title: "Создание нового запроса",
-      description: "Функция создания нового DD-запроса пока не реализована в текущем интерфейсе.",
+      title: t("tab.info.createRequest.title"),
+      description: t("tab.info.createRequest.description"),
     });
-  }, [canManageRequests]);
+  }, [canManageRequests, t]);
 
   // ── Selection handlers (set selection AND open panel) ──────
   const handleSelectLegacyRequest = useCallback(
@@ -433,12 +440,21 @@ export const RequestsTab: React.FC<Props> = ({
     return (
       <div className="space-y-4">
         <div className="sr-only" aria-live="polite" aria-atomic="true">
-          Загружаем запросы
+          {t("tab.loading.title")}
         </div>
         <LoadingState />
       </div>
     );
   }
+
+  // Вычисляем заголовок и подзаголовок в зависимости от режима и числа элементов
+  const resolvedSubtitle = isReviewMode
+    ? visibleCount > 0
+      ? t("tab.subtitles.reviewWithCount", { count: visibleCount })
+      : t("tab.subtitles.reviewEmpty")
+    : visibleCount > 0
+      ? t("tab.subtitles.manualWithCount", { count: visibleCount })
+      : t("tab.subtitles.manualEmpty");
 
   return (
     <section
@@ -454,16 +470,10 @@ export const RequestsTab: React.FC<Props> = ({
               id="requests-tab-title"
               className="text-sm font-semibold text-[var(--text-primary)]"
             >
-              Запросы
+              {t("tab.title")}
             </h2>
             <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-              {isReviewMode
-                ? visibleCount > 0
-                  ? `Сформированы запросы по результатам анализа: ${visibleCount}`
-                  : "Запросы по результатам анализа пока не сформированы"
-                : visibleCount > 0
-                  ? `Рабочий список DD-запросов по сделке: ${visibleCount}.`
-                  : "Запросы по сделке пока не добавлены."}
+              {resolvedSubtitle}
             </p>
           </div>
 
@@ -496,7 +506,7 @@ export const RequestsTab: React.FC<Props> = ({
                 disabled={isBusy}
                 leftIcon={<FolderPlus />}
               >
-                Новый запрос
+                {t("tab.buttons.newRequest")}
               </Button>
             </div>
           )}
@@ -504,10 +514,9 @@ export const RequestsTab: React.FC<Props> = ({
           {!isReviewMode && !canManageRequests && (
             <div className="border-b border-[var(--border-subtle)] py-3">
               <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-[var(--color-warning-text)]">
-                <p className="text-sm font-medium">Режим только для просмотра</p>
+                <p className="text-sm font-medium">{t("tab.viewOnly.title")}</p>
                 <p className="mt-1 text-sm leading-6">
-                  Экспорт доступен, но создание, редактирование и удаление запросов
-                  ограничены правами проекта.
+                  {t("tab.viewOnly.description")}
                 </p>
               </div>
             </div>
@@ -554,7 +563,7 @@ export const RequestsTab: React.FC<Props> = ({
                     <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[var(--bg-card)] lg:hidden">
                       <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4">
                         <span className="text-sm font-semibold text-[var(--text-primary)]">
-                          Детали запроса
+                          {t("tab.detailsPanel.title")}
                         </span>
                         <button
                           type="button"
@@ -562,7 +571,7 @@ export const RequestsTab: React.FC<Props> = ({
                           className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
                           aria-label="Закрыть панель деталей запроса"
                         >
-                          ← Назад
+                          {t("tab.detailsPanel.back")}
                         </button>
                       </div>
                       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-elevated-soft)]">
@@ -624,7 +633,7 @@ export const RequestsTab: React.FC<Props> = ({
                     <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[var(--bg-card)] lg:hidden">
                       <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4">
                         <span className="text-sm font-semibold text-[var(--text-primary)]">
-                          Детали запроса
+                          {t("tab.detailsPanel.title")}
                         </span>
                         <button
                           type="button"
@@ -632,7 +641,7 @@ export const RequestsTab: React.FC<Props> = ({
                           className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
                           aria-label="Закрыть панель деталей запроса"
                         >
-                          ← Назад
+                          {t("tab.detailsPanel.back")}
                         </button>
                       </div>
                       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-elevated-soft)]">

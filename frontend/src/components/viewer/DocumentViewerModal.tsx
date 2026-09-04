@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+import { useTranslation } from "react-i18next";
 import type { OpenViewerAtPayload } from "../../types";
 
 // ВАЖНО: путь именно до pdf.worker.min.mjs из pdfjs-dist
@@ -43,6 +44,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   layoutElements,
   sizedChunks,
 }) => {
+  const { t } = useTranslation("documents");
   const [numPages, setNumPages] = React.useState<number | null>(null);
   const [pageNumber, setPageNumber] = React.useState<number>(1);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
@@ -134,8 +136,6 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       });
     }
 
-    // После рендера страницы — если есть активный фрагмент с bbox,
-    // скроллим контейнер так, чтобы фрагмент был виден с небольшим offset сверху.
     window.setTimeout(() => {
       const container = containerRef.current;
       if (!container) return;
@@ -166,7 +166,9 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
   const headerTitle =
     title ||
-    (location?.documentId ? `Документ ${location.documentId}` : "Документ");
+    (location?.documentId
+      ? t("viewer.documentIdTitle", { id: location.documentId })
+      : t("viewer.defaultTitle"));
 
   const hasErrorTitle = Boolean(
     title && title.toLowerCase().includes("ошибка"),
@@ -242,7 +244,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         className="flex h-[95vh] w-[95vw] max-w-6xl flex-col rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl"
         role="dialog"
         aria-modal="true"
-        aria-label="Просмотр документа"
+        aria-label={t("viewer.ariaLabel")}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-2 text-xs">
@@ -260,8 +262,11 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
               {headerTitle}
             </span>
             <span className="text-[11px] text-[var(--text-muted)]">
-              {location?.page ? `Страница ${location.page}` : "Страница 1"}
-              {location?.clauseUid && ` · Клауза ${location.clauseUid}`}
+              {location?.page
+                ? t("viewer.pageLabel", { page: location.page })
+                : t("viewer.pageDefault")}
+              {location?.clauseUid &&
+                ` · ${t("viewer.clauseLabel", { clause: location.clauseUid })}`}
             </span>
           </div>
           <button
@@ -269,14 +274,14 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
             className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-3 py-1 text-[11px] text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             onClick={onClose}
           >
-            Закрыть
+            {t("viewer.closeBtn")}
           </button>
         </div>
 
         {/* Toolbar */}
         <div className="flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-2 text-[11px] text-[var(--text-secondary)]">
           <div className="flex items-center gap-2">
-            <span>Навигация:</span>
+            <span>{t("viewer.navLabel")}</span>
             <button
               type="button"
               className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-40"
@@ -286,8 +291,9 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
               ◀
             </button>
             <span>
-              Стр. {pageNumber}
-              {numPages ? ` из ${numPages}` : ""}
+              {numPages
+                ? t("viewer.pageOf", { current: pageNumber, total: numPages })
+                : t("viewer.pageCurrent", { current: pageNumber })}
             </span>
             <button
               type="button"
@@ -299,7 +305,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
             </button>
           </div>
           <div className="text-[11px] text-[var(--text-muted)]">
-            Esc или «Закрыть», чтобы выйти
+            {t("viewer.exitHint")}
           </div>
         </div>
 
@@ -310,7 +316,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         >
           {!fileUrl ? (
             <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--color-error-text)]">
-              Не удалось получить ссылку на PDF.
+              {t("viewer.noPdfUrl")}
             </div>
           ) : (
             <div className="bg-[var(--bg-elevated-soft)]">
@@ -319,12 +325,12 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                 onLoadSuccess={handleDocumentLoad}
                 loading={
                   <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--text-secondary)]">
-                    Загружаем PDF…
+                    {t("viewer.loadingPdf")}
                   </div>
                 }
                 error={
                   <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--color-error-text)]">
-                    Не удалось загрузить PDF.
+                    {t("viewer.loadError")}
                   </div>
                 }
               >

@@ -1,26 +1,29 @@
 // src/components/upload/UploadWorkflowCard.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 
-const steps = [
-  "После выбора файлов и загрузки далее перейдём к блоку запуска анализа документов.",
-  "Перед запуском анализа документов необходимо будет выбрать набор рисков для анализа документов.",
-  "После запуска программа выполнит extraction, chunking, classification и анализ рисков.",
-  "По результатам анализа на выбранные риски программа построит DD Grid рисков документов.",
-];
+const STEP_KEYS = [
+  "upload.workflow.step1",
+  "upload.workflow.step2",
+  "upload.workflow.step3",
+  "upload.workflow.step4",
+] as const;
 
 const UploadWorkflowCard: React.FC = () => {
+  const { t } = useTranslation("documents");
+
   return (
     <aside className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
       <div className="flex h-full min-h-[220px] flex-col">
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-          Workflow
+          {t("upload.workflow.title")}
         </div>
 
         <div className="mt-4 space-y-3">
-          {steps.map((step, index) => (
+          {STEP_KEYS.map((key, index) => (
             <div
-              key={index}
+              key={key}
               className="rounded-[18px] border border-[var(--border-soft)] bg-[var(--bg-base)] px-3 py-3"
             >
               <div className="flex items-start gap-3">
@@ -28,7 +31,7 @@ const UploadWorkflowCard: React.FC = () => {
                   {index + 1}
                 </div>
                 <p className="text-xs leading-5 text-[var(--text-secondary)]">
-                  {step}
+                  {t(key)}
                 </p>
               </div>
             </div>
@@ -40,5 +43,6 @@ const UploadWorkflowCard: React.FC = () => {
 };
 
 export default UploadWorkflowCard;
+
 
 

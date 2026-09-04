@@ -4,7 +4,7 @@ import type { ApiError } from "../types";
 
 export function getApiErrorMessage(
   error: unknown,
-  fallback = "Произошла ошибка.",
+  fallback = "An error occurred.",
 ): string {
   const apiError = error as ApiError | null | undefined;
   const rawDetail: unknown = apiError?.detail;
@@ -27,4 +27,5 @@ export function getApiErrorStatus(error: unknown): number | undefined {
 export function isApiErrorStatus(error: unknown, status: number): boolean {
   return getApiErrorStatus(error) === status;
 }
+
 

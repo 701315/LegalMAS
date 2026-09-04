@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 const ScrollToAnchor: React.FC = () => {
@@ -71,4 +71,5 @@ const ScrollToAnchor: React.FC = () => {
 };
 
 export default ScrollToAnchor;
+
 

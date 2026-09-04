@@ -3,6 +3,7 @@
 // =============================================================
 
 import React, { useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { DDRequestDTO } from "../../types/dealReview";
 import { toRequestTableRowFromReview } from "../../viewAdapters/requestPresentation";
 import { RequestPriorityBadge } from "./shared/RequestPriorityBadge";
@@ -24,6 +25,7 @@ export const ReviewRequestsTable: React.FC<Props> = ({
   selectedRequestId,
   onRowClick,
 }) => {
+  const { t, i18n } = useTranslation("requests");
   const [searchText, setSearchText] = useState("");
 
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
@@ -66,12 +68,12 @@ export const ReviewRequestsTable: React.FC<Props> = ({
 
       return (a.view.checkLabel ?? "").localeCompare(
         b.view.checkLabel ?? "",
-        "ru",
+        i18n.language,
       );
     });
 
     return list;
-  }, [viewModels, searchText]);
+  }, [viewModels, searchText, i18n.language]);
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
@@ -84,11 +86,11 @@ export const ReviewRequestsTable: React.FC<Props> = ({
         />
         <input
           type="text"
-          placeholder="Поиск по тексту, проверке или документу…"
+          placeholder={t("reviewTable.searchPlaceholder")}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-9 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-          aria-label="Поиск по review-запросам"
+          aria-label={t("reviewTable.searchAria")}
         />
       </div>
 
@@ -103,25 +105,25 @@ export const ReviewRequestsTable: React.FC<Props> = ({
                   className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                   aria-sort="ascending"
                 >
-                  Приоритет
+                  {t("reviewTable.columns.priority")}
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Текст запроса
+                  {t("reviewTable.columns.text")}
                 </th>
                 <th
                   scope="col"
                   className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Документы
+                  {t("reviewTable.columns.documents")}
                 </th>
                 <th
                   scope="col"
                   className="w-36 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Сегмент
+                  {t("reviewTable.columns.segment")}
                 </th>
               </tr>
             </thead>
@@ -151,7 +153,6 @@ export const ReviewRequestsTable: React.FC<Props> = ({
                     }
                     aria-selected={isSelected}
                   >
-                    {/* Приоритет */}
                     <td
                       className={cn(
                         "px-3 py-2.5 align-top",
@@ -162,7 +163,6 @@ export const ReviewRequestsTable: React.FC<Props> = ({
                       <RequestPriorityBadge priority={view.priority} size="sm" />
                     </td>
 
-                    {/* Текст */}
                     <td className="px-3 py-2.5 align-top">
                       <p className="line-clamp-2 text-sm text-[var(--text-primary)]">
                         {view.text}
@@ -176,12 +176,11 @@ export const ReviewRequestsTable: React.FC<Props> = ({
 
                       {view.addressee && (
                         <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                          Адресат: {view.addressee}
+                          {t("reviewTable.addresseePrefix", { name: view.addressee })}
                         </p>
                       )}
                     </td>
 
-                    {/* Документы */}
                     <td className="px-3 py-2.5 align-top">
                       {view.documentsLabel ? (
                         <span className="line-clamp-2 text-[12px] leading-5 text-[var(--text-secondary)]">
@@ -192,7 +191,6 @@ export const ReviewRequestsTable: React.FC<Props> = ({
                       )}
                     </td>
 
-                    {/* Сегмент */}
                     <td className="px-3 py-2.5 align-top">
                       {view.hasSegmentContext ? (
                         <div className="flex flex-col gap-1">
@@ -227,12 +225,12 @@ export const ReviewRequestsTable: React.FC<Props> = ({
         {filtered.length === 0 && (
           <div className="shrink-0 border-t border-[var(--border-subtle)] px-4 py-10 text-center">
             <p className="mb-1 text-sm text-[var(--text-secondary)]">
-              Запросы не найдены
+              {t("reviewTable.empty.title")}
             </p>
             <p className="text-[12px] text-[var(--text-muted)]">
               {requests.length === 0
-                ? "Запросы появятся после анализа документов."
-                : "Попробуйте изменить условия поиска."}
+                ? t("reviewTable.empty.descNoRequests")
+                : t("reviewTable.empty.descFiltered")}
             </p>
           </div>
         )}

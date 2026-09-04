@@ -11,6 +11,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   BookOpen,
@@ -70,6 +71,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   dealId,
   canManageProject,
 }) => {
+  const { t } = useTranslation("projects");
   const [activeSubview, setActiveSubview] =
     React.useState<SettingsSubview>("overview");
 
@@ -98,15 +100,15 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       leftIcon={<ArrowLeft size={14} />}
       onClick={handleBackToSettings}
     >
-      Назад к настройкам
+      {t("settingsTab.backToSettings")}
     </Button>
   );
 
   if (!canManageProject) {
     return (
       <PageSection
-        title="Настройки проекта"
-        subtitle="Управление участниками и конфигурацией проекта вынесено отдельно от основного review-потока."
+        title={t("settingsTab.title")}
+        subtitle={t("settingsTab.subtitleNoPerms")}
       >
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 shadow-sm">
           <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
@@ -115,12 +117,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
 
             <h2 className="text-base font-semibold text-[var(--text-primary)]">
-              Настройки проекта недоступны
+              {t("settingsTab.noAccess.title")}
             </h2>
 
             <p className="mt-2 max-w-md text-sm text-[var(--text-muted)]">
-              У вас нет прав на изменение участников проекта, настройки
-              playbook и управление шаблонами.
+              {t("settingsTab.noAccess.description")}
             </p>
           </div>
         </div>
@@ -151,7 +152,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             leftIcon={<ArrowLeft size={14} />}
             onClick={handleBackToPlaybook}
           >
-            Назад к playbook
+            {t("settingsTab.backToPlaybook")}
           </Button>
         }
         onCancel={handleBackToPlaybook}
@@ -185,14 +186,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
 
   return (
     <PageSection
-      title="Настройки проекта"
-      subtitle="Управление участниками, playbook и административной конфигурацией проекта."
+      title={t("settingsTab.title")}
+      subtitle={t("settingsTab.subtitleWithPerms")}
     >
       <div className="grid gap-4 xl:grid-cols-2">
         <SettingsCard
-          eyebrow="Команда"
-          title="Участники проекта"
-          description="Управление составом команды проекта, ролями и доступом к рабочему пространству сделки."
+          eyebrow={t("settingsTab.cards.team.eyebrow")}
+          title={t("settingsTab.cards.team.title")}
+          description={t("settingsTab.cards.team.description")}
           icon={<Users size={18} />}
           actions={
             <Button
@@ -200,15 +201,15 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               size="sm"
               onClick={() => setActiveSubview("members")}
             >
-              Открыть участников проекта
+              {t("settingsTab.cards.team.action")}
             </Button>
           }
         />
 
         <SettingsCard
-          eyebrow="Методология"
-          title="Playbook проекта"
-          description="Выбор активного playbook и переход к шаблонам, которые определяют структуру анализа документов."
+          eyebrow={t("settingsTab.cards.methodology.eyebrow")}
+          title={t("settingsTab.cards.methodology.title")}
+          description={t("settingsTab.cards.methodology.description")}
           icon={<BookOpen size={18} />}
           actions={
             <>
@@ -217,7 +218,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                 size="sm"
                 onClick={() => setActiveSubview("playbook")}
               >
-                Открыть playbook проекта
+                {t("settingsTab.cards.methodology.actions.open")}
               </Button>
 
               <Button
@@ -225,7 +226,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                 size="sm"
                 onClick={() => setActiveSubview("templates")}
               >
-                Конструктор шаблонов
+                {t("settingsTab.cards.methodology.actions.builder")}
               </Button>
             </>
           }
@@ -239,17 +240,15 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
 
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                Workspace
+                {t("settingsTab.cards.workspace.eyebrow")}
               </p>
 
               <h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
-                Конфигурация проекта
+                {t("settingsTab.cards.workspace.title")}
               </h3>
 
               <p className="mt-1.5 max-w-3xl text-sm text-[var(--text-muted)]">
-                Этот раздел объединяет административные действия, которые не
-                относятся напрямую к document review, но влияют на состав
-                участников, доступы и правила анализа в рамках сделки.
+                {t("settingsTab.cards.workspace.description")}
               </p>
             </div>
           </div>
@@ -260,6 +259,5 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
 };
 
 export default SettingsTab;
-
 
 

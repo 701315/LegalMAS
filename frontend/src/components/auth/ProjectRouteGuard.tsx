@@ -5,6 +5,7 @@
 
 import React from "react";
 import { Navigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Lock } from "lucide-react";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { useUIStore } from "../../stores/uiStore";
@@ -40,6 +41,7 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
   requiredCapability,
   children,
 }) => {
+  const { t } = useTranslation("common");
   const { dealId } = useParams<{ dealId: string }>();
 
   // ВАЖНО: хук вызываем всегда, даже если dealId ещё нет.
@@ -81,12 +83,11 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
         </div>
 
         <h1 className="text-lg font-semibold text-[var(--text-primary)]">
-          Нет доступа
+          {t("accessDenied.title")}
         </h1>
 
         <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-          У вас нет прав для просмотра этой страницы. Обратитесь к
-          администратору проекта, если считаете, что это ошибка.
+          {t("accessDenied.message")}
         </p>
 
         <div className="mt-5 flex justify-center">
@@ -96,11 +97,15 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
             size="sm"
             onClick={() => window.history.back()}
           >
-            Назад
+            {t("actions.back")}
           </Button>
         </div>
       </div>
     </div>
   );
 };
+
+export default ProjectRouteGuard;
+
+
 

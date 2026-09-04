@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown, FileText, X } from "lucide-react";
 import { CollapsedPipelineRail } from "./CollapsedPipelineRail";
 import { PipelineLayoutProvider } from "./pipelineLayoutContext";
@@ -25,21 +26,6 @@ interface ProjectDomainDetailsPanelProps {
   onDomainChange: (d: DomainKey) => void;
   runId: string | null;
   deal: Deal;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getDomainLabel(domain: DomainKey): string {
-  switch (domain) {
-    case "documents":
-      return "Документы";
-    case "counterparties":
-      return "Контрагенты";
-    case "real_estate":
-      return "Имущество";
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +53,7 @@ const ColumnShell: React.FC<ColumnShellProps> = ({ title, children }) => (
 // ---------------------------------------------------------------------------
 
 const CounterpartiesSummary: React.FC = () => {
+  const { t } = useTranslation("projects");
   const critical = DEMO_AGGREGATES.filter(
     (item) => item.reviewStatus === "critical",
   );
@@ -85,25 +72,33 @@ const CounterpartiesSummary: React.FC = () => {
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">Всего</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.counterparties.total")}
+          </p>
           <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--text-primary)]">
             {DEMO_AGGREGATES.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">Critical</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.counterparties.critical")}
+          </p>
           <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {critical.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">Санкции</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.counterparties.sanctions")}
+          </p>
           <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {sanctions.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">Банкротство</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.counterparties.bankruptcy")}
+          </p>
           <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning-text)]">
             {bankruptcy.length}
           </p>
@@ -112,20 +107,27 @@ const CounterpartiesSummary: React.FC = () => {
 
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
-          География
+          {t("overviewPanels.domainDetails.counterparties.geography")}
         </p>
         <div className="space-y-1.5">
           {topCountries.map(([country, count]) => (
-            <div key={country} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-[var(--text-primary)]">{country}</span>
-              <span className="text-[11px] tabular-nums text-[var(--text-muted)]">{count}</span>
+            <div
+              key={country}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className="text-xs text-[var(--text-primary)]">
+                {country}
+              </span>
+              <span className="text-[11px] tabular-nums text-[var(--text-muted)]">
+                {count}
+              </span>
             </div>
           ))}
         </div>
       </div>
 
       <p className="text-[11px] text-[var(--text-muted)]">
-        Демо-данные. Перейдите на вкладку «Контрагенты» для полного анализа.
+        {t("overviewPanels.domainDetails.counterparties.demoNote")}
       </p>
     </div>
   );
@@ -136,9 +138,12 @@ const CounterpartiesSummary: React.FC = () => {
 // ---------------------------------------------------------------------------
 
 const RealEstateSummary: React.FC = () => {
+  const { t } = useTranslation("projects");
   const encumbered = DEMO_OBJECTS.filter((item) => item.encumbrance === true);
   const ownershipReview = DEMO_OBJECTS.filter(
-    (item) => item.ownership_status === "review" || item.ownership_status === "not_confirmed",
+    (item) =>
+      item.ownership_status === "review" ||
+      item.ownership_status === "not_confirmed",
   );
   const highRisk = DEMO_OBJECTS.filter((item) => item.risk === "high");
 
@@ -146,43 +151,67 @@ const RealEstateSummary: React.FC = () => {
   for (const item of DEMO_OBJECTS) {
     regionMap.set(item.region, (regionMap.get(item.region) ?? 0) + 1);
   }
-  const topRegions = [...regionMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const topRegions = [...regionMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4);
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">Объектов</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--text-primary)]">{DEMO_OBJECTS.length}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.realEstate.objects")}
+          </p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--text-primary)]">
+            {DEMO_OBJECTS.length}
+          </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">С обременением</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">{encumbered.length}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.realEstate.encumbered")}
+          </p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
+            {encumbered.length}
+          </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">Ownership review</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning-text)]">{ownershipReview.length}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.realEstate.ownershipReview")}
+          </p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning-text)]">
+            {ownershipReview.length}
+          </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">Высокий риск</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">{highRisk.length}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.realEstate.highRisk")}
+          </p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
+            {highRisk.length}
+          </p>
         </div>
       </div>
 
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">Топ регионов</p>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
+          {t("overviewPanels.domainDetails.realEstate.topRegions")}
+        </p>
         <div className="space-y-1.5">
           {topRegions.map(([region, count]) => (
             <div key={region} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-[var(--text-primary)]">{region}</span>
-              <span className="text-[11px] tabular-nums text-[var(--text-muted)]">{count}</span>
+              <span className="text-xs text-[var(--text-primary)]">
+                {region}
+              </span>
+              <span className="text-[11px] tabular-nums text-[var(--text-muted)]">
+                {count}
+              </span>
             </div>
           ))}
         </div>
       </div>
 
       <p className="text-[11px] text-[var(--text-muted)]">
-        Демо-данные. Перейдите на вкладку «Имущество» для полного анализа.
+        {t("overviewPanels.domainDetails.realEstate.demoNote")}
       </p>
     </div>
   );
@@ -193,7 +222,11 @@ const RealEstateSummary: React.FC = () => {
 // ---------------------------------------------------------------------------
 
 function isTerminalRunStatus(status: string | undefined): boolean {
-  return status === "completed" || status === "completed_with_errors" || status === "failed";
+  return (
+    status === "completed" ||
+    status === "completed_with_errors" ||
+    status === "failed"
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +239,7 @@ const CollapsedPipelineSummary: React.FC<{
   summaryStatus?: string | null;
 }> = ({ runId, onExpand }) => {
   const { data: progress } = useRunProgress(runId);
-  
+
   return (
     <CollapsedPipelineRail
       runId={runId}
@@ -224,15 +257,19 @@ const CollapsedSummaryRail: React.FC<{
   onExpand: () => void;
   hasErrors?: boolean;
 }> = ({ onExpand, hasErrors = false }) => {
+  const { t } = useTranslation("projects");
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">Резюме</p>
+      <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+        {t("overviewPanels.domainDetails.columns.summary")}
+      </p>
 
       <button
         type="button"
         onClick={onExpand}
-        title="Нажмите, чтобы развернуть резюме"
-        aria-label="Развернуть резюме"
+        title={t("overviewPanels.domainDetails.expandSummary")}
+        aria-label={t("overviewPanels.domainDetails.expandSummaryAria")}
         className={`group min-h-0 flex-1 overflow-hidden rounded-xl border p-0 text-left transition-colors ${
           hasErrors
             ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] hover:border-[var(--color-warning)]"
@@ -260,7 +297,11 @@ const CollapsedSummaryRail: React.FC<{
 // DocumentsContent Main Logic
 // ---------------------------------------------------------------------------
 
-const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ runId, dealId }) => {
+const DocumentsContent: React.FC<{
+  runId: string | null;
+  dealId: string;
+}> = ({ runId, dealId }) => {
+  const { t, i18n } = useTranslation("projects");
   const [isPipelineExpanded, setIsPipelineExpanded] = React.useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(false);
   const [isMobilePipelineOpen, setIsMobilePipelineOpen] = React.useState(false);
@@ -271,7 +312,6 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
 
   const { data: summary, refetch: refetchSummary } = useRunSummary(runId);
 
-  // Авто-разворачивание резюме при готовности
   React.useEffect(() => {
     if (isTerminal && summary?.status === "ready") {
       setIsPipelineExpanded(false);
@@ -286,11 +326,19 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
     }
   }, [isTerminal]);
 
-  const { data: llmUsage, isLoading: llmLoading, isError: llmError } = useDealLLMUsage(dealId, {
+  const {
+    data: llmUsage,
+    isLoading: llmLoading,
+    isError: llmError,
+  } = useDealLLMUsage(dealId, {
     refetchInterval: isRunActive ? 30_000 : false,
   });
 
-  const { data: documentsPage, isLoading: documentsLoading, isError: documentsError } = useDocuments(dealId, 1);
+  const {
+    data: documentsPage,
+    isLoading: documentsLoading,
+    isError: documentsError,
+  } = useDocuments(dealId, 1);
   const documents = documentsPage?.items;
 
   const documentNames = React.useMemo<Record<string, string>>(() => {
@@ -307,7 +355,9 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
       {!isTerminal && (
         <div className="hidden h-full min-h-0 xl:block">
           <div className="flex h-full min-h-0 flex-col">
-            <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">Пайплайн анализа</p>
+            <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.columns.pipeline")}
+            </p>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
               <DocumentsPipelinePanel runId={runId} />
             </div>
@@ -321,14 +371,26 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
           <div className="shrink-0 flex items-start justify-between border-b border-[var(--border-subtle)] px-5 py-4">
             <div>
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                Пайплайн анализа
+                {t("overviewPanels.domainDetails.columns.pipeline")}
               </h3>
               <p className="mt-1 text-[11px] text-[var(--text-muted)]">
                 {progress?.started_at && (
-                  <>Запущен {new Date(progress.started_at).toLocaleString("ru-RU")} · </>
+                  <>
+                    {t("overviewPanels.domainDetails.pipelineStarted", {
+                      time: new Date(progress.started_at).toLocaleString(
+                        i18n.language,
+                      ),
+                    })}{" "}
+                    ·{" "}
+                  </>
                 )}
                 {progress?.elapsed_seconds != null && (
-                  <>за {Math.floor(progress.elapsed_seconds / 60)} мин {progress.elapsed_seconds % 60} сек</>
+                  <>
+                    {t("overviewPanels.domainDetails.pipelineElapsed", {
+                      m: Math.floor(progress.elapsed_seconds / 60),
+                      s: progress.elapsed_seconds % 60,
+                    })}
+                  </>
                 )}
               </p>
             </div>
@@ -336,7 +398,7 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
               type="button"
               onClick={() => setIsPipelineExpanded(false)}
               className="rounded-lg p-1.5 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-              title="Свернуть пайплайн"
+              title={t("overviewPanels.domainDetails.collapsePipeline")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -357,7 +419,7 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
               : "minmax(72px,72px) minmax(72px,72px) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
           }}
         >
-          {/* Колонка 1: Пайплайн (теперь использует CollapsedPipelineRail) */}
+          {/* Колонка 1: Пайплайн */}
           <div className="flex h-full min-h-0 flex-col">
             <div className="h-full flex flex-col">
               <CollapsedPipelineSummary
@@ -385,7 +447,6 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
             </div>
           ) : (
             <>
-              {/* Колонка 2: Summary Rail */}
               <div className="flex h-full min-h-0 flex-col">
                 <div className="h-full flex flex-col">
                   <CollapsedSummaryRail
@@ -394,20 +455,32 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
                   />
                 </div>
               </div>
-              
-              {/* Колонка 3: Обзор документов */}
-              <ColumnShell title="Обзор документов">
-                <DocumentsOverviewWidget documents={documents} isLoading={documentsLoading} isError={documentsError} />
+
+              <ColumnShell
+                title={t("overviewPanels.domainDetails.columns.documentsOverview")}
+              >
+                <DocumentsOverviewWidget
+                  documents={documents}
+                  isLoading={documentsLoading}
+                  isError={documentsError}
+                />
               </ColumnShell>
-              
-              {/* Колонка 4: Итог анализа */}
-              <ColumnShell title="Итог анализа">
+
+              <ColumnShell
+                title={t("overviewPanels.domainDetails.columns.analysisResults")}
+              >
                 <AnalysisResultsWidget dealId={dealId} runId={runId} />
               </ColumnShell>
-              
-              {/* Колонка 5: Использование LLM */}
-              <ColumnShell title="Использование LLM">
-                <LLMUsageWidget data={llmUsage} isLoading={llmLoading} isError={llmError} documentNames={documentNames} />
+
+              <ColumnShell
+                title={t("overviewPanels.domainDetails.columns.llmUsage")}
+              >
+                <LLMUsageWidget
+                  data={llmUsage}
+                  isLoading={llmLoading}
+                  isError={llmError}
+                  documentNames={documentNames}
+                />
               </ColumnShell>
             </>
           )}
@@ -425,9 +498,14 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
               aria-controls="mobile-pipeline-content"
               className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-[var(--bg-elevated-soft)]"
             >
-              <span className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">Пайплайн анализа</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+                {t("overviewPanels.domainDetails.columns.pipeline")}
+              </span>
               <ChevronDown
-                className={["h-4 w-4 shrink-0 text-[var(--text-muted)] transition-transform duration-200", isMobilePipelineOpen ? "rotate-180" : ""].join(" ")}
+                className={[
+                  "h-4 w-4 shrink-0 text-[var(--text-muted)] transition-transform duration-200",
+                  isMobilePipelineOpen ? "rotate-180" : "",
+                ].join(" ")}
                 aria-hidden
               />
             </button>
@@ -454,9 +532,14 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
                   aria-controls="mobile-summary-content"
                   className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-[var(--bg-elevated-soft)]"
                 >
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">Резюме</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+                    {t("overviewPanels.domainDetails.columns.summary")}
+                  </span>
                   <ChevronDown
-                    className={["h-4 w-4 shrink-0 text-[var(--text-muted)] transition-transform duration-200", isSummaryExpanded ? "rotate-180" : ""].join(" ")}
+                    className={[
+                      "h-4 w-4 shrink-0 text-[var(--text-muted)] transition-transform duration-200",
+                      isSummaryExpanded ? "rotate-180" : "",
+                    ].join(" ")}
                     aria-hidden
                   />
                 </button>
@@ -478,16 +561,31 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
               </section>
             )}
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">Обзор документов</p>
-              <DocumentsOverviewWidget documents={documents} isLoading={documentsLoading} isError={documentsError} />
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+                {t("overviewPanels.domainDetails.columns.documentsOverview")}
+              </p>
+              <DocumentsOverviewWidget
+                documents={documents}
+                isLoading={documentsLoading}
+                isError={documentsError}
+              />
             </div>
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">Итог анализа</p>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+                {t("overviewPanels.domainDetails.columns.analysisResults")}
+              </p>
               <AnalysisResultsWidget dealId={dealId} runId={runId} />
             </div>
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">Использование LLM</p>
-              <LLMUsageWidget data={llmUsage} isLoading={llmLoading} isError={llmError} documentNames={documentNames} />
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+                {t("overviewPanels.domainDetails.columns.llmUsage")}
+              </p>
+              <LLMUsageWidget
+                data={llmUsage}
+                isLoading={llmLoading}
+                isError={llmError}
+                documentNames={documentNames}
+              />
             </div>
           </div>
         )}
@@ -500,21 +598,39 @@ const DocumentsContent: React.FC<{ runId: string | null; dealId: string }> = ({ 
 // Main
 // ---------------------------------------------------------------------------
 
-export const ProjectDomainDetailsPanel: React.FC<ProjectDomainDetailsPanelProps> = ({ activeDomain, onDomainChange: _onDomainChange, runId, deal }) => {
-  const domainLabel = getDomainLabel(activeDomain);
+export const ProjectDomainDetailsPanel: React.FC<
+  ProjectDomainDetailsPanelProps
+> = ({ activeDomain, onDomainChange: _onDomainChange, runId, deal }) => {
+  const { t } = useTranslation("projects");
+
+  const domainLabel =
+    activeDomain === "documents"
+      ? t("overviewPanels.domainDetails.domains.documents")
+      : activeDomain === "counterparties"
+        ? t("overviewPanels.domainDetails.domains.counterparties")
+        : t("overviewPanels.domainDetails.domains.realEstate");
 
   return (
     <section className="flex flex-col lg:h-full lg:min-h-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm xl:rounded-t-none xl:border-t-0">
       <div className="relative flex flex-col text-[var(--text-primary)] lg:min-h-0 lg:flex-1">
-        
         {/* Header: shrink-0 */}
         <div className="shrink-0 px-5">
           <div className="py-3">
             <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]" aria-hidden />
-              <span className="text-xs font-semibold text-[var(--accent-primary)]">{domainLabel}</span>
-              <ChevronRight className="h-3 w-3 shrink-0 text-[var(--text-muted)]" aria-hidden />
-              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Детали результатов анализа</h2>
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]"
+                aria-hidden
+              />
+              <span className="text-xs font-semibold text-[var(--accent-primary)]">
+                {domainLabel}
+              </span>
+              <ChevronRight
+                className="h-3 w-3 shrink-0 text-[var(--text-muted)]"
+                aria-hidden
+              />
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                {t("overviewPanels.domainDetails.detailsTitle")}
+              </h2>
             </div>
           </div>
           <div className="border-t border-[var(--border-subtle)]" />

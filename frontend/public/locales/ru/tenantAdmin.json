@@ -1,4 +1,46 @@
 {
+  "alertsPanel": {
+    "loading": "Загружаем алерты…",
+    "loadError": "Не удалось загрузить алерты. Проверьте что Alertmanager запущен.",
+    "unavailable": {
+      "title": "Alertmanager недоступен",
+      "desc": "Убедитесь что контейнер mas_alertmanager запущен и доступен по адресу из ALERTMANAGER_INTERNAL_URL."
+    },
+    "severity": {
+      "critical": "CRITICAL",
+      "warning": "WARNING",
+      "info": "INFO",
+      "all": "Все severity",
+      "onlyCritical": "Только critical",
+      "onlyWarning": "Только warning",
+      "onlyInfo": "Только info"
+    },
+    "duration": {
+      "seconds": "{{count}}с",
+      "minutes": "{{count}}м",
+      "hours": "{{count}}ч",
+      "days": "{{count}}д"
+    },
+    "cards": {
+      "started": "Начался: {{time}}",
+      "duration": "Длительность: {{duration}}",
+      "state": "Состояние: {{state}}",
+      "description": "Описание:",
+      "openInSource": "Открыть в источнике →"
+    },
+    "summary": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Info",
+      "total": "Всего"
+    },
+    "empty": {
+      "noActive": "Активных алертов нет",
+      "noWithSeverity": "Нет алертов с выбранным severity",
+      "workingFine": "Система работает нормально"
+    },
+    "footer": "Обновление автоматически каждые 30 секунд · Последнее обновление: {{time}}"
+  },
   "loading": "Загружаем панель администратора…",
   "error": {
     "loadFailed": "Не удалось загрузить панель",
@@ -91,6 +133,204 @@
       "seenRange": "Первое: {{first}} · Последнее: {{last}}",
       "rawJson": "Raw JSON"
     }
+  },
+  "projectsTab": {
+    "noProjects": "Нет проектов",
+    "headers": {
+      "project": "Проект",
+      "documents": "Документы",
+      "lastAnalysis": "Последний анализ",
+      "progress": "Прогресс"
+    }
+  },
+  "usersTab": {
+    "noUsers": "Нет пользователей",
+    "headers": {
+      "user": "Пользователь",
+      "role": "Роль",
+      "status": "Статус",
+      "projects": "Проекты",
+      "added": "Добавлен"
+    }
+  },
+  "drillDown": {
+    "projectFallback": "Проект",
+    "backToList": "К списку",
+    "created": "Создан {{date}}",
+    "lastActivity": " · Активность: {{date}}",
+    "loading": "Загружаем сводку по проекту…",
+    "loadError": "Не удалось загрузить сводку по проекту",
+    "tabs": {
+      "overview": "Обзор",
+      "members": "Участники",
+      "logs": "Логи"
+    },
+    "openFullProject": "Открыть проект целиком",
+    "logs": {
+      "period": "Период:",
+      "shownCount": "Показано {{count}}",
+      "hiddenCount": " · скрыто info: {{count}}",
+      "lokiUnavailableDegraded": "Loki временно недоступен.",
+      "noOperationalLogsFound": "Проблемных событий не найдено. Переключитесь на «Debug» или используйте раздел «Проблемы и ошибки» в Обзоре — данные из БД доступны всегда.",
+      "noLogsFoundDebug": "Логи в Loki не найдены. Возможно, они уже удалены по retention — см. «Проблемы и ошибки» в Обзоре."
+    },
+    "overview": {
+      "documents": {
+        "title": "Документы",
+        "subtitle": "Сводка по документам этого проекта"
+      },
+      "all": "Всего",
+      "errors": "Ошибки",
+      "quarantine": "Карантин",
+      "reviewed": "Проверены человеком",
+      "byStatus": "По статусам",
+      "byDocType": "По типам документов",
+      "runs": {
+        "title": "Анализы (runs)",
+        "subtitle": "История запусков анализа по проекту"
+      },
+      "successful": "Успешных",
+      "failed": "Провальных",
+      "avgDuration": "Средняя длительность",
+      "recentRuns": "Последние запуски",
+      "headers": {
+        "status": "Статус",
+        "progress": "Прогресс",
+        "started": "Начат",
+        "completed": "Завершён",
+        "type": "Тип",
+        "object": "Объект",
+        "statusStage": "Статус / Stage",
+        "error": "Ошибка"
+      },
+      "logs": "Логи",
+      "problems": {
+        "title": "Проблемы и ошибки",
+        "subtitle": "История из PostgreSQL — доступна всегда, независимо от retention логов",
+        "docsFailed": "Документов failed",
+        "docsQuarantine": "Документов quarantine",
+        "runsFailed": "Runs failed",
+        "runsWithErrors": "Runs с ошибками",
+        "noErrors": "В этом проекте нет зафиксированных ошибок 🎉",
+        "noFilteredRecords": "Нет записей по выбранному фильтру",
+        "truncated": "Показаны последние {{count}} записей. Всего ошибок больше — используйте фильтры или прямой запрос к БД."
+      },
+      "filters": {
+        "all": "Все",
+        "documents": "Документы",
+        "runs": "Runs"
+      }
+    }
+  },
+  "monitoringTab": {
+    "loading": "Загружаем метрики…",
+    "loadError": "Не удалось загрузить метрики",
+    "prometheus": "Prometheus",
+    "available": "Доступен",
+    "unavailable": "Недоступен",
+    "updatedAt": "Обновлено: {{date}}",
+    "dlqSize": "DLQ size",
+    "activeRuns": "Active runs",
+    "stuckExecutions": "Stuck executions",
+    "infrastructureHint": "Метрики Prometheus — инфраструктурные и глобальные. Для метрик по проекту откройте проект во вкладке «Проекты».",
+    "degradedMode": "Метрики временно недоступны — деградированный режим.",
+    "pipeline": "Pipeline",
+    "docsLastHour": "Документы за последний час",
+    "processedHour": "Processed / 1h",
+    "failedHour": "Failed / 1h",
+    "api": {
+      "title": "API",
+      "subtitle": "Топ-5 endpoint'ов по запросам за час",
+      "noData": "Нет данных — метрики появятся после накопления трафика.",
+      "promUnavailable": "Prometheus недоступен.",
+      "headers": {
+        "endpoint": "Endpoint",
+        "requests": "Requests",
+        "errors": "Errors",
+        "p95": "P95"
+      }
+    },
+    "llm": {
+      "title": "LLM",
+      "subtitle": "Запросы и таймауты за час",
+      "noData": "Нет LLM-метрик — появятся после прогона pipeline.",
+      "headers": {
+        "requests": "Requests",
+        "timeouts": "Timeouts"
+      }
+    },
+    "celery": {
+      "title": "Celery",
+      "subtitle": "Ошибки задач за час",
+      "noData": "Нет ошибок Celery за последний час.",
+      "headers": {
+        "task": "Task",
+        "failures": "Failures",
+        "types": "Types"
+      }
+    }
+  },
+  "logsTab": {
+    "allProjects": "Все проекты",
+    "reset": "✕ сбросить",
+    "labels": {
+      "project": "Проект",
+      "level": "Level",
+      "stage": "Stage",
+      "queue": "Queue",
+      "period": "Период",
+      "limit": "Лимит"
+    },
+    "periodOptions": {
+      "15": "15 минут",
+      "60": "1 час",
+      "180": "3 часа",
+      "1440": "24 часа",
+      "10080": "7 дней"
+    },
+    "options": {
+      "all": "Все"
+    },
+    "loki": {
+      "label": "Loki",
+      "available": "Доступен",
+      "unavailable": "Недоступен",
+      "shown": "Показано",
+      "hiddenInfo": "Скрыто info",
+      "mode": "Режим",
+      "modeEvents": "События",
+      "modeDebug": "Debug"
+    },
+    "loading": "Загружаем логи…",
+    "loadError": "Не удалось загрузить логи",
+    "lokiUnavailable": "Loki недоступен",
+    "noLogsFound": "Логи не найдены — измените фильтры или период."
+  },
+  "filters": {
+    "since": {
+      "15min": "15 мин",
+      "1h": "1 час",
+      "4h": "4 часа",
+      "24h": "24 часа",
+      "48h": "48 часов",
+      "7d": "7 дней",
+      "30d": "30 дней",
+      "allTime": "Всё время"
+    }
+  },
+  "roleLabels": {
+    "superadmin": "Супер-администратор",
+    "tenant_admin": "Администратор",
+    "member": "Участник",
+    "projectAdmin": "Администратор",
+    "projectEditor": "Редактор",
+    "projectViewer": "Наблюдатель"
+  },
+  "runStatusLabels": {
+    "completed": "Завершён",
+    "completed_with_errors": "С ошибками",
+    "failed": "Ошибка",
+    "running": "Выполняется",
+    "pending": "В очереди"
   }
 }
-

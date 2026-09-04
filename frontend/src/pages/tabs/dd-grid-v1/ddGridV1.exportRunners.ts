@@ -38,12 +38,22 @@ import type {
 } from "docx";
 
 // -------------------------------------------------------------
+// I18n contract
+// -------------------------------------------------------------
+
+export interface DDGridV1ExportI18n {
+  t: (key: string, options?: Record<string, unknown>) => string;
+  locale: string;
+}
+
+// -------------------------------------------------------------
 // Common types
 // -------------------------------------------------------------
 
 export interface DDGridV1ExportFileOpts {
   dealName?: string;
   runId?: string;
+  i18n?: DDGridV1ExportI18n;
 }
 
 // -------------------------------------------------------------
@@ -138,8 +148,8 @@ function buildFilename(
   return `dd_grid_v1${deal}${run}${layout}.${suffix}`;
 }
 
-function formatExportTimestamp(date: Date = new Date()): string {
-  return date.toLocaleString("ru-RU", {
+function formatExportTimestamp(locale: string, date: Date = new Date()): string {
+  return date.toLocaleString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -149,18 +159,35 @@ function formatExportTimestamp(date: Date = new Date()): string {
   });
 }
 
-function buildExportMetadata(opts: {
-  dealName?: string;
-  runId?: string;
-  rowCount: number;
-  columnCount: number;
-}): Array<[string, string]> {
+function buildExportMetadata(
+  opts: {
+    dealName?: string;
+    runId?: string;
+    rowCount: number;
+    columnCount: number;
+  },
+  t?: DDGridV1ExportI18n["t"],
+  locale?: string,
+): Array<[string, string]> {
   const meta: Array<[string, string]> = [];
-  if (opts.dealName) meta.push(["Проект", opts.dealName]);
-  if (opts.runId) meta.push(["Run ID", opts.runId]);
-  meta.push(["Дата формирования", formatExportTimestamp()]);
-  meta.push(["Количество записей", String(opts.rowCount)]);
-  meta.push(["Количество колонок", String(opts.columnCount)]);
+  if (opts.dealName) {
+    meta.push([t?.("exports:ddGridExport.meta.project") ?? "Project", opts.dealName]);
+  }
+  if (opts.runId) {
+    meta.push([t?.("exports:ddGridExport.meta.runId") ?? "Run ID", opts.runId]);
+  }
+  meta.push([
+    t?.("exports:ddGridExport.meta.date") ?? "Generated",
+    formatExportTimestamp(locale ?? "en-US"),
+  ]);
+  meta.push([
+    t?.("exports:ddGridExport.meta.rows") ?? "Records",
+    String(opts.rowCount),
+  ]);
+  meta.push([
+    t?.("exports:ddGridExport.meta.columns") ?? "Columns",
+    String(opts.columnCount),
+  ]);
   return meta;
 }
 
@@ -261,7 +288,7 @@ function computeWordColumnWidths(
   const minTotal = MIN_WIDTH_DXA * headers.length;
   const flexAvailable = Math.max(0, AVAILABLE_WIDTH_DXA - minTotal);
   const excessWeights = idealWidths.map((w) =>
-    Math.max(0, w - MIN_WIDTH_DXA),
+    Math.max(0, w * CHAR_TO_DXA_RATIO - MIN_WIDTH_DXA),
   );
   const excessTotal = excessWeights.reduce((acc, w) => acc + w, 0);
 
@@ -322,6 +349,31 @@ async function applyCyrillicFontToPdf(doc: JsPDFType): Promise<boolean> {
   }
 }
 
+// -------------------------------------------------------------
+// Shared PDF page footer helper
+// -------------------------------------------------------------
+
+function drawPdfPageFooter(
+  doc: JsPDFType,
+  fontName: string,
+  t?: DDGridV1ExportI18n["t"],
+): void {
+  const pageCount = doc.getNumberOfPages();
+  if (pageCount <= 1) return;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFont(fontName, "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    const text =
+      t?.("exports:ddGridExport.pageFooter", { current: i, total: pageCount }) ??
+      `Page ${i} of ${pageCount}`;
+    doc.text(text, pageWidth / 2, pageHeight - 5, { align: "center" });
+  }
+}
+
 // =============================================================
 // LIST export — flat table
 // =============================================================
@@ -331,24 +383,28 @@ export async function exportListToExcel(
   rows: string[][],
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
+  const t = opts.i18n?.t;
+  const locale = opts.i18n?.locale ?? "en-US";
   const XLSX = await loadXLSX();
   const workbook = XLSX.utils.book_new();
 
-  const metadata = buildExportMetadata({
-    dealName: opts.dealName,
-    runId: opts.runId,
-    rowCount: rows.length,
-    columnCount: headers.length,
-  });
+  const metadata = buildExportMetadata(
+    { dealName: opts.dealName, runId: opts.runId, rowCount: rows.length, columnCount: headers.length },
+    t,
+    locale,
+  );
+
+  const title = t?.("exports:ddGridExport.title") ?? "DD Grid V1 — Export";
+  const metadataSheetLabel = t?.("exports:ddGridExport.metadataSheet") ?? "Metadata";
 
   const metadataSheetData: (string | number)[][] = [
-    ["DD Grid V1 — Экспорт"],
+    [title],
     [],
     ...metadata.map(([label, value]) => [label, value]),
   ];
   const metadataSheet = XLSX.utils.aoa_to_sheet(metadataSheetData);
   metadataSheet["!cols"] = [{ wch: 25 }, { wch: 60 }];
-  XLSX.utils.book_append_sheet(workbook, metadataSheet, "Metadata");
+  XLSX.utils.book_append_sheet(workbook, metadataSheet, metadataSheetLabel);
 
   const worksheetData: string[][] = [headers, ...rows];
   const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
@@ -365,6 +421,8 @@ export async function exportListToPdf(
   rows: string[][],
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
+  const t = opts.i18n?.t;
+  const locale = opts.i18n?.locale ?? "en-US";
   const { jsPDF } = await loadJsPDF();
   const autoTable = await loadAutoTable();
 
@@ -372,17 +430,16 @@ export async function exportListToPdf(
   const fontApplied = await applyCyrillicFontToPdf(doc);
   const fontName = fontApplied ? "LiberationSans" : "helvetica";
 
-  const title = "DD Grid V1 — Экспорт";
+  const title = t?.("exports:ddGridExport.title") ?? "DD Grid V1 — Export";
   doc.setFont(fontName, "bold");
   doc.setFontSize(16);
   doc.text(title, 14, 14);
 
-  const metadata = buildExportMetadata({
-    dealName: opts.dealName,
-    runId: opts.runId,
-    rowCount: rows.length,
-    columnCount: headers.length,
-  });
+  const metadata = buildExportMetadata(
+    { dealName: opts.dealName, runId: opts.runId, rowCount: rows.length, columnCount: headers.length },
+    t,
+    locale,
+  );
 
   doc.setFont(fontName, "normal");
   doc.setFontSize(9);
@@ -430,24 +487,9 @@ export async function exportListToPdf(
     bodyStyles: { textColor: [30, 30, 30] },
     alternateRowStyles: { fillColor: [248, 248, 248] },
     columnStyles,
-    didDrawPage: () => {
-      const pageCount = doc.getNumberOfPages();
-      if (pageCount > 1) {
-        const currentPage = doc.getCurrentPageInfo().pageNumber;
-        const pageHeight = doc.internal.pageSize.getHeight();
-        doc.setFont(fontName, "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(120);
-        doc.text(
-          `Страница ${currentPage} из ${pageCount}`,
-          pageWidth / 2,
-          pageHeight - 5,
-          { align: "center" },
-        );
-      }
-    },
   });
 
+  drawPdfPageFooter(doc, fontName, t);
   doc.save(buildFilename("pdf", opts));
 }
 
@@ -456,6 +498,8 @@ export async function exportListToWord(
   rows: string[][],
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
+  const t = opts.i18n?.t;
+  const locale = opts.i18n?.locale ?? "en-US";
   const docx = await loadDocx();
   const saveAs = await loadSaveAs();
 
@@ -472,19 +516,20 @@ export async function exportListToWord(
     WidthType,
   } = docx;
 
+  const title = t?.("exports:ddGridExport.title") ?? "DD Grid V1 — Export";
+
   const paragraphs: ParagraphType[] = [
     new Paragraph({
-      text: "DD Grid V1 — Экспорт",
+      text: title,
       heading: HeadingLevel.TITLE,
     }),
   ];
 
-  const metadata = buildExportMetadata({
-    dealName: opts.dealName,
-    runId: opts.runId,
-    rowCount: rows.length,
-    columnCount: headers.length,
-  });
+  const metadata = buildExportMetadata(
+    { dealName: opts.dealName, runId: opts.runId, rowCount: rows.length, columnCount: headers.length },
+    t,
+    locale,
+  );
 
   for (const [label, value] of metadata) {
     paragraphs.push(
@@ -562,24 +607,28 @@ export async function exportMatrixToExcel(
   table: DDGridV1MatrixExportTable,
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
+  const t = opts.i18n?.t;
+  const locale = opts.i18n?.locale ?? "en-US";
   const XLSX = await loadXLSX();
   const workbook = XLSX.utils.book_new();
 
-  const metadata = buildExportMetadata({
-    dealName: opts.dealName,
-    runId: opts.runId,
-    rowCount: table.rowCount,
-    columnCount: table.leafHeaders.length,
-  });
+  const metadata = buildExportMetadata(
+    { dealName: opts.dealName, runId: opts.runId, rowCount: table.rowCount, columnCount: table.leafHeaders.length },
+    t,
+    locale,
+  );
+
+  const title = t?.("exports:ddGridExport.titleMatrix") ?? "DD Grid V1 — Export (matrix)";
+  const metadataSheetLabel = t?.("exports:ddGridExport.metadataSheet") ?? "Metadata";
 
   const metadataSheetData: (string | number)[][] = [
-    ["DD Grid V1 — Экспорт (матрица)"],
+    [title],
     [],
     ...metadata.map(([label, value]) => [label, value]),
   ];
   const metadataSheet = XLSX.utils.aoa_to_sheet(metadataSheetData);
   metadataSheet["!cols"] = [{ wch: 25 }, { wch: 60 }];
-  XLSX.utils.book_append_sheet(workbook, metadataSheet, "Metadata");
+  XLSX.utils.book_append_sheet(workbook, metadataSheet, metadataSheetLabel);
 
   const pinnedCount = table.pinnedColumnCount;
   const totalCols = pinnedCount + table.headerRows[2].length;
@@ -658,6 +707,8 @@ export async function exportMatrixSingleToPdf(
   table: DDGridV1MatrixExportTable,
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
+  const t = opts.i18n?.t;
+  const locale = opts.i18n?.locale ?? "en-US";
   const { jsPDF } = await loadJsPDF();
   const autoTable = await loadAutoTable();
 
@@ -665,17 +716,16 @@ export async function exportMatrixSingleToPdf(
   const fontApplied = await applyCyrillicFontToPdf(doc);
   const fontName = fontApplied ? "LiberationSans" : "helvetica";
 
-  const title = "DD Grid V1 — Экспорт (единая таблица)";
+  const title = t?.("exports:ddGridExport.titleSingle") ?? "DD Grid V1 — Export (single table)";
   doc.setFont(fontName, "bold");
   doc.setFontSize(16);
   doc.text(title, 14, 14);
 
-  const metadata = buildExportMetadata({
-    dealName: opts.dealName,
-    runId: opts.runId,
-    rowCount: table.rowCount,
-    columnCount: table.leafHeaders.length,
-  });
+  const metadata = buildExportMetadata(
+    { dealName: opts.dealName, runId: opts.runId, rowCount: table.rowCount, columnCount: table.leafHeaders.length },
+    t,
+    locale,
+  );
 
   doc.setFont(fontName, "normal");
   doc.setFontSize(9);
@@ -744,24 +794,9 @@ export async function exportMatrixSingleToPdf(
     bodyStyles: { textColor: [30, 30, 30] },
     alternateRowStyles: { fillColor: [248, 248, 248] },
     columnStyles,
-    didDrawPage: () => {
-      const pageCount = doc.getNumberOfPages();
-      if (pageCount > 1) {
-        const currentPage = doc.getCurrentPageInfo().pageNumber;
-        const pageHeight = doc.internal.pageSize.getHeight();
-        doc.setFont(fontName, "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(120);
-        doc.text(
-          `Страница ${currentPage} из ${pageCount}`,
-          pageWidth / 2,
-          pageHeight - 5,
-          { align: "center" },
-        );
-      }
-    },
   });
 
+  drawPdfPageFooter(doc, fontName, t);
   doc.save(buildFilename("pdf", { ...opts, layoutSuffix: "single" }));
 }
 
@@ -773,6 +808,8 @@ export async function exportMatrixSingleToWord(
   table: DDGridV1MatrixExportTable,
   opts: DDGridV1ExportFileOpts,
 ): Promise<void> {
+  const t = opts.i18n?.t;
+  const locale = opts.i18n?.locale ?? "en-US";
   const docx = await loadDocx();
   const saveAs = await loadSaveAs();
 
@@ -789,19 +826,20 @@ export async function exportMatrixSingleToWord(
     WidthType,
   } = docx;
 
+  const title = t?.("exports:ddGridExport.titleSingle") ?? "DD Grid V1 — Export (single table)";
+
   const paragraphs: ParagraphType[] = [
     new Paragraph({
-      text: "DD Grid V1 — Экспорт (единая таблица)",
+      text: title,
       heading: HeadingLevel.TITLE,
     }),
   ];
 
-  const metadata = buildExportMetadata({
-    dealName: opts.dealName,
-    runId: opts.runId,
-    rowCount: table.rowCount,
-    columnCount: table.leafHeaders.length,
-  });
+  const metadata = buildExportMetadata(
+    { dealName: opts.dealName, runId: opts.runId, rowCount: table.rowCount, columnCount: table.leafHeaders.length },
+    t,
+    locale,
+  );
 
   for (const [label, value] of metadata) {
     paragraphs.push(
@@ -954,6 +992,8 @@ export async function exportSectionedToPdf(
     layoutSuffix: string;
   },
 ): Promise<void> {
+  const t = opts.i18n?.t;
+  const locale = opts.i18n?.locale ?? "en-US";
   const { jsPDF } = await loadJsPDF();
   const autoTable = await loadAutoTable();
 
@@ -961,17 +1001,19 @@ export async function exportSectionedToPdf(
   const fontApplied = await applyCyrillicFontToPdf(doc);
   const fontName = fontApplied ? "LiberationSans" : "helvetica";
 
-  const title = `DD Grid V1 — Экспорт (${opts.titleSuffix})`;
+  const title = t
+    ? t("exports:ddGridExport.titleSectioned", { suffix: opts.titleSuffix })
+    : `DD Grid V1 — Export (${opts.titleSuffix})`;
+
   doc.setFont(fontName, "bold");
   doc.setFontSize(16);
   doc.text(title, 14, 14);
 
-  const metadata = buildExportMetadata({
-    dealName: opts.dealName,
-    runId: opts.runId,
-    rowCount: sectionedTable.totalRowCount,
-    columnCount: sectionedTable.maxColumnCount,
-  });
+  const metadata = buildExportMetadata(
+    { dealName: opts.dealName, runId: opts.runId, rowCount: sectionedTable.totalRowCount, columnCount: sectionedTable.maxColumnCount },
+    t,
+    locale,
+  );
 
   doc.setFont(fontName, "normal");
   doc.setFontSize(9);
@@ -1052,22 +1094,7 @@ export async function exportSectionedToPdf(
     currentY = lastTable ? lastTable.finalY + 8 : currentY + 30;
   }
 
-  const pageCount = doc.getNumberOfPages();
-  if (pageCount > 1) {
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFont(fontName, "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(120);
-      doc.text(
-        `Страница ${i} из ${pageCount}`,
-        pageWidth / 2,
-        pageHeight - 5,
-        { align: "center" },
-      );
-    }
-  }
-
+  drawPdfPageFooter(doc, fontName, t);
   doc.save(buildFilename("pdf", opts));
 }
 
@@ -1078,6 +1105,8 @@ export async function exportSectionedToWord(
     layoutSuffix: string;
   },
 ): Promise<void> {
+  const t = opts.i18n?.t;
+  const locale = opts.i18n?.locale ?? "en-US";
   const docx = await loadDocx();
   const saveAs = await loadSaveAs();
 
@@ -1094,19 +1123,22 @@ export async function exportSectionedToWord(
     WidthType,
   } = docx;
 
+  const title = t
+    ? t("exports:ddGridExport.titleSectioned", { suffix: opts.titleSuffix })
+    : `DD Grid V1 — Export (${opts.titleSuffix})`;
+
   const paragraphs: ParagraphType[] = [
     new Paragraph({
-      text: `DD Grid V1 — Экспорт (${opts.titleSuffix})`,
+      text: title,
       heading: HeadingLevel.TITLE,
     }),
   ];
 
-  const metadata = buildExportMetadata({
-    dealName: opts.dealName,
-    runId: opts.runId,
-    rowCount: sectionedTable.totalRowCount,
-    columnCount: sectionedTable.maxColumnCount,
-  });
+  const metadata = buildExportMetadata(
+    { dealName: opts.dealName, runId: opts.runId, rowCount: sectionedTable.totalRowCount, columnCount: sectionedTable.maxColumnCount },
+    t,
+    locale,
+  );
 
   for (const [label, value] of metadata) {
     paragraphs.push(
@@ -1216,6 +1248,5 @@ export async function exportSectionedToWord(
   const blob = await Packer.toBlob(document);
   saveAs(blob, buildFilename("docx", opts));
 }
-
 
 

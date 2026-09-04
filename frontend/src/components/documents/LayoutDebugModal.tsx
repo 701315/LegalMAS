@@ -4,6 +4,7 @@
 // =============================================================
 
 import React, { useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { X, Loader2, AlertTriangle } from "lucide-react";
 import { useDocumentLayoutsDebug } from "../../api/documents";
 import Button from "../ui/Button";
@@ -336,25 +337,27 @@ function buildWordDiff(beforeText: string, afterText: string): DiffToken[] {
 }
 
 function MatchBadge({ type }: { type: CompareRow["matchType"] }) {
+  const { t } = useTranslation("documents");
+
   const config =
     type === "id"
       ? {
           cls: "bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] border-[var(--border-subtle)]",
-          text: "match: id",
+          text: t("layoutDebug.badges.id"),
         }
       : type === "heuristic"
         ? {
             cls: "bg-[var(--color-blue-highlight)] text-[var(--color-blue)] border-[var(--color-blue-strong)]/40",
-            text: "match: similar text",
+            text: t("layoutDebug.badges.heuristic"),
           }
         : type === "removed"
           ? {
               cls: "bg-[var(--color-error-bg)] text-[var(--color-error-text)] border-[var(--color-error-border)]",
-              text: "removed",
+              text: t("layoutDebug.badges.removed"),
             }
           : {
               cls: "bg-[var(--color-success-bg)] text-[var(--color-success-text)] border-[var(--color-success-border)]",
-              text: "added",
+              text: t("layoutDebug.badges.added"),
             };
 
   return (
@@ -378,9 +381,11 @@ function BeforeTextDiff({
   afterText: string;
   removed: boolean;
 }) {
+  const { t } = useTranslation("documents");
+
   if (!beforeText) {
     return (
-      <span className="text-[var(--text-faint)] italic">Нет текста</span>
+      <span className="text-[var(--text-faint)] italic">{t("layoutDebug.noText")}</span>
     );
   }
 
@@ -423,6 +428,8 @@ export const LayoutDebugModal: React.FC<Props> = ({
   isOpen,
   onClose,
 }) => {
+  const { t } = useTranslation("documents");
+
   const {
     data,
     isLoading,
@@ -490,7 +497,7 @@ export const LayoutDebugModal: React.FC<Props> = ({
       ? error.message
       : error
         ? String(error)
-        : "Неизвестная ошибка";
+        : t("errors.unknown", { ns: "common" });
 
   return (
     <div
@@ -509,10 +516,10 @@ export const LayoutDebugModal: React.FC<Props> = ({
               id="layout-compare-v3-title"
               className="text-base font-semibold text-[var(--text-primary)]"
             >
-              Документ до и после санитизации
+              {t("layoutDebug.title")}
             </h2>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              В левой колонке подсвечены только изменившиеся слова.
+              {t("layoutDebug.subtitle")}
             </p>
           </div>
 
@@ -521,7 +528,7 @@ export const LayoutDebugModal: React.FC<Props> = ({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            aria-label="Закрыть"
+            aria-label={t("actions.close", { ns: "common" })}
             className="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           >
             <X size={18} />
@@ -529,16 +536,14 @@ export const LayoutDebugModal: React.FC<Props> = ({
         </div>
 
         <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3 text-xs text-[var(--text-secondary)]">
-          Слева исходный текст, справа санитизированный. Если строка
-          изменилась, в левой колонке подсвечиваются только изменённые
-          слова; если строка удалена полностью, подсвечивается вся строка.
+          {t("layoutDebug.description")}
         </div>
 
         <div className="min-h-0 flex-1 bg-[var(--bg-elevated-soft)]">
           {isLoading && (
             <div className="flex h-full items-center justify-center bg-[var(--bg-card)] text-sm text-[var(--text-muted)]">
               <Loader2 className="mr-2 animate-spin" size={18} />
-              Загрузка сравнения…
+              {t("layoutDebug.loading")}
             </div>
           )}
 
@@ -549,7 +554,7 @@ export const LayoutDebugModal: React.FC<Props> = ({
                 className="mb-2 text-[var(--color-error-text)]"
               />
               <div className="text-sm font-medium text-[var(--color-error-text)]">
-                Ошибка загрузки данных
+                {t("layoutDebug.loadError")}
               </div>
               <div className="mt-1 max-w-2xl break-all text-xs text-[var(--text-muted)]">
                 {errorMessage}
@@ -559,10 +564,9 @@ export const LayoutDebugModal: React.FC<Props> = ({
 
           {!isLoading && !error && groupedPages.length === 0 && (
             <div className="flex h-full flex-col items-center justify-center bg-[var(--bg-card)] px-6 text-center text-sm text-[var(--text-muted)]">
-              <div>Нет данных для сравнения raw / sanitized layout.</div>
+              <div>{t("layoutDebug.empty")}</div>
               <div className="mt-2 text-xs text-[var(--text-faint)]">
-                Проверь, что запрос debug-layouts вызывается с
-                includeraw=true и includesanitized=true.
+                {t("layoutDebug.emptyDesc")}
               </div>
             </div>
           )}
@@ -572,7 +576,7 @@ export const LayoutDebugModal: React.FC<Props> = ({
               <div className="flex min-h-0 flex-col bg-[var(--bg-card)]">
                 <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
                   <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                    До санитизации
+                    {t("layoutDebug.beforeSanitation")}
                   </div>
                 </div>
 
@@ -587,7 +591,7 @@ export const LayoutDebugModal: React.FC<Props> = ({
                       className="space-y-3"
                     >
                       <div className="sticky top-0 z-[1] inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-1 text-xs text-[var(--text-muted)]">
-                        Страница {page.page}
+                        {t("layoutDebug.pageTitle", { page: page.page })}
                       </div>
 
                       <div className="space-y-2">
@@ -618,7 +622,7 @@ export const LayoutDebugModal: React.FC<Props> = ({
               <div className="flex min-h-0 flex-col bg-[var(--bg-card)]">
                 <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
                   <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                    После санитизации
+                    {t("layoutDebug.afterSanitation")}
                   </div>
                 </div>
 
@@ -633,7 +637,7 @@ export const LayoutDebugModal: React.FC<Props> = ({
                       className="space-y-3"
                     >
                       <div className="sticky top-0 z-[1] inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-1 text-xs text-[var(--text-muted)]">
-                        Страница {page.page}
+                        {t("layoutDebug.pageTitle", { page: page.page })}
                       </div>
 
                       <div className="space-y-2">
@@ -653,13 +657,13 @@ export const LayoutDebugModal: React.FC<Props> = ({
                             <div className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-primary)]">
                               {row.removed ? (
                                 <span className="text-[var(--text-faint)] italic">
-                                  Удалено после санитизации
+                                  {t("layoutDebug.deletedAfterSanitation")}
                                 </span>
                               ) : row.afterText ? (
                                 row.afterText
                               ) : (
                                 <span className="text-[var(--text-faint)] italic">
-                                  Нет текста
+                                  {t("layoutDebug.noText")}
                                 </span>
                               )}
                             </div>
@@ -676,7 +680,7 @@ export const LayoutDebugModal: React.FC<Props> = ({
 
         <div className="flex items-center justify-end border-t border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-3">
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>
-            Закрыть
+            {t("actions.close", { ns: "common" })}
           </Button>
         </div>
       </div>
@@ -685,5 +689,6 @@ export const LayoutDebugModal: React.FC<Props> = ({
 };
 
 export default LayoutDebugModal;
+
 
 

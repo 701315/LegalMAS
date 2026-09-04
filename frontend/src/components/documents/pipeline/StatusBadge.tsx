@@ -1,6 +1,7 @@
 // src/components/documents/pipeline/StatusBadge.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 import type { PipelineStageStatus } from "../../../types";
 
@@ -9,9 +10,9 @@ interface Props {
   className?: string;
 }
 
-type StatusConfig = {
-  label: string;
-  title: string;
+type StatusStyleConfig = {
+  labelKey: string;
+  titleKey: string;
   className: string;
 };
 
@@ -19,26 +20,26 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return twMerge(classes.filter(Boolean).join(" "));
 }
 
-const STATUS_CONFIG: Record<PipelineStageStatus, StatusConfig> = {
+const STATUS_STYLE_CONFIG: Record<PipelineStageStatus, StatusStyleConfig> = {
   ready: {
-    label: "Готово",
-    title: "Артефакт стадии готов к просмотру",
+    labelKey: "stageStatusBadge.ready.label",
+    titleKey: "stageStatusBadge.ready.title",
     className:
       "border-[var(--color-success-border)] " +
       "bg-[var(--color-success-bg)] " +
       "text-[var(--color-success-text)]",
   },
   pending: {
-    label: "Ожидается",
-    title: "Стадия ещё не завершена или артефакт пока не подготовлен",
+    labelKey: "stageStatusBadge.pending.label",
+    titleKey: "stageStatusBadge.pending.title",
     className:
       "border-[var(--color-warning-border)] " +
       "bg-[var(--color-warning-bg)] " +
       "text-[var(--color-warning-text)]",
   },
   missing: {
-    label: "Недоступно",
-    title: "Артефакт стадии не найден",
+    labelKey: "stageStatusBadge.missing.label",
+    titleKey: "stageStatusBadge.missing.title",
     className:
       "border-[var(--color-error-border)] " +
       "bg-[var(--color-error-bg)] " +
@@ -47,18 +48,23 @@ const STATUS_CONFIG: Record<PipelineStageStatus, StatusConfig> = {
 };
 
 export const StatusBadge: React.FC<Props> = ({ status, className }) => {
-  const cfg = STATUS_CONFIG[status];
+  const { t } = useTranslation("pipeline");
+  const cfg = STATUS_STYLE_CONFIG[status];
+
+  if (!cfg) {
+    return null;
+  }
 
   return (
     <span
-      title={cfg.title}
+      title={t(cfg.titleKey)}
       className={cn(
         "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none whitespace-nowrap",
         cfg.className,
         className,
       )}
     >
-      {cfg.label}
+      {t(cfg.labelKey)}
     </span>
   );
 };

@@ -166,6 +166,7 @@ export function getV1QcCapability(
   selection: ReviewSelectionItem[],
   selectedDrawers: ReturnType<typeof getSelectedV1Drawers>,
   runId: string | null | undefined,
+  tFn?: (key: string) => string,
 ): DDGridV1QcCapability {
   if (!selection.length) {
     return {
@@ -181,8 +182,9 @@ export function getV1QcCapability(
     return {
       supported: false,
       reason: "no_drawers_in_selection",
-      message:
-        "В выбранных строках нет проверок, к которым можно применить QC-действие.",
+      message: tFn
+        ? tFn("qc.noDrawersInSelection")
+        : "Selected rows contain no checks to which QC can be applied.",
       selectedRowsCount: selection.length,
       selectedFindingsCount: 0,
     };
@@ -192,7 +194,9 @@ export function getV1QcCapability(
     return {
       supported: false,
       reason: "mixed_run_ids",
-      message: "Не определён run для QC-действия.",
+      message: tFn
+        ? tFn("qc.mixedRunIds")
+        : "No active run determined for QC action.",
       selectedRowsCount: selection.length,
       selectedFindingsCount: selectedDrawers.length,
     };
@@ -267,3 +271,5 @@ export function buildV1QcBulkPayload(
     comment: normalizedComment,
   };
 }
+
+

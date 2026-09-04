@@ -5,6 +5,7 @@
 
 import React from "react";
 import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ValidationResult {
   is_valid: boolean;
@@ -19,6 +20,7 @@ interface ValidationResultPanelProps {
 const ValidationResultPanel: React.FC<ValidationResultPanelProps> = ({
   result,
 }) => {
+  const { t } = useTranslation("instructions");
   const { is_valid, checks_count, validation_report } = result;
 
   const errors: string[] = [];
@@ -99,13 +101,15 @@ const ValidationResultPanel: React.FC<ValidationResultPanelProps> = ({
                 : "text-[var(--color-error-text)]",
             ].join(" ")}
           >
-            {is_valid ? "Валидация прошла успешно" : "Валидация не прошла"}
+            {is_valid
+              ? t("validationResultPanel.success")
+              : t("validationResultPanel.failed")}
           </span>
         </div>
 
         {showChecksCount && (
           <span className="text-[11px] text-[var(--text-muted)]">
-            Checks: {checks_count}
+            {t("validationResultPanel.checksCount", { count: checks_count })}
           </span>
         )}
       </div>
@@ -114,7 +118,7 @@ const ValidationResultPanel: React.FC<ValidationResultPanelProps> = ({
       {errors.length > 0 && (
         <div className="space-y-1">
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-error-text)]">
-            Ошибки ({errors.length})
+            {t("validationResultPanel.errorsCount", { count: errors.length })}
           </div>
           <ul className="space-y-1">
             {errors.map((error, index) => (
@@ -134,7 +138,7 @@ const ValidationResultPanel: React.FC<ValidationResultPanelProps> = ({
       {warnings.length > 0 && (
         <div className="space-y-1">
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning-text)]">
-            Предупреждения ({warnings.length})
+            {t("validationResultPanel.warningsCount", { count: warnings.length })}
           </div>
           <ul className="space-y-1">
             {warnings.map((warning, index) => (
@@ -156,7 +160,7 @@ const ValidationResultPanel: React.FC<ValidationResultPanelProps> = ({
       {/* Valid + no issues */}
       {is_valid && errors.length === 0 && warnings.length === 0 && (
         <p className="text-[11px] text-[var(--color-success-text)]">
-          Все проверки пройдены. Черновик готов к публикации.
+          {t("validationResultPanel.allPassed")}
         </p>
       )}
     </div>
@@ -164,5 +168,8 @@ const ValidationResultPanel: React.FC<ValidationResultPanelProps> = ({
 };
 
 export default ValidationResultPanel;
+
+
+
 
 

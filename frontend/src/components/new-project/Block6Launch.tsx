@@ -14,6 +14,7 @@
 
 import React from "react";
 import { Rocket } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import type { RunChecksMode } from "../../types";
 
@@ -34,27 +35,27 @@ interface Block6LaunchProps {
   onLaunch: () => void;
 }
 
-const CHECKS_MODE_OPTIONS: Array<{
+const CHECKS_MODE_KEYS: Array<{
   value: RunChecksMode;
-  title: string;
-  hint: string;
-  badge?: string;
+  titleKey: string;
+  hintKey: string;
+  badgeKey?: string;
 }> = [
   {
     value: "global_and_doc_type",
-    title: "Полная проверка",
-    hint: "Глобальные проверки из playbook + специфические проверки по типу каждого загруженного документа. Это максимально полный анализ.",
-    badge: "Рекомендуемый",
+    titleKey: "newProject.block6.modes.global_and_doc_type.title",
+    hintKey: "newProject.block6.modes.global_and_doc_type.hint",
+    badgeKey: "newProject.block6.modes.global_and_doc_type.badge",
   },
   {
     value: "global_only",
-    title: "Только глобальные проверки",
-    hint: "Анализ только по рискам из playbook, которые применимы ко всем документам независимо от их типа. Специфические проверки по типам документов не выполняются.",
+    titleKey: "newProject.block6.modes.global_only.title",
+    hintKey: "newProject.block6.modes.global_only.hint",
   },
   {
     value: "doc_type_only",
-    title: "Только по типам документов",
-    hint: "Анализ только по рискам, характерным для конкретного типа каждого документа. Глобальные проверки из playbook не применяются.",
+    titleKey: "newProject.block6.modes.doc_type_only.title",
+    hintKey: "newProject.block6.modes.doc_type_only.hint",
   },
 ];
 
@@ -69,6 +70,8 @@ const Block6Launch: React.FC<Block6LaunchProps> = ({
   errorText = null,
   onLaunch,
 }) => {
+  const { t } = useTranslation("projects");
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -86,28 +89,27 @@ const Block6Launch: React.FC<Block6LaunchProps> = ({
       {/* ── Режим проверки ─────────────────────────────────── */}
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          Режим проверки
+          {t("newProject.block6.checksModeLabel")}
         </p>
 
         <div className="mb-4 subtle-panel px-4 py-3">
           <p className="text-sm font-medium text-[var(--text-primary)]">
-            Какие риски проверять в документах
+            {t("newProject.block6.infoTitle")}
           </p>
           <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-            Система проверяет два вида рисков. Первый — глобальные риски
-            из playbook (Global Checks), которые анализируются по всем
-            документам проекта вне зависимости от их типа. Второй —
-            специфические риски, характерные только для конкретного типа
-            документа (например, договор аренды, устав, корпоративное решение).
+            {t("newProject.block6.infoDesc1")}
           </p>
           <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-            Выберите, какой набор проверок применить при анализе.
+            {t("newProject.block6.infoDesc2")}
           </p>
         </div>
 
         <div className="space-y-2">
-          {CHECKS_MODE_OPTIONS.map(({ value, title, hint, badge }) => {
+          {CHECKS_MODE_KEYS.map(({ value, titleKey, hintKey, badgeKey }) => {
             const isChecked = checksMode === value;
+            const title = t(titleKey);
+            const hint = t(hintKey);
+            const badge = badgeKey ? t(badgeKey) : undefined;
 
             return (
               <label
@@ -160,7 +162,7 @@ const Block6Launch: React.FC<Block6LaunchProps> = ({
       {showForceReclassify ? (
         <div>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Дополнительные параметры
+            {t("newProject.block6.extraParamsLabel")}
           </p>
 
           <label
@@ -184,10 +186,10 @@ const Block6Launch: React.FC<Block6LaunchProps> = ({
 
             <span>
               <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                Принудительно переклассифицировать документы
+                {t("newProject.block6.forceReclassifyLabel")}
               </span>
               <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                Используйте после ручной переклассификации документов.
+                {t("newProject.block6.forceReclassifyHint")}
               </span>
             </span>
           </label>
@@ -198,9 +200,7 @@ const Block6Launch: React.FC<Block6LaunchProps> = ({
       <div className="border-t border-[var(--border-subtle)] pt-4">
         <div className="subtle-panel px-4 py-3">
           <p className="text-[11px] leading-5 text-[var(--text-secondary)]">
-            После запуска система начнёт обработку всех загруженных документов
-            в соответствии с выбранными настройками. Вы будете перенаправлены
-            на страницу проекта для отслеживания прогресса.
+            {t("newProject.block6.launchNotice")}
           </p>
         </div>
 
@@ -217,7 +217,9 @@ const Block6Launch: React.FC<Block6LaunchProps> = ({
               ) : undefined
             }
           >
-            {isSubmitting ? "Запускаем анализ…" : "Запустить проект"}
+            {isSubmitting
+              ? t("newProject.block6.launching")
+              : t("newProject.block6.launchBtn")}
           </Button>
         </div>
       </div>

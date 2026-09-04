@@ -1,6 +1,9 @@
+// =============================================================
 // src/pages/tabs/overview/RunSummaryPanel.tsx
+// =============================================================
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
   FileText,
@@ -57,7 +60,7 @@ const normalizeSummaryText = (raw: string): string => {
     (_m, emoji, title) => {
       const cleanTitle = title.trim().replace(/[:：]\s*$/, "");
       return `\n\n§H§${emoji} ${cleanTitle}\n`;
-    }
+    },
   );
 
   // Схлопываем лишние пустые строки (больше двух подряд)
@@ -74,6 +77,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
   documents,
   dealId,
 }) => {
+  const { t, i18n } = useTranslation("projects");
   const navigate = useNavigate();
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -97,8 +101,8 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-      console.error("Не удалось скопировать текст:", err);
-      alert("Не удалось скопировать текст. Попробуйте выделить вручную.");
+      console.error("Copy failed:", err);
+      alert(t("overviewPanels.runSummary.copyFailed"));
     }
   };
 
@@ -112,13 +116,12 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
         return (
           <button
             key={i}
+            type="button"
             onClick={() =>
-              navigate(
-                `/projects/${dealId}?tab=dd_grid&check=${checkId}`
-              )
+              navigate(`/projects/${dealId}?tab=dd_grid&check=${checkId}`)
             }
             className="inline-flex items-center gap-0.5 text-[var(--accent-primary)] hover:underline font-medium mx-0.5 align-baseline"
-            title="Перейти к проверке в DD Grid"
+            title={t("overviewPanels.runSummary.goToCheck")}
           >
             {part}
             <ChevronRight size={11} />
@@ -164,7 +167,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
                 {renderCitations(item)}
               </li>
             ))}
-          </ul>
+          </ul>,
         );
       } else {
         elements.push(
@@ -180,7 +183,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
                 {renderCitations(item)}
               </li>
             ))}
-          </ol>
+          </ol>,
         );
       }
 
@@ -188,7 +191,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
       listType = null;
     };
 
-    for (let rawLine of lines) {
+    for (const rawLine of lines) {
       const line = rawLine.trim();
 
       // Пустая строка — закрываем открытый список
@@ -207,7 +210,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
             className="text-sm font-normal text-[var(--text-primary)] mt-5 mb-2 first:mt-0"
           >
             {renderCitations(headingContent)}
-          </p>
+          </p>,
         );
         continue;
       }
@@ -238,7 +241,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
           className="mb-3 leading-relaxed text-[var(--text-secondary)]"
         >
           {renderCitations(line)}
-        </p>
+        </p>,
       );
     }
 
@@ -255,13 +258,15 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
           <div className="flex items-center gap-2">
             <FileText size={16} className="text-[var(--text-muted)]" />
             <span className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
-              Резюме
+              {t("overviewPanels.runSummary.title")}
             </span>
           </div>
           {onClose && (
             <button
+              type="button"
               onClick={onClose}
               className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              title={t("overviewPanels.domainDetails.collapseSummary")}
             >
               <X size={16} />
             </button>
@@ -283,7 +288,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
                 className="animate-spin text-[var(--accent-primary)]"
               />
               <p className="text-xs text-[var(--text-muted)]">
-                Формируем проверяемый обзор…
+                {t("overviewPanels.runSummary.generating")}
               </p>
             </div>
           )}
@@ -298,22 +303,24 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
       <div className="shrink-0 flex items-start justify-between border-b border-[var(--border-subtle)] px-5 py-4">
         <div>
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Резюме анализа
+            {t("overviewPanels.runSummary.titleFull")}
           </h3>
           <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-            Сформировано ИИ на основе findings версии анализа. Не является
-            юридическим заключением.
+            {t("overviewPanels.runSummary.disclaimer")}
             {summary.generated_at &&
-              ` · Обновлено: ${new Date(summary.generated_at).toLocaleString(
-                "ru-RU"
-              )}`}
+              t("overviewPanels.runSummary.updated", {
+                time: new Date(summary.generated_at).toLocaleString(
+                  i18n.language,
+                ),
+              })}
           </p>
         </div>
         {onClose && (
           <button
+            type="button"
             onClick={onClose}
             className="rounded-lg p-1.5 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-            title="Свернуть в боковую панель"
+            title={t("overviewPanels.domainDetails.collapseSummary")}
           >
             <X size={16} />
           </button>
@@ -325,12 +332,12 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
           <div className="space-y-4">
             {/* Адаптивная сетка: на широких экранах 2/3 + 1/3, на узких — только текст */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              {/* Левая колонка: текст резюме (2/3 на широких экранах, полная ширина на узких) */}
+              {/* Левая колонка: текст резюме */}
               <div className="xl:col-span-2 text-sm min-w-0">
                 {renderFormattedSummary(summary.text)}
               </div>
 
-              {/* Правая колонка: инфографика — только на экранах ≥ xl (1280px) */}
+              {/* Правая колонка: инфографика — только на экранах ≥ xl */}
               <div className="hidden xl:block xl:col-span-1 space-y-4">
                 <SummaryInsights documents={documents} />
               </div>
@@ -344,7 +351,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
                 isLoading={isRegenerating}
                 leftIcon={<RefreshCw size={14} />}
               >
-                Сформировать заново
+                {t("overviewPanels.runSummary.regenerateFull")}
               </Button>
               <Button
                 variant="secondary"
@@ -355,7 +362,9 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
                 }
                 disabled={isCopied}
               >
-                {isCopied ? "Скопировано!" : "Копировать текст"}
+                {isCopied
+                  ? t("overviewPanels.runSummary.copied")
+                  : t("overviewPanels.runSummary.copy")}
               </Button>
             </div>
           </div>
@@ -372,7 +381,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
               className="animate-spin text-[var(--accent-primary)]"
             />
             <p className="text-sm text-[var(--text-muted)]">
-              Формируем проверяемый обзор… Это может занять до 30 секунд.
+              {t("overviewPanels.runSummary.generatingLong")}
             </p>
           </div>
         )}
@@ -381,19 +390,24 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
   );
 };
 
-// Fallback (без изменений)
+// ---------------------------------------------------------------------------
+// Fallback
+// ---------------------------------------------------------------------------
+
 const FallbackSummary: React.FC<{
   fallback: RunSummaryResponse["fallback"];
   onRegenerate: () => void;
   isRegenerating: boolean;
 }> = ({ fallback, onRegenerate, isRegenerating }) => {
+  const { t } = useTranslation("projects");
+
   if (!fallback) return null;
 
   return (
     <div className="space-y-4">
       <InlineAlert
         tone="warning"
-        message="Полный обзор временно недоступен. Доступна проверяемая сводка по метрикам."
+        message={t("overviewPanels.runSummary.fallbackBanner")}
       />
 
       <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-4">
@@ -402,25 +416,33 @@ const FallbackSummary: React.FC<{
         </h4>
         <div className="mt-3 grid grid-cols-2 gap-4 text-xs sm:grid-cols-4">
           <div>
-            <span className="text-[var(--text-muted)]">Всего документов</span>
+            <span className="text-[var(--text-muted)]">
+              {t("overviewPanels.runSummary.fallbackMetrics.totalDocs")}
+            </span>
             <p className="text-base font-semibold text-[var(--text-primary)]">
               {fallback.coverage.total}
             </p>
           </div>
           <div>
-            <span className="text-[var(--text-muted)]">Обработано</span>
+            <span className="text-[var(--text-muted)]">
+              {t("overviewPanels.runSummary.fallbackMetrics.processed")}
+            </span>
             <p className="text-base font-semibold text-[var(--color-success-text)]">
               {fallback.coverage.processed}
             </p>
           </div>
           <div>
-            <span className="text-[var(--text-muted)]">Ошибки / Карантин</span>
+            <span className="text-[var(--text-muted)]">
+              {t("overviewPanels.runSummary.fallbackMetrics.failedQuarantine")}
+            </span>
             <p className="text-base font-semibold text-[var(--color-error-text)]">
               {fallback.coverage.failed + fallback.coverage.quarantine}
             </p>
           </div>
           <div>
-            <span className="text-[var(--text-muted)]">Требуют проверки</span>
+            <span className="text-[var(--text-muted)]">
+              {t("overviewPanels.runSummary.fallbackMetrics.pendingReview")}
+            </span>
             <p className="text-base font-semibold text-[var(--color-warning-text)]">
               {fallback.coverage.pending_review}
             </p>
@@ -430,7 +452,7 @@ const FallbackSummary: React.FC<{
         {fallback.top_findings.length > 0 && (
           <div className="mt-4">
             <h5 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
-              Ключевые находки
+              {t("overviewPanels.runSummary.fallbackMetrics.topFindings")}
             </h5>
             <ul className="mt-2 space-y-2">
               {fallback.top_findings.map((f, i) => (
@@ -452,7 +474,13 @@ const FallbackSummary: React.FC<{
                     </span>
                     <span className="text-[var(--text-muted)]">
                       {" "}
-                      ({f.count} док., {f.doc_types.join(", ")})
+                      {t(
+                        "overviewPanels.runSummary.fallbackMetrics.findingsMeta",
+                        {
+                          count: f.count,
+                          types: f.doc_types.join(", "),
+                        },
+                      )}
                     </span>
                   </span>
                 </li>
@@ -474,7 +502,7 @@ const FallbackSummary: React.FC<{
             isLoading={isRegenerating}
             leftIcon={<RefreshCw size={14} />}
           >
-            Повторить генерацию
+            {t("overviewPanels.runSummary.fallbackMetrics.retry")}
           </Button>
         </div>
       </div>
@@ -482,32 +510,37 @@ const FallbackSummary: React.FC<{
   );
 };
 
-
-// ============================================================================
-// Инфографика по проекту (правая колонка на широких экранах)
-// Виджет: распределение документов по типам (горизонтальные бары)
-// ============================================================================
-
+// ---------------------------------------------------------------------------
+// Insights
 // Статусы, которые не учитываем в статистике (не в активной работе)
+// ---------------------------------------------------------------------------
+
 const EXCLUDED_STATUSES_FOR_STATS = new Set<string>(["duplicate", "deleted"]);
 
 const SummaryInsights: React.FC<{ documents?: DocumentListItem[] }> = ({
   documents,
 }) => {
+  const { t } = useTranslation("projects");
+
   // Считаем распределение документов по типам
   const docTypeStats = React.useMemo(() => {
     if (!documents || documents.length === 0) {
-      return { items: [] as Array<{ type: string; count: number; pct: number }>, total: 0 };
+      return {
+        items: [] as Array<{ type: string; count: number; pct: number }>,
+        total: 0,
+      };
     }
 
     // Отфильтровываем duplicate/deleted — как в DocumentsOverviewWidget
     const activeDocs = documents.filter(
-      (doc) => !EXCLUDED_STATUSES_FOR_STATS.has(doc.status)
+      (doc) => !EXCLUDED_STATUSES_FOR_STATS.has(doc.status),
     );
 
     const map = new Map<string, number>();
     for (const doc of activeDocs) {
-      const type = doc.doc_type?.trim() || "Не классифицирован";
+      const type =
+        doc.doc_type?.trim() ||
+        t("overviewPanels.runSummary.insights.unclassified");
       map.set(type, (map.get(type) ?? 0) + 1);
     }
 
@@ -521,13 +554,13 @@ const SummaryInsights: React.FC<{ documents?: DocumentListItem[] }> = ({
       .sort((a, b) => b.count - a.count);
 
     return { items, total };
-  }, [documents]);
+  }, [documents, t]);
 
   if (docTypeStats.items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-transparent p-4">
         <p className="text-[11px] text-[var(--text-muted)]">
-          Нет данных о структуре документов
+          {t("overviewPanels.runSummary.insights.noData")}
         </p>
       </div>
     );
@@ -539,10 +572,12 @@ const SummaryInsights: React.FC<{ documents?: DocumentListItem[] }> = ({
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-4">
       <div className="flex items-baseline justify-between mb-3">
         <h4 className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
-          Структура документов
+          {t("overviewPanels.runSummary.insights.title")}
         </h4>
         <span className="text-[11px] text-[var(--text-muted)] tabular-nums">
-          Всего: {docTypeStats.total}
+          {t("overviewPanels.runSummary.insights.total", {
+            count: docTypeStats.total,
+          })}
         </span>
       </div>
 
@@ -575,5 +610,7 @@ const SummaryInsights: React.FC<{ documents?: DocumentListItem[] }> = ({
     </div>
   );
 };
+
+export default RunSummaryPanel;
 
 

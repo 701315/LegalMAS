@@ -1,6 +1,7 @@
 // src/components/instructions/OverrideStatusBadge.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { OverrideStatus } from "../../types/instructions";
 
 interface OverrideStatusBadgeProps {
@@ -9,22 +10,22 @@ interface OverrideStatusBadgeProps {
   size?: "sm" | "xs";
 }
 
-const STATUS_CONFIG: Record<
+const STATUS_STYLE_CONFIG: Record<
   OverrideStatus,
-  { label: string; className: string }
+  { labelKey: string; className: string }
 > = {
   draft: {
-    label: "Draft",
+    labelKey: "overrideStatusBadge.draft",
     className:
       "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
   },
   active: {
-    label: "Active",
+    labelKey: "overrideStatusBadge.active",
     className:
       "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
   },
   archived: {
-    label: "Archived",
+    labelKey: "overrideStatusBadge.archived",
     className:
       "border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
   },
@@ -35,7 +36,8 @@ const OverrideStatusBadge: React.FC<OverrideStatusBadgeProps> = ({
   isStale = false,
   size = "sm",
 }) => {
-  const config = STATUS_CONFIG[status];
+  const { t } = useTranslation("instructions");
+  const config = STATUS_STYLE_CONFIG[status];
   const sizeClass =
     size === "xs"
       ? "px-1.5 py-0.5 text-[10px] tracking-[0.1em]"
@@ -47,10 +49,10 @@ const OverrideStatusBadge: React.FC<OverrideStatusBadgeProps> = ({
         className={[
           "inline-flex items-center rounded-full border font-semibold uppercase",
           sizeClass,
-          config.className,
+          config?.className ?? "border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
         ].join(" ")}
       >
-        {config.label}
+        {config ? t(config.labelKey) : status}
       </span>
       {isStale && (
         <span
@@ -60,7 +62,7 @@ const OverrideStatusBadge: React.FC<OverrideStatusBadgeProps> = ({
             "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
           ].join(" ")}
         >
-          Stale
+          {t("overrideStatusBadge.stale")}
         </span>
       )}
     </span>

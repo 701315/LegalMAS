@@ -4,12 +4,12 @@
 
 import React, { useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDocuments, useUploadDocuments } from "../../api/documents";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { queryKeys } from "../../api/queryKeys";
 import { useAuth } from "../../hooks/useAuth";
-import { formatDate } from "../../utils";
 import Button from "../ui/Button";
 import InlineAlert from "../InlineAlert";
 import UploadDropzoneCard from "./UploadDropzoneCard";
@@ -71,6 +71,16 @@ function getErrorText(err: unknown, fallback: string): string {
   return fallback;
 }
 
+function formatDocDate(value: string, locale: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 interface ProjectUploadPanelProps {
   dealId: string;
   onFinished: () => void;
@@ -84,6 +94,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
   mode = "page",
   showWorkflow = true,
 }) => {
+  const { t, i18n } = useTranslation("documents");
   const filesInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const qc = useQueryClient();
@@ -116,8 +127,8 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
 
   const docsErrorText = useMemo(() => {
     if (!docsError) return null;
-    return getErrorText(docsError, "Ошибка загрузки документов.");
-  }, [docsError]);
+    return getErrorText(docsError, t("upload.errors.loadDocsFailed"));
+  }, [docsError, t]);
 
   const preparedRows = useMemo<PreparedFileRow[]>(() => {
     return selectedFiles.map((file, index) => ({
@@ -231,7 +242,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
     setErrorText(null);
 
     if (selectedFiles.length === 0) {
-      setErrorText("Сначала выберите файлы или папку для загрузки.");
+      setErrorText(t("upload.errors.selectFilesFirst"));
       return;
     }
 
@@ -243,7 +254,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
       resetSelection();
       onFinished();
     } catch (err: unknown) {
-      setErrorText(getErrorText(err, "Не удалось загрузить документы."));
+      setErrorText(getErrorText(err, t("upload.errors.uploadFailed")));
     }
   };
 
@@ -254,7 +265,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
       await refetchDocuments();
     } catch (err: unknown) {
       setErrorText(
-        getErrorText(err, "Не удалось обновить список документов."),
+        getErrorText(err, t("upload.errors.refreshFailed")),
       );
     }
   };
@@ -264,7 +275,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
       <div className="mx-auto max-w-md">
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
           <p className="text-sm text-[var(--text-secondary)]">
-            У вас нет прав на загрузку документов в этот проект.
+            {t("upload.restricted")}
           </p>
         </div>
       </div>
@@ -285,10 +296,10 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Загрузка документов
+              {t("upload.header.title")}
             </h1>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Подготовьте набор файлов и загрузите его в проект.
+              {t("upload.header.subtitle")}
             </p>
           </div>
         </header>
@@ -351,10 +362,10 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <div>
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-              Уже загруженные документы
+              {t("upload.existing.title")}
             </h2>
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
-              Документы, которые уже присутствуют в проекте.
+              {t("upload.existing.subtitle")}
             </p>
           </div>
 
@@ -365,20 +376,22 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
             onClick={handleRefreshDocuments}
             isLoading={isRefetchingDocuments}
           >
-            Обновить
+            {t("actions.refresh", { ns: "common" })}
           </Button>
         </div>
 
         <div className="px-5 py-4">
           {docsLoading ? (
-            <div className="text-sm text-[var(--text-muted)]">Загрузка…</div>
+            <div className="text-sm text-[var(--text-muted)]">
+              {t("upload.existing.loading")}
+            </div>
           ) : docsErrorText ? (
             <div className="text-sm text-[var(--color-error-text)]">
               {docsErrorText}
             </div>
           ) : documents.length === 0 ? (
             <div className="text-sm text-[var(--text-muted)]">
-              В проекте пока нет загруженных документов.
+              {t("upload.existing.empty")}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -386,13 +399,13 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
                 <thead>
                   <tr className="border-b border-[var(--border)] bg-[var(--bg-base)]">
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      Имя файла
+                      {t("upload.existing.table.filename")}
                     </th>
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      Статус
+                      {t("upload.existing.table.status")}
                     </th>
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                      Загружен
+                      {t("upload.existing.table.uploaded")}
                     </th>
                   </tr>
                 </thead>
@@ -409,7 +422,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
                         {doc.status}
                       </td>
                       <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
-                        {doc.created_at ? formatDate(doc.created_at) : "—"}
+                        {doc.created_at ? formatDocDate(doc.created_at, i18n.language) : "—"}
                       </td>
                     </tr>
                   ))}

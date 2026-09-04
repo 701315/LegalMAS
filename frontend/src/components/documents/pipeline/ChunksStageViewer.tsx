@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 import type {
   ChunkPreviewDTO,
@@ -113,6 +114,7 @@ function sortByIndex(a: ChunkPreviewDTO, b: ChunkPreviewDTO): number {
   return a.index - b.index;
 }
 
+// Построение бакетов
 function buildLayerBuckets(
   chunks: ChunkPreviewDTO[],
 ): Record<LayerKind, ChunkPreviewDTO[]> {
@@ -216,29 +218,24 @@ function buildHighlightedSnapshot(
  * Label helpers
  * ---------------------------------------------------------------- */
 
-function getCanonicalLayerTitle(layer: LayerKind): string {
-  if (layer === "legal_unit") return "Legal unit";
-  if (layer === "clause") return "Clause";
-  if (layer === "subclause") return "Subclause";
-  return "Section";
+function getCanonicalLayerTitle(layer: LayerKind, tFn: (key: string) => string): string {
+  return tFn(`chunksViewer.layers.${layer}`);
 }
 
-function getCanonicalLayerTabTitle(layer: LayerKind): string {
-  if (layer === "legal_unit") return "Legal unit layer";
-  if (layer === "clause") return "Clause layer";
-  if (layer === "subclause") return "Subclause layer";
-  return "Section layer";
+function getCanonicalLayerTabTitle(layer: LayerKind, tFn: (key: string) => string): string {
+  return tFn(`chunksViewer.layersTab.${layer}`);
 }
 
-function getFriendlyLayerTitle(layer: LayerKind): string {
-  if (layer === "legal_unit" || layer === "subclause") return "Evidence";
-  if (layer === "section") return "Context";
-  return "Clause";
+function getFriendlyLayerTitle(layer: LayerKind, tFn: (key: string) => string): string {
+  if (layer === "legal_unit" || layer === "subclause") return tFn("chunksViewer.friendly.evidence");
+  if (layer === "section") return tFn("chunksViewer.friendly.context");
+  return tFn("chunksViewer.friendly.clause");
 }
 
 function getPrimaryItemTitle(
   item: DisplayItem,
   isCanonical: boolean,
+  tFn: (key: string) => string,
 ): string {
   const backendTitle =
     typeof item.chunk.display_title === "string"
@@ -248,14 +245,15 @@ function getPrimaryItemTitle(
   if (backendTitle) return backendTitle;
 
   if (isCanonical) {
-    return `${getCanonicalLayerTitle(item.layer)} ${item.position}/${item.total}`;
+    return `${getCanonicalLayerTitle(item.layer, tFn)} ${item.position}/${item.total}`;
   }
-  return `${getFriendlyLayerTitle(item.layer)} ${item.position}/${item.total}`;
+  return `${getFriendlyLayerTitle(item.layer, tFn)} ${item.position}/${item.total}`;
 }
 
 function getSecondaryItemLine(
   item: DisplayItem,
   isCanonical: boolean,
+  tFn: (key: string, options?: any) => string,
 ): string {
   const backendSubtitle =
     typeof item.chunk.display_subtitle === "string"
@@ -269,13 +267,13 @@ function getSecondaryItemLine(
   const uid = getChunkUid(chunk);
 
   parts.push(
-    isCanonical ? item.layer : getFriendlyLayerTitle(item.layer).toLowerCase(),
+    isCanonical ? tFn(`chunksViewer.layers.${item.layer}`) : getFriendlyLayerTitle(item.layer, tFn).toLowerCase(),
   );
 
   if (uid) parts.push(`uid: ${uid}`);
 
   const pages = pageLabel(chunk);
-  if (pages !== "—") parts.push(`стр. ${pages}`);
+  if (pages !== "—") parts.push(tFn("chunksViewer.pageAbbr", { pages }));
 
   if (chunk.segment_type) {
     parts.push(
@@ -431,44 +429,6 @@ function SmallNote({
   );
 }
 
-function getListPanelMeta(isCanonical: boolean): {
-  title: string;
-  description: string;
-} {
-  if (isCanonical) {
-    return {
-      title: "Canonical CHUNKS layers",
-      description:
-        "Показываются все слои materialized chunks. Нумерация локальная внутри выбранного слоя, а не общая по документу.",
-    };
-  }
-
-  return {
-    title: "Основа анализа рисков (RAG evidence)",
-    description:
-      "Слева показаны рабочие evidence-chunks, на которых строится проверка. Context section показывается отдельно в карточке выбранного chunk'а.",
-  };
-}
-
-function getDetailPanelMeta(isCanonical: boolean): {
-  title: string;
-  description: string;
-} {
-  if (isCanonical) {
-    return {
-      title: "Canonical materialized chunk",
-      description:
-        "Показывается один chunk выбранного слоя. UID — якорь chunk'а, а не обещание идеальной границы ровно по одному пункту.",
-    };
-  }
-
-  return {
-    title: "RAG evidence chunk",
-    description:
-      "Показывается рабочий retrieval-visible fragment и связанный context section этого раздела.",
-  };
-}
-
 function LayerTabs({
   activeLayer,
   onChange,
@@ -478,6 +438,7 @@ function LayerTabs({
   onChange: (next: LayerKind) => void;
   counts: Record<LayerKind, number>;
 }) {
+  const { t } = useTranslation("pipeline");
   const layers: LayerKind[] = ["legal_unit", "clause", "subclause", "section"];
 
   return (
@@ -502,7 +463,7 @@ function LayerTabs({
               disabled && "cursor-not-allowed opacity-50",
             )}
           >
-            {getCanonicalLayerTabTitle(layer)} · {count}
+            {getCanonicalLayerTabTitle(layer, t)} · {count}
           </button>
         );
       })}
@@ -519,6 +480,7 @@ function ContextSectionCard({
   onOpenAtLocation?: OpenViewerAtFn;
   documentId: string;
 }) {
+  const { t } = useTranslation("pipeline");
   const uid = getChunkUid(chunk);
   const text = normalizeChunkText(chunk.text);
 
@@ -530,14 +492,14 @@ function ContextSectionCard({
   const subtitle =
     typeof chunk.display_subtitle === "string" && chunk.display_subtitle.trim()
       ? chunk.display_subtitle.trim()
-      : `section · стр. ${pageLabel(chunk)}`;
+      : `section · ${t("chunksViewer.pageAbbr", { pages: pageLabel(chunk) })}`;
 
   return (
     <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-faint)]">
-            Связанный context section
+            {t("chunksViewer.contextSection")}
           </p>
           <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
             {title}
@@ -556,7 +518,7 @@ function ContextSectionCard({
               onOpenAtLocation(buildChunkViewerPayload(documentId, chunk))
             }
           >
-            Открыть section
+            {t("chunksViewer.openSection")}
           </Button>
         )}
       </div>
@@ -581,6 +543,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
   documentId,
   onOpenAtLocation,
 }) => {
+  const { t } = useTranslation("pipeline");
   const status = stage.status;
   const isPending = status === "pending";
   const isMissing = status === "missing";
@@ -797,7 +760,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
   if (isPending) {
     return (
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
-        Чанки ещё не готовы в v2-формате. Попробуй позже.
+        {t("chunksViewer.pending")}
       </div>
     );
   }
@@ -805,8 +768,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
   if (isMissing) {
     return (
       <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-4 text-sm text-[var(--color-error-text)]">
-        CHUNKS-артефакт ожидается, но недоступен или повреждён. Проверь
-        состояние пайплайна для стадии CHUNKS.
+        {t("chunksViewer.missing")}
       </div>
     );
   }
@@ -814,7 +776,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
   if (!preview) {
     return (
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
-        CHUNKS preview недоступен для этого этапа.
+        {t("chunksViewer.unavailable")}
       </div>
     );
   }
@@ -829,11 +791,11 @@ export const ChunksStageViewer: React.FC<Props> = ({
         )}
 
         <InfoPanel
-          title="Исходный текст документа"
+          title={t("chunksViewer.sourcePaneTitle")}
           description={
             hasLinkedChunks
-              ? "Связанные с выбранной секцией чанки подсвечены inline."
-              : "Для выбранной секции не найдено связанных chunk'ов."
+              ? t("chunksViewer.sourcePaneDescLinked")
+              : t("chunksViewer.sourcePaneDescNotLinked")
           }
         >
           <div className="flex h-full min-h-0 flex-col">
@@ -841,7 +803,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
               <div />
               {hasLinkedChunks && (
                 <Pill tone="warning">
-                  Подсвечено: {highlightedChunks.length}
+                  {t("chunksViewer.highlightedCount", { count: highlightedChunks.length })}
                 </Pill>
               )}
             </div>
@@ -897,7 +859,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                 </div>
               ) : (
                 <div className="text-sm text-[var(--text-muted)]">
-                  Исходный текст документа недоступен.
+                  {t("chunksViewer.sourceTextUnavailable")}
                 </div>
               )}
             </div>
@@ -907,15 +869,12 @@ export const ChunksStageViewer: React.FC<Props> = ({
     );
   }
 
-  const listMeta = getListPanelMeta(isCanonical);
-  const detailMeta = getDetailPanelMeta(isCanonical);
-
   const evidenceCount =
     layerBuckets.legal_unit.length || layerBuckets.subclause.length;
 
   return (
     <div className="grid h-full min-h-0 auto-rows-fr grid-cols-1 gap-4 overflow-hidden xl:grid-cols-3 xl:grid-rows-1">
-      <InfoPanel title={listMeta.title} description={listMeta.description}>
+      <InfoPanel title={isCanonical ? t("chunksViewer.listPanel.canonical.title") : t("chunksViewer.listPanel.retrieval.title")} description={isCanonical ? t("chunksViewer.listPanel.canonical.description") : t("chunksViewer.listPanel.retrieval.description")}>
         <div className="flex h-full min-h-0 flex-col">
           <div className="mb-3 space-y-2">
             {isCanonical ? (
@@ -926,11 +885,13 @@ export const ChunksStageViewer: React.FC<Props> = ({
                   counts={canonicalCounts}
                 />
                 <SmallNote>
-                  Важный момент:{" "}
-                  <span className="font-medium text-[var(--text-secondary)]">
-                    нумерация локальная внутри выбранного слоя
-                  </span>
-                  . Технический index хранится в JSON/debug.
+                  <Trans
+                    t={t}
+                    i18nKey="chunksViewer.listPanel.canonicalNote"
+                    components={{
+                      bold: <span className="font-medium text-[var(--text-secondary)]" />,
+                    }}
+                  />
                 </SmallNote>
               </>
             ) : (
@@ -940,12 +901,13 @@ export const ChunksStageViewer: React.FC<Props> = ({
                   <Pill>context: {layerBuckets.section.length}</Pill>
                 </div>
                 <SmallNote>
-                  Слева показываются только{" "}
-                  <span className="font-medium text-[var(--text-secondary)]">
-                    evidence-chunks
-                  </span>
-                  , то есть рабочие retrieval fragments. Связанный section
-                  показывается в карточке справа как context.
+                  <Trans
+                    t={t}
+                    i18nKey="chunksViewer.listPanel.retrievalNote"
+                    components={{
+                      bold: <span className="font-medium text-[var(--text-secondary)]" />,
+                    }}
+                  />
                 </SmallNote>
               </>
             )}
@@ -984,10 +946,10 @@ export const ChunksStageViewer: React.FC<Props> = ({
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-sm font-semibold text-[var(--text-primary)]">
-                            {getPrimaryItemTitle(item, isCanonical)}
+                            {getPrimaryItemTitle(item, isCanonical, t)}
                           </div>
                           <div className="mt-0.5 text-xs text-[var(--text-muted)]">
-                            {getSecondaryItemLine(item, isCanonical)}
+                            {getSecondaryItemLine(item, isCanonical, t)}
                           </div>
                         </div>
 
@@ -1003,24 +965,24 @@ export const ChunksStageViewer: React.FC<Props> = ({
               </div>
             ) : (
               <div className="px-3 py-3 text-sm text-[var(--text-muted)]">
-                Нет чанков в выбранном слое.
+                {t("chunksViewer.listPanel.noChunks")}
               </div>
             )}
           </div>
         </div>
       </InfoPanel>
 
-      <InfoPanel title={detailMeta.title} description={detailMeta.description}>
+      <InfoPanel title={isCanonical ? t("chunksViewer.detailPanel.canonical.title") : t("chunksViewer.detailPanel.retrieval.title")} description={isCanonical ? t("chunksViewer.detailPanel.canonical.description") : t("chunksViewer.detailPanel.retrieval.description")}>
         <div className="flex h-full min-h-0 flex-col">
           <div className="min-h-0 flex-1 overflow-auto">
             {selectedChunk && selectedItem ? (
               <div className="space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
                 <div>
                   <p className="text-sm font-semibold text-[var(--text-primary)]">
-                    {getPrimaryItemTitle(selectedItem, isCanonical)}
+                    {getPrimaryItemTitle(selectedItem, isCanonical, t)}
                   </p>
                   <p className="mt-1 text-xs text-[var(--text-faint)]">
-                    {getSecondaryItemLine(selectedItem, isCanonical)}
+                    {getSecondaryItemLine(selectedItem, isCanonical, t)}
                   </p>
 
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1069,62 +1031,59 @@ export const ChunksStageViewer: React.FC<Props> = ({
                 {isCanonical ? (
                   <>
                     <SmallNote>
-                      <span className="font-medium text-[var(--text-secondary)]">
-                        UID — это anchor identity chunk'а
-                      </span>
-                      , а не гарантия, что text будет идеально совпадать ровно с
-                      одним видимым пунктом договора. Поэтому chunk с uid
-                      `main_contract:2.1` может содержать текст 2.2, 2.3 и
-                      следующие строки того же блока.
+                      <Trans
+                        t={t}
+                        i18nKey="chunksViewer.detailPanel.canonicalNoteUid"
+                        values={{ uid: getChunkUid(selectedChunk) }}
+                        components={{
+                          bold: <span className="font-medium text-[var(--text-secondary)]" />,
+                        }}
+                      />
                     </SmallNote>
 
                     {selectedItem.layer === "clause" &&
                       normalizeChunkText(selectedChunk.text).length > 800 && (
                         <SmallNote tone="warning">
-                          <span className="font-medium">
-                            Leaf-node clause chunk:
-                          </span>{" "}
-                          этот clause layer chunk соответствует leaf-узлу clause
-                          tree. Внутренние нумерованные подпункты могут не быть
-                          отдельными clause-узлами.
+                          <Trans
+                            t={t}
+                            i18nKey="chunksViewer.detailPanel.canonicalNoteLeaf"
+                            components={{
+                              bold: <span className="font-medium" />,
+                            }}
+                          />
                         </SmallNote>
                       )}
 
                     {(selectedItem.layer === "clause" ||
                       selectedItem.layer === "subclause") && (
                       <SmallNote>
-                        Показывается raw materialized text. На границе chunk'а
-                        может встречаться заголовок следующего раздела или
-                        пограничная строка соседнего блока.
+                        {t("chunksViewer.detailPanel.canonicalNoteRaw")}
                       </SmallNote>
                     )}
 
                     {selectedItem.layer === "section" && (
                       <SmallNote>
-                        Это context section layer: такой chunk может содержать
-                        целый раздел договора и нужен как крупный контекстный
-                        слой.
+                        {t("chunksViewer.detailPanel.canonicalNoteSection")}
                       </SmallNote>
                     )}
                   </>
                 ) : (
                   <>
                     <SmallNote>
-                      Это working{" "}
-                      <span className="font-medium text-[var(--text-secondary)]">
-                        evidence chunk
-                      </span>{" "}
-                      retrieval corpus. Ниже отдельно показан связанный{" "}
-                      <span className="font-medium">context section</span>,
-                      чтобы пользователь видел не только фрагмент, но и более
-                      широкий раздел документа.
+                      <Trans
+                        t={t}
+                        i18nKey="chunksViewer.detailPanel.retrievalNote"
+                        components={{
+                          bold: <span className="font-medium text-[var(--text-secondary)]" />,
+                        }}
+                      />
                     </SmallNote>
                   </>
                 )}
 
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-faint)]">
-                    Текст chunk'а
+                    {t("chunksViewer.chunkText")}
                   </p>
                   <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">
                     {normalizeChunkText(selectedChunk.text) || "—"}
@@ -1142,11 +1101,10 @@ export const ChunksStageViewer: React.FC<Props> = ({
                 {reconstructedText ? (
                   <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
                     <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-faint)]">
-                      Контекст stage
+                      {t("chunksViewer.stageContext")}
                     </p>
                     <p className="text-xs leading-5 text-[var(--text-muted)]">
-                      Справа можно переключаться между JSON выбранного chunk'а и
-                      полным snapshot этапа, прокручиваемым к этому chunk'у.
+                      {t("chunksViewer.stageContextDesc")}
                     </p>
                   </div>
                 ) : null}
@@ -1163,14 +1121,14 @@ export const ChunksStageViewer: React.FC<Props> = ({
                         )
                       }
                     >
-                      Открыть в документе
+                      {t("chunksViewer.openInDocument")}
                     </Button>
                   </div>
                 )}
               </div>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-                Выбери chunk слева.
+                {t("chunksViewer.selectChunkPrompt")}
               </div>
             )}
           </div>
@@ -1178,11 +1136,11 @@ export const ChunksStageViewer: React.FC<Props> = ({
       </InfoPanel>
 
       <InfoPanel
-        title={jsonMode === "chunk" ? "JSON chunk'а" : "JSON snapshot"}
+        title={jsonMode === "chunk" ? t("chunksViewer.json.chunkTitle") : t("chunksViewer.json.snapshotTitle")}
         description={
           jsonMode === "chunk"
-            ? "Технический объект chunk'а. Здесь сохраняется raw index и backend metadata."
-            : "Полный snapshot этапа; выделен фрагмент текста выбранного chunk'а."
+            ? t("chunksViewer.json.chunkDesc")
+            : t("chunksViewer.json.snapshotDesc")
         }
       >
         <div className="flex h-full min-h-0 flex-col">
@@ -1226,7 +1184,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
               </div>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-                Выбери chunk слева.
+                {t("chunksViewer.selectChunkPrompt")}
               </div>
             )
           ) : (

@@ -7,6 +7,8 @@
 // - форматтер ничего не решает про семантику — только собирает display string
 //   по контракту (format + cell_state + display_value / raw_value / enum_labels);
 // - функции чистые: одинаковый input → одинаковый output, без побочных эффектов.
+//
+// i18n: канонический English fallback + динамический tFn.
 // =============================================================
 
 import type {
@@ -17,18 +19,6 @@ import type {
 } from "../../../types/dealReview";
 
 import type { DDGridV1LocationAvailability } from "./ddGridV1.types";
-
-// -------------------------------------------------------------
-// Fallback labels
-// -------------------------------------------------------------
-
-/**
- * Универсальные fallback-подписи для нестандартных cell_state.
- * Централизованы, чтобы UI и export/QC потенциально могли переиспользовать.
- */
-export const DD_GRID_V1_FALLBACK_LABELS = {
-  error: "⚠ Ошибка",
-} as const;
 
 // -------------------------------------------------------------
 // Helpers
@@ -73,16 +63,15 @@ export function formatDDGridV1CellText(
   cellState: DDGridV1CellState,
   cell: DDGridV1CellValueDTO | null,
   column: DDGridV1ColumnDTO,
+  t?: (key: string) => string,
 ): string {
   // Нестандартные состояния — не читаем raw/display, возвращаем fallback.
-// not_applicable удалён из типа DDGridV1CellState
   if (cellState === "error") {
-    return DD_GRID_V1_FALLBACK_LABELS.error;
+    return t ? t("drawer.cellStateLabels.error") : "⚠ Error";
   }
   if (cellState === "not_executed" || cellState === "not_defined") {
     // По контракту оба этих состояния используют fallback_display.
-    // Если у ячейки уже есть display_value — используем его (backend может
-    // прислать более информативный текст, чем "—"), иначе fallback.
+    // Если у ячейки уже есть display_value — используем его, иначе fallback.
     if (cell && isNonEmptyString(cell.display_value)) {
       return cell.display_value;
     }
@@ -91,8 +80,6 @@ export function formatDDGridV1CellText(
 
   // cellState === "defined"
   if (!cell) {
-    // defined без DTO не должен приходить по контракту, но если пришло —
-    // безопасный fallback.
     return safeFallback(column);
   }
 
@@ -107,7 +94,6 @@ export function formatDDGridV1CellText(
     }
 
     case "enum": {
-      // Приоритет: enum_labels[raw_value] → display_value → fallback
       const raw = cell.raw_value;
       if (isNonEmptyString(raw) && column.enum_labels[raw]) {
         return column.enum_labels[raw];
@@ -119,8 +105,6 @@ export function formatDDGridV1CellText(
     }
 
     case "yes_no": {
-      // Приоритет: display_value → enum_labels[raw_value] → fallback
-      // (не хардкодим "yes"/"no" — читаем только через контракт колонки)
       if (isNonEmptyString(cell.display_value)) {
         return cell.display_value;
       }
@@ -132,7 +116,6 @@ export function formatDDGridV1CellText(
     }
 
     case "presence_only": {
-      // Приоритет: display_value → enum_labels[raw_value] → fallback
       if (isNonEmptyString(cell.display_value)) {
         return cell.display_value;
       }
@@ -144,7 +127,6 @@ export function formatDDGridV1CellText(
     }
 
     default: {
-      // Неизвестный format — не гадаем, безопасный fallback.
       return isNonEmptyString(cell.display_value)
         ? cell.display_value
         : safeFallback(column);
@@ -158,7 +140,6 @@ export function formatDDGridV1CellText(
 
 /**
  * Классифицирует доступность location строго по контракту.
- * Универсально для CellValueDTO и DrawerFieldDTO (общая часть контракта).
  */
 export function classifyDDGridV1LocationAvailability(input: {
   has_location_fallback: boolean;
@@ -180,14 +161,9 @@ export function classifyDDGridV1LocationAvailability(input: {
 }
 
 // -------------------------------------------------------------
-// Visual tone tokens (для последующих CellRenderer / Drawer)
+// Visual tone tokens
 // -------------------------------------------------------------
 
-/**
- * Тон визуализации по cell_state.
- * Возвращаем токен, а не конкретные Tailwind-классы, чтобы CellRenderer
- * сам маппил токен на классы своего дизайна без утечки стилей сюда.
- */
 export type DDGridV1CellTone =
   | "defined"
   | "muted"

@@ -18,6 +18,7 @@
 
 import React from "react";
 import { Globe, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useSetPrimaryLanguage } from "../../api/deals";
 import {
@@ -54,39 +55,40 @@ interface DiscoveryBanner {
 function getDiscoveryBanner(
   status: string | null,
   hasLanguages: boolean,
+  t: (key: string) => string,
 ): DiscoveryBanner | null {
   if (status === "pending") {
     return {
       tone: "info",
-      text: "Система подготавливает анализ загруженных документов для определения языков. Выбор основного языка станет доступен после завершения этого этапа.",
+      text: t("newProject.block5.banners.pending"),
     };
   }
 
   if (status === "processing") {
     return {
       tone: "info",
-      text: "Система анализирует документы и определяет языки. Выбор основного языка станет доступен после завершения по всем файлам.",
+      text: t("newProject.block5.banners.processing"),
     };
   }
 
   if (status === "failed") {
     return {
       tone: "error",
-      text: "Автоопределение языков завершилось ошибкой. Проверьте документы или повторите загрузку.",
+      text: t("newProject.block5.banners.failed"),
     };
   }
 
   if (status === "partial") {
     return {
       tone: "warning",
-      text: "Определение языков завершено частично: часть документов не прошла обработку. Вы можете продолжить, но рекомендуется проверить проблемные файлы.",
+      text: t("newProject.block5.banners.partial"),
     };
   }
 
   if (status === "completed" && hasLanguages) {
     return {
       tone: "success",
-      text: "Определение языков завершено. Выберите основной язык анализа.",
+      text: t("newProject.block5.banners.completed"),
     };
   }
 
@@ -109,18 +111,18 @@ function getBannerClassName(tone: BannerTone): string {
   return "border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
 }
 
-function formatLangHint(value: string): string {
+function formatLangHint(value: string, t: (key: string) => string): string {
   const normalized = normalizeLang(value);
 
   if (normalized === "RU") {
-    return "Primary source и проверки будут ориентированы на русский язык.";
+    return t("newProject.block5.hints.RU");
   }
 
   if (normalized === "EN") {
-    return "Primary source и проверки будут ориентированы на английский язык.";
+    return t("newProject.block5.hints.EN");
   }
 
-  return "Выберите этот язык как основной для анализа.";
+  return t("newProject.block5.hints.default");
 }
 
 // ── Component ───────────────────────────────────────────────
@@ -132,6 +134,7 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
   discoveryStatus: rawDiscoveryStatus,
   onLanguageSet,
 }) => {
+  const { t } = useTranslation("projects");
 
   // === DEBUG: временный лог для отладки ===
   React.useEffect(() => {
@@ -185,8 +188,8 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
     hasLanguages && !isSubmitting && !isDiscoveryInProgress;
 
   const discoveryBanner = React.useMemo(
-    () => getDiscoveryBanner(discoveryStatus, hasLanguages),
-    [discoveryStatus, hasLanguages],
+    () => getDiscoveryBanner(discoveryStatus, hasLanguages, t),
+    [discoveryStatus, hasLanguages, t],
   );
 
   const autoDetectedText = React.useMemo(
@@ -221,14 +224,12 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
           },
           onError: () => {
             setOptimisticLang(null);
-            setErrorText(
-              "Не удалось установить основной язык. Попробуйте ещё раз.",
-            );
+            setErrorText(t("newProject.block5.errors.saveFailed"));
           },
         },
       );
     },
-    [canSelect, onLanguageSet, selectedLang, setPrimaryLanguage],
+    [canSelect, onLanguageSet, selectedLang, setPrimaryLanguage, t],
   );
 
   // ── Discovery in progress — waiting state ─────────────────
@@ -242,11 +243,10 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
           />
           <div className="min-w-0">
             <p className="text-sm text-[var(--text-primary)]">
-              Определяем языки документов…
+              {t("newProject.block5.loadingTitle")}
             </p>
             <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-              Выбор основного языка станет доступен после завершения анализа
-              всех файлов.
+              {t("newProject.block5.loadingDesc")}
             </p>
           </div>
         </div>
@@ -271,12 +271,12 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
             <Globe className="h-5 w-5 text-[var(--text-muted)]" />
           </div>
           <p className="text-sm font-medium text-[var(--text-primary)]">
-            Языки документов ещё не определены
+            {t("newProject.block5.emptyTitle")}
           </p>
           <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
             {discoveryStatus === "failed"
-              ? "Автоопределение завершилось ошибкой. Проверьте документы или загрузите новые."
-              : "После завершения обработки всех файлов здесь появится список языков."}
+              ? t("newProject.block5.emptyDescFailed")
+              : t("newProject.block5.emptyDescWait")}
           </p>
         </div>
       </div>
@@ -300,7 +300,7 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
       {/* Language radios */}
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          Основной язык анализа
+          {t("newProject.block5.primaryLangLabel")}
         </p>
 
         <div className="space-y-2">
@@ -339,7 +339,7 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
                     {formatLangLabel(lang)}
                   </span>
                   <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                    {formatLangHint(lang)}
+                    {formatLangHint(lang, t)}
                   </span>
                 </span>
               </label>
@@ -350,13 +350,13 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
 
       {/* Auto-detected info */}
       <p className="text-[11px] text-[var(--text-muted)]">
-        Автоопределённые языки документов: {autoDetectedText}.
+        {t("newProject.block5.autoDetectedLangs", { langs: autoDetectedText })}
       </p>
 
       {/* Warning if not selected */}
       {!selectedLang && !isDiscoveryInProgress ? (
         <p className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning-text)]">
-          Перед запуском анализа необходимо выбрать основной язык.
+          {t("newProject.block5.warningSelectLang")}
         </p>
       ) : null}
 
@@ -368,7 +368,7 @@ const Block5Language: React.FC<Block5LanguageProps> = ({
             aria-hidden="true"
           />
           <span className="text-[11px] text-[var(--text-muted)]">
-            Сохраняем выбор…
+            {t("newProject.block5.saving")}
           </span>
         </div>
       ) : null}

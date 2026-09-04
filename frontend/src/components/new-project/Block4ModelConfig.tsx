@@ -17,6 +17,7 @@
 
 import React from "react";
 import { Cpu, Loader2 } from "lucide-react";
+import { useTranslation, Trans } from "react-i18next";
 
 import client from "../../api/client";
 import type { ModelConfig } from "../../types";
@@ -57,6 +58,8 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
   onApplied,
   onSkipped,
 }) => {
+  const { t } = useTranslation("projects");
+
   // ── Data state ────────────────────────────────────────────
   const [configs, setConfigs] = React.useState<ModelConfig[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -102,7 +105,7 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
           setLoadError(
             getApiErrorMessage(
               err,
-              "Не удалось загрузить профили моделей.",
+              t("newProject.block4.errors.loadFailed"),
             ),
           );
         }
@@ -118,7 +121,7 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [currentConfigId]);
+  }, [currentConfigId, t]);
 
   // ── Derived ───────────────────────────────────────────────
   const isSameAsCurrent =
@@ -157,13 +160,13 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
       setApplyError(
         getApiErrorMessage(
           err,
-          "Не удалось назначить профиль модели проекту.",
+          t("newProject.block4.errors.applyFailed"),
         ),
       );
     } finally {
       setIsApplying(false);
     }
-  }, [configs, dealId, isApplying, onApplied, selectedId]);
+  }, [configs, dealId, isApplying, onApplied, selectedId, t]);
 
   // ── Loading ───────────────────────────────────────────────
   if (isLoading) {
@@ -174,7 +177,7 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
           aria-hidden="true"
         />
         <span className="text-sm text-[var(--text-muted)]">
-          Загружаем профили моделей…
+          {t("newProject.block4.loading")}
         </span>
       </div>
     );
@@ -200,12 +203,10 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
 
             <div className="min-w-0">
               <p className="text-sm font-medium text-[var(--text-primary)]">
-                Профили моделей не настроены
+                {t("newProject.block4.emptyTitle")}
               </p>
               <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-                Будет использован профиль по умолчанию. Базовые настройки
-                подходят для большинства проектов. Создать профили можно в
-                административном разделе.
+                {t("newProject.block4.emptyDesc")}
               </p>
             </div>
           </div>
@@ -218,7 +219,7 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
             size="sm"
             onClick={onSkipped}
           >
-            Продолжить с профилем по умолчанию
+            {t("newProject.block4.continueDefaultBtn")}
           </Button>
         </div>
       </div>
@@ -242,17 +243,13 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
 
           <div className="min-w-0">
             <p className="text-sm font-medium text-[var(--text-primary)]">
-              Профиль модели определяет параметры семантического анализа
+              {t("newProject.block4.infoTitle")}
             </p>
             <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Базовые настройки уже установлены в системе и подходят для
-              большинства проектов. Вы можете продолжить с профилем по
-              умолчанию без дополнительных действий.
+              {t("newProject.block4.infoDesc1")}
             </p>
             <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Если для вашего проекта нужны специфические настройки поиска и
-              retrieval — выберите существующий профиль ниже или создайте новый
-              в административном разделе.
+              {t("newProject.block4.infoDesc2")}
             </p>
           </div>
         </div>
@@ -262,10 +259,14 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
       {currentConfigName ? (
         <div className="subtle-panel px-4 py-3">
           <p className="text-[11px] text-[var(--text-muted)]">
-            Текущий профиль проекта:{" "}
-            <span className="font-medium text-[var(--text-primary)]">
-              {currentConfigName}
-            </span>
+            <Trans
+              ns="projects"
+              i18nKey="newProject.block4.currentProfile"
+              values={{ name: currentConfigName }}
+              components={{
+                bold: <span className="font-medium text-[var(--text-primary)]" />,
+              }}
+            />
           </p>
         </div>
       ) : null}
@@ -273,7 +274,7 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
       {/* Список профилей */}
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          Доступные профили
+          {t("newProject.block4.availableProfiles")}
         </p>
 
         <ul className="max-h-64 space-y-1 overflow-y-auto">
@@ -303,7 +304,7 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
 
                     {isCurrent ? (
                       <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]">
-                        Текущий
+                        {t("newProject.block4.currentBadge")}
                       </span>
                     ) : null}
                   </div>
@@ -329,7 +330,7 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
           onClick={onSkipped}
           disabled={isApplying}
         >
-          Продолжить с профилем по умолчанию
+          {t("newProject.block4.continueDefaultBtn")}
         </Button>
 
         <Button
@@ -340,7 +341,7 @@ const Block4ModelConfig: React.FC<Block4ModelConfigProps> = ({
           disabled={!canApply}
           isLoading={isApplying}
         >
-          {isSameAsCurrent ? "Уже применён" : "Выбрать для проекта"}
+          {isSameAsCurrent ? t("newProject.block4.alreadyApplied") : t("newProject.block4.selectBtn")}
         </Button>
       </div>
     </div>

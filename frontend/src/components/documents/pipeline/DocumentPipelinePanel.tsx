@@ -117,7 +117,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
         <div className="min-w-0">
           <p className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-primary)]">
             <GitBranch size={13} className="shrink-0" />
-            <span>Document pipeline</span>
+            <span>{t("pipelinePanel.title")}</span>
           </p>
 
           <p className="text-xs font-medium text-[var(--text-primary)]">
@@ -164,4 +164,5 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
 };
 
 export default DocumentPipelinePanel;
+
 

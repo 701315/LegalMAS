@@ -1,4 +1,88 @@
 {
+  "selectorPanel": {
+    "title": "Project Playbook",
+    "subtitle": "Choose, apply, and view the playbook contents for the current deal.",
+    "subtitleEmbedded": "Choose, apply, and view the playbook contents.",
+    "backLink": "← Back to project",
+    "noPermissions": "You do not have permission to configure this project's playbook.",
+    "backButton": "Go Back",
+    "currentVersion": "Current version: <bold>{{versionId}}</bold>",
+    "noVersionSelected": "No playbook has been selected for this project yet.",
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "templates": {
+      "title": "Playbook Templates",
+      "loading": "Loading playbook templates...",
+      "emptyTitle": "No templates configured",
+      "emptyDesc": "Create your first playbook template in the admin section.",
+      "meta": {
+        "type": "Type: {{type}}",
+        "jurisdiction": "Jurisdiction: {{jurisdiction}}",
+        "language": "Language: {{language}}"
+      }
+    },
+    "versions": {
+      "title": "Playbook Versions",
+      "emptyLineTitle": "Template not selected",
+      "emptyLineDesc": "First select a playbook template in the left column.",
+      "emptyVersionsTitle": "No versions yet",
+      "emptyVersionsDesc": "There are no versions for the selected template yet. Select a model and create the first one.",
+      "modelConfigLabel": "Model (ModelConfig)",
+      "loadingModels": "Loading model list...",
+      "noModelsTitle": "Models unavailable",
+      "noModelsDesc": "No models available. Please contact your administrator.",
+      "createDraftButton": "Create Version from Template",
+      "draftWarning": "Draft cannot be applied to a project — publish the version in Playbook Studio first.",
+      "alreadyApplied": "Already applied",
+      "applyButton": "Apply to Project",
+      "loading": "Loading playbook versions..."
+    },
+    "details": {
+      "title": "Playbook Contents",
+      "editTemplate": "Edit Template",
+      "emptyTitle": "Nothing selected",
+      "emptyDesc": "Select a playbook template, then a version.",
+      "generalInfo": "General Information",
+      "sectionsProfiles": "Sections / Profiles",
+      "sectionsEmpty": "Section markers are not defined.",
+      "ddRequests": "DD Requests",
+      "ddRequestsEmpty": "DD request templates are not defined.",
+      "template": "Template",
+      "checks": "Template Checks",
+      "checksEmpty": "There are no items in this template yet.",
+      "loading": "Loading playbook contents..."
+    },
+    "history": {
+      "title": "Playbook Change History",
+      "loading": "Loading history...",
+      "emptyTitle": "History is empty",
+      "emptyDesc": "No playbook changes recorded for this deal.",
+      "wasNotSet": "not set",
+      "notSet": "not set",
+      "was": "Was: {{oldValue}}",
+      "to": "→ {{newValue}}"
+    },
+    "confirm": {
+      "title": "Replace current playbook?",
+      "description": "The current playbook version will be replaced. Continue?",
+      "confirmLabel": "Yes, replace",
+      "cancelLabel": "Cancel"
+    },
+    "errors": {
+      "noVersion": "Select a playbook version first.",
+      "conflict": "Failed to apply playbook: state conflict.",
+      "applyFailed": "Failed to apply playbook to the project. Please try again later.",
+      "noModel": "Select a model (ModelConfig) for this playbook first.",
+      "createFailed": "Failed to create playbook version.",
+      "historyLoadFailed": "Failed to load playbook change history.",
+      "modelsLoadFailed": "Failed to load models list. Please contact your administrator.",
+      "defaultNewVersion": "New version",
+      "draftCreated": "Draft version created. Publish it in Playbook Studio, then apply to the project."
+    }
+  },
   "globalPlaybookDetail": {
     "backToList": "Global Playbooks",
     "fallbackTitle": "Playbook",

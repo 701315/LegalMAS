@@ -3,6 +3,7 @@
 // =============================================================
 
 import React, { useMemo, useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { DDRequest } from "../../types";
 import { toRequestTableRowFromLegacy } from "../../viewAdapters/requestPresentation";
 import { RequestPriorityBadge } from "./shared/RequestPriorityBadge";
@@ -65,6 +66,7 @@ export const RequestsTable: React.FC<Props> = ({
   onExportExcel,
   canManageRequests,
 }) => {
+  const { t, i18n } = useTranslation("requests");
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("priority");
 
@@ -103,7 +105,7 @@ export const RequestsTable: React.FC<Props> = ({
       if (sortBy === "status") {
         return (a.view.statusLabel ?? "").localeCompare(
           b.view.statusLabel ?? "",
-          "ru",
+          i18n.language,
         );
       }
 
@@ -114,7 +116,15 @@ export const RequestsTable: React.FC<Props> = ({
     });
 
     return list;
-  }, [viewModels, searchText, sortBy]);
+  }, [viewModels, searchText, sortBy, i18n.language]);
+
+  const columns: Array<[string, string, string]> = [
+    ["priority", t("table.columns.priority"), "w-28"],
+    ["text", t("table.columns.text"), ""],
+    ["docs", t("table.columns.documents"), "w-28"],
+    ["status", t("table.columns.status"), "w-32"],
+    ["source", t("table.columns.source"), "w-40"],
+  ];
 
   return (
     <section
@@ -125,13 +135,13 @@ export const RequestsTable: React.FC<Props> = ({
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-            Requests
+            {t("table.eyebrow")}
           </p>
           <h2
             id="requests-table-title"
             className="mt-1 text-sm font-semibold text-[var(--text-primary)]"
           >
-            Запросы
+            {t("table.title")}
             <span className="ml-1 text-[var(--text-muted)]">
               ({requests.length})
             </span>
@@ -147,7 +157,7 @@ export const RequestsTable: React.FC<Props> = ({
               onClick={onCreateClick}
               leftIcon={<Plus className="h-4 w-4" />}
             >
-              Новый запрос
+              {t("table.newRequest")}
             </Button>
           )}
 
@@ -182,11 +192,11 @@ export const RequestsTable: React.FC<Props> = ({
         />
         <input
           type="text"
-          placeholder="Поиск по тексту запроса или ID проверки…"
+          placeholder={t("table.searchPlaceholder")}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-9 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-          aria-label="Поиск по DD-запросам"
+          aria-label={t("table.searchAria")}
         />
       </div>
 
@@ -196,15 +206,7 @@ export const RequestsTable: React.FC<Props> = ({
           <table className="w-full border-collapse text-left">
             <thead className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]">
               <tr>
-                {(
-                  [
-                    ["priority", "Приоритет", "w-28"],
-                    ["text", "Текст запроса", ""],
-                    ["docs", "Документы", "w-28"],
-                    ["status", "Статус", "w-32"],
-                    ["source", "Источник", "w-40"],
-                  ] as const
-                ).map(([key, label, width]) => (
+                {columns.map(([key, label, width]) => (
                   <th
                     key={key}
                     scope="col"
@@ -259,7 +261,6 @@ export const RequestsTable: React.FC<Props> = ({
                     }
                     aria-selected={isSelected}
                   >
-                    {/* Приоритет */}
                     <td
                       className={cn(
                         "px-3 py-2.5 align-top",
@@ -270,24 +271,21 @@ export const RequestsTable: React.FC<Props> = ({
                       <RequestPriorityBadge priority={view.priority} size="sm" />
                     </td>
 
-                    {/* Текст */}
                     <td className="px-3 py-2.5 align-top">
                       <p className="line-clamp-2 text-sm text-[var(--text-primary)]">
                         {view.text}
                       </p>
                       {view.checkLabel && (
                         <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
-                          Проверка: {view.checkLabel}
+                          {t("table.checkPrefix", { label: view.checkLabel })}
                         </p>
                       )}
                     </td>
 
-                    {/* Документы */}
                     <td className="px-3 py-2.5 align-top text-sm text-[var(--text-secondary)]">
-                      {view.documentCount} док.
+                      {t("table.docsSuffix", { count: view.documentCount })}
                     </td>
 
-                    {/* Статус */}
                     <td className="px-3 py-2.5 align-top">
                       {view.statusLabel ? (
                         <span
@@ -303,7 +301,6 @@ export const RequestsTable: React.FC<Props> = ({
                       )}
                     </td>
 
-                    {/* Источник */}
                     <td className="px-3 py-2.5 align-top">
                       {view.sourceLabel && view.sourceColorClass ? (
                         <span
@@ -328,12 +325,12 @@ export const RequestsTable: React.FC<Props> = ({
         {filtered.length === 0 && (
           <div className="shrink-0 border-t border-[var(--border-subtle)] px-6 py-10 text-center">
             <p className="mb-1 text-sm text-[var(--text-secondary)]">
-              Запросы не найдены
+              {t("table.empty.title")}
             </p>
             <p className="text-[12px] text-[var(--text-muted)]">
               {requests.length === 0
-                ? "Запросы появятся после анализа с найденными проблемами или ручного добавления."
-                : "Попробуйте изменить условия поиска или сбросить фильтр."}
+                ? t("table.empty.descNoRequests")
+                : t("table.empty.descFiltered")}
             </p>
           </div>
         )}
@@ -343,6 +340,7 @@ export const RequestsTable: React.FC<Props> = ({
 };
 
 export default RequestsTable;
+
 
 
 

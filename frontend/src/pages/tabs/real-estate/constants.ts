@@ -1,3 +1,7 @@
+// =============================================================
+// src/pages/tabs/real-estate/constants.ts
+// =============================================================
+
 import type {
   CoverageRow,
   RealEstateObjectAggregate,
@@ -6,66 +10,66 @@ import type {
 } from "./types";
 
 export const OBJECT_TYPE_LABELS: Record<RealEstateObjectType, string> = {
-  land: "Земельный участок",
-  building: "Здание",
-  premises: "Помещение",
-  construction: "Сооружение",
-  unfinished: "Объект незавершённого строительства",
-  unknown: "Неопределённый объект",
+  land: "Land Plot",
+  building: "Building",
+  premises: "Premises",
+  construction: "Construction",
+  unfinished: "Unfinished Construction",
+  unknown: "Unknown Object",
 };
 
 export const OBJECT_TYPE_SHORT_LABELS: Record<RealEstateObjectType, string> = {
-  land: "Земля",
-  building: "Здание",
-  premises: "Помещение",
-  construction: "Сооружение",
-  unfinished: "Незавершёнка",
+  land: "Land",
+  building: "Building",
+  premises: "Premises",
+  construction: "Construction",
+  unfinished: "Unfinished",
   unknown: "Unknown",
 };
 
 const REGISTRY_SOURCE_BY_MARKET: Record<RealEstateObjectAggregate["market"], string> = {
-  RU: "ЕГРН",
+  RU: "EGRN",
   UAE: "Local land registry",
   EU: "National property registry",
 };
 
 const OWNERSHIP_STATUS_LABELS: Record<RealEstateObjectAggregate["ownership_status"], string> = {
-  registered: "Право подтверждено",
-  review: "Требуется верификация",
-  not_confirmed: "Не подтверждено",
+  registered: "Title confirmed",
+  review: "Verification required",
+  not_confirmed: "Not confirmed",
 };
 
 export const COVERAGE_ROWS: CoverageRow[] = [
   {
-    jurisdiction: "Россия",
-    registrySources: "ЕГРН, публичная кадастровая карта",
-    whatChecked: "Право, кадастровый номер, площадь, обременения",
-    remarks: "Основной сценарий для RU real estate due diligence",
+    jurisdiction: "Russia",
+    registrySources: "EGRN, public cadastral map",
+    whatChecked: "Title, cadastral number, area, encumbrances",
+    remarks: "Main scenario for RU real estate due diligence",
   },
   {
     jurisdiction: "UAE",
     registrySources: "Dubai Land Department / emirate land registries",
     whatChecked: "Title, ownership, plot/building registration",
-    remarks: "По эмирату требуется отдельный локальный источник",
+    remarks: "Individual local source required per emirate",
   },
   {
-    jurisdiction: "Европа",
-    registrySources: "Национальные land / property registries",
+    jurisdiction: "Europe",
+    registrySources: "National land / property registries",
     whatChecked: "Ownership, encumbrances, title data",
-    remarks: "Источник зависит от страны и локального регистра",
+    remarks: "Source depends on country and local registry",
   },
   {
-    jurisdiction: "Внутренние базы компании",
+    jurisdiction: "Internal company databases",
     registrySources: "Asset register, lease register, legal archive",
-    whatChecked: "Внутренний статус актива, исторические документы, usage",
-    remarks: "Используется для cross-check с внешними регистрами",
+    whatChecked: "Internal asset status, historical documents, usage",
+    remarks: "Used for cross-check with external registries",
   },
 ];
 
 const BASE_OBJECTS: RealEstateObjectAggregate[] = [
   {
     id: "1",
-    address: "Москва, ул. Лесная, д. 12, стр. 3",
+    address: "Moscow, Lesnaya st., 12, bld. 3",
     cadastral_number: "77:01:0004012:1456",
     object_type: "building",
     risk: "medium",
@@ -73,14 +77,14 @@ const BASE_OBJECTS: RealEstateObjectAggregate[] = [
     area_sqm: 12450,
     encumbrance: true,
     first_mentioned_at: "SPA § 2.1",
-    region: "Москва",
+    region: "Moscow",
     market: "RU",
     ownership_status: "registered",
     usage_type: "office",
   },
   {
     id: "2",
-    address: "Московская область, Химки, Логистический проезд, 8",
+    address: "Moscow Region, Khimki, Logisticheskiy pr., 8",
     cadastral_number: "50:10:0010203:884",
     object_type: "building",
     risk: "low",
@@ -88,14 +92,14 @@ const BASE_OBJECTS: RealEstateObjectAggregate[] = [
     area_sqm: 28700,
     encumbrance: false,
     first_mentioned_at: "Disclosure Letter § 4",
-    region: "Московская область",
+    region: "Moscow Region",
     market: "RU",
     ownership_status: "registered",
     usage_type: "warehouse",
   },
   {
     id: "3",
-    address: "Санкт-Петербург, Пулковское шоссе, участок 17",
+    address: "Saint Petersburg, Pulkovskoye hwy., plot 17",
     cadastral_number: "78:14:0007689:31",
     object_type: "land",
     risk: "high",
@@ -103,14 +107,14 @@ const BASE_OBJECTS: RealEstateObjectAggregate[] = [
     area_sqm: 45200,
     encumbrance: true,
     first_mentioned_at: "Asset Schedule #3",
-    region: "Санкт-Петербург",
+    region: "Saint Petersburg",
     market: "RU",
     ownership_status: "review",
     usage_type: "land_plot",
   },
   {
     id: "4",
-    address: "Казань, ул. Техническая, 25",
+    address: "Kazan, Tekhnicheskaya st., 25",
     cadastral_number: "16:50:090201:442",
     object_type: "premises",
     risk: "low",
@@ -118,7 +122,7 @@ const BASE_OBJECTS: RealEstateObjectAggregate[] = [
     area_sqm: 3180,
     encumbrance: false,
     first_mentioned_at: "Lease Memo",
-    region: "Татарстан",
+    region: "Tatarstan",
     market: "RU",
     ownership_status: "registered",
     usage_type: "industrial",
@@ -140,7 +144,7 @@ const BASE_OBJECTS: RealEstateObjectAggregate[] = [
   },
   {
     id: "6",
-    address: "Варшава, ul. Prosta 18",
+    address: "Warsaw, ul. Prosta 18",
     cadastral_number: "PL-WA-77821",
     object_type: "premises",
     risk: "medium",
@@ -155,7 +159,7 @@ const BASE_OBJECTS: RealEstateObjectAggregate[] = [
   },
   {
     id: "7",
-    address: "Екатеринбург, ул. Промышленная, 41",
+    address: "Yekaterinburg, Promyshlennaya st., 41",
     cadastral_number: "66:41:0203004:778",
     object_type: "construction",
     risk: "high",
@@ -163,14 +167,14 @@ const BASE_OBJECTS: RealEstateObjectAggregate[] = [
     area_sqm: 16800,
     encumbrance: true,
     first_mentioned_at: "Capex Addendum",
-    region: "Свердловская область",
+    region: "Sverdlovsk Region",
     market: "RU",
     ownership_status: "review",
     usage_type: "industrial",
   },
   {
     id: "8",
-    address: "Новосибирск, ул. Станционная, 59",
+    address: "Novosibirsk, Stantsionnaya st., 59",
     cadastral_number: "54:35:101235:64",
     object_type: "building",
     risk: "low",
@@ -178,7 +182,7 @@ const BASE_OBJECTS: RealEstateObjectAggregate[] = [
     area_sqm: 9800,
     encumbrance: false,
     first_mentioned_at: "Property Register",
-    region: "Новосибирская область",
+    region: "Novosibirsk Region",
     market: "RU",
     ownership_status: "registered",
     usage_type: "warehouse",
@@ -187,13 +191,13 @@ const BASE_OBJECTS: RealEstateObjectAggregate[] = [
 
 const EXTRA_OBJECTS: RealEstateObjectAggregate[] = Array.from({ length: 20 }).map((_, index) => {
   const regions = [
-    "Москва",
-    "Московская область",
-    "Санкт-Петербург",
-    "Татарстан",
-    "Краснодарский край",
-    "Свердловская область",
-    "Самарская область",
+    "Moscow",
+    "Moscow Region",
+    "Saint Petersburg",
+    "Tatarstan",
+    "Krasnodar Krai",
+    "Sverdlovsk Region",
+    "Samara Region",
     "Dubai",
     "Abu Dhabi",
     "Warsaw",
@@ -249,7 +253,7 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
   "1": {
     id: "1",
     shortDescription:
-      "Офисное здание, выявленное в основном пакете документов сделки; присутствуют признаки залога и требуется сопоставление с регистрационными записями.",
+      "Office building identified in the main deal document package; pledge indicators present, cross-check with registry records required.",
     documents: [
       {
         id: "d-1",
@@ -274,13 +278,13 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
       },
     ],
     registry: {
-      registrySource: "ЕГРН",
-      ownershipStatus: "Право зарегистрировано",
-      ownerName: "ООО «Демо Недвижимость»",
+      registrySource: "EGRN",
+      ownershipStatus: "Title registered",
+      ownerName: "Demo Real Estate LLC",
       cadastralNumber: "77:01:0004012:1456",
-      objectTypeLabel: "Здание",
-      areaLabel: "12 450 кв. м",
-      addressLabel: "Москва, ул. Лесная, д. 12, стр. 3",
+      objectTypeLabel: "Building",
+      areaLabel: "12,450 sq. m",
+      addressLabel: "Moscow, Lesnaya st., 12, bld. 3",
     },
     encumbrances: {
       hasEncumbrances: "yes",
@@ -288,9 +292,9 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
       arrest: "no",
       easement: "review",
       notes: [
-        "В документах сделки присутствует ипотечный документ.",
-        "Требуется проверить объём обеспеченного обязательства и актуальный статус записи.",
-        "По сервитуту требуется ручная верификация по реестровой выписке.",
+        "Mortgage document present in the deal files.",
+        "Verification of secured obligation volume and active record status required.",
+        "Manual verification via registry extract required for easement.",
       ],
     },
     legalChecks: {
@@ -298,20 +302,20 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
       registryMatch: "ok",
       zoning: "review",
       notes: [
-        "Цепочка титула требует проверки по историческим документам.",
-        "Параметры объекта по площади и адресу в целом совпадают с раскрытием.",
+        "Chain of title requires verification via historical documents.",
+        "Object parameters regarding area and address generally match disclosure.",
       ],
     },
     mapContext: {
-      region: "Москва",
-      district: "ЦАО",
-      geoNote: "Актив находится в деловом районе, используется как офисный объект.",
+      region: "Moscow",
+      district: "CAD",
+      geoNote: "Asset is located in a business district, used as an office building.",
     },
   },
   "2": {
     id: "2",
     shortDescription:
-      "Складской объект с понятным профилем использования и без явных признаков зарегистрированных ограничений в demo-сценарии.",
+      "Warehouse property with clear usage profile and no obvious registered encumbrances in the demo scenario.",
     documents: [
       {
         id: "d-4",
@@ -329,13 +333,13 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
       },
     ],
     registry: {
-      registrySource: "ЕГРН",
-      ownershipStatus: "Право зарегистрировано",
-      ownerName: "ООО «Логистика Парк»",
+      registrySource: "EGRN",
+      ownershipStatus: "Title registered",
+      ownerName: "Logistics Park LLC",
       cadastralNumber: "50:10:0010203:884",
-      objectTypeLabel: "Здание",
-      areaLabel: "28 700 кв. м",
-      addressLabel: "Московская область, Химки, Логистический проезд, 8",
+      objectTypeLabel: "Building",
+      areaLabel: "28,700 sq. m",
+      addressLabel: "Moscow Region, Khimki, Logisticheskiy pr., 8",
     },
     encumbrances: {
       hasEncumbrances: "no",
@@ -343,8 +347,8 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
       arrest: "no",
       easement: "no",
       notes: [
-        "В раскрытии сделки не выявлены явные указания на ограничения права.",
-        "Для production-проверки требуется подтверждение по реестровой выписке.",
+        "No explicit indications of title restrictions found in deal disclosure.",
+        "Production check requires confirmation via registry extract.",
       ],
     },
     legalChecks: {
@@ -352,19 +356,19 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
       registryMatch: "ok",
       zoning: "ok",
       notes: [
-        "Основные атрибуты объекта согласуются между disclosure и реестровым контуром.",
+        "Key object attributes align between disclosure and registry records.",
       ],
     },
     mapContext: {
-      region: "Московская область",
-      district: "Химки",
-      geoNote: "Объект относится к логистической инфраструктуре компании.",
+      region: "Moscow Region",
+      district: "Khimki",
+      geoNote: "Property is part of the company's logistics infrastructure.",
     },
   },
   "3": {
     id: "3",
     shortDescription:
-      "Земельный участок с повышенным уровнем риска: требуется отдельная проверка ограничений права и полноты правоустанавливающих документов.",
+      "Land plot with elevated risk profile: separate check of title restrictions and title document completeness required.",
     documents: [
       {
         id: "d-6",
@@ -382,13 +386,13 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
       },
     ],
     registry: {
-      registrySource: "ЕГРН",
-      ownershipStatus: "Требуется верификация",
-      ownerName: "АО «Северный Девелопмент»",
+      registrySource: "EGRN",
+      ownershipStatus: "Verification required",
+      ownerName: "Northern Development OJSC",
       cadastralNumber: "78:14:0007689:31",
-      objectTypeLabel: "Земельный участок",
-      areaLabel: "45 200 кв. м",
-      addressLabel: "Санкт-Петербург, Пулковское шоссе, участок 17",
+      objectTypeLabel: "Land Plot",
+      areaLabel: "45,200 sq. m",
+      addressLabel: "Saint Petersburg, Pulkovskoye hwy., plot 17",
     },
     encumbrances: {
       hasEncumbrances: "review",
@@ -396,8 +400,8 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
       arrest: "no",
       easement: "yes",
       notes: [
-        "Есть признаки ограничений использования участка.",
-        "Требуется проверить сервитуты и допустимое использование по градостроительному контуру.",
+        "Indicators of land usage restrictions present.",
+        "Easements and permitted land use zoning require verification.",
       ],
     },
     legalChecks: {
@@ -405,14 +409,14 @@ const BASE_DETAILS: Record<string, RealEstateObjectDetail> = {
       registryMatch: "review",
       zoning: "issue",
       notes: [
-        "По категории и разрешённому использованию нужен отдельный юридический анализ.",
-        "В описании объекта есть риск неполного совпадения с реестровой записью.",
+        "Category and permitted land use require separate legal analysis.",
+        "Risk of minor mismatch between object description and registry entry.",
       ],
     },
     mapContext: {
-      region: "Санкт-Петербург",
-      district: "Московский район",
-      geoNote: "Участок связан с развитием производственной площадки.",
+      region: "Saint Petersburg",
+      district: "Moskovsky District",
+      geoNote: "Plot is associated with industrial site development.",
     },
   },
 };
@@ -422,7 +426,7 @@ const generateFallbackDetail = (
 ): RealEstateObjectDetail => ({
   id: object.id,
   shortDescription:
-    "Демонстрационная карточка объекта недвижимости. В production-режиме здесь будет собираться описание из документов сделки, реестровых данных и внутренних баз компании.",
+    "Demonstration real estate object card. In production mode, this section collects data from deal documents, registry records, and internal databases.",
   documents: [
     {
       id: `doc-${object.id}-1`,
@@ -445,7 +449,7 @@ const generateFallbackDetail = (
     ownerName: "Demo Property Owner",
     cadastralNumber: object.cadastral_number ?? "—",
     objectTypeLabel: OBJECT_TYPE_LABELS[object.object_type],
-    areaLabel: object.area_sqm ? `${object.area_sqm.toLocaleString("ru-RU")} кв. м` : "—",
+    areaLabel: object.area_sqm ? `${object.area_sqm.toLocaleString("en-US")} sq. m` : "—",
     addressLabel: object.address ?? "—",
   },
   encumbrances: {
@@ -455,8 +459,8 @@ const generateFallbackDetail = (
     arrest: "no",
     easement: object.object_type === "land" ? "review" : "no",
     notes: [
-      "Карточка сформирована из demo-данных для проверки split-view и внутреннего скролла.",
-      "В боевом режиме здесь будут результаты реестровой проверки и анализ ограничений права.",
+      "Card generated from demo data to verify split-view and internal scrolling.",
+      "In production, registry verification results and title restriction analysis will appear here.",
     ],
   },
   legalChecks: {
@@ -465,14 +469,14 @@ const generateFallbackDetail = (
     zoning:
       object.object_type === "land" || object.object_type === "unfinished" ? "review" : "ok",
     notes: [
-      "Требуется сопоставление данных disclosure с внешним registry source и внутренним реестром активов.",
+      "Cross-checking disclosure data with external registry sources and internal asset register required.",
     ],
   },
   mapContext: {
     region: object.region,
     district: object.region,
     geoNote:
-      "Демо-геоконтекст. В production-режиме может использоваться карта, кластеризация и сверка по адресным данным.",
+      "Demo geo-context. Production mode can utilize mapping, clustering, and address verification.",
   },
 });
 

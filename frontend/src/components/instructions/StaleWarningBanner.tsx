@@ -4,6 +4,7 @@
 
 import React from "react";
 import { AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Button from "../ui/Button";
 
 interface StaleWarningBannerProps {
@@ -18,6 +19,8 @@ const StaleWarningBanner: React.FC<StaleWarningBannerProps> = ({
   onRebase,
   isRebasing = false,
 }) => {
+  const { t } = useTranslation("instructions");
+
   return (
     <div className="flex items-start justify-between gap-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
       <div className="flex min-w-0 items-start gap-2.5">
@@ -27,22 +30,19 @@ const StaleWarningBanner: React.FC<StaleWarningBannerProps> = ({
         />
         <div className="min-w-0">
           <div className="text-xs font-semibold text-[var(--color-warning-text)]">
-            Override устарел
+            {t("staleWarningBanner.title")}
           </div>
           <p className="mt-0.5 text-[11px] text-[var(--color-warning-text)]">
-            Базовая версия инструкции была обновлена после создания этого
-            override. Текущий override помечен как stale и не может быть
-            активирован.
+            {t("staleWarningBanner.desc")}
           </p>
           {scope === "deal" && (
             <p className="mt-1 text-[11px] text-[var(--color-warning-text)]">
-              Выполните rebase — укажите новую базовую версию и при
-              необходимости скорректируйте patch operations.
+              {t("staleWarningBanner.dealDesc")}
             </p>
           )}
           {scope === "tenant" && (
             <p className="mt-1 text-[11px] text-[var(--color-warning-text)]">
-              Создайте новый override на актуальной базовой версии.
+              {t("staleWarningBanner.tenantDesc")}
             </p>
           )}
         </div>
@@ -57,7 +57,7 @@ const StaleWarningBanner: React.FC<StaleWarningBannerProps> = ({
           disabled={isRebasing}
           className="shrink-0"
         >
-          Rebase
+          {t("staleWarningBanner.rebaseBtn")}
         </Button>
       )}
     </div>
@@ -65,5 +65,3 @@ const StaleWarningBanner: React.FC<StaleWarningBannerProps> = ({
 };
 
 export default StaleWarningBanner;
-
-

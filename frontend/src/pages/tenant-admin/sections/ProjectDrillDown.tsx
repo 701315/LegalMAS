@@ -21,12 +21,13 @@
 //
 // State ownership:
 // - subTab, logsMode, projectLogsSince, correlation — здесь (нужно
-//   для инstruments shared между sub-tabs)
+//   для инструментов shared между sub-tabs)
 // - errorFilter, expandedErrorKey — внутри ProjectOverviewSection
 // - selectedLogIdx, copied — внутри ProjectLogsSection
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
 import type {
   LogsMode,
@@ -63,6 +64,7 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
   onBack,
   onOpenProject,
 }) => {
+  const { t, i18n } = useTranslation("tenantAdmin");
   const insightsQ = useProjectInsights(dealId);
   const [subTab, setSubTab] = React.useState<ProjectDrillTab>("overview");
 
@@ -98,7 +100,7 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
   const logs = projectLogsQ.data?.entries ?? [];
   const members = insights?.members ?? [];
   const membersCount = insights?.members_count ?? members.length;
-  const dealName = insights?.deal_name ?? "Проект";
+  const dealName = insights?.deal_name ?? t("drillDown.projectFallback");
 
   const handleCorrelationChange = React.useCallback(
     (
@@ -150,7 +152,7 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
               onClick={onBack}
               leftIcon={<ArrowLeft size={14} />}
             >
-              К списку
+              {t("drillDown.backToList")}
             </Button>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
@@ -158,9 +160,13 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
               </p>
               {insights?.created_at && (
                 <p className="text-[10px] text-[var(--text-muted)]">
-                  Создан {formatDate(insights.created_at)}
+                  {t("drillDown.created", {
+                    date: formatDate(insights.created_at, i18n.language) ?? "—",
+                  })}
                   {insights.last_activity_at
-                    ? ` · Активность: ${formatDateTime(insights.last_activity_at)}`
+                    ? t("drillDown.lastActivity", {
+                        date: formatDateTime(insights.last_activity_at, i18n.language),
+                      })
                     : ""}
                 </p>
               )}
@@ -171,21 +177,21 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
               active={subTab === "overview"}
               onClick={() => setSubTab("overview")}
             >
-              Обзор
+              {t("drillDown.tabs.overview")}
             </TabButton>
             <TabButton
               active={subTab === "members"}
               onClick={() => setSubTab("members")}
               badge={membersCount}
             >
-              Участники
+              {t("drillDown.tabs.members")}
             </TabButton>
             <TabButton
               active={subTab === "logs"}
               onClick={() => setSubTab("logs")}
               badge={logs.length}
             >
-              Логи
+              {t("drillDown.tabs.logs")}
             </TabButton>
             <Button
               size="sm"
@@ -193,7 +199,7 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
               onClick={() => onOpenProject(dealId)}
               leftIcon={<ExternalLink size={14} />}
             >
-              Открыть проект целиком
+              {t("drillDown.openFullProject")}
             </Button>
           </div>
         </div>
@@ -209,13 +215,13 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
         {insightsQ.isLoading && !insights ? (
           <div className="flex h-full items-center justify-center text-[var(--text-muted)]">
             <Loader2 size={20} className="animate-spin" />
-            <span className="ml-3 text-sm">Загружаем сводку по проекту…</span>
+            <span className="ml-3 text-sm">{t("drillDown.loading")}</span>
           </div>
         ) : insightsQ.error && !insights ? (
           <div className="flex h-full items-center justify-center p-5 text-center">
             <div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Не удалось загрузить сводку по проекту
+                {t("drillDown.loadError")}
               </p>
               <Button
                 size="sm"
@@ -223,7 +229,7 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
                 onClick={() => insightsQ.refetch()}
                 className="mt-3"
               >
-                Повторить
+                {t("actions.retry", { ns: "common" })}
               </Button>
             </div>
           </div>

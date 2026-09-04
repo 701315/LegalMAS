@@ -9,6 +9,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 import { useStickyViewportHeight } from "../../hooks/useStickyViewportHeight";
 
@@ -19,6 +20,7 @@ import { useStickyViewportHeight } from "../../hooks/useStickyViewportHeight";
 const BOTTOM_OFFSET_PX = 16;
 
 const FlowVisualRail: React.FC = () => {
+  const { t } = useTranslation("projects");
   const [ref, height] = useStickyViewportHeight<HTMLDivElement>({
     bottomOffset: BOTTOM_OFFSET_PX,
   });
@@ -31,7 +33,7 @@ const FlowVisualRail: React.FC = () => {
     >
       <img
         src="/newprojectpicture.png"
-        alt="Запуск нового проекта"
+        alt={t("newProject.visualAlt")}
         className="h-full w-full object-cover object-center"
       />
     </div>

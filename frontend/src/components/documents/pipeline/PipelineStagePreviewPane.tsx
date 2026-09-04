@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { X, Sparkles, Braces, Loader2 } from "lucide-react";
 import type {
   PipelineStageKind,
@@ -43,7 +44,7 @@ function getDefaultViewMode(stage: PipelineStageViewDTO): StageViewMode {
   return "canonical";
 }
 
-function getErrorMessage(err: unknown): string {
+function getErrorMessage(err: unknown, tFn: (key: string) => string): string {
   if (typeof err === "object" && err !== null) {
     const maybeDetail = (err as { detail?: unknown }).detail;
     if (typeof maybeDetail === "string" && maybeDetail.trim()) {
@@ -56,10 +57,10 @@ function getErrorMessage(err: unknown): string {
     }
   }
 
-  return "Не удалось переключить режим отображения стадии";
+  return tFn("stageModal.switchError");
 }
 
-function getToggleLabels(kind: PipelineStageKind): {
+function getToggleLabels(kind: PipelineStageKind, tFn: (key: string) => string): {
   toFriendly: string;
   toCanonical: string;
   toFriendlyTitle: string;
@@ -67,20 +68,18 @@ function getToggleLabels(kind: PipelineStageKind): {
 } {
   if (kind === "chunks") {
     return {
-      toFriendly: "RAG basis",
-      toCanonical: "Stage artifact",
-      toFriendlyTitle:
-        "Показать retrieval-visible corpus — то, на чём основан анализ рисков",
-      toCanonicalTitle:
-        "Показать полный canonical artifact этапа CHUNKS (все уровни)",
+      toFriendly: tFn("stageModal.toggle.chunksFriendly"),
+      toCanonical: tFn("stageModal.toggle.chunksCanonical"),
+      toFriendlyTitle: tFn("stageModal.toggle.chunksFriendlyTitle"),
+      toCanonicalTitle: tFn("stageModal.toggle.chunksCanonicalTitle"),
     };
   }
 
   return {
-    toFriendly: "Friendly формат",
-    toCanonical: "Canonical формат",
-    toFriendlyTitle: "Показать более удобный для чтения вид",
-    toCanonicalTitle: "Вернуться к каноническому результату этапа",
+    toFriendly: tFn("stageModal.toggle.genericFriendly"),
+    toCanonical: tFn("stageModal.toggle.genericCanonical"),
+    toFriendlyTitle: tFn("stageModal.toggle.genericFriendlyTitle"),
+    toCanonicalTitle: tFn("stageModal.toggle.genericCanonicalTitle"),
   };
 }
 
@@ -91,6 +90,7 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
   onOpenAtLocation,
   onClose,
 }) => {
+  const { t } = useTranslation("pipeline");
   const [currentStage, setCurrentStage] =
     React.useState<PipelineStageViewDTO | null>(stage);
   const [currentStages, setCurrentStages] =
@@ -132,7 +132,7 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
   const canToggleFriendly =
     supportsFriendlyMode(resolvedStage) && resolvedStage.status === "ready";
 
-  const toggleLabels = getToggleLabels(resolvedStage.kind);
+  const toggleLabels = getToggleLabels(resolvedStage.kind, t);
 
   async function handleToggleViewMode() {
     if (!documentId || !canToggleFriendly || loading) return;
@@ -163,7 +163,7 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
       setCurrentStage(updatedStage);
       setViewMode(nextViewMode);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setLoading(false);
     }
@@ -203,7 +203,7 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
       default:
         return (
           <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
-            Для этой стадии пока нет viewer.
+            {t("stageModal.noViewer")}
           </div>
         );
     }
@@ -254,7 +254,7 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
               {loading ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  Переключение...
+                  {t("stageModal.switching")}
                 </>
               ) : viewMode === "canonical" ? (
                 <>
@@ -275,7 +275,7 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
             onClick={onClose}
             disabled={loading}
             className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="Закрыть панель стадии пайплайна"
+            aria-label={t("stageModal.closePanelAria")}
           >
             <X size={16} />
           </button>

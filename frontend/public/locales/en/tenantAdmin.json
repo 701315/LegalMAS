@@ -1,4 +1,46 @@
 {
+  "alertsPanel": {
+    "loading": "Loading alerts…",
+    "loadError": "Failed to load alerts. Make sure Alertmanager is running.",
+    "unavailable": {
+      "title": "Alertmanager is unavailable",
+      "desc": "Ensure the mas_alertmanager container is running and accessible at ALERTMANAGER_INTERNAL_URL."
+    },
+    "severity": {
+      "critical": "CRITICAL",
+      "warning": "WARNING",
+      "info": "INFO",
+      "all": "All Severities",
+      "onlyCritical": "Critical Only",
+      "onlyWarning": "Warning Only",
+      "onlyInfo": "Info Only"
+    },
+    "duration": {
+      "seconds": "{{count}}s",
+      "minutes": "{{count}}m",
+      "hours": "{{count}}h",
+      "days": "{{count}}d"
+    },
+    "cards": {
+      "started": "Started: {{time}}",
+      "duration": "Duration: {{duration}}",
+      "state": "State: {{state}}",
+      "description": "Description:",
+      "openInSource": "Open in source →"
+    },
+    "summary": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Info",
+      "total": "Total"
+    },
+    "empty": {
+      "noActive": "No active alerts",
+      "noWithSeverity": "No alerts with selected severity",
+      "workingFine": "System is operating normally"
+    },
+    "footer": "Auto-refreshes every 30 seconds · Last updated: {{time}}"
+  },
   "loading": "Loading admin dashboard…",
   "error": {
     "loadFailed": "Failed to load dashboard",
@@ -84,7 +126,206 @@
       "event": "Event",
       "seenRange": "First: {{first}} · Last: {{last}}",
       "rawJson": "Raw JSON"
-    }  
+    }
+  },
+  "projectsTab": {
+    "noProjects": "No projects",
+    "headers": {
+      "project": "Project",
+      "documents": "Documents",
+      "lastAnalysis": "Last Analysis",
+      "progress": "Progress"
+    }
+  },
+  "usersTab": {
+    "noUsers": "No users",
+    "headers": {
+      "user": "User",
+      "role": "Role",
+      "status": "Status",
+      "projects": "Projects",
+      "added": "Added"
+    }
+  },
+  "drillDown": {
+    "projectFallback": "Project",
+    "backToList": "Back to list",
+    "created": "Created {{date}}",
+    "lastActivity": " · Activity: {{date}}",
+    "loading": "Loading project summary…",
+    "loadError": "Failed to load project summary",
+    "tabs": {
+      "overview": "Overview",
+      "members": "Members",
+      "logs": "Logs"
+    },
+    "openFullProject": "Open full project",
+    "logs": {
+      "period": "Period:",
+      "shownCount": "Shown {{count}}",
+      "hiddenCount": " · hidden info: {{count}}",
+      "lokiUnavailableDegraded": "Loki is temporarily unavailable.",
+      "noOperationalLogsFound": "No error events found. Switch to \"Debug\" or use the \"Problems & errors\" section in the Overview — database records are always available.",
+      "noLogsFoundDebug": "Logs not found in Loki. They might have been purged by retention — see \"Problems & errors\" in the Overview."
+    },
+    "overview": {
+      "documents": {
+        "title": "Documents",
+        "subtitle": "Document summary for this project"
+      },
+      "all": "Total",
+      "errors": "Errors",
+      "quarantine": "Quarantine",
+      "reviewed": "Reviewed by person",
+      "byStatus": "By status",
+      "byDocType": "By document type",
+      "runs": {
+        "title": "Analyses (runs)",
+        "subtitle": "Analysis run history for this project"
+      },
+      "successful": "Successful",
+      "failed": "Failed",
+      "avgDuration": "Average duration",
+      "recentRuns": "Recent runs",
+      "headers": {
+        "status": "Status",
+        "progress": "Progress",
+        "started": "Started",
+        "completed": "Completed",
+        "type": "Type",
+        "object": "Object",
+        "statusStage": "Status / Stage",
+        "error": "Error"
+      },
+      "logs": "Logs",
+      "problems": {
+        "title": "Problems & Errors",
+        "subtitle": "PostgreSQL history — always available, regardless of log retention policies",
+        "docsFailed": "Documents failed",
+        "docsQuarantine": "Documents in quarantine",
+        "runsFailed": "Runs failed",
+        "runsWithErrors": "Runs completed with errors",
+        "noErrors": "No recorded errors in this project 🎉",
+        "noFilteredRecords": "No records match selected filter",
+        "truncated": "Showing last {{count}} records. Total errors count is higher — use filters or query database directly."
+      },
+      "filters": {
+        "all": "All",
+        "documents": "Documents",
+        "runs": "Runs"
+      }
+    }
+  },
+  "monitoringTab": {
+    "loading": "Loading metrics…",
+    "loadError": "Failed to load metrics",
+    "prometheus": "Prometheus",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "updatedAt": "Updated: {{date}}",
+    "dlqSize": "DLQ size",
+    "activeRuns": "Active runs",
+    "stuckExecutions": "Stuck executions",
+    "infrastructureHint": "Prometheus metrics are global and infrastructure-level. For project-specific metrics, open the project in the \"Projects\" tab.",
+    "degradedMode": "Metrics are temporarily unavailable — degraded mode.",
+    "pipeline": "Pipeline",
+    "docsLastHour": "Documents in the last hour",
+    "processedHour": "Processed / 1h",
+    "failedHour": "Failed / 1h",
+    "api": {
+      "title": "API",
+      "subtitle": "Top 5 endpoints by request volume per hour",
+      "noData": "No data — metrics will appear once traffic is processed.",
+      "promUnavailable": "Prometheus is unavailable.",
+      "headers": {
+        "endpoint": "Endpoint",
+        "requests": "Requests",
+        "errors": "Errors",
+        "p95": "P95"
+      }
+    },
+    "llm": {
+      "title": "LLM",
+      "subtitle": "Requests and timeouts per hour",
+      "noData": "No LLM metrics — they will appear after a pipeline run.",
+      "headers": {
+        "requests": "Requests",
+        "timeouts": "Timeouts"
+      }
+    },
+    "celery": {
+      "title": "Celery",
+      "subtitle": "Task failures per hour",
+      "noData": "No Celery failures in the last hour.",
+      "headers": {
+        "task": "Task",
+        "failures": "Failures",
+        "types": "Types"
+      }
+    }
+  },
+  "logsTab": {
+    "allProjects": "All projects",
+    "reset": "✕ reset",
+    "labels": {
+      "project": "Project",
+      "level": "Level",
+      "stage": "Stage",
+      "queue": "Queue",
+      "period": "Period",
+      "limit": "Limit"
+    },
+    "periodOptions": {
+      "15": "15 minutes",
+      "60": "1 hour",
+      "180": "3 hours",
+      "1440": "24 hours",
+      "10080": "7 days"
+    },
+    "options": {
+      "all": "All"
+    },
+    "loki": {
+      "label": "Loki",
+      "available": "Available",
+      "unavailable": "Unavailable",
+      "shown": "Shown",
+      "hiddenInfo": "Hidden info",
+      "mode": "Mode",
+      "modeEvents": "Events",
+      "modeDebug": "Debug"
+    },
+    "loading": "Loading logs…",
+    "loadError": "Failed to load logs",
+    "lokiUnavailable": "Loki is unavailable",
+    "noLogsFound": "Logs not found — change filters or period."
+  },
+  "filters": {
+    "since": {
+      "15min": "15 min",
+      "1h": "1 hour",
+      "4h": "4 hours",
+      "24h": "24 hours",
+      "48h": "48 hours",
+      "7d": "7 days",
+      "30d": "30 days",
+      "allTime": "All time"
+    }
+  },
+  "roleLabels": {
+    "superadmin": "Super Administrator",
+    "tenant_admin": "Administrator",
+    "member": "Member",
+    "projectAdmin": "Administrator",
+    "projectEditor": "Editor",
+    "projectViewer": "Viewer"
+  },
+  "runStatusLabels": {
+    "completed": "Completed",
+    "completed_with_errors": "With errors",
+    "failed": "Failed",
+    "running": "Running",
+    "pending": "Queued"
   }
 }
 

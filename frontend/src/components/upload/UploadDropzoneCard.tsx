@@ -1,7 +1,8 @@
-//src/components/upload/UploadDropzoneCard.tsx
+// src/components/upload/UploadDropzoneCard.tsx
 
 import React from "react";
 import { HardDriveUpload } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Button from "../ui/Button";
 
 interface UploadDropzoneCardProps {
@@ -27,6 +28,8 @@ const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
   onPickFiles,
   onPickFolder,
 }) => {
+  const { t } = useTranslation("documents");
+
   return (
     <section className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
       <div className="flex h-full min-h-[220px] flex-col">
@@ -47,12 +50,11 @@ const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
           </div>
 
           <h2 className="mt-4 text-sm font-semibold text-[var(--text-primary)]">
-            Перетащите документы сюда
+            {t("upload.dropzone.title")}
           </h2>
 
           <p className="mt-2 max-w-md text-xs leading-5 text-[var(--text-secondary)]">
-            Поддерживается загрузка отдельных файлов или содержимого папки.
-            После подготовки набора можно перейти к загрузке в проект.
+            {t("upload.dropzone.desc")}
           </p>
 
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -63,7 +65,7 @@ const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
               onClick={onPickFiles}
               disabled={isSubmitting}
             >
-              Выбрать файлы
+              {t("upload.dropzone.pickFiles")}
             </Button>
 
             <Button
@@ -73,15 +75,15 @@ const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
               onClick={onPickFolder}
               disabled={isSubmitting}
             >
-              Выбрать папку
+              {t("upload.dropzone.pickFolder")}
             </Button>
           </div>
         </div>
 
         <div className="mt-3 text-xs text-[var(--text-muted)]">
           {selectedCount > 0
-            ? `Подготовлено файлов: ${selectedCount}`
-            : "Файлы ещё не выбраны"}
+            ? t("upload.dropzone.preparedCount", { count: selectedCount })
+            : t("upload.dropzone.noFiles")}
         </div>
       </div>
     </section>
@@ -89,4 +91,5 @@ const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
 };
 
 export default UploadDropzoneCard;
+
 

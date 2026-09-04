@@ -2,6 +2,7 @@
 
 import React from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Button from "./Button";
 
 interface DrawerProps {
@@ -24,6 +25,7 @@ const Drawer: React.FC<DrawerProps> = ({
   children,
   footer,
 }) => {
+  const { t } = useTranslation("common");
   const titleId = React.useId();
   const descriptionId = React.useId();
 
@@ -149,7 +151,7 @@ const Drawer: React.FC<DrawerProps> = ({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              aria-label="Закрыть"
+              aria-label={t("actions.close")}
               className="px-2 py-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
               <X size={16} />
@@ -170,7 +172,5 @@ const Drawer: React.FC<DrawerProps> = ({
 };
 
 export default Drawer;
-
-
 
 

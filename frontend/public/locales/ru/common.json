@@ -1,4 +1,30 @@
 {
+  "refresh": "Обновить",
+  "severities": {
+    "critical": "Критический",
+    "high": "Высокий",
+    "medium": "Средний",
+    "pass": "Пройдено",
+    "unclear": "Не определено"
+  },
+  "qcStatus": {
+    "approved": "Одобрено",
+    "rejected": "Отклонено",
+    "needs_review": "Нужна проверка",
+    "pending": "В ожидании",
+    "ariaTitle": "Статус QC: {{status}}"
+  },
+  "loadingBlock": {
+    "text": "Загрузка данных…"
+  },
+  "button": {
+    "loading": "Загрузка…",
+    "loadingSrOnly": "Кнопка занята, идёт выполнение действия"
+  },
+  "accessDenied": {
+    "title": "Нет доступа",
+    "message": "У вас нет прав для просмотра этой страницы. Обратитесь к администратору проекта, если считаете, что это ошибка."
+  },
   "actions": {
     "cancel": "Отмена",
     "save": "Сохранить",
@@ -9,7 +35,8 @@
     "delete": "Удалить",
     "deleting": "Удаление...",
     "edit": "Редактировать",
-    "create": "Создать"
+    "create": "Создать",
+    "back": "Назад"
   },
   "dialogs": {
     "confirmation": "Подтверждение"
@@ -18,7 +45,14 @@
     "placeholder": "Поиск...",
     "clear": "Очистить поиск"
   },
+  "projectLoadError": "Ошибка загрузки проекта",
   "loading": "Загрузка...",
+  "priorities": {
+    "critical": "Критичный",
+    "high": "Высокий",
+    "medium": "Средний",
+    "low": "Низкий"
+  },
   "auditActions": {
     "IMPORT": "Импорт",
     "EXPORT": "Экспорт",
@@ -32,6 +66,27 @@
     "SET_DEAL_PLAYBOOK": "Изменение playbook сделки",
     "RECLASSIFY": "Переклассификация",
     "YAML_INSTRUCTION_APPLY": "Применение YAML-инструкции"
+  },
+  "languages": {
+    "RU": "Русский (RU)",
+    "EN": "Английский (EN)"
+  },
+  "errors": {
+    "apiFallback": "Произошла ошибка."
+  },
+  "timeAgo": {
+    "minutes_one": "{{count}} минута назад",
+    "minutes_few": "{{count}} минуты назад",
+    "minutes_many": "{{count}} минут назад",
+    "minutes_other": "{{count}} минут назад",
+    "hours_one": "{{count}} час назад",
+    "hours_few": "{{count}} часа назад",
+    "hours_many": "{{count}} часов назад",
+    "hours_other": "{{count}} часов назад",
+    "days_one": "{{count}} день назад",
+    "days_few": "{{count}} дня назад",
+    "days_many": "{{count}} дней назад",
+    "days_other": "{{count}} дней назад"
   }
 }
 

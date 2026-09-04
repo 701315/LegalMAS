@@ -3,6 +3,7 @@
 // Визуальный редактор для global instruction.
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import * as jsyaml from "js-yaml";
 import { AlertCircle, Plus, Trash2 } from "lucide-react";
 
@@ -303,10 +304,11 @@ const StringListEditor: React.FC<StringListEditorProps> = ({
   label,
   values,
   onChange,
-  placeholder = "Добавить...",
+  placeholder,
   hint,
   mono = false,
 }) => {
+  const { t } = useTranslation("instructions");
   const [draft, setDraft] = useState("");
 
   const handleAdd = useCallback(() => {
@@ -355,7 +357,7 @@ const StringListEditor: React.FC<StringListEditorProps> = ({
                   type="button"
                   onClick={() => handleRemove(idx)}
                   className="shrink-0 text-[var(--text-muted)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
-                  aria-label={`Удалить: ${v}`}
+                  aria-label={t("globalEditor.shared.deleteAria", { value: v })}
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -370,7 +372,7 @@ const StringListEditor: React.FC<StringListEditorProps> = ({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
+            placeholder={placeholder ?? t("globalEditor.shared.addPlaceholder")}
             className={[inputCls, mono ? "font-mono" : "", "flex-1"].join(" ")}
           />
           <Button
@@ -380,7 +382,7 @@ const StringListEditor: React.FC<StringListEditorProps> = ({
             onClick={handleAdd}
             leftIcon={<Plus />}
           >
-            Добавить
+            {t("globalEditor.shared.add")}
           </Button>
         </div>
       </div>
@@ -418,407 +420,422 @@ interface SectionProps {
   onChange: (patch: Partial<EditorState>) => void;
 }
 
-const BasicSection: React.FC<SectionProps> = ({ state, onChange }) => (
-  <div className="space-y-4">
-    <SectionTitle>Идентификация</SectionTitle>
-    <FieldGrid>
-      <Field label="ID инструкции" required>
+const BasicSection: React.FC<SectionProps> = ({ state, onChange }) => {
+  const { t } = useTranslation("instructions");
+  return (
+    <div className="space-y-4">
+      <SectionTitle>{t("globalEditor.basic.identification")}</SectionTitle>
+      <FieldGrid>
+        <Field label={t("globalEditor.basic.idLabel")} required>
+          <input
+            type="text"
+            value={state.id}
+            onChange={(e) => onChange({ id: e.target.value })}
+            className={inputCls}
+            placeholder="confidentiality_and_trade_secrets"
+          />
+        </Field>
+        <Field label={t("globalEditor.basic.groupLabel")}>
+          <input
+            type="text"
+            value={state.group}
+            onChange={(e) => onChange({ group: e.target.value })}
+            className={inputCls}
+            placeholder="Confidentiality"
+          />
+        </Field>
+      </FieldGrid>
+
+      <Field label={t("globalEditor.basic.nameLabel")} required>
         <input
           type="text"
-          value={state.id}
-          onChange={(e) => onChange({ id: e.target.value })}
+          value={state.name}
+          onChange={(e) => onChange({ name: e.target.value })}
           className={inputCls}
-          placeholder="confidentiality_and_trade_secrets"
+          placeholder="Confidentiality and trade secrets"
         />
       </Field>
-      <Field label="Группа (group)">
+
+      <Field
+        label={t("globalEditor.basic.descriptionLabel")}
+        hint={t("globalEditor.basic.descriptionHint")}
+      >
+        <textarea
+          value={state.description}
+          onChange={(e) => onChange({ description: e.target.value })}
+          className={textareaCls}
+          rows={4}
+          placeholder="Screening-check: determines presence of a confidentiality regime..."
+        />
+      </Field>
+
+      <SectionTitle>{t("globalEditor.basic.applicability")}</SectionTitle>
+      <StringListEditor
+        label={t("globalEditor.basic.docTypesLabel")}
+        values={state.doc_types}
+        onChange={(v) => onChange({ doc_types: v })}
+        placeholder="contract_nda, contract_spa..."
+        hint={t("globalEditor.basic.docTypesHint")}
+      />
+
+      <SectionTitle>{t("globalEditor.basic.severity")}</SectionTitle>
+      <FieldGrid cols={2}>
+        <Field label={t("globalEditor.basic.baseSeverity")}>
+          <select
+            value={state.severity}
+            onChange={(e) => onChange({ severity: e.target.value })}
+            className={selectCls}
+          >
+            {["critical", "high", "medium", "low", "info"].map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t("globalEditor.basic.uiMode")}>
+          <select
+            value={state.ui_mode}
+            onChange={(e) => onChange({ ui_mode: e.target.value })}
+            className={selectCls}
+          >
+            <option value="">{t("globalEditor.shared.none")}</option>
+            <option value="field_extraction">field_extraction</option>
+            <option value="clause_presence">clause_presence</option>
+            <option value="risk_detection">risk_detection</option>
+          </select>
+        </Field>
+      </FieldGrid>
+
+      <FieldGrid cols={3}>
+        <Field label={t("globalEditor.basic.severityIfFail")} hint={t("globalEditor.basic.severityIfFailHint")}>
+          <select
+            value={state.severity_if_fail}
+            onChange={(e) => onChange({ severity_if_fail: e.target.value })}
+            className={selectCls}
+          >
+            <option value="">{t("globalEditor.shared.inherit")}</option>
+            {["critical", "high", "medium", "low", "info", "pass"].map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t("globalEditor.basic.severityIfPass")} hint={t("globalEditor.basic.severityIfPassHint")}>
+          <select
+            value={state.severity_if_pass}
+            onChange={(e) => onChange({ severity_if_pass: e.target.value })}
+            className={selectCls}
+          >
+            <option value="">{t("globalEditor.shared.inherit")}</option>
+            {["critical", "high", "medium", "low", "info", "pass"].map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t("globalEditor.basic.severityIfUnclear")} hint={t("globalEditor.basic.severityIfUnclearHint")}>
+          <select
+            value={state.severity_if_unclear}
+            onChange={(e) => onChange({ severity_if_unclear: e.target.value })}
+            className={selectCls}
+          >
+            <option value="">{t("globalEditor.shared.inherit")}</option>
+            {["critical", "high", "medium", "low", "info", "pass"].map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </FieldGrid>
+    </div>
+  );
+};
+
+const DetectionSection: React.FC<SectionProps> = ({ state, onChange }) => {
+  const { t } = useTranslation("instructions");
+  return (
+    <div className="space-y-4">
+      <SectionTitle>{t("globalEditor.detection.detector")}</SectionTitle>
+      <FieldGrid>
+        <Field label={t("globalEditor.detection.detectorType")}>
+          <select
+            value={state.detector_type}
+            onChange={(e) => onChange({ detector_type: e.target.value })}
+            className={selectCls}
+          >
+            <option value="hybrid">hybrid</option>
+            <option value="rules">rules</option>
+            <option value="llm">llm</option>
+          </select>
+        </Field>
+        <Field label={t("globalEditor.detection.keywordMode")}>
+          <select
+            value={state.keyword_mode}
+            onChange={(e) => onChange({ keyword_mode: e.target.value })}
+            className={selectCls}
+          >
+            <option value="any">any</option>
+            <option value="all">all</option>
+          </select>
+        </Field>
+      </FieldGrid>
+
+      <SectionTitle>{t("globalEditor.detection.keywords")}</SectionTitle>
+
+      <StringListEditor
+        label={t("globalEditor.detection.keywordsHigh")}
+        values={state.keywords_high}
+        onChange={(v) => onChange({ keywords_high: v })}
+        placeholder="(?i)confidential\\s+information"
+        hint={t("globalEditor.detection.keywordsHighHint")}
+        mono
+      />
+
+      <StringListEditor
+        label={t("globalEditor.detection.keywordsMedium")}
+        values={state.keywords_medium}
+        onChange={(v) => onChange({ keywords_medium: v })}
+        placeholder="(?i)confidentiality\\s+period"
+        mono
+      />
+
+      <StringListEditor
+        label={t("globalEditor.detection.keywordsLow")}
+        values={state.keywords_low}
+        onChange={(v) => onChange({ keywords_low: v })}
+        placeholder="(?i)confidential"
+        mono
+      />
+
+      <SectionTitle>{t("globalEditor.detection.regexPatterns")}</SectionTitle>
+      <StringListEditor
+        label={t("globalEditor.detection.regexPatterns")}
+        values={state.regex_patterns}
+        onChange={(v) => onChange({ regex_patterns: v })}
+        placeholder="(?i)pattern..."
+        mono
+      />
+    </div>
+  );
+};
+
+const LlmSection: React.FC<SectionProps> = ({ state, onChange }) => {
+  const { t } = useTranslation("instructions");
+  return (
+    <div className="space-y-4">
+      <SectionTitle>{t("globalEditor.llm.title")}</SectionTitle>
+      <Field
+        label={t("globalEditor.llm.promptFile")}
+        hint={t("globalEditor.llm.promptFileHint")}
+      >
         <input
           type="text"
-          value={state.group}
-          onChange={(e) => onChange({ group: e.target.value })}
+          value={state.llm_prompt_file}
+          onChange={(e) => onChange({ llm_prompt_file: e.target.value })}
           className={inputCls}
-          placeholder="Confidentiality"
+          placeholder="detection/generic_presence.txt"
         />
       </Field>
-    </FieldGrid>
 
-    <Field label="Название" required>
-      <input
-        type="text"
-        value={state.name}
-        onChange={(e) => onChange({ name: e.target.value })}
-        className={inputCls}
-        placeholder="Конфиденциальность и коммерческая тайна"
-      />
-    </Field>
+      <FieldGrid cols={3}>
+        <Field label={t("globalEditor.llm.contextK")} hint={t("globalEditor.llm.contextKHint")}>
+          <input
+            type="number"
+            value={state.llm_context_k}
+            min={1}
+            max={20}
+            onChange={(e) => onChange({ llm_context_k: Number(e.target.value) })}
+            className={inputCls}
+          />
+        </Field>
+        <Field label={t("globalEditor.llm.temperature")}>
+          <input
+            type="number"
+            value={state.llm_temperature}
+            min={0}
+            max={2}
+            step={0.1}
+            onChange={(e) =>
+              onChange({ llm_temperature: Number(e.target.value) })
+            }
+            className={inputCls}
+          />
+        </Field>
+        <Field label={t("globalEditor.llm.maxTokens")}>
+          <input
+            type="number"
+            value={state.llm_max_tokens}
+            min={100}
+            max={4000}
+            step={50}
+            onChange={(e) => onChange({ llm_max_tokens: Number(e.target.value) })}
+            className={inputCls}
+          />
+        </Field>
+      </FieldGrid>
+    </div>
+  );
+};
 
-    <Field
-      label="Описание"
-      hint="Подробное описание того, что проверяет инструкция"
-    >
-      <textarea
-        value={state.description}
-        onChange={(e) => onChange({ description: e.target.value })}
-        className={textareaCls}
-        rows={4}
-        placeholder="Screening-check: определяет наличие режима конфиденциальности..."
-      />
-    </Field>
+const RetrievalSection: React.FC<SectionProps> = ({ state, onChange }) => {
+  const { t } = useTranslation("instructions");
+  return (
+    <div className="space-y-4">
+      <SectionTitle>{t("globalEditor.retrieval.title")}</SectionTitle>
+      <FieldGrid>
+        <Field label={t("globalEditor.retrieval.contextK")} hint={t("globalEditor.retrieval.contextKHint")}>
+          <input
+            type="number"
+            value={state.retrieval_context_k}
+            min={1}
+            max={20}
+            onChange={(e) =>
+              onChange({ retrieval_context_k: Number(e.target.value) })
+            }
+            className={inputCls}
+          />
+        </Field>
+        <Field label={t("globalEditor.retrieval.maxChunks")}>
+          <input
+            type="number"
+            value={state.retrieval_max_chunks}
+            min={1}
+            max={50}
+            onChange={(e) =>
+              onChange({ retrieval_max_chunks: Number(e.target.value) })
+            }
+            className={inputCls}
+          />
+        </Field>
+      </FieldGrid>
 
-    <SectionTitle>Применимость</SectionTitle>
-    <StringListEditor
-      label="Типы документов (doc_types)"
-      values={state.doc_types}
-      onChange={(v) => onChange({ doc_types: v })}
-      placeholder="contract_nda, contract_spa..."
-      hint="Оставьте пустым — применяется ко всем типам"
-    />
-
-    <SectionTitle>Severity</SectionTitle>
-    <FieldGrid cols={2}>
-      <Field label="Базовый severity">
-        <select
-          value={state.severity}
-          onChange={(e) => onChange({ severity: e.target.value })}
-          className={selectCls}
-        >
-          {["critical", "high", "medium", "low", "info"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="UI режим">
-        <select
-          value={state.ui_mode}
-          onChange={(e) => onChange({ ui_mode: e.target.value })}
-          className={selectCls}
-        >
-          <option value="">— не задан —</option>
-          <option value="field_extraction">field_extraction</option>
-          <option value="clause_presence">clause_presence</option>
-          <option value="risk_detection">risk_detection</option>
-        </select>
-      </Field>
-    </FieldGrid>
-
-    <FieldGrid cols={3}>
-      <Field label="severity_if_fail" hint="Severity при fail">
-        <select
-          value={state.severity_if_fail}
-          onChange={(e) => onChange({ severity_if_fail: e.target.value })}
-          className={selectCls}
-        >
-          <option value="">— наследует базовый —</option>
-          {["critical", "high", "medium", "low", "info", "pass"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="severity_if_pass" hint="Severity при pass">
-        <select
-          value={state.severity_if_pass}
-          onChange={(e) => onChange({ severity_if_pass: e.target.value })}
-          className={selectCls}
-        >
-          <option value="">— наследует базовый —</option>
-          {["critical", "high", "medium", "low", "info", "pass"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="severity_if_unclear" hint="Severity при unclear">
-        <select
-          value={state.severity_if_unclear}
-          onChange={(e) => onChange({ severity_if_unclear: e.target.value })}
-          className={selectCls}
-        >
-          <option value="">— наследует базовый —</option>
-          {["critical", "high", "medium", "low", "info", "pass"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </Field>
-    </FieldGrid>
-  </div>
-);
-
-const DetectionSection: React.FC<SectionProps> = ({ state, onChange }) => (
-  <div className="space-y-4">
-    <SectionTitle>Детектор</SectionTitle>
-    <FieldGrid>
-      <Field label="Тип детектора">
-        <select
-          value={state.detector_type}
-          onChange={(e) => onChange({ detector_type: e.target.value })}
-          className={selectCls}
-        >
-          <option value="hybrid">hybrid</option>
-          <option value="rules">rules</option>
-          <option value="llm">llm</option>
-        </select>
-      </Field>
-      <Field label="Режим keywords">
-        <select
-          value={state.keyword_mode}
-          onChange={(e) => onChange({ keyword_mode: e.target.value })}
-          className={selectCls}
-        >
-          <option value="any">any</option>
-          <option value="all">all</option>
-        </select>
-      </Field>
-    </FieldGrid>
-
-    <SectionTitle>Keywords</SectionTitle>
-
-    <StringListEditor
-      label="High priority keywords"
-      values={state.keywords_high}
-      onChange={(v) => onChange({ keywords_high: v })}
-      placeholder="(?i)confidential\\s+information"
-      hint="Regex паттерны с высоким приоритетом"
-      mono
-    />
-
-    <StringListEditor
-      label="Medium priority keywords"
-      values={state.keywords_medium}
-      onChange={(v) => onChange({ keywords_medium: v })}
-      placeholder="(?i)confidentiality\\s+period"
-      mono
-    />
-
-    <StringListEditor
-      label="Low priority keywords"
-      values={state.keywords_low}
-      onChange={(v) => onChange({ keywords_low: v })}
-      placeholder="(?i)confidential"
-      mono
-    />
-
-    <SectionTitle>Regex patterns</SectionTitle>
-    <StringListEditor
-      label="Regex patterns"
-      values={state.regex_patterns}
-      onChange={(v) => onChange({ regex_patterns: v })}
-      placeholder="(?i)pattern..."
-      mono
-    />
-  </div>
-);
-
-const LlmSection: React.FC<SectionProps> = ({ state, onChange }) => (
-  <div className="space-y-4">
-    <SectionTitle>LLM конфигурация</SectionTitle>
-    <Field
-      label="Prompt file"
-      hint="Путь к файлу промпта относительно playbooks/"
-    >
-      <input
-        type="text"
-        value={state.llm_prompt_file}
-        onChange={(e) => onChange({ llm_prompt_file: e.target.value })}
-        className={inputCls}
-        placeholder="detection/generic_presence.txt"
-      />
-    </Field>
-
-    <FieldGrid cols={3}>
-      <Field label="Context K" hint="Кол-во чанков контекста">
-        <input
-          type="number"
-          value={state.llm_context_k}
-          min={1}
-          max={20}
-          onChange={(e) => onChange({ llm_context_k: Number(e.target.value) })}
-          className={inputCls}
+      <Field
+        label={t("globalEditor.retrieval.query")}
+        hint={t("globalEditor.retrieval.queryHint")}
+      >
+        <textarea
+          value={state.retrieval_query}
+          onChange={(e) => onChange({ retrieval_query: e.target.value })}
+          className={textareaCls}
+          rows={3}
+          placeholder={t("globalEditor.retrieval.queryPlaceholder")}
         />
       </Field>
-      <Field label="Temperature">
-        <input
-          type="number"
-          value={state.llm_temperature}
-          min={0}
-          max={2}
-          step={0.1}
-          onChange={(e) =>
-            onChange({ llm_temperature: Number(e.target.value) })
-          }
-          className={inputCls}
-        />
+
+      <Field label={t("globalEditor.retrieval.rerank")}>
+        <label className="inline-flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={state.rerank}
+            onChange={(e) => onChange({ rerank: e.target.checked })}
+            className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--accent-primary)]"
+          />
+          <span className="text-xs text-[var(--text-secondary)]">
+            {t("globalEditor.retrieval.rerankLabel")}
+          </span>
+        </label>
       </Field>
-      <Field label="Max tokens">
-        <input
-          type="number"
-          value={state.llm_max_tokens}
-          min={100}
-          max={4000}
-          step={50}
-          onChange={(e) => onChange({ llm_max_tokens: Number(e.target.value) })}
-          className={inputCls}
-        />
-      </Field>
-    </FieldGrid>
-  </div>
-);
 
-const RetrievalSection: React.FC<SectionProps> = ({ state, onChange }) => (
-  <div className="space-y-4">
-    <SectionTitle>Параметры retrieval</SectionTitle>
-    <FieldGrid>
-      <Field label="Context K" hint="Кол-во релевантных чанков">
-        <input
-          type="number"
-          value={state.retrieval_context_k}
-          min={1}
-          max={20}
-          onChange={(e) =>
-            onChange({ retrieval_context_k: Number(e.target.value) })
-          }
-          className={inputCls}
-        />
-      </Field>
-      <Field label="Max chunks">
-        <input
-          type="number"
-          value={state.retrieval_max_chunks}
-          min={1}
-          max={50}
-          onChange={(e) =>
-            onChange({ retrieval_max_chunks: Number(e.target.value) })
-          }
-          className={inputCls}
-        />
-      </Field>
-    </FieldGrid>
-
-    <Field
-      label="Retrieval query"
-      hint="Семантический запрос для поиска релевантных фрагментов"
-    >
-      <textarea
-        value={state.retrieval_query}
-        onChange={(e) => onChange({ retrieval_query: e.target.value })}
-        className={textareaCls}
-        rows={3}
-        placeholder="конфиденциальная информация NDA..."
-      />
-    </Field>
-
-    <Field label="Rerank">
-      <label className="inline-flex cursor-pointer items-center gap-2">
-        <input
-          type="checkbox"
-          checked={state.rerank}
-          onChange={(e) => onChange({ rerank: e.target.checked })}
-          className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--accent-primary)]"
-        />
-        <span className="text-xs text-[var(--text-secondary)]">
-          Включить reranking результатов
-        </span>
-      </label>
-    </Field>
-
-    <SectionTitle>Boost / Negative keywords</SectionTitle>
-    <StringListEditor
-      label="Boost keywords"
-      values={state.boost_keywords}
-      onChange={(v) => onChange({ boost_keywords: v })}
-      placeholder="конфиденциальная информация"
-      hint="Повышают релевантность чанков"
-    />
-    <StringListEditor
-      label="Negative keywords"
-      values={state.negative_keywords}
-      onChange={(v) => onChange({ negative_keywords: v })}
-      placeholder="означает"
-      hint="Снижают релевантность чанков"
-    />
-
-    <SectionTitle>Фильтры по типам</SectionTitle>
-    <FieldGrid>
+      <SectionTitle>{t("globalEditor.retrieval.boostNegative")}</SectionTitle>
       <StringListEditor
-        label="Preferred unit types"
-        values={state.preferred_unit_types}
-        onChange={(v) => onChange({ preferred_unit_types: v })}
-        placeholder="confidentiality"
+        label={t("globalEditor.retrieval.boostKeywords")}
+        values={state.boost_keywords}
+        onChange={(v) => onChange({ boost_keywords: v })}
+        placeholder="confidential information"
+        hint={t("globalEditor.retrieval.boostKeywordsHint")}
       />
       <StringListEditor
-        label="Excluded unit types"
-        values={state.excluded_unit_types}
-        onChange={(v) => onChange({ excluded_unit_types: v })}
-        placeholder="definition"
+        label={t("globalEditor.retrieval.negativeKeywords")}
+        values={state.negative_keywords}
+        onChange={(v) => onChange({ negative_keywords: v })}
+        placeholder="means"
+        hint={t("globalEditor.retrieval.negativeKeywordsHint")}
       />
-    </FieldGrid>
-    <StringListEditor
-      label="Preferred clause functions"
-      values={state.preferred_clause_functions}
-      onChange={(v) => onChange({ preferred_clause_functions: v })}
-      placeholder="obligations"
-    />
-  </div>
-);
 
-const EvidenceSection: React.FC<SectionProps> = ({ state, onChange }) => (
-  <div className="space-y-4">
-    <SectionTitle>Evidence настройки</SectionTitle>
-
-    <Field label="Required">
-      <label className="inline-flex cursor-pointer items-center gap-2">
-        <input
-          type="checkbox"
-          checked={state.evidence_required}
-          onChange={(e) => onChange({ evidence_required: e.target.checked })}
-          className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--accent-primary)]"
+      <SectionTitle>{t("globalEditor.retrieval.typeFilters")}</SectionTitle>
+      <FieldGrid>
+        <StringListEditor
+          label={t("globalEditor.retrieval.preferredUnitTypes")}
+          values={state.preferred_unit_types}
+          onChange={(v) => onChange({ preferred_unit_types: v })}
+          placeholder="confidentiality"
         />
-        <span className="text-xs text-[var(--text-secondary)]">
-          Evidence обязательна для вывода результата
-        </span>
-      </label>
-    </Field>
-
-    <FieldGrid>
-      <Field
-        label="Min snippet length"
-        hint="Минимальная длина фрагмента (символы)"
-      >
-        <input
-          type="number"
-          value={state.evidence_min_snippet_length}
-          min={5}
-          max={500}
-          onChange={(e) =>
-            onChange({ evidence_min_snippet_length: Number(e.target.value) })
-          }
-          className={inputCls}
+        <StringListEditor
+          label={t("globalEditor.retrieval.excludedUnitTypes")}
+          values={state.excluded_unit_types}
+          onChange={(v) => onChange({ excluded_unit_types: v })}
+          placeholder="definition"
         />
+      </FieldGrid>
+      <StringListEditor
+        label={t("globalEditor.retrieval.preferredClauseFunctions")}
+        values={state.preferred_clause_functions}
+        onChange={(v) => onChange({ preferred_clause_functions: v })}
+        placeholder="obligations"
+      />
+    </div>
+  );
+};
+
+const EvidenceSection: React.FC<SectionProps> = ({ state, onChange }) => {
+  const { t } = useTranslation("instructions");
+  return (
+    <div className="space-y-4">
+      <SectionTitle>{t("globalEditor.evidence.title")}</SectionTitle>
+
+      <Field label={t("globalEditor.evidence.required")}>
+        <label className="inline-flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={state.evidence_required}
+            onChange={(e) => onChange({ evidence_required: e.target.checked })}
+            className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--accent-primary)]"
+          />
+          <span className="text-xs text-[var(--text-secondary)]">
+            {t("globalEditor.evidence.requiredLabel")}
+          </span>
+        </label>
       </Field>
-      <Field
-        label="Max snippet length"
-        hint="Максимальная длина фрагмента (символы)"
-      >
-        <input
-          type="number"
-          value={state.evidence_max_snippet_length}
-          min={50}
-          max={2000}
-          onChange={(e) =>
-            onChange({ evidence_max_snippet_length: Number(e.target.value) })
-          }
-          className={inputCls}
-        />
-      </Field>
-    </FieldGrid>
-  </div>
-);
+
+      <FieldGrid>
+        <Field
+          label={t("globalEditor.evidence.minSnippet")}
+          hint={t("globalEditor.evidence.minSnippetHint")}
+        >
+          <input
+            type="number"
+            value={state.evidence_min_snippet_length}
+            min={5}
+            max={500}
+            onChange={(e) =>
+              onChange({ evidence_min_snippet_length: Number(e.target.value) })
+            }
+            className={inputCls}
+          />
+        </Field>
+        <Field
+          label={t("globalEditor.evidence.maxSnippet")}
+          hint={t("globalEditor.evidence.maxSnippetHint")}
+        >
+          <input
+            type="number"
+            value={state.evidence_max_snippet_length}
+            min={50}
+            max={2000}
+            onChange={(e) =>
+              onChange({ evidence_max_snippet_length: Number(e.target.value) })
+            }
+            className={inputCls}
+          />
+        </Field>
+      </FieldGrid>
+    </div>
+  );
+};
 
 const FIELD_TYPES = ["string", "number", "boolean", "date", "array"];
 const PRESENTATIONS = ["fact", "signal", "diagnostic"];
@@ -828,93 +845,98 @@ const ExtractionFieldEditor: React.FC<{
   index: number;
   onChange: (patch: Partial<ExtractionField>) => void;
   onRemove: () => void;
-}> = ({ field, index, onChange, onRemove }) => (
-  <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-3">
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] font-semibold text-[var(--text-muted)]">
-        Поле #{index + 1}
-      </span>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="text-[var(--text-muted)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
-        aria-label="Удалить поле"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    </div>
+}> = ({ field, index, onChange, onRemove }) => {
+  const { t } = useTranslation("instructions");
+  return (
+    <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+          {t("globalEditor.extraction.fieldEditor.title", { index: index + 1 })}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-[var(--text-muted)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
+          aria-label={t("globalEditor.extraction.fieldEditor.removeAria")}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
 
-    <FieldGrid>
-      <Field label="name" required>
+      <FieldGrid>
+        <Field label="name" required>
+          <input
+            type="text"
+            value={field.name}
+            onChange={(e) => onChange({ name: e.target.value })}
+            className={inputCls}
+            placeholder="confidentiality_status"
+          />
+        </Field>
+        <Field label="label">
+          <input
+            type="text"
+            value={field.label}
+            onChange={(e) => onChange({ label: e.target.value })}
+            className={inputCls}
+            placeholder="Confidentiality Status"
+          />
+        </Field>
+      </FieldGrid>
+
+      <FieldGrid>
+        <Field label="type">
+          <select
+            value={field.type}
+            onChange={(e) => onChange({ type: e.target.value })}
+            className={selectCls}
+          >
+            {FIELD_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="presentation">
+          <select
+            value={field.presentation}
+            onChange={(e) => onChange({ presentation: e.target.value })}
+            className={selectCls}
+          >
+            {PRESENTATIONS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </FieldGrid>
+
+      <Field label="description">
         <input
           type="text"
-          value={field.name}
-          onChange={(e) => onChange({ name: e.target.value })}
+          value={field.description}
+          onChange={(e) => onChange({ description: e.target.value })}
           className={inputCls}
-          placeholder="confidentiality_status"
+          placeholder={t("globalEditor.extraction.fieldEditor.descriptionPlaceholder")}
         />
       </Field>
-      <Field label="label">
-        <input
-          type="text"
-          value={field.label}
-          onChange={(e) => onChange({ label: e.target.value })}
-          className={inputCls}
-          placeholder="Статус конфиденциальности"
-        />
-      </Field>
-    </FieldGrid>
 
-    <FieldGrid>
-      <Field label="type">
-        <select
-          value={field.type}
-          onChange={(e) => onChange({ type: e.target.value })}
-          className={selectCls}
-        >
-          {FIELD_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="presentation">
-        <select
-          value={field.presentation}
-          onChange={(e) => onChange({ presentation: e.target.value })}
-          className={selectCls}
-        >
-          {PRESENTATIONS.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-      </Field>
-    </FieldGrid>
-
-    <Field label="description">
-      <input
-        type="text"
-        value={field.description}
-        onChange={(e) => onChange({ description: e.target.value })}
-        className={inputCls}
-        placeholder="Краткое описание поля"
+      <StringListEditor
+        label="allowed_values"
+        values={field.allowed_values}
+        onChange={(v) => onChange({ allowed_values: v })}
+        placeholder="present"
+        hint={t("globalEditor.extraction.fieldEditor.allowedValuesHint")}
       />
-    </Field>
-
-    <StringListEditor
-      label="allowed_values"
-      values={field.allowed_values}
-      onChange={(v) => onChange({ allowed_values: v })}
-      placeholder="present"
-      hint="Оставьте пустым если значения произвольные"
-    />
-  </div>
-);
+    </div>
+  );
+};
 
 const ExtractionSection: React.FC<SectionProps> = ({ state, onChange }) => {
+  const { t } = useTranslation("instructions");
+
   const handleFieldChange = useCallback(
     (idx: number, patch: Partial<ExtractionField>) => {
       const updated = state.extraction_fields.map((f, i) =>
@@ -952,9 +974,9 @@ const ExtractionSection: React.FC<SectionProps> = ({ state, onChange }) => {
 
   return (
     <div className="space-y-4">
-      <SectionTitle>Extraction</SectionTitle>
+      <SectionTitle>{t("globalEditor.extraction.title")}</SectionTitle>
 
-      <Field label="Включить extraction">
+      <Field label={t("globalEditor.extraction.enable")}>
         <label className="inline-flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
@@ -969,7 +991,7 @@ const ExtractionSection: React.FC<SectionProps> = ({ state, onChange }) => {
       {state.extraction_enabled && (
         <>
           <FieldGrid>
-            <Field label="Режим extraction">
+            <Field label={t("globalEditor.extraction.mode")}>
               <select
                 value={state.extraction_mode}
                 onChange={(e) => onChange({ extraction_mode: e.target.value })}
@@ -980,7 +1002,7 @@ const ExtractionSection: React.FC<SectionProps> = ({ state, onChange }) => {
                 <option value="rules">rules</option>
               </select>
             </Field>
-            <Field label="LLM max tokens">
+            <Field label={t("globalEditor.extraction.llmMaxTokens")}>
               <input
                 type="number"
                 value={state.extraction_llm_max_tokens}
@@ -995,7 +1017,7 @@ const ExtractionSection: React.FC<SectionProps> = ({ state, onChange }) => {
             </Field>
           </FieldGrid>
 
-          <Field label="Store payload">
+          <Field label={t("globalEditor.extraction.storePayload")}>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
@@ -1006,26 +1028,26 @@ const ExtractionSection: React.FC<SectionProps> = ({ state, onChange }) => {
                 className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--accent-primary)]"
               />
               <span className="text-xs text-[var(--text-secondary)]">
-                Сохранять extraction payload в результате
+                {t("globalEditor.extraction.storePayloadLabel")}
               </span>
             </label>
           </Field>
 
           <Field
-            label="LLM prompt (extraction)"
-            hint="Промпт для LLM extraction. Используйте {context} как placeholder"
+            label={t("globalEditor.extraction.prompt")}
+            hint={t("globalEditor.extraction.promptHint")}
           >
             <textarea
               value={state.extraction_prompt}
               onChange={(e) => onChange({ extraction_prompt: e.target.value })}
               className={textareaCls}
               rows={10}
-              placeholder="<role>&#10;Ты — юрист...&#10;</role>&#10;&#10;<context>&#10;{context}&#10;</context>"
+              placeholder={t("globalEditor.extraction.promptPlaceholder")}
               spellCheck={false}
             />
           </Field>
 
-          <SectionTitle>Поля extraction</SectionTitle>
+          <SectionTitle>{t("globalEditor.extraction.fields")}</SectionTitle>
 
           <div className="space-y-3">
             {state.extraction_fields.map((f, idx) => (
@@ -1046,7 +1068,7 @@ const ExtractionSection: React.FC<SectionProps> = ({ state, onChange }) => {
             onClick={handleAddField}
             leftIcon={<Plus />}
           >
-            Добавить поле
+            {t("globalEditor.extraction.addField")}
           </Button>
         </>
       )}
@@ -1069,6 +1091,7 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
   onChange,
   disabled = false,
 }) => {
+  const { t } = useTranslation("instructions");
   const [section, setSection] = useState("basic");
   const [parseError, setParseError] = useState<string | null>(null);
 
@@ -1088,11 +1111,9 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
       setParseError(null);
       setState(parsed);
     } else {
-      setParseError(
-        "Не удалось разобрать YAML. Проверьте синтаксис на вкладке YAML.",
-      );
+      setParseError(t("globalEditor.parsingErrorDesc"));
     }
-  }, [sourceYaml]);
+  }, [sourceYaml, t]);
 
   useEffect(() => {
     if (!state) return;
@@ -1123,10 +1144,9 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
       <div className="flex items-start gap-2 rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-4 text-xs text-[var(--color-error-text)]">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div className="space-y-1">
-          <div className="font-semibold">Ошибка разбора YAML</div>
+          <div className="font-semibold">{t("globalEditor.parsingErrorTitle")}</div>
           <div className="text-[var(--text-secondary)]">
-            {parseError ??
-              "Не удалось инициализировать редактор. Переключитесь на вкладку YAML и проверьте синтаксис."}
+            {parseError ?? t("globalEditor.parsingErrorDesc")}
           </div>
         </div>
       </div>
@@ -1138,13 +1158,13 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
   return (
     <div className={disabled ? "pointer-events-none opacity-60" : ""}>
       <Tabs value={section} onChange={setSection}>
-        <TabsList aria-label="Секции редактора">
-          <TabsTrigger value="basic">Basic</TabsTrigger>
-          <TabsTrigger value="detection">Detection</TabsTrigger>
-          <TabsTrigger value="llm">LLM</TabsTrigger>
-          <TabsTrigger value="retrieval">Retrieval</TabsTrigger>
-          <TabsTrigger value="evidence">Evidence</TabsTrigger>
-          <TabsTrigger value="extraction">Extraction</TabsTrigger>
+        <TabsList aria-label={t("globalEditor.tabs.ariaLabel")}>
+          <TabsTrigger value="basic">{t("globalEditor.tabs.basic")}</TabsTrigger>
+          <TabsTrigger value="detection">{t("globalEditor.tabs.detection")}</TabsTrigger>
+          <TabsTrigger value="llm">{t("globalEditor.tabs.llm")}</TabsTrigger>
+          <TabsTrigger value="retrieval">{t("globalEditor.tabs.retrieval")}</TabsTrigger>
+          <TabsTrigger value="evidence">{t("globalEditor.tabs.evidence")}</TabsTrigger>
+          <TabsTrigger value="extraction">{t("globalEditor.tabs.extraction")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic">
@@ -1176,5 +1196,4 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
 };
 
 export default GlobalInstructionEditor;
-
 

@@ -5,6 +5,7 @@
 
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowUp,
   ArrowDown,
@@ -19,10 +20,10 @@ import type { Tenant } from "../../api/admin";
 export type SortKey = "name" | "created_at" | "deals_count" | "users_count";
 export type SortDir = "asc" | "desc";
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("ru-RU", {
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -30,6 +31,7 @@ function formatDate(value: string): string {
 }
 
 const CopyableShortId: React.FC<{ id: string }> = ({ id }) => {
+  const { t } = useTranslation("admin");
   const [copied, setCopied] = React.useState(false);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -45,14 +47,21 @@ const CopyableShortId: React.FC<{ id: string }> = ({ id }) => {
   };
 
   return (
-    <span className="inline-flex items-center gap-1" title={`Полный ID: ${id}`}>
+    <span
+      className="inline-flex items-center gap-1"
+      title={t("tenantsTable.copyId.fullId", { id })}
+    >
       <code className="font-mono text-[11px] text-[var(--text-secondary)]">
         {id.slice(0, 8)}…
       </code>
       <button
         type="button"
         onClick={handleCopy}
-        aria-label={copied ? "Скопировано" : "Скопировать ID"}
+        aria-label={
+          copied
+            ? t("tenantsTable.copyId.copied")
+            : t("tenantsTable.copyId.copyId")
+        }
         className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35"
       >
         {copied ? (
@@ -175,6 +184,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
   onDeactivate,
   onActivate,
 }) => {
+  const { t, i18n } = useTranslation("admin");
   const navigate = useNavigate();
 
   return (
@@ -184,7 +194,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
           <thead>
             <tr>
               <SortableHeader
-                label="№"
+                label={t("tenantsTable.columns.number")}
                 currentSortKey={sortKey}
                 currentSortDir={sortDir}
                 onSortChange={onSortChange}
@@ -192,14 +202,14 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                 className="w-12"
               />
               <SortableHeader
-                label="Клиент"
+                label={t("tenantsTable.columns.client")}
                 sortableKey="name"
                 currentSortKey={sortKey}
                 currentSortDir={sortDir}
                 onSortChange={onSortChange}
               />
               <SortableHeader
-                label="Создан"
+                label={t("tenantsTable.columns.created")}
                 sortableKey="created_at"
                 currentSortKey={sortKey}
                 currentSortDir={sortDir}
@@ -207,19 +217,19 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                 className="w-28"
               />
               <SortableHeader
-                label="Slug"
+                label={t("tenantsTable.columns.slug")}
                 currentSortKey={sortKey}
                 currentSortDir={sortDir}
                 onSortChange={onSortChange}
               />
               <SortableHeader
-                label="ID"
+                label={t("tenantsTable.columns.id")}
                 currentSortKey={sortKey}
                 currentSortDir={sortDir}
                 onSortChange={onSortChange}
               />
               <SortableHeader
-                label="Пользователи"
+                label={t("tenantsTable.columns.users")}
                 sortableKey="users_count"
                 currentSortKey={sortKey}
                 currentSortDir={sortDir}
@@ -228,7 +238,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                 className="w-32"
               />
               <SortableHeader
-                label="Проекты"
+                label={t("tenantsTable.columns.projects")}
                 sortableKey="deals_count"
                 currentSortKey={sortKey}
                 currentSortDir={sortDir}
@@ -266,7 +276,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                   {index + 1}
                 </td>
 
-                {/* Клиент */}
+                {/* Client */}
                 <td className="px-3 py-3">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-[var(--text-primary)]">
@@ -274,15 +284,15 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                     </span>
                     {!tenant.is_active && (
                       <span className="rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
-                        Деактивирован
+                        {t("tenantsTable.status.deactivated")}
                       </span>
                     )}
                   </div>
                 </td>
 
-                {/* Создан */}
+                {/* Created */}
                 <td className="px-3 py-3 text-xs text-[var(--text-muted)]">
-                  {formatDate(tenant.created_at)}
+                  {formatDate(tenant.created_at, i18n.language)}
                 </td>
 
                 {/* Slug */}
@@ -300,7 +310,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                   <CopyableShortId id={tenant.id} />
                 </td>
 
-                {/* Пользователи */}
+                {/* Users */}
                 <td
                   className="px-3 py-3 text-center"
                   onClick={(e) => e.stopPropagation()}
@@ -313,7 +323,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                   </Link>
                 </td>
 
-                {/* Проекты */}
+                {/* Projects */}
                 <td
                   className="px-3 py-3 text-center"
                   onClick={(e) => e.stopPropagation()}
@@ -326,7 +336,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                   </Link>
                 </td>
 
-                {/* Действия */}
+                {/* Actions */}
                 <td
                   className="px-3 py-3 text-right"
                   onClick={(e) => e.stopPropagation()}
@@ -335,7 +345,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                     <button
                       type="button"
                       onClick={() => navigate(`/admin/tenants/${tenant.id}`)}
-                      title="Управление"
+                      title={t("tenantsTable.actions.manage")}
                       className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
                     >
                       <Settings2 className="h-3.5 w-3.5" />
@@ -345,7 +355,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                       <button
                         type="button"
                         onClick={() => onDeactivate(tenant)}
-                        title="Деактивировать"
+                        title={t("tenantsTable.actions.deactivate")}
                         className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-error-border)]"
                       >
                         <Ban className="h-3.5 w-3.5" />
@@ -354,7 +364,7 @@ const TenantsTable: React.FC<TenantsTableProps> = ({
                       <button
                         type="button"
                         onClick={() => onActivate(tenant)}
-                        title="Активировать"
+                        title={t("tenantsTable.actions.activate")}
                         className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--color-success-bg)] hover:text-[var(--color-success-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-success-border)]"
                       >
                         <PlayCircle className="h-3.5 w-3.5" />

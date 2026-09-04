@@ -1,4 +1,604 @@
 {
+  "dealCard": {
+    "project": "Project",
+    "updated": "Updated",
+    "openProject": "Open project {{name}}",
+    "noRun": "No analysis run",
+    "lastAnalysis": "Last analysis:",
+    "checksMode": "Checks mode:",
+    "pipelineStrategy": "Pipeline strategy:",
+    "notAnalyzed": "Analysis has not been run for this project yet.",
+    "checksModeLabels": {
+      "global_and_doc_type": "Playbook + document types",
+      "global_only": "Playbook only",
+      "doc_type_only": "Document types only"
+    }
+  },
+  "overviewPanels": {
+    "pipelinePreview": {
+      "categoryRelaunch": "Repeat analysis",
+      "categoryLaunch": "New analysis",
+      "titleRelaunch": "Relaunch summary",
+      "titleLaunch": "Launch summary",
+      "descRelaunch": "What will run and what will change after relaunch.",
+      "descLaunch": "What will run and what will be produced after launch.",
+      "relaunchHint": "Useful if you added documents, changed the playbook, or manually changed document types.",
+      "whatGoesIn": "What will run",
+      "whatHappens": "What will happen",
+      "labels": {
+        "documents": "Documents",
+        "playbook": "Playbook",
+        "modelProfile": "Model profile",
+        "primaryLanguage": "Primary language",
+        "checksMode": "Check mode"
+      },
+      "documentsCount": "{{count}} document(s) in the project",
+      "documentsCurrent": "Current project set",
+      "playbookSelected": "Selected project playbook",
+      "playbookNotSelected": "Not selected",
+      "defaultModelProfile": "Default profile",
+      "primaryLangNotSelected": "Not selected",
+      "checksMode": {
+        "global_and_doc_type": "Playbook + document types",
+        "global_only": "Playbook only",
+        "doc_type_only": "Document types only"
+      },
+      "bullets": {
+        "docsInScope": "Documents from the current project set will be included in the analysis.",
+        "settingsApplied": "Current project settings and the selected check mode will be applied.",
+        "forceReclassify": "Documents will be reclassified from scratch.",
+        "resultsUpdate": "Project results will be updated.",
+        "resultsFirst": "First project results will be produced."
+      }
+    },
+    "pipelineStep": {
+      "aria": {
+        "completed": "Completed",
+        "completedWithErrors": "Completed with errors",
+        "failed": "Failed",
+        "running": "Running",
+        "pending": "Pending"
+      },
+      "durationSec": "{{count}} sec",
+      "durationMinSec": "{{m}} min {{s}} sec",
+      "durationMin": "{{count}} min",
+      "runningFor": "running {{duration}}",
+      "docsProgress": "{{completed}} of {{total}}",
+      "docsErrors": "· errors: {{count}}",
+      "updatedAt": "updated {{time}}",
+      "justNow": "just now",
+      "secAgo": "{{count}} sec ago",
+      "minAgo": "{{count}} min ago",
+      "hrAgo": "{{count}} h ago",
+      "document": "Document:",
+      "segment": "Segment:",
+      "block": "Block:",
+      "kinds": {
+        "legal_units": "Semantic blocks",
+        "segments": "Segments",
+        "checks": "Checks",
+        "documents": "Documents"
+      }
+    },
+    "domainsOverview": {
+      "sectionTitle": "Project domain status",
+      "domains": {
+        "documents": "Documents",
+        "counterparties": "Counterparties",
+        "realEstate": "Real estate"
+      },
+      "docStatus": {
+        "notStarted": "Not started",
+        "loading": "Loading…",
+        "completed": "Completed",
+        "completedWithErrors": "Completed with errors",
+        "failed": "Failed",
+        "running": "Running",
+        "pending": "Pending"
+      },
+      "stage": "Stage: {{title}}",
+      "subProgress": "{{current}} of {{total}} {{kind}}",
+      "subKinds": {
+        "legal_units": "blocks",
+        "segments": "segments",
+        "checks": "checks",
+        "documents": "documents"
+      },
+      "updated": "updated {{time}}",
+      "documentsTotal": "Documents: {{count}}",
+      "counterpartiesFound": "{{count}} found",
+      "needAttention": "{{count}} need attention",
+      "sanctionsBankruptcy": "{{count}} sanctions / bankruptcy",
+      "objectsCount": "{{count}} objects",
+      "encumbered": "{{count}} with encumbrance",
+      "ownershipReview": "{{count}} ownership review"
+    },
+    "domainDetails": {
+      "detailsTitle": "Analysis result details",
+      "domains": {
+        "documents": "Documents",
+        "counterparties": "Counterparties",
+        "realEstate": "Real estate"
+      },
+      "columns": {
+        "pipeline": "Analysis pipeline",
+        "summary": "Summary",
+        "documentsOverview": "Documents overview",
+        "analysisResults": "Analysis results",
+        "llmUsage": "LLM usage"
+      },
+      "expandSummary": "Click to expand summary",
+      "expandSummaryAria": "Expand summary",
+      "collapsePipeline": "Collapse pipeline",
+      "collapseSummary": "Collapse to side panel",
+      "pipelineStarted": "Started {{time}}",
+      "pipelineElapsed": "in {{m}} min {{s}} sec",
+      "counterparties": {
+        "total": "Total",
+        "critical": "Critical",
+        "sanctions": "Sanctions",
+        "bankruptcy": "Bankruptcy",
+        "geography": "Geography",
+        "demoNote": "Demo data. Open the Counterparties tab for full analysis."
+      },
+      "realEstate": {
+        "objects": "Objects",
+        "encumbered": "Encumbered",
+        "ownershipReview": "Ownership review",
+        "highRisk": "High risk",
+        "topRegions": "Top regions",
+        "demoNote": "Demo data. Open the Real estate tab for full analysis."
+      }
+    },
+    "runSummary": {
+      "title": "Summary",
+      "titleFull": "Analysis summary",
+      "disclaimer": "Generated by AI from analysis findings. Not a legal opinion.",
+      "updated": "· Updated: {{time}}",
+      "generating": "Building a verifiable overview…",
+      "generatingLong": "Building a verifiable overview… This may take up to 30 seconds.",
+      "goToCheck": "Go to check in DD Grid",
+      "regenerate": "Regenerate",
+      "regenerateFull": "Generate again",
+      "copy": "Copy text",
+      "copied": "Copied!",
+      "copyFailed": "Failed to copy text. Try selecting it manually.",
+      "fallbackBanner": "Full overview is temporarily unavailable. A metrics-based verifiable summary is available.",
+      "fallbackMetrics": {
+        "totalDocs": "Total documents",
+        "processed": "Processed",
+        "failedQuarantine": "Errors / Quarantine",
+        "pendingReview": "Need review",
+        "topFindings": "Key findings",
+        "findingsMeta": "({{count}} docs, {{types}})",
+        "retry": "Retry generation"
+      },
+      "insights": {
+        "noData": "No document structure data",
+        "title": "Document structure",
+        "total": "Total: {{count}}",
+        "unclassified": "Unclassified"
+      }
+    },
+    "actionsPanel": {
+      "title": "Actions",
+      "relaunchTitle": "Relaunch analysis",
+      "launchTitle": "Launch analysis",
+      "relaunchDesc": "Relaunch analysis to update project results.",
+      "launchDesc": "Configure settings and launch the first document analysis for the project.",
+      "whenNeededTitle": "When relaunch is needed",
+      "whenNeeded": {
+        "newDocs": "To upload and analyze new documents",
+        "newPlaybook": "To analyze documents with a new playbook or model profile",
+        "afterReclass": "After manual document reclassification"
+      },
+      "readinessRelaunch": "Relaunch readiness",
+      "readinessLaunch": "Launch readiness",
+      "readiness": {
+        "canRelaunch": "You can relaunch analysis with current settings or change them first.",
+        "canLaunch": "Project is ready for first launch.",
+        "noPlaybook": "First, select a project playbook.",
+        "noPrimaryLang": "Primary analysis language needs to be selected.",
+        "langDiscoveryProcessing": "Document languages are still being determined.",
+        "checkSettingsRelaunch": "Check settings before relaunch.",
+        "checkSettingsLaunch": "Check settings before launch."
+      },
+      "configureRelaunch": "Configure relaunch",
+      "configureLaunch": "Configure launch"
+    },
+    "resultsWidget": {
+      "notLaunched": "Analysis has not been run yet",
+      "notLaunchedSub": "Results will appear after the first run",
+      "loadError": "Failed to load results",
+      "checksCompleted": "Checks completed",
+      "running": "Analyzing...",
+      "problemsDetected": "Problems detected",
+      "processingErrors": "Processing errors: {{count}}",
+      "inQuarantine": "In quarantine: {{count}}",
+      "globalChecks": "Global checks",
+      "docTypeChecks": "Doc-type checks",
+      "checksNotExecuted": "Checks were not executed",
+      "checkTypesCount_one": "1 check type",
+      "checkTypesCount_other": "{{count}} check types",
+      "passedTooltip": "{{count}} check types without findings",
+      "failedTooltip": "{{count}} check types with findings (in at least one document)",
+      "unclearTooltip": "{{count}} check types require clarification (in at least one document)",
+      "moreCount": "More {{count}}…",
+      "unclearTitle": "Results requiring clarification",
+      "unclearEmpty": "No checks requiring clarification. No special attention required.",
+      "unclearSummary_one": "Requires clarification: {{checksCount}} check in {{docsCount}} document.",
+      "unclearSummary_other": "Requires clarification: {{checksCount}} checks in {{docsCount}} documents.",
+      "goToAllResults": "Go to results list"
+    },
+    "pipelineRail": {
+      "title": "Pipeline",
+      "expandHint": "Click to expand pipeline details"
+    },
+    "documentsWidget": {
+      "loadError": "Failed to load documents",
+      "notUploaded": "No documents uploaded yet",
+      "title": "Documents in project",
+      "ready": "Ready",
+      "inProgress": "In progress",
+      "errors": "Errors",
+      "byDocType": "By document type",
+      "requiresAttention": "Requires attention",
+      "allHighConfidence": "All documents classified with high confidence. No specialist attention required.",
+      "lowConfidenceSummary_one": "Requires clarification: {{count}} document with low classification confidence.",
+      "lowConfidenceSummary_other": "Requires clarification: {{count}} documents with low classification confidence.",
+      "moreCount": "More {{count}}…",
+      "goToDocuments": "Go to document list"
+    },
+    "pipelinePanel": {
+      "notLaunched": "Analysis has not been run yet",
+      "notLaunchedSub": "Launch analysis to see pipeline progress",
+      "loadError": "Failed to load analysis progress",
+      "status": {
+        "completed": "Analysis completed",
+        "completedWithErrors": "Analysis completed with errors",
+        "failed": "Analysis failed",
+        "running": "Analysis running",
+        "pending": "Pending"
+      },
+      "startedAt": "· started {{time}}",
+      "elapsedFinished": "· in {{time}}",
+      "elapsedRunning": "· running for {{time}}",
+      "updatedRelative": "updated {{time}}",
+      "staleWarning": "⚠ No activity for more than {{threshold}} minutes",
+      "staleSub": "Worker may be hung or lost connection.",
+      "errors": "Errors: {{count}}",
+      "quarantine": "Quarantine: {{count}}",
+      "elapsedSec": "{{count}} sec",
+      "elapsedMin_one": "{{count}} min",
+      "elapsedMin_other": "{{count}} min",
+      "elapsedHrMin": "{{h}} h {{m}} min",
+      "justNow": "just now",
+      "secAgo_one": "{{count}} sec ago",
+      "secAgo_other": "{{count}} sec ago",
+      "minAgo_one": "{{count}} min ago",
+      "minAgo_other": "{{count}} min ago",
+      "hrAgo_one": "{{count}} h ago",
+      "hrAgo_other": "{{count}} h ago"
+    },
+    "launchForm": {
+      "relaunchTitle": "Relaunch analysis",
+      "launchTitle": "Launch analysis",
+      "relaunchDesc": "You can keep current settings or change them before a new run.",
+      "launchDesc": "Check parameters before the first analysis run.",
+      "documentsTitle": "Documents",
+      "documentsLoaded": "Project has {{count}} uploaded document(s).",
+      "loadingData": "Loading data…",
+      "uploadNewDocs": "Upload new documents",
+      "playbookTitle": "Project Playbook",
+      "playbookSub": "Defines the set of checks for the project.",
+      "selectPlaybook": "Select Playbook",
+      "playbookSelected": "Playbook selected.",
+      "playbookNotSelected": "Playbook not selected. Launch impossible.",
+      "modelProfileTitle": "Model Profile",
+      "modelProfileSub": "Select model profile for analysis.",
+      "configureProfile": "Configure profile",
+      "profileUsed": "Using profile: {{name}}.",
+      "defaultProfileUsed": "Using standard profile.",
+      "primaryLangTitle": "Primary analysis language",
+      "notSelected": "Not selected",
+      "langDiscoveryIntro": "First, the system determines document languages. After that, you can select the primary analysis language.",
+      "autoDetectedLangs": "Auto-detected document languages: {{langs}}.",
+      "selectPrimaryLangWarning": "Before launch, select primary analysis language.",
+      "langDiscoveryFailed": "Language list unavailable: auto-detection failed.",
+      "langDiscoveryNotReady": "Document languages not determined yet. After file processing you can choose primary language.",
+      "langHint": {
+        "RU": "Analysis will be oriented towards Russian.",
+        "EN": "Analysis will be oriented towards English.",
+        "default": "Select this language as primary for analysis."
+      },
+      "discoveryBanner": {
+        "pending": "Determining document languages. Settings will become available shortly.",
+        "processing": "Analyzing document languages. Please wait a couple of minutes.",
+        "failed": "Failed to determine languages automatically. Check documents.",
+        "partial": "Languages determined not for all files. We recommend checking problem documents.",
+        "completed": "Languages determined. Now select primary analysis language."
+      },
+      "primaryLangHelper": {
+        "inProgress": "Primary language can be selected after system determines document languages.",
+        "failed": "Language list unavailable: auto-detection failed.",
+        "partial": "Languages not determined for all documents. Check problem files.",
+        "notDetermined": "Document languages not determined yet.",
+        "notSelected": "Select primary analysis language.",
+        "selected": "Primary language selected. Now you can choose check mode."
+      },
+      "checksModeTitle": "Check mode",
+      "checksModeHelper": {
+        "loadingData": "Loading project document data.",
+        "noDocs": "First upload documents.",
+        "noPlaybook": "First select playbook.",
+        "inProgress": "Check mode will become available after document languages are determined.",
+        "noPrimaryLang": "First select primary analysis language.",
+        "ready": "Select which rules to apply during analysis."
+      },
+      "checksModeOptions": {
+        "global_and_doc_type": {
+          "title": "Playbook and document types",
+          "hint": "Recommended mode."
+        },
+        "global_only": {
+          "title": "Playbook only",
+          "hint": "Only playbook rules."
+        },
+        "doc_type_only": {
+          "title": "Document types only",
+          "hint": "Only checks by document types."
+        }
+      },
+      "reclassifySection": "Reclassification",
+      "reclassifyCheckbox": "Reclassify documents anew",
+      "reclassifyHint": "Enable this if you manually changed document types."
+    },
+    "launchOverlay": {
+      "categoryRelaunch": "Repeat analysis",
+      "categoryLaunch": "New analysis",
+      "titleRelaunch": "Relaunch analysis",
+      "titleLaunch": "Launch analysis",
+      "descRelaunch": "Check documents and current project settings before a new run.",
+      "descLaunch": "Check documents and project settings before first launch.",
+      "submitRelaunch": "Relaunch analysis",
+      "submitLaunch": "Launch analysis",
+      "subpanes": {
+        "upload": {
+          "category": "Upload",
+          "title": "Upload documents",
+          "descRelaunch": "Add documents to the project and return to relaunch settings.",
+          "descLaunch": "Add documents to the project and return to launch settings."
+        },
+        "playbook": {
+          "category": "Playbook",
+          "title": "Select project playbook",
+          "descRelaunch": "Select project playbook and return to relaunch settings.",
+          "descLaunch": "Select project playbook and return to launch settings."
+        },
+        "modelConfig": {
+          "category": "Model profile",
+          "title": "Model profile",
+          "desc": "Select or update model profile, then return to analysis parameters."
+        },
+        "toSummary": "To summary"
+      },
+      "readiness": {
+        "noDocs": "First upload documents to project.",
+        "noPlaybookRelaunch": "Need to select playbook before relaunch.",
+        "noPlaybookLaunch": "Need to select playbook before launch.",
+        "discoveryProcessing": "Document languages are still being determined.",
+        "discoveryPending": "Preparation for language detection is not complete.",
+        "discoveryFailed": "Failed to determine document languages.",
+        "discoveryPartial": "Languages not determined for all documents. Check files.",
+        "discoveryPreparing": "Preparing document languages.",
+        "noPrimaryLangRelaunch": "Need to select primary language before relaunch.",
+        "noPrimaryLangLaunch": "Need to select primary language before launch.",
+        "submittingRelaunch": "Launching new run…",
+        "submittingLaunch": "Launching analysis…"
+      }
+    },
+    "llmWidget": {
+      "title": "Total tokens",
+      "calls_one": "{{count}} LLM call",
+      "calls_other": "{{count}} LLM calls",
+      "model": "Model: {{model}}",
+      "byStage": "By stage",
+      "byDocument": "By document",
+      "callsShort_one": "{{count}} call",
+      "callsShort_other": "{{count}} calls",
+      "parseFailures_one": "{{count}} parse error",
+      "parseFailures_other": "{{count}} parse errors",
+      "parseErrorTooltip": "Model returned a response that could not be parsed correctly. Technical issue — retried if possible. Usually does not affect business result.",
+      "emptyTitle": "Tokens not used yet",
+      "emptySub": "Data will appear after launch",
+      "loadError": "Failed to load data",
+      "stages": {
+        "classification_l4": "L4 classification",
+        "checks_detection_llm": "Checks — detection",
+        "checks_extraction_llm": "Checks — extraction",
+        "structure_semantic_enrichment": "Enrichment",
+        "heading_refiner": "Headings"
+      }
+    }
+  },
+  "auditTab": {
+    "filter": {
+      "title": "Filter by action",
+      "subtitle": "Select an action to show only matching log entries",
+      "allActions": "All actions",
+      "actionLabel": "Action: {{label}}"
+    },
+    "noAccess": {
+      "title": "Access to log is restricted",
+      "description": "The audit log is only available to administrators and security officers within this project."
+    },
+    "modes": {
+      "logTitle": "Audit Log",
+      "logSubtitle": "Who, when, and what actions were performed within the deal.",
+      "classificationTitle": "Document Classification Audit",
+      "classificationSubtitle": "Consolidated explainability information for document classification in the current project."
+    },
+    "buttons": {
+      "toLog": "Back to audit log",
+      "toClassification": "Document classification audit"
+    },
+    "loading": "Loading log...",
+    "table": {
+      "headers": {
+        "time": "Time",
+        "action": "Action",
+        "user": "User",
+        "role": "Role",
+        "details": "Details"
+      }
+    },
+    "emptyState": {
+      "title": "No records found",
+      "subtitle": "The log is currently empty or does not match the selected filter."
+    },
+    "pagination": {
+      "pageInfo": "Page {{current}} of {{total}}"
+    },
+    "format": {
+      "reason": "Reason"
+    },
+    "classification": {
+      "view": {
+        "loadErrorTitle": "Failed to load classification audit",
+        "loadErrorFallback": "The service is temporarily unavailable or data is not ready yet.",
+        "headerTitle": "Project document classification logs",
+        "headerSubtitle": "Click a document row to open the panel with the full classification path, candidates, voting, and raw explainability payload.",
+        "updating": "Updating…",
+        "loading": "Loading classification audit…",
+        "pageEmpty": "No documents found",
+        "pageRange": "Showing {{from}}–{{to}} of {{total}}",
+        "emptyTitle": "No classification data found",
+        "emptySubtitle": "This project has no documents yet, or explainability data has not been collected.",
+        "statusPrefix": "Status: {{status}}",
+        "segmentation": {
+          "segments": "Segments: {{count}}",
+          "primary": "Primary: {{label}}",
+          "segmentClassification": "Segment classification: {{value}}"
+        },
+        "badges": {
+          "requiresReview": "Requires review",
+          "contradiction": "Contradiction detected",
+          "l4Triggered": "L4 triggered"
+        },
+        "zone": {
+          "confident": "Confident",
+          "low": "Low",
+          "unknown": "Unknown"
+        },
+        "headers": {
+          "document": "Document",
+          "type": "Type",
+          "level": "Level",
+          "confidence": "Confidence",
+          "zone": "Zone",
+          "decision": "Decision",
+          "signals": "Signals",
+          "segmentation": "Segmentation",
+          "updated": "Updated"
+        }
+      },
+      "drawer": {
+        "title": "Explainability",
+        "closeAria": "Close explainability panel",
+        "loading": "Loading explainability…",
+        "loadErrorTitle": "Failed to load classification details",
+        "loadErrorFallback": "Explainability data is temporarily unavailable.",
+        "noData": "Classification details are missing.",
+        "yes": "Yes",
+        "no": "No",
+        "sections": {
+          "summary": "Classification summary",
+          "levelsTried": "Levels tried",
+          "levelsTriedEmpty": "Level list is empty.",
+          "levelResults": "Results by level",
+          "levelResultsEmpty": "Normalized level results are missing.",
+          "candidates": "Candidates",
+          "candidatesEmpty": "No candidates recorded.",
+          "voting": "Voting / override",
+          "votingEmpty": "Voting data is missing.",
+          "decisionSummary": "Decision summary",
+          "rawResult": "Raw result",
+          "rawDetails": "Raw details"
+        },
+        "meta": {
+          "status": "Status",
+          "type": "Type",
+          "level": "Level",
+          "confidence": "Confidence",
+          "confidenceZone": "Confidence zone",
+          "decidedBy": "Decided by",
+          "language": "Language",
+          "jurisdiction": "Jurisdiction",
+          "requiresReview": "Requires review",
+          "contradiction": "Contradiction",
+          "l4Triggered": "L4 triggered",
+          "triggers": "Triggers",
+          "method": "Method",
+          "evidence": "Evidence",
+          "strategy": "Strategy",
+          "reason": "Reason",
+          "margin": "Margin",
+          "override": "Override",
+          "ranking": "Ranking"
+        },
+        "zone": {
+          "confident": "Confident",
+          "low": "Low",
+          "unknown": "Undefined"
+        }
+      }
+    }
+  },
+  "overviewTab": {
+    "about": {
+      "title": "About Project",
+      "hintAdd": "Click to add a description",
+      "placeholder": "For example: sale of a group of companies, buy-side DD, corporate block, key contracts and IP...",
+      "save": "Save"
+    },
+    "warningReclassifications": {
+      "title": "Refresh results",
+      "description": "You have manually changed the document types. We recommend re-running the analysis to update the project results."
+    }
+  },
+  "settingsTab": {
+    "title": "Project Settings",
+    "subtitleNoPerms": "Management of members and project configuration is separated from the main review flow.",
+    "subtitleWithPerms": "Management of members, playbook, and administrative configuration of the project.",
+    "backToSettings": "Back to settings",
+    "backToPlaybook": "Back to playbook",
+    "noAccess": {
+      "title": "Project settings unavailable",
+      "description": "... You do not have permissions to modify project members, playbook configurations, and templates."
+    },
+    "cards": {
+      "team": {
+        "eyebrow": "Team",
+        "title": "Project Members",
+        "description": "Manage project team members, roles, and access to the deal workspace.",
+        "action": "Open project members"
+      },
+      "methodology": {
+        "eyebrow": "Methodology",
+        "title": "Project Playbook",
+        "description": "Choose the active playbook and navigate to templates that define the document analysis structure.",
+        "actions": {
+          "open": "Open project playbook",
+          "builder": "Template builder"
+        }
+      },
+      "workspace": {
+        "eyebrow": "Workspace",
+        "title": "Project Configuration",
+        "description": "This section combines administrative actions that are not directly related to document review but affect team members, permissions, and analysis rules within the deal."
+      }
+    }
+  },
   "pages": {
     "playbook": {
       "noPermission": "You do not have permission to edit the playbook for this project.",
@@ -34,6 +634,134 @@
     }
   },
   "newProject": {
+    "block1": {
+      "label": "Project name",
+      "hintCreated": "The project has been created. You can change the name later in the project settings if needed.",
+      "hintDraft": "It is best to use a short working title that the team will quickly recognize in the dashboard and project list.",
+      "placeholder": "e.g., Due Diligence for Romashka LLC Acquisition",
+      "successTitle": "Project created",
+      "successDesc": "Now you can proceed to the next step of project configuration.",
+      "creating": "Creating…",
+      "createBtn": "Create project"
+    },
+    "block2": {
+      "waitingTitle": "Documents have not appeared in the list yet",
+      "waitingDesc": "Files were successfully uploaded, but the server is taking more time to process them. Try refreshing the list manually.",
+      "checkAgainBtn": "Check again",
+      "loadingTitle": "Files uploaded, waiting for server confirmation…",
+      "loadingDescProcessing": "The server is processing and publishing the document list.",
+      "loadingDescAuto": "The document list will update automatically.",
+      "successDesc": "You can proceed to project configuration. If needed, upload additional files below.",
+      "documentsUploadedCount_one": "{{count}} document uploaded",
+      "documentsUploadedCount_other": "{{count}} documents uploaded"
+    },
+    "block3": {
+      "loadingLines": "Loading playbook templates…",
+      "emptyLinesTitle": "Playbook templates not configured",
+      "emptyLinesDesc": "Create your first template in the admin section, then return to project setup.",
+      "infoTitle": "The Playbook defines which global risks will be checked in the project",
+      "infoDesc1": "Global Checks are risks analyzed across all project documents, regardless of their type. Ready-made playbooks pre-created by an administrator or set up in the system are available below.",
+      "infoDesc2": "If your project requires specific global checks, create your own playbook in the <studio>Instructions → Playbook Studio</studio> section. Once published, it will appear in the list below and can be selected for launching the project.",
+      "templatePlaybook": "Playbook template",
+      "playbookVersion": "Playbook version",
+      "selectTemplatePrompt": "Select a template on the left first.",
+      "noPublishedVersions": "No published versions for this template. Publish a version in Playbook Studio.",
+      "currentBadge": "Current",
+      "alreadyApplied": "Already applied",
+      "applyBtn": "Apply to project",
+      "meta": {
+        "type": "Type: {{type}}",
+        "jurisdiction": "Jurisdiction: {{jurisdiction}}",
+        "language": "Language: {{language}}"
+      },
+      "errors": {
+        "loadLinesFailed": "Failed to load playbook list.",
+        "applyFailed": "Failed to apply playbook to the project."
+      }
+    },
+    "block4": {
+      "loading": "Loading model profiles…",
+      "emptyTitle": "Model profiles not configured",
+      "emptyDesc": "The default profile will be used. Basic settings are suitable for most projects. You can create profiles in the admin section.",
+      "continueDefaultBtn": "Continue with default profile",
+      "infoTitle": "The Model Profile defines semantic analysis parameters",
+      "infoDesc1": "Basic settings are already configured in the system and are suitable for most projects. You can continue with the default profile without any extra steps.",
+      "infoDesc2": "If your project requires specific search and retrieval settings, select an existing profile below or create a new one in the admin section.",
+      "currentProfile": "Current project profile: <bold>{{name}}</bold>",
+      "availableProfiles": "Available profiles",
+      "currentBadge": "Current",
+      "alreadyApplied": "Already applied",
+      "selectBtn": "Select for project",
+      "errors": {
+        "loadFailed": "Failed to load model profiles.",
+        "applyFailed": "Failed to assign model profile to the project."
+      }
+    },
+    "block5": {
+      "loadingTitle": "Detecting document languages…",
+      "loadingDesc": "Selecting the primary language will become available after the analysis of all files is completed.",
+      "emptyTitle": "Document languages not determined yet",
+      "emptyDescFailed": "Auto-detection completed with an error. Check documents or upload new ones.",
+      "emptyDescWait": "After all files are processed, the list of languages will appear here.",
+      "primaryLangLabel": "Primary analysis language",
+      "autoDetectedLangs": "Auto-detected document languages: {{langs}}.",
+      "warningSelectLang": "Before starting the analysis, you must select the primary language.",
+      "saving": "Saving choice…",
+      "errors": {
+        "saveFailed": "Failed to set the primary language. Please try again."
+      },
+      "banners": {
+        "pending": "The system is preparing the analysis of uploaded documents to determine languages. Primary language selection will become available once this stage is completed.",
+        "processing": "The system is analyzing documents and detecting languages. Primary language selection will become available once all files are processed.",
+        "failed": "Auto-detection of languages failed. Check documents or upload them again.",
+        "partial": "Language detection completed partially: some documents could not be processed. You can continue, but we recommend checking the problematic files.",
+        "completed": "Language detection completed. Select the primary analysis language."
+      },
+      "hints": {
+        "RU": "Primary source and checks will be oriented towards Russian.",
+        "EN": "Primary source and checks will be oriented towards English.",
+        "default": "Select this language as primary for analysis."
+      }
+    },
+    "block6": {
+      "checksModeLabel": "Check mode",
+      "infoTitle": "Which risks to check in documents",
+      "infoDesc1": "The system checks two kinds of risks. The first — global risks from the playbook (Global Checks), analyzed across all project documents regardless of their type. The second — specific risks unique to a particular document type (e.g., lease agreement, charter, corporate resolution).",
+      "infoDesc2": "Choose which set of checks to apply during analysis.",
+      "extraParamsLabel": "Additional parameters",
+      "forceReclassifyLabel": "Force reclassify documents",
+      "forceReclassifyHint": "Use this after manual reclassification of documents.",
+      "launchNotice": "After launch, the system will begin processing all uploaded documents according to the selected settings. You will be redirected to the project page to track progress.",
+      "launching": "Launching analysis…",
+      "launchBtn": "Launch project",
+      "modes": {
+        "global_and_doc_type": {
+          "title": "Full verification",
+          "hint": "Global checks from playbook + specific checks for each uploaded document type. This is the most comprehensive analysis.",
+          "badge": "Recommended"
+        },
+        "global_only": {
+          "title": "Global checks only",
+          "hint": "Analysis only by playbook risks applicable to all documents regardless of type. Specific document-type checks are not performed."
+        },
+        "doc_type_only": {
+          "title": "Document types only",
+          "hint": "Analysis only by risks specific to the particular type of each document. Global playbook checks are not applied."
+        }
+      }
+    },
+    "editStepAria": "Edit: {{title}}",
+    "visualAlt": "Launch new project",
+    "readinessRail": {
+      "title": "Launch readiness",
+      "readyBadge": "Ready",
+      "items": {
+        "hasProject": "Project created",
+        "hasDocuments": "Documents uploaded",
+        "hasPlaybook": "Playbook selected",
+        "hasLanguage": "Primary language selected"
+      }
+    },
     "header": {
       "title": "Launch new project",
       "subtitle": "Step-by-step project configuration and analysis launch.",
@@ -247,3 +975,5 @@
     }
   }
 }
+
+

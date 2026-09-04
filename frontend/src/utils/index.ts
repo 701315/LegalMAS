@@ -16,21 +16,40 @@ export function cn(...classes: (string | false | null | undefined)[]) {
  * Форматирование даты в локальный формат.
  * Принимает строку с датой (ISO) и возвращает человекочитаемую дату/время.
  */
-export function formatDate(value?: string) {
+export function formatDate(value?: string, locale?: string) {
   if (!value) return "";
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString(locale);
 }
 
 /**
  * Преобразует дату во фразу вида "5 мин назад", "2 ч назад", "3 дн назад".
+ * Поддерживает опциональную функцию интернационализации tFn.
  */
-export function timeAgo(value?: string) {
+export function timeAgo(
+  value?: string,
+  tFn?: (key: string, options?: Record<string, unknown>) => string,
+) {
   if (!value) return "";
   const diff = Date.now() - new Date(value).getTime();
   const minutes = Math.round(diff / 60000);
-  if (minutes < 60) return `${minutes} мин назад`;
+
+  if (minutes < 60) {
+    return tFn
+      ? tFn("common:timeAgo.minutes", { count: minutes })
+      : `${minutes}m ago`;
+  }
+
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} ч назад`;
+  if (hours < 24) {
+    return tFn
+      ? tFn("common:timeAgo.hours", { count: hours })
+      : `${hours}h ago`;
+  }
+
   const days = Math.round(hours / 24);
-  return `${days} дн назад`;
+  return tFn
+    ? tFn("common:timeAgo.days", { count: days })
+    : `${days}d ago`;
 }
+
+

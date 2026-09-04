@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { CheckResult, QCStatus } from "../../types";
 
 interface QCCellRendererProps {
@@ -21,27 +22,27 @@ function cn(...classes: Array<string | false | null | undefined>) {
 const STATUS_META: Record<
   QCStatus,
   {
-    label: string;
+    labelKey: string;
     chipClass: string;
   }
 > = {
   pending: {
-    label: "Pending",
+    labelKey: "qcCellRenderer.statuses.pending",
     chipClass:
       "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
   },
   approved: {
-    label: "Approved",
+    labelKey: "qcCellRenderer.statuses.approved",
     chipClass:
       "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
   },
   rejected: {
-    label: "Rejected",
+    labelKey: "qcCellRenderer.statuses.rejected",
     chipClass:
       "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
   },
   needs_review: {
-    label: "Needs review",
+    labelKey: "qcCellRenderer.statuses.needs_review",
     chipClass:
       "border-[color:color-mix(in_srgb,var(--color-gold)_24%,transparent)] bg-[var(--color-gold-highlight)] text-[var(--color-gold-text)]",
   },
@@ -52,6 +53,7 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
   data,
   onQcChange,
 }) => {
+  const { t } = useTranslation("ddGrid");
   const label: QCStatus = value ?? "pending";
   const meta = STATUS_META[label];
   const isPending = label === "pending";
@@ -66,6 +68,8 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
     onQcChange?.(data, "rejected");
   };
 
+  const localizedStatusLabel = t(meta.labelKey);
+
   return (
     <div className="flex items-center gap-2">
       <span
@@ -73,9 +77,9 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
           "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none",
           meta.chipClass,
         )}
-        title={`QC status: ${meta.label}`}
+        title={t("qcCellRenderer.tooltipStatus", { status: localizedStatusLabel })}
       >
-        {meta.label}
+        {localizedStatusLabel}
       </span>
 
       {onQcChange && (
@@ -90,9 +94,9 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
               "disabled:cursor-not-allowed disabled:opacity-40",
             )}
             onClick={handleApprove}
-            title="Подтвердить (QC approve)"
+            title={t("qcCellRenderer.approveTooltip")}
             disabled={!isPending}
-            aria-label="Подтвердить QC"
+            aria-label={t("qcCellRenderer.approveAria")}
           >
             ✓
           </button>
@@ -107,9 +111,9 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
               "disabled:cursor-not-allowed disabled:opacity-40",
             )}
             onClick={handleReject}
-            title="Отклонить (QC reject)"
+            title={t("qcCellRenderer.rejectTooltip")}
             disabled={!isPending}
-            aria-label="Отклонить QC"
+            aria-label={t("qcCellRenderer.rejectAria")}
           >
             ✕
           </button>
@@ -120,4 +124,5 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
 };
 
 export default QCCellRenderer;
+
 

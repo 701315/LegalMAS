@@ -94,7 +94,12 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
-      previousFocusedElementRef.current?.focus();
+      const lastFocused = previousFocusedElementRef.current;
+      if (lastFocused && document.contains(lastFocused)) {
+        window.requestAnimationFrame(() => {
+          lastFocused.focus();
+        });
+      }
     };
   }, [open, onCancel, isConfirming]);
 
@@ -166,6 +171,5 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 };
 
 export default ConfirmDialog;
-
 
 

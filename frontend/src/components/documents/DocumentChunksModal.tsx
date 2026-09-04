@@ -9,6 +9,7 @@
 // =============================================================
 
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { X, Loader2, AlertTriangle } from "lucide-react";
 import Button from "../ui/Button";
 import client from "../../api/client";
@@ -26,6 +27,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
   chunkViewUrl,
   docName,
 }) => {
+  const { t } = useTranslation("documents");
   const [content, setContent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
       } catch (e) {
         if (!aborted) {
           const msg =
-            e instanceof Error ? e.message : "Не удалось загрузить файл чанков";
+            e instanceof Error ? e.message : t("chunksModal.errors.loadFailed");
           setLoadError(msg);
         }
       } finally {
@@ -71,7 +73,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
     return () => {
       aborted = true;
     };
-  }, [isOpen, chunkViewUrl]);
+  }, [isOpen, chunkViewUrl, t]);
 
   if (!isOpen) return null;
 
@@ -88,7 +90,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">
-              Документ в формате чанков
+              {t("chunksModal.title")}
             </h2>
             <p
               className="truncate text-xs text-[var(--text-muted)]"
@@ -103,7 +105,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            aria-label="Закрыть"
+            aria-label={t("actions.close", { ns: "common" })}
             className="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           >
             <X size={16} />
@@ -112,9 +114,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
 
         <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-2">
           <p className="text-[11px] leading-5 text-[var(--text-muted)]">
-            Этот просмотр показывает документ так, как его «видит» система
-            чанкинга: один чанк за другим, с заголовками и служебной
-            информацией. Прокрутите вниз, чтобы увидеть весь документ.
+            {t("chunksModal.description")}
           </p>
         </div>
 
@@ -122,7 +122,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
           {isLoading && (
             <div className="flex h-[70vh] items-center justify-center text-sm text-[var(--text-muted)]">
               <Loader2 className="mr-2 animate-spin" size={18} />
-              Загрузка файла чанков…
+              {t("chunksModal.loading")}
             </div>
           )}
 
@@ -133,7 +133,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
                 className="mb-1 text-[var(--color-error-text)]"
               />
               <p className="text-xs font-medium text-[var(--color-error-text)]">
-                Ошибка при загрузке файла чанков
+                {t("chunksModal.errors.title")}
               </p>
               <p className="mt-1 break-words text-[11px] text-[var(--text-muted)]">
                 {loadError}
@@ -152,7 +152,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
           {!isLoading && !loadError && !content && (
             <div className="flex h-[70vh] items-center justify-center rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 text-center">
               <p className="text-xs text-[var(--text-muted)]">
-                Нет данных для отображения чанков документа.
+                {t("chunksModal.empty")}
               </p>
             </div>
           )}
@@ -165,7 +165,7 @@ export const DocumentChunksModal: React.FC<Props> = ({
             size="sm"
             onClick={onClose}
           >
-            Закрыть
+            {t("actions.close", { ns: "common" })}
           </Button>
         </div>
       </div>
@@ -174,5 +174,6 @@ export const DocumentChunksModal: React.FC<Props> = ({
 };
 
 export default DocumentChunksModal;
+
 
 

@@ -14,6 +14,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Info } from "lucide-react";
 
 import {
@@ -29,71 +30,55 @@ import {
 
 interface ToggleOption<T extends string> {
   value: T;
-  /**
-   * Полный лейбл для десктопа (натуральная ширина сегментов).
-   * Может быть многословным и описательным ("Только по типу документа").
-   */
-  label: string;
-  /**
-   * Опциональный короткий лейбл для мобильных viewport
-   * (когда ToggleGroup рендерится в stretch-режиме с равными
-   * долями по 100% ширины). Гарантирует, что даже на самом узком
-   * мобильном экране (~320px) все сегменты умещаются в одну строку
-   * без переноса текста внутри кнопки.
-   *
-   * Если не задан — используется полный label.
-   *
-   * Полное описание всегда остаётся доступным через title (tooltip)
-   * и aria-label, поэтому семантика сохраняется для UX и a11y.
-   */
-  shortLabel?: string;
-  title: string;
+  labelKey: string;
+  shortLabelKey?: string;
+  titleKey: string;
 }
 
 const FORMAT_OPTIONS: readonly ToggleOption<DDGridV1GridFormat>[] = [
   {
     value: "matrix",
-    label: "Матрица",
-    title: "Табличное представление документов и проверок",
+    labelKey: "viewSettings.format.matrix.label",
+    titleKey: "viewSettings.format.matrix.title",
   },
   {
     value: "list",
-    label: "Список",
-    title: "Плоский список findings",
+    labelKey: "viewSettings.format.list.label",
+    titleKey: "viewSettings.format.list.title",
   },
 ] as const;
 
 const CHECKS_SCOPE_OPTIONS: readonly ToggleOption<DDGridV1ChecksScope>[] = [
   {
     value: "all",
-    label: "Все проверки",
-    shortLabel: "Все",
-    title: "Показывать global и doc-type проверки",
+    labelKey: "viewSettings.checksScope.all.label",
+    shortLabelKey: "viewSettings.checksScope.all.shortLabel",
+    titleKey: "viewSettings.checksScope.all.title",
   },
   {
     value: "global_only",
-    label: "Только глобальные",
-    shortLabel: "Глобальные",
-    title: "Только global playbook проверки",
+    labelKey: "viewSettings.checksScope.global_only.label",
+    shortLabelKey: "viewSettings.checksScope.global_only.shortLabel",
+    titleKey: "viewSettings.checksScope.global_only.title",
   },
   {
     value: "doc_type_only",
-    label: "Только по типу документа",
-    shortLabel: "По типу",
-    title: "Только проверки, специфичные для типа документа",
+    labelKey: "viewSettings.checksScope.doc_type_only.label",
+    shortLabelKey: "viewSettings.checksScope.doc_type_only.shortLabel",
+    titleKey: "viewSettings.checksScope.doc_type_only.title",
   },
 ] as const;
 
 const DOC_GROUPING_OPTIONS: readonly ToggleOption<DDGridV1DocGrouping>[] = [
   {
     value: "all_docs",
-    label: "Все документы",
-    title: "Все документы в одной таблице",
+    labelKey: "viewSettings.docGrouping.all_docs.label",
+    titleKey: "viewSettings.docGrouping.all_docs.title",
   },
   {
     value: "by_type",
-    label: "По типам документов",
-    title: "Отдельная таблица на каждый тип документа",
+    labelKey: "viewSettings.docGrouping.by_type.label",
+    titleKey: "viewSettings.docGrouping.by_type.title",
   },
 ] as const;
 
@@ -106,20 +91,6 @@ function getTabClassName<T extends string>(
   value: T,
   stretch = false,
 ): string {
-  // Desktop (stretch=false): натуральный padding px-3, лейблы —
-  // полная форма ("Только по типу документа") в inline-flex.
-  //
-  // Mobile (stretch=true): компактный padding px-2, block-режим
-  // для корректного centering в grid-доле, text-center. Лейблы
-  // при этом уже короткие ("По типу") из shortLabel — переносов
-  // текста не возникает.
-  //
-  // whitespace-nowrap — защита на случай, если у какого-то option
-  // shortLabel не задан (fallback на label): даже длинный label
-  // не будет ломаться на 2 строки.
-  // truncate — safety net для экстремально узких viewport или
-  // будущих option с длинными short-лейблами: overflow скрывается
-  // с ellipsis вместо wrap.
   const layoutClass = stretch
     ? "block w-full truncate whitespace-nowrap rounded-lg px-2 py-1.5 text-center text-xs font-medium"
     : "whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium";
@@ -135,13 +106,6 @@ interface ToggleGroupProps<T extends string> {
   value: T;
   options: readonly ToggleOption<T>[];
   onChange: (value: T) => void;
-  /**
-   * Режим полной ширины: контейнер сегментов растягивается на 100%
-   * родителя, а сами сегменты распределяются равными долями через
-   * grid. Кнопки получают компактный padding (px-2) и text-center,
-   * чтобы длинные лейблы (например "Только по типу документа")
-   * лучше умещались.
-   */
   stretch?: boolean;
 }
 
@@ -153,25 +117,7 @@ function ToggleGroup<T extends string>({
   onChange,
   stretch = false,
 }: ToggleGroupProps<T>) {
-  // ─────────────────────────────────────────────────────────────
-  // Универсальное поведение сегментов на всех viewport:
-  //
-  // Desktop (stretch=false):
-  //   - inline-flex по натуральной ширине;
-  //   - полные лейблы (label);
-  //   - привычный компактный сегментированный контрол.
-  //
-  // Mobile (stretch=true):
-  //   - grid с равными долями (grid-cols-N), w-full;
-  //   - короткие лейблы (shortLabel) с fallback на label;
-  //   - гарантированно 1 строка по высоте на любом мобильном экране
-  //     от 320px (iPhone SE) и шире, потому что короткие лейблы
-  //     ("Все", "Глобальные", "По типу") заведомо помещаются
-  //     в долю ~90-100px.
-  //
-  // Полное описание всегда доступно через title (tooltip) и
-  // aria-label — семантика не теряется при сокращении лейбла.
-  // ─────────────────────────────────────────────────────────────
+  const { t } = useTranslation("ddGrid");
 
   const containerClassName = stretch
     ? "grid w-full rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-1"
@@ -193,16 +139,20 @@ function ToggleGroup<T extends string>({
         aria-label={ariaLabel}
       >
         {options.map((option) => {
+          const rawLabel = t(option.labelKey);
+          const rawTitle = t(option.titleKey);
+          
           const displayLabel =
-            stretch && option.shortLabel ? option.shortLabel : option.label;
+            stretch && option.shortLabelKey ? t(option.shortLabelKey) : rawLabel;
+            
           return (
             <button
               key={option.value}
               type="button"
               role="tab"
               aria-selected={value === option.value}
-              aria-label={option.label}
-              title={option.title}
+              aria-label={rawLabel}
+              title={rawTitle}
               onClick={() => onChange(option.value)}
               className={getTabClassName(value, option.value, stretch)}
             >
@@ -220,27 +170,7 @@ function ToggleGroup<T extends string>({
 // -------------------------------------------------------------
 
 interface DDGridV1ViewSettingsProps {
-  /**
-   * Скрывает переключатель "Формат представления данных" (Матрица/Список)
-   * и вместо него показывает информационный баннер о принудительном
-   * использовании режима "Список".
-   *
-   * Используется на мобильных viewport (< lg), где матричное
-   * представление нечитаемо из-за горизонтальной плотности данных,
-   * и родительский компонент (DDGridV1TabPage) принудительно
-   * фиксирует gridMode = "list" независимо от значения format в store.
-   */
   hideFormatToggle?: boolean;
-
-  /**
-   * Режим полной ширины: все секции (info-баннер, каждый ToggleGroup)
-   * занимают 100% ширины родителя, вертикальный стек. Сегменты внутри
-   * ToggleGroup распределяются равными долями (grid, не inline-flex).
-   *
-   * Предназначен для мобильных viewport, где горизонтальный wrap
-   * inline-flex сегментов приводит к переносу длинных лейблов и
-   * визуальному беспорядку.
-   */
   stretch?: boolean;
 }
 
@@ -248,6 +178,8 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
   hideFormatToggle = false,
   stretch = false,
 }) => {
+  const { t } = useTranslation("ddGrid");
+
   const format = useDDGridV1UIStore((state) => state.format);
   const setFormat = useDDGridV1UIStore((state) => state.setFormat);
 
@@ -257,9 +189,6 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
   const docGrouping = useDDGridV1UIStore((state) => state.docGrouping);
   const setDocGrouping = useDDGridV1UIStore((state) => state.setDocGrouping);
 
-  // Q23 = C: группировка скрывается когда format = list.
-  // При hideFormatToggle=true эффективный формат — "list", поэтому
-  // группировка скрывается автоматически.
   const showGrouping = !hideFormatToggle && format === "matrix";
 
   const rootClassName = stretch
@@ -272,8 +201,8 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
         <FormatUnavailableNotice stretch={stretch} />
       ) : (
         <ToggleGroup
-          label="Формат представления данных"
-          ariaLabel="Формат представления данных"
+          label={t("viewSettings.formatLabel")}
+          ariaLabel={t("viewSettings.formatLabel")}
           value={format}
           options={FORMAT_OPTIONS}
           onChange={setFormat}
@@ -282,8 +211,8 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
       )}
 
       <ToggleGroup
-        label="Отображение результатов проверок"
-        ariaLabel="Отображение результатов проверок"
+        label={t("viewSettings.checksScopeLabel")}
+        ariaLabel={t("viewSettings.checksScopeLabel")}
         value={checksScope}
         options={CHECKS_SCOPE_OPTIONS}
         onChange={setChecksScope}
@@ -292,8 +221,8 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
 
       {showGrouping ? (
         <ToggleGroup
-          label="Группировка документов"
-          ariaLabel="Группировка документов"
+          label={t("viewSettings.docGroupingLabel")}
+          ariaLabel={t("viewSettings.docGroupingLabel")}
           value={docGrouping}
           options={DOC_GROUPING_OPTIONS}
           onChange={setDocGrouping}
@@ -307,35 +236,33 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
 /**
  * Информационный баннер о принудительном использовании представления "Список"
  * на узких viewport. Занимает место переключателя "Формат представления данных".
- *
- * При stretch=true растягивается на всю ширину родителя.
  */
 const FormatUnavailableNotice: React.FC<{ stretch?: boolean }> = ({
   stretch = false,
-}) => (
-  <div className={`flex min-w-0 flex-col gap-1.5 ${stretch ? "w-full" : ""}`}>
-    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-      Формат представления данных
-    </span>
-    <div
-      role="note"
-      className={`flex items-start gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-[11px] leading-[1.35] text-[var(--text-secondary)] ${
-        stretch ? "w-full" : ""
-      }`}
-    >
-      <Info
-        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]"
-        aria-hidden
-      />
-      <span>
-        Матричное представление доступно только на широких экранах. На этом
-        устройстве данные отображаются в виде списка.
+}) => {
+  const { t } = useTranslation("ddGrid");
+
+  return (
+    <div className={`flex min-w-0 flex-col gap-1.5 ${stretch ? "w-full" : ""}`}>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+        {t("viewSettings.formatLabel")}
       </span>
+      <div
+        role="note"
+        className={`flex items-start gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-[11px] leading-[1.35] text-[var(--text-secondary)] ${
+          stretch ? "w-full" : ""
+        }`}
+      >
+        <Info
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]"
+          aria-hidden
+        />
+        <span>{t("viewSettings.notice")}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default DDGridV1ViewSettings;
-
 
 

@@ -5,6 +5,7 @@
 
 import React from "react";
 import { ExternalLink } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { SegmentProvenanceView } from "../../../viewAdapters/requestPresentation";
 import Button from "../../ui/Button";
 
@@ -26,6 +27,7 @@ export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
   viewerJumpDisabled = false,
   viewerJumpDisabledReason,
 }) => {
+  const { t } = useTranslation("requests");
   const humanSegmentOrder = formatSegmentOrder(segment.segmentOrder);
   const showViewerJumpButton = !!onJumpToViewer;
 
@@ -34,7 +36,7 @@ export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-            Контекст сегмента
+            {t("shared.segmentSummary.title")}
           </p>
           {segment.segmentTitle && (
             <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">
@@ -45,14 +47,14 @@ export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
 
         {segment.isPrimarySegment && (
           <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_20%,transparent)] bg-[var(--bg-card)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--accent-primary)]">
-            Основной сегмент
+            {t("shared.segmentSummary.primaryBadge")}
           </span>
         )}
       </header>
 
       <div className="space-y-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2.5 text-[12px]">
         {segment.segmentType && (
-          <Row label="Тип сегмента">
+          <Row label={t("shared.segmentSummary.typeLabel")}>
             <span className="text-[var(--text-secondary)]">
               {segment.segmentType}
             </span>
@@ -60,7 +62,7 @@ export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
         )}
 
         {humanSegmentOrder && (
-          <Row label="Порядок">
+          <Row label={t("shared.segmentSummary.orderLabel")}>
             <span className="text-[var(--text-secondary)]">
               {humanSegmentOrder}
             </span>
@@ -90,7 +92,7 @@ export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
             leftIcon={<ExternalLink className="h-4 w-4" />}
             className="w-full justify-center"
           >
-            Открыть в viewer
+            {t("shared.segmentSummary.openInViewer")}
           </Button>
 
           {viewerJumpDisabled && viewerJumpDisabledReason && (
@@ -115,5 +117,7 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({
 );
 
 export default RequestSegmentSummary;
+
+
 
 

@@ -15,6 +15,7 @@
 
 import React from "react";
 import { ArrowLeft, Pencil } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export type FlowBlockStatus = "disabled" | "active" | "done";
 
@@ -61,6 +62,8 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
   backLabel,
   onEditRequest,
 }) => {
+  const { t } = useTranslation("projects");
+
   const isDone = status === "done";
   const isDisabled = status === "disabled";
   const isActive = status === "active";
@@ -181,7 +184,7 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
           <button
             type="button"
             onClick={onEditRequest}
-            aria-label={`Редактировать: ${title}`}
+            aria-label={t("newProject.editStepAria", { title })}
             className="shrink-0 rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
           >
             <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -201,5 +204,4 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
 };
 
 export default FlowBlock;
-
 

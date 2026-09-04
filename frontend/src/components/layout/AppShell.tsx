@@ -161,7 +161,7 @@ interface SuperadminNavProps {
 const SuperadminNav: React.FC<SuperadminNavProps> = ({ collapsed }) => {
   const { t } = useTranslation("navigation");
   return (
-    <div className="mt-4 space-y-1">
+    <div className="space-y-1">
       {!collapsed && (
         <SidebarSectionLabel icon={Settings} label={t("sidebar.adminSection")} />
       )}
@@ -195,7 +195,7 @@ interface TenantAdminNavProps {
 const TenantAdminNav: React.FC<TenantAdminNavProps> = ({ collapsed }) => {
   const { t } = useTranslation("navigation");
   return (
-    <div className="mt-4 space-y-1">
+    <div className="space-y-1">
       {!collapsed && <SidebarSectionLabel icon={Settings} label={t("sidebar.orgSection")} />}
       <NavItem
         collapsed={collapsed}
@@ -250,7 +250,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   onToggleSidebar,
   onOpenLogout,
 }) => {
-  const { t } = useTranslation("navigation");
+  const { t } = useTranslation(["navigation", "admin"]);
   const { globalRole } = useAuth();
 
   return (
@@ -301,127 +301,137 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
-        <nav className="space-y-1" aria-label={t("actions.mainNav")}>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-3">
+        <nav className="flex flex-1 flex-col" aria-label={t("actions.mainNav")}>
           {isSuperadmin ? (
-            <SuperadminNav collapsed={collapsed} />
+            <div className="space-y-1">
+              <SuperadminNav collapsed={collapsed} />
+            </div>
           ) : (
             <>
-              <NavItem
-                collapsed={collapsed}
-                to="/dashboard"
-                end
-                label={t("sidebar.dashboard")}
-                icon={LayoutDashboard}
-              />
+              {/* Upper Section */}
+              <div className="space-y-1">
+                <NavItem
+                  collapsed={collapsed}
+                  to="/dashboard"
+                  end
+                  label={t("sidebar.dashboard")}
+                  icon={LayoutDashboard}
+                />
 
-              {!collapsed && showProjectsSection && (
-                <div className="mt-1 pl-2">
-                  <SidebarSectionLabel
-                    icon={BriefcaseBusiness}
-                    label={t("sidebar.projects")}
-                  />
-                  <div className="mt-2 space-y-1">
-                    {isProjectsLoading ? (
-                      Array.from({ length: 3 }).map((_, index) => (
-                        <div
-                          key={index}
-                          className="rounded-xl border border-transparent px-3 py-2"
-                        >
-                          <div className="skeleton h-4 w-3/4 rounded" />
-                          <div className="mt-1.5 skeleton h-3 w-1/2 rounded" />
-                        </div>
-                      ))
-                    ) : isProjectsError ? (
-                      <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-                        {t("sidebar.loadError")}
-                      </div>
-                    ) : sidebarProjects.length > 0 ? (
-                      sidebarProjects.map((project) => {
-                        const isActive =
-                          currentPath === `/projects/${project.deal_id}` ||
-                          currentPath.startsWith(`/projects/${project.deal_id}/`);
-
-                        return (
-                          <NavLink
-                            key={project.deal_id}
-                            to={`/projects/${project.deal_id}`}
-                            className={() =>
-                              [
-                                "block rounded-xl border px-3 py-2 transition-all duration-150",
-                                "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]",
-                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
-                                isActive
-                                  ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--text-primary)]"
-                                  : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
-                              ].join(" ")
-                            }
+                {!collapsed && showProjectsSection && (
+                  <div className="mt-1 pl-2">
+                    <SidebarSectionLabel
+                      icon={BriefcaseBusiness}
+                      label={t("sidebar.projects")}
+                    />
+                    <div className="mt-2 space-y-1">
+                      {isProjectsLoading ? (
+                        Array.from({ length: 3 }).map((_, index) => (
+                          <div
+                            key={index}
+                            className="rounded-xl border border-transparent px-3 py-2"
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="truncate font-medium">
-                                {project.deal_name}
+                            <div className="skeleton h-4 w-3/4 rounded" />
+                            <div className="mt-1.5 skeleton h-3 w-1/2 rounded" />
+                          </div>
+                        ))
+                      ) : isProjectsError ? (
+                        <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                          {t("sidebar.loadError")}
+                        </div>
+                      ) : sidebarProjects.length > 0 ? (
+                        sidebarProjects.map((project) => {
+                          const isActive =
+                            currentPath === `/projects/${project.deal_id}` ||
+                            currentPath.startsWith(`/projects/${project.deal_id}/`);
+
+                          return (
+                            <NavLink
+                              key={project.deal_id}
+                              to={`/projects/${project.deal_id}`}
+                              className={() =>
+                                [
+                                  "block rounded-xl border px-3 py-2 transition-all duration-150",
+                                  "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+                                  isActive
+                                    ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--text-primary)]"
+                                    : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
+                                ].join(" ")
+                              }
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="truncate font-medium">
+                                  {project.deal_name}
+                                </div>
+
+                                {project.needs_setup ? (
+                                  <span
+                                    className="shrink-0 rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-warning-text)]"
+                                    title={t("sidebar.needsSetup")}
+                                  >
+                                    !
+                                  </span>
+                                ) : project.analysis_completed ? (
+                                  <span
+                                    className="shrink-0 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]"
+                                    title={t("sidebar.analysisCompleted")}
+                                  >
+                                    ✓
+                                  </span>
+                                ) : project.is_processing ? (
+                                  <span
+                                    className="shrink-0 flex h-4 w-4 items-center justify-center"
+                                    title={t("sidebar.analysisRunning")}
+                                  >
+                                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--accent-primary)]" />
+                                  </span>
+                                ) : null}
                               </div>
 
-                              {project.needs_setup ? (
-                                <span
-                                  className="shrink-0 rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-warning-text)]"
-                                  title={t("sidebar.needsSetup")}
-                                >
-                                  !
-                                </span>
-                              ) : project.analysis_completed ? (
-                                <span
-                                  className="shrink-0 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]"
-                                  title={t("sidebar.analysisCompleted")}
-                                >
-                                  ✓
-                                </span>
-                              ) : project.is_processing ? (
-                                <span
-                                  className="shrink-0 flex h-4 w-4 items-center justify-center"
-                                  title={t("sidebar.analysisRunning")}
-                                >
-                                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--accent-primary)]" />
-                                </span>
-                              ) : null}
-                            </div>
+                              <div className="mt-0.5 truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                                {project.role}
+                              </div>
+                            </NavLink>
+                          );
+                        })
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                          {t("sidebar.noProjects")}
+                        </div>
+                      )}
 
-                            <div className="mt-0.5 truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-                              {project.role}
-                            </div>
-                          </NavLink>
-                        );
-                      })
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-                        {t("sidebar.noProjects")}
-                      </div>
-                    )}
-
-                    {hiddenProjectsCount > 0 && (
-                      <NavLink
-                        to="/dashboard"
-                        className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-                      >
-                        {t("sidebar.moreProjects", { count: hiddenProjectsCount })}
-                      </NavLink>
-                    )}
+                      {hiddenProjectsCount > 0 && (
+                        <NavLink
+                          to="/dashboard"
+                          className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+                        >
+                          {t("sidebar.moreProjects", { count: hiddenProjectsCount })}
+                        </NavLink>
+                      )}
+                    </div>
                   </div>
+                )}
+
+                {canCreateProject && (
+                  <div className="mt-4">
+                    <NavItem
+                      collapsed={collapsed}
+                      to="/projects/new"
+                      label={t("sidebar.newProject")}
+                      icon={PlusSquare}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Section (Organization / Admin) */}
+              {isTenantAdmin && (
+                <div className="mt-auto pt-4 border-t border-[var(--border)]">
+                  <TenantAdminNav collapsed={collapsed} />
                 </div>
               )}
-
-              {canCreateProject && (
-                <div className="mt-4">
-                  <NavItem
-                    collapsed={collapsed}
-                    to="/projects/new"
-                    label={t("sidebar.newProject")}
-                    icon={PlusSquare}
-                  />
-                </div>
-              )}
-
-              {isTenantAdmin && <TenantAdminNav collapsed={collapsed} />}
             </>
           )}
         </nav>
@@ -448,7 +458,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
           {!collapsed && (
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold text-[var(--text-primary)]">
-                {globalRole ?? "user"}
+                {t(`projectMembers.systemRoles.${globalRole ?? "member"}`, { ns: "admin", defaultValue: globalRole ?? "User" })}
               </span>
               <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
                 {t("actions.logout")}

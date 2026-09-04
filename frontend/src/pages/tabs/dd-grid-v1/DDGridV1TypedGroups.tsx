@@ -22,12 +22,11 @@
 //   не позволяя одной таблице затирать selection другой;
 // - пробрасывает глобальное collapsed-state checks во все таблицы.
 //
-// Важно:
-// - никаких хардкодов check_id / doc_type;
-// - работает с любым числом типов документов.
+// i18n: все UI-строки локализованы через namespace "ddGrid".
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 import type { OpenViewerAtFn } from "../../../types";
 
@@ -66,13 +65,14 @@ interface RenderableGroup extends DDGridV1DocTypeGroupView {
 function buildBaseGroups(
   model: DDGridV1DerivedModel,
   docGrouping: DDGridV1DocGrouping,
+  tFn?: (key: string, options?: Record<string, unknown>) => string,
 ): DDGridV1DocTypeGroupView[] {
   switch (docGrouping) {
     case "all_docs":
-      return [buildDDGridV1AllDocumentsGroup(model)];
+      return [buildDDGridV1AllDocumentsGroup(model, tFn)];
     case "by_type":
     default:
-      return buildDDGridV1TypedGroups(model);
+      return buildDDGridV1TypedGroups(model, tFn);
   }
 }
 
@@ -217,6 +217,8 @@ export const DDGridV1TypedGroups: React.FC<DDGridV1TypedGroupsProps> = ({
   onSelectionChange,
   clearSelectionToken,
 }) => {
+  const { t } = useTranslation("ddGrid");
+
   const checksScope = useDDGridV1UIStore((state) => state.checksScope);
   const docGrouping = useDDGridV1UIStore((state) => state.docGrouping);
 
@@ -253,8 +255,8 @@ export const DDGridV1TypedGroups: React.FC<DDGridV1TypedGroupsProps> = ({
   );
 
   const baseGroups = React.useMemo(
-    () => buildBaseGroups(model, docGrouping),
-    [model, docGrouping],
+    () => buildBaseGroups(model, docGrouping, t),
+    [model, docGrouping, t],
   );
 
   const renderGroups = React.useMemo<RenderableGroup[]>(() => {
@@ -338,7 +340,7 @@ export const DDGridV1TypedGroups: React.FC<DDGridV1TypedGroupsProps> = ({
   if (!renderGroups.length) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center text-sm text-[var(--text-secondary)] shadow-sm">
-        По выбранным параметрам отображения в DD Grid ничего не найдено.
+        {t("emptyState")}
       </div>
     );
   }

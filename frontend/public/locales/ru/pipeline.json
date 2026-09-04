@@ -1,4 +1,205 @@
 {
+  "structureViewer": {
+    "pending": "Структура документа ещё не готова в v2-формате. Попробуй позже.",
+    "missing": "Структурированный артефакт ожидается, но недоступен или повреждён. Проверь состояние пайплайна для стадии STRUCTURE.",
+    "unavailable": "Для этой стадии нет STRUCTURE-превью.",
+    "title": "Структура документа",
+    "sectionsCount": "Секций: {{count}}",
+    "noSections": "В STRUCTURE пока нет секций.",
+    "selectSection": "Выбери секцию слева.",
+    "openInDocument": "Открыть в документе",
+    "mappedTrace": "Фрагменты исходного текста, привязанные к выбранной секции",
+    "unmappedTrace": "Для выбранной секции не найдено связанных чанков",
+    "chunksPending": "CHUNKS ещё не готовы в v2-формате. Попробуй позже.",
+    "chunksMissing": "CHUNKS-артефакт ожидается, но недоступен или повреждён.",
+    "chunksUnavailable": "CHUNKS-стадия недоступна — показать исходный текст невозможно.",
+    "untitled": "Без названия",
+    "noHeader": "(без заголовка)",
+    "level": "Уровень {{level}}",
+    "pagesSingle": "стр. {{from}}",
+    "pagesRange": "стр. {{from}}–{{to}}",
+    "mappingBadge": {
+      "mapped": "Есть привязка к CHUNKS",
+      "unmapped": "Нет привязки к CHUNKS для этой секции"
+    },
+    "canonicalPanel": {
+      "title": "Сведения о секции",
+      "desc": "В canonical‑режиме здесь показывается узел структуры документа (structure_text), а не enriched‑текст из CHUNKS.",
+      "fieldsTitle": "Поля узла",
+      "clauseTreeTitle": "Текст clause tree (structure_text)",
+      "noTextDesc": "Для этого узла текст clause tree не задан. Это нормально для canonical STRUCTURE, если в дереве есть только заголовок и метаданные узла."
+    },
+    "friendlyPanel": {
+      "title": "Текст секции",
+      "desc": "В friendly‑режиме здесь показывается текст секции, обогащённый из CHUNKS (enriched_text), с fallback на structure_text.",
+      "noTextDesc": "Для этой секции нет текстового превью."
+    },
+    "jsonPanel": {
+      "title": "JSON узла",
+      "desc": "Здесь показывается текущий объект секции из preview.segments[].sections[]."
+    },
+    "fields": {
+      "id": "ID",
+      "clauseUid": "Clause UID",
+      "level": "Уровень",
+      "pages": "Страницы",
+      "segmentId": "Segment ID",
+      "segmentType": "Segment Type",
+      "segmentTitle": "Segment Title",
+      "segmentOrder": "Segment Order",
+      "primarySegment": "Primary Segment"
+    }
+  },
+  "stageStatusBadge": {
+    "ready": {
+      "label": "Готово",
+      "title": "Артефакт стадии готов к просмотру"
+    },
+    "pending": {
+      "label": "Ожидается",
+      "title": "Стадия ещё не завершена или артефакт пока не подготовлен"
+    },
+    "missing": {
+      "label": "Недоступно",
+      "title": "Артефакт стадии не найден"
+    }
+  },
+  "stageBanner": {
+    "ariaLabel": "Режим представления стадии",
+    "modeLabelCanonical": "Canonical",
+    "modeLabelFriendly": "Friendly",
+    "modeHintCanonical": "Каноническое представление стадии",
+    "modeHintFriendly": "Дружественное представление стадии",
+    "defaultCanonicalLabel": "Каноническое представление",
+    "defaultFriendlyLabel": "Дружественное представление",
+    "defaultCanonicalDesc": "Отображаются канонические данные стадии без дополнительного пользовательского обогащения.",
+    "defaultFriendlyDesc": "Отображаются данные стадии в пользовательском режиме просмотра.",
+    "previewSource": "Источник preview: {{source}}",
+    "previewSourceTitle": "Источник данных preview",
+    "textEnriched": "Текст обогащён из CHUNKS",
+    "textEnrichmentTitle": "Текстовое обогащение"
+  },
+  "stageRow": {
+    "pages": "стр.: {{count}}",
+    "elements": "элементов: {{count}}",
+    "sections": "секций: {{count}}",
+    "chunks": "чанков: {{count}}",
+    "open": "Открыть",
+    "openStageTitle": "Открыть стадию",
+    "disabledReasons": {
+      "pending": "Стадия ещё не готова",
+      "missing": "Артефакт стадии недоступен или повреждён",
+      "unavailable": "Стадия недоступна для просмотра",
+      "notYetAvailable": "Стадия пока недоступна для просмотра"
+    }
+  },
+  "stageModal": {
+    "switchError": "Не удалось переключить режим отображения стадии",
+    "noViewer": "Для этой стадии пока нет viewer.",
+    "switching": "Переключение...",
+    "closeAria": "Закрыть модальное окно",
+    "closePanelAria": "Закрыть панель стадии пайплайна",
+    "representationMode": "Режим представления: <bold>{{mode}}</bold>",
+    "toggle": {
+      "chunksFriendly": "RAG basis",
+      "chunksCanonical": "Stage artifact",
+      "chunksFriendlyTitle": "Показать retrieval-visible corpus — то, на чём основан анализ рисков",
+      "chunksCanonicalTitle": "Показать полный canonical artifact этапа CHUNKS (все уровни)",
+      "genericFriendly": "Friendly формат",
+      "genericCanonical": "Canonical формат",
+      "genericFriendlyTitle": "Показать более удобный для чтения вид",
+      "genericCanonicalTitle": "Вернуться к каноническому результату этапа"
+    }
+  },
+  "pdfViewer": {
+    "unavailable": "PDF-превью недоступно.",
+    "notAvailableEmbedded": "PDF недоступен для встроенного просмотра",
+    "noInlinePreview": "Для этой стадии не найден inline preview.",
+    "loading": "Загрузка PDF стадии…",
+    "loadError": "Не удалось загрузить PDF стадии"
+  },
+  "layoutViewer": {
+    "unavailable": "Layout-превью недоступно.",
+    "pagesCount": "Страниц: {{count}}",
+    "elementsCount": "Элементов: {{count}}",
+    "ariaLabel": "Режим просмотра layout-артефакта",
+    "tabView": "Просмотр",
+    "tabJson": "JSON",
+    "pageTitle": "Страница {{page}}",
+    "pageSubtitle": "Layout snapshot для страницы документа",
+    "noPagesTitle": "Нет страниц для отображения",
+    "noPagesDesc": "Layout-артефакт не содержит page preview для этого документа.",
+    "rawPayload": "Raw payload"
+  },
+  "chunksViewer": {
+    "pending": "Чанки ещё не готовы в v2-формате. Попробуйте позже.",
+    "missing": "CHUNKS-артефакт ожидается, но недоступен или повреждён. Проверьте состояние пайплайна для стадии CHUNKS.",
+    "unavailable": "CHUNKS preview недоступен для этого этапа.",
+    "sourcePaneTitle": "Исходный текст документа",
+    "sourcePaneDescLinked": "Связанные с выбранной секцией чанки подсвечены inline.",
+    "sourcePaneDescNotLinked": "Для выбранной секции не найдено связанных chunk'ов.",
+    "highlightedCount": "Подсвечено: {{count}}",
+    "sourceTextUnavailable": "Исходный текст документа недоступен.",
+    "pageAbbr": "стр. {{pages}}",
+    "selectChunkPrompt": "Выберите chunk слева.",
+    "openInDocument": "Открыть в документе",
+    "openSection": "Открыть section",
+    "contextSection": "Связанный context section",
+    "chunkText": "Текст chunk'а",
+    "stageContext": "Контекст stage",
+    "stageContextDesc": "Справа можно переключаться между JSON выбранного chunk'а и полным snapshot этапа, прокручиваемым к этому chunk'у.",
+    "json": {
+      "chunkTitle": "JSON chunk'а",
+      "snapshotTitle": "JSON snapshot",
+      "chunkDesc": "Технический объект chunk'а. Здесь сохраняется raw index и backend metadata.",
+      "snapshotDesc": "Полный snapshot этапа; выделен фрагмент текста выбранного chunk'а."
+    },
+    "layers": {
+      "section": "Section",
+      "clause": "Clause",
+      "subclause": "Subclause",
+      "legal_unit": "Legal unit"
+    },
+    "layersTab": {
+      "section": "Section layer",
+      "clause": "Clause layer",
+      "subclause": "Subclause layer",
+      "legal_unit": "Legal unit layer"
+    },
+    "friendly": {
+      "evidence": "Evidence",
+      "context": "Context",
+      "clause": "Clause"
+    },
+    "listPanel": {
+      "canonical": {
+        "title": "Canonical CHUNKS layers",
+        "description": "Показываются все слои materialized chunks. Нумерация локальная внутри выбранного слоя, а не общая по документу."
+      },
+      "retrieval": {
+        "title": "Основа анализа рисков (RAG evidence)",
+        "description": "Слева показаны рабочие evidence-chunks, на которых строится проверка. Context section показывается отдельно в карточке выбранного chunk'а."
+      },
+      "noChunks": "Нет чанков в выбранном слое.",
+      "canonicalNote": "Важный момент: <bold>нумерация локальная внутри выбранного слоя</bold>. Технический index хранится в JSON/debug.",
+      "retrievalNote": "Слева показываются только <bold>evidence-chunks</bold>, то есть рабочие retrieval fragments. Связанный section показывается в карточке справа как context."
+    },
+    "detailPanel": {
+      "canonical": {
+        "title": "Canonical materialized chunk",
+        "description": "Показывается один chunk выбранного слоя. UID — якорь chunk'а, а не обещание идеальной границы ровно по одному пункту."
+      },
+      "retrieval": {
+        "title": "RAG evidence chunk",
+        "description": "Показывается рабочий retrieval-visible fragment и связанный context section этого раздела."
+      },
+      "canonicalNoteUid": "<bold>UID — это anchor identity chunk'а</bold>, а не гарантия, что text будет идеально совпадать ровно с одним видимым пунктом договора. Поэтому chunk с uid `{{uid}}` может содержать текст 2.2, 2.3 и следующие строки того же блока.",
+      "canonicalNoteLeaf": "<bold>Leaf-node clause chunk:</bold> этот clause layer chunk соответствует leaf-узлу clause tree. Внутренние нумерованные подпункты могут не быть отдельными clause-узлами.",
+      "canonicalNoteRaw": "Показывается raw materialized text. На границе chunk'а может встречаться заголовок следующего раздела или пограничная строка соседнего блока.",
+      "canonicalNoteSection": "Это context section layer: такой chunk может содержать целый раздел договора и нужен как крупный контекстный слой.",
+      "retrievalNote": "Это рабочий <bold>evidence chunk</bold> retrieval corpus. Ниже отдельно показан связанный <bold>context section</bold>, чтобы пользователь видел не только фрагмент, но и более широкий раздел документа."
+    }
+  },
   "stages": {
     "import": "Импорт файла",
     "extract": "Извлечение текста",
@@ -49,7 +250,12 @@
     "duration_s": "{{seconds}}s",
     "duration_m_s": "{{minutes}}m {{seconds}}s",
     "start": "Старт:",
-    "completedAt": "Завершено:"
+    "completedAt": "Завершено:",
+    "warnings": "Предупреждения",
+    "input": "Входные параметры (Input)",
+    "output": "Выходные параметры (Output)",
+    "artifacts": "Артефакты (Artifacts)",
+    "errorLabel": "Ошибка (Error)"
   },
   "traceStages": {
     "workers_build_primary_language_source": "Языковой источник",
@@ -106,14 +312,21 @@
       "confident": "Уверенная",
       "low": "Низкая",
       "unknown": "Неопределённая"
-    }
+    },
+    "candidate": {
+      "conf": "conf: {{value}}",
+      "level": "level: {{value}}",
+      "method": "method: {{value}}"
+    },
+    "playbookVersion": "Версия playbook: {{version}}"
   },
   "pipelinePanel": {
     "stagesLoading": "Загрузка стадий обработки…",
     "stagesError": "Не удалось загрузить стадии документа",
     "missingDocId": "Не указан идентификатор документа",
     "pathDescription": "Путь документа по стадиям обработки — от исходного PDF до структуры и чанков.",
-    "notAvailable": "Стадии обработки пока недоступны."
+    "notAvailable": "Стадии обработки пока недоступны.",
+    "title": "Пайплайн документа"
   },
   "classificationLevels": {
     "L0": {
@@ -137,6 +350,7 @@
       "description": "Подтверждено языковой моделью"
     },
     "L_manual": {
+      "shortLabel": "Вручную",
       "label": "Ручной override",
       "description": "Тип задан вручную оператором"
     }

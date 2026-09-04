@@ -10,6 +10,7 @@
 // изменения поля в GlobalInstructionEditor.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 
 import Field from "../ui/Field";
@@ -69,6 +70,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
   onDirtyChange,
   instructionType = "doc-type",
 }) => {
+  const { t, i18n } = useTranslation("instructions");
   const queryClient = useQueryClient();
 
   // ── Edit mode tabs (только для global) ────────────────────────
@@ -235,40 +237,45 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
         concurrencyState.conflictData && (
           <div className="rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3">
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-error-text)]">
-              Свежие данные с сервера
+              {t("draftEditForm.conflict.title")}
             </div>
             <div className="space-y-1 text-[11px] text-[var(--color-error-text)]">
               <div>
-                Имя:{" "}
-                <span className="font-semibold">
-                  {concurrencyState.conflictData.name}
-                </span>
+                <Trans
+                  t={t}
+                  i18nKey="draftEditForm.conflict.name"
+                  values={{ name: concurrencyState.conflictData.name }}
+                  components={{
+                    bold: <span className="font-semibold" />,
+                  }}
+                />
               </div>
               {concurrencyState.conflictData.change_summary && (
                 <div>
-                  Описание изменений:{" "}
-                  {concurrencyState.conflictData.change_summary}
+                  {t("draftEditForm.conflict.changeSummary", {
+                    summary: concurrencyState.conflictData.change_summary,
+                  })}
                 </div>
               )}
               <div>
-                Обновлено:{" "}
-                {concurrencyState.conflictData.updated_at
-                  ? new Date(
-                      concurrencyState.conflictData.updated_at,
-                    ).toLocaleString("ru-RU")
-                  : "—"}
+                {t("draftEditForm.conflict.updatedAt", {
+                  time: concurrencyState.conflictData.updated_at
+                    ? new Date(
+                        concurrencyState.conflictData.updated_at,
+                      ).toLocaleString(i18n.language)
+                    : "—",
+                })}
               </div>
             </div>
             <p className="mt-2 text-[11px] text-[var(--color-error-text)]">
-              Обновите форму вручную с учётом свежих данных, затем нажмите
-              «Сохранить».
+              {t("draftEditForm.conflict.manualHint")}
             </p>
           </div>
         )}
 
       {/* Metadata fields */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Название версии" required>
+        <Field label={t("draftEditForm.fields.name")} required>
           <input
             type="text"
             value={name}
@@ -276,11 +283,11 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
             onBlur={handleBlurSave}
             disabled={isBusy}
             className={inputClassName}
-            placeholder="Например: Initial draft, Updated checks..."
+            placeholder={t("draftEditForm.fields.namePlaceholder")}
           />
         </Field>
 
-        <Field label="Semver">
+        <Field label={t("draftEditForm.fields.semver")}>
           <input
             type="text"
             value={semver}
@@ -288,12 +295,12 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
             onBlur={handleBlurSave}
             disabled={isBusy}
             className={inputClassName}
-            placeholder="1.0.0"
+            placeholder={t("draftEditForm.fields.semverPlaceholder")}
           />
         </Field>
 
         <div className="sm:col-span-2">
-          <Field label="Описание изменений (change summary)">
+          <Field label={t("draftEditForm.fields.changeSummary")}>
             <input
               type="text"
               value={changeSummary}
@@ -301,7 +308,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
               onBlur={handleBlurSave}
               disabled={isBusy}
               className={inputClassName}
-              placeholder="Что изменено в этой версии..."
+              placeholder={t("draftEditForm.fields.changeSummaryPlaceholder")}
             />
           </Field>
         </div>
@@ -312,12 +319,12 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-[var(--text-secondary)]">
-              Содержимое инструкции
+              {t("draftEditForm.fields.instructionContent")}
             </span>
             <Tabs value={editMode} onChange={handleEditModeChange}>
-              <TabsList aria-label="Режим редактирования">
-                <TabsTrigger value="editor">Редактор</TabsTrigger>
-                <TabsTrigger value="yaml">YAML</TabsTrigger>
+              <TabsList aria-label={t("draftEditForm.fields.instructionContent")}>
+                <TabsTrigger value="editor">{t("draftEditForm.fields.editor")}</TabsTrigger>
+                <TabsTrigger value="yaml">{t("draftEditForm.fields.yaml")}</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -329,7 +336,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
               disabled={isBusy}
             />
           ) : (
-            <Field label="Source YAML" required>
+            <Field label={t("draftEditForm.fields.sourceYaml")} required>
               <textarea
                 value={sourceYaml}
                 onChange={(e) => setSourceYaml(e.target.value)}
@@ -337,14 +344,14 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
                 disabled={isBusy}
                 className={textareaClassName}
                 rows={24}
-                placeholder="# Вставьте YAML-конфигурацию инструкции..."
+                placeholder={t("draftEditForm.fields.yamlPlaceholder")}
                 spellCheck={false}
               />
             </Field>
           )}
         </div>
       ) : (
-        <Field label="Source YAML" required>
+        <Field label={t("draftEditForm.fields.sourceYaml")} required>
           <textarea
             value={sourceYaml}
             onChange={(e) => setSourceYaml(e.target.value)}
@@ -352,7 +359,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
             disabled={isBusy}
             className={textareaClassName}
             rows={16}
-            placeholder="# Вставьте YAML-конфигурацию инструкции..."
+            placeholder={t("draftEditForm.fields.yamlPlaceholder")}
             spellCheck={false}
           />
         </Field>
@@ -363,12 +370,12 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
         <p className="text-[11px] text-[var(--text-muted)]">
           {isDirty ? (
             <span className="text-[var(--color-warning-text)]">
-              Есть несохранённые изменения
+              {t("draftEditForm.status.dirty")}
             </span>
           ) : instructionType === "global" && editMode === "editor" ? (
-            "Черновик сохраняется автоматически с небольшой задержкой."
+            t("draftEditForm.status.autosaveDebounce")
           ) : (
-            "Черновик сохраняется автоматически при переходе между полями."
+            t("draftEditForm.status.autosaveBlur")
           )}
         </p>
         <Button
@@ -379,7 +386,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
           disabled={!canSave}
           isLoading={concurrencyState.status === "saving"}
         >
-          Сохранить черновик
+          {t("draftEditForm.status.saveDraft")}
         </Button>
       </div>
     </div>
@@ -387,5 +394,6 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
 };
 
 export default DraftEditForm;
+
 
 

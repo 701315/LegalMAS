@@ -7,6 +7,8 @@
 // - список колонок = базовые + выбранные extra columns;
 // - фильтры применяются те же (visibleCheckIds, includePassResults);
 // - никаких хардкодов бизнес-логики.
+//
+// i18n: утилита работает через передаваемый tFn, fallback — English.
 // =============================================================
 
 import type { DDGridV1DrawerContentDTO } from "../../../types/dealReview";
@@ -24,6 +26,53 @@ import type {
   DDGridV1DerivedModel,
   DDGridV1MatrixRow,
 } from "./ddGridV1.types";
+
+// -------------------------------------------------------------
+// Translation helper interface
+// -------------------------------------------------------------
+
+type TFunction = (key: string, options?: Record<string, any>) => string;
+
+// Default fallback translator (English)
+const defaultT: TFunction = (key, options) => {
+  const defaults: Record<string, string> = {
+    "unnamedDocument": "[unnamed]",
+    "columns.rowNumber": "№",
+    "columns.document": "Document",
+    "columns.docType": "Document type",
+    "columns.check": "Check",
+    "columns.result": "Result",
+    "columns.status": "Status",
+    "columns.location": "Location",
+    "columns.parameter": "Parameter",
+    "columns.value": "Value",
+    "reviewStatus.empty": "—",
+    "reviewStatus.needs_review": "Needs review",
+    "reviewStatus.no_issue_detected": "No issues detected",
+    "reviewStatus.unclear": "Unclear",
+    "qc.approved": "Approved",
+    "qc.rejected": "Rejected",
+    "qc.needs_review": "Needs review",
+    "matrix.unknownCheck": "Unknown check",
+    "drawer.cellStateLabels.error": "⚠ Error",
+    "extra.detectionLevel.label": "Analysis method",
+    "extra.qcStatus.label": "QC Status",
+    "extra.confidence.label": "Confidence",
+    "extra.qualityFlags.label": "Warnings",
+    "extra.agentName.label": "Agent name",
+    "extra.modelVersion.label": "Model version",
+    "extra.executionTime.label": "Execution time",
+    "extra.retryAttempts.label": "LLM attempts",
+    "extra.inputTokens.label": "Input tokens",
+    "extra.outputTokens.label": "Output tokens",
+  };
+  
+  if (key === "location.pageAbbr" && options && typeof options.page === "number") {
+    return `p. ${options.page}`;
+  }
+  
+  return defaults[key] ?? String(options?.defaultValue ?? key);
+};
 
 // -------------------------------------------------------------
 // Column catalog
@@ -70,38 +119,44 @@ export interface DDGridV1ExportSourceRow {
 }
 
 // -------------------------------------------------------------
-// Review status labels (дублируем логику из DDGridV1List)
+// Review status labels
 // -------------------------------------------------------------
 
-function getReviewStatusLabel(status: string | null | undefined): string {
+function getReviewStatusLabel(
+  status: string | null | undefined,
+  t: TFunction,
+): string {
   if (!status || typeof status !== "string" || status.trim().length === 0) {
-    return "—";
+    return t("reviewStatus.empty");
   }
   const normalized = status.trim();
   switch (normalized) {
     case "needs_review":
-      return "Требует внимания юриста";
+      return t("reviewStatus.needs_review");
     case "no_issue_detected":
     case "ok":
-      return "Без замечаний";
+      return t("reviewStatus.no_issue_detected");
     case "unclear":
-      return "Результат не определён";
+      return t("reviewStatus.unclear");
     default:
       return normalized;
   }
 }
 
 // -------------------------------------------------------------
-// Location text (дублируем логику из DDGridV1List)
+// Location text
 // -------------------------------------------------------------
 
-function buildLocationText(drawer: DDGridV1DrawerContentDTO | null): string {
+function buildLocationText(
+  drawer: DDGridV1DrawerContentDTO | null,
+  t: TFunction,
+): string {
   if (!drawer) return "";
 
   for (const field of drawer.fields ?? []) {
     const parts: string[] = [];
     if (typeof field.location_page === "number") {
-      parts.push(`стр. ${field.location_page}`);
+      parts.push(t("location.pageAbbr", { page: field.location_page }));
     }
     if (
       typeof field.location_clause_ref === "string" &&
@@ -118,116 +173,104 @@ function buildLocationText(drawer: DDGridV1DrawerContentDTO | null): string {
 }
 
 // -------------------------------------------------------------
-// Column definitions
+// Column definitions builder
 // -------------------------------------------------------------
 
-/**
- * Базовые колонки — всегда экспортируются.
- * Порядок совпадает с UI.
- *
- * Колонка "№" — сквозная нумерация записей в экспорте.
- * Индекс подставляется в buildDDGridV1ExportTable, а не в extract,
- * потому что extract работает с одной row без знания её позиции.
- */
-const BASE_EXPORT_COLUMNS: readonly DDGridV1ExportColumn[] = [
-  {
-    id: "rowNumber",
-    label: "№",
-    extract: () => "", // подставляется отдельно в buildDDGridV1ExportTable
-  },
-  {
-    id: "documentName",
-    label: "Документ",
-    extract: (r) => r.documentName,
-  },
-  {
-    id: "docType",
-    label: "Тип документа",
-    extract: (r) => r.docType,
-  },
-  {
-    id: "checkName",
-    label: "Проверка",
-    extract: (r) => r.checkName,
-  },
-  {
-    id: "displayText",
-    label: "Результат",
-    extract: (r) => r.displayText,
-  },
-  {
-    id: "reviewStatus",
-    label: "Статус",
-    extract: (r) => r.reviewStatusLabel,
-  },
-  {
-    id: "locationText",
-    label: "Локация",
-    extract: (r) => r.locationText,
-  },
-] as const;
+function getBaseExportColumns(t: TFunction): readonly DDGridV1ExportColumn[] {
+  return [
+    {
+      id: "rowNumber",
+      label: t("columns.rowNumber"),
+      extract: () => "",
+    },
+    {
+      id: "documentName",
+      label: t("columns.document"),
+      extract: (r) => r.documentName,
+    },
+    {
+      id: "docType",
+      label: t("columns.docType"),
+      extract: (r) => r.docType,
+    },
+    {
+      id: "checkName",
+      label: t("columns.check"),
+      extract: (r) => r.checkName,
+    },
+    {
+      id: "displayText",
+      label: t("columns.result"),
+      extract: (r) => r.displayText,
+    },
+    {
+      id: "reviewStatus",
+      label: t("columns.status"),
+      extract: (r) => r.reviewStatusLabel,
+    },
+    {
+      id: "locationText",
+      label: t("columns.location"),
+      extract: (r) => r.locationText,
+    },
+  ];
+}
 
-/**
- * Extra колонки — включаются, если выбраны в UI.
- * ID должны совпадать с DD_GRID_V1_EXTRA_COLUMNS.id из DDGridV1List.
- */
-const EXTRA_EXPORT_COLUMNS: Record<string, DDGridV1ExportColumn> = {
-  detectionLevel: {
-    id: "detectionLevel",
-    label: "Метод анализа",
-    extract: (r) => r.detectionLevel,
-  },
-  qcStatus: {
-    id: "qcStatus",
-    label: "QC",
-    extract: (r) => r.qcStatus,
-  },
-  confidence: {
-    id: "confidence",
-    label: "Уверенность",
-    extract: (r) => r.confidenceFormatted,
-  },
-  qualityFlags: {
-    id: "qualityFlags",
-    label: "Предупреждения",
-    extract: (r) => r.qualityFlagsText,
-  },
-  agentName: {
-    id: "agentName",
-    label: "Агент",
-    extract: (r) => r.agentName,
-  },
-  modelVersion: {
-    id: "modelVersion",
-    label: "Модель",
-    extract: (r) => r.modelVersion,
-  },
-  executionTime: {
-    id: "executionTime",
-    label: "Время выполнения",
-    extract: (r) => r.executionTime,
-  },
-  retryAttempts: {
-    id: "retryAttempts",
-    label: "Попытки LLM",
-    extract: (r) => r.retryAttempts,
-  },
-  inputTokens: {
-    id: "inputTokens",
-    label: "Input tokens",
-    extract: (r) => r.inputTokens,
-  },
-  outputTokens: {
-    id: "outputTokens",
-    label: "Output tokens",
-    extract: (r) => r.outputTokens,
-  },
-};
+function getExtraExportColumns(t: TFunction): Record<string, DDGridV1ExportColumn> {
+  return {
+    detectionLevel: {
+      id: "detectionLevel",
+      label: t("extra.detectionLevel.label"),
+      extract: (r) => r.detectionLevel,
+    },
+    qcStatus: {
+      id: "qcStatus",
+      label: t("extra.qcStatus.label"),
+      extract: (r) => r.qcStatus,
+    },
+    confidence: {
+      id: "confidence",
+      label: t("extra.confidence.label"),
+      extract: (r) => r.confidenceFormatted,
+    },
+    qualityFlags: {
+      id: "qualityFlags",
+      label: t("extra.qualityFlags.label"),
+      extract: (r) => r.qualityFlagsText,
+    },
+    agentName: {
+      id: "agentName",
+      label: t("extra.agentName.label"),
+      extract: (r) => r.agentName,
+    },
+    modelVersion: {
+      id: "modelVersion",
+      label: t("extra.modelVersion.label"),
+      extract: (r) => r.modelVersion,
+    },
+    executionTime: {
+      id: "executionTime",
+      label: t("extra.executionTime.label"),
+      extract: (r) => r.executionTime,
+    },
+    retryAttempts: {
+      id: "retryAttempts",
+      label: t("extra.retryAttempts.label"),
+      extract: (r) => r.retryAttempts,
+    },
+    inputTokens: {
+      id: "inputTokens",
+      label: t("extra.inputTokens.label"),
+      extract: (r) => r.inputTokens,
+    },
+    outputTokens: {
+      id: "outputTokens",
+      label: t("extra.outputTokens.label"),
+      extract: (r) => r.outputTokens,
+    },
+  };
+}
 
-/**
- * Порядок extra колонок при экспорте.
- * Совпадает с DD_GRID_V1_EXTRA_COLUMNS в DDGridV1List.
- */
 const EXTRA_EXPORT_COLUMN_ORDER: readonly string[] = [
   "detectionLevel",
   "qcStatus",
@@ -251,15 +294,17 @@ const EXTRA_EXPORT_COLUMN_ORDER: readonly string[] = [
  */
 export function buildDDGridV1ExportColumns(
   visibleExtraColumnIds: readonly string[] | undefined,
+  t: TFunction = defaultT,
 ): DDGridV1ExportColumn[] {
-  const columns: DDGridV1ExportColumn[] = [...BASE_EXPORT_COLUMNS];
+  const columns: DDGridV1ExportColumn[] = [...getBaseExportColumns(t)];
 
   const visibleExtras = new Set(visibleExtraColumnIds ?? []);
   if (visibleExtras.size === 0) return columns;
 
+  const extraColumnsMap = getExtraExportColumns(t);
   for (const id of EXTRA_EXPORT_COLUMN_ORDER) {
     if (!visibleExtras.has(id)) continue;
-    const col = EXTRA_EXPORT_COLUMNS[id];
+    const col = extraColumnsMap[id];
     if (col) columns.push(col);
   }
 
@@ -274,10 +319,10 @@ export function buildDDGridV1ExportRows(params: {
   model: DDGridV1DerivedModel;
   visibleCheckIds?: readonly string[];
   includePassResults?: boolean;
+  t?: TFunction;
 }): DDGridV1ExportSourceRow[] {
-  const { model, visibleCheckIds, includePassResults = true } = params;
+  const { model, visibleCheckIds, includePassResults = true, t = defaultT } = params;
 
-  // Собираем все check nodes (deduplicated)
   const allChecks: DDGridV1CheckNode[] = [];
   const seenCheckIds = new Set<string>();
 
@@ -310,13 +355,11 @@ export function buildDDGridV1ExportRows(params: {
     for (const check of allChecks) {
       if (visibleCheckSet && !visibleCheckSet.has(check.checkId)) continue;
 
-      // 3-уровневый lookup: doc_id → segment_id → check_id
       const segmentId = v1Row.segmentId ?? "_default";
       const drawer =
         model.drawerContents[v1Row.documentId]?.[segmentId]?.[check.checkId] ?? null;
       if (!drawer) continue;
 
-      // pass фильтр
       if (
         !includePassResults &&
         (drawer.review_status === "no_issue_detected" ||
@@ -325,7 +368,7 @@ export function buildDDGridV1ExportRows(params: {
         continue;
       }
 
-      result.push(buildExportSourceRow(v1Row, check, drawer));
+      result.push(buildExportSourceRow(v1Row, check, drawer, t));
     }
   }
 
@@ -339,6 +382,7 @@ function buildExportSourceRow(
   v1Row: DDGridV1MatrixRow,
   check: DDGridV1CheckNode,
   drawer: DDGridV1DrawerContentDTO,
+  t: TFunction,
 ): DDGridV1ExportSourceRow {
   const detectionLevelInfo = resolveDDGridV1DetectionLevel(drawer);
   const confidenceInfo = resolveDDGridV1Confidence(drawer);
@@ -349,19 +393,19 @@ function buildExportSourceRow(
   const qcStatusLabel =
     qcAuditInfo.status && qcAuditInfo.status !== "pending"
       ? {
-          approved: "Одобрено",
-          rejected: "Отклонено",
-          needs_review: "Нужна проверка",
+          approved: t("qc.approved"),
+          rejected: t("qc.rejected"),
+          needs_review: t("qc.needs_review"),
         }[qcAuditInfo.status] ?? qcAuditInfo.status
       : "";
 
   return {
-    documentName: v1Row.filename || "[no name]",
+    documentName: v1Row.filename || t("unnamedDocument"),
     docType: v1Row.docType || "—",
     checkName: check.checkName || check.checkId,
     displayText: drawer.display_text?.trim() || "",
-    reviewStatusLabel: getReviewStatusLabel(drawer.review_status),
-    locationText: buildLocationText(drawer),
+    reviewStatusLabel: getReviewStatusLabel(drawer.review_status, t),
+    locationText: buildLocationText(drawer, t),
 
     detectionLevel: detectionLevelInfo.badge ?? "",
     qcStatus: qcStatusLabel,
@@ -408,30 +452,16 @@ export interface DDGridV1MatrixHeaderCell {
 
 /**
  * Result type для matrix export с иерархическими заголовками.
- *
- * headerRows содержит 3 строки:
- *   Row 0: Scope groups (например, "Confidentiality", "Governing Law")
- *   Row 1: Check names (например, "Конфиденциальность и коммерческая тайна")
- *   Row 2: Runtime column labels (например, "Confidentiality status")
- *
- * pinnedHeaders — заголовки для первых pinnedColumnCount колонок,
- * которые объединяются по вертикали через все 3 строки.
- * Обычно это ["№", "Документ", "Тип документа"].
  */
 export interface DDGridV1MatrixExportTable {
-  /** Заголовки первых pinned колонок (merged vertically). */
   pinnedHeaders: string[];
-  /** Три строки заголовков для остальных колонок. */
   headerRows: [
     DDGridV1MatrixHeaderCell[],
     DDGridV1MatrixHeaderCell[],
     DDGridV1MatrixHeaderCell[],
   ];
-  /** Полный плоский список column labels на самом нижнем уровне (для fallback). */
   leafHeaders: string[];
-  /** Data rows: первые pinnedColumnCount = pinned, остальные — data columns. */
   rows: string[][];
-  /** Количество pinned колонок (для расчёта colSpan для pinned headers). */
   pinnedColumnCount: number;
   rowCount: number;
 }
@@ -446,12 +476,15 @@ export function buildDDGridV1ListExportTable(params: {
   visibleCheckIds?: readonly string[];
   includePassResults?: boolean;
   visibleExtraColumnIds?: readonly string[];
+  t?: TFunction;
 }): DDGridV1ExportTable {
-  const columns = buildDDGridV1ExportColumns(params.visibleExtraColumnIds);
+  const t = params.t ?? defaultT;
+  const columns = buildDDGridV1ExportColumns(params.visibleExtraColumnIds, t);
   const sourceRows = buildDDGridV1ExportRows({
     model: params.model,
     visibleCheckIds: params.visibleCheckIds,
     includePassResults: params.includePassResults,
+    t,
   });
 
   const headers = columns.map((c) => c.label);
@@ -472,29 +505,17 @@ export function buildDDGridV1ListExportTable(params: {
   };
 }
 
-/**
- * Backward-compatible alias. Существующий код может импортировать
- * старое имя buildDDGridV1ExportTable — оно продолжает работать
- * как list export.
- */
 export const buildDDGridV1ExportTable = buildDDGridV1ListExportTable;
 
 /**
  * Строит matrix export — двумерная таблица с иерархическими заголовками.
- *
- * Структура (Вариант 2 — 3 уровня без top-level):
- *   pinned headers: № | Документ | Тип документа (merged vertically)
- *   Row 0 (scope group):    | Confidentiality (colSpan=3) | Governing Law (colSpan=2) | ...
- *   Row 1 (check name):     | Конф. и ком. тайна (colSpan=3) | Прим. право (colSpan=2) | ...
- *   Row 2 (runtime column): | Status | Term regime | Term value | Applicable | Forum | ...
- *
- * Data rows: rows = [[№, Документ, Тип, cell1, cell2, ...]]
  */
 export function buildDDGridV1MatrixExportTable(params: {
   model: DDGridV1DerivedModel;
   visibleCheckIds?: readonly string[];
+  t?: TFunction;
 }): DDGridV1MatrixExportTable {
-  const { model, visibleCheckIds } = params;
+  const { model, visibleCheckIds, t = defaultT } = params;
   const visibleCheckSet = visibleCheckIds ? new Set(visibleCheckIds) : null;
 
   interface MatrixColumn {
@@ -516,7 +537,7 @@ export function buildDDGridV1MatrixExportTable(params: {
     if (seenCheckIds.has(check.checkId)) return;
     seenCheckIds.add(check.checkId);
 
-    const checkName = check.checkName || check.checkId || "Неизвестная проверка"; // <-- УЛУЧШЕНО
+    const checkName = check.checkName || check.checkId || t("matrix.unknownCheck");
 
     for (const runtimeColumn of check.columns) {
       const columnLabel = runtimeColumn.column.label;
@@ -526,7 +547,6 @@ export function buildDDGridV1MatrixExportTable(params: {
         checkName,
         columnLabel,
         extract: (row) => {
-          // 3-уровневый lookup: doc_id → segment_id → column_id
           const segmentId = row.segmentId ?? "_default";
           const perDoc = model.cellValues[row.documentId];
           const perSegment = perDoc ? perDoc[segmentId] : undefined;
@@ -538,7 +558,7 @@ export function buildDDGridV1MatrixExportTable(params: {
 
           switch (rawCell.cell_state) {
             case "error":
-              return "⚠ Ошибка";
+              return t("drawer.cellStateLabels.error");
             case "not_defined":
             case "not_executed":
               return "—";
@@ -551,27 +571,20 @@ export function buildDDGridV1MatrixExportTable(params: {
     }
   };
 
-  // Global groups: scope label = group.label
   for (const group of model.globalGroups) {
     for (const check of group.checks) {
       processCheck(check, group.label);
     }
   }
 
-  // Doc-type classes: scope label = "{class.label} · {type.name}"
   for (const cls of model.docTypeClasses) {
-    for (const t of cls.types) {
-      const scopeLabel = `${cls.label} · ${t.name}`;
-      for (const check of t.checks) {
+    for (const tType of cls.types) {
+      const scopeLabel = `${cls.label} · ${tType.name}`;
+      for (const check of tType.checks) {
         processCheck(check, scopeLabel);
       }
     }
   }
-
-  // ── Строим 3 строки заголовков с colSpan ────────────────────
-  // Row 0: scope groups. Соседние колонки с одинаковым scopeGroupLabel мержатся.
-  // Row 1: check names. Соседние колонки с одинаковым (scope + check) мержатся.
-  // Row 2: runtime column labels (всегда colSpan=1).
 
   const buildMergedRow = (
     getKey: (col: MatrixColumn) => string,
@@ -598,8 +611,7 @@ export function buildDDGridV1MatrixExportTable(params: {
   const checkRow = buildMergedRow(
     (col) => `${col.scopeGroupLabel}||${col.checkName}`,
   );
-  // На check row нам нужны фактические label, а не composite key.
-  // Пересобираем check row с правильными labels, сохраняя структуру colSpan.
+  
   const checkRowFinal: DDGridV1MatrixHeaderCell[] = [];
   let colIndex = 0;
   for (const cell of checkRow) {
@@ -615,14 +627,17 @@ export function buildDDGridV1MatrixExportTable(params: {
     colSpan: 1,
   }));
 
-  // ── Data rows ──────────────────────────────────────────────
-  const pinnedHeaders = ["№", "Документ", "Тип документа"];
+  const pinnedHeaders = [
+    t("columns.rowNumber"),
+    t("columns.document"),
+    t("columns.docType")
+  ];
   const pinnedColumnCount = pinnedHeaders.length;
 
   const rows: string[][] = model.rows.map((row, index) => {
     const rowValues: string[] = [
       String(index + 1),
-      row.filename || "[no name]",
+      row.filename || t("unnamedDocument"),
       row.docType || "—",
     ];
     for (const col of matrixColumns) {
@@ -650,62 +665,30 @@ export function buildDDGridV1MatrixExportTable(params: {
 // SECTIONED export helpers (Layout 2 & 3)
 // =============================================================
 
-/**
- * Один section в структурированном экспорте.
- * Каждая section — независимая таблица с заголовком.
- * Используется для Layout 2 (section per document)
- * и Layout 3 (section per scope group).
- */
 export interface DDGridV1ExportSection {
-  /** Заголовок секции (например, "Simonova_SPA_Real_Estate.DOCX" или "Confidentiality"). */
   title: string;
-  /** Опциональный подзаголовок (например, "contract_1.6_real_estate"). */
   subtitle?: string;
-  /** Заголовки колонок этой секции. */
   headers: string[];
-  /** Данные секции. */
   rows: string[][];
 }
 
-/**
- * Result type для sectioned export.
- * Порядок sections — тот же, что порядок появления в UI.
- */
 export interface DDGridV1SectionedExportTable {
   sections: DDGridV1ExportSection[];
-  /** Общее количество rows во всех sections. */
   totalRowCount: number;
-  /** Максимальное количество колонок в любой секции. */
   maxColumnCount: number;
 }
 
-// -------------------------------------------------------------
-// Layout 2 — Section per document (row grouping)
-// -------------------------------------------------------------
-
 /**
  * Строит sectioned export: одна секция на документ.
- *
- * Структура каждой секции:
- *   Title: filename документа
- *   Subtitle: doc_type
- *   Table:
- *     | Проверка | Параметр | Значение |
- *     | ...      | ...      | ...      |
- *
- * Стратегическое преимущество:
- * - каждая таблица узкая (3 колонки) — идеально влезает в PDF/Word portrait или landscape
- * - юрист видит все проверки одного документа в одном месте
- * - естественно для юридического DD memo формата
  */
 export function buildDDGridV1DocumentSectionedExportTable(params: {
   model: DDGridV1DerivedModel;
   visibleCheckIds?: readonly string[];
+  t?: TFunction;
 }): DDGridV1SectionedExportTable {
-  const { model, visibleCheckIds } = params;
+  const { model, visibleCheckIds, t = defaultT } = params;
   const visibleCheckSet = visibleCheckIds ? new Set(visibleCheckIds) : null;
 
-  // Собираем deduplicated check nodes с их scope group для контекста.
   interface CheckWithScope {
     check: DDGridV1CheckNode;
     scopeGroupLabel: string;
@@ -724,15 +707,15 @@ export function buildDDGridV1DocumentSectionedExportTable(params: {
     }
   }
   for (const cls of model.docTypeClasses) {
-    for (const t of cls.types) {
-      for (const check of t.checks) {
+    for (const tType of cls.types) {
+      for (const check of tType.checks) {
         if (!check.checkId) continue;
         if (visibleCheckSet && !visibleCheckSet.has(check.checkId)) continue;
         if (seenCheckIds.has(check.checkId)) continue;
         seenCheckIds.add(check.checkId);
         allChecks.push({
           check,
-          scopeGroupLabel: `${cls.label} · ${t.name}`,
+          scopeGroupLabel: `${cls.label} · ${tType.name}`,
         });
       }
     }
@@ -745,17 +728,14 @@ export function buildDDGridV1DocumentSectionedExportTable(params: {
     const rows: string[][] = [];
 
     for (const { check, scopeGroupLabel } of allChecks) {
-      // 3-уровневый lookup: doc_id → segment_id → check_id
       const segmentId = v1Row.segmentId ?? "_default";
       const drawer =
         model.drawerContents[v1Row.documentId]?.[segmentId]?.[check.checkId] ?? null;
       if (!drawer) continue;
 
-      // Одна check = группа строк (одна на runtime column)
       const checkName = check.checkName || check.checkId;
 
       for (const runtimeColumn of check.columns) {
-        // 3-уровневый lookup: doc_id → segment_id → column_id
         const perDoc = model.cellValues[v1Row.documentId];
         const perSegment = perDoc ? perDoc[segmentId] : undefined;
         const rawCell = perSegment ? perSegment[runtimeColumn.column.column_id] ?? null : null;
@@ -766,7 +746,7 @@ export function buildDDGridV1DocumentSectionedExportTable(params: {
         } else {
           switch (rawCell.cell_state) {
             case "error":
-              value = "⚠ Ошибка";
+              value = t("drawer.cellStateLabels.error");
               break;
             case "not_defined":
             case "not_executed":
@@ -789,9 +769,13 @@ export function buildDDGridV1DocumentSectionedExportTable(params: {
     if (rows.length === 0) continue;
 
     sections.push({
-      title: v1Row.filename || "[no name]",
+      title: v1Row.filename || t("unnamedDocument"),
       subtitle: v1Row.docType || undefined,
-      headers: ["Проверка", "Параметр", "Значение"],
+      headers: [
+        t("columns.check"),
+        t("columns.parameter"),
+        t("columns.value")
+      ],
       rows,
     });
     totalRowCount += rows.length;
@@ -804,28 +788,15 @@ export function buildDDGridV1DocumentSectionedExportTable(params: {
   };
 }
 
-// -------------------------------------------------------------
-// Layout 3 — Section per scope group
-// -------------------------------------------------------------
-
 /**
  * Строит sectioned export: одна секция на scope group.
- *
- * Структура каждой секции:
- *   Title: "Confidentiality" / "Governing Law" / "Договор купли-продажи недвижимости"
- *   Table:
- *     | № | Документ | Тип | Runtime col 1 | Runtime col 2 | ... |
- *
- * Стратегическое преимущество:
- * - каждая таблица узкая — влезает в landscape A4
- * - позволяет сравнить одну группу проверок между документами
- * - идеально для тематических compliance reports
  */
 export function buildDDGridV1ScopeGroupSectionedExportTable(params: {
   model: DDGridV1DerivedModel;
   visibleCheckIds?: readonly string[];
+  t?: TFunction;
 }): DDGridV1SectionedExportTable {
-  const { model, visibleCheckIds } = params;
+  const { model, visibleCheckIds, t = defaultT } = params;
   const visibleCheckSet = visibleCheckIds ? new Set(visibleCheckIds) : null;
 
   interface ScopeSectionPlan {
@@ -845,7 +816,6 @@ export function buildDDGridV1ScopeGroupSectionedExportTable(params: {
     runtimeColumn: DDGridV1CheckNode["columns"][number],
   ) => {
     return (row: DDGridV1MatrixRow): string => {
-      // 3-уровневый lookup: doc_id → segment_id → column_id
       const segmentId = row.segmentId ?? "_default";
       const perDoc = model.cellValues[row.documentId];
       const perSegment = perDoc ? perDoc[segmentId] : undefined;
@@ -856,7 +826,7 @@ export function buildDDGridV1ScopeGroupSectionedExportTable(params: {
       }
       switch (rawCell.cell_state) {
         case "error":
-          return "⚠ Ошибка";
+          return t("drawer.cellStateLabels.error");
         case "not_defined":
         case "not_executed":
           return "—";
@@ -876,7 +846,7 @@ export function buildDDGridV1ScopeGroupSectionedExportTable(params: {
     if (seenCheckIds.has(check.checkId)) return;
     seenCheckIds.add(check.checkId);
 
-    const checkName = check.checkName || check.checkId || "Неизвестная проверка"; // <-- УЛУЧШЕНО
+    const checkName = check.checkName || check.checkId || t("matrix.unknownCheck");
 
     for (const runtimeColumn of check.columns) {
       sectionPlan.columns.push({
@@ -887,7 +857,6 @@ export function buildDDGridV1ScopeGroupSectionedExportTable(params: {
     }
   };
 
-  // Global scope groups
   for (const group of model.globalGroups) {
     const plan: ScopeSectionPlan = {
       title: group.label,
@@ -901,15 +870,14 @@ export function buildDDGridV1ScopeGroupSectionedExportTable(params: {
     }
   }
 
-  // Doc-type scope groups: одна секция на (class · type)
   for (const cls of model.docTypeClasses) {
-    for (const t of cls.types) {
+    for (const tType of cls.types) {
       const plan: ScopeSectionPlan = {
         title: cls.label,
-        subtitle: t.name,
+        subtitle: tType.name,
         columns: [],
       };
-      for (const check of t.checks) {
+      for (const check of tType.checks) {
         processCheck(check, plan);
       }
       if (plan.columns.length > 0) {
@@ -923,18 +891,17 @@ export function buildDDGridV1ScopeGroupSectionedExportTable(params: {
   let maxColumnCount = 0;
 
   for (const plan of scopeSections) {
-    // Строим headers: № | Документ | Тип | {check} — {column} × N
     const headers = [
-      "№",
-      "Документ",
-      "Тип документа",
+      t("columns.rowNumber"),
+      t("columns.document"),
+      t("columns.docType"),
       ...plan.columns.map((c) => `${c.checkName} — ${c.columnLabel}`),
     ];
 
     const rows: string[][] = model.rows.map((row, index) => {
       const values: string[] = [
         String(index + 1),
-        row.filename || "[no name]",
+        row.filename || t("unnamedDocument"),
         row.docType || "—",
       ];
       for (const col of plan.columns) {

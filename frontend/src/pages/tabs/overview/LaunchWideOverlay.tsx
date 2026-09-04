@@ -1,16 +1,9 @@
 // =============================================================
 // src/pages/tabs/overview/LaunchWideOverlay.tsx
-// Launch panel раскрывается до границы основной контентной колонки,
-// без backdrop и без перекрытия AnalysisActionsPanel.
-// Ширина overlay вычисляется от реального layout, а не от 100vw.
-//
-// Актуальный контракт:
-// - overlay не принимает run id;
-// - current run остаётся на уровне OverviewTab;
-// - панель запуска работает только с параметрами запуска и deal state.
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { Deal } from "../../../types";
 import type { ChecksMode } from "../OverviewTab";
 
@@ -25,17 +18,10 @@ import {
   normalizeLang,
 } from "../../../utils/languageDiscovery";
 
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+
 interface LaunchWideOverlayProps {
   open: boolean;
-  /**
-   * "overlay" (default, xl+): absolute относительно rail wrapper,
-   * width = overlayWidth, торчит влево на main column.
-   * "inline" (<xl): in-flow панель в mobile-ветке OverviewTab:
-   * full width, вертикальный стек (форма первая), overlayWidth игнорируется.
-   * "page": встроенный двухколоночный режим для вкладки перезапуска:
-   * левая колонка — форма запуска, правая — preview/subpanes.
-   * Внешний header/footer не рендерятся (живут в карточке RelaunchContent).
-   */
   variant?: "overlay" | "inline" | "page";
   overlayWidth?: number | null;
   deal: Deal;
@@ -69,28 +55,26 @@ const leftPaneBodyClass =
 const rightPaneClass =
   "min-w-0 min-h-0 overflow-y-auto bg-[var(--bg-card)]";
 
-// inline (<xl): panes стекуются вертикально. Форма (right pane) — первая
-// через order, т.к. это primary task; preview/subpanes ниже.
-// Разделитель горизонтальный (border-t) вместо вертикального (border-r).
 const leftPaneShellInlineClass =
   "order-2 flex min-w-0 min-h-0 flex-col border-t border-[var(--border-soft)] bg-[var(--bg-elevated-soft)]";
 
 const rightPaneInlineClass = "order-1 min-w-0 min-h-0 bg-[var(--bg-card)]";
 
-// page: panes без внутренних боковых границ — каждая колонка
-// обёрнута в собственную карточку на уровне page-рендера.
 const pageShellClass =
   "flex min-w-0 min-h-0 flex-col bg-[var(--bg-elevated-soft)]";
 
-function getReadinessLabel(params: {
-  hasCurrentRun: boolean;
-  hasDocuments: boolean;
-  hasPlaybook: boolean;
-  hasLanguagesReady: boolean;
-  hasPrimaryLanguage: boolean;
-  isSubmitting: boolean;
-  discoveryStatus: string | null;
-}): string | null {
+function getReadinessLabel(
+  params: {
+    hasCurrentRun: boolean;
+    hasDocuments: boolean;
+    hasPlaybook: boolean;
+    hasLanguagesReady: boolean;
+    hasPrimaryLanguage: boolean;
+    isSubmitting: boolean;
+    discoveryStatus: string | null;
+  },
+  tFn: TranslateFn,
+): string | null {
   const {
     hasCurrentRun,
     hasDocuments,
@@ -102,43 +86,45 @@ function getReadinessLabel(params: {
   } = params;
 
   if (!hasDocuments) {
-    return "Сначала загрузите документы в проект.";
+    return tFn("overviewPanels.launchOverlay.readiness.noDocs");
   }
 
   if (!hasPlaybook) {
     return hasCurrentRun
-      ? "Нужно выбрать playbook перед перезапуском."
-      : "Нужно выбрать playbook перед запуском.";
+      ? tFn("overviewPanels.launchOverlay.readiness.noPlaybookRelaunch")
+      : tFn("overviewPanels.launchOverlay.readiness.noPlaybookLaunch");
   }
 
   if (!hasLanguagesReady) {
     if (discoveryStatus === "processing") {
-      return "Языки документов ещё определяются.";
+      return tFn("overviewPanels.launchOverlay.readiness.discoveryProcessing");
     }
 
     if (discoveryStatus === "pending") {
-      return "Подготовка определения языков ещё не завершена.";
+      return tFn("overviewPanels.launchOverlay.readiness.discoveryPending");
     }
 
     if (discoveryStatus === "failed") {
-      return "Не удалось определить языки документов.";
+      return tFn("overviewPanels.launchOverlay.readiness.discoveryFailed");
     }
 
     if (discoveryStatus === "partial") {
-      return "Языки определены не для всех документов. Проверьте файлы.";
+      return tFn("overviewPanels.launchOverlay.readiness.discoveryPartial");
     }
 
-    return "Подготавливаем языки документов.";
+    return tFn("overviewPanels.launchOverlay.readiness.discoveryPreparing");
   }
 
   if (!hasPrimaryLanguage) {
     return hasCurrentRun
-      ? "Нужно выбрать основной язык перед перезапуском."
-      : "Нужно выбрать основной язык перед запуском.";
+      ? tFn("overviewPanels.launchOverlay.readiness.noPrimaryLangRelaunch")
+      : tFn("overviewPanels.launchOverlay.readiness.noPrimaryLangLaunch");
   }
 
   if (isSubmitting) {
-    return hasCurrentRun ? "Запускаем новый прогон…" : "Запускаем анализ…";
+    return hasCurrentRun
+      ? tFn("overviewPanels.launchOverlay.readiness.submittingRelaunch")
+      : tFn("overviewPanels.launchOverlay.readiness.submittingLaunch");
   }
 
   return null;
@@ -149,6 +135,7 @@ interface LeftPaneHeaderProps {
   title: string;
   description: string;
   onBack: () => void;
+  backText: string;
 }
 
 const LeftPaneHeader: React.FC<LeftPaneHeaderProps> = ({
@@ -156,6 +143,7 @@ const LeftPaneHeader: React.FC<LeftPaneHeaderProps> = ({
   title,
   description,
   onBack,
+  backText,
 }) => (
   <div className={leftPaneHeaderClass}>
     <div className="min-w-0">
@@ -169,7 +157,7 @@ const LeftPaneHeader: React.FC<LeftPaneHeaderProps> = ({
     </div>
 
     <Button variant="secondary" size="sm" onClick={onBack}>
-      К сводке
+      {backText}
     </Button>
   </div>
 );
@@ -194,6 +182,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   onClose,
   onDealPatched,
 }) => {
+  const { t } = useTranslation("projects");
   const [leftPaneMode, setLeftPaneMode] =
     React.useState<LeftPaneMode>("pipeline");
 
@@ -233,15 +222,18 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 
   const readinessLabel = React.useMemo(
     () =>
-      getReadinessLabel({
-        hasCurrentRun,
-        hasDocuments,
-        hasPlaybook,
-        hasLanguagesReady,
-        hasPrimaryLanguage,
-        isSubmitting,
-        discoveryStatus,
-      }),
+      getReadinessLabel(
+        {
+          hasCurrentRun,
+          hasDocuments,
+          hasPlaybook,
+          hasLanguagesReady,
+          hasPrimaryLanguage,
+          isSubmitting,
+          discoveryStatus,
+        },
+        t,
+      ),
     [
       hasCurrentRun,
       hasDocuments,
@@ -250,6 +242,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
       hasPrimaryLanguage,
       isSubmitting,
       discoveryStatus,
+      t,
     ],
   );
 
@@ -282,8 +275,6 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   const isOverlay = variant === "overlay";
   const isPage = variant === "page";
 
-  // overlay-variant бессмысленен без вычисленной ширины;
-  // inline и page игнорируют overlayWidth.
   if (isOverlay && (overlayWidth ?? 0) <= 0) {
     return null;
   }
@@ -295,26 +286,32 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
       : leftPaneShellInlineClass;
   const rightPaneCls = isOverlay ? rightPaneClass : rightPaneInlineClass;
 
-  const overlayCategory = hasCurrentRun ? "Повторный анализ" : "Новый анализ";
-  const overlayTitle = hasCurrentRun ? "Перезапуск анализа" : "Запуск анализа";
+  const overlayCategory = hasCurrentRun
+    ? t("overviewPanels.launchOverlay.categoryRelaunch")
+    : t("overviewPanels.launchOverlay.categoryLaunch");
+  const overlayTitle = hasCurrentRun
+    ? t("overviewPanels.launchOverlay.titleRelaunch")
+    : t("overviewPanels.launchOverlay.titleLaunch");
   const overlayDescription = hasCurrentRun
-    ? "Проверьте документы и текущие настройки проекта перед новым прогоном."
-    : "Проверьте документы и настройки проекта перед первым запуском.";
+    ? t("overviewPanels.launchOverlay.descRelaunch")
+    : t("overviewPanels.launchOverlay.descLaunch");
   const submitButtonLabel = hasCurrentRun
-    ? "Перезапустить анализ"
-    : "Запустить анализ";
+    ? t("overviewPanels.launchOverlay.submitRelaunch")
+    : t("overviewPanels.launchOverlay.submitLaunch");
+  const backText = t("overviewPanels.launchOverlay.subpanes.toSummary");
 
   const renderUploadPane = () => (
     <div className={shellClass}>
       <LeftPaneHeader
-        category="Upload"
-        title="Загрузка документов"
+        category={t("overviewPanels.launchOverlay.subpanes.upload.category")}
+        title={t("overviewPanels.launchOverlay.subpanes.upload.title")}
         description={
           hasCurrentRun
-            ? "Добавьте документы в проект и вернитесь к параметрам перезапуска."
-            : "Добавьте документы в проект и вернитесь к параметрам запуска."
+            ? t("overviewPanels.launchOverlay.subpanes.upload.descRelaunch")
+            : t("overviewPanels.launchOverlay.subpanes.upload.descLaunch")
         }
         onBack={handleBackToPipeline}
+        backText={backText}
       />
       <div className={leftPaneBodyClass}>
         <ProjectUploadPanel
@@ -330,14 +327,15 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   const renderPlaybookPane = () => (
     <div className={shellClass}>
       <LeftPaneHeader
-        category="Playbook"
-        title="Выбор playbook проекта"
+        category={t("overviewPanels.launchOverlay.subpanes.playbook.category")}
+        title={t("overviewPanels.launchOverlay.subpanes.playbook.title")}
         description={
           hasCurrentRun
-            ? "Выберите playbook проекта и вернитесь к параметрам перезапуска."
-            : "Выберите playbook проекта и вернитесь к параметрам запуска."
+            ? t("overviewPanels.launchOverlay.subpanes.playbook.descRelaunch")
+            : t("overviewPanels.launchOverlay.subpanes.playbook.descLaunch")
         }
         onBack={handleBackToPipeline}
+        backText={backText}
       />
       <div className={leftPaneBodyClass}>
         <DealPlaybookSelectorPanel
@@ -355,10 +353,11 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   const renderModelConfigPane = () => (
     <div className={shellClass}>
       <LeftPaneHeader
-        category="Model profile"
-        title="Профиль модели"
-        description="Выберите или обновите профиль модели, затем вернитесь к параметрам анализа."
+        category={t("overviewPanels.launchOverlay.subpanes.modelConfig.category")}
+        title={t("overviewPanels.launchOverlay.subpanes.modelConfig.title")}
+        description={t("overviewPanels.launchOverlay.subpanes.modelConfig.desc")}
         onBack={handleBackToPipeline}
+        backText={backText}
       />
       <div className={leftPaneBodyClass}>
         <ModelConfigManagerPanel
@@ -415,11 +414,6 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
     }
   };
 
-  // ── page variant: двухколоночный встроенный режим ─────────────────
-  // Левая колонка — форма запуска (LaunchFormPanel), правая — preview
-  // или активный subpane (Upload / Playbook / ModelConfig).
-  // Внешний header/footer не рендерятся: заголовок страницы и кнопки
-  // живут в карточке RelaunchContent (DealPage).
   if (isPage) {
     return (
       <div className="flex min-h-0 flex-col gap-3">
@@ -432,9 +426,6 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
         )}
 
         <div className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          {/* Левая колонка — форма запуска.
-              Не имеет собственного overflow-y-auto — прокрутка
-              делегирована внешнему контейнеру RelaunchContent. */}
           <div className="min-h-0 min-w-0 rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-card)]">
             <LaunchFormPanel
               deal={deal}
@@ -454,9 +445,6 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
             />
           </div>
 
-          {/* Правая колонка — preview / subpanes.
-              Не имеет собственного overflow-y-auto — прокрутка
-              делегирована внешнему контейнеру RelaunchContent. */}
           <div className="min-h-0 min-w-0 rounded-2xl border border-[var(--border-soft)]">
             {renderLeftPane()}
           </div>
@@ -499,7 +487,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
               type="button"
               onClick={onClose}
               className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-              aria-label="Закрыть панель анализа"
+              aria-label={t("actions.close", { ns: "common", defaultValue: "Close" })}
             >
               ✕
             </button>
@@ -535,7 +523,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 
         <div className="shrink-0 flex items-center justify-between gap-4 border-t border-[var(--border-soft)] bg-[var(--bg-card)] px-5 py-4">
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Отмена
+            {t("actions.cancel", { ns: "common", defaultValue: "Cancel" })}
           </Button>
 
           <div className="flex min-w-0 items-center gap-3">
@@ -562,3 +550,5 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 };
 
 export default LaunchWideOverlay;
+
+

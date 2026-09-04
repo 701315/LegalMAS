@@ -384,6 +384,7 @@ export function resolveDDGridV1CellView(
   row: DDGridV1MatrixRow,
   runtimeColumn: DDGridV1RuntimeColumn,
   cellValues: Record<string, Record<string, Record<string, DDGridV1CellValueDTO>>>,
+  t?: (key: string) => string, // 🌟 Добавили опциональный транслятор
 ): DDGridV1CellView {
   const cellKey = `${row.rowId}::${runtimeColumn.runtimeKey}`;
   
@@ -411,6 +412,7 @@ export function resolveDDGridV1CellView(
     effectiveState,
     effectiveRawCell,
     runtimeColumn.column,
+    t, // 🌟 Пробрасываем t дальше
   );
 
   const locationAvailability = effectiveRawCell

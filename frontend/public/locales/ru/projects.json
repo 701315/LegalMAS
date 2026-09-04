@@ -1,20 +1,640 @@
 {
+  "dealCard": {
+    "project": "Проект",
+    "updated": "Обновлён",
+    "openProject": "Открыть проект {{name}}",
+    "noRun": "Анализ не запускался",
+    "lastAnalysis": "Последний анализ:",
+    "checksMode": "Режим проверок:",
+    "pipelineStrategy": "Стратегия пайплайна:",
+    "notAnalyzed": "Анализ для этого проекта ещё не запускался.",
+    "checksModeLabels": {
+      "global_and_doc_type": "Плейбук + типы документов",
+      "global_only": "Только плейбук",
+      "doc_type_only": "Только типы документов"
+    }
+  },
+  "overviewPanels": {
+    "pipelinePreview": {
+      "categoryRelaunch": "Повторный анализ",
+      "categoryLaunch": "Новый анализ",
+      "titleRelaunch": "Сводка перезапуска",
+      "titleLaunch": "Сводка запуска",
+      "descRelaunch": "Что пойдёт в работу и что изменится после перезапуска.",
+      "descLaunch": "Что пойдёт в работу и что будет сформировано после запуска.",
+      "relaunchHint": "Полезно, если вы добавили документы, сменили playbook или вручную изменили типы документов.",
+      "whatGoesIn": "Что пойдёт в работу",
+      "whatHappens": "Что произойдёт",
+      "labels": {
+        "documents": "Документы",
+        "playbook": "Playbook",
+        "modelProfile": "Профиль модели",
+        "primaryLanguage": "Основной язык",
+        "checksMode": "Режим проверки"
+      },
+      "documentsCount": "{{count}} документ(ов) в проекте",
+      "documentsCurrent": "Текущий состав проекта",
+      "playbookSelected": "Выбранный playbook проекта",
+      "playbookNotSelected": "Не выбран",
+      "defaultModelProfile": "Профиль по умолчанию",
+      "primaryLangNotSelected": "Не выбран",
+      "checksMode": {
+        "global_and_doc_type": "Playbook + типы документов",
+        "global_only": "Только Playbook",
+        "doc_type_only": "Только типы документов"
+      },
+      "bullets": {
+        "docsInScope": "В анализ попадут документы из текущего состава проекта.",
+        "settingsApplied": "Будут применены текущие настройки проекта и выбранный режим проверки.",
+        "forceReclassify": "Документы будут переклассифицированы заново.",
+        "resultsUpdate": "Результаты проекта будут обновлены.",
+        "resultsFirst": "Будут сформированы первые результаты проекта."
+      }
+    },
+    "pipelineStep": {
+      "aria": {
+        "completed": "Завершён",
+        "completedWithErrors": "Завершён с ошибками",
+        "failed": "Ошибка",
+        "running": "Идёт",
+        "pending": "Ожидание"
+      },
+      "durationSec": "{{count}} сек",
+      "durationMinSec": "{{m}} мин {{s}} сек",
+      "durationMin": "{{count}} мин",
+      "runningFor": "идёт {{duration}}",
+      "docsProgress": "{{completed}} из {{total}}",
+      "docsErrors": "· ошибок: {{count}}",
+      "updatedAt": "обновлено {{time}}",
+      "justNow": "только что",
+      "secAgo": "{{count}} сек назад",
+      "minAgo": "{{count}} мин назад",
+      "hrAgo": "{{count}} ч назад",
+      "document": "Документ:",
+      "segment": "Сегмент:",
+      "block": "Блок:",
+      "kinds": {
+        "legal_units": "Semantic-блоки",
+        "segments": "Сегменты",
+        "checks": "Проверки",
+        "documents": "Документы"
+      }
+    },
+    "domainsOverview": {
+      "sectionTitle": "Состояние направлений проекта",
+      "domains": {
+        "documents": "Документы",
+        "counterparties": "Контрагенты",
+        "realEstate": "Имущество"
+      },
+      "docStatus": {
+        "notStarted": "Не запущен",
+        "loading": "Загрузка...",
+        "completed": "Завершён",
+        "completedWithErrors": "Завершён с ошибками",
+        "failed": "Ошибка",
+        "running": "Выполняется",
+        "pending": "Ожидание"
+      },
+      "stage": "Этап: {{title}}",
+      "subProgress": "{{current}} из {{total}} {{kind}}",
+      "subKinds": {
+        "legal_units": "блоков",
+        "segments": "сегментов",
+        "checks": "проверок",
+        "documents": "документов"
+      },
+      "updated": "обновлено {{time}}",
+      "documentsTotal": "Документов: {{count}}",
+      "counterpartiesFound": "{{count}} выявлено",
+      "needAttention": "{{count}} требуют внимания",
+      "sanctionsBankruptcy": "{{count}} санкции / банкротство",
+      "objectsCount": "{{count}} объектов",
+      "encumbered": "{{count}} с обременением",
+      "ownershipReview": "{{count}} ownership review"
+    },
+    "domainDetails": {
+      "detailsTitle": "Детали результатов анализа",
+      "domains": {
+        "documents": "Документы",
+        "counterparties": "Контрагенты",
+        "realEstate": "Имущество"
+      },
+      "columns": {
+        "pipeline": "Пайплайн анализа",
+        "summary": "Резюме",
+        "documentsOverview": "Обзор документов",
+        "analysisResults": "Итог анализа",
+        "llmUsage": "Использование LLM"
+      },
+      "expandSummary": "Нажмите, чтобы развернуть резюме",
+      "expandSummaryAria": "Развернуть резюме",
+      "collapsePipeline": "Свернуть пайплайн",
+      "collapseSummary": "Свернуть в боковую панель",
+      "pipelineStarted": "Запущен {{time}}",
+      "pipelineElapsed": "за {{m}} мин {{s}} сек",
+      "counterparties": {
+        "total": "Всего",
+        "critical": "Critical",
+        "sanctions": "Санкции",
+        "bankruptcy": "Банкротство",
+        "geography": "География",
+        "demoNote": "Демо-данные. Перейдите на вкладку «Контрагенты» для полного анализа."
+      },
+      "realEstate": {
+        "objects": "Объектов",
+        "encumbered": "С обременением",
+        "ownershipReview": "Ownership review",
+        "highRisk": "Высокий риск",
+        "topRegions": "Топ регионов",
+        "demoNote": "Демо-данные. Перейдите на вкладку «Имущество» для полного анализа."
+      }
+    },
+    "runSummary": {
+      "title": "Резюме",
+      "titleFull": "Резюме анализа",
+      "disclaimer": "Сформировано ИИ на основе findings версии анализа. Не является юридическим заключением.",
+      "updated": " · Обновлено: {{time}}",
+      "generating": "Формируем проверяемый обзор…",
+      "generatingLong": "Формируем проверяемый обзор… Это может занять до 30 секунд.",
+      "goToCheck": "Перейти к проверке в DD Grid",
+      "regenerate": "Сформировать заново",
+      "regenerateFull": "Сформировать заново",
+      "copy": "Копировать текст",
+      "copied": "Скопировано!",
+      "copyFailed": "Не удалось скопировать текст. Попробуйте выделить вручную.",
+      "fallbackBanner": "Полный обзор временно недоступен. Доступна проверяемая сводка по метрикам.",
+      "fallbackMetrics": {
+        "totalDocs": "Всего документов",
+        "processed": "Обработано",
+        "failedQuarantine": "Ошибки / Карантин",
+        "pendingReview": "Требуют проверки",
+        "topFindings": "Ключевые находки",
+        "findingsMeta": "({{count}} док., {{types}})",
+        "retry": "Повторить генерацию"
+      },
+      "insights": {
+        "noData": "Нет данных о структуре документов",
+        "title": "Структура документов",
+        "total": "Всего: {{count}}",
+        "unclassified": "Не классифицирован"
+      }
+    },
+    "actionsPanel": {
+      "title": "Действия",
+      "relaunchTitle": "Перезапуск анализа",
+      "launchTitle": "Запуск анализа",
+      "relaunchDesc": "Запустите анализ заново, чтобы обновить результаты проекта.",
+      "launchDesc": "Настройте параметры и запустите первый анализ документов по проекту.",
+      "whenNeededTitle": "Когда нужен перезапуск",
+      "whenNeeded": {
+        "newDocs": "Если вы хотите загрузить и проверить новые документы",
+        "newPlaybook": "Если вы хотите проверить документы по новому playbook или профилю модели",
+        "afterReclass": "После ручной переклассификации документов"
+      },
+      "readinessRelaunch": "Готовность к перезапуску",
+      "readinessLaunch": "Готовность к запуску",
+      "readiness": {
+        "canRelaunch": "Можно перезапустить анализ с текущими настройками или сначала изменить их.",
+        "canLaunch": "Проект готов к первому запуску.",
+        "noPlaybook": "Сначала выберите playbook проекта.",
+        "noPrimaryLang": "Нужно выбрать основной язык анализа.",
+        "langDiscoveryProcessing": "Языки документов ещё определяются.",
+        "checkSettingsRelaunch": "Проверьте настройки перед перезапуском.",
+        "checkSettingsLaunch": "Проверьте настройки перед запуском."
+      },
+      "configureRelaunch": "Настроить перезапуск",
+      "configureLaunch": "Настроить запуск"
+    },
+    "resultsWidget": {
+      "notLaunched": "Анализ ещё не запускался",
+      "notLaunchedSub": "Результаты появятся после первого запуска",
+      "loadError": "Не удалось загрузить результаты",
+      "checksCompleted": "Выполнено проверок",
+      "running": "Идёт анализ",
+      "problemsDetected": "Обнаружены проблемы",
+      "processingErrors": "Ошибки обработки: {{count}}",
+      "inQuarantine": "В карантине: {{count}}",
+      "globalChecks": "Global checks",
+      "docTypeChecks": "Doc-type checks",
+      "checksNotExecuted": "Проверки не выполнялись",
+      "checkTypesCount_one": "{{count}} тип проверки",
+      "checkTypesCount_few": "{{count}} типа проверки",
+      "checkTypesCount_many": "{{count}} типов проверки",
+      "checkTypesCount_other": "{{count}} типа проверки",
+      "passedTooltip": "{{count}} без замечаний",
+      "failedTooltip": "{{count}} с замечаниями (хотя бы в одном документе)",
+      "unclearTooltip": "{{count}} требуют уточнения (хотя бы в одном документе)",
+      "moreCount": "Ещё {{count}}…",
+      "unclearTitle": "Результаты, требующие уточнения",
+      "unclearEmpty": "Нет проверок, требующих уточнения. Специального внимания не требуется.",
+      "unclearSummary_one": "Требуют уточнения: {{checksCount}} проверка в {{docsCount}} документе.",
+      "unclearSummary_few": "Требуют уточнения: {{checksCount}} проверки в {{docsCount}} документах.",
+      "unclearSummary_many": "Требуют уточнения: {{checksCount}} проверок в {{docsCount}} документах.",
+      "unclearSummary_other": "Требуют уточнения: {{checksCount}} проверки в {{docsCount}} документах.",
+      "goToAllResults": "Перейти к списку результатов"
+    },
+    "pipelineRail": {
+      "title": "Пайплайн",
+      "expandHint": "Нажмите, чтобы развернуть детали пайплайна"
+    },
+    "documentsWidget": {
+      "loadError": "Не удалось загрузить документы",
+      "notUploaded": "Документы ещё не загружены",
+      "title": "Документы в проекте",
+      "ready": "Готовы",
+      "inProgress": "В работе",
+      "errors": "Ошибок",
+      "byDocType": "По типам документов",
+      "requiresAttention": "Требует внимания",
+      "allHighConfidence": "Все документы классифицированы с высоким уровнем уверенности. Специального внимания специалиста не требуется.",
+      "lowConfidenceSummary_one": "Требуют уточнения: {{count}} документ с низкой уверенностью классификации.",
+      "lowConfidenceSummary_few": "Требуют уточнения: {{count}} документа с низкой уверенностью классификации.",
+      "lowConfidenceSummary_many": "Требуют уточнения: {{count}} документов с низкой уверенностью классификации.",
+      "lowConfidenceSummary_other": "Требуют уточнения: {{count}} документа с низкой уверенностью классификации.",
+      "moreCount": "Ещё {{count}}…",
+      "goToDocuments": "Перейти к списку документов"
+    },
+    "pipelinePanel": {
+      "notLaunched": "Анализ ещё не запускался",
+      "notLaunchedSub": "Запустите анализ чтобы увидеть прогресс пайплайна",
+      "loadError": "Не удалось загрузить прогресс анализа",
+      "status": {
+        "completed": "Анализ завершён",
+        "completedWithErrors": "Анализ завершён с ошибками",
+        "failed": "Анализ завершился с ошибкой",
+        "running": "Анализ выполняется",
+        "pending": "Ожидание"
+      },
+      "startedAt": "· запущен {{time}}",
+      "elapsedFinished": "· за {{time}}",
+      "elapsedRunning": "· идёт {{time}}",
+      "updatedRelative": "обновлено {{time}}",
+      "staleWarning": "⚠ Нет активности более {{threshold}} минут",
+      "staleSub": "Возможно, worker завис или потерял соединение.",
+      "errors": "Ошибок: {{count}}",
+      "quarantine": "Карантин: {{count}}",
+      "elapsedSec": "{{count}} сек",
+      "elapsedMin_one": "{{count}} мин",
+      "elapsedMin_few": "{{count}} мин",
+      "elapsedMin_many": "{{count}} мин",
+      "elapsedMin_other": "{{count}} мин",
+      "elapsedHrMin": "{{h}} ч {{m}} мин",
+      "justNow": "только что",
+      "secAgo_one": "{{count}} сек назад",
+      "secAgo_few": "{{count}} сек назад",
+      "secAgo_many": "{{count}} сек назад",
+      "secAgo_other": "{{count}} сек назад",
+      "minAgo_one": "{{count}} мин назад",
+      "minAgo_few": "{{count}} мин назад",
+      "minAgo_many": "{{count}} мин назад",
+      "minAgo_other": "{{count}} мин назад",
+      "hrAgo_one": "{{count}} ч назад",
+      "hrAgo_few": "{{count}} ч назад",
+      "hrAgo_many": "{{count}} ч назад",
+      "hrAgo_other": "{{count}} ч назад"
+    },
+    "launchForm": {
+      "relaunchTitle": "Перезапуск анализа",
+      "launchTitle": "Запуск анализа",
+      "relaunchDesc": "Вы можете оставить текущие настройки как есть или изменить их перед новым прогоном.",
+      "launchDesc": "Проверьте параметры перед первым запуском анализа.",
+      "documentsTitle": "Документы",
+      "documentsLoaded": "В проект загружено {{count}} документ(ов).",
+      "loadingData": "Загружаем данные…",
+      "uploadNewDocs": "Загрузить новые документы",
+      "playbookTitle": "Playbook проекта",
+      "playbookSub": "Определяет набор проверок для проекта.",
+      "selectPlaybook": "Выбрать Playbook",
+      "playbookSelected": "Playbook выбран.",
+      "playbookNotSelected": "Playbook не выбран. Запуск невозможен.",
+      "modelProfileTitle": "Профиль модели",
+      "modelProfileSub": "Выберите профиль модели для анализа.",
+      "configureProfile": "Настроить профиль",
+      "profileUsed": "Используется профиль: {{name}}.",
+      "defaultProfileUsed": "Используется стандартный профиль.",
+      "primaryLangTitle": "Основной язык анализа",
+      "notSelected": "Не выбран",
+      "langDiscoveryIntro": "Сначала система определит языки документов. После этого можно выбрать основной язык анализа.",
+      "autoDetectedLangs": "Автоопределённые языки документов: {{langs}}.",
+      "selectPrimaryLangWarning": "Перед запуском выберите основной язык анализа.",
+      "langDiscoveryFailed": "Список языков недоступен: автоопределение завершилось ошибкой.",
+      "langDiscoveryNotReady": "Языки документов ещё не определены. После обработки файлов вы сможете выбрать основной язык.",
+      "langHint": {
+        "RU": "Анализ будет ориентирован на русский язык.",
+        "EN": "Анализ будет ориентирован на английский язык.",
+        "default": "Выберите этот язык как основной для анализа."
+      },
+      "discoveryBanner": {
+        "pending": "Определяем языки документов. Настройки станут доступны чуть позже.",
+        "processing": "Анализируем языки документов. Подождите пару минут.",
+        "failed": "Не удалось определить языки автоматически. Проверьте документы.",
+        "partial": "Языки определены не для всех файлов. Рекомендуем проверить проблемные документы.",
+        "completed": "Языки определены. Теперь выберите основной язык анализа."
+      },
+      "primaryLangHelper": {
+        "inProgress": "Основной язык можно выбрать после того, как система определит языки документов.",
+        "failed": "Список языков недоступен: автоопределение завершилось ошибкой.",
+        "partial": "Языки определены не по всем документам. Проверьте проблемные файлы.",
+        "notDetermined": "Языки документов пока не определены.",
+        "notSelected": "Выберите основной язык анализа.",
+        "selected": "Основной язык выбран. Теперь можно выбрать режим проверки."
+      },
+      "checksModeTitle": "Режим проверки",
+      "checksModeHelper": {
+        "loadingData": "Загружаем данные о документах проекта.",
+        "noDocs": "Сначала загрузите документы.",
+        "noPlaybook": "Сначала выберите playbook.",
+        "inProgress": "Режим проверки станет доступен после определения языков документов.",
+        "noPrimaryLang": "Сначала выберите основной язык анализа.",
+        "ready": "Выберите, какие правила применять при анализе."
+      },
+      "checksModeOptions": {
+        "global_and_doc_type": {
+          "title": "Playbook и типы документов",
+          "hint": "Рекомендуемый режим."
+        },
+        "global_only": {
+          "title": "Только Playbook",
+          "hint": "Только правила playbook."
+        },
+        "doc_type_only": {
+          "title": "Только типы документов",
+          "hint": "Только проверки по типам документов."
+        }
+      },
+      "reclassifySection": "Повторная классификация",
+      "reclassifyCheckbox": "Переклассифицировать документы заново",
+      "reclassifyHint": "Включите это, если вы вручную изменили типы документов."
+    },
+    "launchOverlay": {
+      "categoryRelaunch": "Повторный анализ",
+      "categoryLaunch": "Новый анализ",
+      "titleRelaunch": "Перезапуск анализа",
+      "titleLaunch": "Запуск анализа",
+      "descRelaunch": "Проверьте документы и текущие настройки проекта перед новым прогоном.",
+      "descLaunch": "Проверьте документы и настройки проекта перед первым запуском.",
+      "submitRelaunch": "Перезапустить анализ",
+      "submitLaunch": "Запустить анализ",
+      "subpanes": {
+        "upload": {
+          "category": "Upload",
+          "title": "Загрузка документов",
+          "descRelaunch": "Добавьте документы в проект и вернитесь к параметрам перезапуска.",
+          "descLaunch": "Добавьте документы в проект и вернитесь к параметрам запуска."
+        },
+        "playbook": {
+          "category": "Playbook",
+          "title": "Выбор playbook проекта",
+          "descRelaunch": "Выберите playbook проекта и вернитесь к параметрам перезапуска.",
+          "descLaunch": "Выберите playbook проекта и вернитесь к параметрам запуска."
+        },
+        "modelConfig": {
+          "category": "Model profile",
+          "title": "Профиль модели",
+          "desc": "Выберите или обновите профиль модели, затем вернитесь к параметрам анализа."
+        },
+        "toSummary": "К сводке"
+      },
+      "readiness": {
+        "noDocs": "Сначала загрузите документы в проект.",
+        "noPlaybookRelaunch": "Нужно выбрать playbook перед перезапуском.",
+        "noPlaybookLaunch": "Нужно выбрать playbook перед запуском.",
+        "discoveryProcessing": "Языки документов ещё определяются.",
+        "discoveryPending": "Подготовка определения языков ещё не завершена.",
+        "discoveryFailed": "Не удалось определить языки документов.",
+        "discoveryPartial": "Языки определены не для всех документов. Проверьте файлы.",
+        "discoveryPreparing": "Подготавливаем языки документов.",
+        "noPrimaryLangRelaunch": "Нужно выбрать основной язык перед перезапуском.",
+        "noPrimaryLangLaunch": "Нужно выбрать основной язык перед запуском.",
+        "submittingRelaunch": "Запускаем новый прогон…",
+        "submittingLaunch": "Запускаем анализ…"
+      }
+    },
+    "llmWidget": {
+      "title": "Итого токенов",
+      "calls_one": "{{count}} LLM-вызов",
+      "calls_few": "{{count}} LLM-вызова",
+      "calls_many": "{{count}} LLM-вызовов",
+      "calls_other": "{{count}} LLM-вызовов",
+      "model": "Модель: {{model}}",
+      "byStage": "По стадиям",
+      "byDocument": "По документам",
+      "callsShort_one": "{{count}} вызов",
+      "callsShort_few": "{{count}} вызова",
+      "callsShort_many": "{{count}} вызовов",
+      "callsShort_other": "{{count}} вызовов",
+      "parseFailures_one": "{{count}} ошибка парсинга",
+      "parseFailures_few": "{{count}} ошибки парсинга",
+      "parseFailures_many": "{{count}} ошибок парсинга",
+      "parseFailures_other": "{{count}} ошибки парсинга",
+      "parseErrorTooltip": "Модель вернула ответ, который не удалось корректно распарсить. Это техническая ошибка — при возможности использовался повторный вызов. На бизнес-результат обычно не влияет.",
+      "emptyTitle": "Токены ещё не использованы",
+      "emptySub": "Данные появятся после запуска анализа",
+      "loadError": "Не удалось загрузить данные",
+      "stages": {
+        "classification_l4": "Классификация L4",
+        "checks_detection_llm": "Проверки — детекция",
+        "checks_extraction_llm": "Проверки — извлечение",
+        "structure_semantic_enrichment": "Обогащение",
+        "heading_refiner": "Заголовки"
+      }
+    }
+  },
+  "auditTab": {
+    "filter": {
+      "title": "Фильтр по действиям",
+      "subtitle": "Выберите действие, чтобы показать только соответствующие записи журнала",
+      "allActions": "Все действия",
+      "actionLabel": "Действие: {{label}}"
+    },
+    "noAccess": {
+      "title": "Доступ к журналу ограничен",
+      "description": "Журнал аудита доступен только администраторам и ответственным за безопасность в рамках этого проекта."
+    },
+    "modes": {
+      "logTitle": "Журнал аудита",
+      "logSubtitle": "Кто, когда и какие действия выполнял в рамках сделки.",
+      "classificationTitle": "Аудит классификации документов",
+      "classificationSubtitle": "Сводная explainability-информация по классификации документов текущего проекта."
+    },
+    "buttons": {
+      "toLog": "К журналу аудита",
+      "toClassification": "Аудит классификации документов"
+    },
+    "loading": "Загружаем журнал…",
+    "table": {
+      "headers": {
+        "time": "Время",
+        "action": "Действие",
+        "user": "Пользователь",
+        "role": "Роль",
+        "details": "Детали"
+      }
+    },
+    "emptyState": {
+      "title": "Записи не найдены",
+      "subtitle": "Журнал пока пуст или не подходит под текущий фильтр."
+    },
+    "pagination": {
+      "pageInfo": "Страница {{current}} из {{total}}"
+    },
+    "format": {
+      "reason": "Причина"
+    },
+    "classification": {
+      "view": {
+        "loadErrorTitle": "Не удалось загрузить аудит классификации",
+        "loadErrorFallback": "Сервис временно недоступен или данные ещё не готовы.",
+        "headerTitle": "Логи классификации документов проекта",
+        "headerSubtitle": "Нажмите на строку документа, чтобы открыть панель с полным путём классификации, кандидатами, voting и raw explainability payload.",
+        "updating": "Обновляем…",
+        "loading": "Загружаем аудит классификации…",
+        "pageEmpty": "Документы не найдены",
+        "pageRange": "Показаны {{from}}–{{to}} из {{total}}",
+        "emptyTitle": "Данные по классификации не найдены",
+        "emptySubtitle": "Для этого проекта ещё нет документов или explainability-данные пока не собраны.",
+        "statusPrefix": "Статус: {{status}}",
+        "segmentation": {
+          "segments": "Сегментов: {{count}}",
+          "primary": "Primary: {{label}}",
+          "segmentClassification": "Segment classification: {{value}}"
+        },
+        "badges": {
+          "requiresReview": "Требует проверки",
+          "contradiction": "Есть противоречие",
+          "l4Triggered": "L4 triggered"
+        },
+        "zone": {
+          "confident": "Уверенная",
+          "low": "Низкая",
+          "unknown": "Неопр."
+        },
+        "headers": {
+          "document": "Документ",
+          "type": "Тип",
+          "level": "Уровень",
+          "confidence": "Confidence",
+          "zone": "Зона",
+          "decision": "Решение",
+          "signals": "Сигналы",
+          "segmentation": "Сегментация",
+          "updated": "Обновлено"
+        }
+      },
+      "drawer": {
+        "title": "Explainability",
+        "closeAria": "Закрыть панель explainability",
+        "loading": "Загружаем explainability…",
+        "loadErrorTitle": "Не удалось загрузить детали классификации",
+        "loadErrorFallback": "Explainability-данные временно недоступны.",
+        "noData": "Детали классификации отсутствуют.",
+        "yes": "Да",
+        "no": "Нет",
+        "sections": {
+          "summary": "Итог классификации",
+          "levelsTried": "Пройденные этапы",
+          "levelsTriedEmpty": "Список этапов отсутствует.",
+          "levelResults": "Результаты по уровням",
+          "levelResultsEmpty": "Нормализованные результаты по уровням отсутствуют.",
+          "candidates": "Кандидаты",
+          "candidatesEmpty": "Кандидаты не зафиксированы.",
+          "voting": "Voting / override",
+          "votingEmpty": "Voting-данные отсутствуют.",
+          "decisionSummary": "Decision summary",
+          "rawResult": "Raw result",
+          "rawDetails": "Raw details"
+        },
+        "meta": {
+          "status": "Статус",
+          "type": "Тип",
+          "level": "Уровень",
+          "confidence": "Confidence",
+          "confidenceZone": "Confidence zone",
+          "decidedBy": "Decided by",
+          "language": "Language",
+          "jurisdiction": "Jurisdiction",
+          "requiresReview": "Requires review",
+          "contradiction": "Contradiction",
+          "l4Triggered": "L4 triggered",
+          "triggers": "Triggers",
+          "method": "Method",
+          "evidence": "Evidence",
+          "strategy": "Strategy",
+          "reason": "Reason",
+          "margin": "Margin",
+          "override": "Override",
+          "ranking": "Ranking"
+        },
+        "zone": {
+          "confident": "Уверенная",
+          "low": "Низкая",
+          "unknown": "Неопределённая"
+        }
+      }
+    }
+  },
+  "overviewTab": {
+    "about": {
+      "title": "О проекте",
+      "hintAdd": "Нажмите, чтобы добавить описание",
+      "placeholder": "Например: продажа группы компаний, buy-side DD, корпоративный блок, ключевые договоры и IP...",
+      "save": "Сохранить"
+    },
+    "warningReclassifications": {
+      "title": "Обновите результаты",
+      "description": "Вы изменили типы документов вручную. Рекомендуем перезапустить анализ, чтобы обновить результаты проекта."
+    }
+  },
+  "settingsTab": {
+    "title": "Настройки проекта",
+    "subtitleNoPerms": "Управление участниками и конфигурацией проекта вынесено отдельно от основного review-потока.",
+    "subtitleWithPerms": "Управление участниками, playbook и административной конфигурацией проекта.",
+    "backToSettings": "Назад к настройкам",
+    "backToPlaybook": "Назад к playbook",
+    "noAccess": {
+      "title": "Настройки проекта недоступны",
+      "description": "У вас нет прав на изменение участников проекта, настройки playbook и управление шаблонами."
+    },
+    "cards": {
+      "team": {
+        "eyebrow": "Команда",
+        "title": "Участники проекта",
+        "description": "Управление составом команды проекта, ролями и доступом к рабочему пространству сделки.",
+        "action": "Открыть участников проекта"
+      },
+      "methodology": {
+        "eyebrow": "Методология",
+        "title": "Playbook проекта",
+        "description": "Выбор активного playbook и переход к шаблонам, которые определяют структуру анализа документов.",
+        "actions": {
+          "open": "Открыть playbook проекта",
+          "builder": "Конструктор шаблонов"
+        }
+      },
+      "workspace": {
+        "eyebrow": "Workspace",
+        "title": "Конфигурация проекта",
+        "description": "Этот раздел объединяет административные действия, которые не относятся напрямую к document review, но влияют на состав участников, доступы и правила анализа в рамках сделки."
+      }
+    }
+  },
   "pages": {
     "playbook": {
-      "noPermission": "У вас нет прав для редактирования playbook этого проекта.",
-      "backToProject": "Вернуться к проекту",
+      "noPermission": "У вас нет прав на редактирование playbook для этого проекта.",
+      "backToProject": "К проекту",
       "notCreated": "Playbook для этого проекта ещё не создан.",
       "loadError": "Не удалось загрузить playbook. Попробуйте позже.",
-      "readError": "Не удалось прочитать файл YAML.",
-      "fileLoaded": "Загружен файл: {{name}}",
+      "readError": "Не удалось прочитать YAML-файл.",
+      "fileLoaded": "Файл загружен: {{name}}",
       "emptySaveError": "Нельзя сохранить пустой playbook.",
       "saveSuccess": "Playbook успешно сохранён.",
-      "saveError": "Не удалось сохранить playbook. Проверьте YAML и попробуйте ещё раз.",
+      "saveError": "Не удалось сохранить playbook. Проверьте синтаксис YAML и попробуйте снова.",
       "badge": "Playbook YAML",
-      "title": "YAML-playbook проекта",
+      "title": "YAML Playbook проекта",
       "projectLabel": "Проект: {{id}}",
-      "warningDesc": "Этот редактор предназначен для прямого редактирования YAML-конфигурации playbook для конкретного проекта. Используйте его только если понимаете структуру схемы.",
-      "editorTitle": "Редактор YAML-playbook",
+      "warningDesc": "Этот редактор предназначен для прямого изменения YAML-конфигурации playbook конкретного проекта. Используйте его только если понимаете структуру схемы.",
+      "editorTitle": "Редактор YAML Playbook",
       "editorDesc": "Отредактируйте текст вручную или загрузите готовый YAML-файл. При сохранении конфигурация применится только к этому проекту.",
       "uploadButton": "Загрузить YAML-файл",
       "loading": "Загружаем текущий playbook…",
@@ -23,9 +643,9 @@
       "save": "Сохранить"
     },
     "relaunch": {
-      "loading": "Загрузка проекта…",
+      "loading": "Загружаем проект…",
       "loadError": "Не удалось загрузить проект",
-      "backToProjects": "Вернуться к проектам",
+      "backToProjects": "К списку проектов",
       "cancel": "Отмена",
       "relaunchTitle": "Перезапуск анализа",
       "launchTitle": "Запуск анализа",
@@ -34,10 +654,140 @@
     }
   },
   "newProject": {
+    "block1": {
+      "label": "Название проекта",
+      "hintCreated": "Проект уже создан. Название можно будет изменить позже в настройках проекта, если это потребуется.",
+      "hintDraft": "Лучше использовать короткое рабочее название, которое команда быстро узнает в dashboard и списке проектов.",
+      "placeholder": "Например: DD по покупке ООО «Ромашка»",
+      "successTitle": "Проект создан",
+      "successDesc": "Теперь можно перейти к следующему шагу настройки проекта.",
+      "creating": "Создаём…",
+      "createBtn": "Создать проект"
+    },
+    "block2": {
+      "waitingTitle": "Документы пока не появились в списке",
+      "waitingDesc": "Файлы были успешно загружены, но серверу потребовалось больше времени для их обработки. Попробуйте обновить список вручную.",
+      "checkAgainBtn": "Проверить снова",
+      "loadingTitle": "Файлы загружены, ожидаем подтверждения от сервера…",
+      "loadingDescProcessing": "Сервер обрабатывает и публикует список документов.",
+      "loadingDescAuto": "Список документов обновится автоматически.",
+      "successDesc": "Можно продолжить настройку проекта. При необходимости загрузите дополнительные файлы ниже.",
+      "documentsUploadedCount_one": "{{count}} документ загружен",
+      "documentsUploadedCount_few": "{{count}} документа загружено",
+      "documentsUploadedCount_many": "{{count}} документов загружено",
+      "documentsUploadedCount_other": "{{count}} документов загружено"
+    },
+    "block3": {
+      "loadingLines": "Загружаем шаблоны playbook…",
+      "emptyLinesTitle": "Шаблоны playbook не настроены",
+      "emptyLinesDesc": "Создайте первый шаблон в административном разделе, затем вернитесь к настройке проекта.",
+      "infoTitle": "Playbook определяет, какие глобальные риски будут проверяться в проекте",
+      "infoDesc1": "Глобальные проверки (Global Checks) — это риски, которые анализируются по всем документам проекта независимо от их типа. Ниже доступны готовые playbook, заранее созданные администратором или подготовленные в системе.",
+      "infoDesc2": "Если для вашего проекта нужны специфические глобальные проверки, создайте собственный playbook в разделе <studio>Инструкции → Playbook Studio</studio>. После публикации он появится в списке ниже, и его можно будет выбрать для запуска проекта.",
+      "templatePlaybook": "Шаблон playbook",
+      "playbookVersion": "Версия playbook",
+      "selectTemplatePrompt": "Сначала выберите шаблон слева.",
+      "noPublishedVersions": "Нет опубликованных версий для этого шаблона. Опубликуйте версию в Playbook Studio.",
+      "currentBadge": "Текущий",
+      "alreadyApplied": "Уже применён",
+      "applyBtn": "Применить к проекту",
+      "meta": {
+        "type": "Тип: {{type}}",
+        "jurisdiction": "Юрисдикция: {{jurisdiction}}",
+        "language": "Язык: {{language}}"
+      },
+      "errors": {
+        "loadLinesFailed": "Не удалось загрузить список playbook.",
+        "applyFailed": "Не удалось применить playbook к проекту."
+      }
+    },
+    "block4": {
+      "loading": "Загружаем профили моделей…",
+      "emptyTitle": "Профили моделей не настроены",
+      "emptyDesc": "Будет использован профиль по умолчанию. Базовые настройки подходят для большинства проектов. Создать профили можно в административном разделе.",
+      "continueDefaultBtn": "Продолжить с профилем по умолчанию",
+      "infoTitle": "Профиль модели определяет параметры семантического анализа",
+      "infoDesc1": "Базовые настройки уже установлены в системе и подходят для большинства проектов. Вы можете продолжить с профилем по умолчанию без дополнительных действий.",
+      "infoDesc2": "Если для вашего проекта нужны специфические настройки поиска и retrieval — выберите существующий профиль ниже или создайте новый в административном разделе.",
+      "currentProfile": "Текущий профиль проекта: <bold>{{name}}</bold>",
+      "availableProfiles": "Доступные профили",
+      "currentBadge": "Текущий",
+      "alreadyApplied": "Уже применён",
+      "selectBtn": "Выбрать для проекта",
+      "errors": {
+        "loadFailed": "Не удалось загрузить профили моделей.",
+        "applyFailed": "Не удалось назначить профиль модели проекту."
+      }
+    },
+    "block5": {
+      "loadingTitle": "Определяем языки документов…",
+      "loadingDesc": "Выбор основного языка станет доступен после завершения анализа всех файлов.",
+      "emptyTitle": "Языки документов ещё не определены",
+      "emptyDescFailed": "Автоопределение завершилось ошибкой. Проверьте документы или загрузите новые.",
+      "emptyDescWait": "После завершения обработки всех файлов здесь появится список языков.",
+      "primaryLangLabel": "Основной язык анализа",
+      "autoDetectedLangs": "Автоопределённые языки документов: {{langs}}.",
+      "warningSelectLang": "Перед запуском анализа необходимо выбрать основной язык.",
+      "saving": "Сохраняем выбор…",
+      "errors": {
+        "saveFailed": "Не удалось установить основной язык. Попробуйте ещё раз."
+      },
+      "banners": {
+        "pending": "Система подготавливает анализ загруженных документов для определения языков. Выбор основного языка станет доступен после завершения этого этапа.",
+        "processing": "Система анализирует документы и определяет языки. Выбор основного языка станет доступен после завершения по всем файлам.",
+        "failed": "Автоопределение языков завершилось ошибкой. Проверьте документы или повторите загрузку.",
+        "partial": "Определение языков завершено частично: часть документов не прошла обработку. Вы можете продолжить, но рекомендуется проверить проблемные файлы.",
+        "completed": "Определение языков завершено. Выберите основной язык анализа."
+      },
+      "hints": {
+        "RU": "Primary source и проверки будут ориентированы на русский язык.",
+        "EN": "Primary source и проверки будут ориентированы на английский язык.",
+        "default": "Выберите этот язык как основной для анализа."
+      }
+    },
+    "block6": {
+      "checksModeLabel": "Режим проверки",
+      "infoTitle": "Какие риски проверять в документах",
+      "infoDesc1": "Система проверяет два вида рисков. Первый — глобальные риски из playbook (Global Checks), которые анализируются по всем документам проекта вне зависимости от их типа. Второй — специфические риски, характерные только для конкретного типа документа (например, договор аренды, устав, корпоративное решение).",
+      "infoDesc2": "Выберите, какой набор проверок применить при анализе.",
+      "extraParamsLabel": "Дополнительные параметры",
+      "forceReclassifyLabel": "Принудительно переклассифицировать документы",
+      "forceReclassifyHint": "Используйте после ручной переклассификации документов.",
+      "launchNotice": "После запуска система начнёт обработку всех загруженных документов в соответствии с выбранными настройками. Вы будете перенаправлены на страницу проекта для отслеживания прогресса.",
+      "launching": "Запускаем анализ…",
+      "launchBtn": "Запустить проект",
+      "modes": {
+        "global_and_doc_type": {
+          "title": "Полная проверка",
+          "hint": "Глобальные проверки из playbook + специфические проверки по типу каждого загруженного документа. Это максимально полный анализ.",
+          "badge": "Рекомендуемый"
+        },
+        "global_only": {
+          "title": "Только глобальные проверки",
+          "hint": "Анализ только по рискам из playbook, которые применимы ко всем документам независимо от их типа. Специфические проверки по типам документов не выполняются."
+        },
+        "doc_type_only": {
+          "title": "Только по типам документов",
+          "hint": "Анализ только по рискам, характерным для конкретного типа каждого документа. Глобальные проверки из playbook не применяются."
+        }
+      }
+    },
+    "editStepAria": "Редактировать: {{title}}",
+    "visualAlt": "Запуск нового проекта",
+    "readinessRail": {
+      "title": "Готовность к запуску",
+      "readyBadge": "Готов",
+      "items": {
+        "hasProject": "Проект создан",
+        "hasDocuments": "Документы загружены",
+        "hasPlaybook": "Playbook выбран",
+        "hasLanguage": "Основной язык выбран"
+      }
+    },
     "header": {
       "title": "Запуск нового проекта",
-      "subtitle": "Последовательно настройте проект и запустите анализ.",
-      "readyProgress": "{{done}} из {{total}} готово",
+      "subtitle": "Пошаговая настройка параметров проекта и запуск анализа.",
+      "readyProgress": "Готово {{done}} из {{total}}",
       "defer": "Отложить настройку",
       "cancel": "Отмена"
     },
@@ -48,7 +798,7 @@
       "step4Title": "Профиль модели",
       "step5Title": "Основной язык анализа",
       "step6Title": "Запуск анализа",
-      "closeEdit": "Закрыть редактирование"
+      "closeEdit": "Свернуть редактирование"
     },
     "defaults": {
       "defaultModelConfig": "По умолчанию"
@@ -60,11 +810,11 @@
     },
     "exitConfirm": {
       "titleDefer": "Отложить настройку?",
-      "titleCancel": "Прервать создание?",
+      "titleCancel": "Отменить создание?",
       "descDefer": "Проект уже сохранён в системе. Вы сможете вернуться к загрузке документов и выбору настроек позже из списка проектов на дашборде.",
-      "descCancel": "Проект ещё не создан. Если вы выйдете сейчас, введённые данные не сохранятся.",
-      "confirmExit": "Выйти на дашборд",
-      "confirmCancel": "Прервать",
+      "descCancel": "Проект ещё не был создан. Если вы выйдете сейчас, введённые данные не сохранятся.",
+      "confirmExit": "Выйти к дашборду",
+      "confirmCancel": "Отменить",
       "stay": "Остаться"
     }
   },
@@ -77,21 +827,21 @@
       "report": "Отчёт",
       "audit": "Аудит",
       "counterparties": "Контрагенты",
-      "real_estate": "Имущество"
+      "real_estate": "Недвижимость"
     },
     "sidebar": {
       "navAria": "Навигация по проекту",
-      "groupDocuments": "Анализ документов по сделке",
-      "groupCounterparties": "Анализ выявленных контрагентов",
-      "groupRealEstate": "Анализ выявленного недвижимого имущества",
+      "groupDocuments": "Анализ документов сделки",
+      "groupCounterparties": "Анализ контрагентов",
+      "groupRealEstate": "Анализ недвижимости",
       "groupActions": "Дополнительные действия",
       "counterparties": "Контрагенты",
-      "realEstate": "Имущество",
+      "realEstate": "Недвижимость",
       "relaunch": "Перезапустить проект",
       "soonBadge": "Скоро"
     },
     "header": {
-      "backToProjects": "Вернуться к списку проектов",
+      "backToProjects": "К списку проектов",
       "cancel": "Отмена",
       "relaunch": "Перезапустить",
       "back": "Назад",
@@ -99,11 +849,11 @@
     },
     "runRequired": {
       "documentsTitle": "Список документов пока недоступен",
-      "documentsDesc": "Карточки документов в режиме review появятся после первого анализа проекта.",
-      "gridTitle": "DD Grid пока недоступен",
-      "gridDesc": "Для этого проекта ещё не запускался анализ. Запустите первый анализ, чтобы открыть матрицу проверок.",
+      "documentsDesc": "Карточки с результатами изучения документов появятся после проведения первого анализа проекта.",
+      "gridTitle": "DD Grid пока недоступна",
+      "gridDesc": "Анализ по этому проекту ещё не запускался. Проведите первый анализ, чтобы открыть матрицу проверок.",
       "requestsTitle": "Запросы пока недоступны",
-      "requestsDesc": "Сначала нужен хотя бы один анализ, чтобы система сформировала follow-up запросы по найденным рискам."
+      "requestsDesc": "Сначала нужен хотя бы один прогон анализа, чтобы система сформировала уточняющие запросы по выявленным рискам."
     },
     "relaunch": {
       "relaunchTitle": "Перезапуск анализа",
@@ -121,28 +871,28 @@
     "userLabel": "Пользователь: {{name}}",
     "projectsCount": "Проектов: {{count}}",
     "loadError": "Не удалось загрузить проекты.",
-    "empty": "Пока нет проектов, к которым у вас есть доступ.",
+    "empty": "У вас пока нет доступа ни к одному проекту.",
     "createFirst": "Создать первый проект",
     "created": "Создан: {{date}}",
     "role": "Роль в проекте: {{role}}",
     "notConfigured": "Не настроен",
-    "analysisCompleted": "Анализ выполнен",
+    "analysisCompleted": "Анализ завершён",
     "contactPerson": "Контактное лицо",
     "notSpecified": "Не указано",
     "dealId": "Deal ID",
     "openProject": "Открыть проект",
     "deleting": "Удаляем…",
     "delete": "Удалить",
-    "deleteError": "Не удалось удалить проект. Возможно, есть связанные данные в системе.",
-    "confirmTitle": "Удалить проект «{{name}}»?",
-    "confirmDesc": "Это действие нельзя отменить. Все связанные данные могут быть удалены безвозвратно.",
+    "deleteError": "Не удалось удалить проект. Возможно, в системе есть связанные данные.",
+    "confirmTitle": "Удалить проект \"{{name}}\"?",
+    "confirmDesc": "Это действие нельзя отменить. Все связанные данные могут быть безвозвратно удалены.",
     "confirmButton": "Удалить",
     "cancelButton": "Отмена"
   },
   "dealList": {
     "loading": "Загружаем список сделок…",
     "loadError": "Не удалось загрузить сделки.",
-    "badge": "Projects",
+    "badge": "Проекты",
     "title": "Сделки",
     "found": "Найдено: {{count}}",
     "statusLabel": "Статус: {{status}}",
@@ -153,13 +903,13 @@
     "all": "Все",
     "tenantId": "Tenant ID",
     "empty": "Сделки не найдены",
-    "emptyDesc": "Для текущих фильтров список пуст. Измените статус или tenant, чтобы увидеть другие проекты.",
+    "emptyDesc": "Список пуст по текущим фильтрам. Измените статус или арендатора, чтобы увидеть другие проекты.",
     "prev": "← Назад",
     "next": "Вперёд →"
   },
   "flowSummary": {
-    "title": "Сводка проекта",
-    "notSet": "Не задано",
+    "title": "Сводка параметров проекта",
+    "notSet": "Не выбран",
     "labels": {
       "name": "Название",
       "documents": "Документы",
@@ -170,14 +920,14 @@
     "documentsCount_one": "{{count}} документ",
     "documentsCount_few": "{{count}} документа",
     "documentsCount_many": "{{count}} документов",
-    "documentsCount_other": "{{count}} документов"
+    "documentsCount_other": "{{count}} документа"
   },
   "flowInstructions": {
     "stepLabel": "Шаг {{step}} из {{total}}",
     "overviewLabel": "Обзор процесса",
     "intro": {
       "title": "Как создать проект",
-      "description": "Заполните шесть блоков по порядку. Каждый следующий блок открывается автоматически, когда предыдущий готов.",
+      "description": "Заполните шесть блоков по порядку. Каждый следующий блок открывается автоматически после заполнения предыдущего.",
       "bullets": {
         "0": "Название проекта и ответственный",
         "1": "Загрузка документов",
@@ -189,40 +939,40 @@
     },
     "step1": {
       "title": "Информация о проекте",
-      "description": "Задайте название проекта и назначьте ответственного пользователя. Название можно изменить позже в настройках.",
+      "description": "Задайте рабочее название и назначьте ответственного. Название можно изменить позже в настройках.",
       "bullets": {
-        "0": "Используйте короткое рабочее название",
-        "1": "Ответственный получит роль администратора проекта",
-        "2": "Ответственного можно назначить позже — этот шаг необязателен"
+        "0": "Используйте короткое рабочее имя",
+        "1": "Ответственный получает роль администратора проекта",
+        "2": "Ответственного можно назначить позже — шаг необязательный"
       },
       "iconLabel": "Проект"
     },
     "step2": {
       "title": "Загрузка документов",
-      "description": "Загрузите файлы для анализа. Поддерживаются документы форматов PDF, DOCX, XLSX и другие типовые форматы.",
+      "description": "Загрузите файлы для анализа. Поддерживаются PDF, DOCX, XLSX и другие популярные форматы.",
       "bullets": {
         "0": "Можно загрузить один или несколько файлов сразу",
-        "1": "Файлы обрабатываются в фоне — можно продолжать настройку",
+        "1": "Файлы обрабатываются в фоновом режиме — можно продолжать настройку",
         "2": "Дополнительные файлы можно добавить позже"
       },
       "iconLabel": "Документы"
     },
     "step3": {
       "title": "Playbook",
-      "description": "Выберите playbook — набор проверок, который будет применён к документам. Доступны только опубликованные версии.",
+      "description": "Выберите playbook — набор проверок, который применится к документам. Доступны только опубликованные версии.",
       "bullets": {
-        "0": "Сначала выберите шаблон, затем версию",
+        "0": "Сначала выбирается шаблон, затем его версия",
         "1": "Playbook определяет состав проверок и DD Grid",
-        "2": "Можно сменить playbook позже в настройках проекта"
+        "2": "Playbook можно сменить позже в настройках проекта"
       },
       "iconLabel": "Playbook"
     },
     "step4": {
       "title": "Профиль модели",
-      "description": "Определяет параметры семантического поиска и веса для гибридного retrieval. Опциональный шаг.",
+      "description": "Задаёт параметры семантического поиска и веса гибридной выдачи. Необязательный шаг.",
       "bullets": {
         "0": "Профиль применяется ко всем документам проекта",
-        "1": "Если пропустить — будет использован профиль по умолчанию",
+        "1": "Если пропустить — применится профиль по умолчанию",
         "2": "Можно изменить позже в настройках"
       },
       "iconLabel": "Модель"
@@ -231,19 +981,19 @@
       "title": "Основной язык",
       "description": "Система автоматически определяет языки документов. После завершения обработки выберите основной язык анализа.",
       "bullets": {
-        "0": "Определение языков идёт в фоне",
-        "1": "Основной язык определяет primary source для проверок",
-        "2": "Выбор станет доступен, когда обработка завершится"
+        "0": "Определение языков идёт в фоновом режиме",
+        "1": "Основной язык определяет главный источник для проверок",
+        "2": "Выбор становится доступен после завершения обработки"
       },
       "iconLabel": "Язык"
     },
     "step6": {
       "title": "Запуск анализа",
-      "description": "Выберите режим проверки и запустите анализ. После запуска вы будете перенаправлены на страницу проекта.",
+      "description": "Выберите режим проверки и запустите анализ. После запуска вы перейдёте на страницу проекта.",
       "bullets": {
         "0": "Рекомендуемый режим — Playbook и типы документов",
-        "1": "Force reclassify пригодится после ручной переклассификации",
-        "2": "Прогресс анализа отображается на вкладке «Обзор»"
+        "1": "Повторная классификация полезна после ручной смены типов",
+        "2": "Прогресс анализа отображается во вкладке «Обзор»"
       },
       "iconLabel": "Запуск"
     }

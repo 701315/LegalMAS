@@ -1,8 +1,12 @@
 // =============================================================
 // src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx
+// Side-panel drawer со сведениями о проверке и форме ручного QC.
+//
+// i18n: все UI-строки локализованы через namespace "ddGrid", ключи drawer.*
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { ExternalLink, MapPin, X } from "lucide-react";
 
 import type { OpenViewerAtPayload } from "../../../types";
@@ -47,14 +51,14 @@ export interface DDGridV1DrawerProps {
 }
 
 // -------------------------------------------------------------
-// Reason source labels
+// Reason source labels translation mapping
 // -------------------------------------------------------------
 
-const REASON_SOURCE_LABELS: Record<DDGridV1ReasonSource, string> = {
-  reason: "Обоснование",
-  review_message: "Комментарий системы",
-  display_text: "Результат анализа",
-  none: "",
+const REASON_SOURCE_KEYS: Record<DDGridV1ReasonSource, string> = {
+  reason: "drawer.reasonSources.reason",
+  review_message: "drawer.reasonSources.review_message",
+  display_text: "drawer.reasonSources.display_text",
+  none: "drawer.reasonSources.none",
 };
 
 // -------------------------------------------------------------
@@ -63,6 +67,7 @@ const REASON_SOURCE_LABELS: Record<DDGridV1ReasonSource, string> = {
 
 function getReviewStatusLabel(
   status: string | null | undefined,
+  tFn: (key: string) => string,
 ): string | null {
   if (!status || typeof status !== "string" || status.trim().length === 0) {
     return null;
@@ -72,12 +77,12 @@ function getReviewStatusLabel(
 
   switch (normalized) {
     case "needs_review":
-      return "Требует внимания юриста";
+      return tFn("drawer.reviewStatusLabels.needs_review");
     case "no_issue_detected":
     case "ok":
-      return "Проверка завершена без замечаний";
+      return tFn("drawer.reviewStatusLabels.no_issue_detected");
     case "unclear":
-      return "Результат не определён";
+      return tFn("drawer.reviewStatusLabels.unclear");
     default:
       return normalized;
   }
@@ -89,16 +94,17 @@ function getReviewStatusLabel(
 
 function getCellStateLabel(
   state: DDGridV1DrawerFieldView["cellState"],
+  tFn: (key: string) => string,
 ): string {
   switch (state) {
     case "defined":
-      return "Определено";
+      return tFn("drawer.cellStateLabels.defined");
     case "not_defined":
-      return "Не найдено";
+      return tFn("drawer.cellStateLabels.not_defined");
     case "not_executed":
-      return "Не выполнялось";
+      return tFn("drawer.cellStateLabels.not_executed");
     case "error":
-      return "Ошибка";
+      return tFn("drawer.cellStateLabels.error");
     default:
       return state;
   }
@@ -108,12 +114,15 @@ function getCellStateLabel(
 // Location helpers
 // -------------------------------------------------------------
 
-function getLocationText(field: DDGridV1DrawerFieldView): string | null {
+function getLocationText(
+  field: DDGridV1DrawerFieldView,
+  tFn: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
   const raw = field.raw;
   const parts: string[] = [];
 
   if (typeof raw.location_page === "number") {
-    parts.push(`стр. ${raw.location_page}`);
+    parts.push(tFn("location.pageAbbr", { page: raw.location_page }));
   }
   if (
     typeof raw.location_clause_ref === "string" &&
@@ -270,7 +279,9 @@ const FieldRow: React.FC<{
   documentId: string;
   onOpenInViewer?: (payload: OpenViewerAtPayload) => void;
 }> = ({ field, documentId, onOpenInViewer }) => {
-  const locationText = getLocationText(field);
+  const { t } = useTranslation("ddGrid"); // 🌟 Убрали неиспользуемый i18n
+
+  const locationText = getLocationText(field, t);
   const availability = field.locationAvailability;
   const confidence = field.raw.location_confidence;
 
@@ -286,7 +297,6 @@ const FieldRow: React.FC<{
 
   return (
     <div className="border-b border-[var(--border-subtle)] py-3 last:border-0 last:pb-0">
-      {/* Label + value */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-medium text-[var(--text-muted)]">
@@ -306,11 +316,10 @@ const FieldRow: React.FC<{
                 : "neutral"
           }
         >
-          {getCellStateLabel(field.cellState)}
+          {getCellStateLabel(field.cellState, t)}
         </Pill>
       </div>
 
-      {/* Location + confidence + open button */}
       {locationText || availability !== "unavailable" ? (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {locationText ? (
@@ -324,10 +333,10 @@ const FieldRow: React.FC<{
               }
               title={
                 availability === "exact"
-                  ? "Точное расположение"
+                  ? t("drawer.fieldRow.exactTooltip")
                   : availability === "approximate"
-                    ? "Приблизительное расположение"
-                    : "Расположение недоступно"
+                    ? t("drawer.fieldRow.approximateTooltip")
+                    : t("drawer.fieldRow.unavailableTooltip")
               }
             >
               <MapPin className="h-3 w-3" aria-hidden />
@@ -336,13 +345,13 @@ const FieldRow: React.FC<{
           ) : null}
 
           {confidence === "low" && locationText ? (
-            <Pill tone="warning" title="Низкая уверенность в расположении">
+            <Pill tone="warning" title={t("drawer.fieldRow.lowConfidenceTooltip")}>
               Confidence: low
             </Pill>
           ) : null}
 
           {confidence === "high" && locationText ? (
-            <Pill tone="success" title="Высокая уверенность в расположении">
+            <Pill tone="success" title={t("drawer.fieldRow.highConfidenceTooltip")}>
               Confidence: high
             </Pill>
           ) : null}
@@ -352,16 +361,15 @@ const FieldRow: React.FC<{
               type="button"
               onClick={handleOpen}
               className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent-primary)] underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35"
-              title="Открыть фрагмент в документе"
+              title={t("drawer.fieldRow.openInDocumentTooltip")}
             >
               <ExternalLink className="h-3 w-3" aria-hidden />
-              <span>Открыть в документе</span>
+              <span>{t("drawer.fieldRow.openInDocument")}</span>
             </button>
           ) : null}
         </div>
       ) : null}
 
-      {/* Location fallback reason */}
       {field.raw.location_fallback_reason ? (
         <p className="mt-1.5 text-[11px] italic text-[var(--text-muted)]">
           {field.raw.location_fallback_reason}
@@ -386,6 +394,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
   currentQcComment,
   onOpenInViewer,
 }) => {
+  const { t, i18n } = useTranslation("ddGrid"); // 🌟 Добавили i18n
   const updateQc = useUpdateReviewQc();
 
   const [localQcStatus, setLocalQcStatus] = React.useState<ReviewQcStatus>(
@@ -417,8 +426,8 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
   }, [open, onClose]);
 
   const fieldViews = React.useMemo(
-    () => buildDDGridV1DrawerFieldViews(drawerContent),
-    [drawerContent],
+    () => buildDDGridV1DrawerFieldViews(drawerContent, t),
+    [drawerContent, t],
   );
 
   const confidence = React.useMemo(
@@ -427,13 +436,13 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
   );
 
   const qualityFlags = React.useMemo(
-    () => resolveDDGridV1QualityFlags(drawerContent),
-    [drawerContent],
+    () => resolveDDGridV1QualityFlags(drawerContent, t),
+    [drawerContent, t],
   );
 
   const qcAuditInfo = React.useMemo(
-    () => resolveDDGridV1QcAuditInfo(drawerContent),
-    [drawerContent],
+    () => resolveDDGridV1QcAuditInfo(drawerContent, i18n.language),
+    [drawerContent, i18n.language],
   );
 
   const evidenceItems = React.useMemo(
@@ -451,13 +460,13 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
   }
 
   const checkName = drawerContent.check_name || drawerContent.check_id;
-  const drawerTitle = checkName || "Без названия проверки";
+  const drawerTitle = checkName || t("drawer.titleFallback");
   const drawerDescription = documentName
-    ? `Документ: ${documentName}`
-    : `Документ ID: ${documentId}`;
+    ? t("drawer.documentLabel", { name: documentName })
+    : t("drawer.documentIdLabel", { id: documentId });
 
   const displayText = drawerContent.display_text?.trim() || null;
-  const reviewStatusLabel = getReviewStatusLabel(drawerContent.review_status);
+  const reviewStatusLabel = getReviewStatusLabel(drawerContent.review_status, t);
   const executionStatus = drawerContent.execution_status?.trim() || null;
   const showExecutionStatus =
     executionStatus !== null && executionStatus !== "SUCCESS";
@@ -522,7 +531,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
           variant="ghost"
           size="sm"
           onClick={onClose}
-          aria-label="Закрыть"
+          aria-label={t("drawer.close")}
           className="px-2 py-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
         >
           <X size={16} />
@@ -544,9 +553,9 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                         ? "warning"
                         : "error"
                   }
-                  title={`Уверенность модели: ${confidence.formatted}`}
+                  title={t("drawer.confidenceTooltip", { value: confidence.formatted })}
                 >
-                  Conf: {confidence.formatted}
+                  {t("drawer.confidenceLabel", { value: confidence.formatted })}
                 </Pill>
               )}
 
@@ -560,8 +569,8 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
 
           {/* ── 1. Результат анализа + обоснование ─ */}
           <Section
-            title="Результат анализа"
-            subtitle="Основной вывод системы и его обоснование."
+            title={t("drawer.sections.analysisResult.title")}
+            subtitle={t("drawer.sections.analysisResult.subtitle")}
           >
             <InfoCard>
               {displayText ? (
@@ -572,21 +581,20 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                 <div className="text-xs italic text-[var(--text-faint)]">
                   {drawerContent?.review_status === "no_issue_detected" ||
                   drawerContent?.review_status === "ok"
-                    ? "Нарушений не выявлено."
+                    ? t("drawer.fallbacks.noViolations")
                     : drawerContent?.review_status === "unclear"
-                      ? "Результат не определён — требуется ручная проверка."
+                      ? t("drawer.fallbacks.unclearResult")
                       : drawerContent?.execution_status === "FAILED" ||
-                          drawerContent?.execution_status === "TIMEOUT"
-                        ? "Ошибка при выполнении проверки."
-                        : "Текст результата не сформирован."}
+                        drawerContent?.execution_status === "TIMEOUT"
+                        ? t("drawer.fallbacks.executionError")
+                        : t("drawer.fallbacks.noResultText")}
                 </div>
               )}
 
               {showReason ? (
                 <div className="mt-3 border-t border-[var(--border-subtle)] pt-3">
                   <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                    {REASON_SOURCE_LABELS[resolvedReason.source] ||
-                      "Обоснование"}
+                    {t(REASON_SOURCE_KEYS[resolvedReason.source] || "drawer.reasonSources.reason")}
                   </div>
                   <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">
                     {resolvedReason.text}
@@ -598,13 +606,13 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
 
           {/* ── 3. Извлечённые поля ────────── */}
           <Section
-            title="Извлечённые поля"
-            subtitle="Все параметры, извлечённые системой в рамках этой проверки."
+            title={t("drawer.sections.extractedFields.title")}
+            subtitle={t("drawer.sections.extractedFields.subtitle")}
           >
             <InfoCard>
               {fieldViews.length === 0 ? (
                 <p className="text-xs italic text-[var(--text-faint)]">
-                  Извлечённые поля отсутствуют.
+                  {t("drawer.fallbacks.noFields")}
                 </p>
               ) : (
                 <div>
@@ -624,8 +632,8 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
           {/* ── 4. Evidence ────────────────── */}
           {evidenceItems.length > 0 ? (
             <Section
-              title="Evidence"
-              subtitle="Фрагменты документа, на которые опирался анализ."
+              title={t("drawer.sections.evidence.title")}
+              subtitle={t("drawer.sections.evidence.subtitle")}
             >
               <InfoCard tone="subtle">
                 <div className="space-y-2">
@@ -645,8 +653,8 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
           {/* ── 5. Статус проверки ────────── */}
           {reviewStatusLabel || showExecutionStatus ? (
             <Section
-              title="Статус проверки"
-              subtitle="Workflow-статус и техническое состояние выполнения."
+              title={t("drawer.sections.checkStatus.title")}
+              subtitle={t("drawer.sections.checkStatus.subtitle")}
             >
               <InfoCard tone="subtle">
                 <div className="flex flex-wrap gap-2">
@@ -659,7 +667,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                       tone={
                         executionStatus === "FAILED" ? "error" : "warning"
                       }
-                      title="Техническое состояние выполнения check-а"
+                      title={t("drawer.executionStatusTooltip")}
                     >
                       Execution: {executionStatus}
                     </Pill>
@@ -672,8 +680,8 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
           {/* ── 5b. QC Audit Trail ──────────────────── */}
           {qcAuditInfo.hasBeenActioned && (
             <Section
-              title="История QC"
-              subtitle="Предыдущее решение юриста по этой проверке."
+              title={t("drawer.sections.qcHistory.title")}
+              subtitle={t("drawer.sections.qcHistory.subtitle")}
             >
               <InfoCard tone="subtle">
                 <div className="space-y-1.5">
@@ -688,10 +696,10 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                       }
                     >
                       {qcAuditInfo.status === "approved"
-                        ? "Одобрено"
+                        ? t("qc.approved")
                         : qcAuditInfo.status === "rejected"
-                          ? "Отклонено"
-                          : "Требует проверки"}
+                          ? t("qc.rejected")
+                          : t("qc.needs_review")}
                     </Pill>
 
                     {qcAuditInfo.by && (
@@ -719,14 +727,14 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
 
           {/* ── 6. QC Review ───────────────── */}
           <Section
-            title="QC Review"
-            subtitle="Статус ручной проверки и комментарий юриста. Изменения применяются после нажатия Save."
+            title={t("drawer.sections.qcReview.title")}
+            subtitle={t("drawer.sections.qcReview.subtitle")}
           >
             <InfoCard>
               <div className="space-y-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-[var(--text-primary)]">
-                    QC Status
+                    {t("drawer.qcReviewForm.statusLabel")}
                   </label>
                   <select
                     value={localQcStatus}
@@ -745,7 +753,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
 
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-[var(--text-primary)]">
-                    Comment
+                    {t("drawer.qcReviewForm.commentLabel")}
                   </label>
                   <textarea
                     value={localQcComment}
@@ -753,7 +761,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                     disabled={updateQc.isPending}
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60"
                     rows={3}
-                    placeholder="Оставьте комментарий к review (опционально)"
+                    placeholder={t("drawer.qcReviewForm.commentPlaceholder")}
                   />
                 </div>
 
@@ -765,7 +773,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                       size="sm"
                       variant="primary"
                     >
-                      {updateQc.isPending ? "Сохранение..." : "Save"}
+                      {updateQc.isPending ? t("drawer.qcReviewForm.saving") : t("drawer.qcReviewForm.save")}
                     </Button>
                     <Button
                       onClick={handleCancelQc}
@@ -773,24 +781,24 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                       size="sm"
                       variant="secondary"
                     >
-                      Cancel
+                      {t("drawer.qcReviewForm.cancel")}
                     </Button>
                   </div>
                 ) : (
                   <div className="text-xs text-[var(--text-muted)]">
-                    Нет изменений для сохранения.
+                    {t("drawer.qcReviewForm.noChanges")}
                   </div>
                 )}
 
                 {!runId ? (
                   <div className="rounded-lg border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs text-[var(--color-warning-text)]">
-                    Сохранение QC временно недоступно: отсутствует runId.
+                    {t("drawer.qcReviewForm.noRunIdWarning")}
                   </div>
                 ) : null}
 
                 {updateQc.isError ? (
                   <div className="rounded-lg border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
-                    Ошибка сохранения. Попробуйте снова.
+                    {t("drawer.qcReviewForm.saveError")}
                   </div>
                 ) : null}
               </div>
@@ -806,7 +814,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
             V1 drawer · check_id: {drawerContent.check_id}
           </div>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Закрыть
+            {t("drawer.close")}
           </Button>
         </div>
       </div>
@@ -815,6 +823,5 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
 };
 
 export default DDGridV1Drawer;
-
 
 

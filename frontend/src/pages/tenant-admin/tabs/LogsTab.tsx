@@ -4,6 +4,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Filter, Loader2 } from "lucide-react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type {
@@ -68,6 +69,8 @@ const LogsTab: React.FC<LogsTabProps> = ({
   correlationTaskId,
   onCorrelationChange,
 }) => {
+  const { t, i18n } = useTranslation("tenantAdmin");
+
   // ───────────────── Draft filters ─────────────────
 
   const [draftDealId, setDraftDealId] = React.useState(appliedFilters.deal_id);
@@ -110,21 +113,25 @@ const LogsTab: React.FC<LogsTabProps> = ({
 
   // ───────────────── Derived options ─────────────────
 
-  const stageSet = new Set<string>();
-  if (draftStage) stageSet.add(draftStage);
-  if (appliedFilters.stage) stageSet.add(appliedFilters.stage);
-  logs.forEach((entry) => entry.stage && stageSet.add(entry.stage));
-  const stageOpts = Array.from(stageSet).sort((a, b) =>
-    a.localeCompare(b, "ru"),
-  );
+  const stageOpts = React.useMemo(() => {
+    const stageSet = new Set<string>();
+    if (draftStage) stageSet.add(draftStage);
+    if (appliedFilters.stage) stageSet.add(appliedFilters.stage);
+    logs.forEach((entry) => entry.stage && stageSet.add(entry.stage));
+    return Array.from(stageSet).sort((a, b) =>
+      a.localeCompare(b, i18n.language),
+    );
+  }, [draftStage, appliedFilters.stage, logs, i18n.language]);
 
-  const queueSet = new Set<string>();
-  if (draftQueue) queueSet.add(draftQueue);
-  if (appliedFilters.queue) queueSet.add(appliedFilters.queue);
-  logs.forEach((entry) => entry.queue && queueSet.add(entry.queue));
-  const queueOpts = Array.from(queueSet).sort((a, b) =>
-    a.localeCompare(b, "ru"),
-  );
+  const queueOpts = React.useMemo(() => {
+    const queueSet = new Set<string>();
+    if (draftQueue) queueSet.add(draftQueue);
+    if (appliedFilters.queue) queueSet.add(appliedFilters.queue);
+    logs.forEach((entry) => entry.queue && queueSet.add(entry.queue));
+    return Array.from(queueSet).sort((a, b) =>
+      a.localeCompare(b, i18n.language),
+    );
+  }, [draftQueue, appliedFilters.queue, logs, i18n.language]);
 
   const hasCorrelation =
     correlationRunId || correlationDocId || correlationTaskId;
@@ -174,7 +181,9 @@ const LogsTab: React.FC<LogsTabProps> = ({
             {correlationTaskId && (
               <span>task: {correlationTaskId.slice(0, 8)}…</span>
             )}
-            <span className="ml-1 text-[10px] opacity-70">✕ сбросить</span>
+            <span className="ml-1 text-[10px] opacity-70">
+              {t("logsTab.reset")}
+            </span>
           </button>
         )}
       </div>
@@ -184,15 +193,16 @@ const LogsTab: React.FC<LogsTabProps> = ({
         onSubmit={handleSubmitFilters}
         className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7"
       >
-        {/* Filters UI unchanged */}
         <label className="xl:col-span-2">
-          <span className={`mb-1 block ${LABEL_XS}`}>Проект</span>
+          <span className={`mb-1 block ${LABEL_XS}`}>
+            {t("logsTab.labels.project")}
+          </span>
           <select
             value={draftDealId}
             onChange={(e) => setDraftDealId(e.target.value)}
             className={FILTER_CONTROL}
           >
-            <option value="">Все проекты</option>
+            <option value="">{t("logsTab.allProjects")}</option>
             {projects.map((p) => (
               <option key={p.deal_id} value={p.deal_id}>
                 {p.deal_name}
@@ -202,13 +212,15 @@ const LogsTab: React.FC<LogsTabProps> = ({
         </label>
 
         <label>
-          <span className={`mb-1 block ${LABEL_XS}`}>Level</span>
+          <span className={`mb-1 block ${LABEL_XS}`}>
+            {t("logsTab.labels.level")}
+          </span>
           <select
             value={draftLevel}
             onChange={(e) => setDraftLevel(e.target.value)}
             className={FILTER_CONTROL}
           >
-            <option value="">Все</option>
+            <option value="">{t("logsTab.options.all")}</option>
             <option value="error">error</option>
             <option value="warning">warning</option>
             <option value="info">info</option>
@@ -216,13 +228,15 @@ const LogsTab: React.FC<LogsTabProps> = ({
         </label>
 
         <label>
-          <span className={`mb-1 block ${LABEL_XS}`}>Stage</span>
+          <span className={`mb-1 block ${LABEL_XS}`}>
+            {t("logsTab.labels.stage")}
+          </span>
           <select
             value={draftStage}
             onChange={(e) => setDraftStage(e.target.value)}
             className={FILTER_CONTROL}
           >
-            <option value="">Все</option>
+            <option value="">{t("logsTab.options.all")}</option>
             {stageOpts.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -232,13 +246,15 @@ const LogsTab: React.FC<LogsTabProps> = ({
         </label>
 
         <label>
-          <span className={`mb-1 block ${LABEL_XS}`}>Queue</span>
+          <span className={`mb-1 block ${LABEL_XS}`}>
+            {t("logsTab.labels.queue")}
+          </span>
           <select
             value={draftQueue}
             onChange={(e) => setDraftQueue(e.target.value)}
             className={FILTER_CONTROL}
           >
-            <option value="">Все</option>
+            <option value="">{t("logsTab.options.all")}</option>
             {queueOpts.map((q) => (
               <option key={q} value={q}>
                 {q}
@@ -248,7 +264,9 @@ const LogsTab: React.FC<LogsTabProps> = ({
         </label>
 
         <label>
-          <span className={`mb-1 block ${LABEL_XS}`}>Период</span>
+          <span className={`mb-1 block ${LABEL_XS}`}>
+            {t("logsTab.labels.period")}
+          </span>
           <select
             value={draftSince}
             onChange={(e) => setDraftSince(e.target.value)}
@@ -256,7 +274,7 @@ const LogsTab: React.FC<LogsTabProps> = ({
           >
             {SINCE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {opt.label}
+                {t(`logsTab.periodOptions.${opt.value}`, { defaultValue: opt.label })}
               </option>
             ))}
           </select>
@@ -264,7 +282,9 @@ const LogsTab: React.FC<LogsTabProps> = ({
 
         <div className="flex items-end gap-2">
           <label className="flex-1">
-            <span className={`mb-1 block ${LABEL_XS}`}>Лимит</span>
+            <span className={`mb-1 block ${LABEL_XS}`}>
+              {t("logsTab.labels.limit")}
+            </span>
             <select
               value={draftLimit}
               onChange={(e) => setDraftLimit(e.target.value)}
@@ -278,7 +298,7 @@ const LogsTab: React.FC<LogsTabProps> = ({
             </select>
           </label>
           <Button type="submit" size="sm" variant="secondary">
-            ОК
+            {t("actions.confirm", { ns: "common" })}
           </Button>
         </div>
       </form>
@@ -286,21 +306,32 @@ const LogsTab: React.FC<LogsTabProps> = ({
       {/* Stats */}
       <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4">
         <KpiCard
-          label="Loki"
-          value={lokiUp ? "Доступен" : "Недоступен"}
+          label={t("logsTab.loki.label")}
+          value={
+            lokiUp
+              ? t("logsTab.loki.available")
+              : t("logsTab.loki.unavailable")
+          }
           tone={lokiUp ? "ok" : "warn"}
         />
-        <KpiCard label="Показано" value={fmt(logs.length)} />
         <KpiCard
-          label="Скрыто info"
-          value={fmt(logsStats?.filtered_out_by_mode ?? 0)}
+          label={t("logsTab.loki.shown")}
+          value={fmt(logs.length, i18n.language)}
+        />
+        <KpiCard
+          label={t("logsTab.loki.hiddenInfo")}
+          value={fmt(logsStats?.filtered_out_by_mode ?? 0, i18n.language)}
           tone={
             (logsStats?.filtered_out_by_mode ?? 0) > 0 ? "warn" : "default"
           }
         />
         <KpiCard
-          label="Режим"
-          value={logsMode === "operational" ? "События" : "Debug"}
+          label={t("logsTab.loki.mode")}
+          value={
+            logsMode === "operational"
+              ? t("logsTab.loki.modeEvents")
+              : t("logsTab.loki.modeDebug")
+          }
           tone={logsMode === "operational" ? "ok" : "default"}
         />
       </div>
@@ -310,13 +341,13 @@ const LogsTab: React.FC<LogsTabProps> = ({
         {logsQ.isLoading && !ld ? (
           <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
             <Loader2 size={20} className="animate-spin" />
-            <span className="ml-3 text-sm">Загружаем логи…</span>
+            <span className="ml-3 text-sm">{t("logsTab.loading")}</span>
           </div>
         ) : logsQ.error && !ld ? (
           <div className="flex h-full w-full items-center justify-center p-5 text-center">
             <div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Не удалось загрузить логи
+                {t("logsTab.loadError")}
               </p>
               <Button
                 size="sm"
@@ -324,20 +355,20 @@ const LogsTab: React.FC<LogsTabProps> = ({
                 onClick={() => logsQ.refetch()}
                 className="mt-3"
               >
-                Повторить
+                {t("actions.retry", { ns: "common" })}
               </Button>
             </div>
           </div>
         ) : !lokiUp ? (
           <div className="flex h-full w-full items-center justify-center text-sm text-[var(--text-muted)]">
-            Loki недоступен
+            {t("logsTab.lokiUnavailable")}
           </div>
         ) : (
           <div className="grid h-full w-full grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
             <div className="flex min-h-0 min-w-0 flex-col overflow-hidden xl:border-r xl:border-[var(--border-subtle)]">
               {logs.length === 0 ? (
                 <div className="flex h-full items-center justify-center p-6 text-center text-sm text-[var(--text-muted)]">
-                  Логи не найдены — измените фильтры или период.
+                  {t("logsTab.noLogsFound")}
                 </div>
               ) : (
                 <div className="min-h-0 flex-1 overflow-auto">

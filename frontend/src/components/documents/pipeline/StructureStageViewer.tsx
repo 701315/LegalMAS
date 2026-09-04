@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type {
   PipelineStageViewDTO,
   StructurePreviewDTO,
@@ -45,6 +46,7 @@ function isCanonicalStructureView(stage: PipelineStageViewDTO): boolean {
 
 function formatPageRange(
   section: StructureSectionPreviewDTO,
+  tFn: (key: string, options?: any) => string,
 ): string | null {
   const from =
     typeof section.page_from === "number"
@@ -57,9 +59,11 @@ function formatPageRange(
 
   if (from == null && to == null) return null;
   if (from != null && to != null) {
-    return from === to ? `стр. ${from}` : `стр. ${from}–${to}`;
+    return from === to
+      ? tFn("structureViewer.pagesSingle", { from })
+      : tFn("structureViewer.pagesRange", { from, to });
   }
-  return `стр. ${from ?? to ?? "?"}`;
+  return tFn("structureViewer.pagesSingle", { from: from ?? to ?? "?" });
 }
 
 function hasChunksMapping(section: StructureSectionPreviewDTO): boolean {
@@ -108,18 +112,19 @@ function getSectionTextFriendly(
   return enriched || structure;
 }
 
-function getSectionLabel(section: StructureSectionPreviewDTO): string {
-  return (section.title ?? "").trim() || "Без названия";
+function getSectionLabel(section: StructureSectionPreviewDTO, tFn: (key: string) => string): string {
+  return (section.title ?? "").trim() || tFn("structureViewer.untitled");
 }
 
 function getSectionMetaLine(
   section: StructureSectionPreviewDTO,
+  tFn: (key: string, options?: any) => string,
 ): string {
   const parts: string[] = [];
 
-  parts.push(`Уровень ${section.level ?? 1}`);
+  parts.push(tFn("structureViewer.level", { level: section.level ?? 1 }));
 
-  const pages = formatPageRange(section);
+  const pages = formatPageRange(section, tFn);
   if (pages) parts.push(pages);
 
   if (section.clause_uid) {
@@ -149,6 +154,7 @@ function getSectionNavDescription(
 
 function groupSectionsBySegment(
   preview: StructurePreviewDTO,
+  tFn: (key: string) => string,
 ): SegmentSectionGroup[] {
   if (!Array.isArray(preview.segments) || preview.segments.length === 0) {
     return [];
@@ -168,7 +174,7 @@ function groupSectionsBySegment(
 
     const s = seg.segment;
     const segmentId = s.segment_id;
-    const title = s.segment_title ?? "(без заголовка)";
+    const title = s.segment_title ?? tFn("structureViewer.noHeader");
     const type = s.segment_type ?? "primary";
     const order =
       typeof s.segment_order === "number" ? s.segment_order : null;
@@ -221,16 +227,18 @@ const PanelHeader: React.FC<{
 
 /* ===== Status badges — канонический паттерн ===== */
 
-const ChunksMappingBadge: React.FC<{ mapped: boolean }> = ({ mapped }) =>
-  mapped ? (
+const ChunksMappingBadge: React.FC<{ mapped: boolean }> = ({ mapped }) => {
+  const { t } = useTranslation("pipeline");
+  return mapped ? (
     <span className="inline-flex items-center rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-2 py-0.5 text-xs text-[var(--color-success-text)]">
-      Есть привязка к CHUNKS
+      {t("structureViewer.mappingBadge.mapped")}
     </span>
   ) : (
     <span className="inline-flex items-center rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-xs text-[var(--color-warning-text)]">
-      Нет привязки к CHUNKS для этой секции
+      {t("structureViewer.mappingBadge.unmapped")}
     </span>
   );
+};
 
 /* ================================================================
  * Main component
@@ -242,6 +250,7 @@ export const StructureStageViewer: React.FC<Props> = ({
   chunksStage,
   onOpenAtLocation,
 }) => {
+  const { t } = useTranslation("pipeline");
   const status = structureStage.status;
   const preview = structureStage.preview;
 
@@ -251,8 +260,8 @@ export const StructureStageViewer: React.FC<Props> = ({
 
   const segmentGroups = React.useMemo(
     () =>
-      structurePreview ? groupSectionsBySegment(structurePreview) : [],
-    [structurePreview],
+      structurePreview ? groupSectionsBySegment(structurePreview, t) : [],
+    [structurePreview, t],
   );
 
   const hasSegmentGroups = segmentGroups.length > 0;
@@ -280,7 +289,7 @@ export const StructureStageViewer: React.FC<Props> = ({
   if (isPending) {
     return (
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
-        Структура документа ещё не готова в v2-формате. Попробуй позже.
+        {t("structureViewer.pending")}
       </div>
     );
   }
@@ -288,8 +297,7 @@ export const StructureStageViewer: React.FC<Props> = ({
   if (isMissing) {
     return (
       <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-4 text-sm text-[var(--color-error-text)]">
-        Структурированный артефакт ожидается, но недоступен или повреждён.
-        Проверь состояние пайплайна для стадии STRUCTURE.
+        {t("structureViewer.missing")}
       </div>
     );
   }
@@ -297,7 +305,7 @@ export const StructureStageViewer: React.FC<Props> = ({
   if (!structurePreview) {
     return (
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
-        Для этой стадии нет STRUCTURE-превью.
+        {t("structureViewer.unavailable")}
       </div>
     );
   }
@@ -321,9 +329,9 @@ export const StructureStageViewer: React.FC<Props> = ({
       {/* ── Левая панель: навигация по секциям ── */}
       <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
         <PanelHeader
-          title="Структура документа"
+          title={t("structureViewer.title")}
           description={
-            sectionCount > 0 ? `Секций: ${sectionCount}` : undefined
+            sectionCount > 0 ? t("structureViewer.sectionsCount", { count: sectionCount }) : undefined
           }
         />
 
@@ -366,7 +374,7 @@ export const StructureStageViewer: React.FC<Props> = ({
             )
           ) : (
             <div className="px-3 py-2 text-sm text-[var(--text-muted)]">
-              В STRUCTURE пока нет секций.
+              {t("structureViewer.noSections")}
             </div>
           )}
         </div>
@@ -405,24 +413,24 @@ export const StructureStageViewer: React.FC<Props> = ({
               highlightedChunkIndices={highlightedChunkIndices}
               traceLabel={
                 highlightedChunkIndices.length > 0
-                  ? "Фрагменты исходного текста, привязанные к выбранной секции"
-                  : "Для выбранной секции не найдено связанных чанков"
+                  ? t("structureViewer.mappedTrace")
+                  : t("structureViewer.unmappedTrace")
               }
               documentId={documentId}
               onOpenAtLocation={onOpenAtLocation}
             />
           ) : chunksStage.status === "pending" ? (
             <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-              CHUNKS ещё не готовы в v2-формате. Попробуй позже.
+              {t("structureViewer.chunksPending")}
             </div>
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-[var(--color-error-text)]">
-              CHUNKS-артефакт ожидается, но недоступен или повреждён.
+              {t("structureViewer.chunksMissing")}
             </div>
           )
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-            CHUNKS-стадия недоступна — показать исходный текст невозможно.
+            {t("structureViewer.chunksUnavailable")}
           </div>
         )}
       </section>
@@ -437,11 +445,12 @@ const SectionNavItem: React.FC<{
   isActive: boolean;
   onSelect: () => void;
 }> = ({ section, isActive, onSelect }) => {
+  const { t } = useTranslation("pipeline");
   const indent = Math.max(0, (section.level ?? 1) - 1);
   const hasClauseUid = Boolean(section.clause_uid);
   const hasSourceChunks = hasChunksMapping(section);
-  const pageRange = formatPageRange(section);
-  const title = getSectionLabel(section);
+  const pageRange = formatPageRange(section, t);
+  const title = getSectionLabel(section, t);
   const preview = getSectionNavDescription(section);
 
   return (
@@ -482,12 +491,12 @@ const SectionNavItem: React.FC<{
       {hasSourceChunks ? (
         <span
           className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success)]"
-          aria-label="Есть привязка к CHUNKS"
+          aria-label={t("structureViewer.mappingBadge.mapped")}
         />
       ) : hasClauseUid ? (
         <span
           className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]"
-          aria-label="Есть clause_uid"
+          aria-label="Has clause_uid"
         />
       ) : null}
     </button>
@@ -500,10 +509,11 @@ const CanonicalSectionPanel: React.FC<{
   documentId: string;
   onOpenAtLocation?: OpenViewerAtFn;
 }> = ({ sections, activeSectionId, documentId, onOpenAtLocation }) => {
+  const { t } = useTranslation("pipeline");
   if (!sections.length) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-        В STRUCTURE пока нет секций.
+        {t("structureViewer.noSections")}
       </div>
     );
   }
@@ -516,20 +526,20 @@ const CanonicalSectionPanel: React.FC<{
   if (!section) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-        Выбери секцию слева.
+        {t("structureViewer.selectSection")}
       </div>
     );
   }
 
-  const pageRange = formatPageRange(section);
+  const pageRange = formatPageRange(section, t);
   const sourceMapped = hasChunksMapping(section);
   const { text: previewText, hasText } = getSectionTextCanonical(section);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <PanelHeader
-        title="Сведения о секции"
-        description="В canonical‑режиме здесь показывается узел структуры документа (structure_text), а не enriched‑текст из CHUNKS."
+        title={t("structureViewer.canonicalPanel.title")}
+        description={t("structureViewer.canonicalPanel.desc")}
       />
 
       <div className="min-h-0 flex-1 space-y-3 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3">
@@ -542,10 +552,10 @@ const CanonicalSectionPanel: React.FC<{
                 : undefined
             }
           >
-            {getSectionLabel(section)}
+            {getSectionLabel(section, t)}
           </p>
           <p className="mt-1 text-xs leading-4 text-[var(--text-faint)]">
-            {getSectionMetaLine(section)}
+            {getSectionMetaLine(section, t)}
           </p>
         </div>
 
@@ -562,42 +572,42 @@ const CanonicalSectionPanel: React.FC<{
 
         <div className="rounded-xl bg-[var(--bg-card)] px-3 py-3">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-faint)]">
-            Поля узла
+            {t("structureViewer.canonicalPanel.fieldsTitle")}
           </p>
 
           <dl className="space-y-2 text-xs text-[var(--text-secondary)]">
             {[
-              { label: "ID", value: section.id || "—", breakAll: true },
+              { label: t("structureViewer.fields.id"), value: section.id || "—", breakAll: true },
               {
-                label: "Clause UID",
+                label: t("structureViewer.fields.clauseUid"),
                 value: section.clause_uid || "—",
               },
               {
-                label: "Уровень",
+                label: t("structureViewer.fields.level"),
                 value: String(section.level ?? 1),
               },
-              { label: "Страницы", value: pageRange ?? "—" },
+              { label: t("structureViewer.fields.pages"), value: pageRange ?? "—" },
               {
-                label: "Segment ID",
+                label: t("structureViewer.fields.segmentId"),
                 value: section.segment_id || "—",
               },
               {
-                label: "Segment Type",
+                label: t("structureViewer.fields.segmentType"),
                 value: section.segment_type || "—",
               },
               {
-                label: "Segment Title",
+                label: t("structureViewer.fields.segmentTitle"),
                 value: section.segment_title || "—",
               },
               {
-                label: "Segment Order",
+                label: t("structureViewer.fields.segmentOrder"),
                 value:
                   typeof section.segment_order === "number"
                     ? String(section.segment_order)
                     : "—",
               },
               {
-                label: "Primary Segment",
+                label: t("structureViewer.fields.primarySegment"),
                 value:
                   typeof section.is_primary_segment === "boolean"
                     ? section.is_primary_segment
@@ -621,7 +631,7 @@ const CanonicalSectionPanel: React.FC<{
         {hasText ? (
           <div className="rounded-xl bg-[var(--bg-card)] px-3 py-3">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-faint)]">
-              Текст clause tree (structure_text)
+              {t("structureViewer.canonicalPanel.clauseTreeTitle")}
             </p>
             <div className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">
               {previewText}
@@ -630,9 +640,7 @@ const CanonicalSectionPanel: React.FC<{
         ) : (
           <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-3">
             <p className="text-sm leading-6 text-[var(--text-muted)]">
-              Для этого узла текст clause tree не задан. Это нормально для
-              canonical STRUCTURE, если в дереве есть только заголовок и
-              метаданные узла.
+              {t("structureViewer.canonicalPanel.noTextDesc")}
             </p>
           </div>
         )}
@@ -648,7 +656,7 @@ const CanonicalSectionPanel: React.FC<{
               }
               className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--accent-primary)] transition-colors hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             >
-              Открыть в документе
+              {t("structureViewer.openInDocument")}
             </button>
           </div>
         )}
@@ -663,10 +671,11 @@ const FriendlySectionPanel: React.FC<{
   documentId: string;
   onOpenAtLocation?: OpenViewerAtFn;
 }> = ({ sections, activeSectionId, documentId, onOpenAtLocation }) => {
+  const { t } = useTranslation("pipeline");
   if (!sections.length) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-        В STRUCTURE пока нет секций.
+        {t("structureViewer.noSections")}
       </div>
     );
   }
@@ -679,7 +688,7 @@ const FriendlySectionPanel: React.FC<{
   if (!section) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-        Выбери секцию слева.
+        {t("structureViewer.selectSection")}
       </div>
     );
   }
@@ -690,8 +699,8 @@ const FriendlySectionPanel: React.FC<{
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <PanelHeader
-        title="Текст секции"
-        description="В friendly‑режиме здесь показывается текст секции, обогащённый из CHUNKS (enriched_text), с fallback на structure_text."
+        title={t("structureViewer.friendlyPanel.title")}
+        description={t("structureViewer.friendlyPanel.desc")}
       />
 
       <div className="min-h-0 flex-1 space-y-3 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3">
@@ -704,10 +713,10 @@ const FriendlySectionPanel: React.FC<{
                 : undefined
             }
           >
-            {getSectionLabel(section)}
+            {getSectionLabel(section, t)}
           </p>
           <p className="mt-1 text-xs leading-4 text-[var(--text-faint)]">
-            {getSectionMetaLine(section)}
+            {getSectionMetaLine(section, t)}
           </p>
         </div>
 
@@ -731,7 +740,7 @@ const FriendlySectionPanel: React.FC<{
         ) : (
           <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-3">
             <p className="text-sm leading-6 text-[var(--text-muted)]">
-              Для этой секции нет текстового превью.
+              {t("structureViewer.friendlyPanel.noTextDesc")}
             </p>
           </div>
         )}
@@ -747,7 +756,7 @@ const FriendlySectionPanel: React.FC<{
               }
               className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--accent-primary)] transition-colors hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             >
-              Открыть в документе
+              {t("structureViewer.openInDocument")}
             </button>
           </div>
         )}
@@ -760,10 +769,11 @@ const CanonicalJsonPanel: React.FC<{
   sections: StructureSectionPreviewDTO[];
   activeSectionId: string | null;
 }> = ({ sections, activeSectionId }) => {
+  const { t } = useTranslation("pipeline");
   if (!sections.length) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-        В STRUCTURE пока нет секций.
+        {t("structureViewer.noSections")}
       </div>
     );
   }
@@ -776,7 +786,7 @@ const CanonicalJsonPanel: React.FC<{
   if (!section) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
-        Выбери секцию слева.
+        {t("structureViewer.selectSection")}
       </div>
     );
   }
@@ -784,8 +794,8 @@ const CanonicalJsonPanel: React.FC<{
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PanelHeader
-        title="JSON узла"
-        description="Здесь показывается текущий объект секции из preview.segments[].sections[]."
+        title={t("structureViewer.jsonPanel.title")}
+        description={t("structureViewer.jsonPanel.desc")}
       />
 
       <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-[var(--bg-inverse)] p-3">

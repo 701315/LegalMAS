@@ -1,4 +1,230 @@
 {
+  "versionStatus": {
+    "draft": "Draft",
+    "published": "Published",
+    "archived": "Archived"
+  },
+  "validationResultPanel": {
+    "success": "Validation successful",
+    "failed": "Validation failed",
+    "checksCount": "Checks: {{count}}",
+    "errorsCount": "Errors ({{count}})",
+    "warningsCount": "Warnings ({{count}})",
+    "allPassed": "All validation checks passed. Draft is ready to be published."
+  },
+  "staleWarningBanner": {
+    "title": "Override is stale",
+    "desc": "The base instruction version was updated after this override was created. The current override is marked as stale and cannot be activated.",
+    "dealDesc": "Perform a rebase — specify the new base version and adjust patch operations if necessary.",
+    "tenantDesc": "Create a new override on the up-to-date base version.",
+    "rebaseBtn": "Rebase"
+  },
+  "publishConfirmDialog": {
+    "header": "Confirm Publication",
+    "title": "Publish version?",
+    "desc1": "Version <bold>{{versionName}}</bold> for document type <mono>{{docTypeCode}}</mono> will be published.",
+    "desc2": "Once published, this version will become immutable and will be used as the base version for all tenants. This action cannot be undone — you can only create a new version later.",
+    "cancel": "Cancel",
+    "publish": "Publish"
+  },
+  "patchOps": {
+    "defaultLabel": "Patch Operations (JSON Patch RFC 6902)",
+    "examplesTitle": "Operation examples:",
+    "currentOpsCount": "Current operations: {{count}}",
+    "errors": {
+      "arrayExpected": "Expected a JSON array of operations [ {...}, ... ]",
+      "invalidJson": "Invalid JSON. Please check the syntax."
+    }
+  },
+  "overrideStatusBadge": {
+    "draft": "Draft",
+    "active": "Active",
+    "archived": "Archived",
+    "stale": "Stale"
+  },
+  "importYaml": {
+    "validation": {
+      "empty": "File is empty.",
+      "parseError": "YAML parsing error: {{message}}",
+      "invalidStructure": "YAML must be an object with top-level fields.",
+      "missingField": "YAML is missing the required field \"{{field}}\" (string).",
+      "readError": "Failed to read file: {{message}}",
+      "unknown": "Unknown error"
+    },
+    "kinds": {
+      "global": "global instruction",
+      "docType": "doc-type instruction"
+    },
+    "header": {
+      "import": "Import",
+      "title": "Load {{kind}} from YAML",
+      "description": "The file will be saved as a <bold>draft</bold>. After importing, you will be able to validate and publish it."
+    },
+    "file": {
+      "label": "YAML File",
+      "select": "Choose file",
+      "clear": "Clear",
+      "tip": "Format: .yaml, .yml. Or paste content into the field below manually."
+    },
+    "textarea": {
+      "label": "YAML Content",
+      "placeholderGlobal": "id: my_new_check\nname: My new check\ngroup: ...\n...",
+      "placeholderDocType": "type: contract_9.2_franchise\nparent: class_9_franchising\nname: ...\n..."
+    },
+    "detected": {
+      "title": "Detected",
+      "name": "name"
+    },
+    "buttons": {
+      "cancel": "Cancel",
+      "createDraft": "Create Draft"
+    }
+  },
+  "globalEditor": {
+    "parsingErrorTitle": "YAML Parsing Error",
+    "parsingErrorDesc": "Failed to parse YAML. Please check your syntax on the YAML tab.",
+    "tabs": {
+      "ariaLabel": "Editor sections",
+      "basic": "Basic",
+      "detection": "Detection",
+      "llm": "LLM",
+      "retrieval": "Retrieval",
+      "evidence": "Evidence",
+      "extraction": "Extraction"
+    },
+    "shared": {
+      "add": "Add",
+      "addPlaceholder": "Add...",
+      "deleteAria": "Delete: {{value}}",
+      "none": "— none —",
+      "inherit": "— inherits base —"
+    },
+    "basic": {
+      "identification": "Identification",
+      "idLabel": "Instruction ID",
+      "groupLabel": "Group",
+      "nameLabel": "Name",
+      "descriptionLabel": "Description",
+      "descriptionHint": "Detailed description of what the instruction verifies",
+      "applicability": "Applicability",
+      "docTypesLabel": "Document Types (doc_types)",
+      "docTypesHint": "Leave empty to apply to all document types",
+      "severity": "Severity",
+      "baseSeverity": "Base severity",
+      "uiMode": "UI Mode",
+      "severityIfFail": "severity_if_fail",
+      "severityIfFailHint": "Severity on fail",
+      "severityIfPass": "severity_if_pass",
+      "severityIfPassHint": "Severity on pass",
+      "severityIfUnclear": "severity_if_unclear",
+      "severityIfUnclearHint": "Severity on unclear"
+    },
+    "detection": {
+      "detector": "Detector",
+      "detectorType": "Detector Type",
+      "keywordMode": "Keyword Mode",
+      "keywords": "Keywords",
+      "keywordsHigh": "High priority keywords",
+      "keywordsHighHint": "Regex patterns with high priority",
+      "keywordsMedium": "Medium priority keywords",
+      "keywordsLow": "Low priority keywords",
+      "regexPatterns": "Regex patterns"
+    },
+    "llm": {
+      "title": "LLM Configuration",
+      "promptFile": "Prompt file",
+      "promptFileHint": "Path to prompt file relative to playbooks/",
+      "contextK": "Context K",
+      "contextKHint": "Number of context chunks",
+      "temperature": "Temperature",
+      "maxTokens": "Max tokens"
+    },
+    "retrieval": {
+      "title": "Retrieval Parameters",
+      "contextK": "Context K",
+      "contextKHint": "Number of relevant chunks",
+      "maxChunks": "Max chunks",
+      "query": "Retrieval query",
+      "queryHint": "Semantic query to find relevant fragments",
+      "queryPlaceholder": "confidential information NDA...",
+      "rerank": "Rerank",
+      "rerankLabel": "Enable results reranking",
+      "boostNegative": "Boost / Negative Keywords",
+      "boostKeywords": "Boost keywords",
+      "boostKeywordsHint": "Increase chunk relevance",
+      "negativeKeywords": "Negative keywords",
+      "negativeKeywordsHint": "Decrease chunk relevance",
+      "typeFilters": "Type Filters",
+      "preferredUnitTypes": "Preferred unit types",
+      "excludedUnitTypes": "Excluded unit types",
+      "preferredClauseFunctions": "Preferred clause functions"
+    },
+    "evidence": {
+      "title": "Evidence Settings",
+      "required": "Required",
+      "requiredLabel": "Evidence is required to output a result",
+      "minSnippet": "Min snippet length",
+      "minSnippetHint": "Minimum fragment length (characters)",
+      "maxSnippet": "Max snippet length",
+      "maxSnippetHint": "Maximum fragment length (characters)"
+    },
+    "extraction": {
+      "title": "Extraction",
+      "enable": "Enable extraction",
+      "mode": "Extraction mode",
+      "llmMaxTokens": "LLM max tokens",
+      "storePayload": "Store payload",
+      "storePayloadLabel": "Save extraction payload in the result",
+      "prompt": "LLM prompt (extraction)",
+      "promptHint": "Prompt for LLM extraction. Use {context} as a placeholder",
+      "promptPlaceholder": "<role>\nYou are a lawyer...\n</role>\n\n<context>\n{context}\n</context>",
+      "fields": "Extraction Fields",
+      "addField": "Add field",
+      "fieldEditor": {
+        "title": "Field #{{index}}",
+        "removeAria": "Remove field",
+        "descriptionPlaceholder": "Short description of the field",
+        "allowedValuesHint": "Leave empty if values are arbitrary"
+      }
+    }
+  },
+  "draftEditForm": {
+    "conflict": {
+      "title": "Fresh data from the server",
+      "name": "Name: <bold>{{name}}</bold>",
+      "changeSummary": "Change summary: {{summary}}",
+      "updatedAt": "Updated: {{time}}",
+      "manualHint": "Please update the form manually based on the fresh data, then click \"Save\"."
+    },
+    "fields": {
+      "name": "Version Name",
+      "namePlaceholder": "e.g., Initial draft, Updated checks...",
+      "semver": "Semver",
+      "semverPlaceholder": "1.0.0",
+      "changeSummary": "Change summary",
+      "changeSummaryPlaceholder": "What was changed in this version...",
+      "instructionContent": "Instruction Content",
+      "editor": "Editor",
+      "yaml": "YAML",
+      "sourceYaml": "Source YAML",
+      "yamlPlaceholder": "# Paste YAML instruction configuration..."
+    },
+    "status": {
+      "dirty": "There are unsaved changes",
+      "autosaveDebounce": "Draft is saved automatically with a small delay.",
+      "autosaveBlur": "Draft is saved automatically when switching between fields.",
+      "saveDraft": "Save Draft"
+    }
+  },
+  "concurrency": {
+    "loading": "Loading version data…",
+    "saving": "Saving draft…",
+    "stale": "Data has been updated on the server. Click \"Save\" again to apply your changes.",
+    "retry": "Retry",
+    "conflict": "Editing conflict — this version was modified by another user. Your changes were not saved. Please review the updated data and reapply your changes.",
+    "dismiss": "Got it",
+    "saveError": "Failed to save."
+  },
   "tenantPlaybooks": {
     "backToInstructions": "Instructions",
     "title": "Organization Playbooks",

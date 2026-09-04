@@ -22,6 +22,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Database } from "lucide-react";
 import type {
   ProjectErrorItem,
@@ -56,6 +57,7 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
   onOpenLogsForRun,
   onOpenLogsForError,
 }) => {
+  const { t, i18n } = useTranslation("tenantAdmin");
   const [errorFilter, setErrorFilter] = React.useState<ErrorFilter>("all");
   const [expandedErrorKey, setExpandedErrorKey] = React.useState<string | null>(
     null,
@@ -81,42 +83,45 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
         <div className={SECTION_HEADER_WRAP}>
           <div className={SECTION_HEADER_INNER}>
             <p className="text-sm font-semibold text-[var(--text-primary)]">
-              Документы
+              {t("drillDown.overview.documents.title")}
             </p>
             <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-              Сводка по документам этого проекта
+              {t("drillDown.overview.documents.subtitle")}
             </p>
           </div>
           <div className={SECTION_DIVIDER} />
         </div>
         <div className="grid grid-cols-2 gap-2 px-5 py-4 sm:grid-cols-4">
-          <KpiCard label="Всего" value={fmt(docs?.total)} />
           <KpiCard
-            label="Ошибки"
-            value={fmt(docs?.failed)}
+            label={t("drillDown.overview.all")}
+            value={fmt(docs?.total, i18n.language)}
+          />
+          <KpiCard
+            label={t("drillDown.overview.errors")}
+            value={fmt(docs?.failed, i18n.language)}
             tone={(docs?.failed ?? 0) > 0 ? "error" : "default"}
           />
           <KpiCard
-            label="Карантин"
-            value={fmt(docs?.quarantine)}
+            label={t("drillDown.overview.quarantine")}
+            value={fmt(docs?.quarantine, i18n.language)}
             tone={(docs?.quarantine ?? 0) > 0 ? "warn" : "default"}
           />
           <KpiCard
-            label="Проверены человеком"
-            value={fmt(docs?.reviewed_by_person)}
+            label={t("drillDown.overview.reviewed")}
+            value={fmt(docs?.reviewed_by_person, i18n.language)}
           />
         </div>
 
         {docs && Object.keys(docs.by_status).length > 0 && (
           <div className="border-t border-[var(--border-subtle)] px-5 py-4">
-            <p className={LABEL_XS}>По статусам</p>
+            <p className={LABEL_XS}>{t("drillDown.overview.byStatus")}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {Object.entries(docs.by_status).map(([st, cnt]) => (
                 <span
                   key={st}
                   className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]"
                 >
-                  {st}: <span className="tabular-nums">{cnt}</span>
+                  {st}: <span className="tabular-nums">{fmt(cnt, i18n.language)}</span>
                 </span>
               ))}
             </div>
@@ -125,14 +130,14 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
 
         {docs && Object.keys(docs.by_doc_type).length > 0 && (
           <div className="border-t border-[var(--border-subtle)] px-5 py-4">
-            <p className={LABEL_XS}>По типам документов</p>
+            <p className={LABEL_XS}>{t("drillDown.overview.byDocType")}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {Object.entries(docs.by_doc_type).map(([dt, cnt]) => (
                 <span
                   key={dt}
                   className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]"
                 >
-                  {dt}: <span className="tabular-nums">{cnt}</span>
+                  {dt}: <span className="tabular-nums">{fmt(cnt, i18n.language)}</span>
                 </span>
               ))}
             </div>
@@ -145,50 +150,53 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
         <div className={SECTION_HEADER_WRAP}>
           <div className={SECTION_HEADER_INNER}>
             <p className="text-sm font-semibold text-[var(--text-primary)]">
-              Анализы (runs)
+              {t("drillDown.overview.runs.title")}
             </p>
             <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-              История запусков анализа по проекту
+              {t("drillDown.overview.runs.subtitle")}
             </p>
           </div>
           <div className={SECTION_DIVIDER} />
         </div>
         <div className="grid grid-cols-2 gap-2 px-5 py-4 sm:grid-cols-4">
-          <KpiCard label="Всего" value={fmt(runStats?.total_runs)} />
           <KpiCard
-            label="Успешных"
-            value={fmt(runStats?.completed_runs)}
+            label={t("drillDown.overview.all")}
+            value={fmt(runStats?.total_runs, i18n.language)}
+          />
+          <KpiCard
+            label={t("drillDown.overview.successful")}
+            value={fmt(runStats?.completed_runs, i18n.language)}
             tone={(runStats?.completed_runs ?? 0) > 0 ? "ok" : "default"}
           />
           <KpiCard
-            label="Провальных"
-            value={fmt(runStats?.failed_runs)}
+            label={t("drillDown.overview.failed")}
+            value={fmt(runStats?.failed_runs, i18n.language)}
             tone={(runStats?.failed_runs ?? 0) > 0 ? "error" : "default"}
           />
           <KpiCard
-            label="Средняя длительность"
-            value={fmtDurationSeconds(runStats?.avg_duration_seconds)}
+            label={t("drillDown.overview.avgDuration")}
+            value={fmtDurationSeconds(runStats?.avg_duration_seconds, i18n.language)}
           />
         </div>
 
         {(runStats?.recent_runs.length ?? 0) > 0 && (
           <div className="border-t border-[var(--border-subtle)] px-5 py-4">
-            <p className={LABEL_XS}>Последние запуски</p>
+            <p className={LABEL_XS}>{t("drillDown.overview.recentRuns")}</p>
             <div className="mt-2 overflow-auto">
               <table className="w-full min-w-[560px] border-collapse">
                 <thead className="bg-[var(--bg-elevated-soft)]">
                   <tr className="border-b border-[var(--border)]">
                     <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                      Статус
+                      {t("drillDown.overview.headers.status")}
                     </th>
                     <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                      Прогресс
+                      {t("drillDown.overview.headers.progress")}
                     </th>
                     <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                      Начат
+                      {t("drillDown.overview.headers.started")}
                     </th>
                     <th className={`px-3 py-2 text-left ${LABEL_XS}`}>
-                      Завершён
+                      {t("drillDown.overview.headers.completed")}
                     </th>
                     <th className={`px-3 py-2 text-left ${LABEL_XS}`} />
                   </tr>
@@ -215,10 +223,10 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
                           {r.completed_checks}/{r.total_checks}
                         </td>
                         <td className="px-3 py-2 text-[11px] text-[var(--text-muted)]">
-                          {formatDateTime(r.started_at)}
+                          {formatDateTime(r.started_at, i18n.language)}
                         </td>
                         <td className="px-3 py-2 text-[11px] text-[var(--text-muted)]">
-                          {formatDateTime(r.completed_at)}
+                          {formatDateTime(r.completed_at, i18n.language)}
                         </td>
                         <td className="px-3 py-2 text-right">
                           <Button
@@ -226,7 +234,7 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
                             variant="ghost"
                             onClick={() => onOpenLogsForRun(r.run_id)}
                           >
-                            Логи
+                            {t("drillDown.overview.logs")}
                           </Button>
                         </td>
                       </tr>
@@ -247,21 +255,20 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
           >
             <div className="min-w-0">
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Проблемы и ошибки
+                {t("drillDown.overview.problems.title")}
               </p>
               <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
                 <Database size={11} />
-                История из PostgreSQL — доступна всегда, независимо от
-                retention логов
+                {t("drillDown.overview.problems.subtitle")}
               </p>
             </div>
 
             <div className="inline-flex overflow-hidden rounded-xl border border-[var(--border)] text-[11px]">
               {(
                 [
-                  { v: "all", label: "Все" },
-                  { v: "document", label: "Документы" },
-                  { v: "run", label: "Runs" },
+                  { v: "all", label: t("drillDown.overview.filters.all") },
+                  { v: "document", label: t("drillDown.overview.filters.documents") },
+                  { v: "run", label: t("drillDown.overview.filters.runs") },
                 ] as { v: ErrorFilter; label: string }[]
               ).map((opt) => (
                 <button
@@ -284,25 +291,25 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
 
         <div className="grid grid-cols-2 gap-2 px-5 py-4 sm:grid-cols-4">
           <KpiCard
-            label="Документов failed"
-            value={fmt(errors?.failed_documents)}
+            label={t("drillDown.overview.problems.docsFailed")}
+            value={fmt(errors?.failed_documents, i18n.language)}
             tone={(errors?.failed_documents ?? 0) > 0 ? "error" : "default"}
           />
           <KpiCard
-            label="Документов quarantine"
-            value={fmt(errors?.quarantine_documents)}
+            label={t("drillDown.overview.problems.docsQuarantine")}
+            value={fmt(errors?.quarantine_documents, i18n.language)}
             tone={
               (errors?.quarantine_documents ?? 0) > 0 ? "warn" : "default"
             }
           />
           <KpiCard
-            label="Runs failed"
-            value={fmt(errors?.failed_runs)}
+            label={t("drillDown.overview.problems.runsFailed")}
+            value={fmt(errors?.failed_runs, i18n.language)}
             tone={(errors?.failed_runs ?? 0) > 0 ? "error" : "default"}
           />
           <KpiCard
-            label="Runs с ошибками"
-            value={fmt(errors?.completed_with_errors_runs)}
+            label={t("drillDown.overview.problems.runsWithErrors")}
+            value={fmt(errors?.completed_with_errors_runs, i18n.language)}
             tone={
               (errors?.completed_with_errors_runs ?? 0) > 0
                 ? "warn"
@@ -315,8 +322,8 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
           {filteredErrorItems.length === 0 ? (
             <div className="flex min-h-[120px] items-center justify-center px-5 py-6 text-sm text-[var(--text-muted)]">
               {(errors?.total_items ?? 0) === 0
-                ? "В этом проекте нет зафиксированных ошибок 🎉"
-                : "Нет записей по выбранному фильтру"}
+                ? t("drillDown.overview.problems.noErrors")
+                : t("drillDown.overview.problems.noFilteredRecords")}
             </div>
           ) : (
             <div className="overflow-auto">
@@ -324,16 +331,16 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
                 <thead className="bg-[var(--bg-elevated-soft)]">
                   <tr className="border-b border-[var(--border)]">
                     <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
-                      Тип
+                      {t("drillDown.overview.headers.type")}
                     </th>
                     <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
-                      Объект
+                      {t("drillDown.overview.headers.object")}
                     </th>
                     <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
-                      Статус / Stage
+                      {t("drillDown.overview.headers.statusStage")}
                     </th>
                     <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
-                      Ошибка
+                      {t("drillDown.overview.headers.error")}
                     </th>
                     <th className={`px-4 py-2.5 ${LABEL_XS}`} />
                   </tr>
@@ -362,8 +369,7 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
 
           {errors?.truncated && (
             <p className="px-5 py-3 text-[10px] text-[var(--text-muted)]">
-              Показаны последние {filteredErrorItems.length} записей. Всего
-              ошибок больше — используйте фильтры или прямой запрос к БД.
+              {t("drillDown.overview.problems.truncated", { count: filteredErrorItems.length })}
             </p>
           )}
         </div>

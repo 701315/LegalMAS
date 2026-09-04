@@ -1,5 +1,8 @@
 // =============================================================
 // src/pages/tabs/grid/gridTab.utils.ts
+// Вспомогательные утилиты для вкладки Grid.
+//
+// i18n: канонический English fallback + динамический tFn.
 // =============================================================
 
 import type { DDMatrixResponseDTO } from "../../../types/dealReview";
@@ -58,11 +61,23 @@ export function getReviewSummary(matrix: DDMatrixResponseDTO | undefined) {
   };
 }
 
-export function humanChecksMode(mode?: string | null): string | null {
+export function humanChecksMode(
+  mode?: string | null,
+  tFn?: (key: string) => string,
+): string | null {
   if (!mode) return null;
-  if (mode === "global_and_doc_type") return "Плейбук + типы документов";
-  if (mode === "global_only") return "Только плейбук";
-  if (mode === "doc_type_only") return "Только типы документов";
+
+  if (tFn) {
+    if (mode === "global_and_doc_type") return tFn("checksMode.global_and_doc_type");
+    if (mode === "global_only") return tFn("checksMode.global_only");
+    if (mode === "doc_type_only") return tFn("checksMode.doc_type_only");
+  } else {
+    // Canonical English default fallback
+    if (mode === "global_and_doc_type") return "Playbook + document types";
+    if (mode === "global_only") return "Playbook only";
+    if (mode === "doc_type_only") return "Document types only";
+  }
+
   return mode;
 }
 
@@ -79,4 +94,5 @@ export function toExportChecksMode(
 
   return undefined;
 }
+
 

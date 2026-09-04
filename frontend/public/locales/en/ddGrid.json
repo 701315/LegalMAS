@@ -1,34 +1,317 @@
 {
+  "qualityFlagsLegend": {
+    "title": "Quality flags:",
+    "structureDegraded": "Document structure degraded",
+    "llmFallback": "LLM fallback used",
+    "otherFlags": "Other flags"
+  },
+  "qualityFlagRenderer": {
+    "noFlags": "No quality flags",
+    "structureDegraded": "Document structure degraded",
+    "llmFallback": "LLM fallback used",
+    "otherFlags": "Other quality flags"
+  },
+  "qcCellRenderer": {
+    "statuses": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "needs_review": "Needs review"
+    },
+    "tooltipStatus": "QC status: {{status}}",
+    "approveTooltip": "Confirm (QC approve)",
+    "approveAria": "Confirm QC",
+    "rejectTooltip": "Reject (QC reject)",
+    "rejectAria": "Reject QC"
+  },
+  "bulkQcBar": {
+    "selectedResults": "Selected results: ",
+    "commentPlaceholder": "QC comment (optional)…",
+    "confirm": "Confirm",
+    "reject": "Reject",
+    "override": "Override…",
+    "severityLabel": "Severity:",
+    "resultLabel": "Result:",
+    "applyOverride": "Apply override",
+    "cancel": "Cancel",
+    "severities": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "pass": "Pass",
+      "unclear": "Unclear"
+    },
+    "results": {
+      "keep": "Do not change result",
+      "pass": "Pass",
+      "fail": "Fail",
+      "unclear": "Unclear"
+    }
+  },
+  "detectionLevels": {
+    "L1": "Pattern",
+    "L2": "LLM",
+    "L3": "RAG + LLM",
+    "L4": "Manual review",
+    "undefined": "Not determined"
+  },
+  "qualityFlags": {
+    "structure_degraded": "Structure degraded",
+    "llm_fallback_used": "Fallback model",
+    "retry_used": "Retry attempt",
+    "partial_result": "Partial result",
+    "confidence_below_threshold": "Low confidence",
+    "missing_provenance": "No provenance"
+  },
+  "docTypeGroups": {
+    "otherDocuments": "Other documents",
+    "allDocuments": "All documents",
+    "allDocumentsGlobalOnly": "All documents · global checks only"
+  },
+  "checksMode": {
+    "global_and_doc_type": "Playbook + document types",
+    "global_only": "Playbook only",
+    "doc_type_only": "Document types only"
+  },
+  "drawer": {
+    "titleFallback": "No check title",
+    "documentLabel": "Document: {{name}}",
+    "documentIdLabel": "Document ID: {{id}}",
+    "close": "Close",
+    "confidenceTooltip": "Model confidence: {{value}}",
+    "confidenceLabel": "Conf: {{value}}",
+    "sections": {
+      "analysisResult": {
+        "title": "Analysis result",
+        "subtitle": "Primary system finding and its reasoning."
+      },
+      "extractedFields": {
+        "title": "Extracted fields",
+        "subtitle": "All parameters extracted by the system for this check."
+      },
+      "evidence": {
+        "title": "Evidence",
+        "subtitle": "Document fragments on which the analysis was based."
+      },
+      "checkStatus": {
+        "title": "Check status",
+        "subtitle": "Workflow status and technical execution state."
+      },
+      "qcHistory": {
+        "title": "QC History",
+        "subtitle": "Previous decision of the legal expert on this check."
+      },
+      "qcReview": {
+        "title": "QC Review",
+        "subtitle": "Manual verification status and comment. Changes are applied after clicking Save."
+      }
+    },
+    "fallbacks": {
+      "noViolations": "No violations detected.",
+      "unclearResult": "Result unclear — manual verification required.",
+      "executionError": "Error during check execution.",
+      "noResultText": "No result text generated.",
+      "noFields": "No extracted fields found."
+    },
+    "fieldRow": {
+      "exactTooltip": "Exact location",
+      "approximateTooltip": "Approximate location",
+      "unavailableTooltip": "Location unavailable",
+      "lowConfidenceTooltip": "Low location confidence",
+      "highConfidenceTooltip": "High location confidence",
+      "openInDocumentTooltip": "Open fragment in the document",
+      "openInDocument": "Open in document"
+    },
+    "reasonSources": {
+      "reason": "Reasoning",
+      "review_message": "System comment",
+      "display_text": "Analysis result",
+      "none": ""
+    },
+    "reviewStatusLabels": {
+      "needs_review": "Requires legal attention",
+      "no_issue_detected": "Check completed with no issues detected",
+      "unclear": "Result not determined"
+    },
+    "cellStateLabels": {
+      "defined": "Defined",
+      "not_defined": "Not found",
+      "not_executed": "Not executed",
+      "error": "Error"
+    },
+    "executionStatusTooltip": "Technical check execution state",
+    "qcReviewForm": {
+      "statusLabel": "QC Status",
+      "commentLabel": "Comment",
+      "commentPlaceholder": "Leave a comment for review (optional)",
+      "saving": "Saving...",
+      "save": "Save",
+      "cancel": "Cancel",
+      "noChanges": "No changes to save.",
+      "noRunIdWarning": "QC saving is temporarily unavailable: runId is missing.",
+      "saveError": "Failed to save. Please try again."
+    }
+  },
+  "instructionDrawer": {
+    "title": "Verification instruction",
+    "close": "Close",
+    "unclassified": "Document type not classified — instruction was not applied.",
+    "persistedBadge": "Persisted at Run launch",
+    "legacyBadge": "Legacy Run — version not persisted",
+    "noChecksAvailable": "List of checks unavailable for this document type.",
+    "globalChecksTitle": "Global checks",
+    "globalChecksHint": "Applied to all deal documents",
+    "docTypeChecksTitle": "Document type checks"
+  },
+  "layoutPicker": {
+    "title": "Export format to {{format}}",
+    "subtitle": "Choose how to structure the data in the file.",
+    "cancel": "Cancel",
+    "export": "Export",
+    "layouts": {
+      "single": {
+        "title": "Single table",
+        "description": "One large table with all checks and parameters. Exact representation of the matrix as on screen.",
+        "warning": "The table is very wide. Some columns may be difficult to read in PDF/Word due to page format limitations."
+      },
+      "byDocument": {
+        "title": "By documents (sections)",
+        "description": "Each document is a separate section. Inside is a table of its checks in 'Check / Parameter / Value' format. Best when you have few documents and many checks."
+      },
+      "byScopeGroup": {
+        "title": "By check groups",
+        "description": "Each check group (e.g., Confidentiality, Governing Law, doc-type checks) is a separate table. Allows easy comparison of one topic across all documents."
+      }
+    },
+    "previews": {
+      "document": "Document {{num}}",
+      "salesContract": "Sales Contract"
+    }
+  },
+  "exportButtons": {
+    "noData": "No data to export",
+    "exportExcel": "Export {{rowsCount}} rows to Excel ({{colsCount}} columns)",
+    "exportPdf": "Export {{rowsCount}} rows to PDF ({{colsCount}} columns)",
+    "exportWord": "Export {{rowsCount}} rows to Word ({{colsCount}} columns)"
+  },
+  "qcBulk": {
+    "title": "QC: Bulk action",
+    "selectedSummary": "Selected rows: <bold>{{rowsCount}}</bold> · findings: <bold>{{findingsCount}}</bold>",
+    "hint": "The action will be applied to all findings of the selected rows.",
+    "actions": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "needsReview": "Needs review"
+    },
+    "commentLabel": "Comment (optional)",
+    "commentPlaceholder": "e.g., verified manually, source — paragraph 5.2",
+    "errors": {
+      "buildPayloadFailed": "Failed to create QC payload for the current selection.",
+      "applyFailed": "Failed to apply QC action."
+    }
+  },
+  "viewSettings": {
+    "formatLabel": "Data presentation format",
+    "checksScopeLabel": "Display verification results",
+    "docGroupingLabel": "Document grouping",
+    "format": {
+      "matrix": {
+        "label": "Matrix",
+        "title": "Tabular presentation of documents and checks"
+      },
+      "list": {
+        "label": "List",
+        "title": "Flat findings list"
+      }
+    },
+    "checksScope": {
+      "all": {
+        "label": "All checks",
+        "shortLabel": "All",
+        "title": "Show global and doc-type checks"
+      },
+      "global_only": {
+        "label": "Global only",
+        "shortLabel": "Global",
+        "title": "Only global playbook checks"
+      },
+      "doc_type_only": {
+        "label": "Only by document type",
+        "shortLabel": "By type",
+        "title": "Only checks specific to the document type"
+      }
+    },
+    "docGrouping": {
+      "all_docs": {
+        "label": "All documents",
+        "title": "All documents in one table"
+      },
+      "by_type": {
+        "label": "By document types",
+        "title": "Separate table for each document type"
+      }
+    },
+    "notice": "Matrix presentation is only available on wide screens. On this device, data is displayed as a list."
+  },
+  "matrix": {
+    "globalChecks": "Global checks",
+    "docTypeChecks": "Checks by document type",
+    "expandBlock": "Expand check block",
+    "collapseBlock": "Collapse check block",
+    "expandGroup": "Expand check group",
+    "collapseGroup": "Collapse check group",
+    "expandCheck": "Expand check parameters",
+    "collapseCheck": "Collapse check parameters",
+    "expand": "Expand",
+    "bulkQcTooltip": "Select rows for bulk QC action",
+    "instruction": "Instruction",
+    "notClassified": "Document type not classified",
+    "persistedInstruction": "Persisted instruction version: {{version}}",
+    "legacyInstruction": "Legacy run: instruction version not persisted (filesystem fallback)",
+    "persisted": "Persisted",
+    "legacy": "Legacy",
+    "clickToExpand": "Click + to expand {{name}}",
+    "openCheck": "Open check",
+    "openCheckArrow": "Open check →",
+    "summaryLine": "Documents: {{docsCount}} · Checks: {{checksCount}}",
+    "unknownCheck": "Unknown check"
+  },
+  "unnamedDocument": "[unnamed]",
   "emptyState": "No results found in DD Grid with selected parameters.",
   "backButton": "Back",
   "details": "Details",
+  "reviewStatus": {
+    "empty": "—",
+    "needs_review": "Needs review",
+    "no_issue_detected": "No issues detected",
+    "not_applicable": "Not applicable",
+    "unclear": "Unclear"
+  },
+  "location": {
+    "pageAbbr": "p. {{page}}",
+    "noViolations": "No violations detected",
+    "notApplicable": "Not applicable",
+    "unclearResult": "Result unclear — manual verification required",
+    "noData": "No data",
+    "openTooltip": "Open document at this location for manual verification"
+  },
+  "qc": {
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "needs_review": "Needs review",
+    "noDrawersInSelection": "Selected rows contain no checks to which QC can be applied.",
+    "mixedRunIds": "No active run determined for QC action."
+  },
   "columns": {
     "document": "Document",
     "docType": "Document type",
     "check": "Check",
     "result": "Result",
     "status": "Status",
-    "location": "Location"
-  },
-  "reviewStatus": {
-    "needs_review": "Requires legal attention",
-    "no_issue_detected": "No issues detected",
-    "not_applicable": "Not applicable",
-    "unclear": "LLM result not 100% clear, user clarification required",
-    "empty": "—"
-  },
-  "location": {
-    "pageAbbr": "p. {{page}}",
-    "noData": "No data",
-    "noViolations": "No violations detected",
-    "notApplicable": "Not applicable",
-    "unclearResult": "Result unclear — manual verification required",
-    "openTooltip": "Open document at this location for manual verification"
-  },
-  "qc": {
-    "approved": "Approved",
-    "rejected": "Rejected",
-    "needs_review": "Needs review"
+    "location": "Location",
+    "rowNumber": "№",
+    "parameter": "Parameter",
+    "value": "Value"
   },
   "extra": {
     "detectionLevel": {
@@ -73,6 +356,63 @@
     "outputTokens": {
       "label": "Output tokens",
       "description": "Number of LLM output tokens"
+    }
+  },
+  "v1Tab": {
+    "noRunTitle": "DD Grid will be available after launching analysis",
+    "noRunDescription": "No analysis run selected. Launch an analysis first on the Overview tab.",
+    "loadingTitle": "Loading document matrix…",
+    "errorTitle": "Failed to load DD Grid V1.",
+    "matrixTitle": "Review DD Matrix",
+    "listTitle": "Review findings list",
+    "matrixSubtitle": "Run-scoped document and checks matrix (V1).",
+    "listSubtitle": "Flat findings list from V1 review dataset with filtering and export.",
+    "actionsLabel": "Actions",
+    "showPass": "Show pass",
+    "hidePass": "Hide pass",
+    "showPassTitle": "Show pass results",
+    "hidePassTitle": "Hide pass results",
+    "extraColumnsButton": "Extra data",
+    "extraColumnsTitle": "Select additional technical columns to display",
+    "exportButton": "Export data",
+    "exportTitle": "Open findings export panel",
+    "extraColumnsPanel": {
+      "title": "Select additional columns",
+      "description": "Check the technical indicators you want to display in the table.",
+      "cancel": "Cancel",
+      "apply": "Apply",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all"
+    },
+    "qc": {
+      "heading": "QC: Bulk action",
+      "hint": "Select rows in the table to apply status to all findings"
+    },
+    "viewer": {
+      "loadingPdf": "Loading PDF…",
+      "loadError": "Error loading document: {{error}}"
+    },
+    "export": {
+      "matrixDescription": "The file will be generated as a two-dimensional table: rows are documents, columns are check parameters, in the same order as on screen.",
+      "listDescription": "The file will be generated as a flat findings list: same rows, same columns, same order as on screen.",
+      "panelTitle": "Export data ({{mode}})",
+      "modeMatrix": "matrix",
+      "modeList": "list",
+      "byDocumentSuffix": "by document",
+      "byScopeSuffix": "by check groups"
+    },
+    "runMetaWarning": "Failed to load analysis run metadata. DD Grid is displayed without some run-level metadata (checks mode, etc.).",
+    "summary": {
+      "documentsCount_one": "{{count}} document",
+      "documentsCount_other": "{{count}} documents",
+      "checksCount_one": "{{count}} check",
+      "checksCount_other": "{{count}} checks",
+      "findingsCount_one": "{{count}} finding",
+      "findingsCount_other": "{{count}} findings",
+      "modeNotSpecified": "not specified",
+      "line": "Verification matrix: <bold>{{documents}}</bold>. <bold>{{checks}}</bold> conducted. <bold>{{findings}}</bold> identified. Verification mode: <bold>{{mode}}</bold>.",
+      "tooltipRuntime": "Runtime parameters: {{count}}",
+      "tooltipCells": "Cells: defined {{defined}} · not found {{notFound}} · errors {{errors}}"
     }
   }
 }

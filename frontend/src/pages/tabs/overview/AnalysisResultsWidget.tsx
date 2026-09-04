@@ -1,31 +1,9 @@
 // =============================================================
 // src/pages/tabs/overview/AnalysisResultsWidget.tsx
-// Виджет "Итог анализа" — сводка по проверкам последнего run.
-//
-// Секции:
-//   1) Выполнено проверок X/X + прогресс-бар.
-//   2) Режим проверки (checks_mode).
-//   3) Обнаруженные проблемы (если есть failed/quarantine).
-//   4) Global checks — счётчики + топ-5 чеков с иконкой худшего
-//      результата. Клик по заголовку → DD Grid list mode +
-//      checksScope=global_only.
-//   5) Doc-type checks — то же самое для doc-type checks (без
-//      пересечения с global — global побеждает).
-//      Клик → DD Grid + checksScope=doc_type_only.
-//   6) Результаты, требующие уточнения — findings с
-//      review_status === "unclear", сгруппированные по документу.
-//   7) Отдельная кнопка "Перейти к списку результатов" —
-//      всегда внизу, если анализ завершён.
-//      Ведёт в DD Grid list mode + checksScope=all + showPass=true.
-//
-// При running/pending статусе секции 4-5 не показываются, чтобы
-// не давать промежуточных счётчиков (они могут меняться каждые
-// несколько секунд).
-//
-// Заголовок "Итог анализа" рендерится внешним ColumnShell.
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -76,7 +54,7 @@ interface UnclearFindingsItem {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers — filename / plural
+// Helpers — filename
 // ---------------------------------------------------------------------------
 
 function truncateFilename(filename: string, maxLength = 24): string {
@@ -89,39 +67,6 @@ function truncateFilename(filename: string, maxLength = 24): string {
 function truncateCheckName(name: string, maxLength = 32): string {
   if (name.length <= maxLength) return name;
   return `${name.slice(0, maxLength - 1)}…`;
-}
-
-function pluralizeChecks(count: number): string {
-  const mod10 = Math.abs(count) % 10;
-  const mod100 = Math.abs(count) % 100;
-  if (mod100 >= 11 && mod100 <= 19) return "проверок";
-  if (mod10 === 1) return "проверка";
-  if (mod10 >= 2 && mod10 <= 4) return "проверки";
-  return "проверок";
-}
-
-function pluralizeDocuments(count: number): string {
-  const mod10 = Math.abs(count) % 10;
-  const mod100 = Math.abs(count) % 100;
-  if (mod100 >= 11 && mod100 <= 19) return "документах";
-  if (mod10 === 1) return "документе";
-  if (mod10 >= 2 && mod10 <= 4) return "документах";
-  return "документах";
-}
-
-/**
- * Плюрализация "тип проверки" по русским правилам.
- * 1 → "тип проверки"
- * 2-4 → "типа проверки"
- * 5+ → "типов проверки"
- */
-function pluralizeCheckTypes(count: number): string {
-  const mod10 = Math.abs(count) % 10;
-  const mod100 = Math.abs(count) % 100;
-  if (mod100 >= 11 && mod100 <= 19) return "типов проверки";
-  if (mod10 === 1) return "тип проверки";
-  if (mod10 >= 2 && mod10 <= 4) return "типа проверки";
-  return "типов проверки";
 }
 
 // ---------------------------------------------------------------------------
@@ -177,9 +122,6 @@ function StatusIcon({ status }: { status: CheckWorstStatus }) {
 // Aggregation
 // ---------------------------------------------------------------------------
 
-/**
- * Собирает уникальные check_id из global_groups.
- */
 function collectGlobalCheckIds(
   model: ReturnType<typeof selectDDGridV1DerivedModel>,
 ): Set<string> {
@@ -192,10 +134,6 @@ function collectGlobalCheckIds(
   return set;
 }
 
-/**
- * Собирает уникальные check_id из doc_type_classes,
- * ИСКЛЮЧАЯ те что уже есть в global (global побеждает при пересечении).
- */
 function collectDocTypeOnlyCheckIds(
   model: ReturnType<typeof selectDDGridV1DerivedModel>,
   globalCheckIds: Set<string>,
@@ -213,9 +151,6 @@ function collectDocTypeOnlyCheckIds(
   return set;
 }
 
-/**
- * Собирает мапу checkId → checkName из всей иерархии.
- */
 function collectCheckNamesMap(
   model: ReturnType<typeof selectDDGridV1DerivedModel>,
 ): Map<string, string> {
@@ -239,24 +174,18 @@ function collectCheckNamesMap(
   return map;
 }
 
-/**
- * Для указанного набора check_id агрегирует результаты по всем документам.
- * Учитывает только "executed" статусы (needs_review / ok / unclear).
- * Пропускает not_applicable и not_executed.
- */
 function buildCheckGroupSummary(
   model: ReturnType<typeof selectDDGridV1DerivedModel>,
   checkIds: Set<string>,
   checkNames: Map<string, string>,
+  locale: string,
 ): CheckGroupSummary {
-  // checkId → { pass, fail, unclear }
   const aggregateMap = new Map<
     string,
     { passCount: number; failCount: number; unclearCount: number }
   >();
 
   for (const row of model.rows) {
-    // 3-уровневый lookup: doc_id → segment_id → check_id
     const segmentId = row.segmentId ?? "_default";
     const drawerBySegment = model.drawerContents[row.documentId]?.[segmentId] ?? {};
 
@@ -265,8 +194,6 @@ function buildCheckGroupSummary(
       if (!drawer) continue;
 
       const status = drawer.review_status;
-
-      // Учитываем только executed статусы
       let bucket: "pass" | "fail" | "unclear" | null = null;
       if (status === "ok" || status === "no_issue_detected") {
         bucket = "pass";
@@ -296,7 +223,7 @@ function buildCheckGroupSummary(
   const aggregates: CheckAggregate[] = [];
   for (const checkId of checkIds) {
     const stats = aggregateMap.get(checkId);
-    if (!stats) continue; // check не был executed ни для одного документа
+    if (!stats) continue;
     aggregates.push({
       checkId,
       checkName: checkNames.get(checkId) ?? checkId,
@@ -311,7 +238,6 @@ function buildCheckGroupSummary(
     });
   }
 
-  // Сортировка: сначала fail, потом unclear, потом pass
   const statusRank: Record<CheckWorstStatus, number> = {
     fail: 0,
     unclear: 1,
@@ -321,7 +247,7 @@ function buildCheckGroupSummary(
   aggregates.sort((a, b) => {
     const rankDiff = statusRank[a.worstStatus] - statusRank[b.worstStatus];
     if (rankDiff !== 0) return rankDiff;
-    return a.checkName.localeCompare(b.checkName, "ru");
+    return a.checkName.localeCompare(b.checkName, locale);
   });
 
   return {
@@ -393,6 +319,8 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
   summary,
   onGroupClick,
 }) => {
+  const { t } = useTranslation("projects");
+
   if (summary.totalChecks === 0) {
     return (
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
@@ -400,22 +328,17 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
           {title}
         </p>
         <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-          Проверки не выполнялись
+          {t("overviewPanels.resultsWidget.checksNotExecuted")}
         </p>
       </div>
     );
   }
 
   const hiddenCount = summary.totalChecks - summary.topChecks.length;
-
-  // Текст счётчика типов: "2 типа проверки", "58 типов проверки"
-  const typesCounterText = `${summary.totalChecks} ${pluralizeCheckTypes(
-    summary.totalChecks,
-  )}`;
+  const typesCounterText = t("overviewPanels.resultsWidget.checkTypesCount", { count: summary.totalChecks });
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
-      {/* Заголовок = кликабельный ряд: title справа стрелка */}
       <button
         type="button"
         onClick={onGroupClick}
@@ -431,14 +354,8 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
         />
       </button>
 
-      {/* Строка "N типов проверки" + inline-счётчики worst-status справа.
-          Счётчики (pass / fail / unclear) выровнены к правому краю блока
-          и находятся на той же горизонтальной линии, что и текст слева. */}
       <div className="mt-1 flex items-center justify-between gap-2">
-        <p
-          className="min-w-0 truncate text-[11px] font-medium text-[var(--text-primary)]"
-          title={`В этой группе ${typesCounterText}. Каждая проверка может применяться к одному или нескольким документам.`}
-        >
+        <p className="min-w-0 truncate text-[11px] font-medium text-[var(--text-primary)]">
           {typesCounterText}
         </p>
 
@@ -446,9 +363,7 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
           {summary.passedChecksCount > 0 && (
             <span
               className="flex items-center gap-0.5 text-[var(--color-success-text)]"
-              title={`${summary.passedChecksCount} ${pluralizeCheckTypes(
-                summary.passedChecksCount,
-              )} без замечаний`}
+              title={t("overviewPanels.resultsWidget.passedTooltip", { count: summary.passedChecksCount })}
             >
               <CheckCircle2 className="h-2.5 w-2.5" aria-hidden />
               {summary.passedChecksCount}
@@ -457,9 +372,7 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
           {summary.failedChecksCount > 0 && (
             <span
               className="flex items-center gap-0.5 text-[var(--color-error-text)]"
-              title={`${summary.failedChecksCount} ${pluralizeCheckTypes(
-                summary.failedChecksCount,
-              )} с замечаниями (хотя бы в одном документе)`}
+              title={t("overviewPanels.resultsWidget.failedTooltip", { count: summary.failedChecksCount })}
             >
               <XCircle className="h-2.5 w-2.5" aria-hidden />
               {summary.failedChecksCount}
@@ -468,9 +381,7 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
           {summary.unclearChecksCount > 0 && (
             <span
               className="flex items-center gap-0.5 text-[var(--color-warning-text)]"
-              title={`${summary.unclearChecksCount} ${pluralizeCheckTypes(
-                summary.unclearChecksCount,
-              )} требуют уточнения (хотя бы в одном документе)`}
+              title={t("overviewPanels.resultsWidget.unclearTooltip", { count: summary.unclearChecksCount })}
             >
               <HelpCircle className="h-2.5 w-2.5" aria-hidden />
               {summary.unclearChecksCount}
@@ -479,7 +390,6 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
         </div>
       </div>
 
-      {/* Топ-5 чеков */}
       <div className="mt-2 space-y-0.5">
         {summary.topChecks.map((check) => (
           <div
@@ -495,7 +405,7 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
         ))}
         {hiddenCount > 0 && (
           <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-            Ещё {hiddenCount}…
+            {t("overviewPanels.resultsWidget.moreCount", { count: hiddenCount })}
           </p>
         )}
       </div>
@@ -515,6 +425,7 @@ interface AnalysisResultsWidgetProps {
 export const AnalysisResultsWidget: React.FC<
   AnalysisResultsWidgetProps
 > = ({ dealId, runId }) => {
+  const { t, i18n } = useTranslation("projects");
   const navigate = useNavigate();
   const location = useLocation();
   const { data: run, isLoading, isError } = useRun(runId, false);
@@ -525,7 +436,6 @@ export const AnalysisResultsWidget: React.FC<
     [ddGridResponse],
   );
 
-  // Aggregates для global / doc-type
   const { globalSummary, docTypeSummary } = React.useMemo(() => {
     const checkNames = collectCheckNamesMap(ddGridModel);
     const globalCheckIds = collectGlobalCheckIds(ddGridModel);
@@ -539,16 +449,17 @@ export const AnalysisResultsWidget: React.FC<
         ddGridModel,
         globalCheckIds,
         checkNames,
+        i18n.language,
       ),
       docTypeSummary: buildCheckGroupSummary(
         ddGridModel,
         docTypeOnlyCheckIds,
         checkNames,
+        i18n.language,
       ),
     };
-  }, [ddGridModel]);
+  }, [ddGridModel, i18n.language]);
 
-  // Findings с review_status === "unclear", сгруппированные по документу
   const unclearFindingsItems = React.useMemo<UnclearFindingsItem[]>(() => {
     if (!ddGridResponse) return [];
 
@@ -558,7 +469,6 @@ export const AnalysisResultsWidget: React.FC<
     >();
 
     for (const row of ddGridModel.rows) {
-      // 3-уровневый lookup: doc_id → segment_id → check_id
       const segmentId = row.segmentId ?? "_default";
       const drawerBySegment = ddGridModel.drawerContents[row.documentId]?.[segmentId] ?? {};
 
@@ -595,7 +505,6 @@ export const AnalysisResultsWidget: React.FC<
 
   const affectedDocumentsCount = unclearFindingsItems.length;
 
-  // Handlers для навигации в DD Grid
   const navigateToDDGrid = React.useCallback(() => {
     const params = new URLSearchParams(location.search);
     params.set("tab", "dd_grid");
@@ -642,10 +551,10 @@ export const AnalysisResultsWidget: React.FC<
     return (
       <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-4 text-center">
         <p className="text-[11px] text-[var(--text-muted)]">
-          Анализ ещё не запускался
+          {t("overviewPanels.resultsWidget.notLaunched")}
         </p>
         <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-          Результаты появятся после первого запуска
+          {t("overviewPanels.resultsWidget.notLaunchedSub")}
         </p>
       </div>
     );
@@ -657,7 +566,7 @@ export const AnalysisResultsWidget: React.FC<
     return (
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3">
         <p className="text-[11px] text-[var(--text-muted)]">
-          Не удалось загрузить результаты
+          {t("overviewPanels.resultsWidget.loadError")}
         </p>
       </div>
     );
@@ -682,20 +591,18 @@ export const AnalysisResultsWidget: React.FC<
   const hiddenUnclearFindingsCount =
     unclearFindingsItems.length - visibleUnclearFindings.length;
 
-  const counterText = `Требуют уточнения: ${totalUnclearFindingsCount} ${pluralizeChecks(
-    totalUnclearFindingsCount,
-  )} в ${affectedDocumentsCount} ${pluralizeDocuments(affectedDocumentsCount)}.`;
+  const counterText = t("overviewPanels.resultsWidget.unclearSummary", {
+    checksCount: totalUnclearFindingsCount,
+    docsCount: affectedDocumentsCount
+  });
 
   return (
     <div className="space-y-2">
-      {/* Основная карточка со счётчиком */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            {/* Заголовок в едином стиле с "GLOBAL CHECKS" / "DOC-TYPE CHECKS":
-                uppercase, tracking-[0.10em], font-semibold, text-muted. */}
             <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-              Выполнено проверок
+              {t("overviewPanels.resultsWidget.checksCompleted")}
             </p>
             <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--text-primary)]">
               {completedChecks}
@@ -708,13 +615,11 @@ export const AnalysisResultsWidget: React.FC<
 
           {isRunning && (
             <span className="shrink-0 rounded-full bg-[var(--accent-muted)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--accent-primary)]">
-              Идёт анализ
+              {t("overviewPanels.resultsWidget.running")}
             </span>
           )}
         </div>
 
-        {/* Progress bar. Числовая подпись "N% готово" не рендерится,
-            потому что прогресс дублируется счётчиком выше (completed / total). */}
         {totalChecks > 0 && (
           <div className="mt-3">
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-elevated-soft)]">
@@ -727,55 +632,50 @@ export const AnalysisResultsWidget: React.FC<
         )}
       </div>
 
-      {/* Проблемы */}
       {(hasErrors || failedDocs > 0 || quarantineDocs > 0) && (
         <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--color-warning-text)]">
-            Обнаружены проблемы
+            {t("overviewPanels.resultsWidget.problemsDetected")}
           </p>
           <div className="mt-1.5 space-y-1">
             {failedDocs > 0 && (
               <p className="text-[11px] text-[var(--color-warning-text)]">
-                Ошибки обработки: {failedDocs}
+                {t("overviewPanels.resultsWidget.processingErrors", { count: failedDocs })}
               </p>
             )}
             {quarantineDocs > 0 && (
               <p className="text-[11px] text-[var(--color-warning-text)]">
-                В карантине: {quarantineDocs}
+                {t("overviewPanels.resultsWidget.inQuarantine", { count: quarantineDocs })}
               </p>
             )}
           </div>
         </div>
       )}
 
-      {/* Global checks — только для terminal статусов */}
       {isTerminal && (
         <CheckGroupSection
-          title="Global checks"
+          title={t("overviewPanels.resultsWidget.globalChecks")}
           summary={globalSummary}
           onGroupClick={handleOpenGlobalChecksInDDGrid}
         />
       )}
 
-      {/* Doc-type checks — только для terminal статусов */}
       {isTerminal && (
         <CheckGroupSection
-          title="Doc-type checks"
+          title={t("overviewPanels.resultsWidget.docTypeChecks")}
           summary={docTypeSummary}
           onGroupClick={handleOpenDocTypeChecksInDDGrid}
         />
       )}
 
-      {/* Результаты, требующие уточнения */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-          Результаты, требующие уточнения
+          {t("overviewPanels.resultsWidget.unclearTitle")}
         </p>
 
         {unclearFindingsItems.length === 0 ? (
           <p className="text-[11px] leading-5 text-[var(--text-secondary)]">
-            Нет проверок, требующих уточнения. Специального внимания
-            не требуется.
+            {t("overviewPanels.resultsWidget.unclearEmpty")}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -794,14 +694,13 @@ export const AnalysisResultsWidget: React.FC<
             </div>
             {hiddenUnclearFindingsCount > 0 && (
               <p className="text-[10px] text-[var(--text-muted)]">
-                Ещё {hiddenUnclearFindingsCount}…
+                {t("overviewPanels.resultsWidget.moreCount", { count: hiddenUnclearFindingsCount })}
               </p>
             )}
           </div>
         )}
       </div>
 
-      {/* Отдельная ссылка на страницу со списком результатов */}
       {canOpenDDGrid && (
         <button
           type="button"
@@ -809,7 +708,7 @@ export const AnalysisResultsWidget: React.FC<
           className="flex w-full items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-left transition-colors hover:bg-[var(--bg-elevated-soft)]"
         >
           <span className="text-xs font-medium text-[var(--text-primary)]">
-            Перейти к списку результатов
+            {t("overviewPanels.resultsWidget.goToAllResults")}
           </span>
           <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
         </button>

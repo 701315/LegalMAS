@@ -6,9 +6,12 @@
 // чтобы parent (ExportPanel) показал inline layout picker.
 // В list mode PDF/Word работают напрямую без picker.
 // Excel всегда работает напрямую.
+//
+// i18n: все UI-строки локализованы через namespace "ddGrid", ключи exportButtons.*
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Button from "../../../components/ui/Button";
 import { INLINE_PANEL_ACTIVE_CLASS } from "../grid/gridTab.constants";
 
@@ -67,6 +70,8 @@ export const DDGridV1ExportButtons: React.FC<DDGridV1ExportButtonsProps> = ({
   onRequestMatrixLayout,
   activeLayoutPickerFormat,
 }) => {
+  const { t } = useTranslation("ddGrid");
+
   const listTable = React.useMemo(() => {
     if (mode !== "list") return null;
     return buildDDGridV1ListExportTable({
@@ -115,7 +120,7 @@ export const DDGridV1ExportButtons: React.FC<DDGridV1ExportButtonsProps> = ({
     }
   };
 
-  const disabledTitle = "Нет данных для экспорта";
+  const disabledTitle = t("exportButtons.noData");
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -128,7 +133,10 @@ export const DDGridV1ExportButtons: React.FC<DDGridV1ExportButtonsProps> = ({
         title={
           isEmpty
             ? disabledTitle
-            : `Экспорт ${rowCount} строк в Excel (${columnCount} колонок)`
+            : t("exportButtons.exportExcel", {
+                rowsCount: rowCount,
+                colsCount: columnCount,
+              })
         }
       >
         Excel
@@ -143,7 +151,10 @@ export const DDGridV1ExportButtons: React.FC<DDGridV1ExportButtonsProps> = ({
         title={
           isEmpty
             ? disabledTitle
-            : `Экспорт ${rowCount} строк в PDF (${columnCount} колонок)`
+            : t("exportButtons.exportPdf", {
+                rowsCount: rowCount,
+                colsCount: columnCount,
+              })
         }
         aria-expanded={activeLayoutPickerFormat === "pdf"}
         className={
@@ -162,7 +173,10 @@ export const DDGridV1ExportButtons: React.FC<DDGridV1ExportButtonsProps> = ({
         title={
           isEmpty
             ? disabledTitle
-            : `Экспорт ${rowCount} строк в Word (${columnCount} колонок)`
+            : t("exportButtons.exportWord", {
+                rowsCount: rowCount,
+                colsCount: columnCount,
+              })
         }
         aria-expanded={activeLayoutPickerFormat === "docx"}
         className={

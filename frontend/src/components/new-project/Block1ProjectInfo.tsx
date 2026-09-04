@@ -10,6 +10,7 @@
 
 import React from "react";
 import { CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import Button from "../ui/Button";
 import Field from "../ui/Field";
@@ -34,6 +35,8 @@ const Block1ProjectInfo: React.FC<Block1ProjectInfoProps> = ({
   isCreated,
   errorText = null,
 }) => {
+  const { t } = useTranslation(["projects", "common"]);
+
   const canSubmit =
     !isCreated && !isSubmitting && projectName.trim().length > 0;
 
@@ -53,12 +56,12 @@ const Block1ProjectInfo: React.FC<Block1ProjectInfoProps> = ({
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <Field
-          label="Название проекта"
+          label={t("newProject.block1.label")}
           required
           hint={
             isCreated
-              ? "Проект уже создан. Название можно будет изменить позже в карточке проекта, если это потребуется."
-              : "Лучше использовать короткое рабочее название, которое команда быстро узнает в dashboard и списке проектов."
+              ? t("newProject.block1.hintCreated")
+              : t("newProject.block1.hintDraft")
           }
         >
           <input
@@ -66,7 +69,7 @@ const Block1ProjectInfo: React.FC<Block1ProjectInfoProps> = ({
             value={projectName}
             onChange={(event) => onProjectNameChange(event.target.value)}
             className="input-base"
-            placeholder='Например: DD по покупке ООО «Ромашка»'
+            placeholder={t("newProject.block1.placeholder")}
             autoComplete="off"
             disabled={isCreated || isSubmitting}
           />
@@ -84,10 +87,10 @@ const Block1ProjectInfo: React.FC<Block1ProjectInfoProps> = ({
 
               <div className="min-w-0">
                 <p className="text-sm font-medium text-[var(--text-primary)]">
-                  Проект создан
+                  {t("newProject.block1.successTitle")}
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Теперь можно перейти к следующему шагу настройки проекта.
+                  {t("newProject.block1.successDesc")}
                 </p>
               </div>
             </div>
@@ -104,7 +107,7 @@ const Block1ProjectInfo: React.FC<Block1ProjectInfoProps> = ({
                 onClick={onCancel}
                 disabled={isSubmitting}
               >
-                Отмена
+                {t("actions.cancel", { ns: "common" })}
               </Button>
             ) : null}
 
@@ -115,7 +118,9 @@ const Block1ProjectInfo: React.FC<Block1ProjectInfoProps> = ({
               isLoading={isSubmitting}
               disabled={!canSubmit}
             >
-              {isSubmitting ? "Создаём…" : "Создать проект"}
+              {isSubmitting
+                ? t("newProject.block1.creating")
+                : t("newProject.block1.createBtn")}
             </Button>
           </div>
         ) : null}

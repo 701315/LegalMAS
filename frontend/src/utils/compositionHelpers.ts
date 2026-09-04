@@ -167,18 +167,29 @@ export function toCompositionMetaFromReviewMatrixRow(
 export function getCompositionCellValueFromMeta(
   colId: DocumentColumnId,
   meta: DocumentCompositionMeta | null | undefined,
+  tFn?: (key: string, options?: Record<string, unknown>) => string,
 ): string | number {
   if (!meta) return "";
 
   switch (colId) {
     case "composition_type":
-      return meta.composition_type === "multi" ? "Multi-document" : "Single";
+      if (meta.composition_type === "multi") {
+        return tFn
+          ? tFn("documents:compositionType.multi", { defaultValue: "Multi-document" })
+          : "Multi-document";
+      }
+      return tFn
+        ? tFn("documents:compositionType.single", { defaultValue: "Single" })
+        : "Single";
     case "segment_count":
       return meta.segment_count;
     case "primary_segment_label":
       return meta.primary_segment_label ?? "";
     case "is_composite_file":
-      return meta.is_composite_file ? "Да" : "Нет";
+      if (meta.is_composite_file) {
+        return tFn ? tFn("common:actions.yes", { defaultValue: "Yes" }) : "Yes";
+      }
+      return tFn ? tFn("common:actions.no", { defaultValue: "No" }) : "No";
     default:
       return "";
   }
@@ -190,8 +201,9 @@ export function getCompositionCellValueFromMeta(
 export function getCompositionCellValue(
   colId: DocumentColumnId,
   doc: DocumentListItem,
+  tFn?: (key: string, options?: Record<string, unknown>) => string,
 ): string | number {
-  return getCompositionCellValueFromMeta(colId, getCompositionMeta(doc));
+  return getCompositionCellValueFromMeta(colId, getCompositionMeta(doc), tFn);
 }
 
 // -------------------------------------------------------------
@@ -265,4 +277,54 @@ export function getCompositionBadgeDataFromMeta(
     showCompositeBadge: meta.is_composite_file === true,
   };
 }
+
+import type { OpenViewerAtPayload } from "../types";
+
+export type RawViewerLocation =
+  | {
+      page?: number | null;
+      start_page?: number | null;
+      clause_uid?: string | null;
+      element_id?: string | null;
+      segment_id?: string | null;
+      chunk_id?: string | null;
+      chunk_index?: number | null;
+    }
+  | null
+  | undefined;
+
+export function buildViewerLocationPayload(
+  documentId: string,
+  loc?: RawViewerLocation,
+): OpenViewerAtPayload {
+  const payload: OpenViewerAtPayload = { documentId };
+
+  const page = loc?.page ?? loc?.start_page ?? undefined;
+  if (typeof page === "number") {
+    payload.page = page;
+  }
+
+  if (loc?.clause_uid) {
+    payload.clauseUid = loc.clause_uid;
+  }
+
+  if (loc?.element_id) {
+    payload.elementId = loc.element_id;
+  }
+
+  if (loc?.segment_id) {
+    payload.segmentId = loc.segment_id;
+  }
+
+  if (loc?.chunk_id) {
+    payload.chunkId = loc.chunk_id;
+  }
+
+  if (typeof loc?.chunk_index === "number") {
+    payload.chunkIndex = loc.chunk_index;
+  }
+
+  return payload;
+}
+
 

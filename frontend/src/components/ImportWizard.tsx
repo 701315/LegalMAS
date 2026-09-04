@@ -1,10 +1,9 @@
 // =============================================================
 // src/components/ImportWizard.tsx
-// Мастер импорта документов для сделки + опция force_reclassify.
-// Приведено к единому product-дизайну workspace.
 // =============================================================
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Deal } from "../types";
 import Button from "./ui/Button";
 import InlineAlert from "./InlineAlert";
@@ -20,6 +19,7 @@ const stepBaseClassName =
   "flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition-colors";
 
 const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
+  const { t } = useTranslation("documents");
   const [step, setStep] = useState<1 | 2>(1);
   const [forceReclassify, setForceReclassify] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
@@ -46,9 +46,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
       localStorage.removeItem(`mas_dd_force_reclassify_${deal.id}`);
     }
 
-    setInfoText(
-      "Импорт запущен (заглушка). Настройка force_reclassify сохранена.",
-    );
+    setInfoText(t("importWizard.stubMessage"));
   };
 
   const renderStep = () => {
@@ -57,11 +55,10 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
         <div className="space-y-4">
           <div>
             <h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-              Шаг 1. Выбор файлов
+              {t("importWizard.step1Title")}
             </h3>
             <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-              Выберите документы или архив Data Room для импорта. Пока это
-              заглушка интерфейса, но визуально она уже соответствует рабочему мастеру.
+              {t("importWizard.step1Desc")}
             </p>
           </div>
 
@@ -75,14 +72,14 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
 
             {selectedFiles && selectedFiles.length > 0 ? (
               <div className="mt-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-card)] px-3 py-2 text-xs text-[var(--text-secondary)]">
-                Выбрано файлов:{" "}
+                {t("importWizard.filesSelected")}
                 <span className="font-semibold text-[var(--text-primary)]">
                   {selectedFiles.length}
                 </span>
               </div>
             ) : (
               <p className="mt-3 text-xs text-[var(--text-muted)]">
-                Пока файлы не выбраны.
+                {t("importWizard.noFilesSelected")}
               </p>
             )}
           </div>
@@ -94,10 +91,10 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
       <div className="space-y-4">
         <div>
           <h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-            Шаг 2. Параметры анализа
+            {t("importWizard.step2Title")}
           </h3>
           <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-            Уточните параметры перед запуском импорта и предварительной обработки документов.
+            {t("importWizard.step2Desc")}
           </p>
         </div>
 
@@ -112,11 +109,10 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
 
             <div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Принудительная переклассификация
+                {t("importWizard.forceReclassifyLabel")}
               </p>
               <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-                Перезапустить HybridClassifier для всех документов перед анализом.
-                Это полезно, если документы были переименованы или структура Data Room изменилась.
+                {t("importWizard.forceReclassifyDesc")}
               </p>
             </div>
           </label>
@@ -129,17 +125,17 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
     <div className="w-full max-w-2xl rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
       <div className="border-b border-[var(--border-soft)] pb-4">
         <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-          Import wizard
+          {t("importWizard.badge")}
         </div>
 
         <h2 className="mt-3 text-[24px] font-semibold tracking-tight text-[var(--text-primary)]">
-          Импорт документов
+          {t("importWizard.title")}
         </h2>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {deal.name}
         </p>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Сделка: {deal.id}
+          {t("importWizard.dealLabel", { id: deal.id })}
         </p>
       </div>
 
@@ -156,7 +152,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
             1
           </div>
           <div className="text-sm font-medium text-[var(--text-primary)]">
-            Файлы
+            {t("importWizard.stepFiles")}
           </div>
         </div>
 
@@ -174,7 +170,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
             2
           </div>
           <div className="text-sm font-medium text-[var(--text-primary)]">
-            Параметры
+            {t("importWizard.stepParams")}
           </div>
         </div>
       </div>
@@ -193,7 +189,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
           onClick={handleBack}
           disabled={step === 1}
         >
-          Назад
+          {t("importWizard.backBtn")}
         </Button>
 
         <div className="flex gap-2">
@@ -205,7 +201,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
               onClick={handleNext}
               disabled={!selectedFiles || selectedFiles.length === 0}
             >
-              Далее
+              {t("importWizard.nextBtn")}
             </Button>
           )}
 
@@ -216,7 +212,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
               size="sm"
               onClick={handleSubmit}
             >
-              Запустить импорт
+              {t("importWizard.launchBtn")}
             </Button>
           )}
         </div>
@@ -226,5 +222,6 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
 };
 
 export default ImportWizard;
+
 
 

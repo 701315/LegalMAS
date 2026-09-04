@@ -1,21 +1,291 @@
 {
+  "qualityFlagsLegend": {
+    "title": "Флаги качества:",
+    "structureDegraded": "Структура документа нарушена",
+    "llmFallback": "Использован LLM fallback",
+    "otherFlags": "Другие флаги"
+  },
+  "qualityFlagRenderer": {
+    "noFlags": "Нет флагов качества",
+    "structureDegraded": "Нарушена структура документа",
+    "llmFallback": "Использован LLM fallback",
+    "otherFlags": "Другие флаги качества"
+  },
+  "qcCellRenderer": {
+    "statuses": {
+      "pending": "В ожидании",
+      "approved": "Одобрено",
+      "rejected": "Отклонено",
+      "needs_review": "Нужна проверка"
+    },
+    "tooltipStatus": "Статус QC: {{status}}",
+    "approveTooltip": "Подтвердить (QC approve)",
+    "approveAria": "Подтвердить QC",
+    "rejectTooltip": "Отклонить (QC reject)",
+    "rejectAria": "Отклонить QC"
+  },
+  "bulkQcBar": {
+    "selectedResults": "Выбрано результатов: ",
+    "commentPlaceholder": "Комментарий QC (опционально)…",
+    "confirm": "Подтвердить",
+    "reject": "Отклонить",
+    "override": "Override…",
+    "severityLabel": "Severity:",
+    "resultLabel": "Result:",
+    "applyOverride": "Применить override",
+    "cancel": "Отмена",
+    "severities": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "pass": "Pass",
+      "unclear": "Unclear"
+    },
+    "results": {
+      "keep": "Не менять result",
+      "pass": "Pass",
+      "fail": "Fail",
+      "unclear": "Unclear"
+    }
+  },
+  "detectionLevels": {
+    "L1": "Паттерн",
+    "L2": "LLM",
+    "L3": "RAG + LLM",
+    "L4": "Ручная проверка",
+    "undefined": "Не определён"
+  },
+  "qualityFlags": {
+    "structure_degraded": "Структура нарушена",
+    "llm_fallback_used": "Fallback модель",
+    "retry_used": "Повторная попытка",
+    "partial_result": "Частичный результат",
+    "confidence_below_threshold": "Низкая уверенность",
+    "missing_provenance": "Нет провенанса"
+  },
+  "docTypeGroups": {
+    "otherDocuments": "Прочие документы",
+    "allDocuments": "Все документы",
+    "allDocumentsGlobalOnly": "Все документы · только глобальные проверки"
+  },
+  "checksMode": {
+    "global_and_doc_type": "Плейбук + типы документов",
+    "global_only": "Только плейбук",
+    "doc_type_only": "Только типы документов"
+  },
+  "drawer": {
+    "titleFallback": "Без названия проверки",
+    "documentLabel": "Документ: {{name}}",
+    "documentIdLabel": "Документ ID: {{id}}",
+    "close": "Закрыть",
+    "confidenceTooltip": "Уверенность модели: {{value}}",
+    "confidenceLabel": "Conf: {{value}}",
+    "sections": {
+      "analysisResult": {
+        "title": "Результат анализа",
+        "subtitle": "Основной вывод системы и его обоснование."
+      },
+      "extractedFields": {
+        "title": "Извлечённые поля",
+        "subtitle": "Все параметры, извлечённые системой в рамках этой проверки."
+      },
+      "evidence": {
+        "title": "Evidence",
+        "subtitle": "Фрагменты документа, на которые опирался анализ."
+      },
+      "checkStatus": {
+        "title": "Статус проверки",
+        "subtitle": "Workflow-статус и техническое состояние выполнения."
+      },
+      "qcHistory": {
+        "title": "История QC",
+        "subtitle": "Предыдущее решение юриста по этой проверке."
+      },
+      "qcReview": {
+        "title": "QC Review",
+        "subtitle": "Статус ручной проверки и комментарий юриста. Изменения применяются после нажатия Save."
+      }
+    },
+    "fallbacks": {
+      "noViolations": "Нарушений не выявлено.",
+      "unclearResult": "Результат не определён — требуется ручная проверка.",
+      "executionError": "Ошибка при выполнении проверки.",
+      "noResultText": "Текст результата не сформирован.",
+      "noFields": "Извлечённые поля отсутствуют."
+    },
+    "fieldRow": {
+      "exactTooltip": "Точное расположение",
+      "approximateTooltip": "Приблизительное расположение",
+      "unavailableTooltip": "Расположение недоступно",
+      "lowConfidenceTooltip": "Низкая уверенность в расположении",
+      "highConfidenceTooltip": "Высокая уверенность в расположении",
+      "openInDocumentTooltip": "Открыть фрагмент в документе",
+      "openInDocument": "Открыть в документе"
+    },
+    "reasonSources": {
+      "reason": "Обоснование",
+      "review_message": "Комментарий системы",
+      "display_text": "Результат анализа",
+      "none": ""
+    },
+    "reviewStatusLabels": {
+      "needs_review": "Требует внимания юриста",
+      "no_issue_detected": "Проверка завершена без замечаний",
+      "unclear": "Результат не определён"
+    },
+    "cellStateLabels": {
+      "defined": "Определено",
+      "not_defined": "Не найдено",
+      "not_executed": "Не выполнялось",
+      "error": "Ошибка"
+    },
+    "executionStatusTooltip": "Техническое состояние выполнения check-а",
+    "qcReviewForm": {
+      "statusLabel": "QC Status",
+      "commentLabel": "Comment",
+      "commentPlaceholder": "Оставьте комментарий к review (опционально)",
+      "saving": "Сохранение...",
+      "save": "Save",
+      "cancel": "Cancel",
+      "noChanges": "Нет изменений для сохранения.",
+      "noRunIdWarning": "Сохранение QC временно недоступно: отсутствует runId.",
+      "saveError": "Ошибка сохранения. Попробуйте снова."
+    }
+  },
+  "instructionDrawer": {
+    "title": "Инструкция проверки",
+    "close": "Закрыть",
+    "unclassified": "Тип документа не классифицирован — инструкция не применялась.",
+    "persistedBadge": "Зафиксирована в момент запуска Run",
+    "legacyBadge": "Legacy Run — версия не зафиксирована",
+    "noChecksAvailable": "Список проверок недоступен для этого doc_type.",
+    "globalChecksTitle": "Глобальные проверки",
+    "globalChecksHint": "Применяются ко всем документам сделки",
+    "docTypeChecksTitle": "Проверки типа документа"
+  },
+  "layoutPicker": {
+    "title": "Формат экспорта в {{format}}",
+    "subtitle": "Выберите, как структурировать данные в файле.",
+    "cancel": "Отменить",
+    "export": "Экспортировать",
+    "layouts": {
+      "single": {
+        "title": "Единая таблица",
+        "description": "Одна большая таблица со всеми проверками и параметрами. Точное отображение матрицы как на экране.",
+        "warning": "Таблица очень широкая. Некоторые колонки могут быть плохо читаемыми в PDF/Word из-за ограничений формата страницы."
+      },
+      "byDocument": {
+        "title": "По документам (секции)",
+        "description": "Каждый документ — отдельная секция. Внутри секции — таблица его проверок в формате «Проверка / Параметр / Значение». Подходит когда документов немного, а проверок много."
+      },
+      "byScopeGroup": {
+        "title": "По группам проверок",
+        "description": "Каждая группа проверок (например, Confidentiality, Governing Law, проверки по типу документа) — отдельная таблица. Позволяет удобно сравнить одну тему между документами."
+      }
+    },
+    "previews": {
+      "document": "Документ {{num}}",
+      "salesContract": "Договор к-п"
+    }
+  },
+  "exportButtons": {
+    "noData": "Нет данных для экспорта",
+    "exportExcel": "Экспорт {{rowsCount}} строк в Excel ({{colsCount}} колонок)",
+    "exportPdf": "Экспорт {{rowsCount}} строк в PDF ({{colsCount}} колонок)",
+    "exportWord": "Экспорт {{rowsCount}} строк в Word ({{colsCount}} колонок)"
+  },
+  "qcBulk": {
+    "title": "QC: Массовое действие",
+    "selectedSummary": "Выбрано строк: <bold>{{rowsCount}}</bold> · замечаний: <bold>{{findingsCount}}</bold>",
+    "hint": "Действие будет применено ко всем замечаниям выбранных строк.",
+    "actions": {
+      "approve": "Одобрить",
+      "reject": "Отклонить",
+      "needsReview": "На проверку"
+    },
+    "commentLabel": "Комментарий (опционально)",
+    "commentPlaceholder": "Например: проверено вручную, источник — параграф 5.2",
+    "errors": {
+      "buildPayloadFailed": "Не удалось сформировать QC-запрос для текущей выборки.",
+      "applyFailed": "Не удалось применить QC-действие."
+    }
+  },
+  "viewSettings": {
+    "formatLabel": "Формат представления данных",
+    "checksScopeLabel": "Отображение результатов проверок",
+    "docGroupingLabel": "Группировка документов",
+    "format": {
+      "matrix": {
+        "label": "Матрица",
+        "title": "Табличное представление документов и проверок"
+      },
+      "list": {
+        "label": "Список",
+        "title": "Плоский список findings"
+      }
+    },
+    "checksScope": {
+      "all": {
+        "label": "Все проверки",
+        "shortLabel": "Все",
+        "title": "Показывать global и doc-type проверки"
+      },
+      "global_only": {
+        "label": "Только глобальные",
+        "shortLabel": "Глобальные",
+        "title": "Только global playbook проверки"
+      },
+      "doc_type_only": {
+        "label": "Только по типу документа",
+        "shortLabel": "По типу",
+        "title": "Только проверки, специфичные для типа документа"
+      }
+    },
+    "docGrouping": {
+      "all_docs": {
+        "label": "Все документы",
+        "title": "Все документы в одной таблице"
+      },
+      "by_type": {
+        "label": "По типам документов",
+        "title": "Отдельная таблица на каждый тип документа"
+      }
+    },
+    "notice": "Матричное представление доступно только на широких экранах. На этом устройстве данные отображаются в виде списка."
+  },
+  "matrix": {
+    "globalChecks": "Глобальные проверки",
+    "docTypeChecks": "Проверки по типу документа",
+    "expandBlock": "Развернуть блок проверок",
+    "collapseBlock": "Свернуть блок проверок",
+    "expandGroup": "Развернуть группу проверок",
+    "collapseGroup": "Свернуть группу проверок",
+    "expandCheck": "Развернуть параметры проверки",
+    "collapseCheck": "Свернуть параметры проверки",
+    "expand": "Развернуть",
+    "bulkQcTooltip": "Выберите строки для массового QC действия",
+    "instruction": "Инструкция",
+    "notClassified": "Тип документа не классифицирован",
+    "persistedInstruction": "Зафиксированная версия инструкции: {{version}}",
+    "legacyInstruction": "Legacy run: версия инструкции не зафиксирована (fallback на файловую систему)",
+    "persisted": "Зафиксирована",
+    "legacy": "Legacy",
+    "clickToExpand": "Нажмите + чтобы развернуть {{name}}",
+    "openCheck": "Открыть проверку",
+    "openCheckArrow": "Открыть проверку →",
+    "summaryLine": "Документы: {{docsCount}} · Проверки: {{checksCount}}",
+    "unknownCheck": "Неизвестная проверка"
+  },
+  "unnamedDocument": "[без названия]",
   "emptyState": "По выбранным параметрам в DD Grid ничего не найдено.",
   "backButton": "Назад",
   "details": "Детали",
-  "columns": {
-    "document": "Документ",
-    "docType": "Тип документа",
-    "check": "Проверка",
-    "result": "Результат",
-    "status": "Статус",
-    "location": "Локация"
-  },
   "reviewStatus": {
+    "empty": "—",
     "needs_review": "Требует внимания юриста",
     "no_issue_detected": "Без замечаний",
     "not_applicable": "Неприменимо",
-    "unclear": "Результат не определён LLM на 100%, требуется уточнение пользователя",
-    "empty": "—"
+    "unclear": "Результат не определён LLM на 100%, требуется уточнение пользователя"
   },
   "location": {
     "pageAbbr": "стр. {{page}}",
@@ -28,7 +298,20 @@
   "qc": {
     "approved": "Одобрено",
     "rejected": "Отклонено",
-    "needs_review": "Нужна проверка"
+    "needs_review": "Нужна проверка",
+    "noDrawersInSelection": "В выбранных строках нет проверок, к которым можно применить QC-действие.",
+    "mixedRunIds": "Не определён run для QC-действия."
+  },
+  "columns": {
+    "document": "Документ",
+    "docType": "Тип документа",
+    "check": "Проверка",
+    "result": "Результат",
+    "status": "Статус",
+    "location": "Локация",
+    "rowNumber": "№",
+    "parameter": "Параметр",
+    "value": "Значение"
   },
   "extra": {
     "detectionLevel": {
@@ -55,7 +338,7 @@
       "description": "Имя детектора / агента, выполнившего проверку"
     },
     "modelVersion": {
-      "label": "Модель",
+      "label": "Model",
       "description": "Версия LLM модели"
     },
     "executionTime": {
@@ -74,7 +357,69 @@
       "label": "Output tokens",
       "description": "Количество выходных токенов LLM"
     }
+  },
+  "v1Tab": {
+    "noRunTitle": "DD Grid станет доступен после запуска анализа",
+    "noRunDescription": "Нет выбранного запуска анализа. Сначала запустите анализ на вкладке «Обзор».",
+    "loadingTitle": "Загружаем матрицу документов…",
+    "errorTitle": "Не удалось загрузить DD Grid V1.",
+    "matrixTitle": "Матрица проверки DD",
+    "listTitle": "Список findings",
+    "matrixSubtitle": "Матрица документов и проверок в рамках запуска (V1).",
+    "listSubtitle": "Плоский список findings из V1 review dataset с фильтрацией и экспортом.",
+    "actionsLabel": "Действия",
+    "showPass": "Показать pass",
+    "hidePass": "Скрыть pass",
+    "showPassTitle": "Показать pass результаты",
+    "hidePassTitle": "Скрыть pass результаты",
+    "extraColumnsButton": "Дополнительные данные",
+    "extraColumnsTitle": "Выбрать дополнительные технические колонки для отображения",
+    "exportButton": "Экспорт данных",
+    "exportTitle": "Открыть панель экспорта findings в файл",
+    "extraColumnsPanel": {
+      "title": "Выбор дополнительных колонок",
+      "description": "Отметьте технические показатели, которые нужно отобразить в таблице.",
+      "cancel": "Отменить",
+      "apply": "Применить",
+      "selectAll": "Выбрать все",
+      "deselectAll": "Снять все"
+    },
+    "qc": {
+      "heading": "QC: Массовое действие",
+      "hint": "Выберите строки в таблице для применения статуса ко всем findings"
+    },
+    "viewer": {
+      "loadingPdf": "Загрузка PDF…",
+      "loadError": "Ошибка при загрузке документа: {{error}}"
+    },
+    "export": {
+      "matrixDescription": "Файл будет сформирован как двумерная таблица: строки — документы, колонки — параметры проверок, в том же порядке, что на экране.",
+      "listDescription": "Файл будет сформирован как плоский список findings: те же строки, те же колонки, тот же порядок, что на экране.",
+      "panelTitle": "Экспорт данных ({{mode}})",
+      "modeMatrix": "матрица",
+      "modeList": "список",
+      "byDocumentSuffix": "по документам",
+      "byScopeSuffix": "по группам проверок"
+    },
+    "runMetaWarning": "Не удалось загрузить метаданные запуска анализа. DD Grid показан без части run-level метаданных (режим проверок и т.п.).",
+    "summary": {
+      "documentsCount_one": "{{count}} документ",
+      "documentsCount_few": "{{count}} документа",
+      "documentsCount_many": "{{count}} документов",
+      "checksCount_one": "{{count}} проверка",
+      "checksCount_other": "{{count}} проверок",
+      "documentsCount_other": "{{count}} документов",
+      "findingsCount_other": "{{count}} замечаний",
+      "checksCount_few": "{{count}} проверки",
+      "checksCount_many": "{{count}} проверок",
+      "findingsCount_one": "{{count}} замечание",
+      "findingsCount_few": "{{count}} замечания",
+      "findingsCount_many": "{{count}} замечаний",
+      "modeNotSpecified": "не указан",
+      "line": "Матрица проверки: <bold>{{documents}}</bold>. Проведено <bold>{{checks}}</bold>. Выявлено <bold>{{findings}}</bold>. Режим проверки: <bold>{{mode}}</bold>.",
+      "tooltipRuntime": "Runtime параметров: {{count}}",
+      "tooltipCells": "Ячеек: определено {{defined}} · не найдено {{notFound}} · ошибок {{errors}}"
+    }
   }
 }
-
 

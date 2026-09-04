@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { PipelineStageViewDTO } from "../../../types";
 import { StatusBadge } from "./StatusBadge";
 import Button from "../../ui/Button";
@@ -12,23 +13,26 @@ interface Props {
   onOpen: (stage: PipelineStageViewDTO) => void;
 }
 
-function buildMetaLine(stage: PipelineStageViewDTO): string | null {
+function buildMetaLine(
+  stage: PipelineStageViewDTO,
+  tFn: (key: string, options?: { count?: number }) => string,
+): string | null {
   const meta = stage.meta;
   if (!meta) return null;
 
   const parts: string[] = [];
 
   if (typeof meta.page_count === "number") {
-    parts.push(`стр.: ${meta.page_count}`);
+    parts.push(tFn("stageRow.pages", { count: meta.page_count }));
   }
   if (typeof meta.element_count === "number") {
-    parts.push(`элементов: ${meta.element_count}`);
+    parts.push(tFn("stageRow.elements", { count: meta.element_count }));
   }
   if (typeof meta.section_count === "number") {
-    parts.push(`секций: ${meta.section_count}`);
+    parts.push(tFn("stageRow.sections", { count: meta.section_count }));
   }
   if (typeof meta.chunk_count === "number") {
-    parts.push(`чанков: ${meta.chunk_count}`);
+    parts.push(tFn("stageRow.chunks", { count: meta.chunk_count }));
   }
   if (meta.source_file_name) {
     parts.push(meta.source_file_name);
@@ -37,25 +41,29 @@ function buildMetaLine(stage: PipelineStageViewDTO): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function getOpenDisabledReason(stage: PipelineStageViewDTO): string {
+function getOpenDisabledReason(
+  stage: PipelineStageViewDTO,
+  tFn: (key: string) => string,
+): string {
   if (stage.status === "pending") {
-    return "Стадия ещё не готова";
+    return tFn("stageRow.disabledReasons.pending");
   }
 
   if (stage.status === "missing") {
-    return "Артефакт стадии недоступен или повреждён";
+    return tFn("stageRow.disabledReasons.missing");
   }
 
   if (!stage.available) {
-    return "Стадия недоступна для просмотра";
+    return tFn("stageRow.disabledReasons.unavailable");
   }
 
-  return "Стадия пока недоступна для просмотра";
+  return tFn("stageRow.disabledReasons.notYetAvailable");
 }
 
 export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
+  const { t } = useTranslation("pipeline");
   const canOpen = stage.available && stage.status === "ready";
-  const metaLine = buildMetaLine(stage);
+  const metaLine = buildMetaLine(stage, t);
 
   return (
     <div className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 shadow-sm transition-shadow hover:shadow-md">
@@ -88,9 +96,9 @@ export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
           variant={canOpen ? "secondary" : "ghost"}
           disabled={!canOpen}
           onClick={() => onOpen(stage)}
-          title={canOpen ? "Открыть стадию" : getOpenDisabledReason(stage)}
+          title={canOpen ? t("stageRow.openStageTitle") : getOpenDisabledReason(stage, t)}
         >
-          Открыть
+          {t("stageRow.open")}
         </Button>
       </div>
     </div>

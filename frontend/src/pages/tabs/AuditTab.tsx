@@ -13,6 +13,7 @@
 // =============================================================
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { useAuditLog } from "../../api/audit";
@@ -43,65 +44,74 @@ const AuditActionFilterInlinePanel: React.FC<{
   onSelect: (value: string) => void;
   onReset: () => void;
   onClose: () => void;
-}> = ({ selectedAction, onSelect, onReset, onClose }) => (
-  <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
-    <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-      <p className="text-sm font-semibold text-[var(--text-primary)]">
-        Фильтр по действиям
-      </p>
-      <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-        Выберите действие, чтобы показать только соответствующие записи журнала
-      </p>
-    </div>
+}> = ({ selectedAction, onSelect, onReset, onClose }) => {
+  const { t } = useTranslation(["projects", "common"]);
 
-    <div className="px-4 py-4">
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={selectedAction === "" ? "outline" : "secondary"}
-          onClick={() => onSelect("")}
-          aria-pressed={selectedAction === ""}
-          className={selectedAction === "" ? FILTER_BUTTON_ACTIVE_CLASS : ""}
-        >
-          Все действия
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+      <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">
+          {t("auditTab.filter.title", { ns: "projects" })}
+        </p>
+        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+          {t("auditTab.filter.subtitle", { ns: "projects" })}
+        </p>
+      </div>
+
+      <div className="px-4 py-4">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={selectedAction === "" ? "outline" : "secondary"}
+            onClick={() => onSelect("")}
+            aria-pressed={selectedAction === ""}
+            className={selectedAction === "" ? FILTER_BUTTON_ACTIVE_CLASS : ""}
+          >
+            {t("auditTab.filter.allActions", { ns: "projects" })}
+          </Button>
+
+          {(Object.keys(AUDIT_ACTION_LABEL) as string[]).map((key: string) => {
+            const isSelected = selectedAction === key;
+            const label = t(`auditActions.${key}`, {
+              ns: "common",
+              defaultValue: AUDIT_ACTION_LABEL[key] ?? key,
+            });
+
+            return (
+              <Button
+                key={key}
+                type="button"
+                size="sm"
+                variant={isSelected ? "outline" : "secondary"}
+                onClick={() => onSelect(key)}
+                aria-pressed={isSelected}
+                className={isSelected ? FILTER_BUTTON_ACTIVE_CLASS : ""}
+              >
+                {label}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
+        <Button size="sm" variant="ghost" onClick={onReset}>
+          {t("actions.reset", { ns: "common", defaultValue: "Reset" })}
         </Button>
 
-        {Object.entries(AUDIT_ACTION_LABEL).map(([key, label]) => {
-          const isSelected = selectedAction === key;
-
-          return (
-            <Button
-              key={key}
-              type="button"
-              size="sm"
-              variant={isSelected ? "outline" : "secondary"}
-              onClick={() => onSelect(key)}
-              aria-pressed={isSelected}
-              className={isSelected ? FILTER_BUTTON_ACTIVE_CLASS : ""}
-            >
-              {label}
-            </Button>
-          );
-        })}
+        <div className="flex gap-2">
+          <Button size="sm" variant="secondary" onClick={onClose}>
+            {t("actions.close", { ns: "common", defaultValue: "Close" })}
+          </Button>
+        </div>
       </div>
     </div>
-
-    <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
-      <Button size="sm" variant="ghost" onClick={onReset}>
-        Сбросить
-      </Button>
-
-      <div className="flex gap-2">
-        <Button size="sm" variant="secondary" onClick={onClose}>
-          Закрыть
-        </Button>
-      </div>
-    </div>
-  </div>
-);
+  );
+};
 
 export const AuditTab: React.FC<Props> = ({ dealId }) => {
+  const { t, i18n } = useTranslation(["projects", "common"]);
   const { canViewAuditLog } = useDealPermissions(dealId);
 
   const [viewMode, setViewMode] = useState<AuditViewMode>("audit_log");
@@ -118,10 +128,15 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
   const items = auditData?.items ?? [];
   const totalPages = auditData?.total_pages ?? 1;
 
-  const currentFilterLabel =
-    filterAction && AUDIT_ACTION_LABEL[filterAction]
-      ? `Действие: ${AUDIT_ACTION_LABEL[filterAction]}`
-      : "Все действия";
+  const currentFilterLabel = filterAction
+    ? t("auditTab.filter.actionLabel", {
+        ns: "projects",
+        label: t(`auditActions.${filterAction}`, {
+          ns: "common",
+          defaultValue: AUDIT_ACTION_LABEL[filterAction] ?? filterAction,
+        }),
+      })
+    : t("auditTab.filter.allActions", { ns: "projects" });
 
   if (!canViewAuditLog) {
     return (
@@ -133,12 +148,11 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
             </div>
 
             <h2 className="text-base font-semibold text-[var(--text-primary)]">
-              Доступ к журналу ограничен
+              {t("auditTab.noAccess.title", { ns: "projects" })}
             </h2>
 
             <p className="mt-2 max-w-md text-sm text-[var(--text-muted)]">
-              Журнал аудита доступен только администраторам и ответственным за
-              безопасность в рамках этого проекта.
+              {t("auditTab.noAccess.description", { ns: "projects" })}
             </p>
           </div>
         </div>
@@ -147,22 +161,17 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
   }
 
   return (
-    // Desktop (lg+): h-full + min-h-0 → PageSection получает высоту
-    // родителя и внутри может создать flex-скролл-контейнер для таблицы.
-    // Mobile: натуральная высота → PageSection не получает "распорки",
-    // его внутренний flex-1 не создаёт скролла, таблица растёт по всем
-    // строкам, скроллится страница целиком.
     <div className="flex flex-col lg:h-full lg:min-h-0">
       <PageSection
         title={
           viewMode === "audit_log"
-            ? "Журнал аудита"
-            : "Аудит классификации документов"
+            ? t("auditTab.modes.logTitle", { ns: "projects" })
+            : t("auditTab.modes.classificationTitle", { ns: "projects" })
         }
         subtitle={
           viewMode === "audit_log"
-            ? "Кто, когда и какие действия выполнял в рамках сделки."
-            : "Сводная explainability-информация по классификации документов текущего проекта."
+            ? t("auditTab.modes.logSubtitle", { ns: "projects" })
+            : t("auditTab.modes.classificationSubtitle", { ns: "projects" })
         }
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
@@ -187,7 +196,7 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                 variant="secondary"
                 onClick={() => setViewMode("audit_log")}
               >
-                К журналу аудита
+                {t("auditTab.buttons.toLog", { ns: "projects" })}
               </Button>
             )}
 
@@ -207,18 +216,10 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                   : ""
               }
             >
-              Аудит классификации документов
+              {t("auditTab.buttons.toClassification", { ns: "projects" })}
             </Button>
           </div>
         }
-        // Desktop: PageSection занимает всю высоту родителя, внутри
-        // создаёт flex-скролл для таблицы. Mobile: те же самые
-        // классы применяются только на lg+, а на мобильном PageSection
-        // растёт по натуральному содержимому.
-        //
-        // Примечание: сам PageSection жёстко имеет "flex flex-col min-h-0"
-        // и "flex-1 min-h-0" на content-div, но эти классы безвредны,
-        // если родитель не даёт h-full — flex-1 просто ничего не растягивает.
         className="lg:flex-1 lg:min-h-0"
         contentClassName="flex flex-col lg:min-h-0 lg:flex-1"
         bodyClassName="flex flex-col lg:h-full lg:min-h-0"
@@ -248,32 +249,19 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
 
             <div className="flex flex-col lg:min-h-0 lg:flex-1">
               {isLoading ? (
-                /* Loading state — на мобильном без flex-1 (натуральная
-                   высота с py-16), на десктопе занимает всю доступную
-                   высоту для centered. */
                 <div className="flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-16 lg:flex-1">
                   <Loader2
                     className="mr-3 animate-spin text-[var(--accent-primary)]"
                     size={20}
                   />
                   <span className="text-sm text-[var(--text-muted)]">
-                    Загружаем журнал…
+                    {t("auditTab.loading", { ns: "projects" })}
                   </span>
                 </div>
               ) : (
                 <>
-                  {/* Table container.
-                      Desktop: min-h-0 + flex-1 + overflow-hidden → создаёт
-                      фиксированную высоту для внутреннего scroll viewport.
-                      Mobile: натуральная высота → таблица растёт по всем
-                      строкам, страница скроллит целиком. */}
                   <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
                     {items.length > 0 ? (
-                      /* Scroll viewport.
-                         Desktop: h-full + overflow-y-auto + overflow-x-auto
-                         → внутренний вертикальный и горизонтальный скролл.
-                         Mobile: только overflow-x-auto для широкой таблицы
-                         (5 колонок ~700px+), вертикальный скролл — страничный. */
                       <div className="overflow-x-auto lg:h-full lg:overflow-y-auto">
                         <table className="w-full table-fixed border-collapse">
                           <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
@@ -282,125 +270,122 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                                 scope="col"
                                 className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                               >
-                                Время
+                                {t("auditTab.table.headers.time", { ns: "projects" })}
                               </th>
                               <th
                                 scope="col"
                                 className="w-52 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                               >
-                                Действие
+                                {t("auditTab.table.headers.action", { ns: "projects" })}
                               </th>
                               <th
                                 scope="col"
                                 className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                               >
-                                Пользователь
+                                {t("auditTab.table.headers.user", { ns: "projects" })}
                               </th>
                               <th
                                 scope="col"
                                 className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                               >
-                                Роль
+                                {t("auditTab.table.headers.role", { ns: "projects" })}
                               </th>
                               <th
                                 scope="col"
                                 className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                               >
-                                Детали
+                                {t("auditTab.table.headers.details", { ns: "projects" })}
                               </th>
                             </tr>
                           </thead>
 
                           <tbody>
-                            {items.map((log) => (
-                              <tr
-                                key={log.id}
-                                className={cn(
-                                  "border-b border-[var(--border)] transition-colors hover:bg-[var(--bg-elevated-soft)]",
-                                  log.action === "RECLASSIFY" &&
-                                    ROW_HIGHLIGHT_RECLASSIFY,
-                                  log.action === "SET_DEAL_PLAYBOOK" &&
-                                    ROW_HIGHLIGHT_PLAYBOOK,
-                                )}
-                              >
-                                <td className="px-3 py-2.5 text-xs text-[var(--text-secondary)]">
-                                  {new Date(log.created_at).toLocaleString(
-                                    "ru-RU",
-                                    {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                      second: "2-digit",
-                                    },
+                            {items.map((log) => {
+                              const actionLabel = t(`auditActions.${log.action}`, {
+                                ns: "common",
+                                defaultValue: AUDIT_ACTION_LABEL[log.action] ?? log.action,
+                              });
+
+                              return (
+                                <tr
+                                  key={log.id}
+                                  className={cn(
+                                    "border-b border-[var(--border)] transition-colors hover:bg-[var(--bg-elevated-soft)]",
+                                    log.action === "RECLASSIFY" &&
+                                      ROW_HIGHLIGHT_RECLASSIFY,
+                                    log.action === "SET_DEAL_PLAYBOOK" &&
+                                      ROW_HIGHLIGHT_PLAYBOOK,
                                   )}
-                                </td>
-
-                                <td className="px-3 py-2.5">
-                                  <div className="min-w-0">
-                                    <span
-                                      className="inline-flex max-w-full truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] align-middle"
-                                      title={
-                                        AUDIT_ACTION_LABEL[log.action] ||
-                                        log.action
-                                      }
-                                    >
-                                      {AUDIT_ACTION_LABEL[log.action] ||
-                                        log.action}
-                                    </span>
-                                  </div>
-                                </td>
-
-                                <td
-                                  className="truncate px-3 py-2.5 text-xs font-medium text-[var(--text-primary)]"
-                                  title={log.actor}
                                 >
-                                  {log.actor}
-                                </td>
-
-                                <td
-                                  className="truncate px-3 py-2.5 text-[11px] text-[var(--text-muted)]"
-                                  title={log.actor_role}
-                                >
-                                  {log.actor_role}
-                                </td>
-
-                                <td className="max-w-[380px] px-3 py-2.5 text-[11px] text-[var(--text-secondary)]">
-                                  <span
-                                    className="block truncate"
-                                    title={formatDetails(
-                                      log.action,
-                                      log.details as
-                                        | Record<string, unknown>
-                                        | null,
+                                  <td className="px-3 py-2.5 text-xs text-[var(--text-secondary)]">
+                                    {new Date(log.created_at).toLocaleString(
+                                      i18n.language,
+                                      {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        second: "2-digit",
+                                      },
                                     )}
+                                  </td>
+
+                                  <td className="px-3 py-2.5">
+                                    <div className="min-w-0">
+                                      <span
+                                        className="inline-flex max-w-full truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] align-middle"
+                                        title={actionLabel}
+                                      >
+                                        {actionLabel}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  <td
+                                    className="truncate px-3 py-2.5 text-xs font-medium text-[var(--text-primary)]"
+                                    title={log.actor}
                                   >
-                                    {formatDetails(
-                                      log.action,
-                                      log.details as
-                                        | Record<string, unknown>
-                                        | null,
-                                    )}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
+                                    {log.actor}
+                                  </td>
+
+                                  <td
+                                    className="truncate px-3 py-2.5 text-[11px] text-[var(--text-muted)]"
+                                    title={log.actor_role}
+                                  >
+                                    {log.actor_role}
+                                  </td>
+
+                                  <td className="max-w-[380px] px-3 py-2.5 text-[11px] text-[var(--text-secondary)]">
+                                    <span
+                                      className="block truncate"
+                                      title={formatDetails(
+                                        log.action,
+                                        log.details as Record<string, unknown> | null,
+                                        (key, options) => String(t(key, options)),
+                                      )}
+                                    >
+                                      {formatDetails(
+                                        log.action,
+                                        log.details as Record<string, unknown> | null,
+                                        (key, options) => String(t(key, options)),
+                                      )}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
                     ) : (
-                      /* Empty state — на мобильном без h-full, растёт
-                         по натуральной высоте контента. На десктопе
-                         занимает высоту table container для centered. */
                       <div className="flex items-center justify-center px-4 py-10 text-center lg:h-full">
                         <div>
                           <p className="mb-1 text-sm text-[var(--text-secondary)]">
-                            Записи не найдены
+                            {t("auditTab.emptyState.title", { ns: "projects" })}
                           </p>
                           <p className="text-xs text-[var(--text-muted)]">
-                            Журнал пока пуст или не подходит под текущий
-                            фильтр.
+                            {t("auditTab.emptyState.subtitle", { ns: "projects" })}
                           </p>
                         </div>
                       </div>
@@ -417,11 +402,15 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                         disabled={page <= 1}
                         leftIcon={<ChevronLeft size={14} />}
                       >
-                        Назад
+                        {t("actions.back", { ns: "common", defaultValue: "Back" })}
                       </Button>
 
                       <span className="text-xs text-[var(--text-muted)]">
-                        Страница {page} из {totalPages}
+                        {t("auditTab.pagination.pageInfo", {
+                          ns: "projects",
+                          current: page,
+                          total: totalPages
+                        })}
                       </span>
 
                       <Button
@@ -434,7 +423,7 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                         disabled={page >= totalPages}
                         rightIcon={<ChevronRight size={14} />}
                       >
-                        Вперёд
+                        {t("actions.forward", { ns: "common", defaultValue: "Forward" })}
                       </Button>
                     </div>
                   )}
@@ -449,9 +438,12 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
 };
 
 /* --- Форматирование деталей --- */
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+
 function formatDetails(
   action: string,
   details: Record<string, unknown> | null,
+  tFn: TranslateFn,
 ): string {
   if (!details || Object.keys(details).length === 0) return "—";
 
@@ -481,9 +473,10 @@ function formatDetails(
   if (details.previous_doc_type !== undefined) {
     const prev = String(details.previous_doc_type || "?");
     const next = String(details.new_doc_type || "?");
+    const reasonLabel = tFn("auditTab.format.reason", { ns: "projects" });
     const reason =
       details.reason && String(details.reason).trim().length > 0
-        ? ` · Причина: ${String(details.reason)}`
+        ? ` · ${reasonLabel}: ${String(details.reason)}`
         : "";
     return `${prev} → ${next}${reason}`;
   }

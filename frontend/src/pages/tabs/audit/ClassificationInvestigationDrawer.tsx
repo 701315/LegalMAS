@@ -6,6 +6,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Loader2,
   FileText,
@@ -32,21 +33,23 @@ function formatConfidence(value: number | null | undefined): string {
 }
 
 function ConfidenceZoneBadge({ zone }: { zone: string | null | undefined }) {
+  const { t } = useTranslation("projects");
+
   if (!zone) return <span className="text-[var(--text-muted)]">—</span>;
 
-  const config: Record<string, { label: string; className: string }> = {
+  const config: Record<string, { labelKey: string; className: string }> = {
     confident: {
-      label: "Уверенная",
+      labelKey: "auditTab.classification.drawer.zone.confident",
       className:
         "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
     },
     low: {
-      label: "Низкая",
+      labelKey: "auditTab.classification.drawer.zone.low",
       className:
         "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
     },
     unknown: {
-      label: "Неопределённая",
+      labelKey: "auditTab.classification.drawer.zone.unknown",
       className:
         "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
     },
@@ -62,7 +65,7 @@ function ConfidenceZoneBadge({ zone }: { zone: string | null | undefined }) {
           "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)]",
       ].join(" ")}
     >
-      {c?.label ?? zone}
+      {c ? t(c.labelKey) : zone}
     </span>
   );
 }
@@ -112,6 +115,7 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
   filename,
   onClose,
 }) => {
+  const { t } = useTranslation("projects");
   const { data, isLoading, isError, error } =
     useClassificationInvestigationDetail(documentId);
 
@@ -138,6 +142,9 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
   const votingRanking =
     data && Array.isArray(data.voting?.ranking) ? data.voting.ranking : [];
 
+  const yesLabel = t("auditTab.classification.drawer.yes");
+  const noLabel = t("auditTab.classification.drawer.no");
+
   return (
     <aside className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
       {/* Accent strip слева */}
@@ -147,7 +154,7 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
       <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Explainability
+            {t("auditTab.classification.drawer.title")}
           </span>
           <span className="text-[var(--text-faint)]">·</span>
           <span
@@ -162,7 +169,7 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
           type="button"
           onClick={onClose}
           className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
-          aria-label="Закрыть панель explainability"
+          aria-label={t("auditTab.classification.drawer.closeAria")}
         >
           ✕
         </button>
@@ -177,67 +184,87 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
               size={18}
             />
             <span className="text-sm text-[var(--text-muted)]">
-              Загружаем explainability…
+              {t("auditTab.classification.drawer.loading")}
             </span>
           </div>
         ) : isError ? (
           <div className="px-5 py-6">
             <p className="text-sm font-semibold text-[var(--text-primary)]">
-              Не удалось загрузить детали классификации
+              {t("auditTab.classification.drawer.loadErrorTitle")}
             </p>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
               {error instanceof Error
                 ? error.message
-                : "Explainability-данные временно недоступны."}
+                : t("auditTab.classification.drawer.loadErrorFallback")}
             </p>
           </div>
         ) : !data ? (
           <div className="px-5 py-6">
             <p className="text-sm text-[var(--text-muted)]">
-              Детали классификации отсутствуют.
+              {t("auditTab.classification.drawer.noData")}
             </p>
           </div>
         ) : (
           <div className="space-y-5 px-5 py-5">
             <Section
-              title="Итог классификации"
+              title={t("auditTab.classification.drawer.sections.summary")}
               icon={<CheckCircle2 size={14} />}
             >
               <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2">
-                <MetaRow label="Статус" value={data.status ?? "—"} />
-                <MetaRow label="Тип" value={data.doc_type ?? "—"} />
                 <MetaRow
-                  label="Уровень"
+                  label={t("auditTab.classification.drawer.meta.status")}
+                  value={data.status ?? "—"}
+                />
+                <MetaRow
+                  label={t("auditTab.classification.drawer.meta.type")}
+                  value={data.doc_type ?? "—"}
+                />
+                <MetaRow
+                  label={t("auditTab.classification.drawer.meta.level")}
                   value={data.classification_level ?? "—"}
                 />
                 <MetaRow
-                  label="Confidence"
+                  label={t("auditTab.classification.drawer.meta.confidence")}
                   value={formatConfidence(data.classification_confidence)}
                 />
                 <MetaRow
-                  label="Confidence zone"
+                  label={t(
+                    "auditTab.classification.drawer.meta.confidenceZone",
+                  )}
                   value={<ConfidenceZoneBadge zone={data.confidence_zone} />}
                 />
-                <MetaRow label="Decided by" value={data.decided_by ?? "—"} />
-                <MetaRow label="Language" value={data.language ?? "—"} />
                 <MetaRow
-                  label="Jurisdiction"
+                  label={t("auditTab.classification.drawer.meta.decidedBy")}
+                  value={data.decided_by ?? "—"}
+                />
+                <MetaRow
+                  label={t("auditTab.classification.drawer.meta.language")}
+                  value={data.language ?? "—"}
+                />
+                <MetaRow
+                  label={t("auditTab.classification.drawer.meta.jurisdiction")}
                   value={data.jurisdiction_guess ?? "—"}
                 />
                 <MetaRow
-                  label="Requires review"
-                  value={data.classification_requires_review ? "Да" : "Нет"}
+                  label={t(
+                    "auditTab.classification.drawer.meta.requiresReview",
+                  )}
+                  value={
+                    data.classification_requires_review ? yesLabel : noLabel
+                  }
                 />
                 <MetaRow
-                  label="Contradiction"
-                  value={data.contradiction_detected ? "Да" : "Нет"}
+                  label={t(
+                    "auditTab.classification.drawer.meta.contradiction",
+                  )}
+                  value={data.contradiction_detected ? yesLabel : noLabel}
                 />
                 <MetaRow
-                  label="L4 triggered"
-                  value={data.l4_triggered ? "Да" : "Нет"}
+                  label={t("auditTab.classification.drawer.meta.l4Triggered")}
+                  value={data.l4_triggered ? yesLabel : noLabel}
                 />
                 <MetaRow
-                  label="Triggers"
+                  label={t("auditTab.classification.drawer.meta.triggers")}
                   value={
                     applicableTriggers.length > 0
                       ? applicableTriggers.join(", ")
@@ -247,7 +274,10 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
               </div>
             </Section>
 
-            <Section title="Пройденные этапы" icon={<GitBranch size={14} />}>
+            <Section
+              title={t("auditTab.classification.drawer.sections.levelsTried")}
+              icon={<GitBranch size={14} />}
+            >
               {levelsTried.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {levelsTried.map((level, index) => (
@@ -261,13 +291,15 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
                 </div>
               ) : (
                 <p className="text-xs text-[var(--text-muted)]">
-                  Список этапов отсутствует.
+                  {t(
+                    "auditTab.classification.drawer.sections.levelsTriedEmpty",
+                  )}
                 </p>
               )}
             </Section>
 
             <Section
-              title="Результаты по уровням"
+              title={t("auditTab.classification.drawer.sections.levelResults")}
               icon={<FileText size={14} />}
             >
               {levelResults.length > 0 ? (
@@ -290,9 +322,20 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
                       </div>
 
                       <div className="mt-2 space-y-0.5 text-xs text-[var(--text-secondary)]">
-                        <p>Confidence: {formatConfidence(item?.confidence)}</p>
-                        <p>Method: {item?.method ?? "—"}</p>
-                        <p>Evidence: {item?.evidence ?? "—"}</p>
+                        <p>
+                          {t(
+                            "auditTab.classification.drawer.meta.confidence",
+                          )}
+                          : {formatConfidence(item?.confidence)}
+                        </p>
+                        <p>
+                          {t("auditTab.classification.drawer.meta.method")}:{" "}
+                          {item?.method ?? "—"}
+                        </p>
+                        <p>
+                          {t("auditTab.classification.drawer.meta.evidence")}:{" "}
+                          {item?.evidence ?? "—"}
+                        </p>
                       </div>
 
                       {item?.extra &&
@@ -306,12 +349,17 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
                 </div>
               ) : (
                 <p className="text-xs text-[var(--text-muted)]">
-                  Нормализованные результаты по уровням отсутствуют.
+                  {t(
+                    "auditTab.classification.drawer.sections.levelResultsEmpty",
+                  )}
                 </p>
               )}
             </Section>
 
-            <Section title="Кандидаты" icon={<Trophy size={14} />}>
+            <Section
+              title={t("auditTab.classification.drawer.sections.candidates")}
+              icon={<Trophy size={14} />}
+            >
               {candidates.length > 0 ? (
                 <div className="space-y-1.5">
                   {candidates.map((candidate: any, index: number) => {
@@ -389,32 +437,37 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
                 </div>
               ) : (
                 <p className="text-xs text-[var(--text-muted)]">
-                  Кандидаты не зафиксированы.
+                  {t(
+                    "auditTab.classification.drawer.sections.candidatesEmpty",
+                  )}
                 </p>
               )}
             </Section>
 
             <Section
-              title="Voting / override"
+              title={t("auditTab.classification.drawer.sections.voting")}
               icon={<AlertTriangle size={14} />}
             >
               {data.voting ? (
                 <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2">
                   <MetaRow
-                    label="Strategy"
+                    label={t("auditTab.classification.drawer.meta.strategy")}
                     value={data.voting.strategy ?? "—"}
                   />
                   <MetaRow
-                    label="Reason"
+                    label={t("auditTab.classification.drawer.meta.reason")}
                     value={data.voting.reason ?? "—"}
                   />
-                  <MetaRow label="Type" value={data.voting.type ?? "—"} />
                   <MetaRow
-                    label="Confidence"
+                    label={t("auditTab.classification.drawer.meta.type")}
+                    value={data.voting.type ?? "—"}
+                  />
+                  <MetaRow
+                    label={t("auditTab.classification.drawer.meta.confidence")}
                     value={formatConfidence(data.voting.confidence)}
                   />
                   <MetaRow
-                    label="Margin"
+                    label={t("auditTab.classification.drawer.meta.margin")}
                     value={
                       data.voting.margin == null
                         ? "—"
@@ -425,7 +478,7 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
                   {data.voting.override ? (
                     <div className="mt-2">
                       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                        Override
+                        {t("auditTab.classification.drawer.meta.override")}
                       </p>
                       <pre className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-2 text-[10px] leading-4 text-[var(--text-secondary)]">
                         {renderJson(data.voting.override)}
@@ -436,7 +489,7 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
                   {votingRanking.length > 0 ? (
                     <div className="mt-2">
                       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                        Ranking
+                        {t("auditTab.classification.drawer.meta.ranking")}
                       </p>
                       <pre className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-2 text-[10px] leading-4 text-[var(--text-secondary)]">
                         {renderJson(votingRanking)}
@@ -446,13 +499,15 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
                 </div>
               ) : (
                 <p className="text-xs text-[var(--text-muted)]">
-                  Voting-данные отсутствуют.
+                  {t("auditTab.classification.drawer.sections.votingEmpty")}
                 </p>
               )}
             </Section>
 
             <Section
-              title="Decision summary"
+              title={t(
+                "auditTab.classification.drawer.sections.decisionSummary",
+              )}
               icon={<CheckCircle2 size={14} />}
             >
               <pre className="overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-[10px] leading-4 text-[var(--text-secondary)]">
@@ -460,13 +515,19 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
               </pre>
             </Section>
 
-            <Section title="Raw result" icon={<Database size={14} />}>
+            <Section
+              title={t("auditTab.classification.drawer.sections.rawResult")}
+              icon={<Database size={14} />}
+            >
               <pre className="overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-[10px] leading-4 text-[var(--text-secondary)]">
                 {renderJson(data.raw_result)}
               </pre>
             </Section>
 
-            <Section title="Raw details" icon={<Database size={14} />}>
+            <Section
+              title={t("auditTab.classification.drawer.sections.rawDetails")}
+              icon={<Database size={14} />}
+            >
               <pre className="overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-[10px] leading-4 text-[var(--text-secondary)]">
                 {renderJson(data.raw_details)}
               </pre>
@@ -479,6 +540,5 @@ const ClassificationInvestigationDrawer: React.FC<Props> = ({
 };
 
 export default ClassificationInvestigationDrawer;
-
 
 

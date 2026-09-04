@@ -1,3 +1,7 @@
+// =============================================================
+// src/pages/tabs/counterparties/utils.ts
+// =============================================================
+
 import type {
   CountryStructureItem,
   CounterpartiesTotals,
@@ -9,6 +13,8 @@ import type {
   SortKey,
   SortState,
 } from "./types";
+
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 
 // ---------------------------------------------------------------------------
 // Risk / review tone helpers
@@ -26,20 +32,35 @@ export const riskBadgeLabel = (value: "yes" | "no" | "review"): string => {
   return "No";
 };
 
-export const buildRiskMeta = (item: CounterpartyAggregate): RiskMeta => {
+export const buildRiskMeta = (
+  item: CounterpartyAggregate,
+  tFn?: TranslateFn,
+): RiskMeta => {
   if (
     item.bankruptcyFlag ||
     item.sanctionsFlag ||
     item.contractValueUsdM > item.annualRevenueUsdM * 5
   ) {
-    return { label: "Высокий", tone: "high", rank: 3 };
+    return {
+      label: tFn ? tFn("labels.high", { defaultValue: "High" }) : "High",
+      tone: "high",
+      rank: 3,
+    };
   }
 
   if (item.litigationFlag || item.reviewStatus === "needs_review") {
-    return { label: "Средний", tone: "medium", rank: 2 };
+    return {
+      label: tFn ? tFn("labels.medium", { defaultValue: "Medium" }) : "Medium",
+      tone: "medium",
+      rank: 2,
+    };
   }
 
-  return { label: "Низкий", tone: "low", rank: 1 };
+  return {
+    label: tFn ? tFn("labels.low", { defaultValue: "Low" }) : "Low",
+    tone: "low",
+    rank: 1,
+  };
 };
 
 export const reviewTone = (
@@ -81,12 +102,14 @@ export const getNextSortState = (prev: SortState, key: SortKey): SortState => {
 
 export const sortCounterparties = (
   items: CounterpartyAggregate[],
-  sort: SortState
+  sort: SortState,
+  locale: string = "en-US",
+  tFn?: TranslateFn,
 ): CounterpartyAggregate[] => {
   const withMeta = items.map((item, index) => ({
     ...item,
     originalIndex: index + 1,
-    riskMeta: buildRiskMeta(item),
+    riskMeta: buildRiskMeta(item, tFn),
   }));
 
   const sorted = [...withMeta].sort((a, b) => {
@@ -97,10 +120,10 @@ export const sortCounterparties = (
         comparison = a.originalIndex - b.originalIndex;
         break;
       case "name":
-        comparison = a.name.localeCompare(b.name);
+        comparison = a.name.localeCompare(b.name, locale);
         break;
       case "country":
-        comparison = a.country.localeCompare(b.country);
+        comparison = a.country.localeCompare(b.country, locale);
         break;
       case "contractCount":
         comparison = a.contractCount - b.contractCount;
@@ -168,15 +191,39 @@ export const buildCountryStructure = (
 };
 
 export const buildCriticalCounterparties = (
-  items: CounterpartyAggregate[]
+  items: CounterpartyAggregate[],
+  tFn?: TranslateFn,
 ): CriticalCounterpartyItem[] =>
   items.reduce<CriticalCounterpartyItem[]>((acc, item) => {
     const reasons: string[] = [];
 
-    if (item.bankruptcyFlag) reasons.push("Признак банкротства / insolvency alert.");
-    if (item.sanctionsFlag) reasons.push("Совпадение с санкционным screening signal.");
+    if (item.bankruptcyFlag) {
+      reasons.push(
+        tFn
+          ? tFn("drilldown.criticalTable.reasonsList.bankruptcy", {
+              defaultValue: "Insolvency alert / bankruptcy indicator.",
+            })
+          : "Insolvency alert / bankruptcy indicator."
+      );
+    }
+    if (item.sanctionsFlag) {
+      reasons.push(
+        tFn
+          ? tFn("drilldown.criticalTable.reasonsList.sanctions", {
+              defaultValue: "Sanctions screening signal match.",
+            })
+          : "Sanctions screening signal match."
+      );
+    }
     if (item.contractValueUsdM > item.annualRevenueUsdM * 5) {
-      reasons.push("Сумма контрактов превышает годовую выручку более чем в 5 раз.");
+      reasons.push(
+        tFn
+          ? tFn("drilldown.criticalTable.reasonsList.revenueRatio", {
+              defaultValue:
+                "Total contract value exceeds annual revenue by more than 5 times.",
+            })
+          : "Total contract value exceeds annual revenue by more than 5 times."
+      );
     }
 
     if (reasons.length > 0) {

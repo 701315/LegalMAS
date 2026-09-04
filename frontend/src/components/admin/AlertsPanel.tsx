@@ -1,15 +1,16 @@
 // frontend/src/components/admin/AlertsPanel.tsx
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, Info, Loader2, RefreshCw } from "lucide-react";
 import { useTenantAlerts, type ActiveAlertDTO } from "../../api/alerts";
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function formatDateTime(value: string | null | undefined): string {
+function formatDateTime(value: string | null | undefined, locale: string): string {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleString("ru-RU", {
+    return new Date(value).toLocaleString(locale, {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -22,33 +23,35 @@ function formatDateTime(value: string | null | undefined): string {
   }
 }
 
-function formatDuration(startsAt: string): string {
+function formatDuration(startsAt: string, tFn: (key: string, options?: any) => string): string {
   try {
     const start = new Date(startsAt).getTime();
     const now = Date.now();
     const diffSec = Math.max(0, Math.floor((now - start) / 1000));
 
-    if (diffSec < 60) return `${diffSec}с`;
-    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}м`;
-    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}ч`;
-    return `${Math.floor(diffSec / 86400)}д`;
+    if (diffSec < 60) return tFn("alertsPanel.duration.seconds", { count: diffSec });
+    if (diffSec < 3600) return tFn("alertsPanel.duration.minutes", { count: Math.floor(diffSec / 60) });
+    if (diffSec < 86400) return tFn("alertsPanel.duration.hours", { count: Math.floor(diffSec / 3600) });
+    return tFn("alertsPanel.duration.days", { count: Math.floor(diffSec / 86400) });
   } catch {
     return "—";
   }
 }
 
 function SeverityBadge({ severity }: { severity: string }) {
+  const { t } = useTranslation("tenantAdmin");
+
   const config: Record<string, { label: string; cls: string }> = {
     critical: {
-      label: "CRITICAL",
+      label: t("alertsPanel.severity.critical"),
       cls: "status-border-error status-bg-error status-text-error",
     },
     warning: {
-      label: "WARNING",
+      label: t("alertsPanel.severity.warning"),
       cls: "status-border-warning status-bg-warning status-text-warning",
     },
     info: {
-      label: "INFO",
+      label: t("alertsPanel.severity.info"),
       cls: "border-[var(--color-blue)/20] bg-[var(--color-blue-highlight)] text-[var(--color-blue-strong)]",
     },
   };
@@ -84,6 +87,7 @@ function SourceBadge({ source }: { source: string | null }) {
 // ─── Alert card ──────────────────────────────────────────────
 
 function AlertCard({ alert }: { alert: ActiveAlertDTO }) {
+  const { t, i18n } = useTranslation("tenantAdmin");
   const [expanded, setExpanded] = React.useState(false);
 
   return (
@@ -124,9 +128,9 @@ function AlertCard({ alert }: { alert: ActiveAlertDTO }) {
           )}
 
           <div className="mt-1 flex flex-wrap items-center gap-3 text-[10px] text-[var(--text-muted)]">
-            <span>Начался: {formatDateTime(alert.starts_at)}</span>
-            <span>Длительность: {formatDuration(alert.starts_at)}</span>
-            <span>Состояние: {alert.state}</span>
+            <span>{t("alertsPanel.cards.started", { time: formatDateTime(alert.starts_at, i18n.language) })}</span>
+            <span>{t("alertsPanel.cards.duration", { duration: formatDuration(alert.starts_at, t) })}</span>
+            <span>{t("alertsPanel.cards.state", { state: alert.state })}</span>
           </div>
         </div>
 
@@ -140,7 +144,7 @@ function AlertCard({ alert }: { alert: ActiveAlertDTO }) {
           {alert.description && (
             <div className="mb-3">
               <p className="mb-1 font-medium text-[var(--text-secondary)]">
-                Описание:
+                {t("alertsPanel.cards.description")}
               </p>
               <p className="text-[var(--text-primary)]">{alert.description}</p>
             </div>
@@ -196,7 +200,7 @@ function AlertCard({ alert }: { alert: ActiveAlertDTO }) {
                   rel="noopener noreferrer"
                   className="text-[var(--accent-primary)] hover:underline"
                 >
-                  Открыть в источнике →
+                  {t("alertsPanel.cards.openInSource")}
                 </a>
               </div>
             )}
@@ -210,6 +214,7 @@ function AlertCard({ alert }: { alert: ActiveAlertDTO }) {
 // ─── Main panel ──────────────────────────────────────────────
 
 export function AlertsPanel() {
+  const { t, i18n } = useTranslation("tenantAdmin");
   const { data, isLoading, isFetching, error, refetch } = useTenantAlerts();
   const [severityFilter, setSeverityFilter] = React.useState<string>("all");
 
@@ -218,7 +223,7 @@ export function AlertsPanel() {
       <div className="flex items-center justify-center py-10">
         <Loader2 className="mr-2 animate-spin text-[var(--accent-primary)]" size={20} />
         <span className="text-sm text-[var(--text-muted)]">
-          Загружаем алерты…
+          {t("alertsPanel.loading")}
         </span>
       </div>
     );
@@ -227,7 +232,7 @@ export function AlertsPanel() {
   if (error || !data) {
     return (
       <div className="status-border-error status-bg-error status-text-error rounded-lg border p-4 text-sm">
-        Не удалось загрузить алерты. Проверьте что Alertmanager запущен.
+        {t("alertsPanel.loadError")}
       </div>
     );
   }
@@ -236,11 +241,10 @@ export function AlertsPanel() {
     return (
       <div className="status-border-warning status-bg-warning rounded-lg border p-4">
         <p className="text-sm font-medium status-text-warning">
-          Alertmanager недоступен
+          {t("alertsPanel.unavailable.title")}
         </p>
         <p className="mt-1 text-xs status-text-warning">
-          Убедитесь что контейнер mas_alertmanager запущен и доступен
-          по адресу из ALERTMANAGER_INTERNAL_URL.
+          {t("alertsPanel.unavailable.desc")}
         </p>
       </div>
     );
@@ -258,7 +262,7 @@ export function AlertsPanel() {
         <div className="flex items-center gap-3">
           <div className="status-border-error status-bg-error rounded-lg border px-3 py-2">
             <div className="text-[10px] font-medium uppercase status-text-error">
-              Critical
+              {t("alertsPanel.summary.critical")}
             </div>
             <div className="text-lg font-bold status-text-error">
               {data.critical_count}
@@ -266,7 +270,7 @@ export function AlertsPanel() {
           </div>
           <div className="status-border-warning status-bg-warning rounded-lg border px-3 py-2">
             <div className="text-[10px] font-medium uppercase status-text-warning">
-              Warning
+              {t("alertsPanel.summary.warning")}
             </div>
             <div className="text-lg font-bold status-text-warning">
               {data.warning_count}
@@ -274,7 +278,7 @@ export function AlertsPanel() {
           </div>
           <div className="rounded-lg border px-3 py-2 bg-[var(--color-blue-highlight)] border-[var(--color-blue)/20]">
             <div className="text-[10px] font-medium uppercase text-[var(--color-blue-strong)]">
-              Info
+              {t("alertsPanel.summary.info")}
             </div>
             <div className="text-lg font-bold text-[var(--color-blue-strong)]">
               {data.info_count}
@@ -282,7 +286,7 @@ export function AlertsPanel() {
           </div>
           <div className="rounded-lg border px-3 py-2 border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]">
             <div className="text-[10px] font-medium uppercase text-[var(--text-secondary)]">
-              Всего
+              {t("alertsPanel.summary.total")}
             </div>
             <div className="text-lg font-bold text-[var(--text-primary)]">
               {data.active_count}
@@ -294,12 +298,12 @@ export function AlertsPanel() {
           <select
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value)}
-            className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs"
+            className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)]"
           >
-            <option value="all">Все severity</option>
-            <option value="critical">Только critical</option>
-            <option value="warning">Только warning</option>
-            <option value="info">Только info</option>
+            <option value="all">{t("alertsPanel.severity.all")}</option>
+            <option value="critical">{t("alertsPanel.severity.onlyCritical")}</option>
+            <option value="warning">{t("alertsPanel.severity.onlyWarning")}</option>
+            <option value="info">{t("alertsPanel.severity.onlyInfo")}</option>
           </select>
 
           <button
@@ -312,7 +316,7 @@ export function AlertsPanel() {
               size={12}
               className={isFetching ? "animate-spin" : ""}
             />
-            Обновить
+            {t("actions.refresh", { ns: "common" })}
           </button>
         </div>
       </div>
@@ -322,11 +326,11 @@ export function AlertsPanel() {
         <div className="status-border-success status-bg-success rounded-lg border p-6 text-center">
           <p className="text-sm font-medium status-text-success">
             {data.active_count === 0
-              ? "Активных алертов нет"
-              : "Нет алертов с выбранным severity"}
+              ? t("alertsPanel.empty.noActive")
+              : t("alertsPanel.empty.noWithSeverity")}
           </p>
           <p className="mt-1 text-xs status-text-success">
-            Система работает нормально
+            {t("alertsPanel.empty.workingFine")}
           </p>
         </div>
       ) : (
@@ -338,13 +342,13 @@ export function AlertsPanel() {
       )}
 
       <p className="text-[10px] text-[var(--text-muted)]">
-        Обновление автоматически каждые 30 секунд · Последнее обновление:{" "}
-        {formatDateTime(data.collected_at)}
+        {t("alertsPanel.footer", { time: formatDateTime(data.collected_at, i18n.language) })}
       </p>
     </div>
   );
 }
 
 export default AlertsPanel;
+
 
 

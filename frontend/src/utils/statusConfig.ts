@@ -18,7 +18,7 @@ import type {
 export type StatusColor = "default" | "info" | "success" | "warning" | "error";
 
 export interface DocumentStatusConfig {
-  label: string; // Backward compatibility fallback (Russian)
+  label: string; // Backward compatibility fallback (English canonical)
   labelKey: string;
   color: StatusColor;
   tooltip?: string; // Backward compatibility fallback
@@ -28,7 +28,7 @@ export interface DocumentStatusConfig {
 }
 
 export interface RunStatusConfig {
-  label: string; // Backward compatibility fallback (Russian)
+  label: string; // Backward compatibility fallback (English canonical)
   labelKey: string;
   color: StatusColor;
 }
@@ -36,69 +36,69 @@ export interface RunStatusConfig {
 /** Маппинг статуса документа в подпись, i18n-ключ и цвет. */
 export const DOCUMENT_STATUS_CONFIG: Record<DocumentStatus, DocumentStatusConfig> = {
   pending: {
-    label: "Ожидает обработки",
+    label: "Pending",
     labelKey: "pipeline:documentStatuses.pending",
     color: "default",
   },
   extracting: {
-    label: "Извлечение текста",
+    label: "Extracting text",
     labelKey: "pipeline:documentStatuses.extracting",
     color: "info",
   },
   extracted: {
-    label: "Текст извлечён",
+    label: "Text extracted",
     labelKey: "pipeline:documentStatuses.extracted",
     color: "info",
   },
   sanitized: {
-    label: "PII скрыты",
+    label: "PII redacted",
     labelKey: "pipeline:documentStatuses.sanitized",
     color: "info",
   },
   structured: {
-    label: "Structure built", // stable fallback
+    label: "Structure built",
     labelKey: "pipeline:documentStatuses.structured",
     color: "info",
   },
   classified: {
-    label: "Классификация выполнена",
+    label: "Classified",
     labelKey: "pipeline:documentStatuses.classified",
     color: "info",
   },
   analyzing: {
-    label: "Выполняются проверки",
+    label: "Running checks",
     labelKey: "pipeline:documentStatuses.analyzing",
     color: "info",
   },
   completed: {
-    label: "Проверки выполнены",
+    label: "Checks complete",
     labelKey: "pipeline:documentStatuses.completed",
     color: "success",
   },
   quarantine: {
-    label: "Карантин (нужна проверка)",
+    label: "Quarantine (review needed)",
     labelKey: "pipeline:documentStatuses.quarantine",
     color: "warning",
   },
   failed: {
-    label: "Ошибка обработки",
+    label: "Processing error",
     labelKey: "pipeline:documentStatuses.failed",
     color: "error",
   },
   duplicate: {
-    label: "Дубликат",
+    label: "Duplicate",
     labelKey: "pipeline:documentStatuses.duplicate",
     color: "default",
   },
   language_selection_required: {
-    label: "Нужно выбрать язык",
+    label: "Language selection required",
     labelKey: "pipeline:documentStatuses.language_selection_required.label",
     color: "warning",
     tooltip:
-      "Загрузка документов завершена. Дальнейшая обработка для многоязычных документов остановлена до выбора основного языка проверки. По умолчанию выбран русский язык.",
+      "Document upload is complete. Further processing for multilingual documents is paused until the primary analysis language is selected. Russian is selected by default.",
     tooltipKey: "pipeline:documentStatuses.language_selection_required.tooltip",
     description:
-      "Загрузка документов завершена. Для документов, в которых определено несколько языков, дальнейшая обработка — приведение к одноязычности по выбранному основному языку проверки, а также экстракция, санитизация, построение структуры, чанкинг и классификация — не будет продолжена, пока не выбран основной язык проверки. По умолчанию установлен русский язык.",
+      "Document upload is complete. For documents with multiple detected languages, further processing — monolingual conversion to the selected primary language, as well as extraction, sanitization, structure building, chunking, and classification — will not continue until the primary analysis language is chosen. Russian is set by default.",
     descriptionKey: "pipeline:documentStatuses.language_selection_required.description",
   },
 };
@@ -106,46 +106,46 @@ export const DOCUMENT_STATUS_CONFIG: Record<DocumentStatus, DocumentStatusConfig
 /** Маппинг статуса Run в подпись, i18n-ключ и цвет. */
 export const RUN_STATUS_CONFIG: Record<RunStatus, RunStatusConfig> = {
   pending: {
-    label: "Ожидает запуска",
+    label: "Pending",
     labelKey: "pipeline:runStatuses.pending",
     color: "default",
   },
   running: {
-    label: "Выполняется",
+    label: "Running",
     labelKey: "pipeline:runStatuses.running",
     color: "info",
   },
   completed: {
-    label: "Завершён",
+    label: "Completed",
     labelKey: "pipeline:runStatuses.completed",
     color: "success",
   },
   completed_with_errors: {
-    label: "Завершён с ошибками",
+    label: "Completed with errors",
     labelKey: "pipeline:runStatuses.completed_with_errors",
     color: "warning",
   },
   failed: {
-    label: "Не удалось выполнить",
+    label: "Failed",
     labelKey: "pipeline:runStatuses.failed",
     color: "error",
   },
   cancelled: {
-    label: "Отменён",
+    label: "Cancelled",
     labelKey: "pipeline:runStatuses.cancelled",
     color: "default",
   },
 };
 
-/** Человекочитаемые названия стадий пайплайна из processing_error_details.stage. */
+/** Человекочитаемые названия стадий пайплайна из processing_error_details.stage (English canonical). */
 const STAGE_LABELS: Record<string, string> = {
-  import: "Импорт файла",
-  extract: "Извлечение текста",
-  pii: "Скрытие персональных данных",
-  structure: "Построение структуры",
-  classify: "Классификация",
-  checks: "Проверки по плейбуку",
-  export: "Формирование отчёта",
+  import: "File import",
+  extract: "Text extraction",
+  pii: "PII redaction",
+  structure: "Structure building",
+  classify: "Classification",
+  checks: "Playbook checks",
+  export: "Report generation",
 };
 
 /**
@@ -159,7 +159,7 @@ export function getErrorStageLabel(
   tFn?: (key: string, options?: Record<string, unknown>) => string,
 ): string {
   if (!details || !details.stage) {
-    return tFn ? tFn("pipeline:stages.unknown") : "Неизвестная стадия";
+    return tFn ? tFn("pipeline:stages.unknown") : "Unknown stage";
   }
   if (tFn) {
     const key = `pipeline:stages.${details.stage}`;

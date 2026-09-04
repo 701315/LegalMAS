@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { CheckResultValue, SeverityLevel } from "../../types";
 
 interface BulkQCBarProps {
@@ -16,19 +17,19 @@ interface BulkQCBarProps {
   }) => void;
 }
 
-const SEVERITY_OPTIONS: { value: SeverityLevel; label: string }[] = [
-  { value: "critical", label: "Critical" },
-  { value: "high", label: "High" },
-  { value: "medium", label: "Medium" },
-  { value: "pass", label: "Pass" },
-  { value: "unclear", label: "Unclear" },
+const SEVERITY_KEYS: Array<{ value: SeverityLevel; labelKey: string }> = [
+  { value: "critical", labelKey: "bulkQcBar.severities.critical" },
+  { value: "high", labelKey: "bulkQcBar.severities.high" },
+  { value: "medium", labelKey: "bulkQcBar.severities.medium" },
+  { value: "pass", labelKey: "bulkQcBar.severities.pass" },
+  { value: "unclear", labelKey: "bulkQcBar.severities.unclear" },
 ];
 
-const RESULT_OPTIONS: { value: CheckResultValue | ""; label: string }[] = [
-  { value: "", label: "Не менять result" },
-  { value: "pass", label: "Pass" },
-  { value: "fail", label: "Fail" },
-  { value: "unclear", label: "Unclear" },
+const RESULT_KEYS: Array<{ value: CheckResultValue | ""; labelKey: string }> = [
+  { value: "", labelKey: "bulkQcBar.results.keep" },
+  { value: "pass", labelKey: "bulkQcBar.results.pass" },
+  { value: "fail", labelKey: "bulkQcBar.results.fail" },
+  { value: "unclear", labelKey: "bulkQcBar.results.unclear" },
 ];
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -41,6 +42,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
   onReject,
   onOverride,
 }) => {
+  const { t } = useTranslation("ddGrid");
   const [comment, setComment] = React.useState("");
   const [showOverride, setShowOverride] = React.useState(false);
   const [newSeverity, setNewSeverity] = React.useState<SeverityLevel>("medium");
@@ -77,7 +79,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <span className="text-[var(--text-secondary)]">
-            Выбрано результатов:{" "}
+            {t("bulkQcBar.selectedResults")}
           </span>
           <span className="font-semibold text-[var(--text-primary)]">
             {selectedCount}
@@ -89,7 +91,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
             type="text"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Комментарий QC (опционально)…"
+            placeholder={t("bulkQcBar.commentPlaceholder")}
             className="w-64 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
           />
 
@@ -105,7 +107,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
             onClick={handleConfirm}
             disabled={disabled}
           >
-            Подтвердить
+            {t("bulkQcBar.confirm")}
           </button>
 
           <button
@@ -120,7 +122,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
             onClick={handleReject}
             disabled={disabled}
           >
-            Отклонить
+            {t("bulkQcBar.reject")}
           </button>
 
           {onOverride && (
@@ -137,7 +139,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
               onClick={() => setShowOverride((v) => !v)}
               disabled={disabled}
             >
-              Override…
+              {t("bulkQcBar.override")}
             </button>
           )}
         </div>
@@ -150,7 +152,9 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
 
           {/* Severity */}
           <div className="flex items-center gap-1">
-            <label className="text-[var(--text-secondary)]">Severity:</label>
+            <label className="text-[var(--text-secondary)]">
+              {t("bulkQcBar.severityLabel")}
+            </label>
             <select
               className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               value={newSeverity}
@@ -158,9 +162,9 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
                 setNewSeverity(e.target.value as SeverityLevel)
               }
             >
-              {SEVERITY_OPTIONS.map((opt) => (
+              {SEVERITY_KEYS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </option>
               ))}
             </select>
@@ -168,7 +172,9 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
 
           {/* Result */}
           <div className="flex items-center gap-1">
-            <label className="text-[var(--text-secondary)]">Result:</label>
+            <label className="text-[var(--text-secondary)]">
+              {t("bulkQcBar.resultLabel")}
+            </label>
             <select
               className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               value={newResult}
@@ -176,9 +182,9 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
                 setNewResult(e.target.value as CheckResultValue | "")
               }
             >
-              {RESULT_OPTIONS.map((opt) => (
+              {RESULT_KEYS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </option>
               ))}
             </select>
@@ -194,7 +200,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
             onClick={handleOverride}
             disabled={disabled}
           >
-            Применить override
+            {t("bulkQcBar.applyOverride")}
           </button>
 
           <button
@@ -202,7 +208,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
             className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             onClick={() => setShowOverride(false)}
           >
-            Отмена
+            {t("bulkQcBar.cancel")}
           </button>
         </div>
       )}
@@ -211,6 +217,5 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
 };
 
 export default BulkQCBar;
-
 
 

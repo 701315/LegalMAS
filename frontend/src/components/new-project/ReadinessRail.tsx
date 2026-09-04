@@ -8,8 +8,19 @@
 //   2. Сводка проекта       — текущие значения параметров
 // =============================================================
 
+// =============================================================
+// src/components/new-project/ReadinessRail.tsx
+//
+// Правая колонка страницы "Запуск нового проекта".
+//
+// Содержит:
+//   1. Готовность к запуску — обязательные условия
+//   2. Сводка проекта       — текущие значения параметров
+// =============================================================
+
 import React from "react";
 import { Check, Circle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import FlowSummary from "./FlowSummary";
 import type { FlowSummaryData } from "./FlowSummary";
@@ -75,6 +86,8 @@ const ReadinessRail: React.FC<ReadinessRailProps> = ({
   readiness,
   summary,
 }) => {
+  const { t } = useTranslation("projects");
+
   const allReady =
     readiness.hasProject &&
     readiness.hasDocuments &&
@@ -86,31 +99,31 @@ const ReadinessRail: React.FC<ReadinessRailProps> = ({
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Готовность к запуску
+            {t("newProject.readinessRail.title")}
           </h3>
 
           {allReady ? (
             <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success-text)]">
-              Готов
+              {t("newProject.readinessRail.readyBadge")}
             </span>
           ) : null}
         </div>
 
         <div className="divide-y divide-[var(--border-subtle)]">
           <ReadinessItem
-            label="Проект создан"
+            label={t("newProject.readinessRail.items.hasProject")}
             isDone={readiness.hasProject}
           />
           <ReadinessItem
-            label="Документы загружены"
+            label={t("newProject.readinessRail.items.hasDocuments")}
             isDone={readiness.hasDocuments}
           />
           <ReadinessItem
-            label="Playbook выбран"
+            label={t("newProject.readinessRail.items.hasPlaybook")}
             isDone={readiness.hasPlaybook}
           />
           <ReadinessItem
-            label="Основной язык выбран"
+            label={t("newProject.readinessRail.items.hasLanguage")}
             isDone={readiness.hasLanguage}
           />
         </div>
@@ -122,5 +135,6 @@ const ReadinessRail: React.FC<ReadinessRailProps> = ({
 };
 
 export default ReadinessRail;
+
 
 

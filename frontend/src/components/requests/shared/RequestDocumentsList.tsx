@@ -5,6 +5,7 @@
 
 import React from "react";
 import { FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { DocumentView } from "../../../viewAdapters/requestPresentation";
 
 interface RequestDocumentsListProps {
@@ -17,19 +18,18 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-/**
- * Отображает список документов запроса.
- */
 export const RequestDocumentsList: React.FC<RequestDocumentsListProps> = ({
   documents,
   maxVisible = 10,
   compact = false,
 }) => {
+  const { t } = useTranslation("requests");
+
   if (documents.length === 0) {
     return (
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 py-3">
         <p className="text-[12px] text-[var(--text-muted)]">
-          Документы не указаны
+          {t("shared.documentsList.empty")}
         </p>
       </div>
     );
@@ -96,8 +96,11 @@ export const RequestDocumentsList: React.FC<RequestDocumentsListProps> = ({
       {remainingCount > 0 && (
         <div className="px-2 pt-2">
           <p className="text-center text-[12px] text-[var(--text-muted)]">
-            Показано {visibleDocuments.length} из {documents.length} · ещё{" "}
-            {remainingCount}
+            {t("shared.documentsList.shownCount", {
+              visible: visibleDocuments.length,
+              total: documents.length,
+              remaining: remainingCount,
+            })}
           </p>
         </div>
       )}
@@ -106,4 +109,6 @@ export const RequestDocumentsList: React.FC<RequestDocumentsListProps> = ({
 };
 
 export default RequestDocumentsList;
+
+
 
