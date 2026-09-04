@@ -1,3 +1,5 @@
+# src/services/export/summary_builder.py
+
 """
 Построитель Excel-отчёта Deal Summary по результатам одного Run.
 
@@ -12,7 +14,10 @@
   - Никакой зависимости от aggregator.py
   - Чтение напрямую из check_results + documents + checks_by_id
   - Детерминированный порядок секций и сортировка
+  - Декларативная локализация через core.i18n.export_translator
 """
+
+from __future__ import annotations
 
 import io
 from collections import defaultdict
@@ -22,6 +27,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 from core.config import settings
+from core.i18n.export_translator import t_export
 from core.logging import get_logger
 from engine.playbook.models import CheckDefinition
 
@@ -119,6 +125,7 @@ def _get_top_risks(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     limit: int = 50,
+    locale: str = "en",
 ) -> list[dict]:
     """Получить топ рисков из check_results."""
     severity_order = {"critical": 0, "high": 1, "medium": 2}
@@ -141,8 +148,8 @@ def _get_top_risks(
         risks.append({
             "check_name": cr.get("check_name", ""),
             "severity": cr.get("severity", "medium"),
-            "document_name": doc_info.get("name", "Unknown"),
-            "doc_type": doc_info.get("doc_type", "Generic"),
+            "document_name": doc_info.get("name", t_export("fallback.unknown", locale)),
+            "doc_type": doc_info.get("doc_type", t_export("fallback.generic", locale)),
             "clause_uid": cr.get("clause_uid", ""),
             "page": cr.get("page"),
             "evidence_snippet": (cr.get("display_text") or cr.get("value_text", ""))[:200],
@@ -157,6 +164,7 @@ def _get_top_risks(
 def _build_doc_type_summaries(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
+    locale: str = "en",
 ) -> list[dict]:
     """Построить сводки по типам документов."""
     by_type: dict[str, dict] = defaultdict(lambda: {
@@ -172,10 +180,9 @@ def _build_doc_type_summaries(
         "low_confidence_count": 0,
     })
 
-    # Сбор данных из check_results
     for cr in check_results:
         doc_id = cr.get("document_id", "")
-        doc_type = documents.get(doc_id, {}).get("doc_type", "Generic")
+        doc_type = documents.get(doc_id, {}).get("doc_type", t_export("fallback.generic", locale))
 
         by_type[doc_type]["documents"].add(doc_id)
         by_type[doc_type]["checks"].add(cr.get("check_id", ""))
@@ -194,9 +201,8 @@ def _build_doc_type_summaries(
         if cr.get("conditional_check_triggered") and result == "fail":
             by_type[doc_type]["conditional_fail"] += 1
 
-    # Сбор данных о классификации из documents
     for doc_id, doc_info in documents.items():
-        doc_type = doc_info.get("doc_type", "Generic")
+        doc_type = doc_info.get("doc_type", t_export("fallback.generic", locale))
         conf = doc_info.get("classification_confidence", 0.0)
         if conf:
             by_type[doc_type]["confidences"].append(conf)
@@ -230,6 +236,7 @@ def _build_dd_requests_for_summary(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     checks_by_id: dict[str, CheckDefinition],
+    locale: str = "en",
 ) -> list[dict]:
     """Построить DD requests для Summary (аналогично Word Report)."""
     from services.export.dd_request_loader import get_dd_request_loader
@@ -282,8 +289,8 @@ def _build_dd_requests_for_summary(
             if missing_required:
                 triggered_docs.append({
                     "document_id": doc_id,
-                    "document_name": documents.get(doc_id, {}).get("name", "Unknown"),
-                    "doc_type": documents.get(doc_id, {}).get("doc_type", "Generic"),
+                    "document_name": documents.get(doc_id, {}).get("name", t_export("fallback.unknown", locale)),
+                    "doc_type": documents.get(doc_id, {}).get("doc_type", t_export("fallback.generic", locale)),
                     "structured_data": structured_data,
                 })
 
@@ -329,6 +336,7 @@ def _get_extracted_values(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     limit: int = 500,
+    locale: str = "en",
 ) -> list[dict]:
     """Извлечь structured values для Classification Quality sheet."""
     rows = []
@@ -348,8 +356,8 @@ def _get_extracted_values(
                 continue
 
             rows.append({
-                "document_name": doc_info.get("name", "Unknown"),
-                "doc_type": doc_info.get("doc_type", "Generic"),
+                "document_name": doc_info.get("name", t_export("fallback.unknown", locale)),
+                "doc_type": doc_info.get("doc_type", t_export("fallback.generic", locale)),
                 "field_name": field_name,
                 "field_value": str(raw_display_value),
             })
@@ -375,6 +383,7 @@ def build_summary_excel(
     deal_name: str,
     checks_mode: str = "",
     pipeline_strategy: str = "",
+    locale: str = "en",
 ) -> bytes:
     """
     Построить Excel-файл Deal Summary по результатам одного Run.
@@ -390,13 +399,14 @@ def build_summary_excel(
         deal_name=deal_name,
         checks_mode=checks_mode,
         pipeline_strategy=pipeline_strategy,
+        locale=locale,
     )
-    _build_top_risks_sheet(wb, check_results, documents)
-    _build_by_type_sheet(wb, check_results, documents)
-    _build_requests_sheet(wb, check_results, documents, checks_by_id)
+    _build_top_risks_sheet(wb, check_results, documents, locale=locale)
+    _build_by_type_sheet(wb, check_results, documents, locale=locale)
+    _build_requests_sheet(wb, check_results, documents, checks_by_id, locale=locale)
 
     if settings.EXPORT_CLASSIFICATION_METADATA:
-        _build_classification_quality_sheet(wb, check_results, documents)
+        _build_classification_quality_sheet(wb, check_results, documents, locale=locale)
 
     if "Sheet" in wb.sheetnames:
         del wb["Sheet"]
@@ -404,7 +414,7 @@ def build_summary_excel(
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
-    logger.info("Deal Summary Excel built (V1 path)", sheets=len(wb.sheetnames))
+    logger.info("Deal Summary Excel built (V1 path)", sheets=len(wb.sheetnames), locale=locale)
     return output.read()
 
 
@@ -421,20 +431,20 @@ def _build_overview_sheet(
     deal_name: str,
     checks_mode: str = "",
     pipeline_strategy: str = "",
+    locale: str = "en",
 ) -> None:
     ws = wb.active
-    ws.title = "Overview"
+    ws.title = t_export("sheets.overview", locale)
     ws.column_dimensions["A"].width = 42
     ws.column_dimensions["B"].width = 22
 
-    ws.cell(row=1, column=1, value=f"Deal Summary: {deal_name}").font = _FONT_TITLE
+    ws.cell(row=1, column=1, value=t_export("summary.title", locale, deal_name=deal_name)).font = _FONT_TITLE
 
-    # Строка с режимом и стратегией Run
     meta_parts: list[str] = []
     if checks_mode:
-        meta_parts.append(f"Режим проверок: {checks_mode}")
+        meta_parts.append(t_export("summary.checks_mode", locale, checks_mode=checks_mode))
     if pipeline_strategy:
-        meta_parts.append(f"Стратегия пайплайна: {pipeline_strategy}")
+        meta_parts.append(t_export("summary.pipeline_strategy", locale, pipeline_strategy=pipeline_strategy))
 
     if meta_parts:
         meta_text = " | ".join(meta_parts)
@@ -445,21 +455,21 @@ def _build_overview_sheet(
     counts = _count_severity(check_results)
     conditional_stats = _count_conditional(check_results)
     quality_metrics = _count_quality_metrics(check_results, documents)
-    extracted_values = _get_extracted_values(check_results, documents, limit=1)
+    extracted_values = _get_extracted_values(check_results, documents, limit=1, locale=locale)
 
     data = [
-        ("Документов", len(documents)),
-        ("Проверок выполнено", len(check_results)),
+        (t_export("summary.total_documents", locale), len(documents)),
+        (t_export("summary.total_checks", locale), len(check_results)),
         ("Critical", counts["critical"]),
         ("High", counts["high"]),
         ("Medium", counts["medium"]),
         ("Pass", counts["pass"]),
         ("Unclear", counts["unclear"]),
-        ("В карантине", quality_metrics["quarantine_count"]),
-        ("DD Requests", 0),  # Будет заполнено в _build_requests_sheet
-        ("Evidence validity", f"{quality_metrics['evidence_validity_rate']:.0%}"),
-        ("Условных проверок (FAIL)", conditional_stats["triggered_fail"]),
-        ("Извлечённых значений", len(extracted_values)),
+        (t_export("summary.in_quarantine", locale), quality_metrics["quarantine_count"]),
+        (t_export("summary.dd_requests", locale), 0),  # Заполняется в _build_requests_sheet
+        (t_export("summary.evidence_validity", locale), f"{quality_metrics['evidence_validity_rate']:.0%}"),
+        (t_export("summary.conditional_fail", locale), conditional_stats["triggered_fail"]),
+        (t_export("summary.extracted_values", locale), len(extracted_values)),
     ]
 
     start_row = 4
@@ -472,20 +482,21 @@ def _build_top_risks_sheet(
     wb: Workbook,
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
+    locale: str = "en",
 ) -> None:
-    ws = wb.create_sheet("Top Risks")
+    ws = wb.create_sheet(t_export("sheets.top_risks", locale))
 
     headers = [
         "#",
         "Severity",
-        "Проверка",
-        "Документ",
-        "Тип",
-        "Evidence",
-        "Стр.",
-        "Пункт",
-        "Структ. данные",
-        "Триггер",
+        t_export("columns.check", locale),
+        t_export("columns.document", locale),
+        t_export("columns.doc_type_short", locale),
+        t_export("columns.evidence", locale),
+        t_export("columns.page", locale),
+        t_export("columns.clause", locale),
+        t_export("columns.structured_data", locale),
+        t_export("columns.trigger", locale),
     ]
     widths = [5, 12, 30, 30, 12, 45, 6, 10, 25, 18]
 
@@ -493,7 +504,7 @@ def _build_top_risks_sheet(
         ws.cell(row=1, column=col, value=h).font = _FONT_HEADER
         ws.column_dimensions[chr(64 + col)].width = w
 
-    risks = _get_top_risks(check_results, documents, limit=50)
+    risks = _get_top_risks(check_results, documents, limit=50, locale=locale)
 
     for i, risk in enumerate(risks, 2):
         ws.cell(row=i, column=1, value=i - 1)
@@ -520,21 +531,22 @@ def _build_by_type_sheet(
     wb: Workbook,
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
+    locale: str = "en",
 ) -> None:
-    ws = wb.create_sheet("By Doc Type")
+    ws = wb.create_sheet(t_export("sheets.by_doc_type", locale))
 
     headers = [
-        "Тип документа",
-        "Документов",
-        "Проверок",
+        t_export("columns.doc_type", locale),
+        t_export("columns.documents_count", locale),
+        t_export("columns.checks_count", locale),
         "Critical",
         "High",
         "Medium",
         "Pass",
         "Unclear",
-        "Avg Conf. класс.",
-        "Низк. уверен.",
-        "Условн. FAIL",
+        t_export("columns.avg_conf", locale),
+        t_export("columns.low_conf", locale),
+        t_export("columns.conditional_fail", locale),
     ]
     widths = [22, 12, 12, 10, 10, 10, 10, 10, 16, 14, 14]
 
@@ -542,7 +554,7 @@ def _build_by_type_sheet(
         ws.cell(row=1, column=col, value=h).font = _FONT_HEADER
         ws.column_dimensions[chr(64 + col)].width = w
 
-    summaries = _build_doc_type_summaries(check_results, documents)
+    summaries = _build_doc_type_summaries(check_results, documents, locale=locale)
 
     for row_num, summary in enumerate(summaries, 2):
         ws.cell(row=row_num, column=1, value=summary["doc_type"])
@@ -571,18 +583,19 @@ def _build_requests_sheet(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     checks_by_id: dict[str, CheckDefinition],
+    locale: str = "en",
 ) -> None:
-    ws = wb.create_sheet("Request List")
+    ws = wb.create_sheet(t_export("sheets.request_list", locale))
 
     headers = [
         "#",
         "Priority",
-        "Проверка",
-        "Адресат",
-        "Текст запроса",
-        "Типы документов",
-        "Документы",
-        "Кол-во",
+        t_export("columns.check", locale),
+        t_export("columns.addressee", locale),
+        t_export("columns.request_text", locale),
+        t_export("columns.doc_types", locale),
+        t_export("columns.documents", locale),
+        t_export("columns.count", locale),
     ]
     widths = [5, 12, 25, 25, 55, 20, 35, 8]
 
@@ -590,14 +603,17 @@ def _build_requests_sheet(
         ws.cell(row=1, column=col, value=h).font = _FONT_HEADER
         ws.column_dimensions[chr(64 + col)].width = w
 
-    requests = _build_dd_requests_for_summary(check_results, documents, checks_by_id)
+    requests = _build_dd_requests_for_summary(check_results, documents, checks_by_id, locale=locale)
 
     # Обновляем счётчик в Overview
-    overview_ws = wb["Overview"]
-    for row in range(4, 20):
-        if overview_ws.cell(row=row, column=1).value == "DD Requests":
-            overview_ws.cell(row=row, column=2, value=len(requests))
-            break
+    overview_sheet_name = t_export("sheets.overview", locale)
+    if overview_sheet_name in wb.sheetnames:
+        overview_ws = wb[overview_sheet_name]
+        dd_requests_label = t_export("summary.dd_requests", locale)
+        for row in range(4, 20):
+            if overview_ws.cell(row=row, column=1).value == dd_requests_label:
+                overview_ws.cell(row=row, column=2, value=len(requests))
+                break
 
     for i, req in enumerate(requests, 2):
         ws.cell(row=i, column=1, value=i - 1)
@@ -617,17 +633,18 @@ def _build_classification_quality_sheet(
     wb: Workbook,
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
+    locale: str = "en",
 ) -> None:
     """Sheet showing per-document classification quality."""
-    ws = wb.create_sheet("Classification Quality")
+    ws = wb.create_sheet(t_export("sheets.classification_quality", locale))
     ws.freeze_panes = "A2"
 
     headers = [
-        "Документ",
-        "Тип документа",
-        "Уровень классиф.",
-        "Confidence",
-        "Применённые триггеры",
+        t_export("columns.document", locale),
+        t_export("columns.doc_type", locale),
+        t_export("columns.class_level", locale),
+        t_export("columns.confidence", locale),
+        t_export("columns.applied_triggers", locale),
     ]
     widths = [40, 22, 18, 14, 35]
 
@@ -635,7 +652,6 @@ def _build_classification_quality_sheet(
         ws.cell(row=1, column=col, value=h).font = _FONT_HEADER
         ws.column_dimensions[chr(64 + col)].width = w
 
-    # Собираем unique документы
     seen = {}
     for cr in check_results:
         doc_id = cr.get("document_id", "")
@@ -643,13 +659,12 @@ def _build_classification_quality_sheet(
             doc_info = documents.get(doc_id, {})
             seen[doc_id] = {
                 "document_id": doc_id,
-                "document_name": doc_info.get("name", "Unknown"),
-                "doc_type": doc_info.get("doc_type", "Generic"),
+                "document_name": doc_info.get("name", t_export("fallback.unknown", locale)),
+                "doc_type": doc_info.get("doc_type", t_export("fallback.generic", locale)),
                 "classification_level": doc_info.get("classification_level", ""),
                 "classification_confidence": doc_info.get("classification_confidence", 0.0),
             }
 
-    # Собираем триггеры
     triggers_by_doc: dict[str, list[str]] = defaultdict(list)
     for cr in check_results:
         if cr.get("conditional_check_triggered") and cr.get("trigger_name"):

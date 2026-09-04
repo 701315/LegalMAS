@@ -1,0 +1,121 @@
+{
+  "sheets": {
+    "grid": "DD Grid",
+    "matrix": "DD Matrix",
+    "summary": "Summary",
+    "overview": "Overview",
+    "top_risks": "Top Risks",
+    "by_doc_type": "By Doc Type",
+    "request_list": "Request List",
+    "classification_quality": "Classification Quality",
+    "conditional": "Conditional Checks",
+    "extracted": "Extracted Values"
+  },
+  "columns": {
+    "document": "Документ",
+    "segment": "Сегмент",
+    "doc_type": "Тип документа",
+    "doc_type_short": "Тип",
+    "check": "Проверка",
+    "column": "Колонка",
+    "state": "Состояние",
+    "value": "Значение",
+    "page": "Стр.",
+    "clause": "Пункт",
+    "trigger": "Триггер",
+    "result": "Результат",
+    "severity": "Severity",
+    "evidence": "Evidence",
+    "confidence": "Confidence",
+    "field": "Поле",
+    "format": "Формат",
+    "documents_count": "Документов",
+    "checks_count": "Проверок",
+    "conditional_fail": "Условных FAIL",
+    "structured_data": "Структ. данные",
+    "avg_conf": "Avg Conf. класс.",
+    "low_conf": "Низк. уверен.",
+    "addressee": "Адресат",
+    "request_text": "Текст запроса",
+    "doc_types": "Типы документов",
+    "documents": "Документы",
+    "count": "Кол-во",
+    "class_level": "Уровень классиф.",
+    "applied_triggers": "Применённые триггеры"
+  },
+  "matrix": {
+    "no_data": "Нет данных для матрицы",
+    "no_checks": "Нет проверок для матрицы"
+  },
+  "state": {
+    "error": "⚠ Ошибка",
+    "not_defined": "✗ Не найдено",
+    "not_executed": "⏳ Ожидает",
+    "defined": "✓ OK"
+  },
+  "summary": {
+    "title": "DD Summary: {deal_name}",
+    "checks_mode": "Режим проверок: {checks_mode}",
+    "pipeline_strategy": "Стратегия пайплайна: {pipeline_strategy}",
+    "total_documents": "Документов",
+    "total_checks": "Проверок выполнено",
+    "in_quarantine": "В карантине",
+    "dd_requests": "DD Requests",
+    "evidence_validity": "Evidence validity",
+    "conditional_total": "Условных проверок (всего)",
+    "conditional_fail": "Условных проверок (FAIL)",
+    "extracted_values": "Извлечённых значений"
+  },
+  "report": {
+    "title": "ОТЧЁТ О ЮРИДИЧЕСКОМ DUE DILIGENCE",
+    "profile": "Профиль анализа: {profile}",
+    "date": "Дата: {date}",
+    "playbook": "Playbook: v{version}",
+    "run_id": "Run ID: {run_id}",
+    "checks_mode": "Режим проверок: {mode}",
+    "pipeline_strategy": "Стратегия пайплайна: {strategy}",
+
+    "sec1_title": "1. Executive Summary",
+    "sec2_title": "2. Критические находки",
+    "sec3_title": "3. Качество анализа",
+    "sec4_title": "4. Условные проверки",
+    "sec5_title": "5. Извлечённые значения",
+    "appA_title": "Приложение A. Список запросов",
+
+    "summary_scope": "В рамках анализа проверено {doc_count} документов, выполнено {check_count} проверок.",
+    "summary_conditional": "Выявлены и проверены {total} условных проверок (triggered checks), из которых {fail_count} завершились с результатом FAIL.",
+    "total": "Итого",
+    "assessment_critical": "⚠️ ВЫЯВЛЕНЫ КРИТИЧЕСКИЕ РИСКИ ({count}). Рекомендуется немедленная проработка с юридической командой.",
+    "assessment_high": "Выявлены существенные риски ({count} high). Рекомендуется детальный анализ до закрытия сделки.",
+    "assessment_none": "Критических и существенных рисков не выявлено.",
+
+    "document_label": "Документ: {doc_name} ({doc_type})",
+    "clause_page": "Пункт: {clause}, стр. {page}",
+    "clause_only": "Пункт: {clause}",
+    "page_only": "стр. {page}",
+    "extracted_data": "Извлечённые данные: {data}",
+    "triggered_by": "ℹ️ Проверка активирована триггером: «{trigger_name}»",
+
+    "quarantine_docs": "Документов в карантине: {count}",
+    "degraded_docs": "Документов с degraded структурой: {count}",
+    "evidence_validity_rate": "Evidence validity rate: {rate}",
+    "quarantine_warning": "⚠️ Документы в карантине не были проанализированы. Рекомендуется загрузить текстовые версии для повторного анализа.",
+
+    "conditional_desc": "Следующие проверки были активированы автоматически на основании триггеров, определённых в YAML‑инструкциях типов документов (conditional_checks).",
+    "no_conditional_violations": "Нарушений по условным проверкам не выявлено.",
+
+    "extracted_desc": "В ходе анализа из документов были извлечены следующие структурированные значения (суммы, даты, стороны и пр.).",
+
+    "no_requests": "Запросы не сформированы.",
+    "addressee": "Адресат: {addressee}",
+    "documents_count": "Документы ({count}): {names}",
+    "linked_values": "Связанные значения: {values}"
+  },
+  "fallback": {
+    "unknown": "Unknown",
+    "generic": "Generic",
+    "na": "n/a"
+  }
+}
+
+

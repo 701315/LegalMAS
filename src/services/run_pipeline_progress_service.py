@@ -42,13 +42,14 @@ PIPELINE_STEPS_ORDER = [
     "finalization",
 ]
 
+# Canonical English fallback titles (UI localizes by step.code on frontend)
 STEP_TITLES = {
-    "document_preparation": "Подготовка документа",
-    "document_structure": "Построение структуры",
-    "document_classification": "Классификация",
-    "semantic_enrichment": "Семантическое обогащение",
-    "deal_checks": "DD-проверки",
-    "finalization": "Финализация",
+    "document_preparation": "Document preparation",
+    "document_structure": "Structure building",
+    "document_classification": "Classification",
+    "semantic_enrichment": "Semantic enrichment",
+    "deal_checks": "DD checks",
+    "finalization": "Finalization",
 }
 
 STEP_TASKS = {
@@ -70,15 +71,16 @@ STEP_TASKS = {
     ],
 }
 
+# Canonical English fallback substep titles
 SUBSTEP_TITLES = {
-    "workers.build_primary_language_source": "Подготовка основного источника",
-    "workers.extract_document": "Извлечение текста",
-    "pii.sanitize_document": "Санитизация документа",
-    "workers.build_structure": "Построение структуры",
-    "workers.build_chunks": "Построение чанков",
-    "workers.classify_document": "Классификация документа",
-    "workers.classify_document_segments": "Классификация сегментов",
-    "workers.build_legal_units_enrichment": "Обогащение semantic-блоков",
+    "workers.build_primary_language_source": "Primary source preparation",
+    "workers.extract_document": "Text extraction",
+    "pii.sanitize_document": "Document sanitization",
+    "workers.build_structure": "Structure building",
+    "workers.build_chunks": "Chunk building",
+    "workers.classify_document": "Document classification",
+    "workers.classify_document_segments": "Segment classification",
+    "workers.build_legal_units_enrichment": "Semantic unit enrichment",
 }
 
 ACTIVE_EXECUTION_STATUSES = {"planned", "dispatched", "started"}
@@ -656,23 +658,24 @@ class RunPipelineProgressService:
         return None
 
     def _build_step_message(self, *, step_code: str, status: str) -> str | None:
+        # Canonical English fallback messages (frontend may override by code+status)
         if step_code == "semantic_enrichment" and status == "running":
-            return "Этот этап может занимать длительное время"
+            return "This stage may take a long time"
 
         if step_code == "deal_checks" and status == "pending":
-            return "Начнётся после завершения предыдущих этапов"
+            return "Starts after previous stages complete"
 
         if step_code == "finalization" and status == "pending":
-            return "Будет выполнена после завершения проверок"
+            return "Will run after checks complete"
 
         if status == "completed_with_errors":
-            return "Часть документов завершилась с ошибками"
+            return "Some documents finished with errors"
 
         if status == "failed":
-            return "Этап завершился ошибкой"
+            return "Stage failed"
 
         if status == "pending":
-            return "Ожидает запуска"
+            return "Waiting to start"
 
         return None
 

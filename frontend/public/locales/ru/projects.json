@@ -78,6 +78,24 @@
         "segments": "Сегменты",
         "checks": "Проверки",
         "documents": "Документы"
+      },
+      "stepTitles": {
+        "document_preparation": "Подготовка документа",
+        "document_structure": "Построение структуры",
+        "document_classification": "Классификация",
+        "semantic_enrichment": "Семантическое обогащение",
+        "deal_checks": "DD-проверки",
+        "finalization": "Финализация"
+      },
+      "substepTitles": {
+        "workers.build_primary_language_source": "Подготовка основного источника",
+        "workers.extract_document": "Извлечение текста",
+        "pii.sanitize_document": "Санитизация документа",
+        "workers.build_structure": "Построение структуры",
+        "workers.build_chunks": "Построение чанков",
+        "workers.classify_document": "Классификация документа",
+        "workers.classify_document_segments": "Классификация сегментов",
+        "workers.build_legal_units_enrichment": "Обогащение semantic-блоков"
       }
     },
     "domainsOverview": {
@@ -232,6 +250,7 @@
       "unclearSummary_few": "Требуют уточнения: {{checksCount}} проверки в {{docsCount}} документах.",
       "unclearSummary_many": "Требуют уточнения: {{checksCount}} проверок в {{docsCount}} документах.",
       "unclearSummary_other": "Требуют уточнения: {{checksCount}} проверки в {{docsCount}} документах.",
+      "unclearSummary": "Результатов, требующих уточнения: {{checksCount}} в {{docsCount}} документах",
       "goToAllResults": "Перейти к списку результатов"
     },
     "pipelineRail": {

@@ -67,8 +67,7 @@ logger = get_logger(__name__)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Существующая таска — НЕ ТРОГАТЬ
-# Вызывается оркестратором после завершения Run
+# Таска автоматического экспорта после завершения Run
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -86,6 +85,7 @@ def export_results(
     tenant_id: str,
     stage_execution_id: str | None = None,
     orchestration_strategy: str | None = None,
+    presentation_locale: str = "en",
     **kwargs: Any,
 ) -> dict:
     logger.info(
@@ -93,6 +93,7 @@ def export_results(
         run_id=run_id,
         deal_id=deal_id,
         tenant_id=tenant_id,
+        presentation_locale=presentation_locale,
     )
 
     started_at = time.time()
@@ -138,12 +139,15 @@ def export_results(
                         run_tenant_id=str(tenant_uuid),
                     )
 
+            eff_locale = presentation_locale or kwargs.get("presentation_locale", "en")
+
             try:
                 result = await export_core(
                     run_id=run_id,
                     deal_id=deal_id,
                     tenant_id=tenant_id,
                     db=uow.session,
+                    presentation_locale=eff_locale,
                 )
 
                 duration = time.time() - started_at
@@ -157,9 +161,9 @@ def export_results(
                     deal_id=deal_id,
                     duration_sec=round(duration, 2),
                     files_generated=len(refs),
+                    locale=eff_locale,
                 )
 
-                # Пишем аудит: автоматический экспорт завершён успешно
                 await audit_repo.log(
                     tenant_id=tenant_uuid,
                     deal_id=deal_uuid,
@@ -172,6 +176,7 @@ def export_results(
                         "files_generated": len(refs),
                         "duration_sec": round(duration, 2),
                         "refs_keys": sorted(refs.keys()),
+                        "locale": eff_locale,
                     },
                 )
                 await uow.session.commit()
@@ -197,7 +202,6 @@ def export_results(
                     },
                 )
 
-                # Пишем аудит: автоматический экспорт упал
                 try:
                     await audit_repo.log(
                         tenant_id=tenant_uuid,
@@ -209,11 +213,11 @@ def export_results(
                             "run_id": run_id,
                             "export_type": "full_deal_export",
                             "error": str(e)[:500],
+                            "locale": eff_locale,
                         },
                     )
                     await uow.session.commit()
                 except Exception:
-                    # Аудит не должен ломать основной поток ошибки
                     logger.warning(
                         "Не удалось записать аудит для EXPORT_FAILED",
                         run_id=run_id,
@@ -245,7 +249,6 @@ def _pick_file_ref(export_type: str, refs: dict | None) -> str | None:
         if isinstance(value, str) and value:
             return value
 
-    # Если не нашли по приоритету — берём первый непустой ref
     for val in refs.values():
         if isinstance(val, str) and val:
             return val
@@ -254,8 +257,7 @@ def _pick_file_ref(export_type: str, refs: dict | None) -> str | None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# НОВАЯ таска — для UI-инициированного экспорта
-# Вызывается из POST /api/v1/runs/{run_id}/export
+# Таска UI-инициированного экспорта по ID
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -271,41 +273,21 @@ def export_by_id(
     export_id: str,
     stage_execution_id: str | None = None,
     orchestration_strategy: str | None = None,
+    presentation_locale: str = "en",
     **kwargs: Any,
 ) -> dict:
     """
     Синхронная Celery-таска UI-инициированного экспорта.
 
-    Принимает export_id единственным аргументом — загружает запись Export
-    из БД, читает из неё run_id / deal_id / export_type и запускает
-    services.export.core.export_core.
-
-    Lifecycle статусов:
-        pending → processing → completed
-                            ↘ failed
-
-    На каждом переходе статуса пишет запись в audit_log через AuditRepository.
-
-    Args:
-        export_id (str): UUID записи Export в виде строки.
-
-    Returns:
-        dict: {
-            "export_id": str,
-            "status": "completed",
-            "file_ref": str | None,
-            "file_refs": dict,
-        }
-
-    Raises:
-        ValueError: если запись Export с указанным export_id не найдена в БД.
-        Exception:  любая ошибка export_core — статус Export → failed,
-                    ошибка пробрасывается в Celery.
+    Принимает export_id и параметр локали presentation_locale.
     """
+    eff_locale = presentation_locale or kwargs.get("presentation_locale", "en")
+
     logger.info(
         "Export by id task received",
         export_id=export_id,
         celery_task_id=self.request.id,
+        presentation_locale=eff_locale,
     )
 
     started_at = time.time()
@@ -317,7 +299,6 @@ def export_by_id(
             audit_repo = AuditRepository(uow.session)
             export_uuid = uuid.UUID(export_id)
 
-            # Загружаем запись Export из БД
             export = await export_repo.get_by_id(export_uuid)
             if not export:
                 raise ValueError(f"Export not found: {export_id}")
@@ -328,8 +309,6 @@ def export_by_id(
             requested_by = export.requested_by or "unknown"
             requester_role = export.requester_role or "user"
 
-            # deal_id и tenant_id как UUID для аудита.
-            # Tenant ownership берём из Run — canonical source of truth.
             deal_uuid = uuid.UUID(deal_id)
 
             run_repo = RunRepository(uow.session)
@@ -350,12 +329,12 @@ def export_by_id(
                 run_id=run_id,
                 deal_id=deal_id,
                 export_type=export_type,
+                locale=eff_locale,
             )
 
             # ── Переход: pending → processing ────────────────────────────────
             await export_repo.update(export_uuid, {"status": "processing"})
 
-            # Аудит: экспорт запущен
             await audit_repo.log(
                 tenant_id=tenant_uuid,
                 deal_id=deal_uuid,
@@ -366,6 +345,7 @@ def export_by_id(
                     "export_id": export_id,
                     "run_id": run_id,
                     "export_type": export_type,
+                    "locale": eff_locale,
                 },
             )
             await uow.session.commit()
@@ -381,8 +361,9 @@ def export_by_id(
                 result = await export_core(
                     run_id=run_id,
                     deal_id=deal_id,
-                    tenant_id="default",
+                    tenant_id=str(tenant_uuid),
                     db=uow.session,
+                    presentation_locale=eff_locale,
                 )
 
                 refs = result.get("refs", {}) if isinstance(result, dict) else {}
@@ -394,6 +375,7 @@ def export_by_id(
                     export_type=export_type,
                     refs_keys=sorted(refs.keys()) if isinstance(refs, dict) else [],
                     refs=refs,
+                    locale=eff_locale,
                 )
 
                 file_ref = _pick_file_ref(export_type, refs)
@@ -415,7 +397,6 @@ def export_by_id(
                         refs_keys=refs_keys,
                     )
 
-                    # ── Переход: processing → failed (нет файла) ─────────────
                     await export_repo.update(
                         export_uuid,
                         {
@@ -425,7 +406,6 @@ def export_by_id(
                         },
                     )
 
-                    # Аудит: экспорт упал — файл не найден
                     await audit_repo.log(
                         tenant_id=tenant_uuid,
                         deal_id=deal_uuid,
@@ -439,6 +419,7 @@ def export_by_id(
                             "reason": "primary_artifact_missing",
                             "refs_keys": refs_keys,
                             "error": message[:500],
+                            "locale": eff_locale,
                         },
                     )
                     await uow.session.commit()
@@ -458,7 +439,6 @@ def export_by_id(
                 duration = time.time() - started_at
                 metrics.export_duration.labels(export_type=export_type).observe(duration)
 
-                # Аудит: экспорт успешно завершён
                 await audit_repo.log(
                     tenant_id=tenant_uuid,
                     deal_id=deal_uuid,
@@ -472,6 +452,7 @@ def export_by_id(
                         "file_ref": file_ref,
                         "files_generated": len(refs),
                         "duration_sec": round(duration, 2),
+                        "locale": eff_locale,
                     },
                 )
                 await uow.session.commit()
@@ -484,6 +465,7 @@ def export_by_id(
                     file_ref=file_ref,
                     duration_sec=round(duration, 2),
                     files_generated=len(refs),
+                    locale=eff_locale,
                 )
 
                 return {
@@ -502,7 +484,6 @@ def export_by_id(
                     error=str(e),
                 )
 
-                # ── Переход: processing → failed (исключение) ────────────────
                 await export_repo.update(
                     export_uuid,
                     {
@@ -511,9 +492,6 @@ def export_by_id(
                     },
                 )
 
-                # Аудит: экспорт упал с исключением.
-                # Оборачиваем в try/except — аудит не должен скрывать
-                # оригинальное исключение и ломать Celery retry-логику.
                 try:
                     await audit_repo.log(
                         tenant_id=tenant_uuid,
@@ -527,6 +505,7 @@ def export_by_id(
                             "export_type": export_type,
                             "reason": "exception",
                             "error": str(e)[:500],
+                            "locale": eff_locale,
                         },
                     )
                     await uow.session.commit()
@@ -539,3 +518,6 @@ def export_by_id(
                 raise
 
     return run_async(_run())
+
+
+    

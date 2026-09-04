@@ -14,7 +14,8 @@
 - сам не создаёт/не обновляет записи Export и не меняет статус Run;
 - старается быть максимально детерминированным и воспроизводимым:
   в отчёты явно передаются playbook_version, playbook_profile, checks_mode,
-  pipeline_strategy и environment_hash для трассировки контекста Run.
+  pipeline_strategy и environment_hash для трассировки контекста Run;
+- поддерживает presentation_locale для генерации отчётов на языке пользователя.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.i18n.export_translator import normalize_export_locale
 from core.logging import get_logger
 import db
 from db.models.playbook import PlaybookVersion
@@ -152,6 +154,7 @@ async def export_core(
     deal_id: str,
     tenant_id: str,
     db: AsyncSession,
+    presentation_locale: str = "en",
 ) -> dict[str, Any]:
     """
     Общий core экспорта.
@@ -167,34 +170,12 @@ async def export_core(
       - НЕ создаёт и НЕ обновляет записи Export в БД;
       - НЕ меняет статус Run;
       - НЕ зависит от Celery / FastAPI.
-
-    Возвращает словарь вида:
-    {
-        "run_id": ...,
-        "deal_id": ...,
-        "rows": <int>,
-        "top_risks": <int>,
-        "dd_requests": <int>,
-        "severity": {...},
-        "export_ref": <str | None>,         # основной файл (для обратной совместимости)
-        "refs": {                           # ключ -> ref (только не-None)
-            "dd_grid": <str>,
-            "summary": <str>,
-            "report": <str>,
-            "json": <str>,
-        },
-        "all_refs": {                       # ключ -> ref (включая None)
-            "dd_grid": <str | None>,
-            "summary": <str | None>,
-            "report": <str | None>,
-            "json": <str | None>,
-        },
-    }
     """
+    locale = normalize_export_locale(presentation_locale)
 
     logger.info(
         "Export core starting",
-        extra={"deal_id": deal_id, "run_id": run_id},
+        extra={"deal_id": deal_id, "run_id": run_id, "locale": locale},
     )
 
     store = ArtifactStore()
@@ -214,20 +195,15 @@ async def export_core(
     playbook_profile_str = "M&A Russia DD"
     env_hash_str = ""
 
-    # НОВОЕ: режим проверок и стратегия пайплайна текущего Run.
+    # Режим проверок и стратегия пайплайна текущего Run.
     checks_mode_str = ""
     pipeline_strategy_str = ""
 
     if run_obj is not None:
-        # Берём хэш окружения из Run, если он есть.
         env_hash_str = run_obj.environment_hash or ""
-
-        # Режим проверок и стратегия пайплайна — передадим в экспорт,
-        # чтобы добавить их в шапку файлов.
         checks_mode_str = getattr(run_obj, "checks_mode", "") or ""
         pipeline_strategy_str = getattr(run_obj, "pipeline_strategy", "") or ""
 
-        # Пытаемся подтянуть PlaybookVersion, чтобы взять реальную версию.
         try:
             pb_result = await db.execute(
                 select(PlaybookVersion).where(PlaybookVersion.id == run_obj.playbook_version_id)
@@ -237,11 +213,7 @@ async def export_core(
             pb_obj = None
 
         if pb_obj is not None:
-            # Используем реальную semver плейбука.
             playbook_version_str = pb_obj.semver or playbook_version_str
-
-            # В качестве "профиля анализа" логично показать name плейбука,
-            # если он задан; иначе оставляем дефолт.
             if pb_obj.name:
                 playbook_profile_str = pb_obj.name
 
@@ -270,9 +242,6 @@ async def export_core(
                 error=str(e),
             )
 
-
-
-
     logger.info(
         "Данные для экспорта загружены",
         run_id=run_id,
@@ -280,9 +249,7 @@ async def export_core(
         documents=len(documents),
     )
 
-    # 2. Агрегация больше не нужна — все экспорты мигрированы на прямое чтение
-    # aggregated = aggregate_results(...)  # УДАЛЕНО
-    aggregated = None  # Placeholder для обратной совместимости (можно удалить позже)
+    aggregated = None
 
     refs: dict[str, str | None] = {
         "dd_grid": None,
@@ -325,6 +292,7 @@ async def export_core(
             run_id=run_id,
             checks_mode=checks_mode_str,
             pipeline_strategy=pipeline_strategy_str,
+            locale=locale,
         )
 
         refs["dd_grid"] = store.save_export_artifact(
@@ -333,10 +301,10 @@ async def export_core(
             run_id=run_id,
             suffix=ExportSuffix.DD_GRID,
             data=grid_bytes,
-            content_type=("application/" "vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         METRICS.export_duration.labels(export_type="grid_xlsx").observe(0.0)
-        logger.info("DD Grid V1 Excel сохранён", ref=refs["dd_grid"])
+        logger.info("DD Grid V1 Excel сохранён", ref=refs["dd_grid"], locale=locale)
     except Exception as e:  # noqa: BLE001
         logger.error("Ошибка генерации DD Grid V1 Excel", error=str(e), exc_info=True)
         refs["dd_grid"] = None
@@ -350,6 +318,7 @@ async def export_core(
             deal_name=deal_name,
             checks_mode=checks_mode_str,
             pipeline_strategy=pipeline_strategy_str,
+            locale=locale,  # <-- ПЕРЕДАЕМ LOCALE СЮДА
         )
         refs["summary"] = store.save_export_artifact(
             tenant_id=tenant_id,
@@ -357,7 +326,7 @@ async def export_core(
             run_id=run_id,
             suffix=ExportSuffix.DEAL_SUMMARY,
             data=summary_bytes,
-            content_type=("application/" "vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         METRICS.export_duration.labels(export_type="summary_xlsx").observe(0.0)
         logger.info("Summary Excel V1 сохранён", ref=refs["summary"])
@@ -378,6 +347,7 @@ async def export_core(
             environment_hash=env_hash_str,
             checks_mode=checks_mode_str,
             pipeline_strategy=pipeline_strategy_str,
+            locale=locale,  # <-- ПЕРЕДАЕМ LOCALE СЮДА
         )
         refs["report"] = store.save_export_artifact(
             tenant_id=tenant_id,
@@ -385,9 +355,7 @@ async def export_core(
             run_id=run_id,
             suffix=ExportSuffix.REPORT,
             data=report_bytes,
-            content_type=(
-                "application/" "vnd.openxmlformats-officedocument.wordprocessingml.document"
-            ),
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
         METRICS.export_duration.labels(export_type="report_docx").observe(0.0)
         logger.info("Word Report V1 сохранён", ref=refs["report"])
@@ -395,9 +363,8 @@ async def export_core(
         logger.error("Ошибка генерации Word Report V1", error=str(e), exc_info=True)
         refs["report"] = None
 
-    # 6. JSON dump — новый формат без aggregator
+    # 6. JSON dump
     try:
-        # Прямая сериализация check_results + metadata
         json_payload = {
             "deal_id": deal_id,
             "deal_name": deal_name,
@@ -409,12 +376,7 @@ async def export_core(
             "environment_hash": env_hash_str,
             "total_documents": len(documents),
             "total_checks": len(check_results),
-            "severity_counts": _count_severity(check_results),
-            "quality_metrics": _count_quality_metrics(check_results, documents),
-            "conditional_stats": _count_conditional(check_results),
             "check_results_count": len(check_results),
-            # Сам check_results не включаем — слишком большой payload
-            # При необходимости можно добавить фильтр по severity
         }
         json_bytes = json.dumps(
             json_payload,
@@ -435,22 +397,24 @@ async def export_core(
         logger.error("Ошибка генерации JSON dump V1", error=str(e), exc_info=True)
         refs["json"] = None
 
-    # Основной ref для обратной совместимости — dd_grid
     export_ref = refs.get("dd_grid")
 
     logger.info(
         "Export core completed",
-        extra={"deal_id": deal_id, "run_id": run_id},
+        extra={"deal_id": deal_id, "run_id": run_id, "locale": locale},
     )
 
     return {
         "run_id": run_id,
         "deal_id": deal_id,
         "rows": len(check_results),
-        "top_risks": len(aggregated.top_risks),
-        "dd_requests": len(aggregated.dd_requests),
-        "severity": aggregated.severity_counts.to_dict(),
+        "top_risks": len(getattr(aggregated, "top_risks", [])) if aggregated else 0,
+        "dd_requests": len(getattr(aggregated, "dd_requests", [])) if aggregated else 0,
+        "severity": getattr(aggregated, "severity_counts", {}),
         "export_ref": export_ref,
         "refs": {k: v for k, v in refs.items() if v is not None},
         "all_refs": refs,
     }
+
+
+    

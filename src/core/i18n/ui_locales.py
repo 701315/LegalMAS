@@ -1,6 +1,9 @@
+# src/core/i18n/ui_locales.py
+
 import json
 from pathlib import Path
 from typing import TypedDict, Set, Optional
+
 
 class LocaleDetail(TypedDict):
     code: str
@@ -10,11 +13,15 @@ class LocaleDetail(TypedDict):
     is_default: bool
     direction: str
 
-SHARERD_CONFIG_PATH= Path(__file__).resolve().parents[3] / "shared" / "config" / "ui_locales.json"
 
-_cached_config = None
+SHARED_CONFIG_PATH = (
+    Path(__file__).resolve().parents[3] / "shared" / "config" / "ui_locales.json"
+)
 
-def _load_config():
+_cached_config: dict | None = None
+
+
+def _load_config() -> dict:
     global _cached_config
     if _cached_config is None:
         try:
@@ -30,23 +37,25 @@ def _load_config():
                         "english_name": "English",
                         "status": "supported",
                         "is_default": True,
-                        "direction": "ltr"
+                        "direction": "ltr",
                     },
                     {
                         "code": "ru",
                         "native_name": "Русский",
                         "english_name": "Russian",
-                       "status": "supported",
+                        "status": "supported",
                         "is_default": False,
-                        "direction": "ltr"
-                    }
-                ]
+                        "direction": "ltr",
+                    },
+                ],
             }
-    return _cached_config()
+    return _cached_config
+
 
 def get_default_ui_locale() -> str:
     config = _load_config()
     return config.get("default_locale", "en")
+
 
 def get_supported_ui_locales() -> Set[str]:
     config = _load_config()
@@ -56,7 +65,11 @@ def get_supported_ui_locales() -> Set[str]:
         if loc.get("status") in ("supported", "beta")
     }
 
-def is_valid_ui_locale(locale: Optional[str]) -> bool:
+
+def is_valid_ui_locale(locale: Optional[str]) -> boolean: # type: ignore
     if not locale:
         return True
     return locale in get_supported_ui_locales()
+
+
+    

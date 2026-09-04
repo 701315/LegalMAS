@@ -593,7 +593,8 @@ export const AnalysisResultsWidget: React.FC<
 
   const counterText = t("overviewPanels.resultsWidget.unclearSummary", {
     checksCount: totalUnclearFindingsCount,
-    docsCount: affectedDocumentsCount
+    docsCount: affectedDocumentsCount,
+    defaultValue: `${totalUnclearFindingsCount} check(s) requiring clarification across ${affectedDocumentsCount} document(s)`,
   });
 
   return (
@@ -718,5 +719,6 @@ export const AnalysisResultsWidget: React.FC<
 };
 
 export default AnalysisResultsWidget;
+
 
 

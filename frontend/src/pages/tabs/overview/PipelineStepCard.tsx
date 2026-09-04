@@ -216,6 +216,10 @@ export const PipelineStepCard: React.FC<{
 
   const durationStr = formatDuration(step.duration_seconds, t);
 
+  const stepTitle = t(`overviewPanels.pipelineStep.stepTitles.${step.code}`, {
+    defaultValue: step.title,
+  });
+
   const borderClass = isRunning
     ? "border-[var(--accent-primary)] bg-[var(--accent-subtle)]"
     : isPending
@@ -248,7 +252,7 @@ export const PipelineStepCard: React.FC<{
                   : "text-[var(--text-primary)]"
               }`}
             >
-              {step.title}
+              {stepTitle}
             </span>
             {durationStr && isTerminal && (
               <span className="text-[11px] tabular-nums text-[var(--text-muted)]">
@@ -301,38 +305,45 @@ export const PipelineStepCard: React.FC<{
       {(isRunning || step.status === "completed_with_errors") &&
         step.substeps.length > 0 && (
           <div className="mt-2 ml-8 space-y-1">
-            {step.substeps.map((substep) => (
-              <div key={substep.code} className="flex items-center gap-2">
-                <span className="text-[10px]">
-                  {substep.status === "completed"
-                    ? "✓"
-                    : substep.status === "running"
-                      ? "⋯"
-                      : substep.status === "failed"
-                        ? "✕"
-                        : "○"}
-                </span>
-                <span
-                  className={`text-[11px] ${
-                    substep.status === "running"
-                      ? "font-medium text-[var(--accent-primary)]"
-                      : substep.status === "completed"
-                        ? "text-[var(--text-muted)]"
+            {step.substeps.map((substep) => {
+              const substepTitle = t(
+                `overviewPanels.pipelineStep.substepTitles.${substep.code}`,
+                { defaultValue: substep.title },
+              );
+
+              return (
+                <div key={substep.code} className="flex items-center gap-2">
+                  <span className="text-[10px]">
+                    {substep.status === "completed"
+                      ? "✓"
+                      : substep.status === "running"
+                        ? "⋯"
                         : substep.status === "failed"
-                          ? "text-[var(--color-error-text)]"
-                          : "text-[var(--text-muted)]"
-                  }`}
-                >
-                  {substep.title}
-                  {substep.duration_seconds != null &&
-                    substep.status === "completed" && (
-                      <span className="ml-1 opacity-60">
-                        {formatDuration(substep.duration_seconds, t)}
-                      </span>
-                    )}
-                </span>
-              </div>
-            ))}
+                          ? "✕"
+                          : "○"}
+                  </span>
+                  <span
+                    className={`text-[11px] ${
+                      substep.status === "running"
+                        ? "font-medium text-[var(--accent-primary)]"
+                        : substep.status === "completed"
+                          ? "text-[var(--text-muted)]"
+                          : substep.status === "failed"
+                            ? "text-[var(--color-error-text)]"
+                            : "text-[var(--text-muted)]"
+                    }`}
+                  >
+                    {substepTitle}
+                    {substep.duration_seconds != null &&
+                      substep.status === "completed" && (
+                        <span className="ml-1 opacity-60">
+                          {formatDuration(substep.duration_seconds, t)}
+                        </span>
+                      )}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
     </div>
@@ -340,5 +351,6 @@ export const PipelineStepCard: React.FC<{
 };
 
 export default PipelineStepCard;
+
 
 

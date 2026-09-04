@@ -1,7 +1,6 @@
 // =============================================================
 // src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx
 // Три равные карточки: Документы · Контрагенты · Имущество
-// (докстринг исходника сохранён)
 // =============================================================
 
 import React from "react";
@@ -137,7 +136,13 @@ export const ProjectDomainsOverviewPanel: React.FC<
   })();
 
   const docRunning = progress?.run_status === "running";
-  const currentStep = progress?.current_step_title;
+
+  const stepCode = progress?.current_step_code;
+  const currentStep = stepCode
+    ? t(`overviewPanels.pipelineStep.stepTitles.${stepCode}`, {
+        defaultValue: progress?.current_step_title ?? "",
+      })
+    : progress?.current_step_title;
 
   const activeStep = progress?.steps.find((s) => s.status === "running");
   const subProgress = activeStep?.sub_progress;

@@ -78,6 +78,24 @@
         "segments": "Segments",
         "checks": "Checks",
         "documents": "Documents"
+      },
+      "stepTitles": {
+        "document_preparation": "Document preparation",
+        "document_structure": "Structure building",
+        "document_classification": "Classification",
+        "semantic_enrichment": "Semantic enrichment",
+        "deal_checks": "DD checks",
+        "finalization": "Finalization"
+      },
+      "substepTitles": {
+        "workers.build_primary_language_source": "Primary source preparation",
+        "workers.extract_document": "Text extraction",
+        "pii.sanitize_document": "Document sanitization",
+        "workers.build_structure": "Structure building",
+        "workers.build_chunks": "Chunk building",
+        "workers.classify_document": "Document classification",
+        "workers.classify_document_segments": "Segment classification",
+        "workers.build_legal_units_enrichment": "Semantic unit enrichment"
       }
     },
     "domainsOverview": {
@@ -228,6 +246,7 @@
       "unclearEmpty": "No checks requiring clarification. No special attention required.",
       "unclearSummary_one": "Requires clarification: {{checksCount}} check in {{docsCount}} document.",
       "unclearSummary_other": "Requires clarification: {{checksCount}} checks in {{docsCount}} documents.",
+      "unclearSummary": "{{checksCount}} check(s) requiring clarification across {{docsCount}} document(s)",
       "goToAllResults": "Go to results list"
     },
     "pipelineRail": {

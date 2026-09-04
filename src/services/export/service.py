@@ -7,7 +7,7 @@ Export service for processing Export records and generating output files.
 по жизненному циклу статусов и сохраняет ссылки на сгенерированные файлы.
 
 Основные функции:
-- run_export_for_record(export, db, tenant_id):
+- run_export_for_record(export, db, tenant_id, presentation_locale):
   - переводит запись Export в статус `processing`;
   - вызывает `export_core(...)`, который строит экспортные файлы и возвращает refs;
   - обновляет поля записи Export:
@@ -54,6 +54,7 @@ async def run_export_for_record(
     export: Export,
     db: AsyncSession,
     tenant_id: str,
+    presentation_locale: str | None = None,
 ) -> dict[str, Any]:
     """
     Выполнить экспорт для уже существующей записи Export.
@@ -75,6 +76,14 @@ async def run_export_for_record(
     Дополнительно:
       - пишет EXPORT_COMPLETED / EXPORT_FAILED в audit trail (best-effort).
     """
+    # Определяем локаль: явный параметр -> атрибут модели -> "en"
+    locale = (
+        presentation_locale
+        or getattr(export, "presentation_locale", None)
+        or getattr(export, "locale", None)
+        or "en"
+    )
+
     logger.info(
         "Запуск run_export_for_record",
         export_id=str(export.id),
@@ -82,6 +91,7 @@ async def run_export_for_record(
         deal_id=str(export.deal_id),
         tenant_id=str(export.tenant_id),
         status=export.status,
+        locale=locale,
     )
 
     audit_repo = AuditRepository(db)
@@ -95,6 +105,7 @@ async def run_export_for_record(
             deal_id=str(export.deal_id),
             tenant_id=tenant_id,
             db=db,
+            presentation_locale=locale,
         )
 
         export.file_ref = result.get("export_ref")
@@ -106,6 +117,7 @@ async def run_export_for_record(
             export_id=str(export.id),
             tenant_id=str(export.tenant_id),
             status=export.status,
+            locale=locale,
         )
 
         try:
@@ -123,6 +135,7 @@ async def run_export_for_record(
                     "status": export.status,
                     "file_ref": export.file_ref,
                     "file_refs": export.file_refs,
+                    "locale": locale,
                 },
             )
         except Exception:
@@ -157,6 +170,7 @@ async def run_export_for_record(
                     "tenant_id": str(export.tenant_id),
                     "status": export.status,
                     "error": str(e),
+                    "locale": locale,
                 },
             )
         except Exception:
@@ -209,7 +223,10 @@ async def process_one_pending_export(
             status=export.status,
         )
 
-        await run_export_for_record(export, db=db, tenant_id=tenant_id)
+        # Передаём локаль из записи экспорта, если она сохранена
+        record_locale = getattr(export, "presentation_locale", None) or getattr(export, "locale", None)
+
+        await run_export_for_record(export, db=db, tenant_id=tenant_id, presentation_locale=record_locale)
         await db.commit()
         return True
 
@@ -221,3 +238,6 @@ async def process_one_pending_export(
             error=str(e),
         )
         raise
+
+
+        

@@ -1,7 +1,5 @@
 # src/api/endpoints/runs.py
 
-# src/api/endpoints/runs.py
-
 """
 Эндпоинты для запусков анализа (runs).
 
@@ -609,9 +607,10 @@ async def start_run_export(
             detail=f"Run status must be completed to export, got '{run.status}'",
         )
 
-    # 3. Определяем данные для аудита
+    # 3. Определяем данные для аудита и текущую локаль пользователя
     requested_by = getattr(user, "id", None)
     requester_role = getattr(user, "global_role", "user")
+    user_locale = getattr(user, "ui_locale", "en") or "en"
 
     # 4. Создаём запись экспорта
     export = await export_repo.create(
@@ -627,15 +626,25 @@ async def start_run_export(
     await db.commit()
     await db.refresh(export)
 
-    # 5. Ставим задачу в Celery
+    # 5. Ставим задачу в Celery с указанием ясного языка пользователя
     try:
         send_task_with_context(
             "workers.export_by_id",
-            kwargs={"export_id": str(export.id)},
+            kwargs={
+                "export_id": str(export.id),
+                "presentation_locale": user_locale,
+            },
             queue="default",
         )
         
-        logger.info("Export task queued", extra={"export_id": str(export.id), "run_id": str(run.id)})
+        logger.info(
+            "Export task queued",
+            extra={
+                "export_id": str(export.id),
+                "run_id": str(run.id),
+                "presentation_locale": user_locale,
+            },
+        )
 
     except Exception as e:
         # Если очередь упала - помечаем экспорт как failed
@@ -932,3 +941,6 @@ async def get_run_check_plan_item(
         raise HTTPException(status_code=404, detail="Check plan item not found")
 
     return RunCheckPlanItemResponse.model_validate(item)
+
+
+    

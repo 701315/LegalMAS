@@ -1,3 +1,5 @@
+# src/services/export/report_builder.py
+
 """
 Построитель Word‑отчёта по результатам юридического DD‑анализа (DD Report).
 
@@ -22,13 +24,16 @@
 Особенности:
 - отчёт ориентирован на юриста: минимум технических деталей, максимум читабельности;
 - все ключевые параметры Run (плейбук, режим, стратегия, окружение) явно зашиты
-  в титульную страницу и футер для последующего аудита и воспроизводимости.
+  в титульную страницу и футер для последующего аудита и воспроизводимости;
+- декларативная локализация через core.i18n.export_translator.
 
 Архитектурный принцип:
 - Никакой зависимости от aggregator.py
 - Чтение напрямую из check_results + documents + checks_by_id
 - Детерминированный порядок секций и сортировка
 """
+
+from __future__ import annotations
 
 import io
 from datetime import datetime
@@ -38,6 +43,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, RGBColor
 
+from core.i18n.export_translator import t_export
 from core.logging import get_logger
 from engine.playbook.models import CheckDefinition
 
@@ -88,6 +94,7 @@ def _get_top_risks(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     limit: int = 15,
+    locale: str = "en",
 ) -> list[dict]:
     """Получить топ рисков (critical/high) из check_results."""
     severity_order = {"critical": 0, "high": 1, "medium": 2}
@@ -110,8 +117,8 @@ def _get_top_risks(
         risks.append({
             "check_name": cr.get("check_name", ""),
             "severity": cr.get("severity", "medium"),
-            "document_name": doc_info.get("name", "Unknown"),
-            "doc_type": doc_info.get("doc_type", "Generic"),
+            "document_name": doc_info.get("name", t_export("fallback.unknown", locale)),
+            "doc_type": doc_info.get("doc_type", t_export("fallback.generic", locale)),
             "clause_uid": cr.get("clause_uid", ""),
             "page": cr.get("page"),
             "evidence_snippet": (cr.get("display_text") or cr.get("value_text", ""))[:300],
@@ -164,6 +171,7 @@ def _get_conditional_rows(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     limit: int = 20,
+    locale: str = "en",
 ) -> list[dict]:
     """Получить сработавшие conditional checks."""
     rows = []
@@ -175,8 +183,8 @@ def _get_conditional_rows(
         doc_info = documents.get(doc_id, {})
 
         rows.append({
-            "document_name": doc_info.get("name", "Unknown"),
-            "doc_type": doc_info.get("doc_type", "Generic"),
+            "document_name": doc_info.get("name", t_export("fallback.unknown", locale)),
+            "doc_type": doc_info.get("doc_type", t_export("fallback.generic", locale)),
             "trigger_name": cr.get("trigger_name", ""),
             "check_name": cr.get("check_name", ""),
             "result": cr.get("result", "unclear"),
@@ -194,6 +202,7 @@ def _get_extracted_values(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     limit: int = 30,
+    locale: str = "en",
 ) -> list[dict]:
     """Извлечь structured values из check_results."""
     rows = []
@@ -204,7 +213,6 @@ def _get_extracted_values(
         structured_data = cr.get("structured_data") or {}
 
         for field_name, field_value in structured_data.items():
-            # Нормализация
             if isinstance(field_value, dict) and "value" in field_value:
                 raw_display_value = field_value.get("value")
             else:
@@ -216,8 +224,8 @@ def _get_extracted_values(
             display_value = str(raw_display_value)
 
             rows.append({
-                "document_name": doc_info.get("name", "Unknown"),
-                "doc_type": doc_info.get("doc_type", "Generic"),
+                "document_name": doc_info.get("name", t_export("fallback.unknown", locale)),
+                "doc_type": doc_info.get("doc_type", t_export("fallback.generic", locale)),
                 "field_name": field_name,
                 "field_value": display_value,
                 "clause_uid": cr.get("clause_uid", ""),
@@ -237,17 +245,15 @@ def _build_dd_requests_for_report(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     checks_by_id: dict[str, CheckDefinition],
+    locale: str = "en",
 ) -> list[dict]:
     """
-    Построить DD requests для отчёта (аналогично миграции в Приоритете B).
-
-    Триггер: required=true поле со значением not_defined/missing в structured_data.
+    Построить DD requests для отчёта.
     """
     from services.export.dd_request_loader import get_dd_request_loader
 
     loader = get_dd_request_loader()
 
-    # Группируем по check_id
     results_by_check: dict[str, list[dict]] = {}
     for cr in check_results:
         check_id = cr.get("check_id", "")
@@ -274,7 +280,6 @@ def _build_dd_requests_for_report(
         if not required_fields:
             continue
 
-        # Ищем документы где хотя бы одно required поле отсутствует
         triggered_docs: list[dict] = []
         for cr in cr_list:
             doc_id = cr.get("document_id", "")
@@ -295,8 +300,8 @@ def _build_dd_requests_for_report(
             if missing_required:
                 triggered_docs.append({
                     "document_id": doc_id,
-                    "document_name": documents.get(doc_id, {}).get("name", "Unknown"),
-                    "doc_type": documents.get(doc_id, {}).get("doc_type", "Generic"),
+                    "document_name": documents.get(doc_id, {}).get("name", t_export("fallback.unknown", locale)),
+                    "doc_type": documents.get(doc_id, {}).get("doc_type", t_export("fallback.generic", locale)),
                     "structured_data": structured_data,
                 })
 
@@ -304,9 +309,8 @@ def _build_dd_requests_for_report(
             continue
 
         doc_names = [d["document_name"] for d in triggered_docs]
-        text, addressee = loader.render(check_id, check_def.name, doc_names)
+        text, addressee = loader.render(check_id, check_def.name, doc_names, locale=locale)
 
-        # Собираем structured_values
         structured_values = []
         for doc in triggered_docs:
             for field_name in required_fields:
@@ -332,7 +336,6 @@ def _build_dd_requests_for_report(
             "structured_values": structured_values[:5],
         })
 
-    # Сортировка по приоритету
     severity_order = {"critical": 0, "high": 1, "medium": 2}
     requests.sort(key=lambda r: severity_order.get(r["priority"], 9))
 
@@ -355,24 +358,10 @@ def build_report_docx(
     environment_hash: str = "",
     checks_mode: str = "",
     pipeline_strategy: str = "",
+    locale: str = "en",
 ) -> bytes:
     """
     Сформировать Word‑отчёт DD Report по результатам одного Run.
-
-    Параметры:
-    - check_results: Сырые результаты проверок из БД
-    - documents: Метаданные документов {doc_id: {...}}
-    - checks_by_id: Словарь {check_id: CheckDefinition} для DD requests
-    - deal_name: Название сделки для титульной страницы
-    - run_id: ID Run для логирования и футера
-    - playbook_version: версия плейбука (semver), отображается на титуле и в футере;
-    - playbook_profile: человекочитаемое имя/профиль плейбука;
-    - environment_hash: хэш окружения выполнения анализа (docker/libs/weights);
-    - checks_mode: режим проверок для текущего Run;
-    - pipeline_strategy: стратегия пайплайна для Run.
-
-    Возвращает:
-    - байтовое содержимое .docx‑файла отчёта, готовое к сохранению или отдаче клиенту.
     """
     doc = Document()
 
@@ -384,22 +373,22 @@ def build_report_docx(
         pb_profile=playbook_profile,
         checks_mode=checks_mode,
         pipeline_strategy=pipeline_strategy,
+        locale=locale,
     )
-    _add_executive_summary(doc, check_results, documents)
-    _add_critical_findings(doc, check_results, documents)
-    _add_quality_section(doc, check_results, documents)
+    _add_executive_summary(doc, check_results, documents, locale=locale)
+    _add_critical_findings(doc, check_results, documents, locale=locale)
+    _add_quality_section(doc, check_results, documents, locale=locale)
 
-    # Дополнительные разделы
-    conditional_rows = _get_conditional_rows(check_results, documents)
+    conditional_rows = _get_conditional_rows(check_results, documents, locale=locale)
     if conditional_rows:
-        _add_conditional_checks_section(doc, conditional_rows)
+        _add_conditional_checks_section(doc, conditional_rows, locale=locale)
 
-    extracted_values = _get_extracted_values(check_results, documents)
+    extracted_values = _get_extracted_values(check_results, documents, locale=locale)
     if extracted_values:
-        _add_extracted_values_section(doc, extracted_values)
+        _add_extracted_values_section(doc, extracted_values, locale=locale)
 
-    dd_requests = _build_dd_requests_for_report(check_results, documents, checks_by_id)
-    _add_request_list(doc, dd_requests)
+    dd_requests = _build_dd_requests_for_report(check_results, documents, checks_by_id, locale=locale)
+    _add_request_list(doc, dd_requests, locale=locale)
 
     _add_footer(
         doc,
@@ -412,7 +401,7 @@ def build_report_docx(
     output = io.BytesIO()
     doc.save(output)
     output.seek(0)
-    logger.info("DD Report Word built (V1 path)")
+    logger.info("DD Report Word built (V1 path)", locale=locale)
     return output.read()
 
 
@@ -430,12 +419,13 @@ def _add_title_page(
     pb_profile: str,
     checks_mode: str = "",
     pipeline_strategy: str = "",
+    locale: str = "en",
 ) -> None:
     doc.add_paragraph("")
     doc.add_paragraph("")
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = title.add_run("ОТЧЁТ О ЮРИДИЧЕСКОМ DUE DILIGENCE")
+    run = title.add_run(t_export("report.title", locale))
     run.bold = True
     run.font.size = Pt(18)
 
@@ -447,16 +437,15 @@ def _add_title_page(
     doc.add_paragraph("")
     info = doc.add_paragraph()
     info.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    info.add_run(f"Профиль анализа: {pb_profile}\n").font.size = Pt(11)
-    info.add_run(f"Дата: {datetime.now().strftime('%d.%m.%Y')}\n").font.size = Pt(11)
-    info.add_run(f"Playbook: v{pb_version}\n").font.size = Pt(11)
-    info.add_run(f"Run ID: {run_id[:8]}...\n").font.size = Pt(9)
+    info.add_run(f"{t_export('report.profile', locale, profile=pb_profile)}\n").font.size = Pt(11)
+    info.add_run(f"{t_export('report.date', locale, date=datetime.now().strftime('%d.%m.%Y'))}\n").font.size = Pt(11)
+    info.add_run(f"{t_export('report.playbook', locale, version=pb_version)}\n").font.size = Pt(11)
+    info.add_run(f"{t_export('report.run_id', locale, run_id=run_id[:8])}\n").font.size = Pt(9)
 
-    # Режим и стратегия Run
     if checks_mode:
-        info.add_run(f"Режим проверок: {checks_mode}\n").font.size = Pt(10)
+        info.add_run(f"{t_export('report.checks_mode', locale, mode=checks_mode)}\n").font.size = Pt(10)
     if pipeline_strategy:
-        info.add_run(f"Стратегия пайплайна: {pipeline_strategy}\n").font.size = Pt(10)
+        info.add_run(f"{t_export('report.pipeline_strategy', locale, strategy=pipeline_strategy)}\n").font.size = Pt(10)
 
     doc.add_page_break()
 
@@ -465,23 +454,30 @@ def _add_executive_summary(
     doc: Document,
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
+    locale: str = "en",
 ) -> None:
-    doc.add_heading("1. Executive Summary", level=1)
+    doc.add_heading(t_export("report.sec1_title", locale), level=1)
 
     counts = _count_severity(check_results)
     conditional_stats = _count_conditional(check_results)
 
     doc.add_paragraph(
-        f"В рамках анализа проверено {len(documents)} документов, "
-        f"выполнено {len(check_results)} проверок."
+        t_export(
+            "report.summary_scope",
+            locale,
+            doc_count=len(documents),
+            check_count=len(check_results),
+        )
     )
 
-    # Упоминание условных проверок
     if conditional_stats["total"] > 0:
         doc.add_paragraph(
-            f"Выявлены и проверены {conditional_stats['total']} условных "
-            f"проверок (triggered checks), из которых "
-            f"{conditional_stats['triggered_fail']} завершились с результатом FAIL."
+            t_export(
+                "report.summary_conditional",
+                locale,
+                total=conditional_stats["total"],
+                fail_count=conditional_stats["triggered_fail"],
+            )
         )
 
     table = doc.add_table(rows=6, cols=2)
@@ -492,7 +488,7 @@ def _add_executive_summary(
         ("🟡 Medium", str(counts["medium"])),
         ("🟢 Pass", str(counts["pass"])),
         ("⚪ Unclear", str(counts["unclear"])),
-        ("Итого", str(sum(counts.values()))),
+        (t_export("report.total", locale), str(sum(counts.values()))),
     ]
     for i, (label, value) in enumerate(cells):
         table.cell(i, 0).text = label
@@ -500,17 +496,11 @@ def _add_executive_summary(
 
     doc.add_paragraph("")
     if counts["critical"] > 0:
-        assessment = (
-            f"⚠️ ВЫЯВЛЕНЫ КРИТИЧЕСКИЕ РИСКИ ({counts['critical']}). "
-            "Рекомендуется немедленная проработка с юридической командой."
-        )
+        assessment = t_export("report.assessment_critical", locale, count=counts["critical"])
     elif counts["high"] > 0:
-        assessment = (
-            f"Выявлены существенные риски ({counts['high']} high). "
-            "Рекомендуется детальный анализ до закрытия сделки."
-        )
+        assessment = t_export("report.assessment_high", locale, count=counts["high"])
     else:
-        assessment = "Критических и существенных рисков не выявлено."
+        assessment = t_export("report.assessment_none", locale)
 
     p = doc.add_paragraph(assessment)
     if counts["critical"] > 0:
@@ -521,12 +511,13 @@ def _add_critical_findings(
     doc: Document,
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
+    locale: str = "en",
 ) -> None:
-    doc.add_heading("2. Критические находки", level=1)
-    critical_high = _get_top_risks(check_results, documents, limit=15)
+    doc.add_heading(t_export("report.sec2_title", locale), level=1)
+    critical_high = _get_top_risks(check_results, documents, limit=15, locale=locale)
 
     if not critical_high:
-        doc.add_paragraph("Критических и существенных рисков не выявлено.")
+        doc.add_paragraph(t_export("report.assessment_none", locale))
         return
 
     for i, risk in enumerate(critical_high, 1):
@@ -534,20 +525,39 @@ def _add_critical_findings(
             f"2.{i}. {risk['check_name']} ({risk['severity'].upper()})",
             level=2,
         )
-        doc.add_paragraph(f"Документ: {risk['document_name']} ({risk['doc_type']})")
+        doc.add_paragraph(
+            t_export(
+                "report.document_label",
+                locale,
+                doc_name=risk["document_name"],
+                doc_type=risk["doc_type"],
+            )
+        )
         if risk["clause_uid"]:
-            doc.add_paragraph(f"Пункт: {risk['clause_uid']}, стр. {risk['page'] or '—'}")
+            if risk["page"]:
+                doc.add_paragraph(
+                    t_export("report.clause_page", locale, clause=risk["clause_uid"], page=risk["page"])
+                )
+            else:
+                doc.add_paragraph(
+                    t_export("report.clause_only", locale, clause=risk["clause_uid"])
+                )
+        elif risk["page"]:
+            doc.add_paragraph(t_export("report.page_only", locale, page=risk["page"]))
+
         if risk["evidence_snippet"]:
             quote = doc.add_paragraph()
             run = quote.add_run(f"«{risk['evidence_snippet']}»")
             run.italic = True
-        # Извлечённые структурированные данные по риску
+
         if risk["structured_data"]:
             sd_text = "; ".join(f"{k}: {v}" for k, v in risk["structured_data"].items())
-            doc.add_paragraph(f"Извлечённые данные: {sd_text}")
-        # Пометка, что риск появился из условной проверки
+            doc.add_paragraph(t_export("report.extracted_data", locale, data=sd_text))
+
         if risk["conditional_check_triggered"] and risk["trigger_name"]:
-            doc.add_paragraph(f"ℹ️ Проверка активирована триггером: «{risk['trigger_name']}»")
+            doc.add_paragraph(
+                t_export("report.triggered_by", locale, trigger_name=risk["trigger_name"])
+            )
         doc.add_paragraph("")
 
 
@@ -555,47 +565,45 @@ def _add_quality_section(
     doc: Document,
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
+    locale: str = "en",
 ) -> None:
-    doc.add_heading("3. Качество анализа", level=1)
+    doc.add_heading(t_export("report.sec3_title", locale), level=1)
     metrics = _count_quality_metrics(check_results, documents)
 
     items = [
-        f"Документов в карантине: {metrics['quarantine_count']}",
-        f"Документов с degraded структурой: {metrics['degraded_count']}",
-        f"Evidence validity rate: {metrics['evidence_validity_rate']:.0%}",
+        t_export("report.quarantine_docs", locale, count=metrics["quarantine_count"]),
+        t_export("report.degraded_docs", locale, count=metrics["degraded_count"]),
+        t_export("report.evidence_validity_rate", locale, rate=f"{metrics['evidence_validity_rate']:.0%}"),
     ]
     for item in items:
         doc.add_paragraph(item, style="List Bullet")
 
     if metrics["quarantine_count"] > 0:
-        doc.add_paragraph(
-            "⚠️ Документы в карантине не были проанализированы. "
-            "Рекомендуется загрузить текстовые версии для повторного анализа."
-        )
+        doc.add_paragraph(t_export("report.quarantine_warning", locale))
 
 
-def _add_conditional_checks_section(doc: Document, conditional_rows: list[dict]) -> None:
+def _add_conditional_checks_section(
+    doc: Document,
+    conditional_rows: list[dict],
+    locale: str = "en",
+) -> None:
     """Раздел по сработавшим условным (triggered) проверкам."""
-    doc.add_heading("4. Условные проверки", level=1)
-    doc.add_paragraph(
-        "Следующие проверки были активированы автоматически на основании "
-        "триггеров, определённых в YAML‑инструкциях типов документов "
-        "(conditional_checks)."
-    )
+    doc.add_heading(t_export("report.sec4_title", locale), level=1)
+    doc.add_paragraph(t_export("report.conditional_desc", locale))
 
     fail_cond = [r for r in conditional_rows if r["result"] == "fail"]
     if not fail_cond:
-        doc.add_paragraph("Нарушений по условным проверкам не выявлено.")
+        doc.add_paragraph(t_export("report.no_conditional_violations", locale))
         return
 
     table = doc.add_table(rows=1, cols=5)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
-    hdr[0].text = "Документ"
-    hdr[1].text = "Триггер"
-    hdr[2].text = "Проверка"
-    hdr[3].text = "Severity"
-    hdr[4].text = "Evidence"
+    hdr[0].text = t_export("columns.document", locale)
+    hdr[1].text = t_export("columns.trigger", locale)
+    hdr[2].text = t_export("columns.check", locale)
+    hdr[3].text = t_export("columns.severity", locale)
+    hdr[4].text = t_export("columns.evidence", locale)
 
     for cr in fail_cond[:20]:
         row_cells = table.add_row().cells
@@ -606,22 +614,23 @@ def _add_conditional_checks_section(doc: Document, conditional_rows: list[dict])
         row_cells[4].text = cr["evidence_snippet"]
 
 
-def _add_extracted_values_section(doc: Document, extracted_values: list[dict]) -> None:
+def _add_extracted_values_section(
+    doc: Document,
+    extracted_values: list[dict],
+    locale: str = "en",
+) -> None:
     """Раздел по структурированным извлечённым значениям (суммы, даты и т.п.)."""
-    doc.add_heading("5. Извлечённые значения", level=1)
-    doc.add_paragraph(
-        "В ходе анализа из документов были извлечены следующие "
-        "структурированные значения (суммы, даты, стороны и пр.)."
-    )
+    doc.add_heading(t_export("report.sec5_title", locale), level=1)
+    doc.add_paragraph(t_export("report.extracted_desc", locale))
 
     table = doc.add_table(rows=1, cols=5)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
-    hdr[0].text = "Документ"
-    hdr[1].text = "Тип"
-    hdr[2].text = "Поле"
-    hdr[3].text = "Значение"
-    hdr[4].text = "Пункт"
+    hdr[0].text = t_export("columns.document", locale)
+    hdr[1].text = t_export("columns.doc_type_short", locale)
+    hdr[2].text = t_export("columns.field", locale)
+    hdr[3].text = t_export("columns.value", locale)
+    hdr[4].text = t_export("columns.clause", locale)
 
     for sv in extracted_values[:30]:
         row_cells = table.add_row().cells
@@ -632,10 +641,14 @@ def _add_extracted_values_section(doc: Document, extracted_values: list[dict]) -
         row_cells[4].text = sv["clause_uid"] or (str(sv["page"]) if sv["page"] else "")
 
 
-def _add_request_list(doc: Document, dd_requests: list[dict]) -> None:
-    doc.add_heading("Приложение A. Список запросов", level=1)
+def _add_request_list(
+    doc: Document,
+    dd_requests: list[dict],
+    locale: str = "en",
+) -> None:
+    doc.add_heading(t_export("report.appA_title", locale), level=1)
     if not dd_requests:
-        doc.add_paragraph("Запросы не сформированы.")
+        doc.add_paragraph(t_export("report.no_requests", locale))
         return
 
     for i, req in enumerate(dd_requests, 1):
@@ -643,12 +656,19 @@ def _add_request_list(doc: Document, dd_requests: list[dict]) -> None:
             f"A.{i}. [{req['priority'].upper()}] {req['check_name']}",
             level=2,
         )
-        doc.add_paragraph(f"Адресат: {req['addressee']}")
+        doc.add_paragraph(t_export("report.addressee", locale, addressee=req["addressee"]))
         doc.add_paragraph(req["text"])
-        doc.add_paragraph(f"Документы ({req['document_count']}): " + ", ".join(req["document_names"][:5]))
+        doc.add_paragraph(
+            t_export(
+                "report.documents_count",
+                locale,
+                count=req["document_count"],
+                names=", ".join(req["document_names"][:5]),
+            )
+        )
         if req["structured_values"]:
             sv_text = "; ".join(f"{sv['field']}={sv['value']}" for sv in req["structured_values"][:5])
-            doc.add_paragraph(f"Связанные значения: {sv_text}")
+            doc.add_paragraph(t_export("report.linked_values", locale, values=sv_text))
         doc.add_paragraph("")
 
 
@@ -672,6 +692,7 @@ def _add_footer(
     p = doc.add_paragraph(footer_text)
     p.runs[0].font.size = Pt(8)
     p.runs[0].font.color.rgb = RGBColor(0x80, 0x80, 0x80)
+
 
 
     
