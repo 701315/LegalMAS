@@ -1,4 +1,7 @@
-// frontend/src/api/alerts.ts
+// =============================================================
+// src/api/alerts.ts
+// Tenant-level Alertmanager alerts and external tools integration API.
+// =============================================================
 
 import { useQuery } from "@tanstack/react-query";
 import client from "./client";
@@ -34,8 +37,8 @@ export interface AlertsResponse {
 }
 
 /**
- * Один внешний сервис (Grafana / Prometheus / MinIO / ...).
- * Показывается как пункт в dropdown "Внешние инструменты".
+ * An external service (Grafana / Prometheus / MinIO / etc.).
+ * Displayed as an item in the "External Tools" dropdown menu.
  */
 export interface ExternalServiceDTO {
   key: string;
@@ -45,7 +48,7 @@ export interface ExternalServiceDTO {
 }
 
 /**
- * Один Grafana dashboard с deep link.
+ * A single Grafana dashboard with a deep link.
  */
 export interface ExternalDashboardDTO {
   uid: string;
@@ -55,22 +58,22 @@ export interface ExternalDashboardDTO {
 }
 
 /**
- * Ответ endpoint /api/v1/tenant/tools.
+ * Response payload from /api/v1/tenant/tools endpoint.
  *
- * Старые поля (grafana_url / prometheus_url / alertmanager_url) сохранены
- * для обратной совместимости — используются в AlertsPanel.
+ * Legacy fields (grafana_url / prometheus_url / alertmanager_url) are retained
+ * for backwards compatibility and used inside AlertsPanel.
  *
- * Новые поля (services, dashboards) заполнены только для superadmin —
- * для обычного tenant_admin возвращаются пустые массивы.
+ * Extended fields (services, dashboards) are populated only for superadmins.
+ * For a standard tenant_admin, empty arrays are returned.
  */
 export interface ExternalToolsDTO {
-  // Legacy — для обратной совместимости с AlertsPanel
+  // Legacy fields for backwards compatibility with AlertsPanel
   grafana_url: string;
   prometheus_url: string;
   alertmanager_url: string;
   is_superadmin: boolean;
 
-  // Расширенные данные для dropdown "Внешние инструменты"
+  // Extended fields for the "External Tools" dropdown menu
   services: ExternalServiceDTO[];
   dashboards: ExternalDashboardDTO[];
 }
@@ -97,9 +100,9 @@ export function useTenantAlerts() {
 }
 
 export function useExternalTools() {
-  // Auth-scoped cache key: при смене пользователя / роли автоматически
-  // будет выполнен новый запрос. Это защищает от stale-cache между
-  // сессиями разных пользователей в одном браузере.
+  // Auth-scoped cache key: changing the user / role automatically triggers
+  // a fresh request. This protects against stale cache issues when switching
+  // sessions of different users in the same browser.
   const { userId, globalRole } = useAuth();
 
   return useQuery({

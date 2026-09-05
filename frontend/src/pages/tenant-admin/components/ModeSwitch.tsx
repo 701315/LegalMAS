@@ -1,18 +1,18 @@
 // =============================================================
 // src/pages/tenant-admin/components/ModeSwitch.tsx
 //
-// Двухпозиционный переключатель между "operational" и "debug" модами
-// для отображения логов.
+// Two-position toggle between "operational" and "debug" modes
+// for log display.
 //
 // Design contract:
-// - Два button-элемента внутри одного pill-контейнера
-// - Активный button имеет accent background
-// - Разделитель (border-l) между buttons
-// - FOCUS_RING для keyboard accessibility
+// - Two button elements inside a single pill container
+// - Active button has accent background
+// - Divider (border-l) between buttons
+// - FOCUS_RING for keyboard accessibility
 //
 // Business meaning:
-// - operational: показать только warnings + errors (обычный режим)
-// - debug: показать все логи включая info (для troubleshooting)
+// - operational: show only warnings + errors (normal mode)
+// - debug: show all logs including info (for troubleshooting)
 // =============================================================
 
 import React from "react";
@@ -21,9 +21,9 @@ import type { LogsMode } from "../../../api/tenantAdmin";
 import { FOCUS_RING } from "../constants";
 
 export interface ModeSwitchProps {
-  /** Текущий выбранный режим */
+  /** Currently selected mode */
   value: LogsMode;
-  /** Callback при переключении режима */
+  /** Callback when mode changes */
   onChange: (v: LogsMode) => void;
 }
 
@@ -59,4 +59,5 @@ const ModeSwitch: React.FC<ModeSwitchProps> = ({ value, onChange }) => {
 };
 
 export default ModeSwitch;
+
 

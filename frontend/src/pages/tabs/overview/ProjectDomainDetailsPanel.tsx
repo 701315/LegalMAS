@@ -4,7 +4,14 @@
 
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, ChevronDown, FileText, X } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  ChevronRight,
+  ChevronDown,
+  FileText,
+  X,
+} from "lucide-react";
 import { CollapsedPipelineRail } from "./CollapsedPipelineRail";
 import { PipelineLayoutProvider } from "./pipelineLayoutContext";
 import type { Deal } from "../../../types";
@@ -16,7 +23,23 @@ import { RunSummaryPanel } from "./RunSummaryPanel";
 import { useDealLLMUsage } from "../../../api/deals";
 import { useDocuments } from "../../../api/documents";
 import { useRunProgress, useRunSummary } from "../../../api/runs";
+import Button from "../../../components/ui/Button";
 import { DEMO_AGGREGATES } from "../counterparties/constants";
+import {
+  buildCounterpartiesTotals,
+  buildCountryStructure,
+  buildCriticalCounterparties,
+  buildRiskMeta,
+  buildTopByValue,
+} from "../counterparties/utils";
+import {
+  buildCriticalObjects,
+  buildRealEstateTotals,
+  buildRegionStructure,
+  buildRiskMeta as buildRealEstateRiskMeta,
+  buildTopByArea,
+  objectTypeShortLabel,
+} from "../real-estate/utils";
 import { DEMO_OBJECTS } from "../real-estate/constants";
 
 type DomainKey = "documents" | "counterparties" | "real_estate";
@@ -49,86 +72,340 @@ const ColumnShell: React.FC<ColumnShellProps> = ({ title, children }) => (
 );
 
 // ---------------------------------------------------------------------------
-// Counterparties summary
+// Counterparties summary (rich preview)
 // ---------------------------------------------------------------------------
 
 const CounterpartiesSummary: React.FC = () => {
   const { t } = useTranslation("projects");
-  const critical = DEMO_AGGREGATES.filter(
-    (item) => item.reviewStatus === "critical",
-  );
-  const sanctions = DEMO_AGGREGATES.filter((item) => item.sanctionsFlag);
-  const bankruptcy = DEMO_AGGREGATES.filter((item) => item.bankruptcyFlag);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const countryMap = new Map<string, number>();
-  for (const item of DEMO_AGGREGATES) {
-    countryMap.set(item.country, (countryMap.get(item.country) ?? 0) + 1);
-  }
-  const topCountries = [...countryMap.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
+  const aggregates = DEMO_AGGREGATES;
+
+  const { totalCounterparties, totalContracts, totalContractValue } =
+    React.useMemo(() => buildCounterpartiesTotals(aggregates), [aggregates]);
+
+  const critical = React.useMemo(
+    () => buildCriticalCounterparties(aggregates),
+    [aggregates],
+  );
+  const sanctionsCount = aggregates.filter((item) => item.sanctionsFlag).length;
+  const bankruptcyCount = aggregates.filter((item) => item.bankruptcyFlag).length;
+
+  const topByValue = React.useMemo(
+    () => buildTopByValue(aggregates).slice(0, 5),
+    [aggregates],
+  );
+
+  const countryStructure = React.useMemo(
+    () => buildCountryStructure(aggregates).slice(0, 5),
+    [aggregates],
+  );
+
+  const attentionRows = React.useMemo(() => {
+    return aggregates
+      .filter((item) => {
+        const risk = buildRiskMeta(item);
+        return (
+          item.reviewStatus === "critical" ||
+          item.reviewStatus === "needs_review" ||
+          item.sanctionsFlag ||
+          item.bankruptcyFlag ||
+          risk.tone === "high"
+        );
+      })
+      .slice(0, 6)
+      .map((item) => {
+        const risk = buildRiskMeta(item);
+        const flags: string[] = [];
+        if (item.sanctionsFlag) {
+          flags.push(
+            t("overviewPanels.domainDetails.counterparties.sanctions"),
+          );
+        }
+        if (item.bankruptcyFlag) {
+          flags.push(
+            t("overviewPanels.domainDetails.counterparties.bankruptcy"),
+          );
+        }
+        if (item.reviewStatus === "critical") {
+          flags.push(
+            t("overviewPanels.domainDetails.counterparties.critical"),
+          );
+        }
+        return {
+          id: item.id,
+          name: item.name,
+          country: item.country,
+          contractCount: item.contractCount,
+          value: `$${item.contractValueUsdM}m`,
+          riskLabel: risk.label,
+          riskTone: risk.tone,
+          flags,
+        };
+      });
+  }, [aggregates, t]);
+
+  const handleOpenFull = React.useCallback(() => {
+    const params = new URLSearchParams(location.search);
+    params.set("tab", "counterparties");
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString(),
+      },
+      { replace: false },
+    );
+  }, [location.pathname, location.search, navigate]);
+
+  const riskToneClass = (tone: string) => {
+    if (tone === "high") {
+      return "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]";
+    }
+    if (tone === "medium") {
+      return "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]";
+    }
+    return "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]";
+  };
+
+  const countryTotal = countryStructure.reduce((sum, item) => sum + item.count, 0);
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">
-            {t("overviewPanels.domainDetails.counterparties.total")}
-          </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--text-primary)]">
-            {DEMO_AGGREGATES.length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">
-            {t("overviewPanels.domainDetails.counterparties.critical")}
-          </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
-            {critical.length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">
-            {t("overviewPanels.domainDetails.counterparties.sanctions")}
-          </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
-            {sanctions.length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">
-            {t("overviewPanels.domainDetails.counterparties.bankruptcy")}
-          </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning-text)]">
-            {bankruptcy.length}
-          </p>
-        </div>
-      </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1 pb-4">
+        {/* KPI strip — same language as full Counterparties demo */}
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.counterparties.total")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              {totalCounterparties}
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.counterparties.geography")}
+            </p>
+          </div>
 
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
-          {t("overviewPanels.domainDetails.counterparties.geography")}
-        </p>
-        <div className="space-y-1.5">
-          {topCountries.map(([country, count]) => (
-            <div
-              key={country}
-              className="flex items-center justify-between gap-2"
-            >
-              <span className="text-xs text-[var(--text-primary)]">
-                {country}
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.counterparties.contracts")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              {totalContracts}
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.counterparties.contractsShort")}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.counterparties.value")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              ${totalContractValue}m
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.counterparties.critical")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--color-error-text)]">
+              {critical.length}
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.counterparties.sanctions")}:{" "}
+              <span className="font-semibold text-[var(--color-error-text)]">
+                {sanctionsCount}
               </span>
-              <span className="text-[11px] tabular-nums text-[var(--text-muted)]">
-                {count}
+              {" · "}
+              {t("overviewPanels.domainDetails.counterparties.bankruptcy")}:{" "}
+              <span className="font-semibold text-[var(--color-warning-text)]">
+                {bankruptcyCount}
               </span>
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {/* Top by value */}
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+            <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                {t("overviewPanels.domainDetails.counterparties.topByValue")}
+              </p>
             </div>
-          ))}
+            <div className="divide-y divide-[var(--border-subtle)]">
+              {topByValue.map((item, index) => (
+                <div
+                  key={`${item.name}-${index}`}
+                  className="flex items-center gap-3 px-4 py-3"
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-elevated-soft)] text-[12px] font-semibold text-[var(--text-primary)]">
+                    {index + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+                      {item.name}
+                    </p>
+                    <p className="text-[12px] text-[var(--text-muted)]">
+                      {item.country}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+                    {item.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Geography */}
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+            <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                {t("overviewPanels.domainDetails.counterparties.geography")}
+              </p>
+            </div>
+            <div className="space-y-3 px-4 py-4">
+              {countryStructure.map((item) => {
+                const share =
+                  countryTotal > 0
+                    ? Math.round((item.count / countryTotal) * 100)
+                    : 0;
+                return (
+                  <div key={item.country}>
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <p className="text-sm text-[var(--text-primary)]">
+                        {item.country}
+                      </p>
+                      <p className="text-[12px] font-medium tabular-nums text-[var(--text-muted)]">
+                        {item.count} · {share}%
+                      </p>
+                    </div>
+                    <div className="h-2 rounded-full bg-[var(--bg-elevated-soft)]">
+                      <div
+                        className="h-2 rounded-full bg-[var(--accent-primary)]"
+                        style={{ width: `${share}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
+
+        {/* Needs attention table */}
+        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+          <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
+              {t("overviewPanels.domainDetails.counterparties.needsAttention")}
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-[var(--bg-elevated-soft)]">
+                <tr>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    #
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.counterparties.total")}
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.counterparties.country")}
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t(
+                      "overviewPanels.domainDetails.counterparties.contractsShort",
+                    )}
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.counterparties.value")}
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.counterparties.risk")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {attentionRows.map((row, index) => (
+                  <tr
+                    key={row.id}
+                    className="border-t border-[var(--border-subtle)] align-top"
+                  >
+                    <td className="px-4 py-3 tabular-nums text-[var(--text-muted)]">
+                      {index + 1}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-[var(--text-primary)]">
+                        {row.name}
+                      </p>
+                      {row.flags.length > 0 ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {row.flags.map((flag) => (
+                            <span
+                              key={flag}
+                              className="inline-flex rounded-full border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-error-text)]"
+                            >
+                              {flag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">
+                      {row.country}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
+                      {row.contractCount}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
+                      {row.value}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={[
+                          "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                          riskToneClass(row.riskTone),
+                        ].join(" ")}
+                      >
+                        {row.riskLabel}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <p className="text-[11px] leading-5 text-[var(--text-muted)]">
+          {t("overviewPanels.domainDetails.counterparties.demoNote")}
+        </p>
       </div>
 
-      <p className="text-[11px] text-[var(--text-muted)]">
-        {t("overviewPanels.domainDetails.counterparties.demoNote")}
-      </p>
+      {/* Sticky footer CTA */}
+      <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[var(--bg-card)] pt-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[11px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.counterparties.openFullHint")}
+          </p>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={handleOpenFull}
+            rightIcon={<ArrowRight className="h-4 w-4" aria-hidden />}
+            className="w-full sm:ml-auto sm:w-auto"
+          >
+            {t("overviewPanels.domainDetails.counterparties.openFull")}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -138,81 +415,342 @@ const CounterpartiesSummary: React.FC = () => {
 // ---------------------------------------------------------------------------
 
 const RealEstateSummary: React.FC = () => {
-  const { t } = useTranslation("projects");
-  const encumbered = DEMO_OBJECTS.filter((item) => item.encumbrance === true);
-  const ownershipReview = DEMO_OBJECTS.filter(
+  const { t, i18n } = useTranslation("projects");
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const objects = DEMO_OBJECTS;
+
+  const { totalObjects, totalLand, totalBuildingsAndPremises, totalEncumbered } =
+    React.useMemo(() => buildRealEstateTotals(objects), [objects]);
+
+  const ownershipReviewCount = objects.filter(
     (item) =>
       item.ownership_status === "review" ||
       item.ownership_status === "not_confirmed",
-  );
-  const highRisk = DEMO_OBJECTS.filter((item) => item.risk === "high");
+  ).length;
 
-  const regionMap = new Map<string, number>();
-  for (const item of DEMO_OBJECTS) {
-    regionMap.set(item.region, (regionMap.get(item.region) ?? 0) + 1);
-  }
-  const topRegions = [...regionMap.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
+  const topByArea = React.useMemo(
+    () => buildTopByArea(objects, t, i18n.language).slice(0, 5),
+    [objects, t, i18n.language],
+  );
+
+  const regionStructure = React.useMemo(
+    () => buildRegionStructure(objects).slice(0, 5),
+    [objects],
+  );
+
+  const criticalObjects = React.useMemo(
+    () => buildCriticalObjects(objects, t),
+    [objects, t],
+  );
+
+  const attentionRows = React.useMemo(() => {
+    return objects
+      .filter((item) => {
+        const risk = buildRealEstateRiskMeta(item);
+        return (
+          item.encumbrance === true ||
+          item.ownership_status === "review" ||
+          item.ownership_status === "not_confirmed" ||
+          risk.tone === "high"
+        );
+      })
+      .slice(0, 6)
+      .map((item) => {
+        const risk = buildRealEstateRiskMeta(item);
+        const flags: string[] = [];
+        if (item.encumbrance === true) {
+          flags.push(t("overviewPanels.domainDetails.realEstate.encumbered"));
+        }
+        if (
+          item.ownership_status === "review" ||
+          item.ownership_status === "not_confirmed"
+        ) {
+          flags.push(
+            t("overviewPanels.domainDetails.realEstate.ownershipReview"),
+          );
+        }
+        if (risk.tone === "high") {
+          flags.push(t("overviewPanels.domainDetails.realEstate.highRisk"));
+        }
+        return {
+          id: item.id,
+          name: item.address ?? item.cadastral_number ?? item.id,
+          region: item.region,
+          typeLabel: objectTypeShortLabel(item.object_type),
+          areaLabel: item.area_sqm
+            ? `${item.area_sqm.toLocaleString(i18n.language)} m²`
+            : "—",
+          documents: item.document_count,
+          riskLabel: risk.label,
+          riskTone: risk.tone,
+          flags,
+        };
+      });
+  }, [objects, t, i18n.language]);
+
+  const handleOpenFull = React.useCallback(() => {
+    const params = new URLSearchParams(location.search);
+    params.set("tab", "real_estate");
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString(),
+      },
+      { replace: false },
+    );
+  }, [location.pathname, location.search, navigate]);
+
+  const riskToneClass = (tone: string) => {
+    if (tone === "high") {
+      return "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]";
+    }
+    if (tone === "medium") {
+      return "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]";
+    }
+    return "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]";
+  };
+
+  const regionTotal = regionStructure.reduce((sum, item) => sum + item.count, 0);
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">
-            {t("overviewPanels.domainDetails.realEstate.objects")}
-          </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--text-primary)]">
-            {DEMO_OBJECTS.length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">
-            {t("overviewPanels.domainDetails.realEstate.encumbered")}
-          </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
-            {encumbered.length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">
-            {t("overviewPanels.domainDetails.realEstate.ownershipReview")}
-          </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning-text)]">
-            {ownershipReview.length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">
-            {t("overviewPanels.domainDetails.realEstate.highRisk")}
-          </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
-            {highRisk.length}
-          </p>
-        </div>
-      </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1 pb-4">
+        {/* KPI strip */}
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.realEstate.objects")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              {totalObjects}
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.realEstate.topRegions")}
+            </p>
+          </div>
 
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
-          {t("overviewPanels.domainDetails.realEstate.topRegions")}
-        </p>
-        <div className="space-y-1.5">
-          {topRegions.map(([region, count]) => (
-            <div key={region} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-[var(--text-primary)]">
-                {region}
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.realEstate.land")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              {totalLand}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.realEstate.buildings")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              {totalBuildingsAndPremises}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.realEstate.encumbered")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--color-error-text)]">
+              {totalEncumbered}
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              {t("overviewPanels.domainDetails.realEstate.ownershipReview")}:{" "}
+              <span className="font-semibold text-[var(--color-warning-text)]">
+                {ownershipReviewCount}
               </span>
-              <span className="text-[11px] tabular-nums text-[var(--text-muted)]">
-                {count}
+              {" · "}
+              {t("overviewPanels.domainDetails.realEstate.highRisk")}:{" "}
+              <span className="font-semibold text-[var(--color-error-text)]">
+                {criticalObjects.length}
               </span>
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {/* Top by area */}
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+            <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                {t("overviewPanels.domainDetails.realEstate.topByArea")}
+              </p>
             </div>
-          ))}
+            <div className="divide-y divide-[var(--border-subtle)]">
+              {topByArea.map((item, index) => (
+                <div
+                  key={`${item.name}-${index}`}
+                  className="flex items-center gap-3 px-4 py-3"
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-elevated-soft)] text-[12px] font-semibold text-[var(--text-primary)]">
+                    {index + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+                      {item.name}
+                    </p>
+                    <p className="text-[12px] text-[var(--text-muted)]">
+                      {item.subtitle}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+                    {item.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Regions */}
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+            <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                {t("overviewPanels.domainDetails.realEstate.topRegions")}
+              </p>
+            </div>
+            <div className="space-y-3 px-4 py-4">
+              {regionStructure.map((item) => {
+                const share =
+                  regionTotal > 0
+                    ? Math.round((item.count / regionTotal) * 100)
+                    : 0;
+                return (
+                  <div key={item.region}>
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <p className="text-sm text-[var(--text-primary)]">
+                        {item.region}
+                      </p>
+                      <p className="text-[12px] font-medium tabular-nums text-[var(--text-muted)]">
+                        {item.count} · {share}%
+                      </p>
+                    </div>
+                    <div className="h-2 rounded-full bg-[var(--bg-elevated-soft)]">
+                      <div
+                        className="h-2 rounded-full bg-[var(--accent-primary)]"
+                        style={{ width: `${share}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
+
+        {/* Needs attention */}
+        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+          <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
+              {t("overviewPanels.domainDetails.realEstate.needsAttention")}
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-[var(--bg-elevated-soft)]">
+                <tr>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    #
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.realEstate.objects")}
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.realEstate.region")}
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.realEstate.type")}
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.realEstate.area")}
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.realEstate.documents")}
+                  </th>
+                  <th className="px-4 py-2.5 font-semibold text-[var(--text-primary)]">
+                    {t("overviewPanels.domainDetails.realEstate.risk")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {attentionRows.map((row, index) => (
+                  <tr
+                    key={row.id}
+                    className="border-t border-[var(--border-subtle)] align-top"
+                  >
+                    <td className="px-4 py-3 tabular-nums text-[var(--text-muted)]">
+                      {index + 1}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-[var(--text-primary)]">
+                        {row.name}
+                      </p>
+                      {row.flags.length > 0 ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {row.flags.map((flag) => (
+                            <span
+                              key={flag}
+                              className="inline-flex rounded-full border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-error-text)]"
+                            >
+                              {flag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">
+                      {row.region}
+                    </td>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">
+                      {row.typeLabel}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
+                      {row.areaLabel}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
+                      {row.documents}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={[
+                          "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                          riskToneClass(row.riskTone),
+                        ].join(" ")}
+                      >
+                        {row.riskLabel}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <p className="text-[11px] leading-5 text-[var(--text-muted)]">
+          {t("overviewPanels.domainDetails.realEstate.demoNote")}
+        </p>
       </div>
 
-      <p className="text-[11px] text-[var(--text-muted)]">
-        {t("overviewPanels.domainDetails.realEstate.demoNote")}
-      </p>
+      {/* Sticky CTA */}
+      <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[var(--bg-card)] pt-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[11px] text-[var(--text-muted)]">
+            {t("overviewPanels.domainDetails.realEstate.openFullHint")}
+          </p>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={handleOpenFull}
+            rightIcon={<ArrowRight className="h-4 w-4" aria-hidden />}
+            className="w-full sm:ml-auto sm:w-auto"
+          >
+            {t("overviewPanels.domainDetails.realEstate.openFull")}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -229,10 +767,6 @@ function isTerminalRunStatus(status: string | undefined): boolean {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Collapsed Pipeline Summary (УПРОЩЁННЫЙ)
-// ---------------------------------------------------------------------------
-
 const CollapsedPipelineSummary: React.FC<{
   runId: string | null;
   onExpand: () => void;
@@ -248,10 +782,6 @@ const CollapsedPipelineSummary: React.FC<{
     />
   );
 };
-
-// ---------------------------------------------------------------------------
-// Collapsed Summary Rail
-// ---------------------------------------------------------------------------
 
 const CollapsedSummaryRail: React.FC<{
   onExpand: () => void;
@@ -292,10 +822,6 @@ const CollapsedSummaryRail: React.FC<{
     </div>
   );
 };
-
-// ---------------------------------------------------------------------------
-// DocumentsContent Main Logic
-// ---------------------------------------------------------------------------
 
 const DocumentsContent: React.FC<{
   runId: string | null;
@@ -351,7 +877,6 @@ const DocumentsContent: React.FC<{
 
   return (
     <>
-      {/* ── xl+ : активный run → pipeline на всю ширину ── */}
       {!isTerminal && (
         <div className="hidden h-full min-h-0 xl:block">
           <div className="flex h-full min-h-0 flex-col">
@@ -365,7 +890,6 @@ const DocumentsContent: React.FC<{
         </div>
       )}
 
-      {/* ── xl+ : terminal + expanded pipeline ── */}
       {isTerminal && isPipelineExpanded && (
         <div className="hidden h-full min-h-0 xl:flex xl:flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm overflow-hidden">
           <div className="shrink-0 flex items-start justify-between border-b border-[var(--border-subtle)] px-5 py-4">
@@ -409,7 +933,6 @@ const DocumentsContent: React.FC<{
         </div>
       )}
 
-      {/* ── xl+ : terminal + collapsed pipeline + summary logic ── */}
       {isTerminal && !isPipelineExpanded && (
         <div
           className="hidden h-full min-h-0 grid-rows-[minmax(0,1fr)] gap-4 xl:grid"
@@ -419,7 +942,6 @@ const DocumentsContent: React.FC<{
               : "minmax(72px,72px) minmax(72px,72px) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
           }}
         >
-          {/* Колонка 1: Пайплайн */}
           <div className="flex h-full min-h-0 flex-col">
             <div className="h-full flex flex-col">
               <CollapsedPipelineSummary
@@ -430,7 +952,6 @@ const DocumentsContent: React.FC<{
             </div>
           </div>
 
-          {/* Колонки 2+: Логика Резюме */}
           {isSummaryExpanded ? (
             <div className="flex h-full min-h-0 flex-col">
               <div className="h-full flex flex-col">
@@ -487,7 +1008,6 @@ const DocumentsContent: React.FC<{
         </div>
       )}
 
-      {/* ── < xl : stacked fallback ── */}
       <div className="grid min-h-0 grid-cols-1 gap-4 xl:hidden lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="min-w-0">
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
@@ -613,7 +1133,6 @@ export const ProjectDomainDetailsPanel: React.FC<
   return (
     <section className="flex flex-col lg:h-full lg:min-h-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm xl:rounded-t-none xl:border-t-0">
       <div className="relative flex flex-col text-[var(--text-primary)] lg:min-h-0 lg:flex-1">
-        {/* Header: shrink-0 */}
         <div className="shrink-0 px-5">
           <div className="py-3">
             <div className="flex items-center gap-1.5">
@@ -636,7 +1155,6 @@ export const ProjectDomainDetailsPanel: React.FC<
           <div className="border-t border-[var(--border-subtle)]" />
         </div>
 
-        {/* Content: строгий десктопный контракт, на мобильном течёт естественно */}
         <div className="px-5 py-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           {activeDomain === "documents" && (
             <PipelineLayoutProvider>
@@ -644,12 +1162,12 @@ export const ProjectDomainDetailsPanel: React.FC<
             </PipelineLayoutProvider>
           )}
           {activeDomain === "counterparties" && (
-            <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+            <div className="flex h-full min-h-0 flex-col lg:overflow-hidden">
               <CounterpartiesSummary />
             </div>
           )}
           {activeDomain === "real_estate" && (
-            <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+            <div className="flex h-full min-h-0 flex-col lg:overflow-hidden">
               <RealEstateSummary />
             </div>
           )}

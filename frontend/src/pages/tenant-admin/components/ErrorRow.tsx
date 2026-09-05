@@ -1,20 +1,20 @@
 // =============================================================
 // src/pages/tenant-admin/components/ErrorRow.tsx
 //
-// Строка ошибки в таблице "Проблемы и ошибки" внутри
-// ProjectDrillDown. Отображает: тип ошибки (Документ/Run),
-// объект (название + время), статус/stage, error message,
-// action "Логи" button.
+// Error row in the "Problems & Errors" table inside
+// ProjectDrillDown. Displays: error type (Document/Run),
+// object (name + time), status/stage, error message,
+// and "Logs" action button.
 //
-// Expandable: при клике раскрывает вторую <tr> с MetaFields
-// (Document ID, Run ID, Stage, Error type, Reason, Time) и
+// Expandable: clicking expands a second <tr> with MetaFields
+// (Document ID, Run ID, Stage, Error type, Reason, Time) and
 // raw error_details JSON.
 //
 // Design contract:
-// - Кликабельная строка → toggle expand
-// - "Логи" button → open logs с correlation фильтром (не toggle)
-// - Chevron icon показывает expand state
-// - Semantic tone для статуса: failed = error, quarantine/completed_with_errors = warn
+// - Clickable row → toggle expand
+// - "Logs" button → open logs tab with correlation filter (no toggle)
+// - Chevron icon indicates expand state
+// - Semantic tone for status: failed = error, quarantine/completed_with_errors = warn
 // =============================================================
 
 import React from "react";
@@ -27,13 +27,13 @@ import { formatDateTime } from "../utils";
 import MetaField from "./MetaField";
 
 export interface ErrorRowProps {
-  /** Ошибка для отображения */
+  /** Error item to display */
   item: ProjectErrorItem;
-  /** Развёрнута ли строка (показываются детали + raw JSON) */
+  /** Whether the row is expanded to show details and raw JSON */
   expanded: boolean;
-  /** Callback для toggle expand/collapse */
+  /** Callback to toggle expand/collapse state */
   onToggle: () => void;
-  /** Callback при клике на "Логи" — открывает logs tab с correlation */
+  /** Callback on "Logs" click — opens logs tab with correlation filter */
   onOpenLogs: () => void;
 }
 
@@ -51,9 +51,11 @@ const ErrorRow: React.FC<ErrorRowProps> = ({
       t("errorRow.documentFallback", { id: item.document_id?.slice(0, 8) ?? "" })
     : t("errorRow.runFallback", { id: item.run_id?.slice(0, 8) ?? "" });
 
+  const rawStatus = isDoc ? item.document_status : item.run_status;
+
   const statusText = isDoc
-    ? item.document_status ?? "—"
-    : item.run_status ?? "—";
+    ? t(`documentStatusLabels.${rawStatus}`, { defaultValue: rawStatus ?? "—" })
+    : t(`runStatusLabels.${rawStatus}`, { defaultValue: rawStatus ?? "—" });
 
   const statusTone: "error" | "warn" | "neutral" =
     (isDoc && item.document_status === "failed") ||
@@ -149,7 +151,7 @@ const ErrorRow: React.FC<ErrorRowProps> = ({
                 {isDoc && (
                   <>
                     <MetaField
-                      label="Document ID"
+                      label={t("errorRow.documentId")}
                       value={item.document_id}
                     />
                     <MetaField
@@ -159,9 +161,15 @@ const ErrorRow: React.FC<ErrorRowProps> = ({
                   </>
                 )}
                 {!isDoc && (
-                  <MetaField label="Run ID" value={item.run_id} />
+                  <MetaField
+                    label={t("errorRow.runId")}
+                    value={item.run_id}
+                  />
                 )}
-                <MetaField label="Stage" value={item.stage} />
+                <MetaField
+                  label={t("errorRow.stage")}
+                  value={item.stage}
+                />
                 <MetaField
                   label={t("errorRow.errorType")}
                   value={item.error_type}

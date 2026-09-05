@@ -1,29 +1,29 @@
 // =============================================================
 // src/pages/tenant-admin/sections/ProjectDrillDown.tsx
 //
-// Orchestrator для drill-down view конкретного проекта. Управляет:
+// Orchestrator for the per-project drill-down view. Manages:
 // - Sub-tabs (overview | members | logs)
-// - Загрузка project insights
-// - Загрузка project logs (enabled только когда subTab === "logs")
-// - Shared correlation state (для перехода из Overview в Logs)
-// - Shared logs mode + since (для inheritance между sub-tabs)
+// - Project insights fetching
+// - Project logs fetching (enabled only when subTab === "logs")
+// - Shared correlation state (for navigation from Overview to Logs)
+// - Shared logs mode + since (inherited between sub-tabs)
 //
 // Sub-sections:
-// - ProjectOverviewSection — метрики документов, runs, errors
-// - ProjectMembersSection — участники проекта
-// - ProjectLogsSection — логи из Loki с correlation
+// - ProjectOverviewSection — document metrics, runs, errors
+// - ProjectMembersSection — project participants
+// - ProjectLogsSection — Loki logs with correlation
 //
 // Design contract:
-// - Sub-header с "К списку" back button + название + sub-tabs + "Открыть проект"
-// - Loading/error states для insights
-// - При смене dealId — logs correlation НЕ сбрасывается (осознанно —
-//   пользователь мог только что перейти в другой проект и хочет тот же контекст)
+// - Sub-header with "Back to list" button + project name + sub-tabs + "Open full project"
+// - Loading/error states for insights
+// - On dealId change, logs correlation is intentionally NOT reset
+//   (the user may have just navigated to another project and wants the same context)
 //
 // State ownership:
-// - subTab, logsMode, projectLogsSince, correlation — здесь (нужно
-//   для инструментов shared между sub-tabs)
-// - errorFilter, expandedErrorKey — внутри ProjectOverviewSection
-// - selectedLogIdx, copied — внутри ProjectLogsSection
+// - subTab, logsMode, projectLogsSince, correlation — here (needed
+//   for tools shared between sub-tabs)
+// - errorFilter, expandedErrorKey — inside ProjectOverviewSection
+// - selectedLogIdx, copied — inside ProjectLogsSection
 // =============================================================
 
 import React from "react";
@@ -51,11 +51,11 @@ import ProjectMembersSection from "./project-drilldown/ProjectMembersSection";
 import ProjectLogsSection from "./project-drilldown/ProjectLogsSection";
 
 export interface ProjectDrillDownProps {
-  /** ID проекта для drill down */
+  /** Project ID for drill down */
   dealId: string;
-  /** Callback при клике "К списку" — parent сбрасывает selectedProjectId */
+  /** Callback on "Back to list" click — parent resets selectedProjectId */
   onBack: () => void;
-  /** Callback при клике "Открыть проект целиком" — переход на /projects/:id */
+  /** Callback on "Open full project" click — navigates to /projects/:id */
   onOpenProject: (dealId: string) => void;
 }
 
@@ -68,7 +68,7 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
   const insightsQ = useProjectInsights(dealId);
   const [subTab, setSubTab] = React.useState<ProjectDrillTab>("overview");
 
-  // Shared logs state (нужен между Overview → Logs переходами)
+  // Shared logs state (needed for Overview → Logs transitions)
   const [logsMode, setLogsMode] = React.useState<LogsMode>("operational");
   const [projectLogsSince, setProjectLogsSince] =
     React.useState<number>(1440);
@@ -115,7 +115,7 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
     [],
   );
 
-  // Handler для "Логи" button в run row (Overview section)
+  // Handler for the "Logs" button in a run row (Overview section)
   const handleOpenLogsForRun = React.useCallback((runId: string) => {
     setSubTab("logs");
     setCorrelationRunId(runId);
@@ -125,7 +125,7 @@ const ProjectDrillDown: React.FC<ProjectDrillDownProps> = ({
     setProjectLogsSince(0);
   }, []);
 
-  // Handler для "Логи" button в error row (Overview section)
+  // Handler for the "Logs" button in an error row (Overview section)
   const handleOpenLogsForError = React.useCallback(
     (item: ProjectErrorItem) => {
       setSubTab("logs");

@@ -152,20 +152,40 @@
       "pipelineStarted": "Запущен {{time}}",
       "pipelineElapsed": "за {{m}} мин {{s}} сек",
       "counterparties": {
-        "total": "Всего",
-        "critical": "Critical",
+        "total": "Выявлено контрагентов",
+        "contracts": "Контракты с контрагентами",
+        "value": "Сумма контрактов",
+        "critical": "Критичные",
         "sanctions": "Санкции",
         "bankruptcy": "Банкротство",
         "geography": "География",
-        "demoNote": "Демо-данные. Перейдите на вкладку «Контрагенты» для полного анализа."
+        "topByValue": "Топ по сумме контрактов",
+        "needsAttention": "Требуют внимания",
+        "risk": "Риск",
+        "country": "Страна",
+        "contractsShort": "Контракты",
+        "demoNote": "Демо-данные на основе примерного enrichment. Полные карточки, ownership и детали рисков — во вкладке Counterparties.",
+        "openFull": "Открыть полный анализ",
+        "openFullHint": "Таблица, карточки компаний, ownership и risk workspace"
       },
       "realEstate": {
-        "objects": "Объектов",
-        "encumbered": "С обременением",
-        "ownershipReview": "Ownership review",
+        "objects": "Выявлено объектов",
+        "land": "Земельные участки",
+        "buildings": "Здания и помещения",
+        "encumbered": "С обременениями",
+        "ownershipReview": "Проверка права",
         "highRisk": "Высокий риск",
         "topRegions": "Топ регионов",
-        "demoNote": "Демо-данные. Перейдите на вкладку «Имущество» для полного анализа."
+        "topByArea": "Топ по площади",
+        "needsAttention": "Требуют внимания",
+        "region": "Регион",
+        "type": "Тип",
+        "area": "Площадь",
+        "documents": "Документы",
+        "risk": "Риск",
+        "demoNote": "Демо-данные на основе примерного enrichment. Полные карточки реестра, обременения и legal checks — во вкладке Real estate.",
+        "openFull": "Открыть полный анализ",
+        "openFullHint": "Реестр, карточки объектов, обременения и legal workspace"
       }
     },
     "runSummary": {
@@ -881,7 +901,8 @@
       "launchDesc": "Проверьте документы и настройки проекта перед первым запуском.",
       "cancel": "Отмена",
       "relaunchButton": "Перезапустить анализ",
-      "launchButton": "Запустить анализ"
+      "launchButton": "Запустить анализ",
+      "panelAria": "Панель перезапуска проекта"
     }
   },
   "dashboard": {

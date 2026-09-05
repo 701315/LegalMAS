@@ -1,12 +1,12 @@
 // =============================================================
 // src/pages/tabs/audit/ClassificationAuditView.tsx
-// Экран "Аудит классификации документов" внутри вкладки Audit.
-// Layout: master (таблица) + detail (side panel справа), как в Документах.
+// Document classification audit view inside the Audit tab.
+// Layout: master (table) + detail (right side panel), matching Documents tab.
 //
-// Mobile (< 1024px): drawer открывается fullscreen поверх таблицы.
-// Desktop (≥ 1024px): drawer inline в grid рядом с таблицей.
+// Mobile (< 1024px): drawer opens fullscreen over table.
+// Desktop (≥ 1024px): drawer renders inline in grid beside table.
 //
-// Selection persists после закрытия drawer — строка остаётся активной.
+// Selection persists after closing drawer — row remains active.
 // =============================================================
 
 import React from "react";

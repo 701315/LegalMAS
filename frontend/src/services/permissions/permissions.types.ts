@@ -1,41 +1,42 @@
 // =============================================================
 // src/services/permissions/permissions.types.ts
-// Типы для системы прав по сделке.
+// Types for the deal-level permissions system.
 // =============================================================
 
 import type { ProjectRole } from "../../api/auth";
 import type { GlobalRole } from "../../stores/uiStore";
 
-
 export interface PermissionsContext {
   /**
-   * Системная роль пользователя.
+   * User's system-level role.
    *
-   * Может быть null, если пользователь не залогинен или user-info ещё
-   * не подгружена в store (см. useUIStore.globalRole: GlobalRole | null).
-   * getDealPermissions обязан обработать null как "нет прав".
+   * May be null if the user is not authenticated or user-info
+   * has not yet been loaded into store (see useUIStore.globalRole: GlobalRole | null).
+   * getDealPermissions must treat null as "no permissions".
    */
   userRole: GlobalRole | null;
   projectRole?: ProjectRole | null;
-  // при необходимости сюда можно добавить ещё поля (orgId, scopes и т.п.)
+  // Additional fields (orgId, scopes, etc.) can be added here if needed
 }
 
 export interface DealPermissions {
-  // Доступ к информации по сделке
+  // Access to deal information
   canViewOverview: boolean;
-  // Запуск анализа (runs)
+  // Launching analysis runs
   canStartRun: boolean;
-  // Просмотр отчёта по классификации
+  // Viewing classification report
   canViewClassificationReport: boolean;
-  // Просмотр журнала аудита
+  // Viewing audit log
   canViewAuditLog: boolean;
-  // Работа с документами
+  // Document operations
   canViewDocuments: boolean;
   canDownloadDocuments: boolean;
   canReclassifyDocuments: boolean;
   canDeleteDocuments: boolean;
-  // Работа с DD-запросами
+  // DD requests management
   canManageRequests: boolean;
-  // Загрузка документов
+  // Document upload
   canUploadDocuments: boolean;
 }
+
+

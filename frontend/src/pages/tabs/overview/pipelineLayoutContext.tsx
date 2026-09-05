@@ -1,59 +1,59 @@
 // =============================================================
 // src/pages/tabs/overview/pipelineLayoutContext.tsx
 //
-// Общий store координат этапов pipeline для двух представлений:
+// Shared store for pipeline step coordinates used by two views:
 //   - expanded  (DocumentsPipelinePanel + PipelineStepCard)
 //   - collapsed (CollapsedPipelineSummary)
 //
-// Задача: в collapsed rail иконки этапов должны стоять на тех же
-// y-координатах, что и шапки соответствующих карточек в expanded.
+// Goal: In collapsed rail, step icons must align at the same
+// y-coordinates as the corresponding card headers in expanded view.
 //
-// Ключевое архитектурное решение: координаты в store хранятся
-// как offsets ОТ ПЕРВОЙ КАРТОЧКИ, а не от контейнера. Это делает
-// координаты переносимыми между expanded и collapsed режимами:
-// у первой иконки всегда y = 0, у остальных — реальная дельта
-// от первой карточки в expanded. Отсутствие зависимости от
-// родительских header'ов, padding'ов и обёрток обеспечивает
-// стабильное попадание при переключении режимов.
+// Key architectural decision: coordinates in store are stored
+// as offsets FROM THE FIRST CARD, not from the container. This
+// makes coordinates portable between expanded and collapsed modes:
+// the first icon always has y = 0, others have the real delta
+// from the first card in expanded view. Independence from parent
+// headers, padding, and wrappers ensures stable alignment when
+// switching modes.
 //
-// Реализация: все PipelineStepCard регистрируют свои refs
-// в родительском PipelineLayoutProvider. Один общий
-// ResizeObserver в провайдере измеряет все карточки одновременно
-// через getBoundingClientRect и вычисляет дельты. Это гарантирует
-// консистентность: все top-координаты измерены в один и тот же
-// момент, из одной и той же layout-фазы браузера.
+// Implementation: all PipelineStepCard components register their refs
+// in the parent PipelineLayoutProvider. A single shared ResizeObserver
+// in the provider measures all cards simultaneously via
+// getBoundingClientRect and computes deltas. This guarantees
+// consistency: all top-coordinates are measured at the same moment,
+// from the same browser layout phase.
 // =============================================================
 
 import React from "react";
 
 export interface StepLayoutEntry {
-  /** Offset верха карточки от верха первой карточки, px */
+  /** Offset of card top from the first card top, in pixels */
   top: number;
-  /** Высота карточки, px */
+  /** Card height in pixels */
   height: number;
 }
 
 export interface PipelineLayoutState {
-  /** step.code → координаты (относительно первой карточки) */
+  /** step.code → coordinates (relative to the first card) */
   entries: Record<string, StepLayoutEntry>;
-  /** Порядок step.code в том виде, как они рендерились в expanded */
+  /** Order of step.code as rendered in expanded view */
   order: string[];
 }
 
 interface PipelineLayoutContextValue {
   layout: PipelineLayoutState;
   /**
-   * Регистрирует ref карточки для данного step.code.
-   * Ref может держать null (стандартная React-семантика), пока
-   * элемент не смонтирован. Возвращает cleanup-функцию.
+   * Registers a card ref for the given step.code.
+   * Ref may hold null (standard React semantics) until
+   * the element is mounted. Returns a cleanup function.
    */
   registerCardRef: (
     code: string,
     ref: React.RefObject<HTMLElement | null>,
   ) => () => void;
   /**
-   * Обновляет порядок этапов (вызывается expanded-view при рендере).
-   * Идемпотентно.
+   * Updates step order (called by expanded-view during render).
+   * Idempotent.
    */
   reportOrder: (order: string[]) => void;
 }
@@ -68,12 +68,12 @@ const PipelineLayoutContext =
   React.createContext<PipelineLayoutContextValue>(NOOP_CTX);
 
 /**
- * Provider со встроенным ref-регистри и батч-измерением.
+ * Provider with built-in ref registry and batch measurement.
  *
- * cardsRef хранит текущие refs всех зарегистрированных карточек.
- * Один общий ResizeObserver слушает изменения размеров любой
- * карточки и триггерит remeasure всех сразу. Это гарантирует,
- * что координаты в store всегда взяты из одной layout-фазы.
+ * cardsRef holds current refs of all registered cards.
+ * A single shared ResizeObserver listens for size changes on any
+ * card and triggers remeasure of all at once. This guarantees
+ * that coordinates in store are always captured from the same layout phase.
  */
 export const PipelineLayoutProvider: React.FC<{
   children: React.ReactNode;
@@ -90,24 +90,23 @@ export const PipelineLayoutProvider: React.FC<{
   const observerRef = React.useRef<ResizeObserver | null>(null);
 
   /**
-   * Пересчитывает координаты всех карточек через getBoundingClientRect
-   * и обновляет store, если координаты реально изменились.
+   * Recalculates coordinates for all cards via getBoundingClientRect
+   * and updates store only if coordinates have actually changed.
    *
-   * Координаты вычисляются как дельта от первой карточки в текущем
-   * порядке (orderRef или порядок из cardsRef, если order ещё не
-   * зарегистрирован).
+   * Coordinates are computed as delta from the first card in current
+   * order (orderRef or insertion order from cardsRef if order not yet registered).
    */
   const remeasure = React.useCallback(() => {
     const cards = cardsRef.current;
     if (cards.size === 0) return;
 
-    // Определяем порядок: order из expanded имеет приоритет,
-    // иначе — порядок вставки в Map (соответствует порядку рендера).
+    // Determine order: order from expanded has priority,
+    // otherwise insertion order from Map (matches render order).
     const order = orderRef.current.length > 0
       ? orderRef.current
       : Array.from(cards.keys());
 
-    // Ищем первую карточку с реально смонтированным элементом.
+    // Find the first card with an actually mounted element.
     let firstTop: number | null = null;
     for (const code of order) {
       const el = cards.get(code)?.current;
@@ -134,7 +133,7 @@ export const PipelineLayoutProvider: React.FC<{
     }
 
     setLayout((prev) => {
-      // Проверяем, реально ли изменились координаты.
+      // Check if coordinates have actually changed.
       const prevKeys = Object.keys(prev.entries);
       const nextKeys = Object.keys(nextEntries);
       let changed = prevKeys.length !== nextKeys.length;
@@ -162,13 +161,13 @@ export const PipelineLayoutProvider: React.FC<{
     });
   }, []);
 
-  // Общий ResizeObserver создаётся один раз на жизнь провайдера.
+  // Single ResizeObserver created once for provider lifetime.
   React.useEffect(() => {
     observerRef.current = new ResizeObserver(() => {
-      // requestAnimationFrame защищает от ResizeObserver loop errors:
-      // remeasure триггерит setState → ререндер → возможные новые
-      // изменения размеров. rAF гарантирует, что измерения происходят
-      // после завершения текущей layout-фазы.
+      // requestAnimationFrame protects from ResizeObserver loop errors:
+      // remeasure triggers setState → re-render → potential new
+      // size changes. rAF guarantees measurements occur after
+      // current layout phase completes.
       window.requestAnimationFrame(remeasure);
     });
     return () => {
@@ -181,14 +180,14 @@ export const PipelineLayoutProvider: React.FC<{
     (code: string, ref: React.RefObject<HTMLElement | null>) => {
       cardsRef.current.set(code, ref);
 
-      // Подписываемся на изменения размеров этой карточки.
+      // Subscribe to size changes for this card.
       const el = ref.current;
       if (el && observerRef.current) {
         observerRef.current.observe(el);
       }
 
-      // Триггерим измерение сразу после регистрации,
-      // чтобы координаты появились в store как можно раньше.
+      // Trigger measurement immediately after registration
+      // so coordinates appear in store as early as possible.
       window.requestAnimationFrame(remeasure);
 
       return () => {
@@ -238,12 +237,12 @@ export function usePipelineLayout(): PipelineLayoutContextValue {
 }
 
 /**
- * Хук для PipelineStepCard: регистрирует ref карточки в общем
- * ref-регистри и автоматически снимает регистрацию при unmount.
+ * Hook for PipelineStepCard: registers card ref in shared
+ * ref registry and automatically unregisters on unmount.
  *
- * Ref принимается с `HTMLElement | null` в generic — стандартная
- * React-семантика для DOM-ref, чей current может быть null до
- * первого рендера или после unmount.
+ * Ref accepts `HTMLElement | null` in generic — standard
+ * React semantics for DOM-ref whose current may be null before
+ * first render or after unmount.
  */
 export function usePipelineStepCardRegistration(
   code: string,

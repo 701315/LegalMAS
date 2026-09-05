@@ -1,19 +1,19 @@
 // =============================================================
 // src/pages/RelaunchPage.tsx
-// Отдельная страница перезапуска анализа проекта.
+// Dedicated page for restarting the project analysis run.
 //
-// Архитектурное решение:
-// - рендерится как полноценная страница внутри AppShell (через Outlet);
-// - имеет собственный URL /projects/:dealId/relaunch;
-// - browser back работает нативно;
-// - после успешного запуска: invalidate queries + navigate back;
-// - использует LaunchWideOverlay с variant="inline" как основной контент.
+// Architectural solution:
+// - Rendered as a full page inside AppShell (via Outlet);
+// - Has its own native URL: /projects/:dealId/relaunch;
+// - Native browser back button works seamlessly;
+// - Upon successful launch: invalidate queries + navigate back;
+// - Utilizes LaunchWideOverlay with variant="inline" as core content.
 //
 // State ownership:
-// - deal загружается через useDeal (как в DealRouteWrapper);
-// - launchDealPatch — локальный optimistic patch для primary_language;
-// - checksMode / forceReclassify — локальное состояние формы;
-// - после submit — invalidate всех зависимых queries и navigate(-1).
+// - Deal is fetched via useDeal query (as in DealRouteWrapper);
+// - launchDealPatch — local optimistic patch for primary_language;
+// - checksMode / forceReclassify — local form state;
+// - Upon submit — invalidates all dependent queries and navigate(-1).
 // =============================================================
 
 import React from "react";
@@ -85,7 +85,7 @@ const RelaunchPage: React.FC = () => {
     {},
   );
 
-  // Сбрасываем patch при смене deal или playbook/primary_language.
+  // Reset local patch when dealId, playbook, or primary language changes
   const dealLanguagesKey = JSON.stringify(deal?.languages ?? []);
   React.useEffect(() => {
     setLaunchDealPatch({});
@@ -199,7 +199,7 @@ const RelaunchPage: React.FC = () => {
             qc.invalidateQueries({ queryKey: runKeys.history(deal.id, true) }),
             qc.invalidateQueries({ queryKey: queryKeys.userProjects(userId ?? "") }),
           ]);
-          // Возвращаемся на предыдущую страницу проекта
+          // Return to the previous project dashboard
           navigate(`/projects/${deal.id}`, { replace: true });
         },
       },
@@ -212,10 +212,10 @@ const RelaunchPage: React.FC = () => {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-      {/* ── Page header ────────────────────────────────────────────────
-          Единый паттерн заголовков страниц проекта.
-          Breadcrumb: ● Проект › Перезапуск анализа.
-          Кнопка "Отмена" возвращает на страницу проекта. */}
+      {/* ── Page Header ────────────────────────────────────────────────
+          Standardized project header pattern.
+          Breadcrumbs: Project Name › Relaunch analysis.
+          Cancel button navigates back to the main project page. */}
       <header className="shrink-0 border-b border-[var(--border)] bg-[var(--bg-card)] px-5 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -255,11 +255,11 @@ const RelaunchPage: React.FC = () => {
           </div>
         </div>
       </header>
-      
-      {/* ── Launch content ─────────────────────────────────────────────
-          LaunchWideOverlay с variant="inline" рендерится in-flow внутри
-          scroll-контейнера страницы. Все subpanes (Upload, Playbook,
-          ModelConfig) работают без изменений. */}
+
+      {/* ── Launch Content ─────────────────────────────────────────────
+          LaunchWideOverlay with variant="inline" renders directly in-flow
+          within the scrollable page container. Subpanes (Upload, Playbook,
+          ModelConfig) work natively. */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="p-4 lg:p-6">
           <LaunchWideOverlay
@@ -287,6 +287,5 @@ const RelaunchPage: React.FC = () => {
 };
 
 export default RelaunchPage;
-
 
 

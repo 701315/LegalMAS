@@ -47,27 +47,6 @@ interface DealCreateResponse {
 
 const DEAL_POLL_INTERVAL = 4000;
 
-function formatCountLabel(
-  count: number,
-  one: string,
-  few: string,
-  many: string,
-): string | null {
-  if (count <= 0) {
-    return null;
-  }
-
-  if (count === 1) {
-    return `1 ${one}`;
-  }
-
-  if (count < 5) {
-    return `${count} ${few}`;
-  }
-
-  return `${count} ${many}`;
-}
-
 const NewProjectPage: React.FC = () => {
   const { t } = useTranslation("projects");
   const navigate = useNavigate();
@@ -310,12 +289,9 @@ const NewProjectPage: React.FC = () => {
 
   // ───────────── SUMMARY ─────────────
 
-  const documentsSummary = formatCountLabel(
-    documentsCount,
-    "документ",
-    "документа",
-    "документов",
-  );
+  const documentsSummary = documentsCount > 0
+    ? t("flowSummary.documentsCount", { count: documentsCount })
+    : null;
 
   const normalizedPrimaryLanguage =
     languageSummary ??

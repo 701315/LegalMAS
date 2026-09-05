@@ -1,4 +1,10 @@
 {
+  "units": {
+    "ms": "мс",
+    "msShortLessThanOne": "< 1 мс",
+    "s": "с",
+    "min": "мин"
+  },
   "alertsPanel": {
     "loading": "Загружаем алерты…",
     "loadError": "Не удалось загрузить алерты. Проверьте что Alertmanager запущен.",
@@ -98,7 +104,15 @@
     "errorType": "Тип ошибки",
     "reason": "Причина",
     "time": "Время",
-    "rawDetails": "Raw error_details"
+    "rawDetails": "Raw error_details",
+    "documentId": "ID документа",
+    "runId": "ID запуска (Run ID)",
+    "stage": "Этап (Stage)"
+  },
+  "documentStatusLabels": {
+    "failed": "Ошибка (Failed)",
+    "quarantine": "Карантин (Quarantine)",
+    "reviewed": "Проверено"
   },
   "logs": {
     "modeSwitch": {
@@ -131,7 +145,17 @@
       "groupTooltip": "Группа повторяющихся событий",
       "event": "Event",
       "seenRange": "Первое: {{first}} · Последнее: {{last}}",
-      "rawJson": "Raw JSON"
+      "rawJson": "Raw JSON",
+      "fields": {
+        "logger": "Логгер (Logger)",
+        "worker": "Воркер (Worker)",
+        "dealId": "ID проекта (Deal ID)",
+        "runId": "ID запуска (Run ID)",
+        "documentId": "ID документа",
+        "taskId": "ID задачи (Task ID)",
+        "taskName": "Название задачи",
+        "timestamp": "Время (Timestamp)"
+      }
     }
   },
   "projectsTab": {

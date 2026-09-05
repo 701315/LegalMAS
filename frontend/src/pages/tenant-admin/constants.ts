@@ -1,59 +1,57 @@
 // =============================================================
 // src/pages/tenant-admin/constants.ts
 //
-// Константы для страницы TenantAdmin: CSS утилиты, опции selectов,
-// человекочитаемые labels для ролей и статусов.
+// Constants for the TenantAdmin dashboard: CSS utility classes,
+// dropdown options, human-readable labels and keys for roles/statuses.
 //
-// Дизайн-принцип: держим все magic strings в одном месте, чтобы:
-// - легко находить и менять при UI/UX ревизиях
-// - переиспользовать в тестах
-// - обеспечивать consistency между компонентами
+// Design principle: Maintain magic strings centrally to:
+// - streamline future UI/UX revisions
+// - enable test reusability
+// - ensure consistency across components
 // =============================================================
 
 // ─── CSS Utility Classes ─────────────────────────────────────────────────
 
 /**
- * Стандартный стиль для select/input фильтров в admin panel.
- * Используется в LogsTab (deal_id, level, stage, queue, since, limit).
+ * Standard styling for select/input filters across the admin panel.
+ * Used in LogsTab (deal_id, level, stage, queue, since, limit).
  */
 export const FILTER_CONTROL =
   "min-h-8 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]";
 
 /**
- * Стандартная card-обёртка для секций admin panel.
+ * Standard card wrapper for admin panel sections.
  * Rounded 2xl + border + shadow-sm.
  */
 export const SECTION_CARD =
   "rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm";
 
 /**
- * Wrapper для header'а внутри SECTION_CARD.
- * Обеспечивает единый horizontal padding.
+ * Header wrapper inside SECTION_CARD.
+ * Enforces unified horizontal padding.
  */
 export const SECTION_HEADER_WRAP = "px-5";
 
 /**
- * Inner container для header'а — задаёт vertical padding.
- * Разделён с WRAP, потому что divider между header и body должен
- * идти без горизонтального padding (full-width line).
+ * Inner container for section headers — applies vertical padding.
+ * Separated from WRAP so dividers can span full width.
  */
 export const SECTION_HEADER_INNER = "py-3";
 
 /**
- * Divider между header и body внутри SECTION_CARD.
+ * Full-width divider between header and body inside SECTION_CARD.
  */
 export const SECTION_DIVIDER = "border-t border-[var(--border-subtle)]";
 
 /**
- * Стандартный стиль для мелких uppercase labels (10px).
- * Используется для меток полей, заголовков секций, badges.
+ * Standard style for small uppercase labels (10px).
+ * Used for field labels, section headers, and badges.
  */
 export const LABEL_XS =
   "text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]";
 
 /**
- * Focus ring для интерактивных элементов.
- * Обеспечивает accessibility (WCAG 2.4.7).
+ * Focus ring for interactive elements ensuring WCAG 2.4.7 accessibility compliance.
  */
 export const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]";
@@ -61,8 +59,8 @@ export const FOCUS_RING =
 // ─── Time Range Options ──────────────────────────────────────────────────
 
 /**
- * Опции для селекта "Период" в logs filters.
- * Value — минуты, "0" означает "всё время" (без временного фильтра).
+ * Time range period options for logs filtering.
+ * Value in minutes, "0" represents "all time" (no temporal filter).
  */
 export const SINCE_OPTIONS: { value: string; label: string; labelKey: string }[] = [
   { value: "15", label: "15 min", labelKey: "tenantAdmin:filters.since.15min" },
@@ -78,8 +76,7 @@ export const SINCE_OPTIONS: { value: string; label: string; labelKey: string }[]
 // ─── Role Labels (human-readable) ────────────────────────────────────────
 
 /**
- * Отображаемые названия system-level ролей (English canonical fallback).
- * Fallback на raw role code если ключ не найден.
+ * System-level roles (English canonical fallback).
  */
 export const ROLE_LABELS: Record<string, string> = {
   superadmin: "Super Administrator",
@@ -88,8 +85,7 @@ export const ROLE_LABELS: Record<string, string> = {
 };
 
 /**
- * i18n-ключи для system-level ролей.
- * Использование: t(ROLE_LABEL_KEYS[role]) ?? ROLE_LABELS[role] ?? role
+ * i18n keys for system-level roles.
  */
 export const ROLE_LABEL_KEYS: Record<string, string> = {
   superadmin: "tenantAdmin:roleLabels.superadmin",
@@ -98,8 +94,7 @@ export const ROLE_LABEL_KEYS: Record<string, string> = {
 };
 
 /**
- * Отображаемые названия project-level ролей (English canonical fallback).
- * Используются в UserRow при показе списка проектов пользователя.
+ * Project-level roles (English canonical fallback).
  */
 export const PROJECT_ROLE_LABELS: Record<string, string> = {
   admin: "Administrator",
@@ -108,8 +103,7 @@ export const PROJECT_ROLE_LABELS: Record<string, string> = {
 };
 
 /**
- * i18n-ключи для project-level ролей.
- * Использование: t(PROJECT_ROLE_LABEL_KEYS[role]) ?? PROJECT_ROLE_LABELS[role] ?? role
+ * i18n keys for project-level roles.
  */
 export const PROJECT_ROLE_LABEL_KEYS: Record<string, string> = {
   admin: "tenantAdmin:roleLabels.projectAdmin",
@@ -126,8 +120,7 @@ export interface RunStatusDescriptor {
 }
 
 /**
- * Маппинг статуса анализа (run) → отображаемое название + семантический tone.
- * Tone используется для окрашивания текста (см. utils.ts::toneClass).
+ * Run status descriptor mapping.
  */
 export const RUN_STATUS_CONFIG: Record<string, RunStatusDescriptor> = {
   completed: {

@@ -1,20 +1,20 @@
 // =============================================================
 // src/pages/tenant-admin/tabs/MonitoringTab.tsx
 //
-// Вкладка "Мониторинг" в admin panel. Отображает метрики
-// Prometheus по: pipeline, API endpoints, LLM providers, Celery tasks.
+// "Monitoring" tab in admin panel. Displays Prometheus metrics
+// for: pipeline, API endpoints, LLM providers, Celery tasks.
 //
 // Design contract:
-// - Loading state если данные ещё не пришли
-// - Error state с retry button
-// - Warning banner если Prometheus недоступен (промышленный "degraded mode")
-// - Tenant-admin-only hint: метрики глобальные, для per-project — в drill down
-// - Multiple sections в SECTION_CARD wrappers
+// - Loading state while data is being fetched
+// - Error state with retry button
+// - Warning banner if Prometheus is unavailable ("degraded mode")
+// - Tenant-admin-only hint: metrics are global, per-project in drill down
+// - Multiple sections wrapped in SECTION_CARD
 //
 // State ownership:
-// - metricsQ (данные + loading/error state) поднят в parent — потому что
-//   parent решает enabled: activeTab === "monitoring" (query pattern)
-// - Все rendering derived from props
+// - metricsQ (data + loading/error state) lifted to parent — because
+//   parent controls enabled: activeTab === "monitoring" (query pattern)
+// - All rendering derived from props
 // =============================================================
 
 import React from "react";
@@ -32,7 +32,7 @@ import {
 import { formatDateTime, fmt, fmtMs } from "../utils";
 import KpiCard from "../components/KpiCard";
 
-// Type для metrics data — matches PlatformMetricsResponse из api
+// Type for metrics data — matches PlatformMetricsResponse from API
 interface PlatformMetricsData {
   prometheus_available: boolean;
   collected_at: string | null;
@@ -69,9 +69,9 @@ interface PlatformMetricsData {
 }
 
 export interface MonitoringTabProps {
-  /** Query result для platform metrics */
+  /** Query result for platform metrics */
   metricsQ: UseQueryResult<PlatformMetricsData | undefined>;
-  /** Роль текущего пользователя (для показа tenant-specific hints) */
+  /** Current user role (for tenant-specific hints) */
   globalRole: string | null | undefined;
 }
 

@@ -27,30 +27,22 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-const statusToneClass = (statusLabel?: string | null): string => {
-  if (!statusLabel) {
+const statusToneClass = (statusCode?: string | null): string => {
+  if (!statusCode) {
     return "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]";
   }
 
-  const value = statusLabel.toLowerCase();
+  const code = statusCode.toLowerCase();
 
-  if (value.includes("open") || value.includes("открыт")) {
+  if (code === "open") {
     return "border-[color:color-mix(in_oklab,var(--color-blue)_22%,transparent)] bg-[var(--color-blue-highlight)] text-[var(--color-blue)]";
   }
 
-  if (
-    value.includes("progress") ||
-    value.includes("работ") ||
-    value.includes("processing")
-  ) {
+  if (code === "in_progress" || code === "progress" || code === "processing") {
     return "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]";
   }
 
-  if (
-    value.includes("resolved") ||
-    value.includes("done") ||
-    value.includes("закрыт")
-  ) {
+  if (code === "resolved" || code === "done" || code === "closed") {
     return "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]";
   }
 
@@ -76,9 +68,9 @@ export const RequestsTable: React.FC<Props> = ({
     () =>
       requests.map((req) => ({
         dto: req,
-        view: toRequestTableRowFromLegacy(req),
+        view: toRequestTableRowFromLegacy(req, t),
       })),
-    [requests],
+    [requests, t],
   );
 
   const filtered = useMemo(() => {
@@ -291,7 +283,7 @@ export const RequestsTable: React.FC<Props> = ({
                         <span
                           className={cn(
                             "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-xs font-medium",
-                            statusToneClass(view.statusLabel),
+                            statusToneClass(dto.status),
                           )}
                         >
                           <span className="truncate">{view.statusLabel}</span>
@@ -340,7 +332,5 @@ export const RequestsTable: React.FC<Props> = ({
 };
 
 export default RequestsTable;
-
-
 
 

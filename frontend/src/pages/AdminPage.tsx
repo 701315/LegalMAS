@@ -1,6 +1,8 @@
+// =============================================================
 // src/pages/AdminPage.tsx
-// Административная панель — список клиентов.
-// Доступно только для superadmin.
+// Admin Panel — Clients (Tenants) list.
+// Access restricted to superadmins only.
+// =============================================================
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -41,7 +43,7 @@ import TenantsTable, {
 } from "../components/admin/TenantsTable";
 
 // ─────────────────────────────────────────────────────────────
-// Типы и константы
+// Types & Constants
 // ─────────────────────────────────────────────────────────────
 
 type ViewMode = "cards" | "table";
@@ -64,7 +66,7 @@ const LS_SORT_KEY = "adminPage.sortKey";
 const LS_SORT_DIR = "adminPage.sortDir";
 
 // ─────────────────────────────────────────────────────────────
-// Утилиты
+// Utilities
 // ─────────────────────────────────────────────────────────────
 
 function formatDate(value: string, locale: string): string {
@@ -126,7 +128,7 @@ function readFromLS<T extends string>(
     const v = localStorage.getItem(key);
     if (v && (allowed as readonly string[]).includes(v)) return v as T;
   } catch {
-    // localStorage может быть недоступен (private mode Safari)
+    // localStorage might be unavailable (e.g. Safari private mode)
   }
   return fallback;
 }
@@ -242,7 +244,6 @@ const ViewToggle: React.FC<ViewToggleProps> = ({ value, onChange }) => {
     </div>
   );
 };
-
 
 // ─────────────────────────────────────────────────────────────
 // ExportMenu
@@ -511,7 +512,7 @@ const CopyableId: React.FC<{ id: string }> = ({ id }) => {
       </span>
       <code
         className="select-all font-mono text-[11px] text-[var(--text-secondary)]"
-        title="Клик выделяет ID, кнопка копирует"
+        title={t("clients.card.idTooltip", { defaultValue: "Click to select, button to copy" })}
       >
         {id}
       </code>
@@ -758,7 +759,7 @@ const AdminPage: React.FC = () => {
     <div className="h-full overflow-y-auto overscroll-contain">
       <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-        {/* ── Шапка ───────────────────────────────────────────── */}
+        {/* ── Header ──────────────────────────────────────────── */}
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
@@ -793,7 +794,7 @@ const AdminPage: React.FC = () => {
           </div>
         </header>
 
-        {/* ── Sticky панель управления ─────────────────────────── */}
+        {/* ── Sticky Control Panel ────────────────────────────── */}
         {!isLoading && !error && totalCount > 0 && (
           <div
             className={[
@@ -843,7 +844,7 @@ const AdminPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Скелетон ─────────────────────────────────────────── */}
+        {/* ── Skeleton ────────────────────────────────────────── */}
         {isLoading && (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {[1, 2, 3, 4].map((i) => (
@@ -859,14 +860,14 @@ const AdminPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Ошибка ───────────────────────────────────────────── */}
+        {/* ── Error ───────────────────────────────────────────── */}
         {error && !isLoading && (
           <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-5 text-sm text-[var(--color-error-text)]">
             {t("clients.error")}
           </div>
         )}
 
-        {/* ── Список пуст ──────────────────────────────────────── */}
+        {/* ── Empty State ─────────────────────────────────────── */}
         {!isLoading && !error && totalCount === 0 && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <Building2 className="mx-auto mb-3 h-8 w-8 text-[var(--text-muted)]" />
@@ -885,7 +886,7 @@ const AdminPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Ничего не найдено ────────────────────────────────── */}
+        {/* ── No Results Found ────────────────────────────────── */}
         {!isLoading && !error && totalCount > 0 && filteredCount === 0 && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <Search className="mx-auto mb-3 h-8 w-8 text-[var(--text-muted)]" />
@@ -904,7 +905,7 @@ const AdminPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Список клиентов ──────────────────────────────────── */}
+        {/* ── Clients List ────────────────────────────────────── */}
         {!isLoading && !error && filteredCount > 0 && (
           <>
             {viewMode === "cards" ? (

@@ -1,14 +1,13 @@
 // =============================================================
 // src/pages/tabs/overview/pipelineStepIcons.tsx
-// Единый реестр иконок для этапов pipeline.
+// Central registry of icons for pipeline steps.
 //
-// Один и тот же step.code должен визуально выглядеть одинаково
-// во всех местах UI:
-//   - collapsed pipeline rail (узкая колонка)
-//   - PipelineStepCard (развёрнутый вид)
-//   - DomainCard (карточка "Документы" сверху)
+// The same step.code must look visually identical across all UI locations:
+//   - collapsed pipeline rail (narrow column)
+//   - PipelineStepCard (expanded view)
+//   - DomainCard (Documents card at the top)
 //
-// Поэтому маппинг code → icon хранится централизованно здесь.
+// Therefore, the code → icon mapping is centralized here.
 // =============================================================
 
 import React from "react";
@@ -24,35 +23,35 @@ import {
 } from "lucide-react";
 
 /**
- * Карта step.code → Lucide icon component.
+ * Map of step.code → Lucide icon component.
  *
- * Коды соответствуют RunPipelineProgressResponse.steps[].code
- * из backend/src/api/schemas/runs.py.
+ * Codes correspond to RunPipelineProgressResponse.steps[].code
+ * from backend/src/api/schemas/runs.py.
  */
 const STEP_ICON_BY_CODE: Record<string, LucideIcon> = {
-  // Подготовка документа: convert → extract → pii
+  // Document preparation: convert → extract → pii
   document_preparation: FileSearch,
 
-  // Построение структуры документа
+  // Document structure building
   structure_building: Layers,
 
-  // Классификация документа / сегментов
+  // Document / segment classification
   classification: Tags,
 
-  // Семантическое обогащение
+  // Semantic enrichment
   semantic_enrichment: Sparkles,
 
-  // DD-проверки
+  // DD checks
   dd_checks: ShieldCheck,
 
-  // Финализация run
+  // Run finalization
   finalization: Flag,
 };
 
 /**
- * Получить иконку этапа по коду.
- * Возвращает fallback (Cog), если код неизвестен —
- * это защищает UI от новых step.code без падения.
+ * Get step icon by code.
+ * Returns fallback (Cog) for unknown codes —
+ * this protects UI from new step.codes without crashing.
  */
 export function getPipelineStepIcon(code: string | undefined | null): LucideIcon {
   if (!code) return Cog;
@@ -60,7 +59,7 @@ export function getPipelineStepIcon(code: string | undefined | null): LucideIcon
 }
 
 /**
- * Готовый React-компонент иконки этапа с прокидываемыми props.
+ * Ready React component for step icon with forwarded props.
  */
 export const PipelineStepIcon: React.FC<{
   code: string | undefined | null;

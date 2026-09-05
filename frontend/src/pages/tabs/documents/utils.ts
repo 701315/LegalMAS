@@ -1,5 +1,6 @@
 // =============================================================
 // src/pages/tabs/documents/utils.ts
+// Document list and cell rendering utilities.
 // =============================================================
 
 import type { DocumentListItem } from "../../../types";
@@ -33,6 +34,40 @@ export function formatRiskLevel(
       return "Critical";
     default:
       return risk;
+  }
+}
+
+/**
+ * Localizes backend-generated human_review_status values for UI table.
+ * Uses i18n translation resources to map raw backend strings safely.
+ */
+export function formatHumanReviewStatus(
+  status: string | null | undefined,
+  tFn?: TranslateFn,
+): string {
+  if (!status) return "";
+
+  if (tFn) {
+    return tFn(`documentsTab.utils.humanReviewStatus.raw.${status}`, {
+      defaultValue: status,
+    });
+  }
+
+  // Canonical English fallback for non-React/testing environments
+  switch (status) {
+    case "Requires lawyer attention":
+      return "Requires lawyer attention";
+    case "Language selection required":
+      return "Language selection required";
+    case "Reviewed by lawyer":
+      return "Reviewed by lawyer";
+    case "Lawyer review not required":
+      return "Lawyer review not required";
+    case "Duplicate":
+      return "Duplicate";
+    case "In processing":
+    default:
+      return status;
   }
 }
 
@@ -105,6 +140,9 @@ export function resolveDocumentCellValue(
       return hasProcessingError(doc) ? `${baseLabel} ⚠` : baseLabel;
     }
 
+    case "human_review_status":
+      return formatHumanReviewStatus(doc.human_review_status, tFn);
+
     case "risk_level":
       return formatRiskLevel(doc.risk_level, tFn);
 
@@ -141,11 +179,10 @@ export function resolveDocumentCellTitle(
     const stageLabel = getErrorStageLabel(details);
     const message = details?.message;
 
-    // Compare against both EN canonical and legacy RU hardcoded stage label
+    // Localized comparison handles Russian automatically at runtime via tFn/unknownStage
     const isUnknown =
       !stageLabel ||
       stageLabel === unknownStage ||
-      stageLabel === "Неизвестная стадия" ||
       stageLabel === "Unknown stage";
 
     if (message && !isUnknown) {

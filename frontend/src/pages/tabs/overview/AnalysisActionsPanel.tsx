@@ -1,5 +1,6 @@
 // =============================================================
 // src/pages/tabs/overview/AnalysisActionsPanel.tsx
+// Panel containing analysis launch/relaunch actions on Overview tab.
 // =============================================================
 
 import React from "react";
@@ -77,7 +78,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
       }}
     >
       <div className="flex flex-col gap-4 p-5">
-        {/* Заголовок */}
+        {/* Header */}
         <div>
           <h2 className="text-base font-semibold text-[var(--text-primary)]">
             {t("overviewPanels.actionsPanel.title")}
@@ -90,7 +91,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
           </p>
         </div>
 
-        {/* Блок "Когда нужен перезапуск" */}
+        {/* When is relaunch needed block */}
         {hasCurrentRun && (
           <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3">
             <p className="text-xs font-semibold text-[var(--text-secondary)]">
@@ -104,7 +105,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
           </div>
         )}
 
-        {/* Баннер про ручную переклассификацию */}
+        {/* Manual reclassification notice banner */}
         {showReclassBanner && (
           <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
             <p className="text-xs font-semibold text-[var(--color-warning-text)]">
@@ -116,7 +117,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
           </div>
         )}
 
-        {/* Блок "Готовность к перезапуску" */}
+        {/* Readiness checklist block */}
         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             {hasCurrentRun
@@ -128,7 +129,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
           </p>
         </div>
 
-        {/* Кнопка */}
+        {/* Configure button */}
         <div>
           <Button
             variant="secondary"

@@ -1,11 +1,11 @@
 // =============================================================
 // src/utils/index.ts
-// Общие утилиты для фронтенда MAS-DD.
+// Shared utilities for frontend application.
 // =============================================================
 
 /**
- * Объединяет несколько className в одну строку.
- * Удобно использовать в компонентах:
+ * Merges multiple CSS class names into a single string.
+ * Example:
  *   className={cn("base", isActive && "active")}
  */
 export function cn(...classes: (string | false | null | undefined)[]) {
@@ -13,8 +13,7 @@ export function cn(...classes: (string | false | null | undefined)[]) {
 }
 
 /**
- * Форматирование даты в локальный формат.
- * Принимает строку с датой (ISO) и возвращает человекочитаемую дату/время.
+ * Formats an ISO date string according to the specified locale.
  */
 export function formatDate(value?: string, locale?: string) {
   if (!value) return "";
@@ -22,8 +21,8 @@ export function formatDate(value?: string, locale?: string) {
 }
 
 /**
- * Преобразует дату во фразу вида "5 мин назад", "2 ч назад", "3 дн назад".
- * Поддерживает опциональную функцию интернационализации tFn.
+ * Converts an ISO datetime into a relative human-readable string (e.g. "5m ago", "2h ago").
+ * Supports an optional translation function tFn.
  */
 export function timeAgo(
   value?: string,

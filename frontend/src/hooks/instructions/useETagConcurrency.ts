@@ -1,4 +1,7 @@
+// =============================================================
 // src/hooks/instructions/useETagConcurrency.ts
+// Hook for managing ETag-based optimistic concurrency when editing drafts.
+// =============================================================
 
 import { useCallback, useRef, useState } from "react";
 import type { ApiError } from "../../types";
@@ -22,7 +25,7 @@ export type ETagConcurrencyStatus =
   | "error";
 
 // ── Generic types ──────────────────────────────────────────────
-// Поддерживаем оба варианта: doc-type и global.
+// Supports both doc-type and global instruction version drafts.
 
 export type AnyVersionDetailItem =
   | InstructionVersionDetailItem
@@ -110,7 +113,7 @@ export function useETagConcurrency(
                 rawDetail !== null &&
                 "message" in rawDetail
               ? String((rawDetail as Record<string, unknown>).message)
-              : "Не удалось загрузить версию инструкции.";
+              : "Failed to load instruction version.";
         setConcurrencyState({
           status: "error",
           errorMessage,
@@ -118,8 +121,6 @@ export function useETagConcurrency(
         return null;
       }
     },
-    // adapters стабильны если передаются как useMemo/константа снаружи
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [versionId, adapters.fetchDetail, adapters.updateDraft],
   );
 
@@ -178,7 +179,7 @@ export function useETagConcurrency(
                 rawDetail !== null &&
                 "message" in rawDetail
               ? String((rawDetail as Record<string, unknown>).message)
-              : "Не удалось сохранить черновик инструкции.";
+              : "Failed to save instruction draft.";
         setConcurrencyState({ status: "error", errorMessage: message });
         options?.onError?.(message);
         return false;
@@ -203,8 +204,6 @@ export function useETagConcurrency(
 }
 
 // ── Pre-built adapters ─────────────────────────────────────────
-// Чтобы не импортировать функции в каждом компоненте вручную,
-// экспортируем готовые адаптеры для обоих типов.
 
 import {
   fetchInstructionVersionDetail,
@@ -216,8 +215,7 @@ import {
 } from "../../api/instructions/globalInstructions";
 
 /**
- * Adapters для doc-type instruction versions.
- * Использовать в DraftEditForm для doc-type flow.
+ * Adapters for doc-type instruction versions.
  */
 export const docTypeETagAdapters: ETagConcurrencyAdapters = {
   fetchDetail: (versionId) => fetchInstructionVersionDetail(versionId),
@@ -230,8 +228,7 @@ export const docTypeETagAdapters: ETagConcurrencyAdapters = {
 };
 
 /**
- * Adapters для global instruction versions.
- * Использовать в DraftEditForm для global flow.
+ * Adapters for global instruction versions.
  */
 export const globalETagAdapters: ETagConcurrencyAdapters = {
   fetchDetail: (versionId) => fetchGlobalInstructionVersionDetail(versionId),

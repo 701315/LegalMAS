@@ -1,4 +1,10 @@
 {
+  "units": {
+    "ms": "ms",
+    "msShortLessThanOne": "< 1 ms",
+    "s": "s",
+    "min": "min"
+  },
   "alertsPanel": {
     "loading": "Loading alerts…",
     "loadError": "Failed to load alerts. Make sure Alertmanager is running.",
@@ -92,7 +98,15 @@
     "errorType": "Error type",
     "reason": "Reason",
     "time": "Time",
-    "rawDetails": "Raw error_details"
+    "rawDetails": "Raw error_details",
+    "documentId": "Document ID",
+    "runId": "Run ID",
+    "stage": "Stage"
+  },
+  "documentStatusLabels": {
+    "failed": "Failed",
+    "quarantine": "Quarantine",
+    "reviewed": "Reviewed"
   },
   "logs": {
     "modeSwitch": {
@@ -125,7 +139,17 @@
       "groupTooltip": "Group of repeating events",
       "event": "Event",
       "seenRange": "First: {{first}} · Last: {{last}}",
-      "rawJson": "Raw JSON"
+      "rawJson": "Raw JSON",
+      "fields": {
+        "logger": "Logger",
+        "worker": "Worker",
+        "dealId": "Deal ID",
+        "runId": "Run ID",
+        "documentId": "Document ID",
+        "taskId": "Task ID",
+        "taskName": "Task name",
+        "timestamp": "Timestamp"
+      }
     }
   },
   "projectsTab": {

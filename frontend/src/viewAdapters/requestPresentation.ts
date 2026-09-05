@@ -1,19 +1,15 @@
 // =============================================================
 // src/viewAdapters/requestPresentation.ts
-// Адаптеры для преобразования legacy DDRequest и review DDRequestDTO
-// в единую UI read-model для переиспользуемых presentation components.
+// Adapters for converting legacy DDRequest and review DDRequestDTO
+// into a unified UI read-model for reusable presentation components.
 //
-// Цель:
-// - Изолировать различия между legacy и review API-контрактами
-// - Предоставить стабильный интерфейс для UI-компонентов
-// - Упростить добавление новых полей без изменения UI-логики
-//
-// Для непрофессионального программиста:
-// Этот файл — "переводчик" между двумя разными форматами данных с бэкенда
-// (legacy requests и review requests) в один общий формат, понятный UI.
-// Так UI-компоненты могут работать с обоими источниками данных без изменений.
+// Goals:
+// - Isolate differences between legacy and review API contracts
+// - Provide stable interface for UI components
+// - Support i18n via t-function with canonical English fallback
 // =============================================================
 
+import type { TFunction } from "i18next";
 import type { DDRequest, StructuredValue } from "../types/ddRequests";
 import type { DDRequestDTO } from "../types/dealReview";
 import { normalizeStructuredValue } from "../types/ddRequests";
@@ -21,12 +17,12 @@ import type { RequestPriority } from "../types/requestPriority";
 import { normalizeRequestPriority } from "../types/requestPriority";
 
 // =============================================================
-// UI Read-Model типы (view-слой)
+// UI Read-Model types (view layer)
 // =============================================================
 
 /**
- * Провenance-информация о сегменте и chunk для навигации в viewer.
- * Все поля опциональны, потому что в legacy requests этих данных нет.
+ * Provenance information about segment and chunk for viewer navigation.
+ * All fields are optional because legacy requests lack this data.
  */
 export interface SegmentProvenanceView {
   segmentId: string | null;
@@ -39,18 +35,18 @@ export interface SegmentProvenanceView {
 }
 
 /**
- * Документ в UI-представлении.
- * id — опционален, потому что в legacy это UUID, а в review его нет.
- * name — всегда есть (в legacy это UUID, в review — человекочитаемое имя).
+ * Document in UI representation.
+ * id is optional because in legacy it's UUID, in review it may be absent.
+ * name is always present (UUID in legacy, human-readable in review).
  */
 export interface DocumentView {
   id: string | null;
   name: string;
-  rawId?: string | null; // для tooltip с UUID в review mode
+  rawId?: string | null; // for tooltip with UUID in review mode
 }
 
 /**
- * Извлечённое значение (structured value) в UI-представлении.
+ * Extracted value (structured value) in UI representation.
  */
 export interface StructuredValueView {
   key: string;
@@ -59,7 +55,7 @@ export interface StructuredValueView {
 }
 
 /**
- * Источник запроса (source badge).
+ * Request source (source badge).
  */
 export interface SourceView {
   code: string;
@@ -69,7 +65,7 @@ export interface SourceView {
 }
 
 /**
- * Статус запроса (для legacy CRUD-режима).
+ * Request status (for legacy CRUD mode).
  */
 export interface StatusView {
   code: string;
@@ -77,8 +73,8 @@ export interface StatusView {
 }
 
 /**
- * UI read-model для строки таблицы DD-запросов.
- * Используется в RequestsTable и ReviewRequestsTable.
+ * UI read-model for DD requests table row.
+ * Used in RequestsTable and ReviewRequestsTable.
  */
 export interface RequestTableRowView {
   id: string;
@@ -87,16 +83,16 @@ export interface RequestTableRowView {
   checkLabel: string | null;
   addressee: string | null;
 
-  // Документы
-  documentsLabel: string | null; // "3 док." или "Договор.pdf +2"
+  // Documents
+  documentsLabel: string | null; // "3 docs" or "Contract.pdf +2"
   documentCount: number;
 
-  // Segment context (только для review)
+  // Segment context (review only)
   segmentTitle: string | null;
   chunkIndex: number | null;
   hasSegmentContext: boolean;
 
-  // Legacy-only поля
+  // Legacy-only fields
   statusLabel: string | null;
   sourceLabel: string | null;
   sourceColorClass: string | null;
@@ -105,8 +101,8 @@ export interface RequestTableRowView {
 }
 
 /**
- * UI read-model для side panel деталей DD-запроса.
- * Используется в RequestSidePanel и ReviewRequestSidePanel.
+ * UI read-model for DD request side panel details.
+ * Used in RequestSidePanel and ReviewRequestSidePanel.
  */
 export interface RequestPanelView {
   id: string;
@@ -137,14 +133,7 @@ export interface RequestPanelView {
 }
 
 /**
- * Viewer navigation target для review request.
- *
- * Для непрофессионального программиста:
- * Это набор данных, необходимых чтобы открыть PDF-viewer на конкретном
- * документе и прокрутить его до нужного сегмента/чанка.
- *
- * Если documentId === null, значит backend не передал идентификатор документа
- * и навигация в viewer невозможна.
+ * Viewer navigation target for review request.
  */
 export interface RequestViewerTargetView {
   documentId: string;
@@ -154,42 +143,78 @@ export interface RequestViewerTargetView {
 }
 
 // =============================================================
-// Константы для UI-маппинга
+// Localization constants and helpers (Canonical English Fallback)
 // =============================================================
 
-const STATUS_LABELS: Record<string, string> = {
-  open: "Открыт",
-  in_progress: "В работе",
-  resolved: "Закрыт",
+export type TranslationFn = TFunction | ((key: string, options?: any) => string);
+
+const CANONICAL_STATUS_LABELS: Record<string, string> = {
+  open: "Open",
+  in_progress: "In progress",
+  resolved: "Closed",
 };
 
-const SOURCE_CONFIG: Record<
+const CANONICAL_SOURCE_CONFIG: Record<
   string,
   { label: string; color: string; helper?: string }
 > = {
   yaml_template: {
-    label: "YAML-шаблон",
+    label: "YAML template",
     color: "bg-purple-100 text-purple-700",
     helper:
-      "Текст и адресат сгенерированы автоматически из YAML-инструкции типа документа.",
+      "Text and addressee were generated automatically from document type YAML instruction.",
   },
   manual: {
-    label: "Вручную",
+    label: "Manual",
     color: "bg-blue-100 text-blue-700",
   },
   aggregator: {
-    label: "Агрегатор",
+    label: "Aggregator",
     color: "bg-green-100 text-green-700",
   },
 };
 
+/**
+ * Get localized request status label.
+ */
+export function getRequestStatusLabel(status: string, t?: TranslationFn): string {
+  if (t) {
+    const localized = t(`statuses.${status}`, { defaultValue: "" });
+    if (localized) return localized;
+  }
+  return CANONICAL_STATUS_LABELS[status] ?? status;
+}
+
+/**
+ * Get request source configuration with localization support.
+ */
+export function getRequestSourceConfig(
+  source: string,
+  t?: TranslationFn,
+): { label: string; color: string; helper?: string } | null {
+  const base = CANONICAL_SOURCE_CONFIG[source];
+  if (!base) return null;
+
+  if (t) {
+    const localizedLabel = t(`source.${source}`, { defaultValue: base.label });
+    const localizedHelper = t(`source.helpers.${source}`, { defaultValue: base.helper });
+    return {
+      label: localizedLabel,
+      color: base.color,
+      helper: localizedHelper || undefined,
+    };
+  }
+
+  return base;
+}
+
 // =============================================================
-// Helper-функции
+// Helper functions
 // =============================================================
 
 /**
- * Формирует короткий label для списка документов в таблице.
- * Примеры: "3 док.", "Договор.pdf", "Договор.pdf +2"
+ * Generates short label for document list in table.
+ * Examples: "Contract.pdf", "Contract.pdf +2"
  */
 function getDocumentsLabel(
   documents: DocumentView[],
@@ -204,8 +229,8 @@ function getDocumentsLabel(
 }
 
 /**
- * Формирует segment label для таблицы.
- * Приоритет: segment_title > segment_type > null
+ * Generates segment label for table.
+ * Priority: segment_title > segment_type > null
  */
 function getSegmentLabel(segment: SegmentProvenanceView | null): string | null {
   if (!segment) return null;
@@ -215,7 +240,7 @@ function getSegmentLabel(segment: SegmentProvenanceView | null): string | null {
 }
 
 /**
- * Проверяет, есть ли реальные segment-данные (хотя бы одно поле не null).
+ * Checks if there is actual segment data (at least one field not null).
  */
 function hasSegmentContext(segment: SegmentProvenanceView | null): boolean {
   if (!segment) return false;
@@ -228,23 +253,23 @@ function hasSegmentContext(segment: SegmentProvenanceView | null): boolean {
 }
 
 // =============================================================
-// Адаптеры для Table Row View
+// Adapters for Table Row View
 // =============================================================
 
 /**
- * Преобразует legacy DDRequest в UI read-model для строки таблицы.
- * Legacy requests НЕ ИМЕЮТ segment context — возвращаем null.
+ * Converts legacy DDRequest to UI read-model for table row.
  */
 export function toRequestTableRowFromLegacy(
   req: DDRequest,
+  t?: TranslationFn,
 ): RequestTableRowView {
   const documents: DocumentView[] = (req.document_refs || []).map((docId) => ({
     id: docId,
-    name: docId, // в legacy нет имён, только UUID
+    name: docId, // in legacy no names, only UUID
     rawId: docId,
   }));
 
-  const sourceConfig = req.source ? SOURCE_CONFIG[req.source] : null;
+  const sourceConfig = req.source ? getRequestSourceConfig(req.source, t) : null;
 
   return {
     id: req.id,
@@ -256,12 +281,12 @@ export function toRequestTableRowFromLegacy(
     documentsLabel: getDocumentsLabel(documents),
     documentCount: documents.length,
 
-    // Legacy НЕ имеет segment context
+    // Legacy does NOT have segment context
     segmentTitle: null,
     chunkIndex: null,
     hasSegmentContext: false,
 
-    statusLabel: req.status ? STATUS_LABELS[req.status] || req.status : null,
+    statusLabel: req.status ? getRequestStatusLabel(req.status, t) : null,
     sourceLabel: sourceConfig?.label || null,
     sourceColorClass: sourceConfig?.color || null,
 
@@ -270,21 +295,13 @@ export function toRequestTableRowFromLegacy(
 }
 
 /**
- * Преобразует review DDRequestDTO в UI read-model для строки таблицы.
- * Review requests УЖЕ ИМЕЮТ segment context через extends SegmentProvenanceDTO.
- *
- * Для непрофессионального программиста:
- * Backend отдаёт два массива: document_names (имена файлов) и document_ids (UUID).
- * Они синхронизированы по индексу: первое имя соответствует первому id, и так далее.
- * Мы создаём объекты DocumentView, где id берётся из document_ids по тому же индексу.
+ * Converts review DDRequestDTO to UI read-model for table row.
  */
 export function toRequestTableRowFromReview(
   req: DDRequestDTO,
 ): RequestTableRowView {
-  // document_ids может быть пустым, если backend ещё не обновлён
   const documentIds = req.document_ids || [];
 
-  // Создаём DocumentView для каждого документа, беря id из document_ids по индексу
   const documents: DocumentView[] = (req.document_names || []).map(
     (name, index) => ({
       id: documentIds[index] ?? null,
@@ -317,7 +334,7 @@ export function toRequestTableRowFromReview(
     chunkIndex: segment.chunkIndex,
     hasSegmentContext: hasSegmentContext(segment),
 
-    // Review не имеет status/source
+    // Review does NOT have status/source
     statusLabel: null,
     sourceLabel: null,
     sourceColorClass: null,
@@ -327,19 +344,20 @@ export function toRequestTableRowFromReview(
 }
 
 // =============================================================
-// Адаптеры для Panel View
+// Adapters for Panel View
 // =============================================================
 
 /**
- * Преобразует legacy DDRequest в UI read-model для side panel.
+ * Converts legacy DDRequest to UI read-model for side panel.
  */
 export function toRequestPanelViewFromLegacy(
   req: DDRequest,
   canManageRequests: boolean = false,
+  t?: TranslationFn,
 ): RequestPanelView {
   const documents: DocumentView[] = (req.document_refs || []).map((docId) => ({
     id: docId,
-    name: docId, // в legacy нет имён, показываем UUID
+    name: docId,
     rawId: docId,
   }));
 
@@ -347,7 +365,7 @@ export function toRequestPanelViewFromLegacy(
     req.structured_values || []
   ).map((sv: StructuredValue) => normalizeStructuredValue(sv));
 
-  const sourceConfig = req.source ? SOURCE_CONFIG[req.source] : null;
+  const sourceConfig = req.source ? getRequestSourceConfig(req.source, t) : null;
   const source: SourceView | null = sourceConfig
     ? {
         code: req.source!,
@@ -360,13 +378,17 @@ export function toRequestPanelViewFromLegacy(
   const status: StatusView | null = req.status
     ? {
         code: req.status,
-        label: STATUS_LABELS[req.status] || req.status,
+        label: getRequestStatusLabel(req.status, t),
       }
     : null;
 
+  const defaultTitle = t
+    ? t("panel.defaultTitle", { id: req.id.slice(-6), defaultValue: `Request #${req.id.slice(-6)}` })
+    : `Request #${req.id.slice(-6)}`;
+
   return {
     id: req.id,
-    title: req.check_id || `Запрос #${req.id.slice(-6)}`,
+    title: req.check_id || defaultTitle,
     priority: normalizeRequestPriority(req.priority),
     text: req.text,
     addressee: req.addressee || null,
@@ -384,7 +406,7 @@ export function toRequestPanelViewFromLegacy(
 
     evidenceRefs: req.evidence_refs || [],
 
-    // Legacy НЕ имеет segment provenance
+    // Legacy does NOT have segment provenance
     segment: null,
 
     canEdit: canManageRequests,
@@ -395,20 +417,14 @@ export function toRequestPanelViewFromLegacy(
 }
 
 /**
- * Преобразует review DDRequestDTO в UI read-model для side panel.
- *
- * Для непрофессионального программиста:
- * Берём данные из backend DTO и создаём удобный для UI формат.
- * Документы формируем как пары (id, name), где id берётся из document_ids.
- * Если document_ids пустой — id будет null, и viewer jump будет недоступен.
+ * Converts review DDRequestDTO to UI read-model for side panel.
  */
 export function toRequestPanelViewFromReview(
   req: DDRequestDTO,
+  t?: TranslationFn,
 ): RequestPanelView {
-  // document_ids может быть пустым, если backend ещё не обновлён
   const documentIds = req.document_ids || [];
 
-  // Создаём DocumentView для каждого документа, беря id из document_ids по индексу
   const documents: DocumentView[] = (req.document_names || []).map(
     (name, index) => ({
       id: documentIds[index] ?? null,
@@ -419,11 +435,7 @@ export function toRequestPanelViewFromReview(
 
   const structuredValues: StructuredValueView[] = (
     req.structured_values || []
-  ).map((sv) => {
-    // DDRequestDTO.structured_values теперь поддерживает оба формата
-    // после исправления типа в dealReview.ts
-    return normalizeStructuredValue(sv as StructuredValue);
-  });
+  ).map((sv) => normalizeStructuredValue(sv as StructuredValue));
 
   const segment: SegmentProvenanceView = {
     segmentId: req.segment_id ?? null,
@@ -435,9 +447,13 @@ export function toRequestPanelViewFromReview(
     chunkIndex: req.chunk_index ?? null,
   };
 
+  const defaultReviewTitle = t
+    ? t("panel.defaultReviewTitle", { defaultValue: "Request" })
+    : "Request";
+
   return {
     id: req.request_id,
-    title: req.check_name || `Запрос`,
+    title: req.check_name || defaultReviewTitle,
     priority: normalizeRequestPriority(req.priority),
     text: req.text,
     addressee: req.addressee || null,
@@ -450,7 +466,7 @@ export function toRequestPanelViewFromReview(
 
     structuredValues,
 
-    // Review не имеет source/status (read-only режим)
+    // Review does NOT have source/status (read-only mode)
     source: null,
     status: null,
 
@@ -467,36 +483,21 @@ export function toRequestPanelViewFromReview(
 }
 
 // =============================================================
-// Helper для viewer navigation (MR4)
+// Helper for viewer navigation
 // =============================================================
 
 /**
- * Определяет target для viewer navigation из review request panel view.
- *
- * Для непрофессионального программиста:
- * Эта функция проверяет, можно ли открыть viewer для данного запроса.
- * Для этого нужен хотя бы один документ с непустым id.
- *
- * Возвращает:
- * - null, если нет документов с id (viewer jump невозможен)
- * - объект RequestViewerTargetView с document_id + segment/chunk данными
- *
- * Логика выбора документа:
- * - Берём первый документ, у которого есть id
- * - Если все documents имеют id === null, возвращаем null
+ * Determines viewer navigation target from review request panel view.
  */
 export function getRequestViewerTarget(
   view: RequestPanelView,
 ): RequestViewerTargetView | null {
-  // Ищем первый документ с непустым id
   const firstDocumentWithId = view.documents.find((doc) => !!doc.id);
 
   if (!firstDocumentWithId?.id) {
-    // Нет ни одного документа с id — viewer jump невозможен
     return null;
   }
 
-  // Формируем viewer target из первого документа + segment provenance
   return {
     documentId: firstDocumentWithId.id,
     segmentId: view.segment?.segmentId ?? null,
@@ -504,8 +505,4 @@ export function getRequestViewerTarget(
     chunkIndex: view.segment?.chunkIndex ?? null,
   };
 }
-
-
-
-
 

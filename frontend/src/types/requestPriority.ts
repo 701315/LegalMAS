@@ -1,20 +1,23 @@
+// =============================================================
 // src/types/requestPriority.ts
+// Normalized priority types for DD requests in UI.
+// =============================================================
 
 /**
- * Нормализованный приоритет DD-запроса в UI.
- * Это то, с чем работают таблицы, side-панели и badge.
+ * Normalized DD request priority for UI consumption.
+ * Used by tables, side panels, and badges.
  */
 export type RequestPriority = "critical" | "high" | "medium" | "low";
 
 /**
- * Весь зоопарк того, что может прислать backend в priority/severity
- * для review (включая pass/unclear и произвольные строки).
+ * All possible raw values that backend may send for priority/severity
+ * in review contexts (including pass/unclear and arbitrary strings).
  */
 export type RawRequestPriority = string;
 
 /**
- * Канонический порядок для сортировки.
- * Чем меньше число — тем выше приоритет.
+ * Canonical order for sorting.
+ * Lower number = higher priority.
  */
 export const REQUEST_PRIORITY_ORDER: Record<RequestPriority, number> = {
   critical: 0,
@@ -34,9 +37,9 @@ export const REQUEST_PRIORITY_META: Record<
 };
 
 /**
- * Нормализуем raw string из backend в RequestPriority.
- * - Всё неизвестное/мягкие статусы мапим в "medium" или "low".
- * - Поведение можно тонко подстроить, не трогая UI.
+ * Normalizes raw string from backend to RequestPriority.
+ * - Unknown/soft statuses map to "medium" or "low".
+ * - Behavior can be fine-tuned without touching UI code.
  */
 export function normalizeRequestPriority(
   raw: RawRequestPriority | null | undefined,
@@ -50,11 +53,11 @@ export function normalizeRequestPriority(
   if (v === "medium") return "medium";
   if (v === "low") return "low";
 
-  // В review severity могут приходить pass/unclear.
+  // Review severity may include pass/unclear values.
   if (v === "pass") return "low";
   if (v === "unclear") return "medium";
 
-  // Мягкие/неопределённые варианты тоже считаем неблокирующими.
+  // Soft/undefined variants are also treated as non-blocking.
   if (v === "warning") return "medium";
   if (v === "info") return "low";
 

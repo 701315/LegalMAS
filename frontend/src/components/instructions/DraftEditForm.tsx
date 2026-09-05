@@ -1,13 +1,15 @@
+// =============================================================
 // src/components/instructions/DraftEditForm.tsx
-// Форма редактирования draft instruction version.
+// Edit form for the draft instruction version.
 //
-// Поддерживает оба типа инструкций: doc-type и global.
-// Для global инструкций доступен визуальный редактор (таб "Редактор").
-// Для doc-type — только YAML.
+// Supports both doc-type and global instructions.
+// For global instructions, a visual editor tab ("Editor") is available.
+// For doc-type, only YAML editor is supported.
 //
-// Autosave на blur каждого поля (YAML / metadata).
-// В режиме визуального редактора — autosave по debounce после каждого
-// изменения поля в GlobalInstructionEditor.
+// Autosaves on blur for each field (YAML / metadata).
+// In visual editor mode, autosave is debounced after each change
+// in GlobalInstructionEditor.
+// =============================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation, Trans } from "react-i18next";
@@ -31,7 +33,7 @@ import type {
   GlobalInstructionVersionDetailItem,
 } from "../../types/instructions";
 
-// ── Стили ─────────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────────
 
 const inputClassName =
   "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
@@ -41,7 +43,7 @@ const textareaClassName =
 
 // ── Constants ─────────────────────────────────────────────────
 
-/** Задержка debounce для автосохранения из визуального редактора (ms). */
+/** Debounce delay for visual editor autosave (ms). */
 const EDITOR_AUTOSAVE_DEBOUNCE_MS = 1500;
 
 // ── Types ──────────────────────────────────────────────────────
@@ -56,7 +58,7 @@ interface DraftEditFormProps {
   versionId: string;
   initialData: AnyVersionDetailItem;
   onSaveSuccess?: () => void;
-  /** Сигнализирует родителю о наличии несохранённых изменений. */
+  /** Signals the parent component about the presence of unsaved changes. */
   onDirtyChange?: (isDirty: boolean) => void;
   instructionType?: DraftEditFormInstructionType;
 }
@@ -73,7 +75,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
   const { t, i18n } = useTranslation("instructions");
   const queryClient = useQueryClient();
 
-  // ── Edit mode tabs (только для global) ────────────────────────
+  // ── Edit mode tabs (global instruction type only) ─────────────
   const [editMode, setEditMode] = useState<"editor" | "yaml">("editor");
 
   // ── ETag adapters ─────────────────────────────────────────────
@@ -93,7 +95,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     initialData.change_summary ?? "",
   );
 
-  // Отслеживаем «грязность» формы — есть ли несохранённые изменения
+  // Tracks whether the form has unsaved changes (dirty state)
   const lastSavedYamlRef = useRef(initialData.source_yaml ?? "");
 
   useEffect(() => {
@@ -104,7 +106,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     lastSavedYamlRef.current = initialData.source_yaml ?? "";
   }, [initialData]);
 
-  // Сообщаем родителю о dirty state
+  // Notify parent of dirty state changes
   const isDirty = sourceYaml !== lastSavedYamlRef.current;
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -174,9 +176,9 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
   }, [concurrencyState.status, handleSave]);
 
   // ── Editor YAML change + debounced autosave ───────────────────
-  // Визуальный редактор вызывает onChange при каждом изменении поля.
-  // Мы обновляем локальный state немедленно, а автосохранение на сервер
-  // делаем по debounce чтобы не забивать backend слишком частыми PATCH.
+  // Visual editor triggers onChange on every field modification.
+  // We update the local state immediately, but delay backend autosave
+  // via debounce to avoid overloading the API with patch requests.
   const editorSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleEditorYamlChange = useCallback(
@@ -189,18 +191,17 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
       }
       editorSaveTimerRef.current = setTimeout(() => {
         editorSaveTimerRef.current = null;
-        // handleSave берёт sourceYaml из closure — но setState ещё не
-        // отработал. Поэтому используем functional save через ref:
-        // saveDraft будет вызван после React commit с актуальным state.
-        // К счастью handleBlurSave проверяет status и вызывает handleSave,
-        // а handleSave использует текущие значения state на момент вызова.
+        // handleSave accesses sourceYaml from the closure before state commit is complete.
+        // We trigger the autosave safely after state changes are committed.
+        // handleBlurSave verifies the current status before calling handleSave,
+        // which then reads the actual state values.
         handleBlurSave();
       }, EDITOR_AUTOSAVE_DEBOUNCE_MS);
     },
     [handleBlurSave],
   );
 
-  // Очистка таймера при unmount
+  // Clear timeout on unmount
   useEffect(() => {
     return () => {
       if (editorSaveTimerRef.current) {
@@ -394,6 +395,5 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
 };
 
 export default DraftEditForm;
-
 
 

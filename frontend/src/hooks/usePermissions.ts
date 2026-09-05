@@ -1,6 +1,6 @@
 // =============================================================
 // src/hooks/usePermissions.ts
-// Хук для получения capability-флагов по сделке.
+// Hook for retrieving capability flags for a specific deal.
 // =============================================================
 
 import { useUIStore } from "../stores/uiStore";
@@ -10,8 +10,8 @@ import { getDealPermissions } from "../services/permissions/permissions.service"
 import type { ProjectRole } from "../api/auth";
 
 /**
- * Возвращает набор прав по конкретной сделке (проекту) на основе
- * глобальной роли пользователя и его роли в проекте.
+ * Returns the set of permissions for a specific deal (project) based on
+ * the user's global role and their assigned project role.
  */
 export function useDealPermissions(dealId: string): DealPermissions {
   const globalRole = useUIStore((s) => s.globalRole);
@@ -19,11 +19,12 @@ export function useDealPermissions(dealId: string): DealPermissions {
 
   const projectRole: ProjectRole = projectRoles[dealId] ?? "viewer";
 
-  // globalRole может быть null, если user-info ещё не загружена или
-  // пользователь не залогинен. getDealPermissions обрабатывает null
-  // как "нет прав" (secure-by-default).
+  // globalRole can be null if user-info is not yet loaded or
+  // the user is not authenticated. getDealPermissions treats null
+  // as "no permissions" (secure-by-default).
   return getDealPermissions({
     userRole: globalRole,
     projectRole,
   });
 }
+

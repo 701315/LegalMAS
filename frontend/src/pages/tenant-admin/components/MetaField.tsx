@@ -1,16 +1,16 @@
 // =============================================================
 // src/pages/tenant-admin/components/MetaField.tsx
 //
-// Labeled field для отображения метаданных (например, Deal ID, Run ID,
-// Worker hostname). Опционально имеет action button справа от label
-// (используется для correlation actions в LogDetailsPane).
+// Labeled field for displaying metadata (e.g. Deal ID, Run ID,
+// Worker hostname). Optionally has an action button to the right
+// of the label (used for correlation actions in LogDetailsPane).
 //
 // Design contract:
 // - Rounded bordered card
-// - Label uppercase mini (LABEL_XS)
-// - Value с break-all для длинных ID
-// - "—" fallback для пустых значений
-// - Optional action button (например, "Все логи run" в LogDetailsPane)
+// - Uppercase mini label (LABEL_XS)
+// - Value with break-all for long IDs
+// - "—" fallback for empty values
+// - Optional action button (e.g. "All run logs" in LogDetailsPane)
 // =============================================================
 
 import React from "react";
@@ -18,13 +18,13 @@ import { useTranslation } from "react-i18next";
 import { LABEL_XS, FOCUS_RING } from "../constants";
 
 export interface MetaFieldProps {
-  /** Label над значением */
+  /** Label above the value */
   label: string;
-  /** Значение (может быть null/undefined — тогда показывается "—") */
+  /** Value (may be null/undefined — shows "—" in that case) */
   value: string | null | undefined;
-  /** Опциональный callback для action button */
+  /** Optional callback for action button */
   onClick?: () => void;
-  /** Кастомный текст action button (default: t("meta.showAll")) */
+  /** Custom action button text (default: t("meta.showAll")) */
   actionLabel?: string;
 }
 

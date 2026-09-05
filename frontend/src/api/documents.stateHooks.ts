@@ -1,11 +1,11 @@
 // =============================================================
 // src/api/documents.stateHooks.ts
-// Хуки-обёртки над DTO-хуками:
+// Wrapper hooks around DTO queries:
 // - useDocumentDetailsState
 // - useStructuredDataState
 //
-// Они не меняют существующий API (useDocumentDetail/useStructuredData),
-// а поверх него строят нормализованный доменный стейт.
+// These wrap existing data queries without breaking contracts,
+// producing normalized domain state models.
 // =============================================================
 
 import { useDocumentDetail, useStructuredData } from "./documents";
@@ -25,47 +25,42 @@ import {
 import type { DocumentDetail, StructuredDataResult, ApiError } from "../types";
 
 /**
- * Хук для получения нормализованного стейта деталей документа.
+ * Hook for retrieving the normalized state of document details.
  *
- * Внутри использует useDocumentDetail (DTO) и добавляет:
+ * Utilizes useDocumentDetail (DTO) internally and adds:
  * - isLoading
- * - error (как строку)
- * - notFound (true при 404 или отсутствии данных)
+ * - error (as string)
+ * - notFound (true on 404 or missing payload)
  */
 export function useDocumentDetailsState(
   docId: string | null,
 ): DocumentDetailsState {
   const { data, isLoading, error } = useDocumentDetail(docId);
 
-  // Начальное состояние
-
   if (isLoading) {
-    // Пока грузится — возвращаем initialState с isLoading=true
     return createInitialDocumentDetailsState();
   }
 
   if (error) {
     const apiError = error as Partial<ApiError>;
 
-    // 404: документ не найден
+    // 404: document not found
     if (apiError.status === 404) {
       return createDocumentDetailsNotFoundState();
     }
 
-    // Другие ошибки: сервер/сеть и т.п.
+    // Other errors: server/network etc.
     const message = getErrorMessage(error);
     return createDocumentDetailsErrorState(message);
   }
 
-  // Успешный ответ: data — это DocumentDetail | undefined
   const detail = data as DocumentDetail | undefined;
   if (!detail) {
-    // Нет данных и нет ошибки — считаем, что документ не найден
     return createDocumentDetailsNotFoundState();
   }
 
   const classification = adaptClassification(detail);
-  const family = null; // family сейчас грузится отдельным хуком в контейнере
+  const family = null; // family is loaded by a dedicated hook in the container
 
   return createDocumentDetailsSuccessState({
     doc: detail.document,
@@ -75,12 +70,12 @@ export function useDocumentDetailsState(
 }
 
 /**
- * Хук для нормализованного стейта структурированных данных.
+ * Hook for normalized structured data state.
  *
- * Внутри использует useStructuredData (DTO) и добавляет:
+ * Utilizes useStructuredData (DTO) internally and adds:
  * - isLoading
  * - error
- * - notAvailable (true при 404 или отсутствии данных)
+ * - notAvailable (true on 404 or missing payload)
  */
 export function useStructuredDataState(
   docId: string | null,
@@ -94,18 +89,15 @@ export function useStructuredDataState(
   if (error) {
     const apiError = error as Partial<ApiError> & { detail?: unknown };
 
-    // 404: для этого документа нет / не готовых структурированных данных
+    // 404: no structured data available for this document
     if (apiError.status === 404) {
       const detail = apiError.detail;
 
-      // detail может быть строкой (старый backend) или объектом { code, message }
       const code =
         detail && typeof detail === "object"
           ? (detail as { code?: string }).code
           : undefined;
 
-      // Пока любые 404 по structured-data трактуем как notAvailable.
-      // В будущем можно различать STRUCTURED_NOT_READY / STRUCTURED_MISSING.
       if (
         code === "STRUCTURED_NOT_READY" ||
         code === "STRUCTURED_MISSING" ||
@@ -114,7 +106,6 @@ export function useStructuredDataState(
         return createStructuredDataNotAvailableState();
       }
 
-      // На случай других кодов 404 (если появятся) – тоже считаем notAvailable.
       return createStructuredDataNotAvailableState();
     }
 
@@ -124,23 +115,21 @@ export function useStructuredDataState(
 
   const structured = data as StructuredDataResult | undefined;
   if (!structured) {
-    // Нет данных и нет ошибки — считаем, что данных нет (notAvailable)
     return createStructuredDataNotAvailableState();
   }
 
   return createStructuredDataSuccessState(structured);
 }
 
-
 // -------------------------------------------------------------
-// Вспомогательные функции
+// Helper functions
 // -------------------------------------------------------------
 
 function getErrorMessage(error: unknown): string {
   const err = error as Partial<ApiError> & { message?: string };
   if (err.detail) return String(err.detail);
   if (err.message) return String(err.message);
-  return "Ошибка при загрузке данных";
+  return "Failed to load data.";
 }
 
 function adaptClassification(detail: DocumentDetail) {
@@ -156,3 +145,6 @@ function adaptClassification(detail: DocumentDetail) {
     low_confidence: c.low_confidence,
   };
 }
+
+
+

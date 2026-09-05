@@ -1,6 +1,6 @@
 // =============================================================
 // src/components/documents/DocumentDetails.tsx
-// Правая панель деталей документа на вкладке Documents (view).
+// Document details right panel on the Documents tab (view mode).
 // =============================================================
 
 import React, { useEffect, useState } from "react";
@@ -34,7 +34,7 @@ import { ReviewSection } from "./DocumentDetails/sections/ReviewSection";
 import client from "../../api/client";
 
 // =============================================================
-// Типы для view-контракта (container → view)
+// Types for the view-contract (container → view)
 // =============================================================
 
 export interface DocumentDetailsViewClassification {
@@ -137,7 +137,7 @@ export interface DocumentDetailsViewProps {
 }
 
 // =============================================================
-// Вспомогательные функции для structured data
+// Helper functions for structured data
 // =============================================================
 
 type StructuredSegmentGroup = {
@@ -199,7 +199,7 @@ function groupExtractedValuesBySegment(
 }
 
 // =============================================================
-// View-компонент (чистый UI)
+// View component (Pure UI)
 // =============================================================
 
 export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
@@ -345,8 +345,8 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
     try {
       setIsDownloadingOriginal(true);
 
-      // Скачиваем через axios — Authorization header добавляется автоматически.
-      // Backend стримит оригинальный файл из приватного MinIO.
+      // Download via client instance which appends Authorization header automatically.
+      // Backend streams the original binary directly from the private MinIO bucket.
       const response = await client.get<Blob>(
         `/api/v1/documents/${documentId}/original-file`,
         { responseType: "blob" },
@@ -420,7 +420,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     {(() => {
                       const stageLabel = getErrorStageLabel(processingError);
                       const isUnknown =
-                        stageLabel === "Неизвестная стадия" ||
+                        stageLabel === t("documentsTab.utils.unknownStage") ||
                         stageLabel === "Unknown stage" ||
                         stageLabel === t("stages.unknown", { ns: "pipeline" });
 
@@ -498,7 +498,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                       size="sm"
                       variant="secondary"
                       onClick={() => {
-                        // TODO: открыть модал/панель выбора основного языка документа
+                        // Action triggers primary analysis language selection modal.
                       }}
                     >
                       {t("languageSelection.chooseButton")}

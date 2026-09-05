@@ -1,5 +1,6 @@
 // =============================================================
 // src/pages/tabs/overview/RunSummaryPanel.tsx
+// Panel displaying analysis run summary and insights.
 // =============================================================
 
 import React, { useState } from "react";
@@ -29,32 +30,29 @@ interface RunSummaryPanelProps {
 }
 
 /**
- * Нормализация текста от LLM:
- * LLM часто отдаёт список в одну строку: "* Заголовок * Пункт1 * Пункт2".
- * Нужно расставить переносы строк перед маркерами списка и после заголовков-эмодзи.
+ * Normalizes LLM summary text.
+ * LLMs often return list items as a single inline block: "* Header * Item1 * Item2".
+ * This helper prepends newlines before list markers and after emoji headings.
  */
 const normalizeSummaryText = (raw: string): string => {
   if (!raw) return "";
 
   let text = raw.replace(/\r\n/g, "\n");
 
-  // Убираем markdown-жирный
+  // Remove markdown bold formatting
   text = text.replace(/\*\*/g, "");
 
-  // Полностью вырезаем все markdown-решётки ### ## # где бы они ни стояли
+  // Completely strip out all markdown headers
   text = text.replace(/#{1,6}\s*/g, "");
 
-  // Ставим перенос строки ПЕРЕД каждым маркером " * " или " - ",
-  // если он не в начале строки (например, между пунктами в одной строке)
+  // Prepend newline before list markers (" * " or " - ") when located mid-line
   text = text.replace(/\s+\*\s+/g, "\n* ");
   text = text.replace(/\s+-\s+/g, "\n- ");
 
-  // Ставим перенос перед нумерованными пунктами "1. ", "2. " и т.д.,
-  // если они идут посередине строки
+  // Prepend newline before numbered lists mid-line
   text = text.replace(/\s+(\d+)\.\s+/g, "\n$1. ");
 
-  // Заголовки-эмодзи (🔴 🟠 🟡 🟢 ✅ 📊 ⚠️ 📌) — на отдельную строку,
-  // помечаем внутренним маркером §H§ (пользователь его не увидит)
+  // Emoji headings are placed on separate lines and marked with §H§ internally
   text = text.replace(
     /([🔴🟠🟡🟢✅📊⚠️📌])\s*([^\n*\-]+?)(?=\s*[\n*\-]|$)/gu,
     (_m, emoji, title) => {
@@ -63,7 +61,7 @@ const normalizeSummaryText = (raw: string): string => {
     },
   );
 
-  // Схлопываем лишние пустые строки (больше двух подряд)
+  // Collapse duplicate consecutive empty lines
   text = text.replace(/\n{3,}/g, "\n\n");
 
   return text.trim();
@@ -106,7 +104,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
     }
   };
 
-  // Превращает [check_id] в интерактивную ссылку
+  // Wraps check IDs into interactive links
   const renderCitations = (text: string) => {
     const parts = text.split(/(\[[^\]]+\])/g);
     return parts.map((part, i) => {
@@ -133,8 +131,8 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
   };
 
   /**
-   * Главный рендерер: разбиваем нормализованный текст на блоки,
-   * склеиваем идущие подряд элементы списка в один <ul>/<ol>.
+   * Main renderer: parses normalized text into blocks,
+   * combining consecutive list items into single lists.
    */
   const renderFormattedSummary = (rawText: string) => {
     if (!rawText) return null;
@@ -194,13 +192,13 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
     for (const rawLine of lines) {
       const line = rawLine.trim();
 
-      // Пустая строка — закрываем открытый список
+      // Empty line: flush the open list
       if (!line) {
         flushList();
         continue;
       }
 
-      // Заголовок (внутренний маркер §H§) — рендерим обычным шрифтом, без жирного
+      // Heading: render with normal weight, non-bold
       if (line.startsWith("§H§")) {
         flushList();
         const headingContent = line.replace(/^§H§\s*/, "");
@@ -215,7 +213,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
         continue;
       }
 
-      // Маркированный пункт
+      // Bullet point
       const bulletMatch = line.match(/^[\*\-]\s+(.*)$/);
       if (bulletMatch) {
         if (listType && listType !== "ul") flushList();
@@ -224,7 +222,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
         continue;
       }
 
-      // Нумерованный пункт
+      // Numbered point
       const numberedMatch = line.match(/^\d+\.\s+(.*)$/);
       if (numberedMatch) {
         if (listType && listType !== "ol") flushList();
@@ -233,7 +231,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
         continue;
       }
 
-      // Обычный параграф
+      // Plain paragraph
       flushList();
       elements.push(
         <p
@@ -245,7 +243,7 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
       );
     }
 
-    // Не забываем закрыть последний список
+    // Flush any remaining open list
     flushList();
 
     return elements;
@@ -330,14 +328,14 @@ export const RunSummaryPanel: React.FC<RunSummaryPanelProps> = ({
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5">
         {summary.status === "ready" && summary.text ? (
           <div className="space-y-4">
-            {/* Адаптивная сетка: на широких экранах 2/3 + 1/3, на узких — только текст */}
+            {/* Responsive grid: 2/3 text + 1/3 sidebar on wide viewports, full-width text on narrow screens */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              {/* Левая колонка: текст резюме */}
+              {/* Left column: summary text */}
               <div className="xl:col-span-2 text-sm min-w-0">
                 {renderFormattedSummary(summary.text)}
               </div>
 
-              {/* Правая колонка: инфографика — только на экранах ≥ xl */}
+              {/* Right column: infographics (large viewports only) */}
               <div className="hidden xl:block xl:col-span-1 space-y-4">
                 <SummaryInsights documents={documents} />
               </div>
@@ -512,7 +510,6 @@ const FallbackSummary: React.FC<{
 
 // ---------------------------------------------------------------------------
 // Insights
-// Статусы, которые не учитываем в статистике (не в активной работе)
 // ---------------------------------------------------------------------------
 
 const EXCLUDED_STATUSES_FOR_STATS = new Set<string>(["duplicate", "deleted"]);
@@ -522,7 +519,7 @@ const SummaryInsights: React.FC<{ documents?: DocumentListItem[] }> = ({
 }) => {
   const { t } = useTranslation("projects");
 
-  // Считаем распределение документов по типам
+  // Compute document type distribution
   const docTypeStats = React.useMemo(() => {
     if (!documents || documents.length === 0) {
       return {
@@ -531,7 +528,7 @@ const SummaryInsights: React.FC<{ documents?: DocumentListItem[] }> = ({
       };
     }
 
-    // Отфильтровываем duplicate/deleted — как в DocumentsOverviewWidget
+    // Filter out duplicate/deleted statuses
     const activeDocs = documents.filter(
       (doc) => !EXCLUDED_STATUSES_FOR_STATS.has(doc.status),
     );

@@ -267,6 +267,60 @@
         "title": "Observability services",
         "description": "Direct links to Grafana, Prometheus, Alertmanager, Loki, Tempo, MinIO, API docs and Ollama."
       }
+    },
+    "items": {
+      "dashboards": {
+        "operations-overview": {
+          "label": "Operations Overview",
+          "description": "HTTP, LLM, DLQ, active runs"
+        },
+        "legalmas-pipeline": {
+          "label": "Pipeline Overview",
+          "description": "Document processing stages"
+        },
+        "slo-overview": {
+          "label": "SLO Overview",
+          "description": "Quality metrics and SLO"
+        },
+        "logs-explorer": {
+          "label": "Log Explorer",
+          "description": "Loki log search and analysis"
+        }
+      },
+      "services": {
+        "grafana": {
+          "label": "Grafana",
+          "description": "Dashboards, alerts, explore"
+        },
+        "prometheus": {
+          "label": "Prometheus",
+          "description": "Metrics, alert rules, targets"
+        },
+        "alertmanager": {
+          "label": "Alertmanager",
+          "description": "Active alerts, silences"
+        },
+        "tempo": {
+          "label": "Tempo (via Grafana)",
+          "description": "Distributed traces via Grafana Explore"
+        },
+        "loki": {
+          "label": "Loki (via Grafana)",
+          "description": "Structured logs via Grafana Explore"
+        },
+        "minio": {
+          "label": "MinIO Console",
+          "description": "Object storage: artifacts, exports"
+        },
+        "api_docs": {
+          "label": "API Docs",
+          "description": "OpenAPI Swagger for backend"
+        },
+        "ollama": {
+          "label": "Ollama API",
+          "description": "LLM inference status and models"
+        }
+      }
     }
   },
   "clients": {
@@ -316,7 +370,8 @@
       "deactivate": "Deactivate",
       "activate": "Activate",
       "copyId": "Copy ID",
-      "copied": "Copied"
+      "copied": "Copied",
+      "idTooltip": "Click to select, button to copy"
     },
     "loading": "Loading client list…",
     "error": "Failed to load client list.",
@@ -476,3 +531,5 @@
     "noData": "No clients to export"
   }
 }
+
+

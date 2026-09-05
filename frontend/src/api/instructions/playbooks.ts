@@ -1,9 +1,9 @@
+// =============================================================
 // src/api/instructions/playbooks.ts
-// API функции для instruction management.
-// Строго соответствует реальным backend endpoints.
-//
-// Backend prefix: /api/v1/admin/...
-// Все endpoints требуют globalRole === "superadmin"
+// API functions for instruction management.
+// Mirrors backend endpoints on the /api/v1/admin/ prefix.
+// Access restricted to globalRole === "superadmin" users.
+// =============================================================
 
 import client from "../client";
 import type {
@@ -23,7 +23,7 @@ import type {
   UpdateInstructionDraftRequest,
 } from "../../types/instructions";
 
-// Реэкспортируем request-типы чтобы hooks могли импортировать их отсюда
+// Re-export request payloads for easier imports in hook modules
 export type {
   CreateInstructionDraftRequest,
   CloneDraftRequest,
@@ -32,11 +32,11 @@ export type {
 
 // ─────────────────────────────────────────────────────────────
 // Global Playbooks facade
-// Thin adapter над существующим playbook domain.
+// Thin adapter on top of the existing playbook domain.
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Список global playbooks.
+ * Lists global playbooks.
  * GET /api/v1/admin/instructions/global
  */
 export async function fetchGlobalPlaybooks(): Promise<GlobalPlaybookItem[]> {
@@ -47,7 +47,7 @@ export async function fetchGlobalPlaybooks(): Promise<GlobalPlaybookItem[]> {
 }
 
 /**
- * Список версий для конкретного global playbook.
+ * Lists versions for a specific global playbook.
  * GET /api/v1/admin/instructions/global/:playbookId/versions
  */
 export async function fetchGlobalPlaybookVersions(
@@ -64,7 +64,7 @@ export async function fetchGlobalPlaybookVersions(
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Каталог doc-type инструкций — богатый список с метаданными.
+ * Fetches doc-type instructions catalog with extensive metadata.
  * GET /api/v1/admin/instructions/doc-types
  */
 export async function fetchInstructionCatalog(): Promise<InstructionCatalogResponse> {
@@ -75,7 +75,7 @@ export async function fetchInstructionCatalog(): Promise<InstructionCatalogRespo
 }
 
 /**
- * Список версий для конкретного doc_type_code.
+ * Lists versions for a specific doc_type_code.
  * GET /api/v1/admin/instructions/doc-types/:code/versions
  */
 export async function fetchVersionsForDocType(
@@ -88,16 +88,16 @@ export async function fetchVersionsForDocType(
 }
 
 // ─────────────────────────────────────────────────────────────
-// Instruction Version Detail — с ETag
+// Instruction Version Detail — with ETag
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Детали версии + ETag из response headers.
+ * Fetches version details and extracts the ETag header.
  * GET /api/v1/admin/instruction-versions/:versionId
  *
- * ETag используется для optimistic concurrency в PATCH.
- * Backend должен включать ETag в Access-Control-Expose-Headers
- * если работаем cross-origin.
+ * ETag is utilized for optimistic concurrency in subsequent PATCH requests.
+ * Backend should include ETag in Access-Control-Expose-Headers
+ * when working cross-origin.
  */
 export async function fetchInstructionVersionDetail(
   versionId: string,
@@ -106,7 +106,7 @@ export async function fetchInstructionVersionDetail(
     `/api/v1/admin/instruction-versions/${versionId}`,
   );
 
-  // Axios нормализует заголовки к нижнему регистру
+  // Axios normalizes headers to lowercase
   const etag =
     (res.headers["etag"] as string | undefined) ??
     (res.headers["ETag"] as string | undefined) ??
@@ -120,10 +120,10 @@ export async function fetchInstructionVersionDetail(
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Создать новый draft для doc_type_code.
+ * Creates a new draft for a doc_type_code.
  * POST /api/v1/admin/instructions/doc-types/:code/drafts
  *
- * Используется когда нет существующей версии для клонирования.
+ * Invoked when no pre-existing version is available to clone.
  */
 export async function createInstructionDraft(
   docTypeCode: string,
@@ -137,12 +137,11 @@ export async function createInstructionDraft(
 }
 
 /**
- * Клонировать существующую версию в новый draft.
+ * Clones an existing version into a new draft.
  * POST /api/v1/admin/instruction-versions/:versionId/clone-draft
  *
- * Это canonical endpoint для "edit published" flow.
- * UI должен использовать этот endpoint когда пользователь нажимает
- * "Редактировать" на published версии.
+ * Canonical endpoint for "edit published" workflow.
+ * The UI invokes this endpoint when the user clicks "Edit" on a published version.
  */
 export async function cloneInstructionDraft(
   versionId: string,
@@ -156,16 +155,16 @@ export async function cloneInstructionDraft(
 }
 
 // ─────────────────────────────────────────────────────────────
-// Draft CRUD — с ETag concurrency
+// Draft CRUD — with ETag concurrency
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Обновить draft.
+ * Updates a draft.
  * PATCH /api/v1/admin/instruction-versions/:versionId
  *
- * ТРЕБУЕТ If-Match header с текущим ETag.
- * Без If-Match → 428 Precondition Required.
- * Устаревший ETag → 412 Precondition Failed.
+ * REQUIRES an If-Match header with the current ETag.
+ * Missing If-Match → 428 Precondition Required.
+ * Outdated ETag → 412 Precondition Failed.
  */
 export async function updateInstructionDraft(
   versionId: string,
@@ -189,11 +188,11 @@ export async function updateInstructionDraft(
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Валидировать draft (server-side).
+ * Performs server-side validation on a draft.
  * POST /api/v1/admin/instruction-versions/:versionId/validate
  *
- * Персистирует validation artifacts в БД.
- * Не требует If-Match — read-only с side effects на validation_report.
+ * Persists validation report artifacts in the database.
+ * Does not require If-Match headers.
  */
 export async function validateInstructionDraft(
   versionId: string,
@@ -205,11 +204,11 @@ export async function validateInstructionDraft(
 }
 
 /**
- * Опубликовать validated draft.
+ * Publishes a validated draft.
  * POST /api/v1/admin/instruction-versions/:versionId/publish
  *
- * Backend проверяет что draft валиден перед публикацией.
- * Переводит draft → published.
+ * Backend validates the draft again before publishing.
+ * Transitions state from "draft" to "published".
  */
 export async function publishInstructionDraft(
   versionId: string,
@@ -221,7 +220,7 @@ export async function publishInstructionDraft(
 }
 
 /**
- * Архивировать версию.
+ * Archives a version.
  * POST /api/v1/admin/instruction-versions/:versionId/archive
  */
 export async function archiveInstructionVersion(
@@ -238,11 +237,11 @@ export async function archiveInstructionVersion(
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Preview instruction YAML без сохранения.
+ * Previews instruction YAML compilation without saving.
  * POST /api/v1/admin/instructions/doc-types/:code/preview
  *
- * Возвращает: is_valid, diagnostics, compiled_payload, checks_count,
- * source_sha256, already_exists hint.
+ * Returns: is_valid, diagnostics, compiled_payload, checks_count,
+ * source_sha256, and already_exists hint.
  */
 export async function previewInstruction(
   docTypeCode: string,
@@ -256,10 +255,8 @@ export async function previewInstruction(
 }
 
 /**
- * Diff между двумя версиями.
+ * Unified diff between two versions.
  * GET /api/v1/admin/instruction-versions/:versionId/diff?against=:otherId
- *
- * Возвращает unified diff текст и metadata обеих версий.
  */
 export async function diffInstructionVersions(
   versionId: string,

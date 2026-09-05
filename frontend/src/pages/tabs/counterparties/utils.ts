@@ -1,5 +1,8 @@
 // =============================================================
 // src/pages/tabs/counterparties/utils.ts
+// Pure helpers for counterparties tab.
+// All label-producing helpers return i18n KEYS (not translated text).
+// Callers are expected to invoke t(`labels.${key}`) or similar.
 // =============================================================
 
 import type {
@@ -17,64 +20,65 @@ import type {
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 
 // ---------------------------------------------------------------------------
-// Risk / review tone helpers
+// Risk / review key helpers (return canonical i18n keys, not display strings)
 // ---------------------------------------------------------------------------
 
-export const riskBadgeTone = (value: "yes" | "no" | "review"): "high" | "low" | "medium" => {
+export const riskBadgeTone = (
+  value: "yes" | "no" | "review",
+): "high" | "low" | "medium" => {
   if (value === "yes") return "high";
   if (value === "review") return "medium";
   return "low";
 };
 
+/**
+ * Returns i18n label key (yes | no | review).
+ * Consumer should render t(`labels.${key}`).
+ */
 export const riskBadgeLabel = (value: "yes" | "no" | "review"): string => {
-  if (value === "yes") return "Yes";
-  if (value === "review") return "Review";
-  return "No";
+  if (value === "yes") return "yes";
+  if (value === "review") return "review";
+  return "no";
 };
 
-export const buildRiskMeta = (
-  item: CounterpartyAggregate,
-  tFn?: TranslateFn,
-): RiskMeta => {
+/**
+ * Returns risk meta with i18n label key (high | medium | low).
+ * Consumer should render t(`labels.${meta.label}`).
+ */
+export const buildRiskMeta = (item: CounterpartyAggregate): RiskMeta => {
   if (
     item.bankruptcyFlag ||
     item.sanctionsFlag ||
     item.contractValueUsdM > item.annualRevenueUsdM * 5
   ) {
-    return {
-      label: tFn ? tFn("labels.high", { defaultValue: "High" }) : "High",
-      tone: "high",
-      rank: 3,
-    };
+    return { label: "high", tone: "high", rank: 3 };
   }
 
   if (item.litigationFlag || item.reviewStatus === "needs_review") {
-    return {
-      label: tFn ? tFn("labels.medium", { defaultValue: "Medium" }) : "Medium",
-      tone: "medium",
-      rank: 2,
-    };
+    return { label: "medium", tone: "medium", rank: 2 };
   }
 
-  return {
-    label: tFn ? tFn("labels.low", { defaultValue: "Low" }) : "Low",
-    tone: "low",
-    rank: 1,
-  };
+  return { label: "low", tone: "low", rank: 1 };
 };
 
 export const reviewTone = (
-  value: CounterpartyAggregate["reviewStatus"]
+  value: CounterpartyAggregate["reviewStatus"],
 ): "high" | "medium" | "low" => {
   if (value === "critical") return "high";
   if (value === "needs_review") return "medium";
   return "low";
 };
 
-export const reviewLabel = (value: CounterpartyAggregate["reviewStatus"]): string => {
-  if (value === "critical") return "Critical";
-  if (value === "needs_review") return "Needs review";
-  return "Normal";
+/**
+ * Returns i18n label key (critical | review | ok).
+ * Consumer should render t(`labels.${key}`).
+ */
+export const reviewLabel = (
+  value: CounterpartyAggregate["reviewStatus"],
+): string => {
+  if (value === "critical") return "critical";
+  if (value === "needs_review") return "review";
+  return "ok";
 };
 
 // ---------------------------------------------------------------------------
@@ -104,12 +108,11 @@ export const sortCounterparties = (
   items: CounterpartyAggregate[],
   sort: SortState,
   locale: string = "en-US",
-  tFn?: TranslateFn,
 ): CounterpartyAggregate[] => {
   const withMeta = items.map((item, index) => ({
     ...item,
     originalIndex: index + 1,
-    riskMeta: buildRiskMeta(item, tFn),
+    riskMeta: buildRiskMeta(item),
   }));
 
   const sorted = [...withMeta].sort((a, b) => {
@@ -141,7 +144,9 @@ export const sortCounterparties = (
     return sort.direction === "asc" ? comparison : -comparison;
   });
 
-  return sorted.map(({ originalIndex: _originalIndex, riskMeta: _riskMeta, ...item }) => item);
+  return sorted.map(
+    ({ originalIndex: _originalIndex, riskMeta: _riskMeta, ...item }) => item,
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -149,14 +154,19 @@ export const sortCounterparties = (
 // ---------------------------------------------------------------------------
 
 export const buildCounterpartiesTotals = (
-  items: CounterpartyAggregate[]
+  items: CounterpartyAggregate[],
 ): CounterpartiesTotals => ({
   totalCounterparties: items.length,
   totalContracts: items.reduce((sum, item) => sum + item.contractCount, 0),
-  totalContractValue: items.reduce((sum, item) => sum + item.contractValueUsdM, 0),
+  totalContractValue: items.reduce(
+    (sum, item) => sum + item.contractValueUsdM,
+    0,
+  ),
 });
 
-export const buildTopByContracts = (items: CounterpartyAggregate[]): RankedListItem[] =>
+export const buildTopByContracts = (
+  items: CounterpartyAggregate[],
+): RankedListItem[] =>
   [...items]
     .sort((a, b) => b.contractCount - a.contractCount)
     .slice(0, 5)
@@ -166,7 +176,9 @@ export const buildTopByContracts = (items: CounterpartyAggregate[]): RankedListI
       value: `${item.contractCount}`,
     }));
 
-export const buildTopByValue = (items: CounterpartyAggregate[]): RankedListItem[] =>
+export const buildTopByValue = (
+  items: CounterpartyAggregate[],
+): RankedListItem[] =>
   [...items]
     .sort((a, b) => b.contractValueUsdM - a.contractValueUsdM)
     .slice(0, 5)
@@ -177,7 +189,7 @@ export const buildTopByValue = (items: CounterpartyAggregate[]): RankedListItem[
     }));
 
 export const buildCountryStructure = (
-  items: CounterpartyAggregate[]
+  items: CounterpartyAggregate[],
 ): CountryStructureItem[] => {
   const countryMap = new Map<string, number>();
 
@@ -203,7 +215,7 @@ export const buildCriticalCounterparties = (
           ? tFn("drilldown.criticalTable.reasonsList.bankruptcy", {
               defaultValue: "Insolvency alert / bankruptcy indicator.",
             })
-          : "Insolvency alert / bankruptcy indicator."
+          : "Insolvency alert / bankruptcy indicator.",
       );
     }
     if (item.sanctionsFlag) {
@@ -212,7 +224,7 @@ export const buildCriticalCounterparties = (
           ? tFn("drilldown.criticalTable.reasonsList.sanctions", {
               defaultValue: "Sanctions screening signal match.",
             })
-          : "Sanctions screening signal match."
+          : "Sanctions screening signal match.",
       );
     }
     if (item.contractValueUsdM > item.annualRevenueUsdM * 5) {
@@ -222,7 +234,7 @@ export const buildCriticalCounterparties = (
               defaultValue:
                 "Total contract value exceeds annual revenue by more than 5 times.",
             })
-          : "Total contract value exceeds annual revenue by more than 5 times."
+          : "Total contract value exceeds annual revenue by more than 5 times.",
       );
     }
 

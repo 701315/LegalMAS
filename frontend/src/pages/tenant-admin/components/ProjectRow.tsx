@@ -1,19 +1,19 @@
 // =============================================================
 // src/pages/tenant-admin/components/ProjectRow.tsx
 //
-// Строка проекта в таблице "Проекты" admin panel.
-// Отображает: название проекта, статистику документов, статус
-// последнего run, прогресс проверок, action button "Открыть".
+// Project row in the "Projects" table of the admin panel.
+// Displays: project name, document statistics, last run status,
+// checks progress, and "Open" action button.
 //
 // Design contract:
-// - Кликабельная строка (cursor-pointer + hover effect)
-// - AlertTriangle icon перед названием если есть проблемы
-// - Цвет прогресс-бара зависит от статуса run
-// - "Открыть" button останавливает propagation (не триггерит клик по строке)
+// - Clickable row (cursor-pointer + hover effect)
+// - AlertTriangle icon before title if there are issues
+// - Progress bar color reflects run status
+// - "Open" button stops propagation (doesn't trigger row click)
 //
 // Business logic:
 // - hasProblems: failed_documents > 0 OR quarantine_documents > 0 OR run.has_errors
-// - progress %: completed_checks / total_checks * 100 (только если total > 0)
+// - progress %: completed_checks / total_checks * 100 (only if total > 0)
 // =============================================================
 
 import React from "react";
@@ -25,9 +25,9 @@ import { RUN_STATUS_CONFIG } from "../constants";
 import { formatDate, formatDateTime, toneClass } from "../utils";
 
 export interface ProjectRowProps {
-  /** Проект для отображения */
+  /** Project to display */
   project: ProjectHealthDTO;
-  /** Callback при клике на строку или "Открыть" button */
+  /** Callback when clicking row or "Open" button */
   onOpen: (id: string) => void;
 }
 
@@ -54,6 +54,10 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onOpen }) => {
         : run?.status === "completed_with_errors"
           ? "bg-[var(--color-warning)]"
           : "bg-[var(--accent-primary)]";
+
+  const statusLabel = run?.status
+    ? t(`runStatusLabels.${run.status}`, { defaultValue: cfg?.label ?? run.status })
+    : null;
 
   return (
     <tr
@@ -113,7 +117,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onOpen }) => {
         {cfg && run ? (
           <div className="space-y-0.5">
             <p className={`text-xs font-medium ${toneClass(cfg.tone)}`}>
-              {cfg.label}
+              {statusLabel}
             </p>
             {run.completed_at && (
               <p className="text-[10px] text-[var(--text-muted)]">

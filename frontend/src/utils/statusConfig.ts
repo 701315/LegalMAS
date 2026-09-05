@@ -1,12 +1,14 @@
+// =============================================================
 // src/utils/statusConfig.ts
-// Единый конфиг отображения статусов документов и запусков (Run) в UI.
+// Unified configuration for displaying document and run statuses in UI.
 //
-// Задача этого модуля:
-// - дать одним местом все лейблы, цвета и "человеческие" названия стадий;
-// - чтобы любые компоненты (таблицы, карточки, тултипы) не придумывали
-//   свои подписи и цвета, а пользовались единым источником правды.
+// Module purpose:
+// - Single source of truth for all labels, colors, and human-readable stage names;
+// - Ensures all components (tables, cards, tooltips) use consistent
+//   labels and colors instead of inventing their own.
 //
-// Цвета условные — подстрой под свою дизайн-систему (primary/success/warning/error).
+// Colors are semantic — map to your design system tokens (primary/success/warning/error).
+// =============================================================
 
 import type {
   DocumentStatus,
@@ -14,7 +16,7 @@ import type {
   ProcessingErrorDetails,
 } from "../types";
 
-// Цвет как простой string — дальше маппится на класс/токен дизайна.
+// Color as simple string — later mapped to design class/token.
 export type StatusColor = "default" | "info" | "success" | "warning" | "error";
 
 export interface DocumentStatusConfig {
@@ -33,7 +35,7 @@ export interface RunStatusConfig {
   color: StatusColor;
 }
 
-/** Маппинг статуса документа в подпись, i18n-ключ и цвет. */
+/** Mapping of document status to label, i18n key, and color. */
 export const DOCUMENT_STATUS_CONFIG: Record<DocumentStatus, DocumentStatusConfig> = {
   pending: {
     label: "Pending",
@@ -103,7 +105,7 @@ export const DOCUMENT_STATUS_CONFIG: Record<DocumentStatus, DocumentStatusConfig
   },
 };
 
-/** Маппинг статуса Run в подпись, i18n-ключ и цвет. */
+/** Mapping of Run status to label, i18n key, and color. */
 export const RUN_STATUS_CONFIG: Record<RunStatus, RunStatusConfig> = {
   pending: {
     label: "Pending",
@@ -137,7 +139,7 @@ export const RUN_STATUS_CONFIG: Record<RunStatus, RunStatusConfig> = {
   },
 };
 
-/** Человекочитаемые названия стадий пайплайна из processing_error_details.stage (English canonical). */
+/** Human-readable pipeline stage labels from processing_error_details.stage (English canonical). */
 const STAGE_LABELS: Record<string, string> = {
   import: "File import",
   extract: "Text extraction",
@@ -149,10 +151,10 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 /**
- * Вернуть человекочитаемое название стадии ошибки по processing_error_details.
+ * Returns human-readable error stage label from processing_error_details.
  *
- * Если stage неизвестен или отсутствует — возвращаем общий текст.
- * Поддерживает i18next TFunction, если она передана.
+ * If stage is unknown or missing — returns generic text.
+ * Supports i18next TFunction if provided.
  */
 export function getErrorStageLabel(
   details?: ProcessingErrorDetails | null,

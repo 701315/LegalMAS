@@ -1,16 +1,16 @@
 // =============================================================
 // src/pages/tenant-admin/tabs/AlertsTab.tsx
 //
-// Вкладка "Алерты" в admin panel. Простая обёртка над AlertsPanel
-// компонентом из components/admin/AlertsPanel.
+// "Alerts" tab in the admin panel. Simple wrapper over
+// the AlertsPanel component from components/admin/AlertsPanel.
 //
 // Design contract:
-// - Занимает всю доступную высоту parent секции (min-h-0 flex-1)
-// - Вертикальный overflow — scroll внутри tab
-// - Padding по periметру
+// - Takes all available height of the parent section (min-h-0 flex-1)
+// - Vertical overflow — scroll inside the tab
+// - Padding around the perimeter
 //
-// Note: содержательная логика в AlertsPanel — этот tab только
-// провайдит layout wrapper и scroll ownership.
+// Note: Core logic is in AlertsPanel — this tab only
+// provides the layout wrapper and scroll ownership.
 // =============================================================
 
 import React from "react";

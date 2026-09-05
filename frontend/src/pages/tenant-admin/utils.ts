@@ -1,36 +1,38 @@
 // =============================================================
 // src/pages/tenant-admin/utils.ts
 //
-// Pure utility функции для страницы TenantAdmin: форматирование
-// дат, чисел, длительностей, нормализация уровней логов, mapping
-// tone → CSS class.
+// Pure utility functions for the TenantAdmin dashboard: formatting
+// dates, numbers, durations, normalizing log levels, and mapping
+// semantic tones to CSS classes.
 //
-// Дизайн-принцип: все функции здесь — pure (без side effects,
-// без React state). Это делает их тривиально тестируемыми и
-// переиспользуемыми в любых компонентах внутри admin panel.
+// Design principle: All functions here are pure (no side effects,
+// no React state). This makes them easily testable and reusable
+// across any component in the admin panel.
 // =============================================================
 
 import { PROJECT_ROLE_LABELS } from "./constants";
 
+export type TranslationFn = (key: string, options?: any) => string;
+
 // ─── Date Formatting ─────────────────────────────────────────────────────
 
 /**
- * Форматирует ISO datetime string в локализованную строку
- * с датой и временем.
+ * Formats an ISO datetime string into a localized date and time string.
+ * Defaults to canonical "en-US" locale.
  *
  * @example
- * formatDateTime("2026-08-08T15:30:00Z", "ru") // "08.08.2026, 18:30"
+ * formatDateTime("2026-08-08T15:30:00Z", "en-US") // "08/08/2026, 03:30 PM"
  * formatDateTime(null) // "—"
  * formatDateTime("invalid") // "—"
  */
 export function formatDateTime(
   iso: string | null | undefined,
-  locale?: string,
+  locale: string = "en-US",
 ): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(locale ?? "ru-RU", {
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -40,21 +42,21 @@ export function formatDateTime(
 }
 
 /**
- * Форматирует ISO datetime string в локализованную дату
- * без времени, с полным названием месяца.
+ * Formats an ISO datetime string into a localized date without time,
+ * displaying the full month name.
  *
  * @example
- * formatDate("2026-08-08T15:30:00Z", "ru") // "08 августа 2026 г."
+ * formatDate("2026-08-08T15:30:00Z", "en-US") // "August 08, 2026"
  * formatDate(null) // "—"
  */
 export function formatDate(
   iso: string | null | undefined,
-  locale?: string,
+  locale: string = "en-US",
 ): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(locale ?? "ru-RU", {
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -64,77 +66,92 @@ export function formatDate(
 // ─── Number Formatting ───────────────────────────────────────────────────
 
 /**
- * Форматирует число с разделителями тысяч в соответствии с локалью.
+ * Formats a number with thousands separators according to the locale.
  *
  * @example
- * fmt(1234567, "ru") // "1 234 567"
+ * fmt(1234567, "en-US") // "1,234,567"
  * fmt(0) // "0"
  * fmt(null) // "—"
  */
-export function fmt(value: number | null | undefined, locale?: string): string {
+export function fmt(
+  value: number | null | undefined,
+  locale: string = "en-US",
+): string {
   if (value == null || Number.isNaN(value)) return "—";
-  return new Intl.NumberFormat(locale ?? "ru-RU").format(value);
+  return new Intl.NumberFormat(locale).format(value);
 }
 
 /**
- * Форматирует миллисекунды с суффиксом "мс" / "ms".
- * Для значений < 10 показывает 2 знака после запятой.
- * Для значений < 1 показывает "< 1 мс" / "< 1 ms".
+ * Formats milliseconds with localized unit suffix.
+ * For values < 10, displays up to 2 decimal digits.
+ * For values < 1, utilizes localized short boundary template.
  *
  * @example
- * fmtMs(1234, "ru") // "1 234 мс"
- * fmtMs(5.678, "en") // "5.68 ms"
- * fmtMs(0.5, "ru") // "< 1 мс"
+ * fmtMs(1234, "en-US", t) // "1,234 ms"
+ * fmtMs(5.678, "en-US", t) // "5.68 ms"
+ * fmtMs(0.5, "en-US", t) // "< 1 ms"
  */
 export function fmtMs(
   value: number | null | undefined,
-  locale?: string,
+  locale: string = "en-US",
+  t?: TranslationFn,
 ): string {
   if (value == null || Number.isNaN(value)) return "—";
-  const isEn = locale?.startsWith("en");
-  if (value < 1) return isEn ? "< 1 ms" : "< 1 мс";
 
-  const formatted = new Intl.NumberFormat(locale ?? "ru-RU", {
+  if (value < 1) {
+    return t ? t("units.msShortLessThanOne") : "< 1 ms";
+  }
+
+  const formatted = new Intl.NumberFormat(locale, {
     maximumFractionDigits: value < 10 ? 2 : 0,
   }).format(value);
 
-  return isEn ? `${formatted} ms` : `${formatted} мс`;
+  const suffix = t ? t("units.ms") : "ms";
+  return `${formatted} ${suffix}`;
 }
 
 /**
- * Форматирует длительность в секундах с учётом локали.
- * Для значений < 60 сек показывает секунды с 1 знаком после запятой.
- * Для больших значений разбивает на минуты и секунды.
+ * Formats a duration in seconds with locale awareness.
+ * For values < 60 sec, displays seconds with 1 decimal place.
+ * For larger values, breaks down into minutes and seconds.
  *
  * @example
- * fmtDurationSeconds(45.5, "ru") // "45.5 с"
- * fmtDurationSeconds(125, "en") // "2 min 5 s"
+ * fmtDurationSeconds(45.5, "en-US", t) // "45.5 s"
+ * fmtDurationSeconds(125, "en-US", t) // "2 min 5 s"
  */
 export function fmtDurationSeconds(
   sec: number | null | undefined,
-  locale?: string,
+  locale: string = "en-US",
+  t?: TranslationFn,
 ): string {
   if (sec == null || Number.isNaN(sec)) return "—";
-  const isEn = locale?.startsWith("en");
+
+  const sSuffix = t ? t("units.s") : "s";
+  const minSuffix = t ? t("units.min") : "min";
 
   if (sec < 60) {
-    return isEn ? `${sec.toFixed(1)} s` : `${sec.toFixed(1)} с`;
+    const formattedSec = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(sec);
+    return `${formattedSec} ${sSuffix}`;
   }
 
   const mins = Math.floor(sec / 60);
   const rest = Math.round(sec - mins * 60);
 
-  return isEn
-    ? `${mins} min ${rest} s`
-    : `${mins} мин ${rest} с`;
+  const formattedMins = new Intl.NumberFormat(locale).format(mins);
+  const formattedRest = new Intl.NumberFormat(locale).format(rest);
+
+  return `${formattedMins} ${minSuffix} ${formattedRest} ${sSuffix}`;
 }
 
 // ─── Log Level Normalization ─────────────────────────────────────────────
 
 /**
- * Нормализует уровень лога к каноническому виду.
- * Обрабатывает алиас "warn" → "warning".
- * Fallback на "info" если значение отсутствует.
+ * Normalizes log level to canonical lowercase format.
+ * Handles alias "warn" → "warning".
+ * Defaults to "info" if missing.
  *
  * @example
  * normLevel("ERROR") // "error"
@@ -150,9 +167,9 @@ export function normLevel(level: string | null | undefined): string {
 // ─── Tone → CSS Class Mapping ────────────────────────────────────────────
 
 /**
- * Возвращает Tailwind class для текста в зависимости от semantic tone.
- * Используется в KpiCard, ProjectRow, RunStatusCell и других местах где
- * нужно семантически окрасить значение.
+ * Returns Tailwind class for text depending on semantic tone.
+ * Used in KpiCard, ProjectRow, RunStatusCell and other components
+ * requiring semantic color formatting.
  *
  * @example
  * <p className={toneClass("error")}>...</p> // text-[var(--color-error-text)]
@@ -169,15 +186,23 @@ export function toneClass(
 // ─── Role Label Helpers ──────────────────────────────────────────────────
 
 /**
- * Возвращает человекочитаемое название project-level роли.
- * Fallback на raw role code если ключ не найден в PROJECT_ROLE_LABELS.
+ * Returns human-readable label for a project-level role.
+ * Supports i18n via translation function. Falls back to legacy
+ * constants or raw role code if translation key is missing.
  *
  * @example
- * projectRoleLabel("admin") // "Администратор"
+ * projectRoleLabel("admin", t) // "Administrator"
  * projectRoleLabel("custom_role") // "custom_role"
  */
-export function projectRoleLabel(role: string): string {
-  return PROJECT_ROLE_LABELS[role.toLowerCase()] ?? role;
+export function projectRoleLabel(role: string, t?: TranslationFn): string {
+  const normalizedRole = role.toLowerCase();
+
+  if (t) {
+    const localized = t(`roleLabels.${normalizedRole}`, { defaultValue: "" });
+    if (localized) return localized;
+  }
+
+  return PROJECT_ROLE_LABELS[normalizedRole] ?? role;
 }
 
 

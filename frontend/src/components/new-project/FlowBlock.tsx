@@ -1,16 +1,16 @@
 // =============================================================
 // src/components/new-project/FlowBlock.tsx
 //
-// Обёртка одного шага в flow запуска нового проекта.
+// Wrapper for an individual step in the new project creation flow.
 //
-// Три состояния:
-//   disabled — блок ещё недоступен (opacity + no interaction)
-//   active   — текущий активный шаг (accent-полоска слева)
-//              + опциональная кнопка «Назад к шагу N» в шапке
-//   done     — шаг завершён; свёрнут в одну строку с чекмарком,
-//              summary и кнопкой «карандаш» для редактирования
+// Three states:
+//   disabled — step is not yet available (reduced opacity, no interaction)
+//   active   — current active step (accent stripe on the left)
+//              + optional "Back to step N" button in the header
+//   done     — step is completed; collapsed to a single line with checkmark,
+//              summary, and edit pencil button
 //
-// Не содержит бизнес-логики — только визуальная оболочка.
+// Pure presentation wrapper containing no business logic.
 // =============================================================
 
 import React from "react";
@@ -20,34 +20,34 @@ import { useTranslation } from "react-i18next";
 export type FlowBlockStatus = "disabled" | "active" | "done";
 
 interface FlowBlockProps {
-  /** Порядковый номер шага для отображения */
+  /** Step order number for display */
   step: number;
-  /** Заголовок блока */
+  /** Block title */
   title: string;
-  /** Состояние блока */
+  /** Block state */
   status: FlowBlockStatus;
   /**
-   * Краткое summary для done-состояния.
-   * Показывается справа от заголовка в одной строке.
+   * Short summary for the done state.
+   * Displayed inline to the right of the title.
    */
   summary?: string;
-  /** Контент блока (форма, список, и т.д.) */
+  /** Block content (form, list, etc.) */
   children: React.ReactNode;
 
   /**
-   * Обработчик клика по кнопке «Назад к шагу N» в шапке active-блока.
-   * Если не задан — кнопка не показывается.
+   * Click handler for the "Back to step N" button in the active block header.
+   * If omitted, the button is not rendered.
    */
   onBackRequest?: () => void;
   /**
-   * Подпись кнопки «Назад». Например: "Назад к шагу 3".
-   * Обязателен если задан onBackRequest.
+   * Label for the back button. For example: "Back to step 3".
+   * Required if onBackRequest is provided.
    */
   backLabel?: string;
 
   /**
-   * Обработчик клика по кнопке "карандаш" в done-блоке.
-   * Если не задан — кнопка не показывается.
+   * Click handler for the pencil/edit button in the done block.
+   * If omitted, the button is not rendered.
    */
   onEditRequest?: () => void;
 }
@@ -84,7 +84,7 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
         .join(" ")}
       aria-disabled={isDisabled}
     >
-      {/* Accent-полоска слева — только для active */}
+      {/* Left accent stripe — active state only */}
       {isActive && (
         <div
           className="absolute left-0 top-4 bottom-4 w-[3px] rounded-full bg-[var(--accent-primary)]"
@@ -92,7 +92,7 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
         />
       )}
 
-      {/* ── Кнопка "Назад" в шапке active-блока ──────────── */}
+      {/* ── Back button in active block header ──────────── */}
       {isActive && onBackRequest && backLabel ? (
         <div className="border-b border-[var(--border-subtle)] px-5 pb-2 pt-3">
           <button
@@ -142,10 +142,9 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
           )}
         </div>
 
-        {/* Title + inline summary для done */}
+        {/* Title + inline summary for done state */}
         <div className="min-w-0 flex-1">
           {isDone && summary ? (
-            // Done: title и summary в одну строку с разделителем "·"
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-semibold text-[var(--text-primary)] shrink-0">
                 {title}
@@ -179,7 +178,7 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
           )}
         </div>
 
-        {/* Done — кнопка "карандаш" (редактировать) */}
+        {/* Done state edit pencil button */}
         {isDone && onEditRequest ? (
           <button
             type="button"
@@ -192,7 +191,7 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
         ) : null}
       </div>
 
-      {/* ── Content (только для active) ─────────────────── */}
+      {/* ── Content (active state only) ─────────────────── */}
       {showContent && (
         <>
           <div className="mx-5 border-t border-[var(--border-subtle)]" />
@@ -204,4 +203,5 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
 };
 
 export default FlowBlock;
+
 

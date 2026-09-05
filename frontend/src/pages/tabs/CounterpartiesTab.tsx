@@ -1,21 +1,10 @@
 // =============================================================
 // src/pages/tabs/CounterpartiesTab.tsx
-// Вкладка «Анализ выявленных контрагентов».
+// Counterparty Analysis & Risk Screening tab.
 //
 // Preview flow:
-// 1) Intro screen — короткое описание раздела
+// 1) Intro screen — section overview and data sources
 // 2) Demo screen  — overview + shared split-view workspace
-//
-// Архитектура после Wave 1 refactoring:
-// - types    → ./counterparties/types.ts
-// - constants + demo data → ./counterparties/constants.ts
-// - pure utils / sort helpers → ./counterparties/utils.ts
-//
-// TODO при подключении API:
-// - подключить useCounterparties(dealId, currentRunId)
-// - заменить demo-данные на backend DTO
-// - привязать summary / table / detail panel к реальному enrichment
-// - заменить alert() на реальный export flow
 // =============================================================
 
 import React, { useMemo } from "react";
@@ -529,17 +518,6 @@ const CounterpartiesTable: React.FC<{
 }> = ({ items, selectedId, onSelect, sort, onSort }) => {
   const { t } = useTranslation("counterparties");
 
-  const translateLabel = (label: string): string => {
-    const lower = label.toLowerCase();
-    if (lower.includes("high") || label === "Высокий") return t("labels.high", { defaultValue: "High" });
-    if (lower.includes("medium") || label === "Средний") return t("labels.medium", { defaultValue: "Medium" });
-    if (lower.includes("low") || label === "Низкий") return t("labels.low", { defaultValue: "Low" });
-    if (lower.includes("critical") || label === "Критично") return t("labels.critical", { defaultValue: "Critical" });
-    if (lower.includes("warning") || label === "Внимание") return t("labels.warning", { defaultValue: "Warning" });
-    if (lower.includes("ok") || label === "ОК") return t("labels.ok", { defaultValue: "OK" });
-    return label;
-  };
-
   return (
     <div className="overflow-x-auto rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
       <table className="min-w-full text-left text-sm">
@@ -617,7 +595,7 @@ const CounterpartiesTable: React.FC<{
                   ${item.contractValueUsdM}m
                 </td>
                 <td className="px-4 py-3">
-                  <Badge tone={risk.tone}>{translateLabel(risk.label)}</Badge>
+                  <Badge tone={risk.tone}>{t(`labels.${risk.label}`)}</Badge>
                 </td>
               </tr>
             );
@@ -638,20 +616,6 @@ const DetailPanel: React.FC<{
 }> = ({ aggregate, detail }) => {
   const { t } = useTranslation("counterparties");
 
-  const translateLabel = (label: string): string => {
-    const lower = label.toLowerCase();
-    if (label === "Sanctions match" || label === "Совпадение по санкциям") return t("detail.ownership.statusMatch", { defaultValue: "Sanctions match" });
-    if (label === "Sanctions review" || label === "Требуется проверка") return t("detail.ownership.statusReview", { defaultValue: "Sanctions review" });
-    if (label === "No sanctions match" || label === "Санкций нет") return t("detail.ownership.statusClear", { defaultValue: "No sanctions match" });
-    if (lower.includes("approved") || label === "Одобрено") return t("labels.approved", { defaultValue: "Approved" });
-    if (lower.includes("review") || label === "На проверке") return t("labels.review", { defaultValue: "Review" });
-    if (lower.includes("rejected") || label === "Отклонено") return t("labels.rejected", { defaultValue: "Rejected" });
-    if (lower.includes("yes") || label === "Да") return t("labels.yes", { defaultValue: "Yes" });
-    if (lower.includes("no") || label === "Нет") return t("labels.no", { defaultValue: "No" });
-    if (lower.includes("checking") || label === "Проверка") return t("labels.checking", { defaultValue: "Checking" });
-    return label;
-  };
-
   return (
     <div className="space-y-4">
       <PageSection
@@ -659,7 +623,7 @@ const DetailPanel: React.FC<{
         subtitle={t("detail.card.subtitle")}
         rightSlot={
           <Badge tone={reviewTone(aggregate.reviewStatus)}>
-            {translateLabel(reviewLabel(aggregate.reviewStatus))}
+            {t(`labels.${reviewLabel(aggregate.reviewStatus)}`)}
           </Badge>
         }
       >
@@ -741,7 +705,7 @@ const DetailPanel: React.FC<{
               </p>
               <div className="mt-2">
                 <Badge tone={riskBadgeTone(detail.risks[key])}>
-                  {translateLabel(riskBadgeLabel(detail.risks[key]))}
+                  {t(`labels.${riskBadgeLabel(detail.risks[key])}`)}
                 </Badge>
               </div>
             </div>
@@ -902,7 +866,7 @@ const DemoScreen: React.FC<{
     direction: "asc",
   });
 
-  // Локализация стран в демо-данных
+  // Localize country names in demo aggregates
   const localizedAggregates = React.useMemo(() => {
     return DEMO_AGGREGATES.map((agg) => {
       const countryEn = t(`demoData.countries.${agg.country}`, { defaultValue: agg.country });

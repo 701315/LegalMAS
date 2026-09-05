@@ -1,17 +1,17 @@
 // =============================================================
 // src/types/dealReview.ts
-// DTO-типы для UI deal review API.
-// Базово повторяют backend-контракт из src/api/schemas/deal_review.py,
-// но дополнены optional полями для canonical display semantics
-// и segment-aware UX.
+// DTO types for UI deal review API.
+// Mirrors the backend contract from src/api/schemas/deal_review.py,
+// but extended with optional fields for canonical display semantics
+// and segment-aware UX.
 // =============================================================
 
 export type ReviewResult = "fail" | "pass" | "unclear";
 
 /**
- * В текущем backend severity местами семантически смешивается с результатом:
- * кроме "critical" / "high" / "medium" могут приходить "pass" / "unclear".
- * Оставляем это поведение как часть контракта, чтобы не ломать существующий UI.
+ * In the current backend, severity is sometimes semantically mixed with result:
+ * in addition to "critical" / "high" / "medium", values like "pass" / "unclear"
+ * may appear. We keep this behavior as part of the contract to avoid breaking the existing UI.
  */
 export type ReviewSeverity =
   | "critical"
@@ -27,8 +27,8 @@ export type ReviewQcStatus =
   | "needs_review";
 
 /**
- * Canonical review workflow status из backend result semantics.
- * Фронт не интерпретирует бизнес-смысл заново — только рендерит.
+ * Canonical review workflow status from backend result semantics.
+ * Frontend does not reinterpret business logic — it only renders.
  */
 export type ReviewWorkflowStatus =
   | "needs_review"
@@ -44,8 +44,8 @@ export type ReviewCheckOrigin =
 export type ReviewFieldFormat = "money" | "date" | "entity_name" | "text";
 
 /**
- * Denormalized semantic type чека из backend playbook/result semantics.
- * Нужен для правильного renderer / details UX.
+ * Denormalized semantic type of check from backend playbook/result semantics.
+ * Needed for correct renderer / details UX.
  */
 export type ReviewUiMode =
   | "clause_presence"
@@ -56,8 +56,8 @@ export type ReviewUiMode =
   | "summary";
 
 /**
- * Общий provenance-блок для segment/chunk-aware navigation.
- * Все поля optional, чтобы контракт был совместим с текущим backend.
+ * General provenance block for segment/chunk-aware navigation.
+ * All fields are optional to keep the contract compatible with current backend.
  */
 export interface SegmentProvenanceDTO {
   segment_id?: string | null;
@@ -71,8 +71,8 @@ export interface SegmentProvenanceDTO {
 }
 
 /**
- * Сводка по документу для review-экранов.
- * Optional composition-поля добавлены заранее под будущие badges/filters.
+ * Document summary for review screens.
+ * Optional composition fields are pre-added for future badges/filters.
  */
 export interface DocumentSummaryDTO {
   document_id: string;
@@ -99,7 +99,7 @@ export interface DocumentSummaryDTO {
 }
 
 /**
- * Деталь конкретной проверки на document detail review page.
+ * Details of a specific check on the document detail review page.
  */
 export interface CheckItemDTO extends SegmentProvenanceDTO {
   check_id: string;
@@ -131,7 +131,7 @@ export interface CheckItemDTO extends SegmentProvenanceDTO {
 }
 
 /**
- * Метаданные check-колонки в DD Matrix.
+ * Metadata of a check column in DD Matrix.
  */
 export interface CheckMetaDTO {
   check_id: string;
@@ -143,8 +143,8 @@ export interface CheckMetaDTO {
 }
 
 /**
- * Извлечённое поле внутри matrix cell / document structured data.
- * Дополнено provenance-полями и местом в документе.
+ * Extracted field inside a matrix cell / document structured data.
+ * Enhanced with provenance fields and document location.
  */
 export interface ExtractedFieldDTO extends SegmentProvenanceDTO {
   field_name: string;
@@ -160,8 +160,8 @@ export interface ExtractedFieldDTO extends SegmentProvenanceDTO {
 }
 
 /**
- * Ячейка новой DD Matrix.
- * Уже готова к segment-aware drill-down и viewer navigation.
+ * Cell of a new DD Matrix.
+ * Fully prepared for segment-aware drill-down and viewer navigation.
  */
 export interface MatrixCellDTO extends SegmentProvenanceDTO {
   result: ReviewResult | string;
@@ -193,7 +193,7 @@ export interface MatrixCellDTO extends SegmentProvenanceDTO {
 }
 
 /**
- * Строка матрицы = один документ + словарь результатов по check_id.
+ * Matrix row = one document + dictionary of results mapped by check_id.
  */
 export interface DocumentMatrixRowDTO {
   document_id: string;
@@ -216,8 +216,8 @@ export interface DocumentMatrixRowDTO {
 
 /**
  * NEW:
- * Строка матрицы = один logical document / segment row.
- * Это целевой primary row model для review-only DD Grid.
+ * Matrix row = one logical document / segment row.
+ * This is the target primary row model for review-only DD Grid.
  */
 export interface SegmentMatrixRowDTO {
   document_id: string;
@@ -241,7 +241,7 @@ export interface SegmentMatrixRowDTO {
 }
 
 /**
- * Основной ответ backend dd-matrix endpoint.
+ * Main response of backend dd-matrix endpoint.
  */
 export interface DDMatrixResponseDTO {
   deal_id: string;
@@ -257,8 +257,8 @@ export interface DDMatrixResponseDTO {
   /**
    * NEW:
    * Segment-oriented rows returned by backend.
-   * Это primary source для review matrix.
-   * Optional до полного выравнивания frontend/backend контрактов.
+   * This is the primary source for the review matrix.
+   * Optional until full alignment of frontend/backend contracts is completed.
    */
   segment_documents?: SegmentMatrixRowDTO[];
 
@@ -271,7 +271,7 @@ export interface DDMatrixResponseDTO {
 }
 
 /**
- * Детали review по конкретному документу в рамках run.
+ * Review details for a specific document within a run.
  */
 export interface DocumentDetailDTO {
   document_id: string;
@@ -292,20 +292,18 @@ export interface DocumentDetailDTO {
 }
 
 /**
- * DD Request / follow-up request в рамках review.
+ * DD Request / follow-up request within a review workflow.
  *
- * Для непрофессионального программиста:
- * Это запрос юриста или автоматически сформированный follow-up вопрос
- * по результатам проверки документов. Содержит текст запроса, приоритет,
- * список документов и segment/chunk provenance для навигации в viewer.
+ * This represents a lawyer's request or an automatically generated follow-up
+ * question based on document check results. Contains the request text, priority,
+ * document lists, and segment/chunk provenance for viewer navigation.
  *
- * ВАЖНО для MR4:
- * - document_ids содержит UUID документов для прямой навигации в viewer
- * - document_names содержит человекочитаемые имена файлов для отображения
- * - Эти два массива синхронизированы по индексу: document_ids[0] относится
- *   к document_names[0], и так далее
- * - Segment provenance (segment_id, chunk_id, etc.) унаследованы от
- *   SegmentProvenanceDTO и указывают на конкретное место в документе
+ * CRITICAL for MR4:
+ * - document_ids contains document UUIDs for direct navigation in the viewer.
+ * - document_names contains human-readable filenames for display.
+ * - These two arrays are index-synchronized: document_ids[0] refers to document_names[0], etc.
+ * - Segment provenance (segment_id, chunk_id, etc.) is inherited from SegmentProvenanceDTO
+ *   and points to a specific spot inside the document.
  */
 export interface DDRequestDTO extends SegmentProvenanceDTO {
   request_id: string;
@@ -320,9 +318,9 @@ export interface DDRequestDTO extends SegmentProvenanceDTO {
   document_names: string[];
 
   /**
-   * UUID документов, соответствующие document_names по индексу.
-   * Если backend ещё не обновлён — может быть пустым массивом.
-   * Если есть хотя бы один id — можно строить viewer navigation.
+   * Document UUIDs corresponding directly to document_names by index.
+   * If backend is not updated yet, this might be an empty array.
+   * If at least one ID is present, viewer navigation can be built.
    */
   document_ids: string[];
 
@@ -335,7 +333,7 @@ export interface DDRequestDTO extends SegmentProvenanceDTO {
 }
 
 /**
- * Conditional checks в run-scoped review API.
+ * Conditional checks in run-scoped review API.
  */
 export interface ConditionalCheckDTO extends SegmentProvenanceDTO {
   document_name: string;
@@ -357,8 +355,8 @@ export interface ConditionalCheckDTO extends SegmentProvenanceDTO {
 }
 
 /**
- * Плоское extracted-value представление для run-level / document-level structured data.
- * Расширено provenance-полями для segment-aware grouping.
+ * Flat extracted-value representation for run-level / document-level structured data.
+ * Extended with provenance fields for segment-aware grouping.
  */
 export interface ExtractedValueDTO extends SegmentProvenanceDTO {
   document_name: string;
@@ -374,9 +372,9 @@ export interface ExtractedValueDTO extends SegmentProvenanceDTO {
 }
 
 /**
- * Structured data по конкретному документу внутри review run.
- * values сохранены в текущей форме backend-контракта,
- * но теперь каждая запись может нести segment/chunk provenance.
+ * Structured data for a specific document inside a review run.
+ * values are kept in the current backend contract form,
+ * but each entry can now carry segment/chunk provenance metadata.
  */
 export interface DocumentStructuredDataDTO {
   deal_id: string;
@@ -402,28 +400,27 @@ export interface DocumentStructuredDataDTO {
 // =============================================================
 // DD GRID V1 CONTRACT
 // -------------------------------------------------------------
-// Точное отражение backend-контракта GET
+// Exact mapping of backend contract GET
 // /api/v1/deals/{deal_id}/runs/{run_id}/dd-grid-v1
-// Строго по DDGridV1ResponseDTO (Pydantic).
+// Strict adherence to DDGridV1ResponseDTO (Pydantic).
 //
-// Правила:
-// - никаких хардкодов под конкретные check_id / column_id / doc_type;
-// - все семантические состояния — closed unions;
-// - execution_status оставлен как string, потому что закрытый список
-//   его значений во frontend-контракте не зафиксирован; при появлении
-//   закрытого enum — заменить на union без миграций UI-кода;
-// - словари всегда строго типизированы через Record<string, X>;
-// - fallback_display гарантированно строка (по контракту всегда задан).
+// Rules:
+// - no hardcoded check_id / column_id / doc_type values;
+// - all semantic states are closed unions;
+// - execution_status is left as string because the closed list
+//   of its values is not fixed in the frontend contract yet; when a
+//   closed enum appears — replace with a union without UI migrations;
+// - dictionaries are strictly typed via Record<string, X>;
+// - fallback_display is guaranteed to be a string (always set by contract).
 // =============================================================
 
 /**
- * Пять возможных состояний ячейки в DD Grid V1.
+ * Five possible cell states in DD Grid V1.
  *
- * defined         — значение найдено
- * not_defined     — check выполнен, значение не найдено
- * not_applicable  — check не применим к данному doc_type
- * not_executed    — check не выполнялся для данного документа
- * error           — техническая ошибка выполнения check-а
+ * defined         — value found successfully
+ * not_defined     — check executed, value not found
+ * not_executed    — check was not executed for this document
+ * error           — technical execution error occurred
  */
 export type DDGridV1CellState =
   | "defined"
@@ -432,12 +429,12 @@ export type DDGridV1CellState =
   | "error";
 
 /**
- * Формат runtime-колонки в DD Grid V1.
+ * Runtime column format in DD Grid V1.
  *
- * text           — plain string (при наличии unit — string + " " + unit)
- * enum           — display строится через enum_labels[raw_value]
- * yes_no         — булево значение как "Да" / "Нет"
- * presence_only  — индикатор наличия ("Присутствует" / fallback)
+ * text           — plain string (with unit suffix if applicable)
+ * enum           — display is built via enum_labels[raw_value]
+ * yes_no         — boolean value mapped as "Yes" / "No"
+ * presence_only  — presence indicator ("Present" / fallback)
  */
 export type DDGridV1ColumnFormat =
   | "text"
@@ -446,22 +443,21 @@ export type DDGridV1ColumnFormat =
   | "presence_only";
 
 /**
- * Уверенность в location для одного поля / ячейки.
+ * Location confidence level for a single field / cell.
  *
- * high  — exact pinpoint (clause_ref / page точно определены)
- * low   — approximate (fallback), navigation допустима с caveat
- * null  — location недоступна для этой ячейки
+ * high  — exact pinpoint (clause_ref / page precisely defined)
+ * low   — approximate (fallback), navigation allowed with a caveat
+ * null  — location unavailable for this cell
  */
 export type DDGridV1LocationConfidence = "high" | "low" | null;
 
 /**
- * Runtime-колонка внутри check-а.
+ * Runtime column inside a check definition.
  *
- * ВАЖНО: column_id НЕ гарантирует уникальность в масштабе всего response,
- * потому что один и тот же column_id может встречаться несколько раз внутри
- * одного check-а (разные field_name с одинаковым column_id). Для стабильных
- * UI-ключей всегда строить runtime key на уровне (scope, path, index),
- * а не полагаться на column_id как на primary key.
+ * IMPORTANT: column_id is NOT guaranteed to be unique across the entire response,
+ * because the same column_id may appear multiple times within a single check
+ * (different field_name mapping to the same column_id). For stable UI keys,
+ * always build the runtime key on the (scope, path, index) level.
  */
 export interface DDGridV1ColumnDTO {
   column_id: string;
@@ -475,7 +471,7 @@ export interface DDGridV1ColumnDTO {
 }
 
 /**
- * Метаданные одного check-а внутри группы (global) или типа документа.
+ * Metadata of a single check inside a group (global) or document type.
  */
 export interface DDGridV1CheckDTO {
   check_id: string;
@@ -487,7 +483,7 @@ export interface DDGridV1CheckDTO {
 }
 
 /**
- * Глобальная группа check-ов (не привязанная к типу документа).
+ * Global check group (not bound to a specific document type).
  */
 export interface DDGridV1GlobalGroupDTO {
   group_id: string;
@@ -497,7 +493,7 @@ export interface DDGridV1GlobalGroupDTO {
 }
 
 /**
- * Конкретный тип документа внутри doc-type класса.
+ * Specific document type inside a doc-type class.
  */
 export interface DDGridV1DocTypeDTO {
   type_code: string;
@@ -506,8 +502,8 @@ export interface DDGridV1DocTypeDTO {
 }
 
 /**
- * Класс типов документов (например, "Передача права собственности"),
- * группирующий один или несколько типов документов.
+ * Class of document types (e.g. "Transfer of Ownership"),
+ * grouping one or multiple document types.
  */
 export interface DDGridV1DocTypeClassDTO {
   group_id: string;
@@ -517,12 +513,12 @@ export interface DDGridV1DocTypeClassDTO {
 }
 
 /**
- * Одно значение ячейки для конкретного (document_id, column_id).
+ * Single cell value for a specific (document_id, column_id) pair.
  *
- * Правила location:
- * - has_location_fallback = false + clause_ref/page заданы → exact
- * - has_location_fallback = true  + clause_ref/page заданы → approximate
- * - has_location_fallback = true  + clause_ref/page null    → navigation недоступна
+ * Location rules:
+ * - has_location_fallback = false + clause_ref/page set → exact
+ * - has_location_fallback = true  + clause_ref/page set → approximate
+ * - has_location_fallback = true  + clause_ref/page null → navigation unavailable
  */
 export interface DDGridV1CellValueDTO {
   cell_state: DDGridV1CellState;
@@ -536,11 +532,10 @@ export interface DDGridV1CellValueDTO {
 }
 
 /**
- * Одно извлечённое поле внутри drawer-content check-а.
+ * Single extracted field inside a drawer-content check.
  *
- * ВАЖНО: несколько field-ов внутри одного check-а могут ссылаться на
- * одинаковый column_id. Для стабильных ключей UI использовать индекс
- * внутри массива fields, а не column_id.
+ * IMPORTANT: multiple fields within a single check can reference the same
+ * column_id. For stable UI keys, use the index inside the fields array.
  */
 export interface DDGridV1DrawerFieldDTO {
   column_id: string;
@@ -557,27 +552,17 @@ export interface DDGridV1DrawerFieldDTO {
 }
 
 /**
- * Полный контент drawer для одной пары (document_id, check_id).
- *
- * Reason precedence (реализуется в UI-слое):
- *   1. metadata field "reason"
- *   2. metadata field "explanation"
- *   3. metadata field "notes"
- *   4. review_message
- *   5. display_text
- *
-/**
- * Уровень детекции.
+ * Detection level.
  * L1 — Pattern/rules, L2 — LLM, L3 — RAG+LLM, L4 — Manual QC.
  */
 export type DDGridV1DetectionLevel = "L1" | "L2" | "L3" | "L4";
 
 /**
- * API QC статус для drawer.
- * pending — ещё не проверялось.
- * approved — одобрено.
- * rejected — отклонено.
- * needs_review — требует проверки.
+ * API QC status for drawer.
+ * pending — not yet reviewed.
+ * approved — approved.
+ * rejected — rejected.
+ * needs_review — requires review.
  */
 export type DDGridV1DrawerQcStatus =
   | "pending"
@@ -586,15 +571,15 @@ export type DDGridV1DrawerQcStatus =
   | "needs_review";
 
 /**
- * Полный контракт drawer content из DDGridV1ResponseDTO (backend B3).
+ * Complete drawer content contract from DDGridV1ResponseDTO (backend B3).
  *
- * execution_status: закрытый enum — SUCCESS | FAILED | TIMEOUT | SKIPPED | PARTIAL.
- * Оставлен строкой: новые значения backend добавляет без breaking change.
+ * execution_status: closed enum — SUCCESS | FAILED | TIMEOUT | SKIPPED | PARTIAL.
+ * Left as a string: backend adds new values without breaking changes.
  *
- * detection_level / confidence / quality_flags — прозрачность результата (B3 P0).
- * qc_* — audit trail без отдельного round-trip (B3 P0).
+ * detection_level / confidence / quality_flags — result transparency.
+ * qc_* — audit trail without a separate round-trip.
  * agent_name / model_version / execution_time_ms / retry_attempts / input_tokens / output_tokens
- * — observability (B3 P1).
+ * — observability tools.
  */
 export interface DDGridV1DrawerContentDTO {
   check_id: string;
@@ -631,9 +616,8 @@ export interface DDGridV1DrawerContentDTO {
 }
 
 /**
- * Метаданные документа, попавшего в ответ DD Grid V1.
+ * Metadata for a document included in the DD Grid V1 response.
  */
-
 export interface DDGridV1CheckSummaryDTO {
   id: string;
   name: string;
@@ -664,15 +648,14 @@ export interface DDGridV1DocumentMetaDTO {
 }
 
 /**
- * Полный ответ backend endpoint GET
+ * Complete response of the backend endpoint GET
  * /api/v1/deals/{deal_id}/runs/{run_id}/dd-grid-v1
  *
- * Источник правды для UI:
- * - строить runtime-колонки следует из global_groups + doc_type_classes,
- *   а НЕ из column_registry (registry не гарантирует уникальности
- *   пары column_id внутри одного check-а — там значения могут схлопнуться).
- * - column_registry рассматривать как индекс для быстрого lookup по column_id,
- *   но не как primary source of truth по составу колонок.
+ * Source of truth for the UI:
+ * - build runtime columns from global_groups + doc_type_classes,
+ *   NOT from column_registry (registry does not guarantee uniqueness).
+ * - treat column_registry as an index for fast lookups,
+ *   but not as the primary source of truth.
  */
 export interface DDGridV1ResponseDTO {
   deal_id: string;
@@ -683,10 +666,11 @@ export interface DDGridV1ResponseDTO {
 
   column_registry: Record<string, DDGridV1ColumnDTO>;
   
-  // 3-уровневая структура: doc → segment → column/check
+  // 3-level structure: doc → segment → column/check
   cell_values: Record<string, Record<string, Record<string, DDGridV1CellValueDTO>>>;
   drawer_contents: Record<string, Record<string, Record<string, DDGridV1DrawerContentDTO>>>;
 
   documents_meta: DDGridV1DocumentMetaDTO[];
 }
+
 

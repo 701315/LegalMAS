@@ -130,10 +130,15 @@
   "source": {
     "yaml_template": "YAML template",
     "manual": "Manual",
-    "aggregator": "Automatic"
+    "aggregator": "Aggregator",
+    "helpers": {
+      "yaml_template": "Text and addressee were generated automatically from document type YAML instruction."
+    }
   },
   "panel": {
     "title": "DD-request",
+    "defaultTitle": "Request #{{id}}",
+    "defaultReviewTitle": "Request",
     "checkLabel": "Check: {{checkId}}",
     "priority": "Priority",
     "status": "Status",
@@ -161,4 +166,5 @@
     "resolved": "Closed"
   }
 }
+
 

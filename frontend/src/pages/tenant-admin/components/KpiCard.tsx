@@ -1,13 +1,13 @@
 // =============================================================
 // src/pages/tenant-admin/components/KpiCard.tsx
 //
-// Compact KPI card для отображения метрики (label + value + optional sub).
-// Используется во всех табах admin panel: Monitoring, Overview, Logs.
+// Compact KPI card for displaying a metric (label + value + optional sub).
+// Used across all admin panel tabs: Monitoring, Overview, Logs.
 //
 // Design contract:
-// - Ограниченная высота — все карточки в grid имеют одинаковую высоту
-// - truncate для value и sub — предотвращает overflow при длинных значениях
-// - tone параметр для семантической окраски value (default | ok | warn | error)
+// - Constrained height — all cards in a grid share the same height
+// - Truncation on value and sub — prevents overflow with long values
+// - Tone parameter for semantic value coloring (default | ok | warn | error)
 // =============================================================
 
 import React from "react";
@@ -15,18 +15,18 @@ import { LABEL_XS } from "../constants";
 import { toneClass } from "../utils";
 
 export interface KpiCardProps {
-  /** Uppercase label над значением (например, "ВСЕГО", "ОШИБКИ") */
+  /** Uppercase label above the value (e.g. "TOTAL", "ERRORS") */
   label: string;
-  /** Основное значение (число, строка, JSX) */
+  /** Primary value (number, string, or JSX) */
   value: React.ReactNode;
-  /** Опциональная подпись под значением (мелким шрифтом) */
+  /** Optional subtitle below the value (small font) */
   sub?: React.ReactNode;
   /**
-   * Семантическая окраска value:
-   * - default: обычный text-primary цвет
-   * - ok: зелёный (success)
-   * - warn: оранжевый (warning)
-   * - error: красный (error)
+   * Semantic value coloring:
+   * - default: standard text-primary color
+   * - ok: green (success)
+   * - warn: orange (warning)
+   * - error: red (error)
    */
   tone?: "default" | "ok" | "warn" | "error";
 }

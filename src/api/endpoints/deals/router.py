@@ -86,7 +86,7 @@ async def list_deals(
     "",
     response_model=DealResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать новую сделку (проект)",
+    summary="Create a new deal (project)",
 )
 async def create_deal(
     payload: DealCreate,
@@ -111,7 +111,7 @@ async def create_deal(
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Проект с таким названием уже существует. Укажите другое имя.",
+            detail="A project with this name already exists. Please choose a different name.",
         )
 
     deal = await repo.create(
@@ -165,3 +165,5 @@ router.include_router(runs_router)
 router.include_router(settings_router)
 router.include_router(history_router)
 router.include_router(llm_usage_router)
+
+

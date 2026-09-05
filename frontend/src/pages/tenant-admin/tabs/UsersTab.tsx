@@ -1,20 +1,19 @@
 // =============================================================
 // src/pages/tenant-admin/tabs/UsersTab.tsx
 //
-// Вкладка "Пользователи" в admin panel. Отображает таблицу
-// пользователей организации с expandable rows (показывающими
-// проекты пользователя при expand).
+// "Users" tab in admin panel. Displays organization users table
+// with expandable rows (showing user's projects on expand).
 //
 // Design contract:
-// - Empty state если users.length === 0
-// - Sticky table header (top-0) с elevated-soft background
-// - Table min-w-[820px] для readability на всех экранах
-// - Scroll внутри tab (overflow-auto)
+// - Empty state if users.length === 0
+// - Sticky table header (top-0) with elevated-soft background
+// - Table min-w-[820px] for readability on all screens
+// - Scroll inside tab (overflow-auto)
 //
 // State ownership:
-// - expandedUserIds управляется in parent (main component),
-//   потому что нужно управлять множественным expand через Set<string>
-// - При переключении tabs состояние expanded сохраняется
+// - expandedUserIds is managed in parent (main component),
+//   because multiple expand states need to be controlled via Set<string>
+// - Expanded state persists when switching tabs
 // =============================================================
 
 import React from "react";
@@ -24,13 +23,13 @@ import { LABEL_XS } from "../constants";
 import UserRow from "../components/UserRow";
 
 export interface UsersTabProps {
-  /** Массив пользователей для отображения */
+  /** Array of users to display */
   users: TenantUserDTO[];
-  /** Set с ID развёрнутых пользователей */
+  /** Set of expanded user IDs */
   expandedUserIds: Set<string>;
-  /** Callback для toggle expand/collapse конкретного пользователя */
+  /** Callback to toggle expand/collapse for a specific user */
   onToggleUser: (userId: string) => void;
-  /** Callback при клике на project pill (открывает project drill down) */
+  /** Callback when clicking project pill (opens project drill down) */
   onOpenProject: (dealId: string) => void;
 }
 

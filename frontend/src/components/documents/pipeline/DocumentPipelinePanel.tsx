@@ -96,10 +96,24 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
     };
   }, [documentId, t]);
 
-  const stages = React.useMemo<PipelineStageViewDTO[]>(
-    () => data?.stages ?? [],
-    [data?.stages],
-  );
+  const stages = React.useMemo<PipelineStageViewDTO[]>(() => {
+    const rawStages = data?.stages ?? [];
+    return rawStages.map((stage) => {
+      const stageCodeLower = String(stage.code).toLowerCase();
+      const localizedTitle = t(`pipelinePanel.stageInfo.${stageCodeLower}.title`, {
+        defaultValue: stage.title,
+      });
+      const localizedDesc = t(`pipelinePanel.stageInfo.${stageCodeLower}.description`, {
+        defaultValue: stage.description,
+      });
+
+      return {
+        ...stage,
+        title: localizedTitle,
+        description: localizedDesc,
+      };
+    });
+  }, [data?.stages, t]);
 
   const hasStages = stages.length > 0;
 

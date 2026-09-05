@@ -1,5 +1,6 @@
 // =============================================================
 // src/pages/tabs/documents/components/ColumnSelectorInlinePanel.tsx
+// Inline panel for configuring visible columns in Documents tab table.
 // =============================================================
 
 import React from "react";
@@ -30,16 +31,14 @@ const ColumnSelectorInlinePanel: React.FC<
   const { t } = useTranslation("documents");
 
   return (
-    // Внешний wrapper — только визуальные отступы. Не участвует в скролле.
+    // Outer wrapper — padding only, non-scrolling.
     <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3">
-      {/* Основной контейнер панели:
-          - flex flex-col — вертикальный стек header / body / footer;
-          - min-h-0 — разрешает внутреннему flex-child со скроллом
-            корректно сжиматься;
-          - max-height ограничивает высоту панели, чтобы она не
-            "съедала" таблицу под ней. */}
+      {/* Main panel container:
+          - flex flex-col — vertical stack of header / body / footer;
+          - min-h-0 — allows internal flex child to shrink properly;
+          - max-height constrains panel height so it doesn't take up the full screen. */}
       <div className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] lg:overflow-hidden lg:[max-height:min(60vh,480px)]">
-        {/* Header — на десктопе фиксирован сверху (shrink-0), не скроллится. */}
+        {/* Header — pinned to top on desktop (shrink-0), non-scrolling. */}
         <div className="border-b border-[var(--border-subtle)] px-4 py-3 lg:shrink-0">
           <p className="text-sm font-semibold text-[var(--text-primary)]">
             {t("documentsTab.columnSelector.title")}
@@ -49,7 +48,7 @@ const ColumnSelectorInlinePanel: React.FC<
           </p>
         </div>
 
-        {/* Body — на десктопе единственная скроллируемая секция. */}
+        {/* Body — scrolling section on desktop. */}
         <div className="px-4 py-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
           <div className="flex flex-wrap gap-2">
             {ALL_DOCUMENT_COLUMNS.map((col) => {
@@ -85,7 +84,7 @@ const ColumnSelectorInlinePanel: React.FC<
           </div>
         </div>
 
-        {/* Footer — на десктопе фиксирован снизу (shrink-0). */}
+        {/* Footer — pinned to bottom on desktop (shrink-0). */}
         <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3 lg:shrink-0">
           <Button size="sm" variant="ghost" onClick={onReset}>
             {t("documentsTab.columnSelector.defaults")}

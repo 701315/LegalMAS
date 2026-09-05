@@ -178,19 +178,19 @@ def _build_external_tools_response(*, is_superadmin: bool) -> ExternalToolsDTO:
         ExternalDashboardDTO(
             uid="legalmas-pipeline",
             label="Pipeline Overview",
-            description="Стадии обработки документов",
+            description="Document processing stages",
             url=f"{grafana_base}/d/legalmas-pipeline",
         ),
         ExternalDashboardDTO(
             uid="slo-overview",
             label="SLO Overview",
-            description="Метрики качества и SLO",
+            description="Quality metrics and SLO",
             url=f"{grafana_base}/d/slo-overview",
         ),
         ExternalDashboardDTO(
             uid="logs-explorer",
             label="Log Explorer",
-            description="Поиск и анализ логов Loki",
+            description="Loki log search and analysis",
             url=f"{grafana_base}/explore",
         ),
     ]
@@ -206,49 +206,49 @@ def _build_external_tools_response(*, is_superadmin: bool) -> ExternalToolsDTO:
             key="prometheus",
             label="Prometheus",
             url=settings.PROMETHEUS_EXTERNAL_URL,
-            description="Метрики, alert rules, targets",
+            description="Metrics, alert rules, targets",
         ),
         ExternalServiceDTO(
             key="alertmanager",
             label="Alertmanager",
             url=settings.ALERTMANAGER_EXTERNAL_URL,
-            description="Активные алерты, silences",
+            description="Active alerts, silences",
         ),
         ExternalServiceDTO(
             key="tempo",
-            label="Tempo (через Grafana)",
+            label="Tempo (via Grafana)",
             url=(
                 f"{grafana_base}/explore?"
                 'left=%7B%22datasource%22:%22tempo%22%7D'
             ),
-            description="Distributed traces через Grafana Explore",
+            description="Distributed traces via Grafana Explore",
         ),
         ExternalServiceDTO(
             key="loki",
-            label="Loki (через Grafana)",
+            label="Loki (via Grafana)",
             url=(
                 f"{grafana_base}/explore?"
                 'left=%7B%22datasource%22:%22loki%22%7D'
             ),
-            description="Structured logs через Grafana Explore",
+            description="Structured logs via Grafana Explore",
         ),
         ExternalServiceDTO(
             key="minio",
             label="MinIO Console",
             url=settings.MINIO_CONSOLE_EXTERNAL_URL,
-            description="Object storage: артефакты, экспорты",
+            description="Object storage: artifacts, exports",
         ),
         ExternalServiceDTO(
             key="api_docs",
             label="API Docs",
             url=settings.API_DOCS_EXTERNAL_URL,
-            description="OpenAPI Swagger для backend",
+            description="OpenAPI Swagger for backend",
         ),
         ExternalServiceDTO(
             key="ollama",
             label="Ollama API",
             url=f"{ollama_base}/api/tags",
-            description="LLM inference status и модели",
+            description="LLM inference status and models",
         ),
     ]
 
@@ -1971,3 +1971,5 @@ async def get_external_tools(
     return _build_external_tools_response(
         is_superadmin=user.global_role == "superadmin"
     )
+
+    

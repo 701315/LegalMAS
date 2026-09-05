@@ -1,6 +1,6 @@
 // frontend/src/pages/AdminMonitoringPage.tsx
 //
-// Superadmin monitoring page — backend-driven.
+// Superadmin monitoring page — backend-driven with i18n overlay.
 //
 // Источник истины для ссылок: GET /api/v1/tenant/tools (useExternalTools).
 // Frontend не строит localhost URL самостоятельно — это неправильно для
@@ -139,25 +139,31 @@ const AdminMonitoringPage: React.FC = () => {
   const toolsQ = useExternalTools();
 
   // Собираем ToolGroup[] из backend response.
-  // Мемоизация: пересчёт только когда меняется data.
+  // Мемоизация: пересчёт только когда меняется data или t (язык).
   const groups = React.useMemo<ToolGroup[]>(() => {
     const data = toolsQ.data;
-    // Доступ к странице уже гарантирован guard'ом RequireSuperadmin
-    // в App.tsx — здесь не проверяем роль повторно.
     if (!data) return [];
 
     const dashboardTools: ToolItem[] = data.dashboards.map((d) => ({
       id: d.uid,
-      title: d.label,
-      description: d.description,
+      title: t(`monitoring.items.dashboards.${d.uid}.label`, {
+        defaultValue: d.label,
+      }),
+      description: t(`monitoring.items.dashboards.${d.uid}.description`, {
+        defaultValue: d.description,
+      }),
       href: d.url,
       icon: DASHBOARD_ICONS[d.uid] ?? FALLBACK_ICON,
     }));
 
     const serviceTools: ToolItem[] = data.services.map((s) => ({
       id: s.key,
-      title: s.label,
-      description: s.description,
+      title: t(`monitoring.items.services.${s.key}.label`, {
+        defaultValue: s.label,
+      }),
+      description: t(`monitoring.items.services.${s.key}.description`, {
+        defaultValue: s.description,
+      }),
       href: s.url,
       icon: SERVICE_ICONS[s.key] ?? FALLBACK_ICON,
     }));

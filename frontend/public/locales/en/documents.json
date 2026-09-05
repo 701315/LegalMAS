@@ -217,6 +217,28 @@
         "high": "High",
         "critical": "Critical"
       },
+      "humanReviewStatus": {
+        "in_processing": "In processing",
+        "reviewed": "Reviewed by lawyer",
+        "review_not_required": "Lawyer review not required",
+        "quarantine": "Requires lawyer attention",
+        "language_selection_required": "Language selection required",
+        "duplicate": "Duplicate",
+        "raw": {
+          "Requires lawyer attention": "Requires lawyer attention",
+          "Language selection required": "Language selection required",
+          "Reviewed by lawyer": "Reviewed by lawyer",
+          "Lawyer review not required": "Lawyer review not required",
+          "Duplicate": "Duplicate",
+          "In processing": "In processing",
+          "Требует внимания юриста": "Requires lawyer attention",
+          "Нужно выбрать основной язык": "Language selection required",
+          "Проверен юристом": "Reviewed by lawyer",
+          "Проверка юриста не требуется": "Lawyer review not required",
+          "Дубликат (по необходимости)": "Duplicate",
+          "В обработке": "In processing"
+          }
+        },
       "documentsCount_one": "document",
       "documentsCount_other": "documents",
       "unknownStage": "Unknown stage"

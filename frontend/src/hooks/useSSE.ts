@@ -1,29 +1,24 @@
 // =============================================================
 // src/hooks/useSSE.ts
-// Хук для подписки на SSE-события прогресса анализа (run).
+// Hook for subscribing to analysis run progress Server-Sent Events (SSE).
 //
 // Production notes:
-// - автоматически закрывает EventSource на terminal run status;
-// - не полагается только на backend-side close соединения;
-// - не даёт встроенному reconnect EventSource бесконечно переподключаться
-//   после run_progress_final / terminal payload.
+// - Automatically closes EventSource upon receiving terminal run status;
+// - Does not rely solely on backend-side socket teardown;
+// - Prevents built-in EventSource reconnect loops after terminal payload.
 // =============================================================
 
 import { useEffect, useRef, useState } from "react";
 import type { ProgressEvent, RunStatus } from "../types";
 
 interface UseSSEOptions {
-  /** Включать/отключать подписку */
+  /** Enable or disable SSE subscription */
   enabled?: boolean;
 }
 
 /**
- * Terminal статусы Run, после которых SSE больше не нужен.
- *
- * Для непрофессионального программиста:
- * Если анализ уже закончился, то слушать "живой" прогресс бессмысленно.
- * Наоборот, продолжение SSE после terminal status приводит к бесконечным
- * reconnect'ам EventSource и шуму в логах backend.
+ * Terminal Run statuses after which SSE progress events are no longer emitted.
+ * Closes the client-side connection to avoid redundant reconnect loops.
  */
 function isTerminalRunStatus(status: RunStatus | null | undefined): boolean {
   return (
@@ -34,14 +29,10 @@ function isTerminalRunStatus(status: RunStatus | null | undefined): boolean {
 }
 
 /**
- * Простой хук для подписки на SSE по конкретному run_id.
+ * Subscribes to SSE progress events for a specific run_id.
  *
- * Ожидается endpoint:
+ * Endpoint:
  *   GET /api/v1/runs/{run_id}/events
- *
- * Поддерживаем оба варианта payload:
- *   { run_id, status, completed_checks, total_checks }
- *   { run_id, status, completed, total }
  */
 export function useSSEProgress(
   runId: string | null,
@@ -53,12 +44,10 @@ export function useSSEProgress(
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Запоминаем terminal completion между рендерами.
-  // useRef живёт весь lifecycle компонента, в отличие от локальной переменной effect.
-  // Это предотвращает повторный connect после terminal event при ре-рендере компонента.
+  // Preserve terminal completion state across renders
   const terminalSeenRef = useRef(false);
 
-  // Сбрасываем флаг при смене runId — новый run, новая подписка.
+  // Reset flag when runId changes (new run, fresh subscription)
   useEffect(() => {
     terminalSeenRef.current = false;
   }, [runId]);
@@ -79,10 +68,7 @@ export function useSSEProgress(
     const es = new EventSource(url);
 
     /**
-     * Локальный флаг, чтобы отличать:
-     * - штатное закрытие по terminal event
-     * от
-     * - реальной сетевой ошибки, где reconnect полезен.
+     * Local flag to distinguish clean terminal closures from network dropouts.
      */
     let closedByTerminalEvent = false;
 
@@ -98,9 +84,7 @@ export function useSSEProgress(
         setIsConnected(true);
         setError(null);
 
-        // Как только run перешёл в terminal status, SSE больше не нужен.
-        // Закрываем EventSource на клиенте, чтобы встроенный reconnect
-        // не создавал бесконечные повторные GET /events.
+        // Terminal status reached: close EventSource immediately
         if (isTerminalRunStatus(data.status)) {
           closedByTerminalEvent = true;
           terminalSeenRef.current = true;
@@ -109,27 +93,20 @@ export function useSSEProgress(
           es.close();
         }
       } catch (e) {
-        console.error("Ошибка парсинга SSE события", e);
+        console.error("Failed to parse SSE event payload", e);
       }
     };
 
     es.onerror = () => {
-      // Если сами закрыли соединение после terminal event,
-      // не переводим UI в error-state и не считаем это проблемой.
       if (closedByTerminalEvent || terminalSeenRef.current) {
         setIsConnected(false);
         setError(null);
-        // Принудительно закрываем EventSource, чтобы browser native reconnect
-        // не переоткрывал соединение после штатного завершения.
         es.close();
         return;
       }
 
       setIsConnected(false);
-      setError("SSE подключение временно недоступно");
-      // ВАЖНО:
-      // не закрываем es здесь при реальной сетевой ошибке,
-      // чтобы не ломать встроенный reconnect EventSource.
+      setError("SSE connection temporarily unavailable");
     };
 
     return () => {

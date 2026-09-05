@@ -1,7 +1,7 @@
 // =============================================================
 // src/api/dealReview.ts
-// API-функции и React Query-хуки для deal review UI.
-// Работает поверх run-scoped backend endpoints:
+// API functions and React Query hooks for the deal review UI.
+// Operates on top of run-scoped backend endpoints:
 // /api/v1/deals/{deal_id}/runs/{run_id}/...
 // =============================================================
 
@@ -164,7 +164,7 @@ export const dealReviewApi = {
   },
 
   /**
-   * DD Grid V1 endpoint (иерархический контракт: global groups + doc-type classes → checks → runtime columns).
+   * DD Grid V1 endpoint (hierarchical contract: global groups + doc-type classes → checks → runtime columns).
    * Backend: GET /api/v1/deals/{deal_id}/runs/{run_id}/dd-grid-v1
    */
   async getDdGridV1ForRun(
@@ -203,8 +203,8 @@ export const dealReviewApi = {
 // -------------------------------------------------------------
 
 /**
- * Единичная ячейка review для конкретного документа и проверки.
- * Используется для document-scoped review представлений.
+ * Single review cell for a specific document and check.
+ * Used for document-scoped review views.
  */
 export interface DocumentReviewCheckCell {
   checkId: string;
@@ -213,9 +213,9 @@ export interface DocumentReviewCheckCell {
 }
 
 /**
- * Из глобального dd-matrix достаёт все check-cells для конкретного документа.
- * Возвращает только непустые ячейки (по умолчанию фильтрует "пустые pass"
- * без snippet/segment-привязки).
+ * Extracts all check cells for a specific document from the global dd-matrix.
+ * Returns only non-empty cells (by default filters "empty pass" cells
+ * without any snippet/segment binding).
  */
 export function selectDocumentReviewCells(
   matrix: DDMatrixResponseDTO | null | undefined,
@@ -233,7 +233,7 @@ export function selectDocumentReviewCells(
       const cell = docRow.results?.[check.check_id];
       if (!cell) return null;
 
-      // Отфильтровываем "пустые" pass без какого-либо evidence/provenance
+      // Filter out "empty" pass cells without any evidence/provenance
       if (
         cell.result === "pass" &&
         !cell.snippet &&
@@ -399,12 +399,12 @@ export function useDealReviewDdMatrix(
 }
 
 /**
- * React Query hook для DD Grid V1.
+ * React Query hook for DD Grid V1.
  *
- * Отдельный hook (а не переиспользование useDealReviewDdMatrix), потому что:
- * - другой backend endpoint;
- * - другой response schema;
- * - другой семантический контракт (иерархия / runtime columns / cell_state / formats).
+ * Dedicated hook (not reusing useDealReviewDdMatrix) because:
+ * - separate backend endpoint;
+ * - completely different response schema;
+ * - distinct semantic contract (hierarchy / runtime columns / cell_state / formats).
  */
 export function useDealReviewDdGridV1(
   dealId: string | null,
@@ -443,8 +443,8 @@ export function useDdMatrix(
 }
 
 /**
- * Короткий alias для новой review UI layer.
- * См. useDealReviewDdGridV1 для полного описания контракта.
+ * Short alias for the new review UI layer.
+ * See useDealReviewDdGridV1 for full contract details.
  */
 export function useDdGridV1(
   dealId: string | null,

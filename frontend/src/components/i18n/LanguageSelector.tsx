@@ -1,15 +1,20 @@
+// =============================================================
+// src/components/i18n/LanguageSelector.tsx
+// UI selector component for switching active interface language.
+// =============================================================
+
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { getEnabledUiLocales, type UiLocale } from "../../i18n/localeRegistry";
 
 interface LanguageSelectorProps {
   /**
-   * Опциональный коллбек, вызываемый при смене языка.
-   * Полезен для отправки PATCH запроса на бэкенд, если пользователь авторизован.
+   * Optional callback invoked when the language changes.
+   * Useful for sending a PATCH request to the backend if the user is authenticated.
    */
   onLocaleChange?: (newLocale: string) => void | Promise<void>;
   /**
-   * Стили оформления: 'minimal' (просто текст) или 'outline' (с рамкой, для страницы входа)
+   * Visual variant: 'minimal' (plain text) or 'outline' (with border, e.g. for login page)
    */
   variant?: "minimal" | "outline";
 }
@@ -23,11 +28,11 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
 
   const handleLanguageChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLocale = e.target.value;
-    
-    // 1. Меняем язык локально в i18next
+
+    // 1. Change language locally in i18next
     await i18n.changeLanguage(newLocale);
-    
-    // 2. Если передан обработчик (например, для сохранения в БД), вызываем его
+
+    // 2. If a callback is provided (e.g. to persist in database), invoke it
     if (onLocaleChange) {
       try {
         await onLocaleChange(newLocale);

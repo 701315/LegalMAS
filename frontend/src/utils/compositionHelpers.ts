@@ -1,10 +1,10 @@
 // =============================================================
 // src/utils/compositionHelpers.ts
-// Единый helper-слой для работы с DocumentCompositionMeta.
+// Unified helper layer for working with DocumentCompositionMeta.
 //
-// ПРАВИЛО: вся логика отображения composition/segment данных
-// живёт только здесь. Ни DocumentTree, ни DocumentsTab,
-// ни DDGrid, ни DDMatrixGrid не должны вычислять это самостоятельно.
+// RULE: All composition/segment display logic lives here only.
+// DocumentTree, DocumentsTab, DDGrid, and DDMatrixGrid must NOT
+// compute this independently.
 // =============================================================
 
 import type {
@@ -14,14 +14,15 @@ import type {
 } from "../types";
 
 // -------------------------------------------------------------
-// Универсальные adapter input shapes
+// Universal adapter input shapes
 // -------------------------------------------------------------
 
 /**
- * Минимальный shape для row/view-моделей, у которых composition-данные
- * уже разложены по отдельным полям, а не лежат как composition: {...}.
+ * Minimal shape for row/view models where composition data
+ * is already flattened into separate fields instead of nested
+// under composition: {...}.
  *
- * Используется для legacy/review grid row adapters.
+ * Used for legacy/review grid row adapters.
  */
 export interface CompositionMetaLike {
   compositionType?: "single" | "multi" | null;
@@ -31,9 +32,9 @@ export interface CompositionMetaLike {
 }
 
 /**
- * Минимальный shape для review matrix row.
- * Нам не нужен импорт DTO-типа отсюда — helper остаётся слабо связанным
- * с feature-слоем и работает по structural typing.
+ * Minimal shape for review matrix row.
+ * We avoid importing DTO types from here — helper stays loosely coupled
+ * to the feature layer and works via structural typing.
  */
 export interface ReviewCompositionMetaLike {
   isMultiDocument?: boolean | null;
@@ -43,12 +44,12 @@ export interface ReviewCompositionMetaLike {
 }
 
 // -------------------------------------------------------------
-// Базовые предикаты / adapters
+// Base predicates / adapters
 // -------------------------------------------------------------
 
 /**
- * Возвращает composition-метаданные документа или null если их нет.
- * Используй эту функцию везде вместо прямого обращения doc.composition.
+ * Returns document composition metadata or null if unavailable.
+ * Use this function everywhere instead of direct doc.composition access.
  */
 export function getCompositionMeta(
   doc: DocumentListItem,
@@ -57,15 +58,15 @@ export function getCompositionMeta(
 }
 
 /**
- * Является ли документ multi-document файлом.
- * Возвращает false если данных нет.
+ * Checks if document is a multi-document file.
+ * Returns false if data is unavailable.
  */
 export function isMultiDocument(doc: DocumentListItem): boolean {
   return getCompositionMeta(doc)?.composition_type === "multi";
 }
 
 /**
- * Возвращает количество сегментов или 0 если данных нет.
+ * Returns segment count or 0 if data is unavailable.
  */
 export function getSegmentCount(doc: DocumentListItem): number {
   const count = getCompositionMeta(doc)?.segment_count;
@@ -73,24 +74,24 @@ export function getSegmentCount(doc: DocumentListItem): number {
 }
 
 /**
- * Возвращает метку основного сегмента или null.
- * Пример: "Share Purchase Agreement", "Устав" и т.п.
+ * Returns primary segment label or null.
+ * Example: "Share Purchase Agreement", "Charter", etc.
  */
 export function getPrimarySegmentLabel(doc: DocumentListItem): string | null {
   return getCompositionMeta(doc)?.primary_segment_label ?? null;
 }
 
 /**
- * Является ли документ composite file (флаг из backend).
- * Возвращает false если данных нет.
+ * Checks if document is a composite file (flag from backend).
+ * Returns false if data is unavailable.
  */
 export function isCompositeFile(doc: DocumentListItem): boolean {
   return getCompositionMeta(doc)?.is_composite_file === true;
 }
 
 /**
- * Явный adapter: DocumentListItem -> DocumentCompositionMeta | null
- * Нужен для единообразия API рядом с row-based adapters.
+ * Explicit adapter: DocumentListItem -> DocumentCompositionMeta | null
+ * Needed for API consistency alongside row-based adapters.
  */
 export function toCompositionMetaFromDocument(
   doc: DocumentListItem,
@@ -99,8 +100,8 @@ export function toCompositionMetaFromDocument(
 }
 
 /**
- * Adapter для legacy matrix row / других row-моделей,
- * где composition уже разложен в плоские поля.
+ * Adapter for legacy matrix row / other row models
+ * where composition is already flattened.
  */
 export function toCompositionMetaFromLegacyMatrixRow(
   row: CompositionMetaLike | null | undefined,
@@ -126,8 +127,8 @@ export function toCompositionMetaFromLegacyMatrixRow(
 }
 
 /**
- * Adapter для review matrix row, где multi-document приходит как boolean.
- * Пока helper не зависит от конкретного DTO-типа и работает по shape.
+ * Adapter for review matrix row where multi-document comes as boolean.
+ * Helper does not depend on specific DTO type and works by shape.
  */
 export function toCompositionMetaFromReviewMatrixRow(
   row: ReviewCompositionMetaLike | null | undefined,
@@ -153,16 +154,16 @@ export function toCompositionMetaFromReviewMatrixRow(
 }
 
 // -------------------------------------------------------------
-// Рендер-хелперы для таблицы (возвращают строку или число)
-// Используются в DocumentsTab, Grid и потенциально в экспорте.
+// Render helpers for table (return string or number)
+// Used in DocumentsTab, Grid and potentially in exports.
 // -------------------------------------------------------------
 
 /**
- * Возвращает текстовое значение для ячейки composition-колонки
- * напрямую из DocumentCompositionMeta.
+ * Returns text value for composition column cell
+ * directly from DocumentCompositionMeta.
  *
- * Возвращает строку или число — только примитивы,
- * чтобы функцию можно было использовать и в экспорте Excel/Word/PDF.
+ * Returns string or number — primitives only,
+ * so function can be used in Excel/Word/PDF exports as well.
  */
 export function getCompositionCellValueFromMeta(
   colId: DocumentColumnId,
@@ -196,7 +197,7 @@ export function getCompositionCellValueFromMeta(
 }
 
 /**
- * Backward-compatible helper для DocumentListItem.
+ * Backward-compatible helper for DocumentListItem.
  */
 export function getCompositionCellValue(
   colId: DocumentColumnId,
@@ -207,34 +208,34 @@ export function getCompositionCellValue(
 }
 
 // -------------------------------------------------------------
-// Badge-данные для UI (Tree, Grid и т.п.)
-// Возвращают объекты, описывающие что показать визуально,
-// а не готовый JSX — чтобы не тащить React в utility-слой.
+// Badge data for UI (Tree, Grid etc.)
+// Return objects describing what to show visually,
+// not ready JSX — to avoid pulling React into utility layer.
 // -------------------------------------------------------------
 
 /**
- * Данные для отображения composition-бейджей в строке документа.
- * Компонент сам решает как рендерить, helper только даёт данные.
+ * Data for rendering composition badges in document row.
+ * Component decides how to render, helper only provides data.
  */
 export interface CompositionBadgeData {
-  /** Показывать ли бейдж "multi" */
+  /** Whether to show "multi" badge */
   showMultiBadge: boolean;
-  /** Показывать ли счётчик сегментов (только если > 1) */
+  /** Whether to show segment count (only if > 1) */
   showSegmentCount: boolean;
-  /** Число сегментов для отображения */
+  /** Segment count for display */
   segmentCount: number;
-  /** Показывать ли метку основного сегмента */
+  /** Whether to show primary segment label */
   showPrimaryLabel: boolean;
-  /** Текст метки основного сегмента */
+  /** Primary segment label text */
   primaryLabel: string;
-  /** Показывать ли "composite file" бейдж */
+  /** Whether to show "composite file" badge */
   showCompositeBadge: boolean;
 }
 
 /**
- * Вычисляет все данные для composition-бейджей одного документа.
- * Используй в DocumentTree, DocumentsTab и любых других местах,
- * где есть полный DocumentListItem.
+ * Computes all badge data for composition badges of a single document.
+ * Use in DocumentTree, DocumentsTab and any other places
+ * where full DocumentListItem is available.
  */
 export function getCompositionBadgeData(
   doc: DocumentListItem,
@@ -243,8 +244,8 @@ export function getCompositionBadgeData(
 }
 
 /**
- * Вычисляет badge-данные напрямую из DocumentCompositionMeta.
- * Используй когда нет полного DocumentListItem (например, в DDGrid/DDMatrixGrid).
+ * Computes badge data directly from DocumentCompositionMeta.
+ * Use when full DocumentListItem is not available (e.g. in DDGrid/DDMatrixGrid).
  */
 export function getCompositionBadgeDataFromMeta(
   meta: DocumentCompositionMeta | null | undefined,

@@ -569,7 +569,7 @@ export const RequestsTab: React.FC<Props> = ({
                           type="button"
                           onClick={handleCloseReviewPanel}
                           className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-                          aria-label="Закрыть панель деталей запроса"
+                          aria-label={t("panel.closeAria")}
                         >
                           {t("tab.detailsPanel.back")}
                         </button>
@@ -639,7 +639,7 @@ export const RequestsTab: React.FC<Props> = ({
                           type="button"
                           onClick={handleCloseLegacyPanel}
                           className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-                          aria-label="Закрыть панель деталей запроса"
+                          aria-label={t("panel.closeAria")}
                         >
                           {t("tab.detailsPanel.back")}
                         </button>

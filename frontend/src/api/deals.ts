@@ -1,6 +1,6 @@
 // =============================================================
 // src/api/deals.ts
-// API-функции и React Query хуки для работы со сделками.
+// API client functions and React Query hooks for managing deals.
 // =============================================================
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,12 +15,12 @@ import type {
 } from "../types";
 
 // -------------------------------------------------------------
-// НИЗКОУРОВНЕВЫЙ API-КЛИЕНТ
+// Low-level API client
 // -------------------------------------------------------------
 
 export const dealApi = {
   /**
-   * Список сделок.
+   * List deals.
    * GET /api/v1/deals?page=&per_page=
    */
   list: (page = 1, perPage = 20, status?: string, tenantId?: string) =>
@@ -36,7 +36,7 @@ export const dealApi = {
       .then((response) => response.data),
 
   /**
-   * Детали одной сделки.
+   * Get single deal details.
    * GET /api/v1/deals/{deal_id}
    */
   get: (dealId: string) =>
@@ -45,11 +45,11 @@ export const dealApi = {
       .then((response) => response.data),
 
   /**
-   * Частично обновить сделку.
+   * Partially update a deal.
    * PATCH /api/v1/deals/{deal_id}
    *
-   * Используется только для обычных полей сделки,
-   * которые не требуют отдельной бизнес-логики продолжения пайплайна.
+   * Used for standard deal fields that do not trigger
+   * special backend pipeline continuation logic.
    */
   update: (dealId: string, payload: DealUpdatePayload) =>
     client
@@ -57,12 +57,12 @@ export const dealApi = {
       .then((response) => response.data),
 
   /**
-   * Установить основной язык сделки.
+   * Set the primary language of the deal.
    * PATCH /api/v1/deals/{deal_id}/primary-language
    *
-   * Это отдельная доменная операция:
-   * backend валидирует язык, может реактивировать документы
-   * и перезапустить нужный участок пайплайна.
+   * Dedicated domain operation:
+   * backend validates language, reactivates documents,
+   * and restarts the appropriate pipeline section.
    */
   setPrimaryLanguage: (
     dealId: string,
@@ -77,12 +77,12 @@ export const dealApi = {
 };
 
 // -------------------------------------------------------------
-// REACT QUERY ХУКИ
+// React Query hooks
 // -------------------------------------------------------------
 
 /**
- * Хук для списка сделок.
- * Пример:
+ * Hook for fetching paginated deals list.
+ * Example:
  *   const { data, isLoading } = useDeals();
  */
 export function useDeals(page = 1, status?: string, tenantId?: string) {
@@ -93,8 +93,8 @@ export function useDeals(page = 1, status?: string, tenantId?: string) {
 }
 
 /**
- * Хук для одной сделки.
- * Пример:
+ * Hook for fetching single deal detail.
+ * Example:
  *   const { data, isLoading } = useDeal(dealId);
  */
 export function useDeal(
@@ -106,29 +106,23 @@ export function useDeal(
     queryFn: () => dealApi.get(dealId as string),
     enabled: !!dealId,
     refetchInterval: options?.refetchInterval,
-    // При переключении на вкладку браузера — свежий запрос.
-    // Защита от устаревшего кэша после долгого отсутствия.
+    // Refetch on window focus to prevent stale data
     refetchOnWindowFocus: true,
-    // При ошибке сети/401 — 2 повторные попытки через 3 сек.
-    // Предотвращает «застревание» кэша на устаревших данных.
+    // Retry up to 2 times on network errors
     retry: 2,
     retryDelay: 3000,
   });
 }
 
 /**
- * Хук для частичного обновления сделки.
- * Подходит для обычных полей, например:
- * - summary;
- * - другие простые поля сделки.
+ * Hook for updating deal properties (e.g. summary).
  *
- * Не используем этот хук для primary_language,
- * потому что выбор основного языка запускает отдельную
- * backend-логику продолжения пайплайна.
+ * Do not use for primary_language, as choosing the main language
+ * triggers separate pipeline continuation logic.
  *
- * Пример:
+ * Example:
  *   const updateDeal = useUpdateDeal(deal.id);
- *   updateDeal.mutate({ summary: "Новое описание проекта" });
+ *   updateDeal.mutate({ summary: "New project summary" });
  */
 export function useUpdateDeal(dealId: string) {
   const queryClient = useQueryClient();
@@ -145,14 +139,14 @@ export function useUpdateDeal(dealId: string) {
 }
 
 /**
- * Хук для установки основного языка сделки.
+ * Hook for setting primary project language.
  *
- * Важно:
- * - используем специальный endpoint /primary-language;
- * - backend сам выполнит всю нужную continuation logic;
- * - после успешного ответа обновляем deal и связанные run-query.
+ * Note:
+ * - utilizes dedicated /primary-language endpoint;
+ * - backend executes the required pipeline continuation logic;
+ * - updates deal and related run queries on success.
  *
- * Пример:
+ * Example:
  *   const setPrimaryLanguage = useSetPrimaryLanguage(deal.id);
  *   setPrimaryLanguage.mutate({ primary_language: "RU" });
  */
@@ -176,7 +170,6 @@ export function useSetPrimaryLanguage(dealId: string) {
     },
   });
 }
-
 
 // =============================================================
 // LLM USAGE SUMMARY
@@ -219,13 +212,13 @@ export const dealUsageApi = {
 };
 
 /**
- * Хук для получения агрегата LLM usage по проекту.
+ * Hook for fetching aggregated LLM usage summary for a project.
  *
  * refetchInterval:
- * - false (по умолчанию) — не опрашивать автоматически;
- * - 30_000 — опрашивать каждые 30 сек если run активен.
+ * - false (default) — no polling;
+ * - 30_000 — poll every 30s if a run is active.
  *
- * staleTime 30 сек — не инвалидируем при каждом фокусе окна.
+ * staleTime 30s — prevents excessive refetches on window focus.
  */
 export function useDealLLMUsage(
   dealId: string | null,

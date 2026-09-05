@@ -267,6 +267,60 @@
         "title": "Сервисы observability",
         "description": "Прямые ссылки на Grafana, Prometheus, Alertmanager, Loki, Tempo, MinIO, API docs и Ollama."
       }
+    },
+    "items": {
+      "dashboards": {
+        "operations-overview": {
+          "label": "Operations Overview",
+          "description": "HTTP, LLM, DLQ, активные запуски"
+        },
+        "legalmas-pipeline": {
+          "label": "Pipeline Overview",
+          "description": "Стадии обработки документов"
+        },
+        "slo-overview": {
+          "label": "SLO Overview",
+          "description": "Метрики качества и SLO"
+        },
+        "logs-explorer": {
+          "label": "Log Explorer",
+          "description": "Поиск и анализ логов Loki"
+        }
+      },
+      "services": {
+        "grafana": {
+          "label": "Grafana",
+          "description": "Дашборды, алерты, исследование"
+        },
+        "prometheus": {
+          "label": "Prometheus",
+          "description": "Метрики, alert rules, targets"
+        },
+        "alertmanager": {
+          "label": "Alertmanager",
+          "description": "Активные алерты, silences"
+        },
+        "tempo": {
+          "label": "Tempo (через Grafana)",
+          "description": "Distributed traces через Grafana Explore"
+        },
+        "loki": {
+          "label": "Loki (через Grafana)",
+          "description": "Structured logs через Grafana Explore"
+        },
+        "minio": {
+          "label": "MinIO Console",
+          "description": "Object storage: артефакты, экспорты"
+        },
+        "api_docs": {
+          "label": "API Docs",
+          "description": "OpenAPI Swagger для backend"
+        },
+        "ollama": {
+          "label": "Ollama API",
+          "description": "LLM inference status и модели"
+        }
+      }
     }
   },
   "clients": {
@@ -316,7 +370,8 @@
       "deactivate": "Деактивировать",
       "activate": "Активировать",
       "copyId": "Скопировать ID",
-      "copied": "Скопировано"
+      "copied": "Скопировано",
+      "idTooltip": "Клик выделяет ID, кнопка копирует"
     },
     "loading": "Загружаем список клиентов…",
     "error": "Не удалось загрузить список клиентов.",
@@ -457,7 +512,7 @@
       "completed": "Завершён"
     }
   },
-    "tenantExport": {
+  "tenantExport": {
     "columns": {
       "order": "№",
       "clientName": "Название клиента",

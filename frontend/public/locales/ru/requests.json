@@ -134,10 +134,15 @@
   "source": {
     "yaml_template": "YAML-шаблон",
     "manual": "Вручную",
-    "aggregator": "Автоматически"
+    "aggregator": "Агрегатор",
+    "helpers": {
+      "yaml_template": "Текст и адресат сгенерированы автоматически из YAML-инструкции типа документа."
+    }
   },
   "panel": {
     "title": "DD‑запрос",
+    "defaultTitle": "Запрос #{{id}}",
+    "defaultReviewTitle": "Запрос",
     "checkLabel": "Проверка: {{checkId}}",
     "priority": "Приоритет",
     "status": "Статус",
@@ -165,4 +170,5 @@
     "resolved": "Закрыт"
   }
 }
+
 

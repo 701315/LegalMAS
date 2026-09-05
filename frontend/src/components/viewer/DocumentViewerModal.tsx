@@ -1,11 +1,16 @@
+// =============================================================
 // src/components/viewer/DocumentViewerModal.tsx
+//
+// PDF viewer modal with support for page navigation, zoom,
+// and highlighted layout element overlays / chunk bounding boxes.
+// =============================================================
 
 import React from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useTranslation } from "react-i18next";
 import type { OpenViewerAtPayload } from "../../types";
 
-// ВАЖНО: путь именно до pdf.worker.min.mjs из pdfjs-dist
+// Explicit worker path from pdfjs-dist
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
@@ -62,7 +67,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     }
   }, [location]);
 
-  // Автоскролл к началу страницы при её смене.
+  // Autoscroll to top of page when changing pages or files
   React.useEffect(() => {
     if (!open || !containerRef.current) return;
 
@@ -170,11 +175,14 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       ? t("viewer.documentIdTitle", { id: location.documentId })
       : t("viewer.defaultTitle"));
 
+  const lowerTitle = (title ?? "").toLowerCase();
   const hasErrorTitle = Boolean(
-    title && title.toLowerCase().includes("ошибка"),
+    lowerTitle.includes("error") ||
+    lowerTitle.includes("\u043e\u0448\u0438\u0431\u043a"),
   );
   const isLoadingTitle = Boolean(
-    title && title.toLowerCase().includes("загрузка"),
+    lowerTitle.includes("load") ||
+    lowerTitle.includes("\u0437\u0430\u0433\u0440\u0443\u0437\u043a"),
   );
 
   const pageWidth = (containerWidth ?? 900) * initialScale;

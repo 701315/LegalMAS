@@ -80,7 +80,11 @@
       "historyLoadFailed": "Failed to load playbook change history.",
       "modelsLoadFailed": "Failed to load models list. Please contact your administrator.",
       "defaultNewVersion": "New version",
-      "draftCreated": "Draft version created. Publish it in Playbook Studio, then apply to the project."
+      "draftCreated": "Draft version created. Publish it in Playbook Studio, then apply to the project.",
+      "validationForm": "Form data validation error.",
+      "selectModelConfig": "Please select a model configuration.",
+      "publishFailed": "Template saved and draft created, but publication failed.",
+      "createVersionFailed": "Failed to create playbook version."
     }
   },
   "globalPlaybookDetail": {
@@ -173,7 +177,8 @@
   },
   "composition": {
     "title": "Template composition",
-    "empty": "Composition is empty. Use the block above to add instructions."
+    "empty": "Composition is empty. Use the block above to add instructions.",
+    "deleteInstruction": "Delete {{code}}"
   },
   "version": {
     "title": "Playbook version",

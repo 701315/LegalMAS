@@ -326,7 +326,33 @@
     "missingDocId": "Не указан идентификатор документа",
     "pathDescription": "Путь документа по стадиям обработки — от исходного PDF до структуры и чанков.",
     "notAvailable": "Стадии обработки пока недоступны.",
-    "title": "Пайплайн документа"
+    "title": "Пайплайн документа",
+    "stageInfo": {
+      "source": {
+        "title": "SOURCE: исходный документ",
+        "description": "Исходный документ для обработки: оригинал или PDF после конвертации офисного формата."
+      },
+      "primary": {
+        "title": "PRIMARY: одноязычный source",
+        "description": "Документ после выбора основного языка сделки, используемый как основной вход в downstream-пайплайн."
+      },
+      "extract": {
+        "title": "EXTRACT: layout после извлечения",
+        "description": "Текстовый layout после extract: primary-language layout или raw multilingual layout."
+      },
+      "pii": {
+        "title": "PII: sanitized layout",
+        "description": "Layout после PII-санитизации. Это основной downstream-layout для структуры, chunking и checks."
+      },
+      "structure": {
+        "title": "STRUCTURE: структура документа",
+        "description": "Структурированное представление документа со статьями, заголовками и иерархией."
+      },
+      "chunks": {
+        "title": "CHUNKS: фрагменты (чанки)",
+        "description": "Сегментированные текстовые блоки, подготовленные для LLM-анализа."
+      }
+    }
   },
   "classificationLevels": {
     "L0": {

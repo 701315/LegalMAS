@@ -66,7 +66,7 @@ def get_supported_ui_locales() -> Set[str]:
     }
 
 
-def is_valid_ui_locale(locale: Optional[str]) -> boolean: # type: ignore
+def is_valid_ui_locale(locale: Optional[str]) -> bool:
     if not locale:
         return True
     return locale in get_supported_ui_locales()

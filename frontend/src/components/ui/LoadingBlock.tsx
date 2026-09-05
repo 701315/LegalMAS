@@ -1,4 +1,7 @@
+// =============================================================
 // src/components/ui/LoadingBlock.tsx
+// Skeleton loading block placeholder with animated pulses.
+// =============================================================
 
 import React from "react";
 import { useTranslation } from "react-i18next";
@@ -22,7 +25,8 @@ const LoadingBlock: React.FC<LoadingBlockProps> = ({
   className,
 }) => {
   const { t } = useTranslation("common");
-  const resolvedText = text ?? t("loadingBlock.text", { defaultValue: "Загрузка данных…" });
+  const resolvedText =
+    text ?? t("loadingBlock.text", { defaultValue: "Loading data..." });
 
   const normalizedRows = Number.isFinite(rows)
     ? Math.max(1, Math.floor(rows))

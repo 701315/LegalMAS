@@ -1,20 +1,20 @@
 // =============================================================
 // src/pages/tenant-admin/tabs/ProjectsTab.tsx
 //
-// Вкладка "Проекты" в admin panel. Двойное назначение:
-// - Список проектов (selectedProjectId === null)
-// - Drill down в проект (selectedProjectId !== null)
+// "Projects" tab in admin panel. Dual purpose:
+// - Projects list (selectedProjectId === null)
+// - Project drill down (selectedProjectId !== null)
 //
 // Design contract:
-// - Empty state если projects.length === 0
+// - Empty state if projects.length === 0
 // - Sticky table header
 // - Table min-w-[920px]
-// - При selectedProjectId — рендерится ProjectDrillDown вместо таблицы
+// - When selectedProjectId is set — renders ProjectDrillDown instead of table
 //
 // State ownership:
-// - selectedProjectId управляется in parent (main component),
-//   потому что состояние выбранного проекта влияет на header rendering
-//   (при drill down скрываются tabs)
+// - selectedProjectId is managed in parent (main component),
+//   because selected project state affects header rendering
+//   (tabs are hidden during drill down)
 // =============================================================
 
 import React from "react";
@@ -24,9 +24,9 @@ import { LABEL_XS } from "../constants";
 import ProjectRow from "../components/ProjectRow";
 
 export interface ProjectsTabProps {
-  /** Массив проектов для отображения */
+  /** Array of projects to display */
   projects: ProjectHealthDTO[];
-  /** Callback при клике на проект (открывает drill down) */
+  /** Callback when clicking a project (opens drill down) */
   onOpenProject: (dealId: string) => void;
 }
 

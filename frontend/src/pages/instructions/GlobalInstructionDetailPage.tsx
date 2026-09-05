@@ -1,9 +1,11 @@
+// =============================================================
 // src/pages/instructions/GlobalInstructionDetailPage.tsx
-// Объединённая страница: инструкция + версии + редактор версии.
+// Combined detail workspace for global checks: metadata, versions sidebar, and draft editor.
 //
-// URL:
+// Routing parameters:
 //   /admin/instructions/global-checks/:instructionCode
 //   /admin/instructions/global-checks/:instructionCode?version=<id>
+// =============================================================
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -37,11 +39,11 @@ import type {
 } from "../../types/instructions";
 
 // ─────────────────────────────────────────────────────────────
-// Константы
+// Constants
 // ─────────────────────────────────────────────────────────────
 
 const EMPTY_INSTRUCTION_YAML_SKELETON = `id: new_instruction
-name: Новая инструкция
+name: New instruction
 group: ""
 description: ""
 doc_types: []
@@ -65,7 +67,7 @@ evidence:
 `;
 
 // ─────────────────────────────────────────────────────────────
-// Утилиты
+// Utilities
 // ─────────────────────────────────────────────────────────────
 
 function formatDate(value: string | null | undefined, locale: string): string | null {
@@ -923,7 +925,7 @@ const GlobalInstructionDetailPage: React.FC = () => {
     setCreateDraftError(null);
     try {
       const localizedYaml = EMPTY_INSTRUCTION_YAML_SKELETON.replace(
-        "Новая инструкция",
+        "New instruction",
         t("detail.newInstructionSkeletonName"),
       );
       const newDraft = await createDraft.mutateAsync({

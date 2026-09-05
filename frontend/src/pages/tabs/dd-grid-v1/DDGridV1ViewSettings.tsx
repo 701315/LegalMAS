@@ -1,16 +1,16 @@
 // =============================================================
 // src/pages/tabs/dd-grid-v1/DDGridV1ViewSettings.tsx
-// Панель настроек отображения DD Grid V1.
+// View settings panel for DD Grid V1.
 //
-// Содержит три независимых toggle:
-// - Формат представления данных     (matrix / list)
-// - Отображение результатов проверок (all / global_only / doc_type_only)
-// - Группировка документов           (all_docs / by_type)
+// Contains three independent toggles:
+// - Data presentation format    (matrix / list)
+// - Checks scope display        (all / global_only / doc_type_only)
+// - Document grouping           (all_docs / by_type)
 //
-// Правила:
-// - каждый toggle имеет свою подпись сверху;
-// - "Группировка документов" скрывается когда format = list (Q23 = C);
-// - все state читаются/пишутся через useDDGridV1UIStore.
+// Rules:
+// - each toggle has its own header label;
+// - "Document grouping" is hidden when format = list (Q23 = C);
+// - all state is read/written via useDDGridV1UIStore.
 // =============================================================
 
 import React from "react";
@@ -234,8 +234,8 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
 };
 
 /**
- * Информационный баннер о принудительном использовании представления "Список"
- * на узких viewport. Занимает место переключателя "Формат представления данных".
+ * Informational notice banner indicating that "List" format is forced
+ * on narrow viewports. Takes the place of the "Data presentation format" toggle.
  */
 const FormatUnavailableNotice: React.FC<{ stretch?: boolean }> = ({
   stretch = false,
@@ -264,5 +264,4 @@ const FormatUnavailableNotice: React.FC<{ stretch?: boolean }> = ({
 };
 
 export default DDGridV1ViewSettings;
-
 

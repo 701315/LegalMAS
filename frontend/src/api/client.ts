@@ -1,21 +1,21 @@
 // =============================================================
 // src/api/client.ts
-// Общий Axios-клиент для всех запросов к бэкенду MAS-DD.
-// Добавляет Authorization: Bearer из localStorage.
+// Shared Axios client for all backend API requests.
+// Automatically attaches Authorization: Bearer token from localStorage.
 //
 // Response interceptor:
-// - при 401 очищает все mas_dd_* ключи из localStorage
-// - редиректит на /login (одноразово, без цикла)
-// - предотвращает бесконечный polling с протухшим токеном
+// - on 401, clears all mas_dd_* keys from localStorage
+// - redirects to /login (once, without looping)
+// - prevents infinite polling with expired tokens
 // =============================================================
 
 import axios from "axios";
 import type { ApiError } from "../types";
 
-// В production не уходим на localhost.
-// Если VITE_API_URL не задан, используем same-origin:
-// - в dev запросы /api/... пойдут через Vite proxy
-// - в demo запросы /api/... пойдут через Caddy
+// In production, do not hardcode localhost.
+// If VITE_API_URL is omitted, use same-origin:
+// - in dev mode, /api/... requests are proxied by Vite
+// - in production/demo, /api/... requests are routed via reverse proxy (Caddy/Nginx)
 const baseURL = (import.meta.env.VITE_API_URL ?? "").trim();
 
 const client = axios.create({
@@ -24,8 +24,7 @@ const client = axios.create({
 });
 
 // ── Auth cleanup helper ──────────────────────────────────────
-// Ключи должны совпадать с тем, что использует useUIStore
-// в logout() и в setUserInfo(). При изменении там — синхронизировать здесь.
+// Keys must match those used by useUIStore in logout() and setUserInfo().
 const AUTH_STORAGE_KEYS = [
   "mas_dd_api_key",
   "mas_dd_user_role",
@@ -36,8 +35,8 @@ const AUTH_STORAGE_KEYS = [
   "mas_dd_project_roles",
 ] as const;
 
-// Флаг однократного редиректа: защита от гонок,
-// когда несколько параллельных запросов сразу получают 401.
+// Single redirect flight flag: prevents race conditions
+// when multiple concurrent requests encounter 401 simultaneously.
 let authRedirectInFlight = false;
 
 function handleUnauthorized(): void {
@@ -46,19 +45,19 @@ function handleUnauthorized(): void {
   }
   authRedirectInFlight = true;
 
-  // Чистим все auth-ключи из localStorage.
-  // Стор при следующей загрузке страницы гидратируется как "не залогинен".
+  // Clear all auth-related keys from localStorage.
+  // The store will hydrate as unauthenticated on the next page load.
   try {
     for (const key of AUTH_STORAGE_KEYS) {
       localStorage.removeItem(key);
     }
   } catch {
-    // localStorage может быть недоступен в приватном режиме — игнорируем.
+    // localStorage might be unavailable in private browser modes — safely ignore.
   }
 
-  // Уводим на /login. Полная перезагрузка гарантирует,
-  // что все in-memory состояния (Zustand, React Query cache)
-  // будут сброшены и не останутся "мёртвые" polling-запросы.
+  // Redirect to /login. A full replace navigation ensures that all
+  // in-memory state (Zustand, React Query cache) is wiped clean and no
+  // orphan polling requests remain active.
   if (typeof window !== "undefined") {
     const alreadyOnLogin =
       window.location.pathname === "/login" ||
@@ -75,7 +74,7 @@ client.interceptors.request.use((config) => {
   const apiKey = localStorage.getItem("mas_dd_api_key");
   if (apiKey) {
     config.headers = config.headers ?? {};
-    // JWT ожидает Authorization: Bearer <token>
+    // JWT format requires Authorization: Bearer <token>
     config.headers["Authorization"] = `Bearer ${apiKey}`;
   }
   return config;
@@ -87,8 +86,8 @@ client.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
 
-    // При 401 — auth протух или невалиден.
-    // Чистим сессию и уводим на /login.
+    // On 401 — auth token is expired or invalid.
+    // Clean up session and redirect to /login.
     if (status === 401) {
       handleUnauthorized();
     }

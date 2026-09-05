@@ -152,20 +152,40 @@
       "pipelineStarted": "Started {{time}}",
       "pipelineElapsed": "in {{m}} min {{s}} sec",
       "counterparties": {
-        "total": "Total",
+        "total": "Counterparties identified",
+        "contracts": "Contracts with counterparties",
+        "value": "Contract value",
         "critical": "Critical",
         "sanctions": "Sanctions",
         "bankruptcy": "Bankruptcy",
         "geography": "Geography",
-        "demoNote": "Demo data. Open the Counterparties tab for full analysis."
+        "topByValue": "Top by contract value",
+        "needsAttention": "Requires attention",
+        "risk": "Risk",
+        "country": "Country",
+        "contractsShort": "Contracts",
+        "demoNote": "Demo data based on sample counterparty enrichment. Full cards, ownership and risk details are available in the Counterparties tab.",
+        "openFull": "Open full analysis",
+        "openFullHint": "Table, company cards, ownership and risk workspace"
       },
       "realEstate": {
-        "objects": "Objects",
+        "objects": "Objects identified",
+        "land": "Land plots",
+        "buildings": "Buildings & premises",
         "encumbered": "Encumbered",
         "ownershipReview": "Ownership review",
         "highRisk": "High risk",
         "topRegions": "Top regions",
-        "demoNote": "Demo data. Open the Real estate tab for full analysis."
+        "topByArea": "Top by area",
+        "needsAttention": "Requires attention",
+        "region": "Region",
+        "type": "Type",
+        "area": "Area",
+        "documents": "Documents",
+        "risk": "Risk",
+        "demoNote": "Demo data based on sample real-estate enrichment. Full registry cards, encumbrances and legal checks are available in the Real estate tab.",
+        "openFull": "Open full analysis",
+        "openFullHint": "Registry table, object cards, encumbrances and legal workspace"
       }
     },
     "runSummary": {
@@ -859,7 +879,8 @@
       "launchDesc": "Check documents and project settings before the first run.",
       "cancel": "Cancel",
       "relaunchButton": "Relaunch analysis",
-      "launchButton": "Launch analysis"
+      "launchButton": "Launch analysis",
+      "panelAria": "Project relaunch panel"
     }
   },
   "dashboard": {

@@ -854,20 +854,28 @@ async def delete_playbook_line(
 
     # 2. Есть версии, которые используются сделками или запусками — 409
     if usage.used_in_deals > 0 or usage.used_in_runs > 0:
-        # Формируем человекочитаемое сообщение
+        # Human-readable message (canonical English source copy)
         parts: list[str] = []
 
         if usage.used_in_deals > 0:
             if usage.deal_names:
                 deals_str = ", ".join(usage.deal_names)
-                parts.append(f"используется в {usage.used_in_deals} сделк(е/ах): {deals_str}")
+                parts.append(
+                    f"used in {usage.used_in_deals} deal(s): {deals_str}"
+                )
             else:
-                parts.append(f"используется в {usage.used_in_deals} сделк(е/ах)")
+                parts.append(f"used in {usage.used_in_deals} deal(s)")
 
         if usage.used_in_runs > 0:
-            parts.append(f"использовался в {usage.used_in_runs} запуск(е/ах) анализа (Run)")
+            parts.append(
+                f"used in {usage.used_in_runs} analysis run(s)"
+            )
 
-        detail = "Шаблон плейбука не может быть удалён: " + "; ".join(parts) + "."
+        detail = (
+            "Playbook template cannot be deleted: "
+            + "; ".join(parts)
+            + "."
+        )
 
         raise api_error(
             status.HTTP_409_CONFLICT,

@@ -1,13 +1,13 @@
 // =============================================================
 // src/api/documents.state.ts
-// Нормализованные стейт-объекты для данных по документам.
+// Normalized state objects for document data.
 //
-// Эти типы и фабрики используются адаптерами и контейнерами,
-// чтобы UI всегда понимал, что происходит:
-// - идёт загрузка
-// - документ найден / не найден
-// - структурированные данные есть / отсутствуют
-// - произошла ошибка
+// These types and factories are utilized by adapters and containers
+// to ensure the UI correctly understands the current state of documents:
+// - loading in progress
+// - document found / not found
+// - structured data available / missing
+// - error occurred
 // =============================================================
 
 import type {
@@ -26,30 +26,30 @@ import type {
 // -------------------------------------------------------------
 
 /**
- * Нормализованный стейт для правой панели деталей документа.
+ * Normalized state for the right-hand document details panel.
  *
- * Инварианты:
- * - при isLoading === true остальные флаги (notFound, error) должны быть false/null
- * - при notFound === true doc === null и error === null
- * - при error !== null notFound === false
+ * Invariants:
+ * - When isLoading === true, other flags (notFound, error) must be false/null
+ * - When notFound === true, doc === null and error === null
+ * - When error !== null, notFound === false
  */
 export interface DocumentDetailsState {
-  // Основные данные для view
+  // Main data for the view
   doc: Document | null;
   classification: DocumentDetailsViewClassification | null;
   family: DocumentFamilyView | null;
 
-  // Технические флаги
+  // Technical flags
   isLoading: boolean;
-  notFound: boolean;      // 404 по /documents/{id}
-  error: string | null;   // проблемы сервера/сети и прочие ошибки
+  notFound: boolean;      // 404 on /documents/{id}
+  error: string | null;   // network/server issues and other errors
 
-  // Результат последней переклассификации (если нужен во view)
+  // Result of the last reclassification (if needed in the view)
   lastReclassifyResult?: ReclassifyResult;
 }
 
 /**
- * Начальное состояние: пока ничего не знаем, идёт загрузка.
+ * Initial state: nothing is loaded yet, loading is in progress.
  */
 export function createInitialDocumentDetailsState(): DocumentDetailsState {
   return {
@@ -64,7 +64,7 @@ export function createInitialDocumentDetailsState(): DocumentDetailsState {
 }
 
 /**
- * Состояние "успех": документ найден и данные получены.
+ * Success state: document was found and data retrieved.
  */
 export function createDocumentDetailsSuccessState(params: {
   doc: Document;
@@ -84,7 +84,7 @@ export function createDocumentDetailsSuccessState(params: {
 }
 
 /**
- * Состояние "документ не найден" (404).
+ * "Document not found" state (404).
  */
 export function createDocumentDetailsNotFoundState(): DocumentDetailsState {
   return {
@@ -99,7 +99,7 @@ export function createDocumentDetailsNotFoundState(): DocumentDetailsState {
 }
 
 /**
- * Состояние "ошибка загрузки" (500, сеть и т.п.).
+ * "Load error" state (500, network issues, etc.).
  */
 export function createDocumentDetailsErrorState(message: string): DocumentDetailsState {
   return {
@@ -114,8 +114,8 @@ export function createDocumentDetailsErrorState(message: string): DocumentDetail
 }
 
 /**
- * Хелпер для установки результата переклассификации поверх существующего стейта.
- * Полезно вызывать из контейнера после успешной мутации.
+ * Helper to set the reclassification result on top of the existing state.
+ * Usually invoked by the container after a successful mutation.
  */
 export function withReclassifyResult(
   state: DocumentDetailsState,
@@ -132,26 +132,26 @@ export function withReclassifyResult(
 // -------------------------------------------------------------
 
 /**
- * Нормализованный стейт для блока структурированных данных документа.
+ * Normalized state for the document structured data block.
  *
- * Инварианты:
- * - при isLoading === true остальные флаги (notAvailable, error) должны быть false/null
- * - при notAvailable === true items === [] и error === null
- * - при error !== null notAvailable === false
+ * Invariants:
+ * - When isLoading === true, other flags (notAvailable, error) must be false/null
+ * - When notAvailable === true, items === [] and error === null
+ * - When error !== null, notAvailable === false
  */
 export interface StructuredDataState {
-  // Основные данные
+  // Main data
   items: StructuredDataView["extracted_values"];
   total: number;
 
-  // Технические флаги
+  // Technical flags
   isLoading: boolean;
-  notAvailable: boolean;  // 404 по /structured-data => данных для этого документа нет
+  notAvailable: boolean;  // 404 on /structured-data => no structured data exists for this document
   error: string | null;
 }
 
 /**
- * Начальное состояние для структурированных данных.
+ * Initial state for structured data.
  */
 export function createInitialStructuredDataState(): StructuredDataState {
   return {
@@ -164,7 +164,7 @@ export function createInitialStructuredDataState(): StructuredDataState {
 }
 
 /**
- * Состояние "успех": данные получены.
+ * Success state: structured data retrieved.
  */
 export function createStructuredDataSuccessState(
   data: StructuredDataResult,
@@ -179,9 +179,9 @@ export function createStructuredDataSuccessState(
 }
 
 /**
- * Состояние "данные недоступны" (404).
- * Это не ошибка, а нормальная ситуация: для этого документа
- * просто нет структурированных данных.
+ * "Data not available" state (404).
+ * This is not treated as a network error, but as a normal state:
+ * there is simply no structured data extracted for this document.
  */
 export function createStructuredDataNotAvailableState(): StructuredDataState {
   return {
@@ -194,7 +194,7 @@ export function createStructuredDataNotAvailableState(): StructuredDataState {
 }
 
 /**
- * Состояние "ошибка загрузки" (500, сеть).
+ * "Load error" state (500, network issues, etc.).
  */
 export function createStructuredDataErrorState(message: string): StructuredDataState {
   return {
@@ -205,6 +205,5 @@ export function createStructuredDataErrorState(message: string): StructuredDataS
     error: message,
   };
 }
-
 
 

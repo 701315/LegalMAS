@@ -1,6 +1,6 @@
 // =============================================================
 // src/components/auth/ProjectRouteGuard.tsx
-// Защита маршрутов проекта по capability-флагам.
+// Project route protection based on capability flags.
 // =============================================================
 
 import React from "react";
@@ -25,17 +25,17 @@ type RequiredCapability =
 
 interface ProjectRouteGuardProps {
   /**
-   * Какой capability требуется для доступа к странице.
-   * Если не указан — пускаем по факту наличия projectRole (viewer и выше).
+   * The specific capability required to access the page.
+   * If omitted, access is allowed based on projectRole (viewer and above).
    */
   requiredCapability?: RequiredCapability;
   children: React.ReactElement;
 }
 
 /**
- * Обёртка для маршрутов проекта.
- * Берёт dealId из URL, вычисляет permissions через useDealPermissions
- * и проверяет нужный capability. Если capability отсутствует — показывает "Нет доступа".
+ * Wrapper for project routes.
+ * Extracts dealId from the URL, determines permissions via useDealPermissions,
+ * and validates the required capability. Displays "Access Denied" if missing.
  */
 export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
   requiredCapability,
@@ -44,20 +44,20 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
   const { t } = useTranslation("common");
   const { dealId } = useParams<{ dealId: string }>();
 
-  // ВАЖНО: хук вызываем всегда, даже если dealId ещё нет.
-  // Внутри useDealPermissions нужно быть готовым к undefined/null.
+  // CRITICAL: The hook must always be called, even if dealId is not yet available.
+  // useDealPermissions handles undefined/null internally.
   const globalRole = useUIStore((s) => s.globalRole);
   const dealPermissions = useDealPermissions(dealId as string);
 
-  // Если нет dealId в URL — отправляем на список сделок.
+  // If there is no dealId in the URL, redirect to the projects list.
   if (!dealId) {
     return <Navigate to="/deals" replace />;
   }
 
-  // Защита от null globalRole.
-  // globalRole === null означает что store ещё не гидратирован
-  // (пользователь только что залогинился или открыл новую вкладку).
-  // Не блокируем доступ — показываем spinner пока данные не появятся.
+  // Protect against null globalRole.
+  // globalRole === null means the store is not yet hydrated
+  // (the user just logged in or opened a new tab).
+  // Do not block access — show a spinner until the state is loaded.
   if (globalRole === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--bg-subtle)]">
@@ -66,7 +66,7 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
     );
   }
 
-  // Проверяем capability.
+  // Verify capability access.
   const hasAccess = !requiredCapability
     ? dealPermissions.canViewOverview
     : dealPermissions[requiredCapability];
@@ -106,6 +106,5 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
 };
 
 export default ProjectRouteGuard;
-
 
 

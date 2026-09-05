@@ -1,5 +1,7 @@
 // =============================================================
 // src/components/ui/ConfirmDialog.tsx
+//
+// Modal dialog for action confirmation (e.g. deletion, reset).
 // =============================================================
 
 import React from "react";
@@ -7,31 +9,31 @@ import { useTranslation } from "react-i18next";
 import Button from "./Button";
 
 interface ConfirmDialogProps {
-  /** Показывать ли диалог. */
+  /** Whether the dialog is open. */
   open: boolean;
 
-  /** Заголовок диалога. */
+  /** Dialog title. */
   title: string;
 
-  /** Описание / пояснение под заголовком. */
+  /** Description or explanatory text below the title. */
   description?: string;
 
-  /** Текст кнопки подтверждения. По умолчанию "Да". */
+  /** Confirmation button text. Defaults to "Yes" via i18n. */
   confirmLabel?: string;
 
-  /** Текст кнопки отмены. По умолчанию "Отмена". */
+  /** Cancel button text. Defaults to "Cancel" via i18n. */
   cancelLabel?: string;
 
-  /** Вариант кнопки подтверждения. По умолчанию "danger". */
+  /** Confirmation button variant. Defaults to "danger". */
   confirmVariant?: "danger" | "primary";
 
-  /** Показывать индикатор загрузки на кнопке подтверждения. */
+  /** Show loading indicator on the confirm button. */
   isLoading?: boolean;
 
-  /** Колбэк при подтверждении. */
+  /** Callback on confirm. */
   onConfirm: () => void;
 
-  /** Колбэк при отмене / закрытии. */
+  /** Callback on cancel / close. */
   onCancel: () => void;
 }
 
@@ -49,10 +51,12 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const { t } = useTranslation("common");
   const cancelRef = React.useRef<HTMLButtonElement>(null);
 
-  const resolvedConfirmLabel = confirmLabel || t("actions.yes");
-  const resolvedCancelLabel = cancelLabel || t("actions.cancel");
+  const resolvedConfirmLabel =
+    confirmLabel ?? t("actions.yes", { defaultValue: "Yes" });
+  const resolvedCancelLabel =
+    cancelLabel ?? t("actions.cancel", { defaultValue: "Cancel" });
 
-  // Автофокус на кнопке отмены при открытии
+  // Autofocus the cancel button when dialog opens
   React.useEffect(() => {
     if (open) {
       const timer = setTimeout(() => {
@@ -62,7 +66,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     }
   }, [open]);
 
-  // Закрытие по Escape
+  // Handle Escape key press
   React.useEffect(() => {
     if (!open) return;
 
@@ -93,12 +97,12 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         className="w-full max-w-sm animate-fadein rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Метка */}
+        {/* Category label */}
         <div className="mb-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-          {t("dialogs.confirmation")}
+          {t("dialogs.confirmation", { defaultValue: "Confirmation" })}
         </div>
 
-        {/* Заголовок */}
+        {/* Title */}
         <h2
           id="confirm-dialog-title"
           className="text-base font-semibold text-[var(--text-primary)]"
@@ -106,7 +110,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           {title}
         </h2>
 
-        {/* Описание */}
+        {/* Description */}
         {description && (
           <p
             id="confirm-dialog-desc"
@@ -116,7 +120,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </p>
         )}
 
-        {/* Кнопки */}
+        {/* Actions */}
         <div className="mt-5 flex justify-end gap-2">
           <Button
             ref={cancelRef}

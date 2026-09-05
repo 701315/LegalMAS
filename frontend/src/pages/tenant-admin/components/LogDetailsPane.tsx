@@ -1,21 +1,21 @@
 // =============================================================
 // src/pages/tenant-admin/components/LogDetailsPane.tsx
 //
-// Панель деталей выбранного log entry. Показывается справа от
-// LogsTable на xl+ viewport, или снизу (as card) на меньших.
+// Detail panel for the selected log entry. Displayed to the right of
+// LogsTable on xl+ viewports, or below (as a card) on smaller screens.
 //
 // Event card (full text)
 // - MetaFields grid (Logger, Worker, Deal ID, Run ID, Document ID, ...)
 // - Raw JSON pre-block
 //
 // Correlation actions:
-// - Run ID / Document ID / Task ID имеют action buttons
-// - Клик применяет correlation фильтр в parent logs list
+// - Run ID / Document ID / Task ID have action buttons
+// - Clicking applies a correlation filter in the parent logs list
 //
 // Design contract:
-// - Empty state если entry === null
-// - Scroll внутри panel (overflow-auto на body)
-// - Copy button показывает "Скопировано" на 1.8s (управляется в parent)
+// - Empty state when entry === null
+// - Scroll inside panel (overflow-auto on body)
+// - Copy button shows "Copied" for 1.8s (controlled by parent)
 // =============================================================
 
 import React from "react";
@@ -40,15 +40,15 @@ export interface LogDetailsCorrelations {
 }
 
 export interface LogDetailsPaneProps {
-  /** Выбранный log entry (null = показать empty state) */
+  /** Selected log entry (null = show empty state) */
   entry: LogEntry | null;
-  /** Показать "Скопировано" вместо "JSON" на button */
+  /** Show "Copied" instead of "JSON" on the button */
   copied: boolean;
-  /** Callback для copy to clipboard */
+  /** Callback for copy to clipboard */
   onCopy: () => void;
-  /** Callback для закрытия panel (unselect entry) */
+  /** Callback for closing the panel (unselect entry) */
   onClear: () => void;
-  /** Опциональные correlation handlers для Run/Document/Task ID */
+  /** Optional correlation handlers for Run/Document/Task ID */
   correlations?: LogDetailsCorrelations;
 }
 
@@ -149,11 +149,11 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
-            <MetaField label="Logger" value={entry.logger} />
-            <MetaField label="Worker" value={entry.worker_hostname} />
-            <MetaField label="Deal ID" value={entry.deal_id} />
+            <MetaField label={t("logs.details.fields.logger")} value={entry.logger} />
+            <MetaField label={t("logs.details.fields.worker")} value={entry.worker_hostname} />
+            <MetaField label={t("logs.details.fields.dealId")} value={entry.deal_id} />
             <MetaField
-              label="Run ID"
+              label={t("logs.details.fields.runId")}
               value={entry.run_id}
               onClick={
                 entry.run_id && correlations?.onFilterByRun
@@ -163,7 +163,7 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
               actionLabel={t("logs.details.actions.allRunLogs")}
             />
             <MetaField
-              label="Document ID"
+              label={t("logs.details.fields.documentId")}
               value={entry.document_id}
               onClick={
                 entry.document_id && correlations?.onFilterByDocument
@@ -176,7 +176,7 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
               actionLabel={t("logs.details.actions.allDocLogs")}
             />
             <MetaField
-              label="Task ID"
+              label={t("logs.details.fields.taskId")}
               value={entry.task_id}
               onClick={
                 entry.task_id && correlations?.onFilterByTask
@@ -185,8 +185,8 @@ const LogDetailsPane: React.FC<LogDetailsPaneProps> = ({
               }
               actionLabel={t("logs.details.actions.allTaskLogs")}
             />
-            <MetaField label="Task name" value={entry.task_name} />
-            <MetaField label="Timestamp" value={formatDateTime(entry.timestamp, i18n.language)} />
+            <MetaField label={t("logs.details.fields.taskName")} value={entry.task_name} />
+            <MetaField label={t("logs.details.fields.timestamp")} value={formatDateTime(entry.timestamp, i18n.language)} />
           </div>
 
           <div>

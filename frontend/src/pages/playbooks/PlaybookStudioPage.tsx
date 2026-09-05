@@ -1,4 +1,8 @@
+// =============================================================
 // src/pages/instructions/PlaybookStudioPage.tsx
+//
+// Studio workspace for managing and publishing playbooks.
+// =============================================================
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -92,10 +96,14 @@ interface PlaybookVersionCreateResponse {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Утилиты
+// Utilities
 // ─────────────────────────────────────────────────────────────
 
-function extractApiErrorMessage(err: unknown, fallback: string): string {
+function extractApiErrorMessage(
+  err: unknown,
+  fallback: string,
+  tFn?: (key: string, options?: any) => string,
+): string {
   if (typeof err !== "object" || err === null) return fallback;
   const record = err as Record<string, unknown>;
   const detail = record["detail"];
@@ -108,7 +116,7 @@ function extractApiErrorMessage(err: unknown, fallback: string): string {
       const locText = Array.isArray(loc) ? loc.join(".") : "body";
       if (typeof msg === "string") return `${locText}: ${msg}`;
     }
-    return "Ошибка валидации данных формы.";
+    return tFn ? tFn("errors.validationForm") : "Form data validation error.";
   }
   return fallback;
 }
@@ -137,7 +145,7 @@ function buildLineItemsPayload(
 }
 
 // ─────────────────────────────────────────────────────────────
-// Стили форм
+// Styles
 // ─────────────────────────────────────────────────────────────
 
 const inputClassName =
@@ -368,7 +376,7 @@ const TemplateItemsTable: React.FC<TemplateItemsTableProps> = ({
           #
         </div>
         <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-          Инструкция
+          {t("picker.instruction")}
         </div>
         <div />
       </div>
@@ -413,7 +421,7 @@ const TemplateItemsTable: React.FC<TemplateItemsTableProps> = ({
                 onClick={() => onRemove(index)}
                 disabled={disabled}
                 className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] opacity-0 transition-all hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error-text)] group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:opacity-100"
-                aria-label={`Удалить ${item.instruction_code}`}
+                aria-label={t("composition.deleteInstruction", { code: item.instruction_code })}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -561,7 +569,7 @@ export const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope })
     return () => {
       cancelled = true;
     };
-  }, [selectedPlaybookId, isNewTemplateMode]);
+  }, [selectedPlaybookId, isNewTemplateMode, t]);
 
   useEffect(() => {
     if (selectedPlaybook && !isNewTemplateMode) {
@@ -700,7 +708,7 @@ export const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope })
     resetMessages();
 
     if (!selectedModelConfigId) {
-      setErrorText("Выберите конфигурацию модели.");
+      setErrorText(t("errors.selectModelConfig"));
       return;
     }
 
@@ -738,7 +746,8 @@ export const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope })
           setErrorText(
             extractApiErrorMessage(
               publishErr,
-              "Шаблон сохранён, черновик создан, но публикация не удалась.",
+              t("errors.publishFailed"),
+              t,
             ),
           );
         }
@@ -750,7 +759,7 @@ export const PlaybookStudioPage: React.FC<PlaybookStudioPageProps> = ({ scope })
       setSelectedVersionId(newVersionId);
     } catch (err) {
       setErrorText(
-        extractApiErrorMessage(err, "Не удалось создать версию playbook."),
+        extractApiErrorMessage(err, t("errors.createVersionFailed"), t),
       );
     } finally {
       setIsCreatingVersion(false);

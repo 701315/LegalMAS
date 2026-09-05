@@ -325,12 +325,12 @@ async def _start_run_core(
         ):
             reason = "queue_unavailable"
             http_detail = (
-                "Не удалось запустить анализ сделки: очередь задач временно "
-                "недоступна. Попробуйте ещё раз позже."
+                "Failed to start deal analysis: task queue is temporarily unavailable. "
+                "Please try again later."
             )
         else:
             reason = "infrastructure_error"
-            http_detail = "Не удалось запустить анализ сделки: внутренняя ошибка " "инфраструктуры."
+            http_detail = "Failed to start deal analysis: internal infrastructure error."
 
         await _mark_run_failed_orchestrator(
             run_repo=run_repo,
@@ -338,9 +338,6 @@ async def _start_run_core(
             reason=reason,
             message=msg,
         )
-        # В старой модели get_db мог сам коммитить; если ты уже перевёл
-        # session lifecycle на явные коммиты, сюда имеет смысл добавить:
-        # await db.commit()
         raise HTTPException(
             status_code=503,
             detail=http_detail,

@@ -322,7 +322,33 @@
     "missingDocId": "Document ID not specified",
     "pathDescription": "The path of the document through processing stages — from original PDF to structure and chunks.",
     "notAvailable": "Processing stages are not available yet.",
-    "title": "Document pipeline"
+    "title": "Document pipeline",
+    "stageInfo": {
+      "source": {
+        "title": "SOURCE: source document",
+        "description": "Original processing document: raw file or PDF converted from office format."
+      },
+      "primary": {
+        "title": "PRIMARY: single-language source",
+        "description": "Document after selecting primary deal language, used as main downstream pipeline input."
+      },
+      "extract": {
+        "title": "EXTRACT: extracted layout",
+        "description": "Text layout after extraction: primary-language layout or raw multilingual layout."
+      },
+      "pii": {
+        "title": "PII: sanitized layout",
+        "description": "Layout after PII sanitization. Main downstream layout for structure, chunking, and checks."
+      },
+      "structure": {
+        "title": "STRUCTURE: document structure",
+        "description": "Structured document representation with clauses, headings, and hierarchy."
+      },
+      "chunks": {
+        "title": "CHUNKS: vector chunks",
+        "description": "Chunked text segments prepared for LLM analysis and retrieval."
+      }
+    }
   },
   "classificationLevels": {
     "L0": {

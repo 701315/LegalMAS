@@ -1,3 +1,5 @@
+// frontend/src/components/layout/AppShell.tsx
+
 import React from "react";
 import {
   LayoutDashboard,
@@ -37,10 +39,10 @@ const FOCUSABLE_SELECTOR = [
 ].join(", ");
 
 const navItemBaseClassName =
-  "group flex items-center gap-3 rounded-xl px-3 py-2 font-medium transition-all duration-150 " +
+  "group flex items-center gap-3 rounded-xl px-3 py-2.5 font-medium transition-all duration-150 " +
   "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)] " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 " +
-  "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 " +
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -127,10 +129,10 @@ const NavItem: React.FC<NavItemProps> = ({
     className={({ isActive }) =>
       [
         navItemBaseClassName,
-        "w-full",
+        "w-full border",
         isActive
-          ? "nav-item-active"
-          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
+          ? "bg-white/15 text-white shadow-sm backdrop-blur-md border-white/20 font-semibold"
+          : "border-transparent text-slate-300 hover:bg-white/10 hover:border-white/10 hover:text-white",
         collapsed && "justify-center px-2",
       ]
         .filter(Boolean)
@@ -147,8 +149,8 @@ const SidebarSectionLabel: React.FC<{
   label: string;
 }> = ({ icon: Icon, label }) => (
   <div className="flex items-center gap-2 px-1 py-1">
-    <Icon className="h-3.5 w-3.5 text-[var(--text-muted)]" aria-hidden="true" />
-    <span className="text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+    <Icon className="h-3.5 w-3.5 text-white/50" aria-hidden="true" />
+    <span className="text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.14em] text-white/50">
       {label}
     </span>
   </div>
@@ -254,7 +256,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   const { globalRole } = useAuth();
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-[var(--bg-card)]">
+    <div className="relative flex h-full min-h-0 flex-col">
       {!isMobile && onToggleSidebar && (
         <div className="absolute -right-5 top-4 z-20">
           <Button
@@ -264,7 +266,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
             onClick={onToggleSidebar}
             aria-label={collapsed ? t("actions.expandMenu") : t("actions.collapseMenu")}
             aria-pressed={collapsed}
-            className="h-10 min-h-0 w-10 rounded-full p-0 shadow-sm"
+            className="flex h-10 min-h-0 w-10 items-center justify-center rounded-full border border-slate-200 bg-white p-0 text-slate-700 shadow-md transition hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-400"
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -282,7 +284,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 
         {!collapsed && (
           <div className="min-w-0">
-            <div className="text-[length:var(--font-size-body-sm)] leading-[var(--line-height-body-sm)] font-semibold tracking-tight text-[var(--text-primary)]">
+            <div className="text-[length:var(--font-size-body-sm)] leading-[var(--line-height-body-sm)] font-semibold tracking-tight text-white">
               Steloom
             </div>
           </div>
@@ -294,7 +296,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
             type="button"
             onClick={onRequestCloseMobile}
             aria-label={t("actions.closeMenu")}
-            className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-xl text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+            className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-xl text-white/50 transition hover:bg-white/10 hover:text-white"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -320,7 +322,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                 />
 
                 {!collapsed && showProjectsSection && (
-                  <div className="mt-1 pl-2">
+                  <div className="mt-2 pl-2">
                     <SidebarSectionLabel
                       icon={BriefcaseBusiness}
                       label={t("sidebar.projects")}
@@ -332,12 +334,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                             key={index}
                             className="rounded-xl border border-transparent px-3 py-2"
                           >
-                            <div className="skeleton h-4 w-3/4 rounded" />
-                            <div className="mt-1.5 skeleton h-3 w-1/2 rounded" />
+                            <div className="h-4 w-3/4 animate-pulse rounded bg-white/10" />
+                            <div className="mt-1.5 h-3 w-1/2 animate-pulse rounded bg-white/5" />
                           </div>
                         ))
                       ) : isProjectsError ? (
-                        <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                        <div className="rounded-xl border border-dashed border-white/20 px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-white/50">
                           {t("sidebar.loadError")}
                         </div>
                       ) : sidebarProjects.length > 0 ? (
@@ -354,10 +356,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                                 [
                                   "block rounded-xl border px-3 py-2 transition-all duration-150",
                                   "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]",
-                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900",
                                   isActive
-                                    ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--text-primary)]"
-                                    : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
+                                    ? "bg-white/15 text-white shadow-sm backdrop-blur-md border-white/20 font-semibold"
+                                    : "border-transparent text-slate-300 hover:border-white/10 hover:bg-white/10 hover:text-white",
                                 ].join(" ")
                               }
                             >
@@ -368,14 +370,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 
                                 {project.needs_setup ? (
                                   <span
-                                    className="shrink-0 rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-warning-text)]"
+                                    className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-200"
                                     title={t("sidebar.needsSetup")}
                                   >
                                     !
                                   </span>
                                 ) : project.analysis_completed ? (
                                   <span
-                                    className="shrink-0 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]"
+                                    className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-200"
                                     title={t("sidebar.analysisCompleted")}
                                   >
                                     ✓
@@ -385,19 +387,15 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                                     className="shrink-0 flex h-4 w-4 items-center justify-center"
                                     title={t("sidebar.analysisRunning")}
                                   >
-                                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--accent-primary)]" />
+                                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" />
                                   </span>
                                 ) : null}
-                              </div>
-
-                              <div className="mt-0.5 truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-                                {project.role}
                               </div>
                             </NavLink>
                           );
                         })
                       ) : (
-                        <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                        <div className="rounded-xl border border-dashed border-white/20 px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-white/50">
                           {t("sidebar.noProjects")}
                         </div>
                       )}
@@ -405,7 +403,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                       {hiddenProjectsCount > 0 && (
                         <NavLink
                           to="/dashboard"
-                          className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+                          className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
                         >
                           {t("sidebar.moreProjects", { count: hiddenProjectsCount })}
                         </NavLink>
@@ -428,7 +426,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 
               {/* Bottom Section (Organization / Admin) */}
               {isTenantAdmin && (
-                <div className="mt-auto pt-4 border-t border-[var(--border)]">
+                <div className="mt-auto pt-4 border-t border-white/15">
                   <TenantAdminNav collapsed={collapsed} />
                 </div>
               )}
@@ -437,19 +435,19 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         </nav>
       </div>
 
-      <div className="shrink-0 border-t border-[var(--border)] px-3 py-3">
+      <div className="shrink-0 border-t border-white/15 px-3 py-3">
         <button
           type="button"
           onClick={onOpenLogout}
           aria-label={t("actions.logout")}
           className={[
-            "flex w-full items-center gap-3 rounded-xl bg-[var(--bg-elevated-soft)] px-3 py-2 transition hover:bg-[var(--bg-card)]",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+            "flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 transition hover:bg-white/15 text-slate-300 hover:text-white",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900",
             collapsed ? "justify-center" : "justify-start text-left",
           ].join(" ")}
         >
           <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white shadow-sm"
             aria-hidden="true"
           >
             <Users className="h-4 w-4" />
@@ -457,10 +455,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 
           {!collapsed && (
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold text-[var(--text-primary)]">
+              <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold text-white">
                 {t(`projectMembers.systemRoles.${globalRole ?? "member"}`, { ns: "admin", defaultValue: globalRole ?? "User" })}
               </span>
-              <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+              <span className="block truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-black">
                 {t("actions.logout")}
               </span>
             </span>
@@ -583,7 +581,6 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
     }
   }, [isDesktop, mobileNavOpen]);
 
-  // Автоматически закрываем mobile drawer при любом изменении URL
   React.useEffect(() => {
     setMobileNavOpen(false);
   }, [location.pathname]);
@@ -651,14 +648,22 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   return (
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
+      {/* ── Тёмный сайдбар на десктопе (позиционирование left top) ── */}
       <aside
         className={[
-          "relative hidden h-full min-h-0 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-card)] transition-[width] duration-200 lg:flex",
+          "relative hidden h-full min-h-0 shrink-0 flex-col border-r border-white/15 transition-[width] duration-200 lg:flex",
           collapsed
             ? DESKTOP_NAV_WIDTH_COLLAPSED_CLASS
             : DESKTOP_NAV_WIDTH_EXPANDED_CLASS,
         ].join(" ")}
         aria-label={t("actions.mainNav")}
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.45)), url('/projectpicture.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "left top",
+          backgroundRepeat: "no-repeat",
+        }}
       >
         <SidebarContent
           collapsed={collapsed}
@@ -731,7 +736,14 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
             aria-modal="true"
             aria-labelledby="steloom-mobile-nav-title"
             onKeyDown={handleMobileDrawerKeyDown}
-            className={`${MOBILE_DRAWER_WIDTH_CLASS} relative h-full border-r border-[var(--border)] bg-[var(--bg-card)] shadow-2xl`}
+            className={`${MOBILE_DRAWER_WIDTH_CLASS} relative h-full border-r border-white/15 shadow-2xl`}
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.45)), url('/projectpicture.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "left top",
+              backgroundRepeat: "no-repeat",
+            }}
           >
             <h2 id="steloom-mobile-nav-title" className="sr-only">
               {t("actions.mainNav")}

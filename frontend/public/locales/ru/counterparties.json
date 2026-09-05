@@ -65,16 +65,16 @@
     "documents": {
       "title": "Упоминания в контрактах",
       "subtitle": "Список документов и контрактов, в которых найден контрагент",
-      "role": "Role:",
-      "value": "Value:"
+      "role": "Роль:",
+      "value": "Сумма:"
     },
     "financials": {
       "title": "Финансовая выжимка",
       "subtitle": "Ключевые финансовые показатели по контрагенту",
-      "revenue": "Revenue",
+      "revenue": "Выручка",
       "ebitda": "EBITDA",
-      "assets": "Assets",
-      "employees": "Employees"
+      "assets": "Активы",
+      "employees": "Сотрудники"
     },
     "risks": {
       "title": "Риски",
@@ -84,17 +84,17 @@
         "sanctions": "Санкции",
         "litigation": "Суды"
       },
-      "notes": "Risk notes"
+      "notes": "Примечания по рискам"
     },
     "ownership": {
       "title": "Собственник / UBO",
-      "subtitle": "Ownership context и санкционная проверка UBO",
-      "owner": "Owner",
-      "ubo": "UBO",
-      "statusMatch": "Sanctions match",
-      "statusReview": "Sanctions review",
-      "statusClear": "No sanctions match",
-      "note": "Ownership note"
+      "subtitle": "Структура владения и санкционная проверка UBO",
+      "owner": "Собственник",
+      "ubo": "Бенефициар (UBO)",
+      "statusMatch": "Найдено совпадение в санкционных списках",
+      "statusReview": "Требуется проверка санкций",
+      "statusClear": "Совпадений в санкционных списках нет",
+      "note": "Примечание о структуре владения"
     }
   },
   "drawer": {

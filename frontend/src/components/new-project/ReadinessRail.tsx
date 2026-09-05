@@ -1,21 +1,11 @@
 // =============================================================
 // src/components/new-project/ReadinessRail.tsx
 //
-// Правая колонка страницы "Запуск нового проекта".
+// Right sidebar rail for the "New Project Launch" page.
 //
-// Содержит:
-//   1. Готовность к запуску — обязательные условия
-//   2. Сводка проекта       — текущие значения параметров
-// =============================================================
-
-// =============================================================
-// src/components/new-project/ReadinessRail.tsx
-//
-// Правая колонка страницы "Запуск нового проекта".
-//
-// Содержит:
-//   1. Готовность к запуску — обязательные условия
-//   2. Сводка проекта       — текущие значения параметров
+// Contains:
+//   1. Launch Readiness — required preconditions checklist
+//   2. Project Summary  — current configuration parameter values
 // =============================================================
 
 import React from "react";
@@ -135,6 +125,5 @@ const ReadinessRail: React.FC<ReadinessRailProps> = ({
 };
 
 export default ReadinessRail;
-
 
 

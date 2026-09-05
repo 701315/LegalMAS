@@ -1,21 +1,21 @@
 // =============================================================
 // src/pages/tenant-admin/components/LogsTable.tsx
 //
-// Таблица log entries с selection. Используется в двух местах:
-// - Main admin panel → tab "Логи" (compact = false)
-// - ProjectDrillDown → tab "Логи" (compact = true)
+// Log entries table with row selection. Used in two contexts:
+// - Main admin panel → "Logs" tab (compact = false)
+// - ProjectDrillDown → "Logs" tab (compact = true)
 //
-// Compact mode: скрывает колонки Queue и Worker, использует меньший
-// max-width для Event колонки. Применяется в drill down где меньше
-// horizontal space.
+// Compact mode: hides Queue and Worker columns, uses a smaller
+// max-width for the Event column. Applied in drill-down views
+// where horizontal space is limited.
 //
 // Design contract:
-// - Sticky header (top-0) с elevated-soft background
-// - Row selection через selectedIdx (null = ничего не выбрано)
-// - Selected row подсвечена accent-muted
-// - Grouped entries (count > 1) показывают Layers icon с ×N
-// - Timestamp, Level, Event, Stage — всегда видны
-// - Queue, Worker — только в non-compact mode
+// - Sticky header (top-0) with elevated-soft background
+// - Row selection via selectedIdx (null = nothing selected)
+// - Selected row highlighted with accent-muted
+// - Grouped entries (count > 1) show Layers icon with ×N
+// - Timestamp, Level, Event, Stage — always visible
+// - Queue, Worker — only in non-compact mode
 // =============================================================
 
 import React from "react";
@@ -27,16 +27,16 @@ import { formatDateTime } from "../utils";
 import LevelBadge from "./LevelBadge";
 
 export interface LogsTableProps {
-  /** Массив log entries для отображения */
+  /** Array of log entries to display */
   logs: LogEntry[];
-  /** Индекс выбранной строки (null если ничего не выбрано) */
+  /** Index of the selected row (null if nothing is selected) */
   selectedIdx: number | null;
-  /** Callback при клике на строку */
+  /** Callback when clicking a row */
   onSelect: (idx: number) => void;
   /**
-   * Compact mode: скрывает Queue и Worker колонки.
-   * Используется в drill down где меньше horizontal space.
-   * Default: false (полная таблица)
+   * Compact mode: hides Queue and Worker columns.
+   * Used in drill-down views with limited horizontal space.
+   * Default: false (full table)
    */
   compact?: boolean;
 }

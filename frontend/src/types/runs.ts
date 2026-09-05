@@ -1,18 +1,18 @@
 // =============================================================
 // src/types/runs.ts
-// Типы для Run, статусов запуска анализа и SSE-прогресса.
+// Run, analysis run statuses, and SSE progress types.
 // =============================================================
 
 import type { ClassificationStats } from "./documents";
 
 /**
- * Статусы синхронизированы с backend Run.status:
- * - pending  — Run создан, но пайплайн не запускался;
- * - running  — оркестратор поставил задачи, анализ идёт;
- * - completed — все документы успешно прошли checks;
- * - completed_with_errors — анализ завершён, но есть документы FAILED/QUARANTINE;
- * - failed   — критическая ошибка Run (конфигурация/инфраструктура);
- * - cancelled — зарезервирован для сценариев отмены Run из UI, если backend начнёт его возвращать.
+ * Statuses synchronized with backend Run.status:
+ * - pending  — Run created, but pipeline has not been started yet;
+ * - running  — orchestrator scheduled tasks, analysis is in progress;
+ * - completed — all documents completed checks successfully;
+ * - completed_with_errors — analysis finished, but some documents are FAILED/QUARANTINE;
+ * - failed   — critical Run error (configuration/infrastructure);
+ * - cancelled — reserved for Run cancellation scenarios from the UI.
  */
 export type RunStatus =
   | "pending"
@@ -30,41 +30,41 @@ export type RunChecksMode =
   | "global_and_doc_type";
 
 /**
- * Входные данные для старта нового анализа.
+ * Input payload to start a new analysis run.
  *
- * Playbook и model_config берутся из настроек сделки (Deal.playbook_version_id),
- * поэтому их не нужно передавать в запросе.
+ * Playbook and model_config are fetched from the deal settings (Deal.playbook_version_id),
+ * so they do not need to be passed in the request body.
  */
 export interface RunCreateInput {
-  /** Профиль запуска: core / full / max */
+  /** Run profile: core / full / max */
   profile?: RunProfile;
 
-  /** Режим проверок: global_only / doc_type_only / global_and_doc_type */
+  /** Checks scope: global_only / doc_type_only / global_and_doc_type */
   checks_mode?: RunChecksMode;
 
-  /** Если true — HybridClassifier перезапустится для всех документов */
+  /** If true, HybridClassifier will rerun for all documents */
   force_reclassify?: boolean;
 }
 
 /**
- * Информация о запуске анализа.
+ * Analysis run information.
  *
- * Используется для:
- *  - статус-бэджей в Overview;
- *  - прогрессбара по checks;
- *  - сводки по последнему Run в карточке сделки;
- *  - DD Grid (фильтрация по режиму и стратегии).
+ * Used for:
+ *  - status badges in the Overview tab;
+ *  - checks progress bar;
+ *  - last Run summary inside the deal card;
+ *  - DD Grid (filtering by checks scope and strategy).
  */
 export interface Run {
   id: string;
   deal_id: string;
   status: RunStatus;
 
-  /** Профиль запуска: core / full / max */
+  /** Run profile: core / full / max */
   profile: RunProfile;
 
   /**
-   * Режим проверок, в котором выполнялся Run:
+   * Checks scope for the Run:
    *  - "global_only"
    *  - "doc_type_only"
    *  - "global_and_doc_type"
@@ -72,52 +72,51 @@ export interface Run {
   checks_mode: RunChecksMode;
 
   /**
-   * Стратегия пайплайна:
-   *  - REUSE_STRUCTURE — переиспользовать уже рассчитанное дерево/структуру;
-   *  - FULL_RERUN      — пересчитать всё с нуля;
-   *  - другие значения по договорённости с backend.
+   * Pipeline rerun strategy:
+   *  - REUSE_STRUCTURE — reuse pre-computed document structure tree;
+   *  - FULL_RERUN      — recalculate everything from scratch;
    */
   pipeline_strategy: string;
 
-  /** Сколько документов должны пройти checks */
+  /** Total number of checks to run across documents */
   total_checks: number;
 
-  /** Сколько документов уже прошли checks */
+  /** Completed checks count */
   completed_checks: number;
 
-  /** Есть ли FAILED/QUARANTINE документы */
+  /** Whether the run has FAILED/QUARANTINE documents */
   has_errors?: boolean;
 
-  /** Сколько документов в статусе FAILED */
+  /** Number of documents in FAILED status */
   failed_docs_count?: number;
 
-  /** Сколько документов в статусе QUARANTINE */
+  /** Number of documents in QUARANTINE status */
   quarantine_docs_count?: number;
 
-  /** Время начала/окончания Run (ISO8601-строки) */
+  /** Run started/completed timestamps (ISO8601 strings) */
   started_at?: string;
   completed_at?: string;
 
   /**
-   * Ошибка уровня Run (не отдельного документа).
-   * Формат согласован с backend Run.error_details.
+   * Run-level error details (not document-specific).
+   * Schema aligned with backend Run.error_details.
    */
   error_details?: Record<string, unknown>;
 
-  /** Опциональная статистика — при include_classification_stats=true */
+  /** Optional classification stats — returned if include_classification_stats=true */
   classification_stats?: ClassificationStats;
 }
 
-/** Событие прогресса, получаемое через SSE во время анализа */
+/** Progress event received via SSE during analysis */
 export interface ProgressEvent {
   run_id: string;
   status: RunStatus;
 
-  /** Актуальный контракт */
+  /** Current active contract fields */
   completed_checks?: number;
   total_checks?: number;
 
-  /** Временная совместимость со старым/фактическим payload */
+  /** Backwards compatibility with older payloads */
   completed?: number;
   total?: number;
 
@@ -127,17 +126,17 @@ export interface ProgressEvent {
 
 // =============================================================
 // Pipeline progress types
-// Используются для детального отображения стадий пайплайна
-// на странице обзора сделки.
+// Used for detailed rendering of pipeline stages
+// inside the project overview tab.
 // =============================================================
 
 /**
- * Статус одного product-этапа pipeline.
- * pending           — ещё не начат
- * running           — идёт прямо сейчас
- * completed         — успешно завершён
- * completed_with_errors — завершён, но с ошибками в части документов
- * failed            — завершён с ошибкой
+ * Status of a single product-level pipeline step.
+ * pending               — not started yet
+ * running               — currently running
+ * completed             — completed successfully
+ * completed_with_errors — completed but some documents have errors
+ * failed                — completed with a terminal failure
  */
 export type PipelineStepStatus =
   | "pending"
@@ -147,12 +146,12 @@ export type PipelineStepStatus =
   | "failed";
 
 /**
- * Статус технического substep внутри product-этапа.
- * planned   — запланирован, ещё не начат
- * running   — выполняется
- * completed — успешно завершён
- * failed    — завершился с ошибкой
- * cancelled — отменён
+ * Status of a technical substep inside a pipeline step.
+ * planned   — planned, not started yet
+ * running   — currently running
+ * completed — completed successfully
+ * failed    — failed with an error
+ * cancelled — cancelled
  */
 export type PipelineSubstepStatus =
   | "planned"
@@ -162,11 +161,11 @@ export type PipelineSubstepStatus =
   | "cancelled";
 
 /**
- * Тип живого прогресса внутри долгого этапа.
- * legal_units — обогащение semantic-блоков
- * segments    — классификация сегментов
- * checks      — DD-проверки
- * documents   — общий прогресс по документам
+ * Type of live progress inside a long-running step.
+ * legal_units — enrichment of semantic blocks
+ * segments    — segment classification
+ * checks      — DD checks execution
+ * documents   — general document progress
  */
 export type PipelineSubProgressKind =
   | "legal_units"
@@ -175,7 +174,7 @@ export type PipelineSubProgressKind =
   | "documents";
 
 /**
- * Живой прогресс внутри долгого этапа (из progress_details в БД).
+ * Live progress state inside a pipeline step (from progress_details in DB).
  */
 export interface PipelineSubProgress {
   kind: PipelineSubProgressKind;
@@ -191,8 +190,8 @@ export interface PipelineSubProgress {
 }
 
 /**
- * Один технический substep внутри product-этапа.
- * Например: workers.extract_document внутри "Подготовка документа".
+ * A single technical substep inside a product-level step.
+ * Example: workers.extract_document inside "Document Preprocessing".
  */
 export interface PipelineSubstep {
   code: string;
@@ -205,8 +204,8 @@ export interface PipelineSubstep {
 }
 
 /**
- * Один product-этап pipeline, который видит пользователь.
- * Например: "Подготовка документа", "Семантическое обогащение".
+ * A single product-level pipeline step visible to the user.
+ * Example: "Document Preprocessing", "Semantic Enrichment".
  */
 export interface PipelineStep {
   code: string;
@@ -226,11 +225,11 @@ export interface PipelineStep {
 }
 
 /**
- * Подробный user-facing прогресс pipeline по run.
- * Возвращается эндпоинтом GET /api/v1/runs/{run_id}/progress.
+ * Detailed user-facing pipeline progress for a run.
+ * Returned by GET /api/v1/runs/{run_id}/progress.
  *
- * Показывает не только checks, но и document pipeline до них:
- * подготовка → структура → классификация → обогащение → проверки → финализация.
+ * Shows full document pipeline progression:
+ * preparation → structure → classification → enrichment → checks → finalization.
  */
 export interface RunPipelineProgress {
   run_id: string;

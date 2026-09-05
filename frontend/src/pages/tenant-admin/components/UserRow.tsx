@@ -1,20 +1,19 @@
 // =============================================================
 // src/pages/tenant-admin/components/UserRow.tsx
 //
-// Строка пользователя в таблице "Пользователи" admin panel.
-// Отображает: имя/email, role badge, статус активности, кол-во
-// проектов, дата создания. Expandable — при клике показывает
-// список проектов пользователя.
+// User row in the "Users" table of the admin panel.
+// Displays: name/email, role badge, active status, project count,
+// creation date. Expandable — clicking reveals user's projects list.
 //
 // Design contract:
-// - Кликабельная строка ТОЛЬКО если у пользователя есть проекты
-//   (иначе expand не имеет смысла)
-// - Chevron icon показывает состояние expand/collapse
-// - Expanded state рендерит вторую <tr> с pills проектов
+// - Clickable row ONLY if user has projects
+//   (otherwise expand has no meaning)
+// - Chevron icon indicates expand/collapse state
+// - Expanded state renders a second <tr> with project pills
 //
 // State ownership:
-// - expanded state поднят в parent (TenantAdminPage) — потому что
-//   нужно управлять множественным expand (Set<string>)
+// - expanded state is lifted to parent (TenantAdminPage) — because
+//   multiple expand states need to be managed (Set<string>)
 // =============================================================
 
 import React from "react";
@@ -25,13 +24,13 @@ import { ROLE_LABELS, FOCUS_RING } from "../constants";
 import { formatDate, projectRoleLabel } from "../utils";
 
 export interface UserRowProps {
-  /** Пользователь для отображения */
+  /** User to display */
   user: TenantUserDTO;
-  /** Развёрнута ли строка (показываются проекты пользователя) */
+  /** Whether the row is expanded (showing user's projects) */
   expanded: boolean;
-  /** Callback для toggle expand/collapse */
+  /** Callback to toggle expand/collapse */
   onToggle: () => void;
-  /** Callback при клике на project pill */
+  /** Callback when clicking a project pill */
   onOpenProject: (dealId: string) => void;
 }
 

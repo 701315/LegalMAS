@@ -1,24 +1,24 @@
 // =============================================================
 // src/pages/tenant-admin/sections/project-drilldown/ProjectOverviewSection.tsx
 //
-// Overview sub-tab внутри ProjectDrillDown. Отображает три
-// секции с метриками и таблицами:
+// Overview sub-tab inside ProjectDrillDown. Displays three
+// sections with metrics and tables:
 //
-// 1. Документы — KpiCards + breakdown по статусам/типам
-// 2. Анализы (runs) — KpiCards + таблица последних runs
-// 3. Проблемы и ошибки — filter tabs + KpiCards + table с ErrorRow'ами
+// 1. Documents — KpiCards + breakdown by status/document type
+// 2. Runs — KpiCards + table of recent runs
+// 3. Problems & Errors — filter tabs + KpiCards + table with ErrorRows
 //
 // Design contract:
-// - space-y-4 между секциями
-// - Каждая секция = SECTION_CARD wrapper
-// - Filter tabs для errors (all/document/run)
-// - Expand/collapse для error items
-// - Клик "Логи" в run row или error row → switch на Logs sub-tab
+// - space-y-4 between sections
+// - Each section is wrapped in SECTION_CARD
+// - Filter tabs for errors (all/document/run)
+// - Expand/collapse for error items
+// - Clicking "Logs" in a run row or error row switches to the Logs sub-tab
 //
 // State ownership:
-// - errorFilter, expandedErrorKey — локальный state (специфичный для этой секции)
-// - Callbacks для switch на Logs sub-tab поднимаются в parent (ProjectDrillDown)
-//   потому что они меняют subTab + logs correlation state
+// - errorFilter, expandedErrorKey — local state (specific to this section)
+// - Callbacks for switching to the Logs sub-tab are elevated to the parent (ProjectDrillDown)
+//   as they update subTab and logs correlation state
 // =============================================================
 
 import React from "react";
@@ -44,11 +44,11 @@ import KpiCard from "../../components/KpiCard";
 import ErrorRow from "../../components/ErrorRow";
 
 export interface ProjectOverviewSectionProps {
-  /** Данные insights для проекта */
+  /** Insights data for the project */
   insights: ProjectInsightsResponse | undefined;
-  /** Callback при клике "Логи" в run row — parent переключает на Logs sub-tab */
+  /** Callback when clicking "Logs" in a run row — parent switches to the Logs sub-tab */
   onOpenLogsForRun: (runId: string) => void;
-  /** Callback при клике "Логи" в error row — parent переключает на Logs sub-tab */
+  /** Callback when clicking "Logs" in an error row — parent switches to the Logs sub-tab */
   onOpenLogsForError: (item: ProjectErrorItem) => void;
 }
 
@@ -116,14 +116,17 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
           <div className="border-t border-[var(--border-subtle)] px-5 py-4">
             <p className={LABEL_XS}>{t("drillDown.overview.byStatus")}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {Object.entries(docs.by_status).map(([st, cnt]) => (
-                <span
-                  key={st}
-                  className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]"
-                >
-                  {st}: <span className="tabular-nums">{fmt(cnt, i18n.language)}</span>
-                </span>
-              ))}
+              {Object.entries(docs.by_status).map(([st, cnt]) => {
+                const localizedStatus = t(`documentStatusLabels.${st}`, { defaultValue: st });
+                return (
+                  <span
+                    key={st}
+                    className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]"
+                  >
+                    {localizedStatus}: <span className="tabular-nums">{fmt(cnt, i18n.language)}</span>
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
@@ -175,7 +178,7 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
           />
           <KpiCard
             label={t("drillDown.overview.avgDuration")}
-            value={fmtDurationSeconds(runStats?.avg_duration_seconds, i18n.language)}
+            value={fmtDurationSeconds(runStats?.avg_duration_seconds, i18n.language, t)}
           />
         </div>
 
@@ -207,6 +210,7 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
                       label: r.status,
                       tone: "neutral" as const,
                     };
+                    const statusLabel = t(`runStatusLabels.${r.status}`, { defaultValue: cfg.label });
                     return (
                       <tr
                         key={r.run_id}
@@ -216,7 +220,7 @@ const ProjectOverviewSection: React.FC<ProjectOverviewSectionProps> = ({
                           <span
                             className={`text-xs font-medium ${toneClass(cfg.tone)}`}
                           >
-                            {cfg.label}
+                            {statusLabel}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-sm tabular-nums text-[var(--text-secondary)]">

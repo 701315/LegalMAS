@@ -5,21 +5,11 @@
 // Preview flow:
 // 1) Intro screen — короткое описание раздела
 // 2) Demo screen  — overview + shared split-view workspace
-//
-// Архитектура после Wave 1 refactoring:
-// - types    → ./real-estate/types.ts
-// - constants + demo data → ./real-estate/constants.ts
-// - pure utils / sort helpers → ./real-estate/utils.ts
-//
-// TODO при подключении API:
-// - подключить useRealEstate(dealId, currentRunId)
-// - заменить demo-данные на backend DTO
-// - привязать summary / table / detail panel к реальному enrichment
-// - заменить alert() на реальный export flow
 // =============================================================
 
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   ChevronDown,
   ChevronLeft,
@@ -42,6 +32,7 @@ import type {
   PreviewMode,
   RealEstateObjectAggregate,
   RealEstateObjectDetail,
+  RealEstateObjectType,
   RealEstateTabProps,
   SortKey,
   SortState,
@@ -53,16 +44,44 @@ import {
   buildRegionStructure,
   buildRiskMeta,
   buildTopByArea,
-  checkLabel,
   checkTone,
   getAriaSort,
   getNextSortState,
-  objectTypeLabel,
-  objectTypeShortLabel,
-  riskBadgeLabel,
   riskBadgeTone,
   sortRealEstateObjects,
 } from "./real-estate/utils";
+
+// ---------------------------------------------------------------------------
+// Helpers for typed i18n resolution
+// ---------------------------------------------------------------------------
+
+const getObjectTypeLabel = (type: RealEstateObjectType, t: TFunction): string => {
+  return t(`types.${type}`, { defaultValue: type });
+};
+
+const getObjectTypeShortLabel = (type: RealEstateObjectType, t: TFunction): string => {
+  return t(`typesShort.${type}`, { defaultValue: type });
+};
+
+const getRiskLabel = (tone: "high" | "medium" | "low", t: TFunction): string => {
+  return t(`riskLevels.${tone}`, { defaultValue: tone });
+};
+
+const getEncumbranceLabel = (value: boolean | string | null, t: TFunction): string => {
+  if (value === true) return t("table.encumbranceYes");
+  if (value === false) return t("table.encumbranceNo");
+  if (value === "high") return t("riskLevels.high");
+  if (value === "medium") return t("riskLevels.medium");
+  if (value === "low") return t("riskLevels.low");
+  return t("table.encumbranceCheck");
+};
+
+const getCheckStatusLabel = (value: "ok" | "warning" | "critical" | string, t: TFunction): string => {
+  if (value === "ok") return t("checks.ok");
+  if (value === "warning") return t("checks.warning");
+  if (value === "critical") return t("checks.critical");
+  return t(`checks.${value}`, { defaultValue: String(value) });
+};
 
 // ---------------------------------------------------------------------------
 // Shared UI primitives
@@ -595,31 +614,7 @@ const RealEstateTable: React.FC<{
   onSort: (key: SortKey) => void;
 }> = ({ items, selectedId, onSelect, sort, onSort }) => {
   const { t, i18n } = useTranslation("realEstate");
-
-  const translateLabel = (label: string): string => {
-    const map: Record<string, string> = {
-      "Высокий": t("detail.encumbrances.types.high", { defaultValue: "High" }),
-      "Средний": t("detail.encumbrances.types.medium", { defaultValue: "Medium" }),
-      "Низкий": t("detail.encumbrances.types.low", { defaultValue: "Low" }),
-      "Да": t("table.encumbranceYes"),
-      "Нет": t("table.encumbranceNo"),
-      "Проверка": t("table.encumbranceCheck"),
-      "Земельный участок": t("detail.registry.types.land", { defaultValue: "Land Plot" }),
-      "Здания": t("detail.registry.types.building", { defaultValue: "Building" }),
-      "Здание": t("detail.registry.types.building", { defaultValue: "Building" }),
-      "Помещение": t("detail.registry.types.premises", { defaultValue: "Premises" }),
-      "Земля": t("detail.registry.types.land", { defaultValue: "Land" }),
-      "ЗУ": t("detail.registry.typesShort.land", { defaultValue: "LP" }),
-      "Зд": t("detail.registry.typesShort.building", { defaultValue: "Bld" }),
-      "Пом": t("detail.registry.typesShort.premises", { defaultValue: "Prem" }),
-      "ОК": t("table.ok", { ns: "common", defaultValue: "OK" }),
-      "Внимание": t("table.warning", { ns: "common", defaultValue: "Warning" }),
-      "Критично": t("table.critical", { ns: "common", defaultValue: "Critical" }),
-    };
-    return map[label] ?? label;
-  };
-
-  const areaUnit = t("areaUnit", { defaultValue: "м²" });
+  const areaUnit = t("areaUnit", { defaultValue: "m²" });
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-[var(--border)] lg:h-full lg:min-h-0 lg:overflow-auto">
@@ -709,7 +704,7 @@ const RealEstateTable: React.FC<{
                 </td>
                 <td className="px-4 py-3 text-[var(--text-secondary)]">{item.region}</td>
                 <td className="px-4 py-3 text-[var(--text-secondary)]">
-                  {translateLabel(objectTypeShortLabel(item.object_type))}
+                  {getObjectTypeShortLabel(item.object_type, t)}
                 </td>
                 <td className="px-4 py-3 tabular-nums text-[var(--text-primary)]">
                   {item.area_sqm ? `${item.area_sqm.toLocaleString(i18n.language)} ${areaUnit}` : "—"}
@@ -735,7 +730,7 @@ const RealEstateTable: React.FC<{
                   </Badge>
                 </td>
                 <td className="px-4 py-3">
-                  <Badge tone={risk.tone}>{translateLabel(risk.label)}</Badge>
+                  <Badge tone={risk.tone}>{getRiskLabel(risk.tone, t)}</Badge>
                 </td>
               </tr>
             );
@@ -760,34 +755,12 @@ const RealEstateDetailPanel: React.FC<{
   const { t } = useTranslation("realEstate");
   const risk = buildRiskMeta(object);
 
-  const translateLabel = (label: string): string => {
-    const map: Record<string, string> = {
-      "Высокий": t("detail.encumbrances.types.high", { defaultValue: "High" }),
-      "Средний": t("detail.encumbrances.types.medium", { defaultValue: "Medium" }),
-      "Низкий": t("detail.encumbrances.types.low", { defaultValue: "Low" }),
-      "Да": t("table.encumbranceYes"),
-      "Нет": t("table.encumbranceNo"),
-      "Проверка": t("table.encumbranceCheck"),
-      "Земельный участок": t("detail.registry.types.land", { defaultValue: "Land Plot" }),
-      "Здание": t("detail.registry.types.building", { defaultValue: "Building" }),
-      "Помещение": t("detail.registry.types.premises", { defaultValue: "Premises" }),
-      "Земля": t("detail.registry.types.land", { defaultValue: "Land" }),
-      "ЗУ": t("detail.registry.typesShort.land", { defaultValue: "LP" }),
-      "Зд": t("detail.registry.typesShort.building", { defaultValue: "Bld" }),
-      "Пом": t("detail.registry.typesShort.premises", { defaultValue: "Prem" }),
-      "ОК": t("table.ok", { ns: "common", defaultValue: "OK" }),
-      "Внимание": t("table.warning", { ns: "common", defaultValue: "Warning" }),
-      "Критично": t("table.critical", { ns: "common", defaultValue: "Critical" }),
-    };
-    return map[label] ?? label;
-  };
-
   return (
     <div className="space-y-4 pb-2">
       <PageSection
         title={t("detail.card.title")}
         subtitle={t("detail.card.subtitle")}
-        rightSlot={<Badge tone={risk.tone}>{translateLabel(risk.label)}</Badge>}
+        rightSlot={<Badge tone={risk.tone}>{getRiskLabel(risk.tone, t)}</Badge>}
       >
         <div className="space-y-3">
           <div>
@@ -796,7 +769,7 @@ const RealEstateDetailPanel: React.FC<{
                 {detail.registry.addressLabel}
               </p>
               <Badge>{object.region}</Badge>
-              <Badge>{translateLabel(objectTypeLabel(object.object_type))}</Badge>
+              <Badge>{getObjectTypeLabel(object.object_type, t)}</Badge>
             </div>
             <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               {detail.shortDescription}
@@ -863,7 +836,7 @@ const RealEstateDetailPanel: React.FC<{
               {t("detail.registry.objectType")}
             </p>
             <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-              {translateLabel(detail.registry.objectTypeLabel)}
+              {getObjectTypeLabel(object.object_type, t)}
             </p>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
               {detail.registry.areaLabel}
@@ -900,7 +873,7 @@ const RealEstateDetailPanel: React.FC<{
               </p>
               <div className="mt-2">
                 <Badge tone={riskBadgeTone(detail.encumbrances[key])}>
-                  {translateLabel(riskBadgeLabel(detail.encumbrances[key]))}
+                  {getEncumbranceLabel(detail.encumbrances[key], t)}
                 </Badge>
               </div>
             </div>
@@ -938,7 +911,7 @@ const RealEstateDetailPanel: React.FC<{
               </p>
               <div className="mt-2">
                 <Badge tone={checkTone(detail.legalChecks[key])}>
-                  {translateLabel(checkLabel(detail.legalChecks[key]))}
+                  {getCheckStatusLabel(detail.legalChecks[key], t)}
                 </Badge>
               </div>
             </div>

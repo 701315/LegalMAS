@@ -1,4 +1,24 @@
 {
+  "types": {
+    "land": "Land Plot",
+    "building": "Building",
+    "premises": "Premises"
+  },
+  "typesShort": {
+    "land": "LP",
+    "building": "Bld",
+    "premises": "Prem"
+  },
+  "riskLevels": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "checks": {
+    "ok": "OK",
+    "warning": "Warning",
+    "critical": "Critical"
+  },
   "intro": {
     "title": "Demonstration scenario for this section",
     "subtitle": "What the real estate analysis will look like",
@@ -260,5 +280,4 @@
     }
   }
 }
-
 

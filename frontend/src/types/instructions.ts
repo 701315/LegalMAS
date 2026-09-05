@@ -1,9 +1,11 @@
+// =============================================================
 // src/types/instructions.ts
-// Domain types для instruction management.
-// Строго соответствует backend schemas.
+// Domain types for instruction management.
+// Strictly aligned with backend schemas.
+// =============================================================
 
 // ─────────────────────────────────────────────────────────────
-// Shared / базовые типы
+// Shared / Base types
 // ─────────────────────────────────────────────────────────────
 
 export type InstructionVersionStatus =
@@ -42,10 +44,11 @@ export interface GlobalPlaybookVersion {
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Один элемент каталога doc-type инструкций.
+ * Single item in the doc-type instructions catalog.
  *
- * Поле `parent` — это top-level YAML поле `parent: class_7_intellectual_property`.
- * Используется для группировки в UI. НЕ путать с `metadata.category`.
+ * The `parent` field corresponds to the top-level YAML field
+ * `parent: class_7_intellectual_property`.
+ * Used for UI grouping. Do NOT confuse with `metadata.category`.
  */
 export interface InstructionCatalogItem {
   doc_type_code: string;
@@ -59,7 +62,7 @@ export interface InstructionCatalogItem {
   total_versions_count: number;
   draft_versions_count: number;
   has_published: boolean;
-  // Latest version (любого статуса)
+  // Latest version (any status)
   latest_version_id: string | null;
   latest_version_status: InstructionVersionStatus | null;
   latest_version_updated_at: string | null;
@@ -174,7 +177,7 @@ export interface InstructionDiffResponse {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Request типы
+// Request types
 // ─────────────────────────────────────────────────────────────
 
 export interface CreateInstructionDraftRequest {
@@ -201,7 +204,7 @@ export interface UpdateInstructionDraftRequest {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Утилитарные типы
+// Utility types
 // ─────────────────────────────────────────────────────────────
 
 export interface DetailWithETag<T> {
@@ -389,4 +392,5 @@ export interface CreateGlobalOverrideDraftRequest {
   patch_ops: JsonPatchOperation[];
   change_summary?: string | null;
 }
+
 

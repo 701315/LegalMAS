@@ -1,14 +1,14 @@
 // =============================================================
 // src/pages/tabs/dd-grid-v1/ddGridV1.formatters.ts
-// Pure formatters для DD Grid V1.
+// Pure formatters for DD Grid V1.
 //
-// Правила:
-// - никаких хардкодов конкретных enum values ("yes", "present", "unclear");
-// - форматтер ничего не решает про семантику — только собирает display string
-//   по контракту (format + cell_state + display_value / raw_value / enum_labels);
-// - функции чистые: одинаковый input → одинаковый output, без побочных эффектов.
+// Rules:
+// - no hardcoded enum values ("yes", "present", "unclear");
+// - formatters only build display strings based on contract
+//   (format + cell_state + display_value / raw_value / enum_labels);
+// - pure functions: same input → same output, no side-effects.
 //
-// i18n: канонический English fallback + динамический tFn.
+// i18n: Canonical English fallback + dynamic tFn.
 // =============================================================
 
 import type {
@@ -29,8 +29,8 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
- * Возвращает fallback_display колонки, либо тире.
- * Никогда не бросает.
+ * Returns fallback_display of column or a dash.
+ * Never throws.
  */
 function safeFallback(column: DDGridV1ColumnDTO): string {
   return isNonEmptyString(column.fallback_display)
@@ -39,8 +39,7 @@ function safeFallback(column: DDGridV1ColumnDTO): string {
 }
 
 /**
- * Прикладывает unit к тексту через пробел, если unit задан и не пустой.
- * Не форматирует "внутри" значения — просто concat.
+ * Appends unit to text with a space if unit is defined and non-empty.
  */
 function appendUnit(value: string, unit: string | null): string {
   if (!isNonEmptyString(unit)) return value;
@@ -52,12 +51,10 @@ function appendUnit(value: string, unit: string | null): string {
 // -------------------------------------------------------------
 
 /**
- * Возвращает готовую строку для рендера ячейки.
+ * Returns prepared string for cell rendering.
  *
- * Никогда не бросает; при любом непонятном входе возвращает
- * безопасный fallback (`fallback_display` колонки или "—").
- *
- * Универсально по 5 cell_state × 4 format.
+ * Never throws; returns safe fallback on unknown inputs.
+ * Universal across 5 cell_states × 4 formats.
  */
 export function formatDDGridV1CellText(
   cellState: DDGridV1CellState,
@@ -65,13 +62,10 @@ export function formatDDGridV1CellText(
   column: DDGridV1ColumnDTO,
   t?: (key: string) => string,
 ): string {
-  // Нестандартные состояния — не читаем raw/display, возвращаем fallback.
   if (cellState === "error") {
     return t ? t("drawer.cellStateLabels.error") : "⚠ Error";
   }
   if (cellState === "not_executed" || cellState === "not_defined") {
-    // По контракту оба этих состояния используют fallback_display.
-    // Если у ячейки уже есть display_value — используем его, иначе fallback.
     if (cell && isNonEmptyString(cell.display_value)) {
       return cell.display_value;
     }
@@ -139,7 +133,7 @@ export function formatDDGridV1CellText(
 // -------------------------------------------------------------
 
 /**
- * Классифицирует доступность location строго по контракту.
+ * Classifies location availability strictly by contract.
  */
 export function classifyDDGridV1LocationAvailability(input: {
   has_location_fallback: boolean;

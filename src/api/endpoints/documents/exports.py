@@ -90,7 +90,8 @@ def build_table_rows(
             )
 
             if isinstance(value, bool):
-                row.append("Да" if value else "Нет")
+                # Canonical English for export cell values
+                row.append("Yes" if value else "No")
             elif value is None:
                 row.append("")
             else:
@@ -182,7 +183,7 @@ async def _load_documents_for_export(
     if not documents:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Документы не найдены",
+            detail="Documents not found",
         )
 
     # Строим composition для всех документов одним batch-запросом.
@@ -204,7 +205,7 @@ def _build_download_headers(filename: str) -> dict[str, str]:
 
 @router.post(
     "/export/excel",
-    summary="Экспорт списка документов сделки в Excel",
+    summary="Export deal document list to Excel",
 )
 async def export_documents_excel(
     body: DocumentsExportRequest,
@@ -269,7 +270,7 @@ async def export_documents_excel(
 
 @router.post(
     "/export/word",
-    summary="Экспорт списка документов сделки в Word (docx)",
+    summary="Export deal document list to Word (docx)",
 )
 async def export_documents_word(
     body: DocumentsExportRequest,
@@ -334,7 +335,7 @@ async def export_documents_word(
 
 @router.post(
     "/export/pdf",
-    summary="Экспорт списка документов сделки в PDF",
+    summary="Export deal document list to PDF",
 )
 async def export_documents_pdf(
     body: DocumentsExportRequest,
@@ -406,3 +407,6 @@ async def export_documents_pdf(
         media_type="application/pdf",
         headers=_build_download_headers(filename),
     )
+
+
+    
