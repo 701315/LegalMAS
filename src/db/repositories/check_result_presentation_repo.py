@@ -12,11 +12,11 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterable
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.result import CheckResultPresentation
+from db.models.result import CheckResult, CheckResultPresentation
 
 
 _READY_PRESENTATION_STATUSES = (
@@ -199,5 +199,183 @@ class CheckResultPresentationRepository:
             raise RuntimeError(
                 "CheckResultPresentation was not found after idempotent insert"
             )
+
+        return presentation
+
+
+    async def claim_pending_for_run(
+        self,
+        *,
+        run_id: uuid.UUID,
+        locale: str,
+        content_version: str,
+        limit: int = 25,
+    ) -> list[CheckResultPresentation]:
+        """
+        Atomically claim pending presentation records for one Run and locale.
+
+        PostgreSQL row locking with SKIP LOCKED prevents parallel workers from
+        processing the same presentation row. Only pending rows can be claimed;
+        ready/reviewed/approved/failed/stale rows are never reopened here.
+        """
+        normalized_locale = locale.strip().lower()
+        normalized_version = content_version.strip()
+
+        if not normalized_locale:
+            raise ValueError("locale must be a non-empty string")
+
+        if not normalized_version:
+            raise ValueError("content_version must be a non-empty string")
+
+        if limit <= 0:
+            raise ValueError("limit must be greater than zero")
+
+        stmt = (
+            select(CheckResultPresentation)
+            .join(
+                CheckResult,
+                CheckResult.id == CheckResultPresentation.check_result_id,
+            )
+            .where(
+                CheckResult.run_id == run_id,
+                CheckResultPresentation.locale == normalized_locale,
+                CheckResultPresentation.content_version == normalized_version,
+                CheckResultPresentation.translation_status == "pending",
+            )
+            .order_by(
+                CheckResultPresentation.created_at.asc(),
+                CheckResultPresentation.id.asc(),
+            )
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )
+
+        result = await self.session.execute(stmt)
+        presentations = list(result.scalars().all())
+
+        for presentation in presentations:
+            presentation.translation_status = "processing"
+            presentation.error_message = None
+
+        if presentations:
+            await self.session.flush()
+
+        return presentations
+
+    async def mark_ready(
+        self,
+        *,
+        presentation_id: uuid.UUID,
+        localized_check_name: str,
+        display_text: str | None,
+        review_message: str | None,
+        translation_provider: str,
+        translation_model: str,
+        translation_metadata: dict,
+    ) -> CheckResultPresentation | None:
+        """
+        Persist a successfully generated localized presentation.
+
+        The transition is guarded by translation_status == processing. A worker
+        retry or duplicate delivery cannot overwrite an already terminal record.
+        """
+        stmt = (
+            update(CheckResultPresentation)
+            .where(
+                CheckResultPresentation.id == presentation_id,
+                CheckResultPresentation.translation_status == "processing",
+            )
+            .values(
+                localized_check_name=localized_check_name,
+                display_text=display_text,
+                review_message=review_message,
+                translation_status="ready",
+                translation_provider=translation_provider,
+                translation_model=translation_model,
+                translation_metadata=translation_metadata,
+                error_message=None,
+            )
+            .returning(CheckResultPresentation)
+        )
+
+        result = await self.session.execute(stmt)
+        presentation = result.scalar_one_or_none()
+
+        if presentation is not None:
+            await self.session.flush()
+
+        return presentation
+
+    async def mark_failed(
+        self,
+        *,
+        presentation_id: uuid.UUID,
+        error_message: str,
+        translation_metadata: dict,
+    ) -> CheckResultPresentation | None:
+        """
+        Persist a terminal presentation-generation failure.
+
+        Only currently processing rows can transition to failed. Existing
+        terminal rows remain unchanged.
+        """
+        normalized_error = error_message.strip()[:4000]
+
+        if not normalized_error:
+            normalized_error = "Presentation translation failed"
+
+        stmt = (
+            update(CheckResultPresentation)
+            .where(
+                CheckResultPresentation.id == presentation_id,
+                CheckResultPresentation.translation_status == "processing",
+            )
+            .values(
+                translation_status="failed",
+                translation_metadata=translation_metadata,
+                error_message=normalized_error,
+            )
+            .returning(CheckResultPresentation)
+        )
+
+        result = await self.session.execute(stmt)
+        presentation = result.scalar_one_or_none()
+
+        if presentation is not None:
+            await self.session.flush()
+
+        return presentation
+
+    async def mark_stale(
+        self,
+        *,
+        presentation_id: uuid.UUID,
+        translation_metadata: dict,
+    ) -> CheckResultPresentation | None:
+        """
+        Mark a claimed presentation stale when canonical source content changed.
+
+        The row is not translated and existing localized content is preserved for
+        audit. D3/D4 never overwrite older source-version presentation content.
+        """
+        stmt = (
+            update(CheckResultPresentation)
+            .where(
+                CheckResultPresentation.id == presentation_id,
+                CheckResultPresentation.translation_status == "processing",
+            )
+            .values(
+                translation_status="stale",
+                translation_metadata=translation_metadata,
+                error_message=None,
+            )
+            .returning(CheckResultPresentation)
+        )
+
+        result = await self.session.execute(stmt)
+        presentation = result.scalar_one_or_none()
+
+        if presentation is not None:
+            await self.session.flush()
 
         return presentation

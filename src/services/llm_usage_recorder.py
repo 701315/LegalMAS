@@ -33,6 +33,9 @@ STAGE_STRUCTURE_SEMANTIC_ENRICHMENT = "structure_semantic_enrichment"
 STAGE_STRUCTURE_CLAUSE_DETECTION = "structure_clause_detection"
 STAGE_HEADING_REFINER = "heading_refiner"
 STAGE_STRUCTURE_LEGAL_UNIT_CLASSIFICATION = "structure_legal_unit_classification"
+STAGE_RESULT_PRESENTATION_TRANSLATION = (
+    "result_presentation_translation"
+)
 
 REQUEST_UID_MAX_LEN = 128
 REQUEST_UID_HASH_HEX_LEN = 40

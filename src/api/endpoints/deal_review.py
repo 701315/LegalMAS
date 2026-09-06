@@ -55,6 +55,7 @@ from services.result_presentation_request_service import (
     ResultPresentationProgress,
     ResultPresentationRequestService,
 )
+from services.outbox_service import OutboxService
 from ..schemas.deal_review import (
     CheckItemDTO,
     ConditionalCheckDTO,
@@ -100,6 +101,8 @@ def _resolve_presentation_locale_or_422(
 
 def _to_result_presentation_progress_dto(
     progress: ResultPresentationProgress,
+    *,
+    dispatch_status: str = "not_dispatched",
 ) -> ResultPresentationProgressDTO:
     """Convert D3 service progress dataclass to the public API DTO."""
     return ResultPresentationProgressDTO(
@@ -118,7 +121,7 @@ def _to_result_presentation_progress_dto(
         created_pending=progress.created_pending,
         existing=progress.existing,
         is_complete=progress.is_complete,
-        dispatch_status="not_dispatched",
+        dispatch_status=dispatch_status,
     )
 
 # ---------------------------------------------------------------------------
@@ -251,9 +254,34 @@ async def request_result_presentations(
         },
     )
 
+    outbox_service = OutboxService(db)
+    await outbox_service.enqueue_task(
+        task_name="workers.process_pending_result_presentations",
+        payload={
+            "run_id": run_id,
+            "deal_id": deal_id,
+            "tenant_id": str(run.tenant_id),
+            "locale": target_locale,
+            "content_version": progress.content_version,
+            "batch_limit": 5,
+        },
+        aggregate_type="run",
+        aggregate_id=run_id,
+        dedup_key=(
+            "result-presentation-batch:"
+            f"{run_id}:{target_locale}:{progress.content_version}"
+        ),
+        headers={
+            "queue": "heavy_llm_checks",
+        },
+    )
+
     await db.commit()
 
-    return _to_result_presentation_progress_dto(progress)
+    return _to_result_presentation_progress_dto(
+        progress,
+        dispatch_status="queued",
+    )
 
 
 @router.get(

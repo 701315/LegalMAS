@@ -158,6 +158,7 @@ celery_app.conf.update(
     include=[
         "workers.build_primary_language_source",
         "workers.check_runner_worker",
+        "workers.result_presentation_worker",
         "workers.chunk_builder",
         "workers.classifier",
         "workers.convert_worker",
@@ -287,6 +288,10 @@ celery_app.conf.update(
             "queue": QUEUE_HEAVY_LLM_CHECKS,
             "routing_key": QUEUE_HEAVY_LLM_CHECKS,
         },
+        "workers.process_pending_result_presentations": {
+            "queue": QUEUE_HEAVY_LLM_CHECKS,
+            "routing_key": QUEUE_HEAVY_LLM_CHECKS,
+        },
         "workers.finalize_run_if_ready": {
             "queue": QUEUE_DEFAULT,
             "routing_key": QUEUE_DEFAULT,
@@ -334,6 +339,10 @@ celery_app.conf.update(
         "workers.run_single_check": {
             "soft_time_limit": RUN_SINGLE_CHECK_SOFT_TIME_LIMIT_SEC,
             "time_limit": RUN_SINGLE_CHECK_TIME_LIMIT_SEC,
+        },
+        "workers.process_pending_result_presentations": {
+            "soft_time_limit": 3300,
+            "time_limit": 3600,
         },
         "workers.build_legal_units_enrichment": {
             "soft_time_limit": settings.SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS,
