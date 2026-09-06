@@ -892,3 +892,53 @@ class DDGridV1ResponseDTO(BaseModel):
     cell_values: dict[str, dict[str, dict[str, DDGridCellValueDTO]]]
     drawer_contents: dict[str, dict[str, dict[str, DDGridDrawerDTO]]]
     documents_meta: list[DDGridDocumentMetaDTO]
+
+
+class ResultPresentationRequestDTO(BaseModel):
+    """
+    Request creation of locale-specific presentations for all CheckResult rows
+    belonging to one Run.
+
+    D3 only creates idempotent pending records. It does not invoke an LLM.
+    """
+
+    locale: str = Field(
+        min_length=2,
+        max_length=35,
+        description=(
+            "Target BCP 47 locale for generated result presentations. "
+            "Must be enabled in the shared UI locale configuration."
+        ),
+    )
+
+
+class ResultPresentationProgressDTO(BaseModel):
+    """
+    Progress of locale-specific result presentations for one Run.
+
+    Progress is derived from existing CheckResultPresentation rows for the
+    requested locale and content version. D3 does not dispatch LLM work yet.
+    """
+
+    run_id: str
+    locale: str
+    content_version: str
+
+    total: int
+    missing: int
+    pending: int
+    processing: int
+    ready: int
+    reviewed: int
+    approved: int
+    failed: int
+    stale: int
+
+    created_pending: int = 0
+    existing: int = 0
+
+    is_complete: bool
+
+    # D3 intentionally creates no worker/outbox dispatch.
+    # D4 will replace this with actual dispatch lifecycle metadata.
+    dispatch_status: str = "not_dispatched"

@@ -37,6 +37,7 @@ from db.models.run import Run
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from db.repositories.playbook_repo import PlaybookRepository
+from db.repositories.audit_repo import AuditRepository
 from db.repositories.run_repo import RunRepository
 from db.session import get_db
 from services.deal_review_service import (
@@ -50,6 +51,10 @@ from services.result_presentation_read_service import (
     apply_presentations_for_read,
     resolve_presentation_locale,
 )
+from services.result_presentation_request_service import (
+    ResultPresentationProgress,
+    ResultPresentationRequestService,
+)
 from ..schemas.deal_review import (
     CheckItemDTO,
     ConditionalCheckDTO,
@@ -60,6 +65,8 @@ from ..schemas.deal_review import (
     DocumentStructuredDataDTO,
     DocumentSummaryDTO,
     ExtractedValueDTO,
+    ResultPresentationProgressDTO,
+    ResultPresentationRequestDTO,
 )
 
 from db.models.deal import Deal
@@ -90,6 +97,30 @@ def _resolve_presentation_locale_or_422(
             detail=str(exc),
         ) from exc
 
+
+def _to_result_presentation_progress_dto(
+    progress: ResultPresentationProgress,
+) -> ResultPresentationProgressDTO:
+    """Convert D3 service progress dataclass to the public API DTO."""
+    return ResultPresentationProgressDTO(
+        run_id=progress.run_id,
+        locale=progress.locale,
+        content_version=progress.content_version,
+        total=progress.total,
+        missing=progress.missing,
+        pending=progress.pending,
+        processing=progress.processing,
+        ready=progress.ready,
+        reviewed=progress.reviewed,
+        approved=progress.approved,
+        failed=progress.failed,
+        stale=progress.stale,
+        created_pending=progress.created_pending,
+        existing=progress.existing,
+        is_complete=progress.is_complete,
+        dispatch_status="not_dispatched",
+    )
+
 # ---------------------------------------------------------------------------
 # Helper function: access validation and run loading
 # Used across endpoints requiring specific run context.
@@ -101,6 +132,7 @@ async def _get_run_with_access_check(
     run_id: str,
     db: AsyncSession,
     user: CurrentUser,
+    allowed_roles: tuple[str, ...] = ("admin", "editor", "viewer"),
 ) -> object:
     """
     Load Run from database and validate that:
@@ -131,7 +163,7 @@ async def _get_run_with_access_check(
         db=db,
         user=user,
         deal_id=run.deal_id,
-        allowed_roles=("admin", "editor", "viewer"),
+        allowed_roles=allowed_roles,
     )
     return run
 
@@ -139,6 +171,137 @@ async def _get_run_with_access_check(
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+@router.post(
+    "/{deal_id}/runs/{run_id}/result-presentations/requests",
+    response_model=ResultPresentationProgressDTO,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create pending locale-specific result presentations",
+)
+async def request_result_presentations(
+    deal_id: str,
+    run_id: str,
+    payload: ResultPresentationRequestDTO,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> ResultPresentationProgressDTO:
+    """
+    Create missing pending CheckResultPresentation rows for one Run and locale.
+
+    This operation is idempotent:
+    - existing presentation rows are never overwritten;
+    - duplicate logical identities are protected by the database;
+    - D3 intentionally does not dispatch an LLM worker yet.
+
+    Access: project admin / editor only.
+    """
+    run = await _get_run_with_access_check(
+        deal_id=deal_id,
+        run_id=run_id,
+        db=db,
+        user=user,
+        allowed_roles=("admin", "editor"),
+    )
+
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    if deal is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "DEAL_NOT_FOUND"},
+            detail="Deal not found",
+        )
+
+    target_locale = _resolve_presentation_locale_or_422(
+        explicit_locale=payload.locale,
+        user_ui_locale=None,
+        deal_primary_language=None,
+    )
+
+    service = ResultPresentationRequestService(db)
+    progress = await service.request_pending_presentations(
+        run_id=uuid.UUID(run_id),
+        locale=target_locale,
+        source_locale=deal.primary_language,
+    )
+
+    audit_repo = AuditRepository(db)
+    await audit_repo.log(
+        tenant_id=run.tenant_id,
+        deal_id=run.deal_id,
+        action="RESULT_PRESENTATIONS_REQUESTED",
+        actor=user.email or user.id,
+        actor_role=user.global_role,
+        details={
+            "run_id": run_id,
+            "requested_locale": target_locale,
+            "content_version": progress.content_version,
+            "total_results": progress.total,
+            "created_pending": progress.created_pending,
+            "existing_presentations": progress.existing,
+            "missing": progress.missing,
+            "pending": progress.pending,
+            "processing": progress.processing,
+            "ready": progress.ready,
+            "reviewed": progress.reviewed,
+            "approved": progress.approved,
+            "failed": progress.failed,
+            "stale": progress.stale,
+            "translation_execution_policy": "active_application_provider",
+            "cloud_fallback_enabled": False,
+            "dispatch_status": "not_dispatched",
+        },
+    )
+
+    await db.commit()
+
+    return _to_result_presentation_progress_dto(progress)
+
+
+@router.get(
+    "/{deal_id}/runs/{run_id}/result-presentations/progress",
+    response_model=ResultPresentationProgressDTO,
+    summary="Get locale-specific result presentation progress",
+)
+async def get_result_presentation_progress(
+    deal_id: str,
+    run_id: str,
+    locale: str = Query(
+        ...,
+        min_length=2,
+        max_length=35,
+        description=(
+            "Target presentation locale. "
+            "Must be enabled in the shared UI locale configuration."
+        ),
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> ResultPresentationProgressDTO:
+    """
+    Return progress for locale-specific result presentations without creating,
+    updating, dispatching, or translating records.
+
+    Access: project admin / editor / viewer.
+    """
+    await _get_run_with_access_check(
+        deal_id=deal_id,
+        run_id=run_id,
+        db=db,
+        user=user,
+    )
+
+    target_locale = _resolve_presentation_locale_or_422(
+        explicit_locale=locale,
+        user_ui_locale=None,
+        deal_primary_language=None,
+    )
+
+    service = ResultPresentationRequestService(db)
+    progress = await service.get_progress(
+        run_id=uuid.UUID(run_id),
+        locale=target_locale,
+    )
+
+    return _to_result_presentation_progress_dto(progress)
 
 
 @router.get(
