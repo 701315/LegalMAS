@@ -25,6 +25,7 @@ import {
   resolveDDGridV1Confidence,
   resolveDDGridV1QualityFlags,
   resolveDDGridV1QcAuditInfo,
+  resolveDDGridV1PresentationInfo,
   type DDGridV1DrawerFieldView,
   type DDGridV1ReasonSource,
 } from "./ddGridV1.drawer";
@@ -455,6 +456,11 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
     [drawerContent, t],
   );
 
+  const presentationInfo = React.useMemo(
+    () => resolveDDGridV1PresentationInfo(drawerContent),
+    [drawerContent],
+  );
+
   if (!open || !drawerContent || !documentId) {
     return null;
   }
@@ -525,6 +531,17 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
           <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
             {drawerDescription}
           </p>
+
+          {presentationInfo ? (
+            <div className="mt-2">
+              <Pill tone={presentationInfo.tone}>
+                {t(
+                  presentationInfo.labelKey,
+                  presentationInfo.interpolation,
+                )}
+              </Pill>
+            </div>
+          ) : null}
         </div>
 
         <Button

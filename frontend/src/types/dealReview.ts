@@ -590,6 +590,22 @@ export interface DDGridV1DrawerContentDTO {
   review_status: string | null;
   review_message: string | null;
   display_text: string | null;
+
+  // Locale-specific presentation metadata. The backend remains the
+  // source of truth for selecting localized versus canonical content.
+  presentation_locale?: string | null;
+  presentation_content_version?: string | null;
+  presentation_source_locale?: string | null;
+  presentation_status?: string | null;
+  presentation_is_fallback?: boolean;
+
+  // Canonical source content is supplied only when a safe localized
+  // presentation has been selected. It is retained for audit/debug
+  // context and must not be rendered alongside the selected content.
+  canonical_check_name?: string | null;
+  canonical_display_text?: string | null;
+  canonical_review_message?: string | null;
+
   execution_status: string;
 
   // B3 P0 — Transparency
