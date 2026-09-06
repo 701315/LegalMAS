@@ -16,6 +16,7 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -368,4 +369,164 @@ class CheckResult(Base):
         ),
     )
 
+class CheckResultPresentation(Base):
+    """
+    Locale-specific presentation of a canonical CheckResult.
 
+    The canonical CheckResult owns execution, evidence, provenance, QC, and
+    factual result identity. This child model stores only user-facing content
+    for one presentation locale and one source-content version.
+    """
+
+    __tablename__ = "check_result_presentations"
+
+    check_result_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("check_results.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="Canonical CheckResult to which this presentation belongs.",
+    )
+
+    locale: Mapped[str] = mapped_column(
+        String(35),
+        nullable=False,
+        comment="BCP 47 presentation locale, for example en, ru, de, fr.",
+    )
+
+    content_version: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        comment=(
+            "Immutable source-content version identifier for this presentation. "
+            "A new source version must not overwrite an approved older version."
+        ),
+    )
+
+    source_content_hash: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        comment=(
+            "SHA-256 hash of canonical source fields used to produce "
+            "this locale-specific presentation."
+        ),
+    )
+
+    source_locale: Mapped[str | None] = mapped_column(
+        String(35),
+        nullable=True,
+        comment="Language of canonical source content when known.",
+    )
+
+    localized_check_name: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+        comment=(
+            "Locale-specific check name when it is not supplied "
+            "by a stable playbook translation dictionary."
+        ),
+    )
+
+    display_text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Locale-specific primary factual result text.",
+    )
+
+    review_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Locale-specific review explanation for the result drawer.",
+    )
+
+    dd_request_text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Locale-specific DD request text when applicable.",
+    )
+
+    translation_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+        comment=(
+            "Presentation lifecycle: pending, processing, ready, failed, "
+            "reviewed, approved, stale."
+        ),
+    )
+
+    translation_provider: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Translation provider identifier, if generated externally.",
+    )
+
+    translation_model: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Translation model identifier or version.",
+    )
+
+    translation_metadata: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Translation provenance, diagnostics, usage, source fields, "
+            "and batch metadata."
+        ),
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Last presentation-generation failure message, if any.",
+    )
+
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="User who reviewed this locale-specific presentation.",
+    )
+
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when this presentation was reviewed.",
+    )
+
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="User who approved this presentation for controlled output.",
+    )
+
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when this presentation was approved.",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "check_result_id",
+            "locale",
+            "content_version",
+            name="uq_check_result_presentations_identity",
+        ),
+        Index(
+            "idx_check_result_presentations_result_locale",
+            "check_result_id",
+            "locale",
+        ),
+        Index(
+            "idx_check_result_presentations_locale_status",
+            "locale",
+            "translation_status",
+        ),
+        Index(
+            "idx_check_result_presentations_source_hash",
+            "source_content_hash",
+        ),
+    )

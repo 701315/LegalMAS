@@ -19,7 +19,7 @@ from .ops import AuditLog, DLQRecord, IdempotencyKey
 from .outbox import OutboxMessage
 from .playbook import ModelConfig, Playbook, PlaybookLineItem, PlaybookVersion
 from .relation import DocumentFamily, DocumentFamilyMember, DocumentRelation
-from .result import CheckResult
+from .result import CheckResult, CheckResultPresentation
 from .run import Job, Run
 from .instruction_override import InstructionOverride
 from .run_check_plan_item import RunCheckPlanItem
@@ -30,6 +30,7 @@ __all__ = [
     "AuditLog",
     "Bundle",
     "CheckResult",
+    "CheckResultPresentation",
     "CheckResultPersistError",
     "ClassificationCalibration",
     "DDRequest",
