@@ -273,6 +273,9 @@ class RunnerRepository:
         for r in rows:
             out.append(
                 {
+out.append(
+                {
+                    "id": str(r.id),
                     "check_id": r.check_id,
                     "check_name": r.check_name,
                     "result": r.result,
