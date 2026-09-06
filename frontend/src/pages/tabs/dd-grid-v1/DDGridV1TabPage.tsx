@@ -402,7 +402,10 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
 // -------------------------------------------------------------
 
 const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
-  const { t } = useTranslation("ddGrid");
+  const { t, i18n } = useTranslation("ddGrid");
+
+  const presentationLocale =
+    i18n.resolvedLanguage ?? i18n.language;
 
   const [reviewSelection, setReviewSelection] = React.useState<
     ReviewSelectionItem[]
@@ -454,7 +457,11 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     data: ddGridV1Response,
     isLoading: isV1Loading,
     error: v1Error,
-  } = useDealReviewDdGridV1(dealId, runId);
+  } = useDealReviewDdGridV1(
+    dealId,
+    runId,
+    presentationLocale,
+  );
 
   const { data: run, error: runError } = useRun(runId, false);
 
