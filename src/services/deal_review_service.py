@@ -36,7 +36,9 @@ from db.uow import db_uow
 # Новые специализированные компоненты
 from services import review_presenter
 from services.dd_matrix_builder import build_dd_matrix as build_dd_matrix_response
-
+from services.result_presentation_read_service import (
+    apply_presentations_for_read,
+)
 # Engine
 from classifiers.yaml_registry import YAMLRegistry
 from db.repositories.document_type_instruction_version_repo import (
@@ -316,6 +318,14 @@ def _map_dd_grid_v1_to_response(
             review_status=drawer.review_status,
             review_message=drawer.review_message,
             display_text=drawer.display_text,
+            presentation_locale=drawer.presentation_locale,
+            presentation_content_version=drawer.presentation_content_version,
+            presentation_source_locale=drawer.presentation_source_locale,
+            presentation_status=drawer.presentation_status,
+            presentation_is_fallback=drawer.presentation_is_fallback,
+            canonical_check_name=drawer.canonical_check_name,
+            canonical_display_text=drawer.canonical_display_text,
+            canonical_review_message=drawer.canonical_review_message,
             execution_status=drawer.execution_status,
             detection_level=drawer.detection_level,
             confidence=drawer.confidence,
@@ -394,6 +404,18 @@ def _map_dd_grid_v1_to_response(
     return DDGridV1ResponseDTO(
         deal_id=deal_id,
         run_id=run_id,
+        presentation_locale=(
+            next(
+                (
+                    drawer.presentation_locale
+                    for doc_drawers in data.drawer_contents.values()
+                    for segment_drawers in doc_drawers.values()
+                    for drawer in segment_drawers.values()
+                    if drawer.presentation_locale
+                ),
+                None,
+            )
+        ),
         global_groups=global_groups_dto,
         doc_type_classes=doc_type_classes_dto,
         column_registry=column_registry_dto,
@@ -514,6 +536,7 @@ async def build_dd_grid_v1_response(
     deal_id: str,
     run_id: str,
     checks_mode: str = "all",
+    presentation_locale: str | None = None,
 ) -> DDGridV1ResponseDTO:
     """
     Загрузить данные и построить DD Grid V1 response.
@@ -565,6 +588,14 @@ async def build_dd_grid_v1_response(
         deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
         if not deal:
             raise ValueError(f"Deal {deal_id} not found")
+
+        if presentation_locale:
+            check_results = await apply_presentations_for_read(
+                session=uow.session,
+                check_results=check_results,
+                requested_locale=presentation_locale,
+            )
+
 
         # Построение DocTypeCheckLoader из зафиксированных snapshot'ов.
         # Если instruction_versions пуст — loader упадёт на FilesystemProvider,

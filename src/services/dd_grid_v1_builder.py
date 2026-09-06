@@ -153,6 +153,14 @@ class DrawerContentDTO:
     review_status: str | None
     review_message: str | None = None
     display_text: str | None = None
+    presentation_locale: str | None = None
+    presentation_content_version: str | None = None
+    presentation_source_locale: str | None = None
+    presentation_status: str | None = None
+    presentation_is_fallback: bool = True
+    canonical_check_name: str | None = None
+    canonical_display_text: str | None = None
+    canonical_review_message: str | None = None
     execution_status: str | None = None
     detection_level: str | None = None
     confidence: float | None = None
@@ -1241,16 +1249,31 @@ def _build_drawer_content(
     # Нет результата — возвращаем drawer с данными из plan_status
     if check_result is None:
         plan_status_lower = plan_status.lower()
+
         return DrawerContentDTO(
             check_id=check.id,
             check_name=check.name,
             document_id=doc_id,
             cell_state=cell_state,
-            reason=_PLAN_STATUS_TO_REASON.get(plan_status_lower, "Unknown check status."),
+            reason=_PLAN_STATUS_TO_REASON.get(
+                plan_status_lower,
+                "Unknown check status.",
+            ),
             review_status=None,
             review_message=None,
             display_text=None,
-            execution_status=_PLAN_STATUS_TO_EXECUTION_STATUS.get(plan_status_lower, "SKIPPED"),
+            presentation_locale=None,
+            presentation_content_version=None,
+            presentation_source_locale=None,
+            presentation_status="missing",
+            presentation_is_fallback=True,
+            canonical_check_name=None,
+            canonical_display_text=None,
+            canonical_review_message=None,
+            execution_status=_PLAN_STATUS_TO_EXECUTION_STATUS.get(
+                plan_status_lower,
+                "SKIPPED",
+            ),
             detection_level=None,
             confidence=None,
             quality_flags=None,
@@ -1332,13 +1355,35 @@ def _build_drawer_content(
 
     return DrawerContentDTO(
         check_id=check.id,
-        check_name=check.name,
+        check_name=(
+            _safe_str_or_none(check_result.get("check_name"))
+            or check.name
+        ),
         document_id=doc_id,
         cell_state=cell_state,
         reason=metadata_reason or review_message or display_text,
         review_status=review_status,
         review_message=review_message,
         display_text=display_text,
+        presentation_locale=check_result.get("presentation_locale"),
+        presentation_content_version=check_result.get(
+            "presentation_content_version"
+        ),
+        presentation_source_locale=check_result.get(
+            "presentation_source_locale"
+        ),
+        presentation_status=check_result.get("presentation_status"),
+        presentation_is_fallback=check_result.get(
+            "presentation_is_fallback",
+            True,
+        ),
+        canonical_check_name=check_result.get("canonical_check_name"),
+        canonical_display_text=check_result.get(
+            "canonical_display_text"
+        ),
+        canonical_review_message=check_result.get(
+            "canonical_review_message"
+        ),
         execution_status=execution_status,
         detection_level=detection_level,
         confidence=confidence,

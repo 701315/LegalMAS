@@ -107,6 +107,20 @@ class CheckItemDTO(BaseModel):
     needs_manual_review: bool = False
     ui_mode: str | None = None
 
+    # Locale-specific presentation metadata.
+    # Existing fields above remain the effective fields to render.
+    presentation_locale: str | None = None
+    presentation_content_version: str | None = None
+    presentation_source_locale: str | None = None
+    presentation_status: str | None = None
+    presentation_is_fallback: bool = True
+
+    # Present only when a ready/reviewed/approved presentation safely replaced
+    # canonical content. They support a future "show original" UI action.
+    canonical_check_name: str | None = None
+    canonical_display_text: str | None = None
+    canonical_review_message: str | None = None
+
 
 class CheckMetaDTO(BaseModel):
     """
@@ -202,6 +216,19 @@ class MatrixCellDTO(BaseModel):
     needs_manual_review: bool = False
     ui_mode: str | None = None
 
+    # Locale-specific presentation metadata.
+    presentation_locale: str | None = None
+    presentation_content_version: str | None = None
+    presentation_source_locale: str | None = None
+    presentation_status: str | None = None
+    presentation_is_fallback: bool = True
+
+    # Original canonical content, populated only when a safe localized
+    # presentation is selected.
+    canonical_check_name: str | None = None
+    canonical_display_text: str | None = None
+    canonical_review_message: str | None = None
+
 
 class DocumentMatrixRowDTO(BaseModel):
     """
@@ -271,6 +298,9 @@ class DDMatrixResponseDTO(BaseModel):
     run_id: str
     deal_name: str
 
+    # Effective locale resolved for this response.
+    presentation_locale: str | None = None
+
     checks: list["CheckMetaDTO"]
     global_check_ids: list[str]
     doc_type_check_ids: dict[str, list[str]]
@@ -307,6 +337,9 @@ class DocumentDetailDTO(BaseModel):
     classification_confidence: float
     applicable_triggers: list[str]
     checks: list[CheckItemDTO]
+
+    # Effective locale resolved for this response.
+    presentation_locale: str | None = None
 
 
 class DDRequestDTO(BaseModel):
@@ -539,6 +572,19 @@ class DDGridDrawerDTO(BaseModel):
     review_status: str | None = None
     review_message: str | None = None
     display_text: str | None = None
+
+    # Locale-specific presentation metadata for the check-level drawer text.
+    presentation_locale: str | None = None
+    presentation_content_version: str | None = None
+    presentation_source_locale: str | None = None
+    presentation_status: str | None = None
+    presentation_is_fallback: bool = True
+
+    # Original canonical drawer content when a safe localized presentation
+    # has been selected.
+    canonical_check_name: str | None = None
+    canonical_display_text: str | None = None
+    canonical_review_message: str | None = None
 
     execution_status: str | None = None
     """
@@ -836,6 +882,9 @@ class DDGridV1ResponseDTO(BaseModel):
 
     deal_id: str
     run_id: str
+
+    # Effective locale resolved for this response.
+    presentation_locale: str | None = None
 
     global_groups: list[DDGridGlobalGroupDTO]
     doc_type_classes: list[DDGridDocTypeClassDTO]

@@ -104,6 +104,42 @@ class CheckResultPresentationRepository:
             for presentation in result.scalars().all()
         }
 
+
+    async def list_by_result_ids_and_locale(
+        self,
+        *,
+        check_result_ids: Iterable[uuid.UUID],
+        locale: str,
+        content_version: str,
+    ) -> dict[uuid.UUID, CheckResultPresentation]:
+        """
+        Return all presentation states for one locale/content version, keyed by
+        canonical CheckResult ID.
+
+        Unlike list_ready_by_result_ids_and_locale(), this method intentionally
+        includes pending, processing, failed, and stale records. The read-side
+        selection service remains responsible for deciding whether a record is
+        safe to render as localized content.
+
+        Empty input returns an empty mapping without emitting SQL.
+        """
+        normalized_ids = list(dict.fromkeys(check_result_ids))
+
+        if not normalized_ids:
+            return {}
+
+        stmt = select(CheckResultPresentation).where(
+            CheckResultPresentation.check_result_id.in_(normalized_ids),
+            CheckResultPresentation.locale == locale,
+            CheckResultPresentation.content_version == content_version,
+        )
+        result = await self.session.execute(stmt)
+
+        return {
+            presentation.check_result_id: presentation
+            for presentation in result.scalars().all()
+        }
+
     async def create_pending_if_absent(
         self,
         *,
