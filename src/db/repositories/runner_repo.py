@@ -270,10 +270,9 @@ class RunnerRepository:
         rows = result.scalars().all()
 
         out: list[dict] = []
+
         for r in rows:
             out.append(
-                {
-out.append(
                 {
                     "id": str(r.id),
                     "check_id": r.check_id,
