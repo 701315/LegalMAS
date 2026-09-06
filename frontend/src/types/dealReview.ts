@@ -673,4 +673,33 @@ export interface DDGridV1ResponseDTO {
   documents_meta: DDGridV1DocumentMetaDTO[];
 }
 
+// =============================================================
+// Локализованные presentation-версии результатов проверки.
+// =============================================================
+
+export interface ResultPresentationRequestDTO {
+  locale: string;
+}
+
+export interface ResultPresentationProgressDTO {
+  run_id: string;
+  locale: string;
+  content_version: string;
+
+  total: number;
+  missing: number;
+  pending: number;
+  processing: number;
+  ready: number;
+  reviewed: number;
+  approved: number;
+  failed: number;
+  stale: number;
+
+  created_pending: number;
+  existing: number;
+
+  is_complete: boolean;
+  dispatch_status: string;
+}
 

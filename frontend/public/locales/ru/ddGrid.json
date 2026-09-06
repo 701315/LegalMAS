@@ -419,6 +419,17 @@
       "line": "Матрица проверки: <bold>{{documents}}</bold>. Проведено <bold>{{checks}}</bold>. Выявлено <bold>{{findings}}</bold>. Режим проверки: <bold>{{mode}}</bold>.",
       "tooltipRuntime": "Runtime параметров: {{count}}",
       "tooltipCells": "Ячеек: определено {{defined}} · не найдено {{notFound}} · ошибок {{errors}}"
+    },
+    "presentations": {
+      "checking": "Проверяем локализованные результаты…",
+      "queued": "Локализация поставлена в очередь: {{pending}} из {{total}} результатов",
+      "processing": "Локализуем результаты: готово {{completed}} из {{total}}",
+      "ready": "Локализованные результаты готовы: {{completed}} из {{total}}",
+      "failed": "Не удалось сформировать локализованные результаты: {{count}}",
+      "stale": "Для {{count}} результатов требуется новая версия содержимого",
+      "requestButton": "Локализовать результаты",
+      "requestTitle": "Создать локализованные представления результатов для {{locale}}",
+      "requestError": "Не удалось запросить локализованные представления результатов."
     }
   },
   "displayValues": {

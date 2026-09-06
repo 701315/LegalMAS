@@ -413,6 +413,17 @@
       "line": "Verification matrix: <bold>{{documents}}</bold>. <bold>{{checks}}</bold> conducted. <bold>{{findings}}</bold> identified. Verification mode: <bold>{{mode}}</bold>.",
       "tooltipRuntime": "Runtime parameters: {{count}}",
       "tooltipCells": "Cells: defined {{defined}} · not found {{notFound}} · errors {{errors}}"
+    },
+    "presentations": {
+      "checking": "Checking localized results…",
+      "queued": "Localization queued: {{pending}} of {{total}} results",
+      "processing": "Localizing results: {{completed}} of {{total}} ready",
+      "ready": "Localized results are ready: {{completed}} of {{total}}",
+      "failed": "{{count}} localized result(s) could not be generated",
+      "stale": "{{count}} localized result(s) require a newer content version",
+      "requestButton": "Localize results",
+      "requestTitle": "Create localized result presentations for {{locale}}",
+      "requestError": "Could not request localized result presentations."
     }
   },
   "displayValues": {

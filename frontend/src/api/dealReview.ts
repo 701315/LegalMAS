@@ -6,7 +6,9 @@
 // =============================================================
 
 import {
+  useMutation,
   useQuery,
+  useQueryClient,
   type UseQueryOptions,
   type UseQueryResult,
 } from "@tanstack/react-query";
@@ -23,6 +25,8 @@ import type {
   DocumentStructuredDataDTO,
   DocumentSummaryDTO,
   ExtractedValueDTO,
+  ResultPresentationProgressDTO,
+  ResultPresentationRequestDTO,
 } from "../types/dealReview";
 
 // -------------------------------------------------------------
@@ -126,6 +130,19 @@ export const dealReviewKeys = {
     [
       ...dealReviewKeys.ddGridV1Base(dealId, runId),
       toPresentationLocale(presentationLocale) ?? null,
+    ] as const,
+
+  resultPresentationProgress: (
+    dealId: string | null,
+    runId: string | null,
+    locale: string | null | undefined,
+  ) =>
+    [
+      ...dealReviewKeys.all,
+      "result-presentation-progress",
+      dealId,
+      runId,
+      toPresentationLocale(locale) ?? null,
     ] as const,
 };
 
@@ -237,6 +254,35 @@ export const dealReviewApi = {
     );
     return data;
   },
+
+  async requestResultPresentationsForRun(
+    dealId: string,
+    runId: string,
+    payload: ResultPresentationRequestDTO,
+  ): Promise<ResultPresentationProgressDTO> {
+    const { data } = await client.post<ResultPresentationProgressDTO>(
+      `${buildDealReviewBasePath(dealId, runId)}/result-presentations/requests`,
+      payload,
+    );
+    return data;
+  },
+
+  async getResultPresentationProgressForRun(
+    dealId: string,
+    runId: string,
+    locale: string,
+  ): Promise<ResultPresentationProgressDTO> {
+    const { data } = await client.get<ResultPresentationProgressDTO>(
+      `${buildDealReviewBasePath(dealId, runId)}/result-presentations/progress`,
+      {
+        params: {
+          locale,
+        },
+      },
+    );
+    return data;
+  },
+
 
   // Short aliases for cleaner usage in new review UI layer
   getDdMatrix(
@@ -518,6 +564,72 @@ export function useDealReviewDdGridV1(
     staleTime: 30_000,
     refetchOnWindowFocus: true,
     ...options,
+  });
+}
+
+const RESULT_PRESENTATION_PROGRESS_POLL_INTERVAL_MS = 2_000;
+
+export function useResultPresentationProgress(
+  dealId: string | null,
+  runId: string | null,
+  presentationLocale: string | null | undefined,
+): UseQueryResult<ResultPresentationProgressDTO, Error> {
+  const locale = toPresentationLocale(presentationLocale);
+
+  return useQuery<ResultPresentationProgressDTO, Error>({
+    queryKey: dealReviewKeys.resultPresentationProgress(
+      dealId,
+      runId,
+      locale,
+    ),
+    queryFn: () =>
+      dealReviewApi.getResultPresentationProgressForRun(
+        requireParam(dealId, "dealId"),
+        requireParam(runId, "runId"),
+        requireParam(locale, "presentationLocale"),
+      ),
+    enabled: !!dealId && !!runId && !!locale,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => {
+      const progress = query.state.data;
+
+      if (!progress) {
+        return false;
+      }
+
+      return progress.pending > 0 || progress.processing > 0
+        ? RESULT_PRESENTATION_PROGRESS_POLL_INTERVAL_MS
+        : false;
+    },
+  });
+}
+
+export function useRequestResultPresentations(
+  dealId: string | null,
+  runId: string | null,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (locale: string) =>
+      dealReviewApi.requestResultPresentationsForRun(
+        requireParam(dealId, "dealId"),
+        requireParam(runId, "runId"),
+        {
+          locale,
+        },
+      ),
+    onSuccess: (progress, locale) => {
+      queryClient.setQueryData(
+        dealReviewKeys.resultPresentationProgress(
+          dealId,
+          runId,
+          locale,
+        ),
+        progress,
+      );
+    },
   });
 }
 
