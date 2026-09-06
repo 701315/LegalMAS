@@ -1,32 +1,32 @@
 # src/api/schemas/playbook_runs.py
 
 """
-Схемы для операций:
-- пересборка плейбука сделки и пересчёт результатов (rebuild-and-rerun);
-- история изменений плейбука по сделке.
+Schemas for operations:
+- Recompilation of deal playbook and recomputation of results (rebuild-and-rerun);
+- Playbook change history per deal.
 
-Важный момент:
+Important note:
 
-Сейчас у нас два уровня конфигурации плейбука:
+We currently have two playbook configuration layers:
 
-1) "Рецепт" (config), который используется компилятором:
-   - bundles: базовые пресеты (playbooks/bundles/*.yaml),
-   - include_ids: какие check_id добавить,
-   - exclude_ids: какие check_id убрать,
-   - profile: глубина проверки (core/full/max).
+1) The "Recipe" (config) used by the compiler:
+   - bundles: base presets (playbooks/bundles/*.yaml),
+   - include_ids: check IDs to add,
+   - exclude_ids: check IDs to remove,
+   - profile: check depth profile (core/full/max).
 
-2) Фактический состав (enabled_check_ids/disabled_check_ids),
-   который фронтенд получает и редактирует через UI плашек.
+2) The actual composition (enabled_check_ids/disabled_check_ids)
+   which the frontend retrieves and modifies via the UI cards tree.
 
-Чтобы не ломать уже существующий код, мы:
+To preserve compatibility and avoid breaking existing code, we:
 
-- оставляем bundles/include_ids/exclude_ids/profile для текущей логики
-  (пересборка из прошлой конфигурации и частичное перекрытие),
-- добавляем optional-поля enabled_check_ids/disabled_check_ids,
-  чтобы фронт мог прислать "готовый" набор чеков после правки UI.
+- Keep bundles/include_ids/exclude_ids/profile parameters for the legacy logic
+  (recompilation from past configs and partial overrides),
+- Add optional fields enabled_check_ids/disabled_check_ids
+  to allow the frontend to supply a finalized check list after UI modifications.
 
-Если enabled_check_ids/disabled_check_ids не заданы (пустые),
-бэкенд будет использовать bundles/include_ids/exclude_ids, как раньше.
+If enabled_check_ids/disabled_check_ids are omitted or empty,
+the backend will fall back to using bundles/include_ids/exclude_ids as before.
 """
 
 from __future__ import annotations
@@ -39,84 +39,81 @@ from pydantic import BaseModel, Field
 
 class DealPlaybookRebuildRequest(BaseModel):
     """
-    Запрос на пересборку плейбука для сделки и запуск нового run.
+    Request to compile a new playbook configuration for a deal and trigger a new analysis run.
 
-    Варианты использования:
+    Use cases:
 
-    1) Старый / "рецептный" режим (backward-compatible):
-       - передать bundles/include_ids/exclude_ids/profile,
-       - оставить enabled_check_ids/disabled_check_ids пустыми,
-       - тогда конфигурация собирается из:
-         * текущего PlaybookConfig компилированного плейбука,
-         * перекрытий из bundles/include/exclude/profile.
+    1) Legacy / "Recipe-based" mode (backward-compatible):
+       - Supply bundles/include_ids/exclude_ids/profile parameters,
+       - Leave enabled_check_ids/disabled_check_ids empty,
+       - The playbook configuration is assembled from:
+         * The current PlaybookConfig of the compiled playbook,
+         * Overrides provided in the bundles/include/exclude/profile parameters.
 
-    2) Новый режим "после UI-плашек":
-       - фронтенд показывает юристу дерево всех доступных checks,
-         стартуя, например, с конфигурации шаблона или текущего плейбука;
-       - юрист снимает/ставит галочки;
-       - фронтенд отправляет:
-           enabled_check_ids  — итоговый список включённых check_id,
-           disabled_check_ids — явно выключенные check_id (опционально),
-         при этом bundles/include_ids/exclude_ids можно не заполнять.
-       - на бэкенде мы можем использовать enabled_check_ids как include_ids,
-         а disabled_check_ids — как exclude_ids, либо более сложную логику.
+    2) New "UI-checked list" mode:
+       - The frontend displays the tree of all available checks to the user,
+         originating from a template or the current active playbook;
+       - The user checks/unchecks individual checkboxes;
+       - The frontend dispatches:
+           enabled_check_ids  — the finalized list of enabled check IDs,
+           disabled_check_ids — explicitly disabled check IDs (optional),
+         while leaving bundles/include_ids/exclude_ids omitted or empty.
+       - The backend maps enabled_check_ids as include_ids
+         and disabled_check_ids as exclude_ids, or applies more advanced composition logic.
 
-    Это позволяет эволюционно перейти от "рецептов" к явному составу,
-    не ломая существующий API.
+    This facilitates an evolutionary transition from compiler recipe inputs
+    to explicitly configured check sets without breaking existing APIs.
     """
 
-    # --- "Рецепт" для компилятора (как было раньше) ---
+    # --- Compiler "Recipe" (backward-compatible parameters) ---
 
     bundles: list[str] = Field(
         default_factory=list,
-        description="Список bundle-id для нового плейбука. "
-        "Если пусто и не заданы enabled_check_ids — использовать текущие из config.",
+        description="List of bundle IDs for the new playbook configuration. "
+        "If empty and enabled_check_ids is not supplied, falls back to active config bundles.",
     )
     include_ids: list[str] = Field(
         default_factory=list,
-        description="Чеки, которые явно добавить поверх bundles "
-        "(используются, если enabled_check_ids не заданы).",
+        description="Check IDs explicitly added on top of bundles "
+        "(evaluated if enabled_check_ids is omitted or empty).",
     )
     exclude_ids: list[str] = Field(
         default_factory=list,
-        description="Чеки, которые явно исключить (используются, если enabled_check_ids не заданы).",
+        description="Check IDs explicitly excluded (evaluated if enabled_check_ids is omitted or empty).",
     )
     profile: str | None = Field(
         default=None,
-        description="Профиль глубины проверки (core/full/quick/max и т.п.). "
-        "Если не задан и нет enabled_check_ids — берётся из текущего config.",
+        description="Validation depth profile (e.g., core/full/quick/max). "
+        "If omitted and enabled_check_ids is empty, falls back to current config profile.",
     )
 
-    # --- Новый уровень: явный итоговый состав после UI-плашек ---
+    # --- Explicit Final Composition Layer (UI selection output) ---
 
     enabled_check_ids: list[str] = Field(
         default_factory=list,
         description=(
-            "Итоговый список check_id, которые должны быть включены в плейбук "
-            "после правок юриста на UI. "
-            "Если непустой, может использоваться как основной источник состава."
+            "Finalized list of check IDs that must be enabled in the playbook "
+            "following explicit user changes in the UI. "
+            "If populated, acts as the primary check set source."
         ),
     )
     disabled_check_ids: list[str] = Field(
         default_factory=list,
         description=(
-            "Список check_id, которые явно выключены юристом по сравнению с базовым набором. "
-            "Может использоваться вместе с enabled_check_ids для более тонкой логики."
+            "List of check IDs explicitly disabled by the user relative to the base configuration. "
+            "Can be evaluated in tandem with enabled_check_ids for precise composition mapping."
         ),
     )
-
-    # На будущее можно добавить флаг "force_reclassify", но пока оставим только запуск checks.
-    # через CheckRunner (run_deal_checks).
 
 
 class DealPlaybookRebuildResponse(BaseModel):
     """
-    Ответ после пересборки плейбука и запуска нового run.
+    Response payload returning details of the recompiled playbook and the triggered analysis run.
 
-    Используется фронтендом, чтобы:
-    - обновить ID текущего плейбука проекта (Deal.playbook_version_id);
-    - показать новый run как "актуальный";
-    - при необходимости перейти на страницу статуса run.
+    Used by the frontend to:
+    - Update the project's current active playbook ID (Deal.playbook_version_id);
+    - Map the new run as the active dataset;
+    - Optionally redirect to the newly created run status workspace.
     """
 
     deal_id: UUID
@@ -126,13 +123,13 @@ class DealPlaybookRebuildResponse(BaseModel):
 
 class DealPlaybookHistoryItem(BaseModel):
     """
-    Один элемент истории изменений плейбука по сделке.
+    Single history log record of deal playbook configuration changes.
 
-    Основан на связке Run + PlaybookVersion:
-    - какой плейбук (name/semver) применялся;
-    - какой run выполнялся;
-    - статус run и временные метки;
-    - профиль проверки.
+    Corresponds to a unique Run and PlaybookVersion relationship:
+    - Playbook profile properties (name/semver) applied;
+    - Executed run identifier;
+    - Run status and completion timestamps;
+    - Configured depth profile.
     """
 
     run_id: UUID
@@ -147,17 +144,15 @@ class DealPlaybookHistoryItem(BaseModel):
 
 class DealPlaybookHistoryResponse(BaseModel):
     """
-    История плейбуков для сделки.
+    Historical log of playbook configurations applied to a deal.
 
-    Список всех run'ов с их плейбуками (новые сначала), чтобы
-    на фронтенде можно было показать:
+    Returns the collection of all executions with their respective playbooks (newest first)
+    to facilitate rendering:
 
-    - как менялся плейбук по сделке (версии/semver);
-    - какие запуски были по каждой версии;
-    - какой run сейчас актуален.
+    - Playbook configuration progression (versions/semver evolution);
+    - Analysis executions triggered for each unique version;
+    - The active current run reference.
     """
 
     deal_id: UUID
     items: list[DealPlaybookHistoryItem]
-
-

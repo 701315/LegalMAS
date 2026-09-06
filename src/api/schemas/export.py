@@ -1,17 +1,17 @@
 # src/api/schemas/export.py
 
 """
-Pydantic-схемы для API экспортов.
+Pydantic schemas for the export API.
 
-Зачем нужен этот файл:
-- описывает формат входных данных для запроса на запуск экспорта;
-- описывает формат выходных данных для статуса экспорта;
-- отделяет ORM-модель Export от публичного API-контракта;
-- позволяет безопасно добавлять вычисляемые поля, например download_url.
+Purpose of this module:
+- Defines the input payload format for export trigger requests;
+- Defines the output response schemas for export job status;
+- Decouples the ORM Export model from the public API contract;
+- Facilitates the safe inclusion of computed attributes like download_url.
 
-Важно:
-- ORM-модель лежит в db/models/export.py и отвечает за хранение в БД;
-- схемы ниже отвечают только за валидацию и сериализацию API.
+Note:
+- The ORM model resides in db/models/export.py and manages persistence;
+- The schemas below handle API serialization and request validation.
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# Разрешённые типы экспортов.
-# Если backend позже расширится, список можно пополнить.
+# Allowed export format types.
+# Can be expanded if additional formats are introduced in future releases.
 ExportType = Literal[
     "grid_xlsx",
     "deal_summary_xlsx",
@@ -31,9 +31,7 @@ ExportType = Literal[
     "aggregated_json",
 ]
 
-# Разрешённые статусы экспортов.
-# Пока оставляем как str, чтобы не ломать совместимость,
-# но документируем ожидаемые значения.
+# Allowed export lifecycle status values.
 ExportStatus = Literal[
     "pending",
     "processing",
@@ -44,39 +42,39 @@ ExportStatus = Literal[
 
 class ExportRequest(BaseModel):
     """
-    Тело запроса на запуск экспорта для одного run.
+    Request body for initiating an export job for a single run.
 
-    Соответствует endpoint:
+    Corresponds to endpoint:
         POST /api/v1/runs/{run_id}/export
     """
 
     export_type: ExportType = Field(
         ...,
-        description="Тип экспорта, например: grid_xlsx, deal_summary_xlsx, report_docx",
+        description="Type of export format: grid_xlsx, deal_summary_xlsx, report_docx, aggregated_json",
         examples=["deal_summary_xlsx"],
     )
 
     requested_by: str | None = Field(
         default=None,
-        description="Идентификатор или email пользователя, запросившего экспорт",
+        description="Identifier or email of the user who requested the export",
         examples=["admin@legalmas.local"],
     )
 
     requester_role: str | None = Field(
         default=None,
-        description="Роль пользователя в проекте на момент запроса",
+        description="Project workspace role of the user at request time",
         examples=["editor"],
     )
 
 
 class ExportRecord(BaseModel):
     """
-    Публичная API-схема одной записи экспорта.
+    Public API schema representing a single export record.
 
-    Это ответ, который удобно отдавать во фронт:
-    - базовые поля записи Export из БД;
-    - file_ref/file_refs для отладки и обратной совместимости;
-    - download_url как вычисляемое поле, если файл уже готов.
+    Provides a clean response representation for UI clients:
+    - Core Export entity attributes from the database;
+    - file_ref / file_refs for debugging and backward compatibility;
+    - download_url as a computed convenience field when artifacts are ready.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -87,77 +85,77 @@ class ExportRecord(BaseModel):
 
     export_type: ExportType = Field(
         ...,
-        description="Тип экспорта",
+        description="Type of export artifact",
         examples=["report_docx"],
     )
 
     status: ExportStatus = Field(
         ...,
-        description="Статус экспорта. Для completed backend гарантирует наличие file_ref; download_url вычисляется из него.",
+        description="Export job status. For completed jobs, file_ref is guaranteed; download_url is computed from it.",
         examples=["completed"],
     )
 
     file_ref: str | None = Field(
         default=None,
-        description="Основной reference на файл в storage",
+        description="Primary artifact storage reference",
         examples=["exports/deal-123/run-456/deal_summary.xlsx"],
     )
 
     file_refs: dict[str, Any] | None = Field(
         default=None,
-        description="Дополнительные references на файлы, если экспорт создал несколько артефактов",
+        description="Additional file references if multiple artifacts were produced",
         examples=[{"main": "exports/deal-123/run-456/report.docx"}],
     )
 
     requested_by: str | None = Field(
         default=None,
-        description="Кто запросил экспорт",
+        description="User who initiated the export job",
         examples=["admin@legalmas.local"],
     )
 
     requester_role: str | None = Field(
         default=None,
-        description="Роль пользователя, запросившего экспорт",
+        description="Workspace role of the requester at creation time",
         examples=["admin"],
     )
 
     file_size_bytes: int | None = Field(
         default=None,
-        description="Размер итогового файла в байтах, если известен",
+        description="Total artifact size in bytes, if available",
         examples=[245760],
     )
 
     created_at: datetime | None = Field(
         default=None,
-        description="Дата создания записи экспорта",
+        description="Creation timestamp of the export record",
     )
 
     updated_at: datetime | None = Field(
         default=None,
-        description="Дата последнего обновления записи экспорта",
+        description="Last updated timestamp of the export record",
     )
 
     download_url: str | None = Field(
         default=None,
-        description="Готовая ссылка на скачивание файла. Для completed должна быть доступна, если storage корректно разрешает file_ref.",
+        description="Direct download URL. Available for completed jobs when storage resolves file_ref.",
         examples=["/api/v1/exports/3fa85f64-5717-4562-b3fc-2c963f66afa6/download"],
     )
 
     error_message: str | None = Field(
         default=None,
-        description="Текст ошибки, если экспорт завершился неуспешно",
+        description="Error detail message if export processing failed",
         examples=["Export generation failed"],
     )
 
 
 class ExportListResponse(BaseModel):
     """
-    Ответ для списка экспортов.
+    Response schema for paginated or batch lists of export records.
 
-    Нужен на будущее, если появится endpoint вроде:
+    Used by endpoints such as:
         GET /api/v1/runs/{run_id}/exports
         GET /api/v1/deals/{deal_id}/exports
     """
 
     items: list[ExportRecord]
-    total: int = Field(..., description="Общее количество записей")
+    total: int = Field(..., description="Total count of export records")

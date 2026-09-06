@@ -1,94 +1,88 @@
 # src/mas_queue/base_task.py
 
 """
-MASBaseTask — базовый класс для всех Celery-задач в системе.
+MASBaseTask — Base class for all Celery tasks in the system.
 
-Назначение:
-- единая реализация политики ретраев, DLQ и трекинга Job в БД;
-- стандартное логирование с контекстом сделки и документа;
-- централизованная обработка TransientError / PermanentError /
+Purpose:
+- Unified implementation of retry policies, DLQ mapping, and Job tracking in DB;
+- Standardized logging enriched with deal and document contexts;
+- Centralized interception of TransientError / PermanentError /
   QuarantineError / SoftTimeLimitExceeded.
 
-Что делает этот класс:
-- перехватывает выполнение задачи в __call__ и:
-    * TransientError и любые неизвестные исключения → self.retry()
-      с экспоненциальным backoff + jitter;
-    * PermanentError → без ретраев, финальная обработка идёт через
-      on_failure(), где задача пишется в DLQ и Job помечается как DLQ;
-    * QuarantineError → без ретраев, on_failure() помечает Job как
-      COMPLETED с флагом quarantine;
-    * SoftTimeLimitExceeded → превращается в PermanentError;
-      ретраить бессмысленно, задача уже превысила допустимое время
-      выполнения.
-- при достижении max_retries для транзиентных ошибок:
-    * задача больше не ретраится;
-    * __call__ пробрасывает исключение дальше;
-    * финальная запись в DLQ выполняется ровно один раз в on_failure().
-- в before_start / on_success / on_failure / on_retry:
-    * логирует ключевые события жизненного цикла таски;
-    * обновляет статус Job (RUNNING, COMPLETED, DLQ) и
-      вспомогательные поля (worker_id, started_at, finished_at,
-      retry_count, error_details);
-    * обновляет document_stage_executions (STARTED / SUCCEEDED / FAILED)
-      в отдельной транзакции, независимо от бизнес-транзакции worker'а.
-    * инкрементирует Prometheus pipeline metrics (documents_processed_total,
-      document_stage_duration_seconds, celery_task_* и т.д.).
+What this class does:
+- Intercepts task execution in __call__ and:
+    * TransientError and any unexpected exceptions → trigger self.retry()
+      with exponential backoff + jitter;
+    * PermanentError → skip retries, route to final handling inside
+      on_failure(), writing the task to DLQ and marking the Job as DLQ;
+    * QuarantineError → skip retries, on_failure() flags the Job as
+      COMPLETED with a quarantine flag;
+    * SoftTimeLimitExceeded → translated into a PermanentError;
+      retrying is skipped as the task has already exceeded its allocated execution time.
+- Upon reaching max_retries for transient errors:
+    * Task is no longer retried;
+    * __call__ propagates the exception upward;
+    * Final DLQ record persistence is executed exactly once in on_failure().
+- In before_start / on_success / on_failure / on_retry hooks:
+    * Logs key task lifecycle events;
+    * Updates Job status (RUNNING, COMPLETED, DLQ) and auxiliary metadata
+      (worker_id, started_at, finished_at, retry_count, error_details);
+    * Updates document_stage_executions (STARTED / SUCCEEDED / FAILED)
+      within an independent transaction, detached from the worker's business transaction;
+    * Increments Prometheus pipeline metrics (documents_processed_total,
+      document_stage_duration_seconds, celery_task_*, etc.).
 
-Политика stage execution lifecycle:
-- before_start  → mark_started  (best-effort, отдельный UoW)
-- on_success    → mark_succeeded или mark_failed в зависимости от retval
-- on_failure    → mark_failed   (best-effort, отдельный UoW)
+Stage execution lifecycle policy:
+- before_start  → mark_started  (best-effort, independent UoW)
+- on_success    → mark_succeeded or mark_failed based on retval status
+- on_failure    → mark_failed   (best-effort, independent UoW)
 
-Идемпотентность:
-- перед каждой записью читается текущий статус execution;
-- если execution уже в terminal статусе (succeeded/failed/cancelled),
-  повторная запись пропускается — worker-specific lifecycle и base task
-  lifecycle могут оба вызываться без конфликта.
+Idempotency guarantees:
+- Current execution status is verified before every persistence operation;
+- If execution is already in a terminal status (succeeded/failed/cancelled),
+  writing is skipped — allowing worker-specific and base task lifecycles to coexist safely.
 
-Политика ретраев:
-TransientError         : до max_retries=3 попыток, экспоненциальный
-                         backoff с jitter, потолок retry_backoff_max=300 с.
-PermanentError         : 1 попытка, затем сразу DLQ.
-SoftTimeLimitExceeded  : трактуется как PermanentError (1 попытка → DLQ).
-Неизвестные ошибки     : считаются транзиентными.
+Retry policy parameters:
+TransientError         : up to max_retries=3 attempts, exponential
+                         backoff with jitter, capped at retry_backoff_max=300s.
+PermanentError         : 1 attempt, routed immediately to DLQ.
+SoftTimeLimitExceeded  : handled as PermanentError (1 attempt → DLQ).
+Unexpected exceptions  : classified as transient by default.
 
-Backoff:
-retry 0 →  10 с  + jitter [0, 1 с]
-retry 1 →  30 с  + jitter [0, 3 с]
-retry 2 →  90 с  + jitter [0, 9 с]
-retry 3 → 270 с  + jitter [0, 27 с]  (потолок 300 с)
+Backoff progression:
+retry 0 →  10s  + jitter [0, 1s]
+retry 1 →  30s  + jitter [0, 3s]
+retry 2 →  90s  + jitter [0, 9s]
+retry 3 → 270s  + jitter [0, 27s]  (capped at 300s)
 
-Jitter (±10 % от base) предотвращает thundering herd при массовом
-рестарте воркеров.
+Jitter (±10% of base value) prevents thundering herd situations during
+mass worker restarts.
 
-Архитектурные гарантии:
-- запись в DLQ выполняется только в финальной точке отказа — on_failure();
-- от повторной записи защищает request-local флаг _dlq_sent;
-- source_task_id, retry_count и dedupe_key формируются из self.request
-  и kwargs текущей Celery-задачи.
+Architectural guarantees:
+- DLQ writing is triggered only at the ultimate failure terminal point — on_failure();
+- Re-writing is prevented by a request-local `_dlq_sent` guard flag;
+- source_task_id, retry_count, and dedupe_key parameters are resolved from self.request
+  and kwargs of the current Celery task execution.
 
-Как использовать:
-- наследовать Celery-таски от этого класса через декоратор:
+Usage:
+- Inherit Celery tasks from this class using the decorator:
       @celery_app.task(base=MASBaseTask, bind=True, queue="default")
       def my_task(self, document_id: str, job_id: str,
                   deal_id: str | None = None):
           ...
-- передавать в kwargs:
-    * job_id              — для трекинга статуса в таблице Job;
-    * deal_id             — заполняет deal_id_var для логгера;
-    * document_id         — заполняет document_id_var для логгера;
-    * stage_execution_id  — для трекинга document_stage_executions.
+- Ensure kwargs contain:
+    * job_id              — for status tracking inside the Job table;
+    * deal_id             — populates deal_id_var for contextual logging;
+    * document_id         — populates document_id_var for contextual logging;
+    * stage_execution_id  — for tracking document_stage_executions progress.
 
-Ограничения:
-- все операции с БД (Job / DLQ / stage execution) выполняются асинхронно
-  внутри отдельного event loop через run_async и db_uow();
-- класс не знает бизнес-логики задач, только управляет их
-  жизненным циклом и побочными эффектами;
-- если SIGKILL (task_time_limit) срабатывает до on_failure,
-  хуки могут не выполниться. Для таких случаев рекомендуется
-  периодическая Celery Beat задача, которая переводит Job и
-  stage_executions, застрявшие в RUNNING/STARTED дольше task_time_limit,
-  в DLQ / FAILED.
+Limitations:
+- DB operations (Job / DLQ / stage execution updates) execute asynchronously
+  inside an isolated event loop using run_async and db_uow();
+- This class is business-logic agnostic, tracking task lifecycle state transitions only;
+- If SIGKILL (task_time_limit) occurs before on_failure, hooks might be bypassed.
+  A background Celery Beat cleaner task should recover Jobs and stage_executions
+  stranded in RUNNING/STARTED beyond task_time_limit threshold.
 """
 
 from __future__ import annotations
@@ -117,8 +111,8 @@ logger = get_logger(__name__)
 
 class MASBaseTask(Task):
     """
-    Базовый класс Celery-тасок с политикой ретраев, DLQ и трекингом Job
-    и document_stage_executions.
+    Base Celery task class with retries, DLQ mapping, Job tracking,
+    and document_stage_executions state management.
     """
 
     autoretry_for = ()
@@ -126,7 +120,7 @@ class MASBaseTask(Task):
     retry_backoff_max = 300
     track_job = True
 
-    # Статусы, при которых повторная запись в execution пропускается.
+    # Execution statuses where redundant persistence operations are skipped.
     _TERMINAL_EXECUTION_STATUSES: frozenset[str] = frozenset(
         {
             DocumentStageExecutionStatus.SUCCEEDED.value,
@@ -135,7 +129,7 @@ class MASBaseTask(Task):
         }
     )
 
-    # Бизнес-статусы документа, означающие terminal failure на уровне stage.
+    # Document terminal business statuses representing stage failures.
     _FAILURE_DOCUMENT_STATUSES: frozenset[str] = frozenset(
         {
             DocumentStatus.FAILED.value,
@@ -147,12 +141,12 @@ class MASBaseTask(Task):
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """
-        Выполнить задачу внутри единого retry/DLQ envelope.
+        Execute task inside the centralized retry/DLQ envelope.
 
-        Envelope-поля оркестратора читаются из kwargs через get() и
-        сохраняются в self, но НЕ удаляются из kwargs. Это гарантирует,
-        что worker-функции получают stage_execution_id в своих kwargs/аргументах
-        и могут вызывать mark_started/mark_succeeded самостоятельно.
+        Orchestrator envelope properties are resolved from kwargs using get() and
+        assigned to the class instance, but are NOT popped from kwargs. This ensures
+        worker implementations receive stage_execution_id in their own kwargs
+        and can invoke mark_started/mark_succeeded manually if necessary.
         """
         self._stage_execution_id: str | None = self._extract_stage_execution_id(kwargs)
         self._orchestration_strategy: str | None = kwargs.get("orchestration_strategy")
@@ -184,10 +178,10 @@ class MASBaseTask(Task):
         kwargs: dict[str, Any],
     ) -> None:
         """
-        Подготовить контекст перед стартом задачи.
+        Prepare task logging and transactional context before execution starts.
 
-        Вызывается Celery до __call__ и до run(). kwargs здесь полные —
-        содержат все поля, включая stage_execution_id.
+        Triggered by Celery before __call__ and run(). kwargs are complete —
+        containing all dispatch context fields, including stage_execution_id.
         """
         delivery_info = getattr(self.request, "delivery_info", None) or {}
         queue: str | None = None
@@ -211,7 +205,7 @@ class MASBaseTask(Task):
             queue=queue,
         )
 
-        # Запомнить время старта для расчёта duration в on_success / on_failure.
+        # Store start performance counter to compute execution duration later
         self._task_started_at: float = time.perf_counter()
 
         self._stage_execution_id = self._extract_stage_execution_id(kwargs)
@@ -254,12 +248,11 @@ class MASBaseTask(Task):
         kwargs: dict[str, Any],
     ) -> None:
         """
-        Обработать успешное завершение задачи.
+        Handle successful task completion.
 
-        «Успешное» с точки зрения Celery означает, что run() не бросил
-        исключение. Бизнес-логика worker'а может всё равно вернуть
-        status=failed/quarantine — в таком случае execution закрывается
-        как FAILED.
+        'Success' in Celery context indicates run() finished without throwing exceptions.
+        However, the worker's business outcome might still be status=failed/quarantine —
+        requiring the stage execution to close as FAILED.
         """
         _ = args
 
@@ -281,10 +274,10 @@ class MASBaseTask(Task):
                     task_name=self.name, status="succeeded"
                 ).observe(_duration)
             except Exception:
-                pass  # metrics never break pipeline
+                pass  # metrics failure should never interrupt processing
             # ─────────────────────────────────────────────────────────────
 
-            # Читаем из kwargs (они полные в хуках on_success/on_failure).
+            # Read from complete kwargs context supplied to the hook
             stage_execution_id = self._extract_stage_execution_id(kwargs)
             if stage_execution_id:
                 terminal_action, payload = self._resolve_stage_execution_completion(
@@ -328,14 +321,13 @@ class MASBaseTask(Task):
         einfo: Any,
     ) -> None:
         """
-        Обработать окончательный провал задачи.
+        Handle ultimate task failure.
 
-        Это единая финальная точка отказа, где выполняется запись в DLQ
-        и перевод Job в статус DLQ. Для QuarantineError вместо этого
-        Job помечается как COMPLETED с quarantine-флагом.
+        This acts as the single terminal failure callback where DLQ routing
+        and Job DLQ status updates are performed. For QuarantineError scenarios,
+        the Job is resolved as COMPLETED with a quarantine marker.
 
-        Stage execution закрывается как FAILED безусловно при любом
-        типе исключения.
+        The stage execution is closed as FAILED unconditionally.
         """
         _ = args
 
@@ -359,13 +351,13 @@ class MASBaseTask(Task):
                     task_name=self.name, status="failed"
                 ).observe(_duration)
             except Exception:
-                pass  # metrics never break pipeline
+                pass  # metrics failure should never interrupt processing
             # ─────────────────────────────────────────────────────────────
 
             error_info = self._build_error_info(exc, task_id=task_id)
             traceback_text = str(einfo) if einfo is not None else None
 
-            # Закрыть stage execution независимо от типа исключения.
+            # Always resolve the stage execution as failed on exception
             stage_execution_id = self._extract_stage_execution_id(kwargs)
             if stage_execution_id:
                 self._mark_stage_execution_failed_best_effort(
@@ -439,7 +431,7 @@ class MASBaseTask(Task):
         einfo: Any,
     ) -> None:
         """
-        Залогировать событие retry.
+        Log Celery task retry event.
         """
         _ = args, kwargs, einfo
 
@@ -459,7 +451,7 @@ class MASBaseTask(Task):
                     task_name=self.name
                 ).inc()
             except Exception:
-                pass  # metrics never break pipeline
+                pass  # metrics failure should never interrupt processing
             # ─────────────────────────────────────────────────────────────
 
         finally:
@@ -475,13 +467,13 @@ class MASBaseTask(Task):
         error_kind: str,
     ) -> None:
         """
-        Обработать retryable-ошибку.
+        Process a retryable failure.
 
-        Если лимит ретраев ещё не исчерпан, задача переводится обратно в QUEUED
-        и планируется на повторный запуск через self.retry() с backoff+jitter.
+        If retry limits are not exceeded, the task is re-queued and rescheduled
+        via self.retry() with calculated exponential backoff + jitter countdown.
 
-        Если лимит исчерпан, метод только логирует событие и обновляет Job.
-        Финальная запись в DLQ выполняется позже в on_failure().
+        If retry limits are reached, logs the terminal failure.
+        Actual DLQ persistence is delegated to on_failure().
         """
         if self.request.retries < self.max_retries:
             delay = self._calculate_backoff(self.request.retries)
@@ -551,9 +543,9 @@ class MASBaseTask(Task):
     @staticmethod
     def _extract_stage_execution_id(kwargs: dict[str, Any] | None) -> str | None:
         """
-        Безопасно извлечь stage_execution_id из kwargs.
+        Safely extract stage_execution_id from kwargs.
 
-        Возвращает непустую строку или None.
+        Returns a valid non-empty string or None.
         """
         if not kwargs:
             return None
@@ -570,19 +562,18 @@ class MASBaseTask(Task):
         kwargs: dict[str, Any],
     ) -> tuple[str, dict[str, Any] | None]:
         """
-        Определить, как закрыть stage execution по результату worker-а.
+        Evaluate how to resolve the stage execution based on the worker return value.
 
-        Возвращает:
+        Returns:
           ("failed",    error_details_dict)
           ("succeeded", result_details | None)
 
-        Важно:
-        - terminal failure по-прежнему определяется по retval["status"]
-          в _FAILURE_DOCUMENT_STATUSES;
-        - explainability trace status (succeeded/skipped/partial)
-          живёт внутри result_details["status"] и не меняет
-          технический terminal status execution row, который остаётся
-          SUCCEEDED/FAILED.
+        Rules:
+        - Terminal business outcomes are determined by matching retval["status"]
+          against self._FAILURE_DOCUMENT_STATUSES;
+        - Explainability trace properties (succeeded/skipped/partial) map to
+          result_details["status"] and do not affect the row's technical execution status,
+          which remains SUCCEEDED/FAILED.
         """
         raw_status: str | None = None
         if isinstance(retval, dict):
@@ -637,7 +628,7 @@ class MASBaseTask(Task):
         kwargs: dict[str, Any],
     ) -> dict[str, Any]:
         """
-        Построить error_details для execution FAILED из retval worker-а.
+        Build error_details for FAILED execution updates from worker output values.
         """
         if isinstance(retval, dict):
             status = retval.get("status")
@@ -680,7 +671,7 @@ class MASBaseTask(Task):
         kwargs: dict[str, Any],
     ) -> dict[str, Any]:
         """
-        Построить error_details для execution FAILED из исключения.
+        Build error_details for FAILED execution updates from an exception.
         """
         exc_details = getattr(exc, "details", None)
         exc_details_dict: dict[str, Any] = exc_details if isinstance(exc_details, dict) else {}
@@ -699,10 +690,10 @@ class MASBaseTask(Task):
             }
         )
 
-    # ── Best-effort sync wrappers (вызываются из синхронных хуков Celery) ─────
+    # ── Best-effort sync wrappers (called inside synchronous Celery hooks) ──
 
     def _mark_stage_execution_started_best_effort(self, stage_execution_id: str) -> None:
-        """Обновить execution как STARTED. Ошибка не прерывает pipeline."""
+        """Update execution record to STARTED state. Non-blocking to the pipeline."""
         try:
             run_async(self._async_mark_execution_started(stage_execution_id))
         except Exception as exc:
@@ -719,7 +710,7 @@ class MASBaseTask(Task):
         *,
         result_details: dict[str, Any] | None,
     ) -> None:
-        """Обновить execution как SUCCEEDED. Ошибка не прерывает pipeline."""
+        """Update execution record to SUCCEEDED state. Non-blocking to the pipeline."""
         try:
             run_async(
                 self._async_mark_execution_succeeded(
@@ -741,7 +732,7 @@ class MASBaseTask(Task):
         *,
         error_details: dict[str, Any],
     ) -> None:
-        """Обновить execution как FAILED. Ошибка не прерывает pipeline."""
+        """Update execution record to FAILED state. Non-blocking to the pipeline."""
         try:
             run_async(
                 self._async_mark_execution_failed(
@@ -757,17 +748,17 @@ class MASBaseTask(Task):
                 error=str(exc),
             )
 
-    # ── Async DB helpers (каждый в своём UoW → отдельный commit) ─────────────
+    # ── Async DB helpers (each executed in an isolated UoW transaction) ───
 
     @classmethod
     async def _async_mark_execution_started(cls, stage_execution_id: str) -> None:
         """
-        Пометить execution как STARTED в отдельной транзакции.
+        Mark stage execution record as STARTED in an isolated transaction.
 
-        Пропускается если:
-        - execution не найден
-        - уже в terminal статусе (succeeded/failed/cancelled)
-        - уже в STARTED (идемпотентность)
+        Skipped if:
+        - Record does not exist;
+        - Record is already in a terminal state (succeeded/failed/cancelled);
+        - Record is already STARTED (idempotent guard).
         """
         execution_uuid = uuid.UUID(stage_execution_id)
         async with db_uow() as uow:
@@ -793,15 +784,15 @@ class MASBaseTask(Task):
         result_details: dict[str, Any] | None,
     ) -> None:
         """
-        Пометить execution как SUCCEEDED в отдельной транзакции.
+        Mark stage execution record as SUCCEEDED in an isolated transaction.
 
-        В Explainability flow допускается special-case:
-        - если execution уже SUCCEEDED, но у нас появился enriched trace,
-          мы обновляем result_details поверх существующей записи.
+        Explainability special case handling:
+        - If execution state is already SUCCEEDED but an enriched trace payload is supplied,
+          updates result_details on the existing record.
 
-        Это нужно для hybrid ownership model:
-        - некоторые worker'ы сами делают mark_succeeded() ради атомарности;
-        - MASBaseTask затем дописывает/нормализует explainability trace.
+        This supports our hybrid ownership model:
+        - Certain workers trigger mark_succeeded() directly for atomic persistence;
+        - MASBaseTask then appends and normalizes the explainability trace.
         """
         execution_uuid = uuid.UUID(stage_execution_id)
         async with db_uow() as uow:
@@ -814,14 +805,14 @@ class MASBaseTask(Task):
                 )
                 return
 
-            # Если уже FAILED/CANCELLED — не трогаем.
+            # Cancel updates if already FAILED or CANCELLED
             if execution.status in {
                 DocumentStageExecutionStatus.FAILED.value,
                 DocumentStageExecutionStatus.CANCELLED.value,
             }:
                 return
 
-            # Если уже SUCCEEDED — допускаем update trace payload.
+            # Allow updating details if state is already SUCCEEDED
             if execution.status == DocumentStageExecutionStatus.SUCCEEDED.value:
                 if result_details is not None:
                     await repo.update_result_details(
@@ -840,9 +831,9 @@ class MASBaseTask(Task):
         error_details: dict[str, Any],
     ) -> None:
         """
-        Пометить execution как FAILED в отдельной транзакции.
+        Mark stage execution record as FAILED in an isolated transaction.
 
-        Пропускается если execution уже в terminal статусе.
+        Skipped if record is already in a terminal state.
         """
         execution_uuid = uuid.UUID(stage_execution_id)
         async with db_uow() as uow:
@@ -858,14 +849,14 @@ class MASBaseTask(Task):
                 return
             await repo.mark_failed(execution_uuid, error_details=error_details)
 
-    # ── Общие helpers ─────────────────────────────────────────────────────────
+    # ── Miscellaneous helpers ─────────────────────────────────────────────────
 
     def _build_error_info(
         self,
         exc: BaseException,
         task_id: str | None = None,
     ) -> dict[str, Any]:
-        """Построить унифицированный словарь с данными об ошибке."""
+        """Build a unified dictionary containing failure metadata."""
         info: dict[str, Any] = {
             "task_name": self.name,
             "error_type": type(exc).__name__,
@@ -877,7 +868,7 @@ class MASBaseTask(Task):
         return info
 
     def _calculate_backoff(self, retry_num: int) -> float:
-        """Рассчитать exponential backoff с jitter для retry."""
+        """Calculate exponential backoff with random jitter for retry interval."""
         base = float(min(10 * (3**retry_num), self.retry_backoff_max))
         jitter = random.uniform(0, base * 0.1)
         return base + jitter
@@ -890,7 +881,7 @@ class MASBaseTask(Task):
         failure_type: str,
         error_details: dict[str, Any],
     ) -> None:
-        """Отправить запись в DLQ не более одного раза за lifecycle текущего request."""
+        """Ensure task is written to DLQ at most once during the current request lifecycle."""
         if getattr(self.request, "_dlq_sent", False):
             logger.warning(
                 "Duplicate DLQ send skipped",
@@ -915,7 +906,7 @@ class MASBaseTask(Task):
         failure_type: str,
         error_details: dict[str, Any],
     ) -> None:
-        """Подготовить и записать событие в DLQ."""
+        """Prepare and write a terminal task failure record to DLQ."""
         raw_job_id = kwargs.get("job_id")
         raw_tenant_id = kwargs.get("tenant_id")
         source_task_id = getattr(self.request, "id", None)
@@ -1003,7 +994,7 @@ class MASBaseTask(Task):
         dedupe_key: str | None = None,
         retry_count: int = 0,
     ) -> None:
-        """Асинхронно записать событие в DLQ через Unit of Work."""
+        """Asynchronously persist failure details to DLQ using a dedicated Unit of Work transaction."""
         async with db_uow() as uow:
             db: AsyncSession = uow.session
             dlq = DLQManager(db)
@@ -1026,7 +1017,7 @@ class MASBaseTask(Task):
         error_details: dict[str, Any] | None = None,
         retry_count: int | None = None,
     ) -> None:
-        """Асинхронно обновить статус Job и связанные метаданные."""
+        """Asynchronously update Job status metrics and executing worker metadata."""
         async with db_uow() as uow:
             db: AsyncSession = uow.session
 
@@ -1053,6 +1044,5 @@ class MASBaseTask(Task):
 # ── Module-level helpers ──────────────────────────────────────────────────────
 
 def _compact_dict(values: dict[str, Any]) -> dict[str, Any]:
-    """Убрать None-значения из словаря для чистоты JSON payload."""
+    """Purge None values from a dictionary to keep JSON payload clean."""
     return {key: val for key, val in values.items() if val is not None}
-

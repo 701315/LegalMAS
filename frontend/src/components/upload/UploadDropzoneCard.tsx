@@ -50,11 +50,11 @@ const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
           </div>
 
           <h2 className="mt-4 text-sm font-semibold text-[var(--text-primary)]">
-            {t("upload.dropzone.title")}
+            {t("dropzone.title")}
           </h2>
 
           <p className="mt-2 max-w-md text-xs leading-5 text-[var(--text-secondary)]">
-            {t("upload.dropzone.desc")}
+            {t("dropzone.desc")}
           </p>
 
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -65,7 +65,7 @@ const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
               onClick={onPickFiles}
               disabled={isSubmitting}
             >
-              {t("upload.dropzone.pickFiles")}
+              {t("dropzone.pickFiles")}
             </Button>
 
             <Button
@@ -75,15 +75,15 @@ const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
               onClick={onPickFolder}
               disabled={isSubmitting}
             >
-              {t("upload.dropzone.pickFolder")}
+              {t("dropzone.pickFolder")}
             </Button>
           </div>
         </div>
 
         <div className="mt-3 text-xs text-[var(--text-muted)]">
           {selectedCount > 0
-            ? t("upload.dropzone.preparedCount", { count: selectedCount })
-            : t("upload.dropzone.noFiles")}
+            ? t("dropzone.preparedCount", { count: selectedCount })
+            : t("dropzone.noFiles")}
         </div>
       </div>
     </section>

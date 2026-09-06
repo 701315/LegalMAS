@@ -1,20 +1,22 @@
+# src/api/endpoints/document_chunk_exports.py
+
 """
-Эндпоинты для экспорта документа в виде «чанков» (chunks).
+Endpoints for document chunk exporting.
 
-Важно: этот эндпоинт НИЧЕГО не меняет в базе данных и в документе.
-Он только:
-- забирает уже посчитанные чанки документа,
-- собирает из них один большой Markdown-текст,
-- сохраняет его во внутреннем хранилище (MinIO / S3),
-- возвращает стабильный backend URL для скачивания.
+Important: This endpoint does not modify anything in the database or the document itself.
+It only:
+- Retrieves already computed document chunks;
+- Assembles them into a single markdown text;
+- Persists it in the internal artifact storage (MinIO / S3);
+- Returns a stable backend download URL.
 
-Браузер НИКОГДА не ходит в MinIO напрямую.
-Файл отдаётся через backend streaming endpoint.
+The browser never accesses MinIO directly.
+The file is delivered via a backend streaming endpoint.
 """
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,7 +40,7 @@ router = APIRouter(
 
 @router.get(
     "/{document_id}/chunk-view",
-    summary="Получить URL для скачивания chunk-view файла",
+    summary="Get download URL for chunk-view file",
     response_model=dict,
 )
 async def get_document_chunk_view(
@@ -47,15 +49,19 @@ async def get_document_chunk_view(
     user: CurrentUser = Depends(get_current_user),
 ) -> dict:
     """
-    Вернуть стабильный backend URL для скачивания .md-файла chunk-view.
+    Return a stable backend download URL for the chunk-view markdown file.
 
-    Браузер не ходит в MinIO напрямую.
-    Файл отдаётся через /chunk-view/download streaming endpoint.
+    The browser does not access MinIO directly.
+    The file is delivered via the /chunk-view/download streaming endpoint.
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(document_id)
     if doc is None:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "DOCUMENT_NOT_FOUND"},
+            detail="Document not found",
+        )
 
     await require_project_role(
         db=db,
@@ -75,7 +81,8 @@ async def get_document_chunk_view(
             },
         )
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            headers={"X-Error-Code": "DEAL_NOT_FOUND"},
             detail="Internal error: deal not found for this document.",
         )
 
@@ -92,7 +99,8 @@ async def get_document_chunk_view(
             extra={"document_id": str(document_id), "error": str(e)},
         )
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "CHUNK_VIEW_NOT_AVAILABLE"},
             detail="Chunk view is not available for this document yet",
         )
     except Exception as e:
@@ -101,19 +109,20 @@ async def get_document_chunk_view(
             extra={"document_id": str(document_id)},
         )
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            headers={"X-Error-Code": "CHUNK_EXPORT_FAILED"},
             detail="Internal error while preparing chunk view for this document.",
         ) from e
 
-    # Возвращаем стабильный backend URL.
-    # Браузер не знает про MinIO и не ходит туда напрямую.
+    # Return a stable backend URL.
+    # The browser does not know about MinIO and does not fetch from there directly.
     download_url = f"/api/v1/documents/{document_id}/chunk-view/download"
     return {"url": download_url}
 
 
 @router.get(
     "/{document_id}/chunk-view/download",
-    summary="Скачать chunk-view файл через backend streaming",
+    summary="Download chunk-view file via backend streaming",
 )
 async def download_document_chunk_view(
     document_id: UUID,
@@ -121,14 +130,18 @@ async def download_document_chunk_view(
     user: CurrentUser = Depends(get_current_user),
 ) -> StreamingResponse:
     """
-    Скачать .md-файл chunk-view через backend streaming.
+    Download the chunk-view markdown file via backend streaming.
 
-    MinIO остаётся приватным. Браузер получает файл от backend.
+    MinIO remains private. Browser retrieves file from backend.
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(document_id)
     if doc is None:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "DOCUMENT_NOT_FOUND"},
+            detail="Document not found",
+        )
 
     await require_project_role(
         db=db,
@@ -141,7 +154,8 @@ async def download_document_chunk_view(
     deal = await deal_repo.get_by_id(doc.deal_id, tenant_id=user.tenant_id)
     if deal is None:
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            headers={"X-Error-Code": "DEAL_NOT_FOUND"},
             detail="Internal error: deal not found.",
         )
 
@@ -154,7 +168,8 @@ async def download_document_chunk_view(
         )
     except ValueError:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "CHUNK_VIEW_NOT_AVAILABLE"},
             detail="Chunk view is not available for this document yet",
         )
     except Exception as e:
@@ -163,7 +178,8 @@ async def download_document_chunk_view(
             extra={"document_id": str(document_id)},
         )
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            headers={"X-Error-Code": "CHUNK_EXPORT_FAILED"},
             detail="Internal error while preparing chunk view.",
         ) from e
 
@@ -173,12 +189,14 @@ async def download_document_chunk_view(
         storage_response = store.open_file_stream(s3_uri)
     except PermanentError as e:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "CHUNK_VIEW_FILE_NOT_FOUND"},
             detail="Chunk view file not found in storage",
         ) from e
     except TransientError as e:
         raise HTTPException(
-            status_code=502,
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            headers={"X-Error-Code": "STORAGE_UNAVAILABLE"},
             detail="Storage temporarily unavailable",
         ) from e
 

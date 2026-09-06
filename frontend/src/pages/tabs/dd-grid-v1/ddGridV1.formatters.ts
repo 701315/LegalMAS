@@ -47,6 +47,39 @@ function appendUnit(value: string, unit: string | null): string {
 }
 
 // -------------------------------------------------------------
+// i18n: Synthetic display value mapping
+// -------------------------------------------------------------
+
+/**
+ * Maps canonical English display_value tokens from the backend
+ * to i18n keys in the ddGrid namespace.
+ *
+ * Backend returns EN canonical strings for synthetic UI values:
+ *   "⚠ Error", "Present", "Yes", "No"
+ *
+ * Real extracted data (names, dates, amounts) passes through unchanged.
+ */
+const SYNTHETIC_DISPLAY_I18N: Record<string, string> = {
+  "⚠ Error": "displayValues.error",
+  "Present": "displayValues.present",
+  "Yes": "displayValues.yes",
+  "No": "displayValues.no",
+};
+
+/**
+ * Localizes a display_value string if it matches a known synthetic token.
+ * Returns the original string for real extracted data.
+ */
+function localizeDisplayValue(
+  value: string,
+  t?: (key: string) => string,
+): string {
+  if (!t) return value;
+  const i18nKey = SYNTHETIC_DISPLAY_I18N[value];
+  return i18nKey ? t(i18nKey) : value;
+}
+
+// -------------------------------------------------------------
 // Cell text formatting
 // -------------------------------------------------------------
 
@@ -67,7 +100,7 @@ export function formatDDGridV1CellText(
   }
   if (cellState === "not_executed" || cellState === "not_defined") {
     if (cell && isNonEmptyString(cell.display_value)) {
-      return cell.display_value;
+      return localizeDisplayValue(cell.display_value, t);
     }
     return safeFallback(column);
   }
@@ -80,9 +113,9 @@ export function formatDDGridV1CellText(
   switch (column.format) {
     case "text": {
       const base = isNonEmptyString(cell.display_value)
-        ? cell.display_value
+        ? localizeDisplayValue(cell.display_value, t)
         : isNonEmptyString(cell.raw_value)
-          ? cell.raw_value
+          ? String(cell.raw_value)
           : safeFallback(column);
       return appendUnit(base, column.unit);
     }
@@ -93,14 +126,14 @@ export function formatDDGridV1CellText(
         return column.enum_labels[raw];
       }
       if (isNonEmptyString(cell.display_value)) {
-        return cell.display_value;
+        return localizeDisplayValue(cell.display_value, t);
       }
       return safeFallback(column);
     }
 
     case "yes_no": {
       if (isNonEmptyString(cell.display_value)) {
-        return cell.display_value;
+        return localizeDisplayValue(cell.display_value, t);
       }
       const raw = cell.raw_value;
       if (isNonEmptyString(raw) && column.enum_labels[raw]) {
@@ -111,7 +144,7 @@ export function formatDDGridV1CellText(
 
     case "presence_only": {
       if (isNonEmptyString(cell.display_value)) {
-        return cell.display_value;
+        return localizeDisplayValue(cell.display_value, t);
       }
       const raw = cell.raw_value;
       if (isNonEmptyString(raw) && column.enum_labels[raw]) {
@@ -122,7 +155,7 @@ export function formatDDGridV1CellText(
 
     default: {
       return isNonEmptyString(cell.display_value)
-        ? cell.display_value
+        ? localizeDisplayValue(cell.display_value, t)
         : safeFallback(column);
     }
   }
@@ -176,5 +209,3 @@ export function getDDGridV1CellTone(state: DDGridV1CellState): DDGridV1CellTone 
       return "muted";
   }
 }
-
-

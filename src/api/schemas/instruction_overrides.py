@@ -1,7 +1,7 @@
 # src/api/schemas/instruction_overrides.py
 
 """
-Pydantic-схемы для instruction overrides и preview endpoints.
+Pydantic schemas for instruction overrides and preview endpoints.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 # ── Override schemas ──────────────────────────────────────────────────────────
 
 class InstructionOverrideItem(BaseModel):
-    """Один override в списке или ответе."""
+    """A single override in a list or response."""
 
     id: str
     instruction_version_id: str | None = None
@@ -85,7 +85,7 @@ class InstructionPreviewRequest(BaseModel):
     """
     Unified preview request.
 
-    Позволяет превью effective payload с опциональным tenant/deal override.
+    Allows previewing effective payload with an optional tenant/deal override.
     """
     kind: Literal["doc_type"] = "doc_type"
     doc_type_code: str
@@ -95,8 +95,8 @@ class InstructionPreviewRequest(BaseModel):
     draft_patch_ops: list[dict[str, Any]] = Field(
         default_factory=list,
         description=(
-            "Опциональные patch ops для live preview без сохранения в БД. "
-            "Применяются поверх tenant/deal override если указан."
+            "Optional patch ops for live preview without saving to the database. "
+            "Applied on top of tenant/deal override if specified."
         ),
     )
 
@@ -118,10 +118,10 @@ class InstructionPreviewResponse(BaseModel):
 
 class RunInstructionSnapshotResponse(BaseModel):
     """
-    Frozen instruction snapshot для исторического Run.
+    Frozen instruction snapshot for a historical Run.
 
-    Показывает точные версии инструкций, хэши и effective payload,
-    зафиксированные на момент запуска Run.
+    Shows exact instruction versions, hashes, and effective payloads
+    frozen at the moment of Run execution.
     """
     run_id: str
     deal_id: str

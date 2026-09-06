@@ -48,12 +48,12 @@ _SUCCESS_EXECUTION_STATUSES: frozenset[str] = frozenset({"SUCCESS"})
 _NOT_DEFINED_STATUS_VALUES: frozenset[str] = frozenset({"missing", "not_defined", "not_found"})
 _MISSING_SCALAR_VALUES: frozenset[str] = frozenset({"", "none", "null", "not_found"})
 
-_DISPLAY_ERROR = "⚠ Ошибка"
-_DISPLAY_PRESENT = "Присутствует"
+_DISPLAY_ERROR = "⚠ Error"
+_DISPLAY_PRESENT = "Present"
 _DEFAULT_SEGMENT_ID = "_default"
-_DEFAULT_UNGROUPED_LABEL = "Прочие проверки"
+_DEFAULT_UNGROUPED_LABEL = "Other Checks"
 _DEFAULT_UNGROUPED_GROUP_ID = "_ungrouped"
-_DEFAULT_LOCATION_FALLBACK_REASON = "Точная ссылка на пункт документа не определена"
+_DEFAULT_LOCATION_FALLBACK_REASON = "Exact location in the document is not defined"
 
 _PAGE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"стр\.?\s*(\d+)", re.IGNORECASE),
@@ -575,7 +575,7 @@ def _extract_location_bundle(
     Извлечь location / location_fallback из field payload.
     Поддерживает как строгие структуры (dict), так и простые строки (str).
     """
-    
+
     # --- Сценарий 1: Payload — это сразу строка (частый случай для LLM) ---
     if isinstance(field_payload, str):
         search_text = field_payload.strip()
@@ -601,7 +601,7 @@ def _extract_location_bundle(
                     extracted_page,
                     "low",
                     True,
-                    "Извлечено из текста результата (эвристика)",
+                    "Extracted from result text (heuristic)",
                 )
         return None, None, None, False, None
 
@@ -656,7 +656,7 @@ def _extract_location_bundle(
                 extracted_page,
                 "low",
                 True,
-                "Извлечено из текста результата (эвристика)",
+                "Extracted from result text (heuristic)",
             )
 
     # 4. Ничего не найдено
@@ -917,7 +917,7 @@ def _format_display_value(
 
     if column.format == "yes_no":
         normalized = _normalize_string_comparable(raw_value)
-        return "Да" if normalized in {"yes", "да", "true", "1"} else "Нет"
+        return "Yes" if normalized in {"yes", "да", "true", "1"} else "No"
 
     if column.format == "enum":
         key = str(raw_value)
@@ -1023,7 +1023,7 @@ def _build_cell_value(
             if location_page is not None or location_clause_ref:
                 has_location_fallback = True
                 location_confidence = "low"
-                location_fallback_reason = "Извлечено из display_text (эвристика)"
+                location_fallback_reason = "Extracted from display text (heuristic)"
 
     (
         location_clause_ref,
@@ -1181,14 +1181,14 @@ def _normalize_execution_status_for_api(
 
 
 _PLAN_STATUS_TO_REASON: dict[str, str] = {
-    "planned": "Проверка запланирована и ожидает выполнения.",
-    "dispatched": "Проверка запланирована и ожидает выполнения.",
-    "started": "Проверка выполняется в данный момент.",
-    "failed": "Ошибка при выполнении проверки.",
-    "timeout": "Превышен таймаут выполнения проверки.",
-    "cancelled": "Проверка была отменена.",
-    "skipped": "Проверка пропущена (результат учтён в другом плане).",
-    "succeeded": "Результат ожидается.",
+    "planned": "Check is planned and awaiting execution.",
+    "dispatched": "Check is planned and awaiting execution.",
+    "started": "Check is currently executing.",
+    "failed": "Error occurred during check execution.",
+    "timeout": "Check execution timed out.",
+    "cancelled": "Check was cancelled.",
+    "skipped": "Check skipped (result accounted for in another plan).",
+    "succeeded": "Result is expected.",
 }
 
 _PLAN_STATUS_TO_EXECUTION_STATUS: dict[str, str] = {
@@ -1246,7 +1246,7 @@ def _build_drawer_content(
             check_name=check.name,
             document_id=doc_id,
             cell_state=cell_state,
-            reason=_PLAN_STATUS_TO_REASON.get(plan_status_lower, "Статус проверки неизвестен."),
+            reason=_PLAN_STATUS_TO_REASON.get(plan_status_lower, "Unknown check status."),
             review_status=None,
             review_message=None,
             display_text=None,
@@ -1828,5 +1828,3 @@ def build_dd_grid_v1(
         drawer_contents=drawer_contents,
         documents_meta=documents_meta,
     )
-
-

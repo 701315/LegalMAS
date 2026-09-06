@@ -1,6 +1,8 @@
+# src/services/quick_pdf_layout.py
+
 """
 Quick PDF Layout Service.
-Используется для легкой визуализации в UI.
+Used for lightweight PDF page layout visualization in the UI.
 """
 
 from __future__ import annotations
@@ -10,7 +12,7 @@ import pymupdf as fitz
 
 
 def extract_quick_layout(pdf_bytes: bytes) -> dict[str, Any]:
-    """Быстрое построение легкого макета страниц для UI."""
+    """Extract lightweight page layout elements for UI visualization."""
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     elements = []
     page_count = len(doc)

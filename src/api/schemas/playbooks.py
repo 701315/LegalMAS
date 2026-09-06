@@ -1,20 +1,19 @@
 # src/api/schemas/playbooks.py
 
-
 """
-Pydantic-схемы для плейбуков (Playbook / PlaybookVersion) и конструктора плейбука.
+Pydantic schemas for playbooks (Playbook / PlaybookVersion) and playbook builder.
 
-Зачем нужны эти модели:
-- описывают запросы/ответы для эндпоинтов /playbooks (см. endpoints/playbooks.py);
-- отделяют внешнее API (что видит фронтенд) от внутренних ORM-моделей и YAML;
-- позволяют документировать контракт:
-  * PlaybookCreateRequest — как фронт описывает конфигурацию плейбука
+Purpose of these models:
+- Describe requests/responses for /playbooks endpoints (see endpoints/playbooks.py);
+- Separate the external API (visible to the frontend) from internal ORM models and YAML;
+- Document the API contract:
+  * PlaybookCreateRequest — how frontend describes the playbook configuration
     (bundles + include_ids + exclude_ids + profile + model_config_id);
-  * PlaybookCreateResponse — что возвращает бэкенд после создания версии;
-  * GlobalCheckInfo — краткое описание одной глобальной проверки для UI;
-  * BundleInfo — описание преднастроенного набора проверок;
-  * PlaybookVersionShort — упрощённое представление PlaybookVersion для списков;
-  * PlaybookLineShort — логический плейбук (шаблон) для страницы выбора.
+  * PlaybookCreateResponse — what the backend returns after creating a version;
+  * GlobalCheckInfo — short description of a single global check for the UI;
+  * BundleInfo — description of a preconfigured set of checks;
+  * PlaybookVersionShort — simplified representation of PlaybookVersion for lists;
+  * PlaybookLineShort — logical playbook (template) for the selection page.
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from pydantic import BaseModel, Field
 
 
 class GlobalCheckInfo(BaseModel):
-    """Краткая информация о глобальном чекe для UI-списка."""
+    """Short information about a global check for UI lists."""
 
     id: str
     name: str
@@ -37,7 +36,7 @@ class GlobalCheckInfo(BaseModel):
 
 
 class BundleInfo(BaseModel):
-    """Информация о bundle (preset) для UI."""
+    """Bundle (preset) information for the UI."""
 
     id: str
     name: str
@@ -47,78 +46,78 @@ class BundleInfo(BaseModel):
 
 class PlaybookCreateRequest(BaseModel):
     """
-    Запрос на создание новой версии плейбука.
+    Request to create a new playbook version.
 
-    Варианты:
-    - пользователь выбирает один или несколько bundles;
-    - добавляет/убирает отдельные check_ids;
-    - задаёт профиль глубины (profile);
-    - указывает model_config_id, с которым плейбук будет работать;
-    - опционально привязывает версию к логическому плейбуку (playbook_id).
+    Options:
+    - User selects one or more bundles;
+    - Adds/removes individual check_ids;
+    - Sets depth profile (profile);
+    - Specifies model_config_id with which the playbook will run;
+    - Optionally links the version to a logical playbook (playbook_id).
     """
 
     name: str | None = Field(
         default=None,
-        description="Имя плейбука. Если не задано — можно сгенерировать на бэке.",
+        description="Playbook name. If not specified, it can be auto-generated on the backend.",
     )
     bundles: list[str] = Field(
         default_factory=list,
-        description="Список bundle-id, которые будут включены (mna_core, full, ...).",
+        description="List of bundle IDs to be included (mna_core, full, ...).",
     )
     include_ids: list[str] = Field(
         default_factory=list,
-        description="Чек-ID, которые нужно добавить поверх bundle'ов.",
+        description="Check IDs to be added on top of bundles.",
     )
     exclude_ids: list[str] = Field(
         default_factory=list,
-        description="Чек-ID, которые нужно исключить из bundle'ов.",
+        description="Check IDs to be excluded from bundles.",
     )
     profile: str | None = Field(
         default=None,
-        description="Профиль глубины проверки: core/full/quick и т.п.",
+        description="Validation depth profile: core/full/quick, etc.",
     )
 
     model_config_id: UUID = Field(
         description=(
-            "ID ModelConfig, который будет использоваться раннером. "
-            "Обязательное поле: версия плейбука всегда должна быть привязана "
-            "к конкретной конфигурации модели."
+            "ID of the ModelConfig to be used by the runner. "
+            "Required field: playbook version must always be linked "
+            "to a specific model configuration."
         ),
     )
 
     semver: str | None = Field(
         default=None,
-        description="Явное значение semver (если нужно задать с фронта).",
+        description="Explicit semver value (if specified from the frontend).",
     )
 
     status: Literal["draft", "published", "archived"] | None = Field(
         default=None,
-        description="Статус версии плейбука: draft/published/archived. По умолчанию draft.",
+        description="Playbook version status: draft/published/archived. Default is draft.",
     )
-    
 
     playbook_id: UUID | None = Field(
         default=None,
         description=(
-            "ID логического Playbook (шаблона), к которому относится эта версия. "
-            "Если не задано — версия будет без привязки к линии."
+            "ID of the logical Playbook (template) associated with this version. "
+            "If not specified, the version will have no associated line."
         ),
     )
 
     from_line_id: UUID | None = Field(
         default=None,
         description=(
-            "Если задано — версия будет собрана на основе шаблона PlaybookLine "
-            "с таким ID: его items будут превращены в список глобальных checks."
+            "If specified, the version will be compiled based on the PlaybookLine template "
+            "with this ID: its items will be transformed into a list of global checks."
         ),
     )
 
+
 class PlaybookDraftUpdateRequest(BaseModel):
     """
-    Частичное обновление draft-версии плейбука.
+    Partial update of a draft playbook version.
 
-    Разрешено только для status=draft.
-    Published/archived версии менять нельзя.
+    Allowed only for status=draft.
+    Published/archived versions cannot be modified.
     """
 
     name: str | None = None
@@ -127,8 +126,9 @@ class PlaybookDraftUpdateRequest(BaseModel):
     exclude_ids: list[str] | None = None
     profile: str | None = None
 
+
 class PlaybookCreateResponse(BaseModel):
-    """Ответ с ID созданной версии плейбука."""
+    """Response containing the ID of the created playbook version."""
 
     id: UUID
     name: str
@@ -136,12 +136,12 @@ class PlaybookCreateResponse(BaseModel):
     status: str
     playbook_id: UUID | None = Field(
         default=None,
-        description="ID логического Playbook, к которому привязана версия (если есть).",
+        description="ID of the logical Playbook to which the version is linked (if any).",
     )
 
 
 class PlaybookVersionShort(BaseModel):
-    """Упрощённое представление PlaybookVersion (для списков/селектора)."""
+    """Simplified representation of PlaybookVersion (for lists/selectors)."""
 
     id: UUID
     name: str
@@ -149,17 +149,17 @@ class PlaybookVersionShort(BaseModel):
     status: str
     playbook_id: UUID | None = Field(
         default=None,
-        description="ID логического Playbook (для группировки версий на UI).",
+        description="ID of the logical Playbook (for version grouping in the UI).",
     )
 
 
 class PlaybookVersionDetail(BaseModel):
     """
-    Детальное представление версии плейбука.
+    Detailed representation of a playbook version.
 
-    Используется для просмотра "состава" плейбука:
+    Used to inspect the playbook composition:
     - compiled_checks;
-    - триггеры, шаблоны DD-запросов, section_markers, classification_config.
+    - triggers, DD request templates, section_markers, classification_config.
     """
 
     id: UUID
@@ -177,13 +177,14 @@ class PlaybookVersionDetail(BaseModel):
     source_payload: dict[str, Any] | None = None
     source_payload_sha256: str | None = None
 
+
 class PlaybookLineShort(BaseModel):
     """
-    Логический плейбук (Playbook) для страницы выбора шаблонов.
+    Logical playbook (Playbook) for the template selection page.
 
-    Используется фронтом, чтобы:
-    - показать список продуктов/шаблонов (Real estate RU core, M&A RU full и т.п.);
-    - фильтровать по типу сделки, юрисдикции, языку, risk_profile.
+    Used by the frontend to:
+    - Show the list of products/templates (Real estate RU core, M&A RU full, etc.);
+    - Filter by deal type, jurisdiction, language, risk_profile.
     """
 
     id: UUID
@@ -196,15 +197,15 @@ class PlaybookLineShort(BaseModel):
     )
     jurisdiction: str | None = Field(
         default=None,
-        description="Основная юрисдикция, например RU, EN, DE.",
+        description="Primary jurisdiction, e.g., RU, EN, DE.",
     )
     language: str | None = Field(
         default=None,
-        description="Основной язык документов: 'ru', 'en' и т.п.",
+        description="Primary document language: 'ru', 'en', etc.",
     )
     risk_profile: str | None = Field(
         default=None,
-        description="Доп. профиль/роль: standard, high, vendor, buyer и т.п.",
+        description="Additional profile/role: standard, high, vendor, buyer, etc.",
     )
 
 
@@ -243,13 +244,13 @@ class PlaybookLineDetail(PlaybookLineShort):
 
 class ModelConfigResponse(BaseModel):
     """
-    Конфигурация модели (ModelConfig) для UI.
+    Model configuration (ModelConfig) for the UI.
 
-    Используется фронтом при выборе модели, под которой будет работать playbook:
-    - id — идентификатор конфигурации (UUID);
-    - name — человекочитаемое имя для выпадающего списка;
-    - description — краткое пояснение (опционально);
-    - embeddings_primary / embeddings_fallback и т.п. можно отдать для справки.
+    Used by the frontend when selecting the model under which the playbook will run:
+    - id — configuration identifier (UUID);
+    - name — human-readable name for dropdown lists;
+    - description — short explanation (optional);
+    - embeddings_primary / embeddings_fallback etc. can be exposed for reference.
     """
 
     id: UUID
@@ -262,14 +263,14 @@ class ModelConfigResponse(BaseModel):
 
 class ModelConfigCreateRequest(BaseModel):
     """
-    Входные данные для создания нового профиля модели (ModelConfig).
+    Input data for creating a new model profile (ModelConfig).
     """
 
     name: str
     embeddings_primary: str = "intfloat/multilingual-e5-large"
     embeddings_fallback: str | None = "cointegrated/LaBSE"
 
-    # Простые поля для формы. В бэке мы соберём из них JSON.
+    # Simple form fields. The backend will package them into JSON.
     candidate_n: int = 50
     llm_context_k: int = 5
 
@@ -280,8 +281,8 @@ class ModelConfigCreateRequest(BaseModel):
 
 class ModelConfigUpdateRequest(BaseModel):
     """
-    Частичное обновление профиля модели.
-    Все поля опциональные, можно менять только нужное.
+    Partial update of a model profile.
+    All fields are optional, only modified values should be sent.
     """
 
     name: str | None = None
@@ -295,6 +296,7 @@ class ModelConfigUpdateRequest(BaseModel):
     sparse_weight: float | None = None
     metadata_boost: float | None = None
 
+
 class PlaybookVersionDiffField(BaseModel):
     field: str
     old: Any | None = None
@@ -303,14 +305,12 @@ class PlaybookVersionDiffField(BaseModel):
 
 class PlaybookVersionDiffResponse(BaseModel):
     """
-    Разница между двумя версиями Playbook по source_payload.
+    Difference between two playbook versions based on source_payload.
 
-    diff — список изменений по полям source_payload.
+    diff — list of changes across source_payload fields.
     """
 
     base_version_id: UUID
     compare_version_id: UUID
     has_changes: bool
     diff: list[PlaybookVersionDiffField]
-
-    

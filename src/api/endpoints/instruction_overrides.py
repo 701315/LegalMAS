@@ -1,7 +1,7 @@
 # src/api/endpoints/instruction_overrides.py
 
 """
-Endpoints для lifecycle instruction overrides.
+Endpoints for instruction override lifecycle management.
 
 Tenant-level overrides (doc-type):
     GET  /api/v1/tenants/{tenant_id}/instruction-overrides
@@ -32,19 +32,19 @@ Deal-level overrides (global instructions):
 
 Access model:
     Tenant endpoints:
-        superadmin    → любой tenant
-        tenant_admin  → только свой tenant
+        superadmin    → any tenant
+        tenant_admin  → own tenant only
         member        → forbidden
 
     Deal endpoints (read):
-        superadmin    → любой
-        tenant_admin  → любой deal своего tenant
-        member        → только через deal_members (viewer/editor/admin)
+        superadmin    → any
+        tenant_admin  → any deal within own tenant
+        member        → only via deal_members (viewer/editor/admin)
 
     Deal endpoints (write: draft/validate/activate/archive/rebase):
-        superadmin    → да
-        tenant_admin  → да
-        member        → только editor/admin
+        superadmin    → yes
+        tenant_admin  → yes
+        member        → editor/admin only
 """
 
 from __future__ import annotations
@@ -161,7 +161,7 @@ def _map_override_exception(exc: Exception) -> HTTPException:
 @router.get(
     "/tenants/{tenant_id}/instruction-overrides",
     response_model=InstructionOverrideListResponse,
-    summary="Список tenant-level overrides",
+    summary="List tenant-level overrides",
 )
 async def list_tenant_overrides(
     tenant_id: uuid.UUID,
@@ -170,11 +170,11 @@ async def list_tenant_overrides(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideListResponse:
     """
-    Вернуть все tenant-level overrides для данного tenant.
+    Return all tenant-level overrides for the given tenant.
 
-    Доступ:
-    - superadmin → любой tenant
-    - tenant_admin → только свой tenant
+    Access:
+    - superadmin → any tenant
+    - tenant_admin → own tenant only
     - member → forbidden
     """
     require_tenant_scope_access(user, tenant_id)
@@ -189,7 +189,7 @@ async def list_tenant_overrides(
     "/tenants/{tenant_id}/instruction-overrides/draft",
     response_model=InstructionOverrideResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать draft tenant-level override",
+    summary="Create draft tenant-level override",
 )
 async def create_tenant_override_draft(
     tenant_id: uuid.UUID,
@@ -199,13 +199,13 @@ async def create_tenant_override_draft(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Создать draft tenant-level override.
+    Create a draft tenant-level override.
 
-    Dry-run apply до сохранения — patch проверяется на применимость.
+    Dry-run apply before saving — patch is validated for applicability.
 
-    Доступ:
-    - superadmin → любой tenant
-    - tenant_admin → только свой tenant
+    Access:
+    - superadmin → any tenant
+    - tenant_admin → own tenant only
     - member → forbidden
     """
     require_tenant_scope_access(user, tenant_id)
@@ -229,7 +229,7 @@ async def create_tenant_override_draft(
 @router.post(
     "/tenants/{tenant_id}/instruction-overrides/{override_id}/validate",
     response_model=InstructionOverrideValidationResponse,
-    summary="Валидировать tenant-level override",
+    summary="Validate tenant-level override",
 )
 async def validate_tenant_override(
     tenant_id: uuid.UUID,
@@ -239,9 +239,9 @@ async def validate_tenant_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideValidationResponse:
     """
-    Проверить override: staleness, patch conflict, effective payload validation.
+    Validate override: staleness, patch conflict, effective payload validation.
 
-    Не меняет статус. Read-only validation.
+    Does not change status. Read-only validation.
     """
     require_tenant_scope_access(user, tenant_id)
 
@@ -266,7 +266,7 @@ async def validate_tenant_override(
 @router.post(
     "/tenants/{tenant_id}/instruction-overrides/{override_id}/activate",
     response_model=InstructionOverrideResponse,
-    summary="Активировать tenant-level override",
+    summary="Activate tenant-level override",
 )
 async def activate_tenant_override(
     tenant_id: uuid.UUID,
@@ -276,9 +276,9 @@ async def activate_tenant_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Активировать tenant-level override: draft → active.
+    Activate tenant-level override: draft → active.
 
-    Нельзя активировать stale override.
+    Cannot activate a stale override.
     """
     require_tenant_scope_access(user, tenant_id)
 
@@ -298,7 +298,7 @@ async def activate_tenant_override(
 @router.post(
     "/tenants/{tenant_id}/instruction-overrides/{override_id}/archive",
     response_model=InstructionOverrideResponse,
-    summary="Архивировать tenant-level override",
+    summary="Archive tenant-level override",
 )
 async def archive_tenant_override(
     tenant_id: uuid.UUID,
@@ -308,7 +308,7 @@ async def archive_tenant_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Архивировать tenant-level override: active|draft → archived.
+    Archive tenant-level override: active|draft → archived.
     """
     require_tenant_scope_access(user, tenant_id)
 
@@ -330,7 +330,7 @@ async def archive_tenant_override(
 @router.get(
     "/deals/{deal_id}/instruction-overrides",
     response_model=InstructionOverrideListResponse,
-    summary="Список deal-level overrides",
+    summary="List deal-level overrides",
 )
 async def list_deal_overrides(
     deal_id: uuid.UUID,
@@ -339,9 +339,9 @@ async def list_deal_overrides(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideListResponse:
     """
-    Вернуть все deal-level overrides для данной сделки.
+    Return all deal-level overrides for the given deal.
 
-    Доступ: viewer/editor/admin проекта.
+    Access: project viewer/editor/admin.
     """
     await require_project_role(
         db=db,
@@ -360,7 +360,7 @@ async def list_deal_overrides(
     "/deals/{deal_id}/instruction-overrides/draft",
     response_model=InstructionOverrideResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать draft deal-level override",
+    summary="Create draft deal-level override",
 )
 async def create_deal_override_draft(
     deal_id: uuid.UUID,
@@ -370,11 +370,11 @@ async def create_deal_override_draft(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Создать draft deal-level override.
+    Create a draft deal-level override.
 
-    Dry-run apply до сохранения.
+    Dry-run apply before saving.
 
-    Доступ: editor/admin проекта.
+    Access: project editor/admin.
     """
     deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
     await require_project_role(
@@ -404,7 +404,7 @@ async def create_deal_override_draft(
 @router.post(
     "/deals/{deal_id}/instruction-overrides/{override_id}/validate",
     response_model=InstructionOverrideValidationResponse,
-    summary="Валидировать deal-level override",
+    summary="Validate deal-level override",
 )
 async def validate_deal_override(
     deal_id: uuid.UUID,
@@ -414,9 +414,9 @@ async def validate_deal_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideValidationResponse:
     """
-    Проверить deal-level override без изменения статуса.
+    Validate deal-level override without changing its status.
 
-    Доступ: viewer/editor/admin проекта.
+    Access: project viewer/editor/admin.
     """
     deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
     await require_project_role(
@@ -447,7 +447,7 @@ async def validate_deal_override(
 @router.post(
     "/deals/{deal_id}/instruction-overrides/{override_id}/activate",
     response_model=InstructionOverrideResponse,
-    summary="Активировать deal-level override",
+    summary="Activate deal-level override",
 )
 async def activate_deal_override(
     deal_id: uuid.UUID,
@@ -457,11 +457,11 @@ async def activate_deal_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Активировать deal-level override: draft → active.
+    Activate deal-level override: draft → active.
 
-    Нельзя активировать stale override.
+    Cannot activate a stale override.
 
-    Доступ: editor/admin проекта.
+    Access: project editor/admin.
     """
     deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
     await require_project_role(
@@ -487,7 +487,7 @@ async def activate_deal_override(
 @router.post(
     "/deals/{deal_id}/instruction-overrides/{override_id}/archive",
     response_model=InstructionOverrideResponse,
-    summary="Архивировать deal-level override",
+    summary="Archive deal-level override",
 )
 async def archive_deal_override(
     deal_id: uuid.UUID,
@@ -497,9 +497,9 @@ async def archive_deal_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Архивировать deal-level override.
+    Archive deal-level override.
 
-    Доступ: editor/admin проекта.
+    Access: project editor/admin.
     """
     deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
     await require_project_role(
@@ -525,7 +525,7 @@ async def archive_deal_override(
 @router.post(
     "/deals/{deal_id}/instruction-overrides/{override_id}/rebase",
     response_model=InstructionOverrideResponse,
-    summary="Rebase deal-level override на новую base version",
+    summary="Rebase deal-level override onto a new base version",
 )
 async def rebase_deal_override(
     deal_id: uuid.UUID,
@@ -536,12 +536,12 @@ async def rebase_deal_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Rebase deal-level override на новую base instruction version.
+    Rebase deal-level override onto a new base instruction version.
 
-    Явная операция — всегда пользовательская, никогда автоматическая.
-    После rebase is_stale сбрасывается в False.
+    Explicit operation — always user-initiated, never automatic.
+    After rebase, is_stale is reset to False.
 
-    Доступ: editor/admin проекта.
+    Access: project editor/admin.
     """
     deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
     await require_project_role(
@@ -572,7 +572,7 @@ async def rebase_deal_override(
     "/tenants/{tenant_id}/global-instruction-overrides/draft",
     response_model=InstructionOverrideResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать draft tenant-level override (global instruction)",
+    summary="Create draft tenant-level override (global instruction)",
 )
 async def create_tenant_global_override_draft(
     tenant_id: uuid.UUID,
@@ -582,17 +582,17 @@ async def create_tenant_global_override_draft(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Создать draft tenant-level override для global instruction.
+    Create a draft tenant-level override for a global instruction.
 
-    Global instruction — универсальные проверки (confidentiality, governing_law,
-    term_and_renewal и др.), не привязанные к конкретному doc_type.
+    Global instructions are universal checks (confidentiality, governing_law,
+    term_and_renewal, etc.) not tied to a specific doc_type.
 
-    Dry-run apply до сохранения — patch проверяется на применимость к
-    compiled_payload базовой global instruction version.
+    Dry-run apply before saving — patch is validated for applicability to
+    the compiled_payload of the base global instruction version.
 
-    Доступ:
-    - superadmin → любой tenant
-    - tenant_admin → только свой tenant
+    Access:
+    - superadmin → any tenant
+    - tenant_admin → own tenant only
     - member → forbidden
     """
     require_tenant_scope_access(user, tenant_id)
@@ -616,7 +616,7 @@ async def create_tenant_global_override_draft(
 @router.post(
     "/tenants/{tenant_id}/global-instruction-overrides/{override_id}/validate",
     response_model=InstructionOverrideValidationResponse,
-    summary="Валидировать tenant-level override (global instruction)",
+    summary="Validate tenant-level override (global instruction)",
 )
 async def validate_tenant_global_override(
     tenant_id: uuid.UUID,
@@ -626,13 +626,13 @@ async def validate_tenant_global_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideValidationResponse:
     """
-    Проверить global instruction override без изменения статуса.
+    Validate global instruction override without changing its status.
 
-    Проверяет: staleness, patch conflict, effective payload структуру.
+    Checks: staleness, patch conflict, effective payload structure.
 
-    Доступ:
-    - superadmin → любой tenant
-    - tenant_admin → только свой tenant
+    Access:
+    - superadmin → any tenant
+    - tenant_admin → own tenant only
     - member → forbidden
     """
     require_tenant_scope_access(user, tenant_id)
@@ -658,7 +658,7 @@ async def validate_tenant_global_override(
 @router.post(
     "/tenants/{tenant_id}/global-instruction-overrides/{override_id}/activate",
     response_model=InstructionOverrideResponse,
-    summary="Активировать tenant-level override (global instruction)",
+    summary="Activate tenant-level override (global instruction)",
 )
 async def activate_tenant_global_override(
     tenant_id: uuid.UUID,
@@ -668,13 +668,13 @@ async def activate_tenant_global_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Активировать tenant-level global instruction override: draft → active.
+    Activate tenant-level global instruction override: draft → active.
 
-    Нельзя активировать stale override.
+    Cannot activate a stale override.
 
-    Доступ:
-    - superadmin → любой tenant
-    - tenant_admin → только свой tenant
+    Access:
+    - superadmin → any tenant
+    - tenant_admin → own tenant only
     - member → forbidden
     """
     require_tenant_scope_access(user, tenant_id)
@@ -695,7 +695,7 @@ async def activate_tenant_global_override(
 @router.post(
     "/tenants/{tenant_id}/global-instruction-overrides/{override_id}/archive",
     response_model=InstructionOverrideResponse,
-    summary="Архивировать tenant-level override (global instruction)",
+    summary="Archive tenant-level override (global instruction)",
 )
 async def archive_tenant_global_override(
     tenant_id: uuid.UUID,
@@ -705,11 +705,11 @@ async def archive_tenant_global_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Архивировать tenant-level global instruction override.
+    Archive tenant-level global instruction override.
 
-    Доступ:
-    - superadmin → любой tenant
-    - tenant_admin → только свой tenant
+    Access:
+    - superadmin → any tenant
+    - tenant_admin → own tenant only
     - member → forbidden
     """
     require_tenant_scope_access(user, tenant_id)
@@ -733,7 +733,7 @@ async def archive_tenant_global_override(
     "/deals/{deal_id}/global-instruction-overrides/draft",
     response_model=InstructionOverrideResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать draft deal-level override (global instruction)",
+    summary="Create draft deal-level override (global instruction)",
 )
 async def create_deal_global_override_draft(
     deal_id: uuid.UUID,
@@ -743,15 +743,15 @@ async def create_deal_global_override_draft(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Создать draft deal-level override для global instruction.
+    Create a draft deal-level override for a global instruction.
 
-    Global instruction — универсальные проверки, применимые к любому
-    doc_type в рамках этой сделки.
+    Global instructions are universal checks applicable to any
+    doc_type within this deal.
 
-    Dry-run apply до сохранения — patch проверяется на применимость к
-    compiled_payload базовой global instruction version.
+    Dry-run apply before saving — patch is validated for applicability to
+    the compiled_payload of the base global instruction version.
 
-    Доступ: editor/admin проекта.
+    Access: project editor/admin.
     """
     deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
     await require_project_role(
@@ -781,7 +781,7 @@ async def create_deal_global_override_draft(
 @router.post(
     "/deals/{deal_id}/global-instruction-overrides/{override_id}/validate",
     response_model=InstructionOverrideValidationResponse,
-    summary="Валидировать deal-level override (global instruction)",
+    summary="Validate deal-level override (global instruction)",
 )
 async def validate_deal_global_override(
     deal_id: uuid.UUID,
@@ -791,9 +791,9 @@ async def validate_deal_global_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideValidationResponse:
     """
-    Проверить global instruction deal override без изменения статуса.
+    Validate global instruction deal override without changing its status.
 
-    Доступ: viewer/editor/admin проекта.
+    Access: project viewer/editor/admin.
     """
     deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
     await require_project_role(
@@ -824,7 +824,7 @@ async def validate_deal_global_override(
 @router.post(
     "/deals/{deal_id}/global-instruction-overrides/{override_id}/activate",
     response_model=InstructionOverrideResponse,
-    summary="Активировать deal-level override (global instruction)",
+    summary="Activate deal-level override (global instruction)",
 )
 async def activate_deal_global_override(
     deal_id: uuid.UUID,
@@ -834,10 +834,11 @@ async def activate_deal_global_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Активировать deal-level global instruction override: draft → active.
+    Activate deal-level global instruction override: draft → active.
 
-    Нельзя активировать stale override.
-    Доступ: editor/admin проекта.
+    Cannot activate a stale override.
+
+    Access: project editor/admin.
     """
     deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
     await require_project_role(
@@ -863,7 +864,7 @@ async def activate_deal_global_override(
 @router.post(
     "/deals/{deal_id}/global-instruction-overrides/{override_id}/archive",
     response_model=InstructionOverrideResponse,
-    summary="Архивировать deal-level override (global instruction)",
+    summary="Archive deal-level override (global instruction)",
 )
 async def archive_deal_global_override(
     deal_id: uuid.UUID,
@@ -873,9 +874,9 @@ async def archive_deal_global_override(
     service: InstructionOverrideService = Depends(get_override_service),
 ) -> InstructionOverrideResponse:
     """
-    Архивировать deal-level global instruction override.
+    Archive deal-level global instruction override.
 
-    Доступ: editor/admin проекта.
+    Access: project editor/admin.
     """
     deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
     await require_project_role(
@@ -897,5 +898,5 @@ async def archive_deal_global_override(
         await db.rollback()
         raise _map_override_exception(exc) from exc
 
-    
+
         

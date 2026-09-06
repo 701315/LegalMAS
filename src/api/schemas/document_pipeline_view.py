@@ -1,29 +1,29 @@
 # src/api/schemas/document_pipeline_view.py
 
 """
-Pydantic DTO-схемы для представления пайплайна обработки документа
-в UI (Document Pipeline View).
+Pydantic DTO schemas for representing the document processing pipeline
+in the UI (Document Pipeline View).
 
-Используются в API, отдающем пошаговый прогресс документа:
-- какие стадии уже выполнены (SOURCE, PRIMARY, EXTRACT, PII, STRUCTURE, CHUNKS);
-- статус каждой стадии (ready/missing/pending) и тип артефакта (pdf/layout/structure/chunks);
-- метаданные по стадии (количество страниц/элементов/кусков, имя исходного файла, MIME-тип);
-- превью артефактов: PDF, layout (страницы с текстом и счётчиками элементов),
-  структура (заголовки/разделы) и чанки (фрагменты текста с привязкой к страницам).
+Used in APIs that expose step-by-step progress of a document:
+- Which stages are completed (SOURCE, PRIMARY, EXTRACT, PII, STRUCTURE, CHUNKS);
+- Status of each stage (ready/missing/pending) and artifact type (pdf/layout/structure/chunks);
+- Stage metadata (number of pages/elements/chunks, source filename, MIME type);
+- Artifact previews: PDF, layout (pages with text and element counters),
+  structure (headers/sections), and chunks (text fragments bound to pages).
 
-Основные модели:
-- PipelineStageCode, PipelineStageStatus, PipelineStageKind — enum-коды стадий и их статусов;
-- StageMetaDTO — агрегированные метаданные по стадии;
+Core models:
+- PipelineStageCode, PipelineStageStatus, PipelineStageKind — stage and status enum codes;
+- StageMetaDTO — aggregated stage metadata;
 - PdfPreviewDTO / LayoutPreviewDTO / StructurePreviewDTO / ChunksPreviewDTO —
-  типизированные превью различных артефактов;
-- PipelineStageViewDTO — одна стадия пайплайна с метаданными и превью;
-- DocumentPipelineViewResponseDTO — ответ API с состоянием всех стадий для одного документа.
+  strongly-typed previews of various artifacts;
+- PipelineStageViewDTO — a single pipeline stage with metadata and preview;
+- DocumentPipelineViewResponseDTO — API response containing all stage states for a single document.
 
-Дополнительно:
-- StageViewMode — режим представления стадии для UI;
-- StageProvenanceDTO — информация о происхождении данных в текущем представлении;
-- StageRepresentationDTO — пояснение, является ли текущий вид каноническим
-  или это более удобное производное представление.
+Additional:
+- StageViewMode — stage presentation mode for the UI;
+- StageProvenanceDTO — data provenance information for the current view;
+- StageRepresentationDTO — details on whether the current view is canonical
+  or a more convenient derived representation.
 """
 
 from __future__ import annotations
@@ -58,16 +58,15 @@ class PipelineStageKind(str, Enum):
 
 class StageViewMode(str, Enum):
     """
-    Режим отображения стадии в UI.
+    Stage rendering mode in the UI.
 
     canonical:
-        Показывается точный результат этого этапа без дополнительных
-        производных представлений.
+        Shows the exact result of this stage without any additional
+        derived representations.
 
     friendly:
-        Показывается более удобный для чтения вид. Он может использовать
-        данные соседних стадий, но при этом должен быть явно помечен как
-        производный режим.
+        Shows a more readable view. It can utilize data from adjacent stages,
+        but must be explicitly flagged as a derived mode.
     """
 
     canonical = "canonical"
@@ -81,34 +80,33 @@ class StageMetaDTO(BaseModel):
     section_count: int | None = None
     source_file_name: str | None = None
     mime_type: str | None = None
-    # Флаг, который показывает, обогащён ли STRUCTURE-текст секций
-    # данными из canonical snapshot CHUNKS (friendly-режим).
+    # Flag indicating whether the STRUCTURE section text is enriched
+    # with data from the canonical snapshot CHUNKS (friendly mode).
     text_enriched: bool | None = None
 
 
 class StageProvenanceDTO(BaseModel):
     """
-    Информация о происхождении данных в текущем представлении стадии.
+    Information about data provenance in the current stage view.
 
     primary_source_stage:
-        Какая стадия является главным источником правды для этого представления.
-        Примеры:
+        The stage acting as the primary source of truth for this view.
+        Examples:
         - canonical STRUCTURE: STRUCTURE
-        - friendly STRUCTURE: STRUCTURE (основа), но enriched из CHUNKS
+        - friendly STRUCTURE: STRUCTURE (base), but enriched from CHUNKS
         - canonical CHUNKS: CHUNKS
 
     derived_from_stages:
-        Какие дополнительные стадии были использованы для обогащения
-        или построения "удобного вида".
-        Примеры:
+        Additional stages used to enrich or build the "friendly view".
+        Examples:
         - friendly STRUCTURE: [CHUNKS]
-        - friendly layout/text (если появится): [SOURCE, PRIMARY]
+        - friendly layout/text (if introduced): [SOURCE, PRIMARY]
 
     preview_source_label:
-        Короткая человекочитаемая подпись для UI.
-        Примеры:
-        - "Клауз‑дерево STRUCTURE"
-        - "Текст секции, обогащённый из CHUNKS"
+        Short human-readable label for the UI.
+        Examples:
+        - "STRUCTURE clause tree"
+        - "Section text enriched from CHUNKS"
         - "Canonical snapshot CHUNKS"
     """
 
@@ -119,38 +117,38 @@ class StageProvenanceDTO(BaseModel):
 
 class StageRepresentationDTO(BaseModel):
     """
-    Описание текущего режима представления стадии.
+    Description of the current stage presentation mode.
 
     view_mode:
-        Технический режим представления ("canonical" или "friendly").
+        Technical presentation mode ("canonical" or "friendly").
 
     is_canonical:
-        Явный флаг для фронта. Нужен, чтобы UI не вычислял это сам.
-        Примеры:
+        Explicit flag for the frontend. Ensures the UI does not have to compute this.
+        Examples:
         - canonical STRUCTURE: view_mode="canonical", is_canonical=True
         - friendly STRUCTURE: view_mode="friendly", is_canonical=False
         - canonical CHUNKS: view_mode="canonical", is_canonical=True
 
     label:
-        Короткая подпись режима для пользователя.
-        Примеры:
-        - "Результат этапа" (canonical)
-        - "Удобный вид" (friendly)
+        Short user-facing label of the mode.
+        Examples:
+        - "Stage Result" (canonical)
+        - "Friendly View" (friendly)
 
     description:
-        Короткое пояснение, что именно показывается на экране.
-        Примеры:
-        - "Канонический clause tree из STRUCTURE"
-        - "Текст секции, обогащённый из CHUNKS"
-        - "Canonical snapshot текстовых чанков"
+        Brief explanation of what is currently displayed on the screen.
+        Examples:
+        - "Canonical clause tree from STRUCTURE"
+        - "Section text enriched from CHUNKS"
+        - "Canonical snapshot of text chunks"
 
     provenance:
-        Источник данных для текущего представления (StageProvenanceDTO).
+        Data provenance details for the current view (StageProvenanceDTO).
     """
 
     view_mode: StageViewMode = StageViewMode.canonical
     is_canonical: bool = True
-    label: str = "Результат этапа"
+    label: str = "Stage Result"
     description: str | None = None
     provenance: StageProvenanceDTO = Field(default_factory=StageProvenanceDTO)
 
@@ -191,19 +189,19 @@ class ChunkRefDTO(BaseModel):
 
 class SectionSourceMappingDTO(BaseModel):
     """
-    Привязка секции STRUCTURE к исходному текстовому слою документа.
+    Binding of a STRUCTURE section to the original document text layer.
 
-    Это не про friendly-текст, а про то, откуда эта секция "вырезана":
-    - из каких чанков;
-    - на каких страницах;
-    - с какой текстовой цитатой, чтобы фронт мог подсветить оригинал.
+    This is not about friendly text, but rather where this section was "sliced" from:
+    - from which chunks;
+    - on which pages;
+    - with which text quote, so the frontend can highlight the original.
     """
 
-    # Какой текстовый слой считать "источником" для правой колонки
-    # (PRIMARY pdf, EXTRACT layout/text, CHUNKS текстовые чанки).
+    # Which text layer is considered the "source" for the right column
+    # (PRIMARY pdf, EXTRACT layout/text, CHUNKS text chunks).
     source_stage: PipelineStageCode = PipelineStageCode.CHUNKS
 
-    # Fallback-привязка по страницам (если нет более точной).
+    # Fallback binding by pages (if a more precise one is missing).
     page_from: int | None = None
     page_to: int | None = None
 
@@ -214,53 +212,53 @@ class SectionSourceMappingDTO(BaseModel):
     chunk_refs: list[ChunkRefDTO] = Field(default_factory=list)
     segment_id: str | None = None
 
-    # Опциональная текстовая цитата для поиска/подсветки в исходном тексте.
-    # Например, первый абзац секции или характерный фрагмент.
+    # Optional text quote to find/highlight inside the source text.
+    # E.g., first paragraph of a section or a characteristic fragment.
     match_text: str | None = None
 
-    # Как именно был получен anchor:
-    # - "chunk_refs": из clause_uid -> chunks
-    # - "text_quote": из исходного текста
-    # - "page_window": только по страницам
+    # How the anchor was resolved:
+    # - "chunk_refs": via clause_uid -> chunks
+    # - "text_quote": from raw source text
+    # - "page_window": bound only by pages
     match_strategy: Literal["chunk_refs", "text_quote", "page_window"] = "chunk_refs"
 
 
 class StructureSectionPreviewDTO(BaseModel):
     """
-    Представление одной секции/пункта документа для STRUCTURE-view.
+    Representation of a single document section/item for STRUCTURE-view.
 
-    Слои текста:
+    Text layers:
 
     - structure_text:
-        Канонический текст узла из clause tree (STRUCTURE stage).
-        Заполняется на этапе _flatten_clause_tree и НЕ должен
-        перезаписываться enrichment-логикой.
+        Canonical node text from the clause tree (STRUCTURE stage).
+        Populated during the _flatten_clause_tree phase and MUST NOT
+        be overwritten by enrichment logic.
 
     - enriched_text:
-        Обогащённый текст секции, собранный поверх canonical snapshot CHUNKS
-        (friendly-STRUCTURE и/или наследование от дочерних секций).
-        Если enrichment не сработал, остаётся пустым.
+        Enriched section text assembled on top of the canonical snapshot CHUNKS
+        (friendly-STRUCTURE and/or inherited from child sections).
+        Remains empty if enrichment was not executed or failed.
 
     - text_preview:
-        Legacy/UI-ориентированное поле для краткого отображения текста секции,
-        оставлено для совместимости со старым фронтом и внешними клиентами.
+        Legacy/UI-oriented field for a brief preview of section text,
+        kept for backward compatibility with old frontend and external clients.
 
-        Для нового UI действует V2-ONLY контракт:
+        For the new UI, a V2-ONLY contract applies:
 
         * canonical-STRUCTURE:
-            UI берёт structure_text и игнорирует text_preview.
+            UI reads structure_text and ignores text_preview.
 
         * friendly-STRUCTURE:
-            UI берёт enriched_text (если он есть) иначе structure_text,
-            а text_preview не участвует в логике отображения.
+            UI reads enriched_text (if present), falls back to structure_text,
+            while text_preview does not participate in display logic.
     """
 
-    # Стабильный технический идентификатор узла для UI.
-    # Нужен для React keys, выбора секции и другой UI-логики.
+    # Stable technical node identifier for UI.
+    # Needed for React keys, section selection, and other UI logic.
     id: str
 
-    # Доменный идентификатор клаузы документа.
-    # Нужен для связи structure -> canonical chunks -> checks/results.
+    # Domain clause identifier of the document.
+    # Needed to link structure -> canonical chunks -> checks/results.
     clause_uid: str | None = None
 
     title: str
@@ -275,29 +273,29 @@ class StructureSectionPreviewDTO(BaseModel):
     segment_order: int | None = None
     is_primary_segment: bool | None = None
 
-    # 1) Чистый текст из clause tree (STRUCTURE stage).
-    #    Этот текст задаётся на этапе _flatten_clause_tree и
-    #    не должен перезаписываться enrichment-логикой.
+    # 1) Clean text from the clause tree (STRUCTURE stage).
+    #    This text is set during the _flatten_clause_tree phase
+    #    and must not be overwritten by enrichment logic.
     structure_text: str = ""
 
-    # 2) Обогащённый текст секции из canonical snapshot CHUNKS
-    #    (friendly-STRUCTURE и/или наследование от дочерних секций).
-    #    Если enrichment не сработал, остаётся пустым.
+    # 2) Enriched section text from the canonical snapshot CHUNKS
+    #    (friendly-STRUCTURE and/or inherited from child sections).
+    #    Remains empty if enrichment was not executed or failed.
     enriched_text: str = ""
 
-    # 3) Legacy/UI-ориентированное поле для краткого превью.
+    # 3) Legacy/UI-oriented field for a brief preview.
     #
-    #    Для внешних клиентов сохраняется старый контракт:
+    #    For external clients, the old contract is preserved:
     #
     #    canonical:
     #        text_preview = structure_text
     #    friendly:
-    #        text_preview = enriched_text (если он есть) иначе structure_text.
+    #        text_preview = enriched_text (if present) else structure_text.
     #
-    #    Новый UI в V2_ONLY-режиме text_preview НЕ использует.
+    #    The new UI in V2_ONLY mode does NOT use text_preview.
     text_preview: str = ""
 
-    # Привязка секции к исходному тексту (страницы, чанки, цитата).
+    # Section binding to original text (pages, chunks, quote).
     source_mapping: SectionSourceMappingDTO | None = None
 
 
@@ -335,27 +333,28 @@ class ChunkPreviewDTO(BaseModel):
     # optional stable ids/provenance
     chunk_id: str | None = None
 
-    # ── честная идентичность чанка ────────────────────────────────────
-    # Реальный уровень чанка из backend truth.
-    # "section" | "clause" | "subclause" | None (если неизвестен)
-    # Не вычисляется на фронте — проставляется backend'ом из metadata.
+    # ── true chunk identity ──────────────────────────────────────────
+    # Real chunk level from backend truth.
+    # "section" | "clause" | "subclause" | None (if unknown)
+    # Never computed on the frontend — populated by the backend from metadata.
     chunk_kind: str | None = None
 
-    # Canonical identity чанка в retrieval pipeline.
-    # Это resolved uid — именно он используется в retrieval/checks.
-    # clause_uid может быть raw/display uid и не совпадать с effective_uid.
+    # Canonical identity of the chunk in the retrieval pipeline.
+    # This is the resolved uid — exactly what is used in retrieval/checks.
+    # clause_uid might be raw/display uid and differ from effective_uid.
     effective_uid: str | None = None
 
-    # Флаг retrieval safety.
-    # True  = чанк активно используется в retrieval/checks.
-    # False = чанк существует в artifact, но отфильтрован (unsafe).
-    # None  = информация недоступна (старый artifact или не enriched).
+    # Retrieval safety flag.
+    # True  = chunk is actively used in retrieval/checks.
+    # False = chunk exists in artifact but is filtered out (unsafe).
+    # None  = information unavailable (legacy artifact or not enriched).
     retrieval_safe: bool | None = None
-    
+
     # ── backend-driven presentation DTO ───────────────────────────────
     display_title: str = ""
     display_subtitle: str = ""
     role: Literal["evidence", "context"] = "evidence"
+
 
 class ChunksSegmentPreviewDTO(BaseModel):
     segment: PipelineSegmentDTO
@@ -366,29 +365,28 @@ class ChunksSegmentPreviewDTO(BaseModel):
 
 class ChunksPreviewDTO(BaseModel):
     """
-    Представление текстовых чанков документа для CHUNKS-view.
+    Representation of document text chunks for CHUNKS-view.
 
-    Два слоя представления:
+    Two presentation layers:
 
     - legacy flattened view (chunks):
-        Плоский список чанков без сегментного разбиения. Оставлен для
-        совместимости со старым фронтом и внешними клиентами.
+        Flat list of chunks without segment division. Kept for
+        backward compatibility with the old frontend and external clients.
 
     - v2 canonical view (segments):
-        Segment-aware корпус чанков (ChunksSegmentPreviewDTO), который
-        используется как единственный источник правды в новом UI.
+        Segment-aware body of chunks (ChunksSegmentPreviewDTO), which
+        is used as the single source of truth in the new UI.
 
-    Новый UI в V2_ONLY-режиме:
-
-    - строит список чанков ТОЛЬКО из segments[].chunks;
-    - не использует поле chunks как источник данных.
+    The new UI in V2_ONLY mode:
+    - builds the chunk list ONLY from segments[].chunks;
+    - does not use the flattened chunks list as a data source.
     """
 
     type: Literal["chunks"] = "chunks"
-    # legacy flattened view (старый контракт, не используется canonical UI)
+    # legacy flattened view (legacy contract, not used by canonical UI)
     chunks: list[ChunkPreviewDTO] = Field(default_factory=list)
 
-    # v2 canonical view (единственный источник правды для UI)
+    # v2 canonical view (single source of truth for the UI)
     segments: list[ChunksSegmentPreviewDTO] = Field(default_factory=list)
     reconstructed_text: str = ""
     raw_json: dict[str, Any] | list[Any] | None = None
@@ -408,8 +406,8 @@ class PipelineStageViewDTO(BaseModel):
     meta: StageMetaDTO = Field(default_factory=StageMetaDTO)
     preview: PipelinePreviewDTO | None = None
 
-    # Объясняет, в каком режиме показана стадия
-    # и откуда взялись данные текущего представления.
+    # Explains in which mode the stage is displayed
+    # and the provenance of the current view's data.
     representation: StageRepresentationDTO = Field(
         default_factory=StageRepresentationDTO,
     )
@@ -420,8 +418,8 @@ class DocumentPipelineViewResponseDTO(BaseModel):
     document_version_id: str
     document_status: str
 
-    # Общий режим, в котором был собран ответ.
-    # Это удобно фронту, чтобы инициализировать переключатель.
+    # Global view mode used to compile the response.
+    # Convenient for the frontend to initialize toggles.
     view_mode: StageViewMode
 
     stages: list[PipelineStageViewDTO] = Field(default_factory=list)

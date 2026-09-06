@@ -3,18 +3,18 @@
 """
 Playbook compiler.
 
-Этот модуль отвечает за:
+This module is responsible for:
 
-1) Загрузку определений глобальных чеков из YAML-файлов
-   (каталог playbooks/global_checks, рекурсивно по подпапкам).
+1) Loading definitions of global checks from YAML files
+   (playbooks/global_checks directory, recursively across subfolders).
 
-2) Загрузку bundle-конфигов (UI-пресетов) из YAML-файлов
-   (каталог playbooks/bundles).
+2) Loading bundle configurations (UI presets) from YAML files
+   (playbooks/bundles directory).
 
-3) Сборку "скомпилированного плейбука" (compiled_checks) для сохранения
-   в PlaybookVersion.compiled_checks.
+3) Building a "compiled playbook" (compiled_checks) for saving
+   in PlaybookVersion.compiled_checks.
 
-Compiled плейбук — это простой JSON-совместимый dict со структурой:
+Compiled playbook is a simple JSON-compatible dict with the structure:
 
     {
       "checks": [ GlobalCheckConfig, ... ],
@@ -27,43 +27,42 @@ Compiled плейбук — это простой JSON-совместимый di
       }
     }
 
-Где:
+Where:
 
-- GlobalCheckConfig описывает один чек, доступный движку проверок.
-- Поле source в GlobalCheckConfig фиксирует происхождение чека и
-  используется, в том числе, для фильтров в DD Grid:
+- GlobalCheckConfig describes a single check available to the validation engine.
+- The 'source' field in GlobalCheckConfig identifies the origin of the check and
+  is used, among other things, for filtering in the DD Grid:
 
-    - GLOBAL_PLAYBOOK  – чек пришёл из глобального плейбука
-                         (универсальные риски "для любых договоров").
-    - DOCUMENT_TYPE    – чек пришёл из инструкций по типу документа.
-                         Для текущего генератора global_checks_v1
-                         это может не использоваться, но поле зарезервировано.
-    - SYSTEM           – системные / технические проверки, созданные кодом.
+    - GLOBAL_PLAYBOOK  – check came from a global playbook
+                         (universal risks "for any contract").
+    - DOCUMENT_TYPE    – check came from document-type instructions.
+                         For the current global_checks_v1 generator,
+                         this might not be used, but the field is reserved.
+    - SYSTEM           – system / technical checks created by code.
 
-Текущая реализация build_compiled_checks формирует только GLOBAL_PLAYBOOK
-(глобальные чеки, собранные по bundles + include/exclude).
-Но структура данных уже готова к тому, чтобы в будущем добавлять
-DOCUMENT_TYPE и SYSTEM, не ломая формат.
+The current implementation of build_compiled_checks produces only GLOBAL_PLAYBOOK
+(global checks assembled by bundles + include/exclude).
+However, the data structure is ready to support DOCUMENT_TYPE and SYSTEM in the future
+without breaking format compatibility.
 
-Изменения (keyword_groups support):
-- GlobalCheckConfig получил поле keyword_groups: Dict[str, Any].
-  Это позволяет хранить уровневые группы keywords (high/medium/low)
-  отдельно от блока rules. Loader затем объединяет:
-    * rules.keywords (если dict — inline группы),
-    * rules.keyword_groups (вложенное поле),
-    * keyword_groups (верхнеуровневое поле GlobalCheckConfig).
+Changes (keyword_groups support):
+- GlobalCheckConfig received keyword_groups: Dict[str, Any] field.
+  This allows storing multi-level keyword groups (high/medium/low)
+  separately from the rules block. The loader then combines:
+    * rules.keywords (if dict — inline groups),
+    * rules.keyword_groups (nested field),
+    * keyword_groups (top-level GlobalCheckConfig field).
 
-Изменения (severity_if_* support):
-- GlobalCheckConfig получил поля severity_if_fail / severity_if_pass /
-  severity_if_unclear. Они позволяют задавать severity, зависящий от
-  результата проверки (fail/pass/unclear), который затем использует
-  исполнитель проверок.
+Changes (severity_if_* support):
+- GlobalCheckConfig received severity_if_fail / severity_if_pass /
+  severity_if_unclear fields. They allow setting severity dependent on
+  the check result (fail/pass/unclear), which is then used by the check runner.
 
-Изменения (DD Grid V1 support):
-- GlobalCheckConfig получил поля display_order и dd_grid_columns.
-  display_order задаёт порядок отображения check в DD Grid.
-  dd_grid_columns — явная конфигурация колонок DD Grid (raw dict,
-  парсинг в DDGridColumnSpec выполняется loader'ом в V1.2).
+Changes (DD Grid V1 support):
+- GlobalCheckConfig received display_order and dd_grid_columns.
+  display_order defines the render order of the check in the DD Grid.
+  dd_grid_columns — explicit configuration of DD Grid columns (raw dict,
+  parsing into DDGridColumnSpec is done by the loader in V1.2).
 """
 
 from __future__ import annotations
@@ -77,80 +76,80 @@ from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
-# Эти пути при необходимости можно будет сделать настраиваемыми через настройки проекта.
+# These paths can be made configurable via project settings if needed.
 GLOBAL_CHECKS_DIR = Path("playbooks/global_checks")
 BUNDLES_DIR = Path("playbooks/bundles")
 
 
-# ===== Pydantic-схемы для compiled_checks =====
+# ===== Pydantic schemas for compiled_checks =====
 
 
 class PlaybookConfig(BaseModel):
-    """Снимок настроек, которыми пользователь собрал плейбук.
+    """Snapshot of settings used by the user to compile the playbook.
 
-    Это "рецепт", по которому был сформирован итоговый набор чеков.
-    Его можно показать в UI и использовать для пересборки.
+    This is the "recipe" used to generate the final check set.
+    It can be shown in the UI and used for recompilation.
     """
 
     bundles: list[str] = Field(
         default_factory=list,
-        description="Список ID bundle-файлов, которые были включены.",
+        description="List of bundle file IDs that were included.",
     )
     include_ids: list[str] = Field(
         default_factory=list,
-        description="Чек-ID, которые пользователь явно добавил поверх bundle'ов.",
+        description="Check IDs explicitly added by the user on top of bundles.",
     )
     exclude_ids: list[str] = Field(
         default_factory=list,
-        description="Чек-ID, которые пользователь явно выключил.",
+        description="Check IDs explicitly excluded by the user.",
     )
     profile: str | None = Field(
         default=None,
-        description="Профиль глубины проверки: core/full/quick и т.п.",
+        description="Depth profile: core/full/quick etc.",
     )
 
 
 class PlaybookMeta(BaseModel):
-    """Служебная информация о том, как собран и интерпретируется плейбук."""
+    """Metadata describing how the playbook was compiled and is interpreted."""
 
     config: PlaybookConfig = Field(
         default_factory=PlaybookConfig,
-        description="Рецепт сборки плейбука (для UI и пересборки).",
+        description="Recipe for compiling the playbook (for UI and recompilation).",
     )
     bundle_id: str | None = Field(
         default=None,
-        description="Основной bundle, если был выбран один (для удобства).",
+        description="Primary bundle if a single one was selected (for convenience).",
     )
     check_ids: list[str] = Field(
         default_factory=list,
-        description="Итоговый список чеков после всех include/exclude.",
+        description="Final list of checks after all include/exclude logic.",
     )
     global_instruction_refs: dict[str, str] = Field(
         default_factory=dict,
         description=(
-            "Ссылки на published global instruction versions, использованные "
-            "при сборке плейбука: {instruction_code: version_id}"
+            "References to published global instruction versions used "
+            "during playbook compilation: {instruction_code: version_id}"
         ),
     )
     version_schema: int = Field(
         default=1,
-        description="Версия схемы compiled_checks/meta.",
+        description="Compiled_checks/meta schema version.",
     )
     source_type: str = Field(
         default="global_checks_v1",
-        description="Откуда взялись определения чеков (для трассировки).",
+        description="Origin of the check definitions (for traceability).",
     )
 
 
 class CheckSource(str, Enum):
-    """Источник определения проверки (используется и бекендом, и UI).
+    """Origin of a check definition (used by both backend and UI).
 
-    Значения:
+    Values:
 
-    - GLOBAL_PLAYBOOK  – чек пришёл из глобального плейбука
-                         (универсальные темы для любых договоров).
-    - DOCUMENT_TYPE    – чек определён в инструкциях по конкретному типу документа.
-    - SYSTEM           – чек сгенерирован системой (тех/диагностические проверки).
+    - GLOBAL_PLAYBOOK  – check originated from the global playbook
+                         (universal topics for any contract).
+    - DOCUMENT_TYPE    – check is defined in instructions for a specific document type.
+    - SYSTEM           – check was generated by the system (technical/diagnostic check).
     """
 
     GLOBAL_PLAYBOOK = "GLOBAL_PLAYBOOK"
@@ -159,10 +158,10 @@ class CheckSource(str, Enum):
 
 
 class GlobalCheckConfig(BaseModel):
-    """Описание одного глобального чека (как он хранится в compiled_checks).
+    """Description of a single global check (as stored in compiled_checks).
 
-    Это уже "плоская" структура, готовая для использования движком проверок
-    и для отображения в UI (через PlaybookDefinition / CheckDefinition).
+    This is a flattened structure ready for the validation engine
+    and for display in the UI (via PlaybookDefinition / CheckDefinition).
     """
 
     id: str
@@ -171,32 +170,32 @@ class GlobalCheckConfig(BaseModel):
     category: str | None = None
     group: str | None = Field(
         default=None,
-        description="Крупный блок/секция для UX (например, 'liability').",
+        description="Large UX section/block (e.g., 'liability').",
     )
     display_order: int = Field(
         default=0,
         description=(
-            "Порядок отображения check внутри группы/списка в DD Grid. "
-            "Меньше = раньше. Checks с одинаковым display_order "
-            "сортируются по name (алфавитно)."
+            "Display order of the check within its group/list in DD Grid. "
+            "Lower = earlier. Checks with the same display_order "
+            "are sorted alphabetically by name."
         ),
     )
     severity: str = Field(
         default="medium",
         description="low | medium | high | critical",
     )
-    # Outcome‑зависимые severity (опционально, переопределяют базовый severity)
+    # Outcome-dependent severities (optional, override base severity)
     severity_if_fail: str | None = Field(
         default=None,
-        description="Severity, если результат проверки: fail (опционально).",
+        description="Severity to apply if the check result is fail (optional).",
     )
     severity_if_pass: str | None = Field(
         default=None,
-        description="Severity, если результат проверки: pass (опционально).",
+        description="Severity to apply if the check result is pass (optional).",
     )
     severity_if_unclear: str | None = Field(
         default=None,
-        description="Severity, если результат проверки: unclear (опционально).",
+        description="Severity to apply if the check result is unclear (optional).",
     )
 
     ui_mode: str | None = Field(
@@ -210,15 +209,15 @@ class GlobalCheckConfig(BaseModel):
 
     doc_types: list[str] = Field(
         default_factory=list,
-        description="К каким типам документов чек применим.",
+        description="Document types to which this check is applicable.",
     )
 
-    # ВАЖНО: это ровно то поле, которое будет транслироваться в origin на уровне CheckDefinition.
-    # Для глобального плейбука мы ставим GLOBAL_PLAYBOOK, для будущих инструкций по типу
-    # документа можно будет использовать DOCUMENT_TYPE, для тех. чеков – SYSTEM.
+    # IMPORTANT: this field will be mapped to the origin level of CheckDefinition.
+    # For global playbook checks, we set this to GLOBAL_PLAYBOOK, for future document-specific
+    # instructions, we can set it to DOCUMENT_TYPE, and for system checks, to SYSTEM.
     source: CheckSource = Field(
         default=CheckSource.GLOBAL_PLAYBOOK,
-        description="Источник: GLOBAL_PLAYBOOK / DOCUMENT_TYPE / SYSTEM.",
+        description="Origin: GLOBAL_PLAYBOOK / DOCUMENT_TYPE / SYSTEM.",
     )
 
     detector_type: str = Field(
@@ -226,71 +225,71 @@ class GlobalCheckConfig(BaseModel):
         description="'rules' | 'llm' | 'hybrid'",
     )
 
-    # Конфиг для rules-базированного детектора (keywords, regex и т.п.).
-    # Хранится как сырой dict, loader строит RulesConfig.
+    # Configuration for rule-based detector (keywords, regex, etc.).
+    # Stored as a raw dict, loader parses this into RulesConfig.
     rules: dict[str, Any] = Field(
         default_factory=dict,
-        description="Конфиг для rules-базированного детектора (keywords, regex и т.п.).",
+        description="Configuration for rule-based detector (keywords, regex, etc.).",
     )
 
-    # Новое: уровневые keyword-группы (high/medium/low).
-    # Хранятся отдельно от rules для явной передачи в RulesConfig.keyword_groups.
-    # Если задано — используется loader'ом как дополнительный источник:
-    #   1) rules.keywords (если dict — inline groups),
+    # Level-based keyword groups (high/medium/low).
+    # Stored separately from rules to pass directly to RulesConfig.keyword_groups.
+    # If provided, it is used by the loader as an additional source:
+    #   1) rules.keywords (if dict — inline groups),
     #   2) rules.keyword_groups,
-    #   3) keyword_groups (это поле).
+    #   3) keyword_groups (this field).
     keyword_groups: dict[str, Any] = Field(
         default_factory=dict,
-        description="Уровневые группы keywords: {'high': [...], 'medium': [...], 'low': [...]}",
+        description="Level-based keyword groups: {'high': [...], 'medium': [...], 'low': [...]}",
     )
 
     llm: dict[str, Any] = Field(
         default_factory=dict,
-        description="Конфиг для LLM-детектора (prompt, model, параметры).",
+        description="LLM detector configuration (prompt, model, parameters).",
     )
     retrieval: dict[str, Any] = Field(
         default_factory=dict,
-        description="Настройки извлечения контекста (scope, k, и т.п.).",
+        description="Context retrieval configuration (scope, k, etc.).",
     )
     extraction: dict[str, Any] = Field(
         default_factory=dict,
-        description="Настройки структурированной вытяжки.",
+        description="Structured extraction configuration.",
     )
     dd_grid_columns: list[dict[str, Any]] | None = Field(
         default=None,
         description=(
-            "Явная конфигурация DD Grid колонок для field_extraction checks. "
-            "Raw list[dict] — парсинг в DDGridColumnSpec выполняется loader'ом."
+            "Explicit DD Grid column configuration for field_extraction checks. "
+            "Raw list[dict] — parsed into DDGridColumnSpec by the loader."
         ),
     )
     red_flags: dict[str, Any] = Field(
         default_factory=dict,
-        description="Настройки поиска red flags.",
+        description="Red flags search configuration.",
     )
 
     profiles_enabled: list[str] = Field(
         default_factory=list,
-        description="Какие профили глубины включают этот чек: ['core', 'full'] и т.п.",
+        description="Depth profiles that enable this check: ['core', 'full'], etc.",
     )
     deal_profiles: list[str] = Field(
         default_factory=list,
-        description="Типы сделок, для которых чек особенно релевантен.",
+        description="Deal profiles for which this check is highly relevant.",
     )
     industries: list[str] = Field(
         default_factory=list,
-        description="Отрасли, для которых чек особенно релевантен.",
+        description="Industries for which this check is highly relevant.",
     )
     jurisdictions: list[str] = Field(
         default_factory=list,
-        description="Юрисдикции, для которых чек особенно релевантен.",
+        description="Jurisdictions for which this check is highly relevant.",
     )
 
 
 class BundleConfig(BaseModel):
-    """Описание UI-пресета (bundle) из YAML.
+    """UI preset (bundle) description from YAML.
 
-    Bundle – это просто именованный набор чеков (по id), который можно
-    выбрать в интерфейсе для быстрого старта (например, "Core SPA checks").
+    A bundle is simply a named set of check IDs that can be chosen
+    in the interface for a quick start (e.g., "Core SPA checks").
     """
 
     id: str
@@ -300,32 +299,32 @@ class BundleConfig(BaseModel):
 
 
 class CompiledPlaybook(BaseModel):
-    """Схема JSON, который будет лежать в PlaybookVersion.compiled_checks.
+    """JSON schema stored in PlaybookVersion.compiled_checks.
 
-    - checks: финальный список чеков (GlobalCheckConfig) после всех фильтров.
-    - meta: служебная информация о том, как этот список был получен.
+    - checks: final list of checks (GlobalCheckConfig) after applying all filters.
+    - meta: metadata describing how this list was generated.
     """
 
     checks: list[GlobalCheckConfig]
     meta: PlaybookMeta
 
 
-# ===== Загрузка global_checks и bundles =====
+# ===== Loading global_checks and bundles =====
 
 
 def load_global_checks() -> dict[str, GlobalCheckConfig]:
-    """Загрузить все определения глобальных чеков из GLOBAL_CHECKS_DIR.
+    """Load all global check definitions from GLOBAL_CHECKS_DIR.
 
-    Ожидается, что каждый YAML-файл описывает один чек в формате,
-    совместимом с GlobalCheckConfig (id, name, severity, detector_type и т.д.).
+    Each YAML file is expected to describe one check in a format
+    compatible with GlobalCheckConfig (id, name, severity, detector_type, etc.).
 
-    Поиск идёт рекурсивно по подпапкам (rglob("*.yaml")).
+    Searches recursively across subdirectories (rglob("*.yaml")).
 
-    Возвращает:
+    Returns:
         dict: {check_id: GlobalCheckConfig}.
 
-    Исключения:
-        RuntimeError – при ошибке чтения файла или невалидной схеме.
+    Raises:
+        RuntimeError – on file reading error or invalid schema.
     """
     import yaml
 
@@ -335,7 +334,7 @@ def load_global_checks() -> dict[str, GlobalCheckConfig]:
 
     checks: dict[str, GlobalCheckConfig] = {}
 
-    # Рекурсивно по подпапкам: playbooks/global_checks/**.yaml
+    # Recursively find YAML files: playbooks/global_checks/**.yaml
     for path in sorted(GLOBAL_CHECKS_DIR.rglob("*.yaml")):
         try:
             with path.open("r", encoding="utf-8") as f:
@@ -344,7 +343,7 @@ def load_global_checks() -> dict[str, GlobalCheckConfig]:
             logger.error("Failed to read global check YAML %s: %s", path, e)
             raise RuntimeError(f"Cannot read global check file: {path}") from e
 
-        # НОРМАЛИЗАЦИЯ source перед валидацией:
+        # NORMALIZATION of source before validation:
         source_raw = raw.get("source")
         if isinstance(source_raw, str):
             normalized = source_raw.strip().upper()
@@ -382,16 +381,16 @@ def load_global_checks() -> dict[str, GlobalCheckConfig]:
 
 
 def load_bundle(bundle_id: str) -> BundleConfig:
-    """Загрузить YAML bundle по его id из каталога playbooks/bundles.
+    """Load YAML bundle by its ID from the playbooks/bundles directory.
 
-    bundle_id маппится на файл <bundle_id>.yaml.
+    bundle_id maps to a file named <bundle_id>.yaml.
 
-    Возвращает:
+    Returns:
         BundleConfig.
 
-    Исключения:
-        FileNotFoundError – если файл не найден.
-        RuntimeError      – если файл не читается или схема невалидна.
+    Raises:
+        FileNotFoundError – if file is not found.
+        RuntimeError      – if file is unreadable or schema is invalid.
     """
     import yaml
 
@@ -429,7 +428,7 @@ def load_bundle(bundle_id: str) -> BundleConfig:
     return cfg
 
 
-# ===== Построение compiled_checks =====
+# ===== Building compiled_checks =====
 
 
 def build_compiled_checks(
@@ -442,61 +441,60 @@ def build_compiled_checks(
     primary_bundle_id: str | None = None,
     global_instruction_refs: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Собрать структуру для PlaybookVersion.compiled_checks.
+    """Build the structure for PlaybookVersion.compiled_checks.
 
-    На вход:
+    Input:
         all_checks:
-            Все доступные глобальные чеки (результат load_global_checks()).
+            All available global checks (result of load_global_checks()).
         bundles:
-            Список bundle_id, которые выбрал пользователь.
+            List of bundle_ids selected by the user.
         include_ids:
-            Чек-ID, которые пользователь явно добавил поверх bundle'ов.
+            Check IDs explicitly added by the user on top of bundles.
         exclude_ids:
-            Чек-ID, которые пользователь явно выключил.
+            Check IDs explicitly excluded by the user.
         profile:
-            Профиль глубины проверки (например, 'core' / 'full' / 'quick').
+            Depth profile (e.g., 'core' / 'full' / 'quick').
         primary_bundle_id:
-            Основной bundle для удобства трассировки (может быть None).
+            Primary bundle ID for traceability (can be None).
 
-    Алгоритм:
+    Algorithm:
 
-        1) Собираем базовый список чек-ID из выбранных bundles.
-        2) Добавляем include_ids.
-        3) Удаляем дубликаты, сохраняя порядок.
-        4) Применяем exclude_ids.
-        5) Проверяем, что все ID присутствуют в all_checks.
-        6) При необходимости фильтруем по profile.
-        7) Формируем CompiledPlaybook (checks + meta) и возвращаем как dict.
+        1) Collect the base set of check IDs from the selected bundles.
+        2) Add include_ids.
+        3) Deduplicate while preserving order.
+        4) Apply exclude_ids.
+        5) Validate that all IDs exist in all_checks.
+        6) Filter by profile if necessary.
+        7) Generate CompiledPlaybook (checks + meta) and return as a dict.
 
-    Важно:
+    Important:
 
-    - Поле GlobalCheckConfig.source уже заполнено на этапе чтения YAML.
-      Для текущего генератора global_checks_v1 это, как правило,
+    - The GlobalCheckConfig.source field is already populated during YAML parsing.
+      For the current global_checks_v1 generator, this is typically
       CheckSource.GLOBAL_PLAYBOOK.
-    - Это поле затем транслируется в origin на уровне CheckDefinition
-      (см. engine/playbook/loader.py) и используется DD Grid для фильтров
-      "Глобальный плэйбук" и "По типу документа".
+    - This field is subsequently mapped to the origin field at the CheckDefinition
+      level (see engine/playbook/loader.py) and is used by DD Grid for
+      "Global playbook" and "By document type" filters.
     """
     bundles = bundles or []
     include_ids = include_ids or []
     exclude_ids = exclude_ids or []
     global_instruction_refs = global_instruction_refs or {}
 
-
-    # 1. базовый набор id: все чек-id из выбранных bundles
+    # 1. Base set of IDs: all check IDs from selected bundles
     base_ids: list[str] = []
 
     for bundle_id in bundles:
         bundle_cfg = load_bundle(bundle_id)
         base_ids.extend(bundle_cfg.check_ids)
 
-    # 2. добавим явные include_ids
+    # 2. Add explicit include_ids
     base_ids.extend(include_ids)
 
     if not base_ids:
         raise ValueError("No checks selected: bundles and include_ids are both empty")
 
-    # 3. убираем дубликаты, сохраняя порядок
+    # 3. Deduplicate preserving order
     seen: set[str] = set()
     unique_ids: list[str] = []
     for cid in base_ids:
@@ -505,19 +503,19 @@ def build_compiled_checks(
         seen.add(cid)
         unique_ids.append(cid)
 
-    # 4. применяем exclude_ids
+    # 4. Apply exclude_ids
     excluded_set = set(exclude_ids)
     final_ids: list[str] = [cid for cid in unique_ids if cid not in excluded_set]
 
     if not final_ids:
         raise ValueError("All checks were excluded; resulting list is empty")
 
-    # 5. проверяем, что все есть в all_checks
+    # 5. Validate that all exist in all_checks
     missing: list[str] = [cid for cid in final_ids if cid not in all_checks]
     if missing:
         raise KeyError(f"Unknown check_id(s): {', '.join(missing)}")
 
-    # 6. фильтрация по profile (если нужно)
+    # 6. Filter by profile (if requested)
     if profile:
         filtered_ids: list[str] = []
         for cid in final_ids:
@@ -528,7 +526,7 @@ def build_compiled_checks(
             raise ValueError(f"No checks left after applying profile='{profile}'")
         final_ids = filtered_ids
 
-    # 7. собираем CompiledPlaybook
+    # 7. Construct CompiledPlaybook
     compiled = CompiledPlaybook(
         checks=[all_checks[cid] for cid in final_ids],
         meta=PlaybookMeta(
@@ -550,5 +548,5 @@ def build_compiled_checks(
         ),
     )
 
-    # Возвращаем обычный dict, чтобы его удобно класть в JSONB и через ORM.
+    # Return a plain dict to store easily in JSONB via ORM.
     return compiled.model_dump()

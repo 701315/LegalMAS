@@ -2,7 +2,7 @@
 
 """
 Global instruction version endpoints.
-Зеркало instruction_versions.py под prefix /admin/instructions/global-checks.
+Mirror of instruction_versions.py under /admin/instructions/global-checks prefix.
 """
 
 from __future__ import annotations
@@ -218,7 +218,7 @@ async def list_global_instruction_catalog(
     user: CurrentUser = Depends(require_global_instruction_admin),
     service: GlobalInstructionCatalogService = Depends(get_catalog_service),
 ) -> GlobalInstructionCatalogResponse:
-    """Каталог global instruction families, сгруппированных по group."""
+    """Catalog of global instruction families, grouped by group."""
     _ = user
     items = await service.list_catalog()
     return GlobalInstructionCatalogResponse(
@@ -235,7 +235,7 @@ async def list_global_instruction_versions(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_global_instruction_admin),
 ) -> GlobalInstructionVersionListResponse:
-    """Все версии для одного instruction_code."""
+    """All versions for a single instruction_code."""
     _ = user
     repo = GlobalInstructionVersionRepository(db)
     versions = await repo.list_by_instruction_code(instruction_code)
@@ -256,8 +256,8 @@ async def get_global_instruction_version(
     user: CurrentUser = Depends(require_global_instruction_admin),
 ) -> GlobalInstructionVersionDetailResponse:
     """
-    Детали версии + ETag header для optimistic concurrency.
-    ETag передаётся в If-Match при последующих PATCH.
+    Details of a version + ETag header for optimistic concurrency.
+    ETag is passed in If-Match on subsequent PATCH requests.
     """
     _ = user
     repo = GlobalInstructionVersionRepository(db)
@@ -286,7 +286,7 @@ async def create_global_instruction_draft(
     user: CurrentUser = Depends(require_global_instruction_admin),
     service: GlobalInstructionPublishingService = Depends(get_publishing_service),
 ) -> GlobalInstructionVersionResponse:
-    """Создать новый draft global instruction."""
+    """Create a new draft global instruction."""
     try:
         version = await service.create_draft(
             instruction_code=instruction_code,
@@ -321,8 +321,8 @@ async def update_global_instruction_draft(
     service: GlobalInstructionPublishingService = Depends(get_publishing_service),
 ) -> GlobalInstructionVersionResponse:
     """
-    Обновить draft. Требует If-Match header.
-    428 если нет If-Match, 412 если ETag устарел.
+    Update a draft. Requires If-Match header.
+    428 if If-Match is missing, 412 if ETag is stale.
     """
     _ = user
     repo = GlobalInstructionVersionRepository(db)
@@ -366,14 +366,14 @@ async def validate_global_instruction_draft(
     user: CurrentUser = Depends(require_global_instruction_admin),
     service: GlobalInstructionPublishingService = Depends(get_publishing_service),
 ) -> GlobalInstructionVersionValidationResponse:
-    """Валидировать draft и сохранить validation artifacts."""
+    """Validate a draft and persist validation artifacts."""
     _ = user
     repo = GlobalInstructionVersionRepository(db)
     try:
         compiled = await service.validate_draft(version_id=version_id)
         await db.commit()
-        # Читаем свежие данные после commit — validate_draft делает flush внутри,
-        # после commit объект может быть в expired state.
+        # Read fresh data after commit — validate_draft performs a flush internally;
+        # after commit, the object may be in an expired state.
         version = await repo.get_by_id(version_id)
         if version is None:
             raise GlobalInstructionNotFoundError(
@@ -399,7 +399,7 @@ async def publish_global_instruction_draft(
     user: CurrentUser = Depends(require_global_instruction_admin),
     service: GlobalInstructionPublishingService = Depends(get_publishing_service),
 ) -> GlobalInstructionVersionResponse:
-    """Опубликовать validated draft."""
+    """Publish validated draft."""
     _ = user
     try:
         version = await service.publish_draft(version_id=version_id)
@@ -421,7 +421,7 @@ async def archive_global_instruction_version(
     user: CurrentUser = Depends(require_global_instruction_admin),
     service: GlobalInstructionPublishingService = Depends(get_publishing_service),
 ) -> GlobalInstructionVersionResponse:
-    """Архивировать версию."""
+    """Archive a version."""
     _ = user
     try:
         version = await service.archive_version(version_id=version_id)
@@ -446,7 +446,7 @@ async def clone_global_instruction_draft(
     service: GlobalInstructionEditorService = Depends(get_editor_service),
 ) -> GlobalInstructionVersionResponse:
     """
-    Создать новый draft на основе существующей версии.
+    Create a new draft based on an existing version.
     Canonical "edit published" flow.
     """
     try:
@@ -474,7 +474,7 @@ async def preview_global_instruction(
     user: CurrentUser = Depends(require_global_instruction_admin),
     service: GlobalInstructionEditorService = Depends(get_editor_service),
 ) -> PreviewGlobalInstructionResponse:
-    """Preview YAML без сохранения в БД."""
+    """Preview YAML without saving to the database."""
     _ = db
     _ = user
     try:
@@ -505,13 +505,13 @@ async def diff_global_instruction_versions(
     version_id: uuid.UUID,
     against: uuid.UUID = Query(
         ...,
-        description="ID версии для сравнения",
+        description="Version ID for comparison",
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_global_instruction_admin),
     service: GlobalInstructionEditorService = Depends(get_editor_service),
 ) -> GlobalInstructionDiffResponse:
-    """Unified diff между source YAML двух версий."""
+    """Unified diff between source YAML of two versions."""
     _ = db
     _ = user
     try:
@@ -529,7 +529,3 @@ async def diff_global_instruction_versions(
         )
     except Exception as exc:
         raise _map_exception(exc) from exc
-
-
-
-    

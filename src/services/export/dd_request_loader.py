@@ -15,12 +15,13 @@ YAML structure expected (in playbooks/document_types/*.yaml):
       text: "Please confirm receipt of consents for {doc_names}."
       addressee: "Corporate Secretary"
     _default:
-      text: "Please provide information regarding «{check_name}» in {doc_names}."
+      text: "Please provide information regarding \"{check_name}\" in {doc_names}."
       addressee: "Legal Counsel"
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -31,128 +32,45 @@ from core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Built-in fallback templates per locale (canonical default: "en")
-_BUILTIN_TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
-    "en": {
-        "coc": {
-            "text": (
-                "Please provide information regarding change of control conditions "
-                "provided in {doc_names}. Please clarify: "
-                "(a) whether counterparty consent is required; "
-                "(b) whether the transaction triggers termination rights."
-            ),
-            "addressee": "Seller / Seller's Legal Counsel",
-        },
-        "consent": {
-            "text": (
-                "Please confirm receipt of all necessary third-party consents "
-                "for the transaction in respect of {doc_names}."
-            ),
-            "addressee": "Corporate Secretary",
-        },
-        "termination": {
-            "text": (
-                "Please provide a list of termination grounds "
-                "provided in {doc_names}, specifying the notice procedure."
-            ),
-            "addressee": "Legal Counsel",
-        },
-        "non_compete": {
-            "text": (
-                "Please clarify the terms and conditions of non-compete restrictions "
-                "contained in {doc_names}."
-            ),
-            "addressee": "Legal Counsel",
-        },
-        "indemnity": {
-            "text": (
-                "Please provide information on indemnity caps in {doc_names}."
-            ),
-            "addressee": "Seller's Legal Counsel",
-        },
-        "re_encumbrance": {
-            "text": (
-                "Please provide extracts from the state register confirming the absence of "
-                "encumbrances on the properties specified in {doc_names}."
-            ),
-            "addressee": "Registration Authority / Cadastral Engineer",
-        },
-        "emp_key_man": {
-            "text": (
-                "Please provide information on key employees "
-                "specified in {doc_names}, including retention terms."
-            ),
-            "addressee": "HR Director / Legal Counsel",
-        },
-        "_default": {
-            "text": (
-                "Please provide additional information regarding "
-                "«{check_name}» in respect of {doc_names}."
-            ),
-            "addressee": "Legal Counsel",
-        },
-    },
-    "ru": {
-        "coc": {
-            "text": (
-                "Просим предоставить информацию об условиях смены контроля, "
-                "предусмотренных в {doc_names}. Необходимо уточнить: "
-                "(а) требуется ли согласие контрагента; "
-                "(б) порождает ли сделка право на расторжение."
-            ),
-            "addressee": "Продавец / Юридический советник продавца",
-        },
-        "consent": {
-            "text": (
-                "Просим подтвердить получение всех необходимых согласий "
-                "третьих лиц для совершения сделки в отношении {doc_names}."
-            ),
-            "addressee": "Корпоративный секретарь",
-        },
-        "termination": {
-            "text": (
-                "Просим предоставить перечень оснований для расторжения, "
-                "предусмотренных в {doc_names}, с указанием процедуры уведомления."
-            ),
-            "addressee": "Юридический советник",
-        },
-        "non_compete": {
-            "text": (
-                "Просим уточнить условия и сроки ограничений на конкуренцию, "
-                "содержащихся в {doc_names}."
-            ),
-            "addressee": "Юридический советник",
-        },
-        "indemnity": {
-            "text": (
-                "Просим предоставить информацию о предельных суммах возмещения "
-                "убытков (indemnity cap) в {doc_names}."
-            ),
-            "addressee": "Юридический советник продавца",
-        },
-        "re_encumbrance": {
-            "text": (
-                "Просим предоставить выписки из ЕГРН, подтверждающие отсутствие "
-                "обременений на объекты, указанные в {doc_names}."
-            ),
-            "addressee": "Регистрационный орган / Кадастровый инженер",
-        },
-        "emp_key_man": {
-            "text": (
-                "Просим предоставить информацию о ключевых сотрудниках, "
-                "указанных в {doc_names}, включая условия их удержания."
-            ),
-            "addressee": "HR-директор / Юридический советник",
-        },
-        "_default": {
-            "text": (
-                "Просим предоставить дополнительную информацию по вопросу "
-                "«{check_name}» в отношении {doc_names}."
-            ),
-            "addressee": "Юридический советник",
-        },
-    },
-}
+# Built-in fallback templates per locale (loaded from JSON, default fallback: "en")
+GLOBAL_CHECKS_DIR = Path("playbooks/global_checks")
+TEMPLATES_JSON_PATH = Path(__file__).parent / "builtin_templates.json"
+
+
+def _load_builtin_templates() -> dict[str, dict[str, Any]]:
+    """
+    Safely load builtin templates from local JSON configuration.
+    Falls back to a minimal English hardcoded schema if the file is unreadable.
+    """
+    if not TEMPLATES_JSON_PATH.exists():
+        logger.error("Builtin templates JSON not found at %s", TEMPLATES_JSON_PATH)
+        return {
+            "en": {
+                "more_documents": ", and {count} more document(s)",
+                "_default": {
+                    "text": "Please provide additional information regarding \"{check_name}\" in respect of {doc_names}.",
+                    "addressee": "Legal Counsel",
+                },
+            }
+        }
+
+    try:
+        with TEMPLATES_JSON_PATH.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.exception("Failed to parse builtin templates JSON from %s", TEMPLATES_JSON_PATH)
+        return {
+            "en": {
+                "more_documents": ", and {count} more document(s)",
+                "_default": {
+                    "text": "Please provide additional information regarding \"{check_name}\" in respect of {doc_names}.",
+                    "addressee": "Legal Counsel",
+                },
+            }
+        }
+
+
+_BUILTIN_TEMPLATES = _load_builtin_templates()
 
 
 class DDRequestTemplateLoader:
@@ -172,7 +90,7 @@ class DDRequestTemplateLoader:
         if self._cache is not None:
             return self._cache
 
-        merged: dict[str, dict] = dict(_BUILTIN_TEMPLATES["en"])
+        merged: dict[str, dict] = dict(_BUILTIN_TEMPLATES.get("en", {}))
 
         if not self._dir.exists():
             logger.warning(
@@ -205,7 +123,7 @@ class DDRequestTemplateLoader:
         logger.info(
             "DD request templates loaded",
             total=len(merged),
-            from_yaml=len(merged) - len(_BUILTIN_TEMPLATES["en"]),
+            from_yaml=len(merged) - len(_BUILTIN_TEMPLATES.get("en", {})),
         )
         self._cache = merged
         return merged
@@ -229,15 +147,13 @@ class DDRequestTemplateLoader:
             (rendered_text, addressee)
         """
         target_locale = normalize_export_locale(locale)
-        builtins = _BUILTIN_TEMPLATES.get(target_locale) or _BUILTIN_TEMPLATES["en"]
+        builtins = _BUILTIN_TEMPLATES.get(target_locale) or _BUILTIN_TEMPLATES.get("en", {})
 
-        doc_names_str = ", ".join(f"«{n}»" for n in doc_names[:5])
+        doc_names_str = ", ".join(f'"{n}"' for n in doc_names[:5])
         if len(doc_names) > 5:
             more_count = len(doc_names) - 5
-            if target_locale == "ru":
-                doc_names_str += f" и ещё {more_count} документ(ов)"
-            else:
-                doc_names_str += f", and {more_count} more document(s)"
+            more_docs_tmpl = builtins.get("more_documents", ", and {count} more document(s)")
+            doc_names_str += more_docs_tmpl.format(count=more_count)
 
         templates = self.get_all_templates()
 
@@ -254,10 +170,10 @@ class DDRequestTemplateLoader:
             tmpl = (
                 builtins.get(check_id)
                 or builtins.get(prefix)
-                or builtins.get("_default", _BUILTIN_TEMPLATES["en"]["_default"])
+                or builtins.get("_default", _BUILTIN_TEMPLATES.get("en", {}).get("_default"))
             )
 
-        default_addressee = builtins["_default"].get("addressee", "Legal Counsel")
+        default_addressee = builtins.get("_default", {}).get("addressee", "Legal Counsel")
 
         text = tmpl["text"].format(
             doc_names=doc_names_str,

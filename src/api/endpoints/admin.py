@@ -1,11 +1,11 @@
 # src/api/endpoints/admin.py
 
 """
-Административный API.
+Administrative API.
 
-Разделён на две группы:
+Divided into two logical sections:
 
-1. Управление tenant'ами и пользователями (только superadmin):
+1. Tenant and User Management (superadmin only):
    GET    /admin/tenants
    POST   /admin/tenants
    GET    /admin/tenants/{tenant_id}
@@ -16,7 +16,7 @@
    PUT    /admin/tenants/{tenant_id}/users/{user_id}
    DELETE /admin/tenants/{tenant_id}/users/{user_id}/deactivate
 
-2. YAML инструкции (superadmin + tenant_admin):
+2. YAML Instructions (superadmin + tenant_admin):
    GET    /admin/yaml-instructions
 """
 
@@ -60,19 +60,21 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 def _require_superadmin(user: CurrentUser) -> None:
-    """Проверить что пользователь — superadmin. Иначе 403."""
+    """Ensure the user has superadmin role. Raises 403 Forbidden otherwise."""
     if user.global_role != "superadmin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
+            headers={"X-Error-Code": "SUPERADMIN_ACCESS_REQUIRED"},
             detail="Superadmin access required",
         )
 
 
 def _require_admin_or_superadmin(user: CurrentUser) -> None:
-    """Проверить что пользователь — superadmin или tenant_admin. Иначе 403."""
+    """Ensure the user is either tenant_admin or superadmin. Raises 403 Forbidden otherwise."""
     if user.global_role not in ("superadmin", "tenant_admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
+            headers={"X-Error-Code": "ADMIN_ACCESS_REQUIRED"},
             detail="Admin access required",
         )
 
@@ -83,7 +85,7 @@ def _require_admin_or_superadmin(user: CurrentUser) -> None:
 @router.get(
     "/tenants",
     response_model=list[TenantWithStats],
-    summary="Список всех клиентов (только superadmin)",
+    summary="List of all clients (superadmin only)",
 )
 async def list_tenants(
     include_inactive: bool = False,
@@ -91,9 +93,9 @@ async def list_tenants(
     user: CurrentUser = Depends(get_current_user),
 ) -> list[TenantWithStats]:
     """
-    Вернуть список всех tenant'ов с количеством пользователей и сделок.
+    Return a list of all tenants with active user and deal counters.
 
-    Доступ: только superadmin.
+    Access: superadmin only.
     """
     _require_superadmin(user)
 
@@ -136,7 +138,7 @@ async def list_tenants(
     "/tenants",
     response_model=TenantResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать нового клиента (только superadmin)",
+    summary="Create new client (superadmin only)",
 )
 async def create_tenant(
     payload: TenantCreate,
@@ -144,11 +146,10 @@ async def create_tenant(
     user: CurrentUser = Depends(get_current_user),
 ) -> TenantResponse:
     """
-    Создать нового клиента (tenant).
+    Create a new client (tenant).
 
-    Доступ: только superadmin.
-
-    Проверяет уникальность slug.
+    Access: superadmin only.
+    Validates slug uniqueness.
     """
     _require_superadmin(user)
 
@@ -158,6 +159,7 @@ async def create_tenant(
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
+            headers={"X-Error-Code": "TENANT_SLUG_DUPLICATE"},
             detail=f"Tenant with slug '{payload.slug}' already exists",
         )
 
@@ -182,14 +184,14 @@ async def create_tenant(
 @router.get(
     "/tenants/{tenant_id}",
     response_model=TenantWithStats,
-    summary="Детали клиента (только superadmin)",
+    summary="Client details (superadmin only)",
 )
 async def get_tenant(
     tenant_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ) -> TenantWithStats:
-    """Получить детали tenant'а с количеством пользователей и сделок."""
+    """Retrieve tenant details with active user and deal counts."""
     _require_superadmin(user)
 
     tenant_repo = TenantRepository(db)
@@ -198,6 +200,7 @@ async def get_tenant(
     if tenant is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "TENANT_NOT_FOUND"},
             detail="Tenant not found",
         )
 
@@ -230,7 +233,7 @@ async def get_tenant(
 @router.put(
     "/tenants/{tenant_id}",
     response_model=TenantResponse,
-    summary="Обновить клиента (только superadmin)",
+    summary="Update client (superadmin only)",
 )
 async def update_tenant(
     tenant_id: uuid.UUID,
@@ -238,7 +241,7 @@ async def update_tenant(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ) -> TenantResponse:
-    """Обновить данные tenant'а."""
+    """Update tenant metadata."""
     _require_superadmin(user)
 
     tenant_repo = TenantRepository(db)
@@ -252,6 +255,7 @@ async def update_tenant(
     if tenant is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "TENANT_NOT_FOUND"},
             detail="Tenant not found",
         )
 
@@ -264,7 +268,7 @@ async def update_tenant(
 @router.patch(
     "/tenants/{tenant_id}/deactivate",
     response_model=TenantResponse,
-    summary="Деактивировать клиента (только superadmin)",
+    summary="Deactivate client (superadmin only)",
 )
 async def deactivate_tenant(
     tenant_id: uuid.UUID,
@@ -272,11 +276,10 @@ async def deactivate_tenant(
     user: CurrentUser = Depends(get_current_user),
 ) -> TenantResponse:
     """
-    Деактивировать tenant.
+    Deactivate tenant.
 
-    После деактивации все пользователи этого tenant'а
-    не смогут войти в систему.
-    Данные не удаляются.
+    Following deactivation, associated users will be unable to log in.
+    No customer data is deleted.
     """
     _require_superadmin(user)
 
@@ -286,6 +289,7 @@ async def deactivate_tenant(
     if tenant is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "TENANT_NOT_FOUND"},
             detail="Tenant not found",
         )
 
@@ -304,14 +308,14 @@ async def deactivate_tenant(
 @router.patch(
     "/tenants/{tenant_id}/activate",
     response_model=TenantResponse,
-    summary="Активировать клиента (только superadmin)",
+    summary="Activate client (superadmin only)",
 )
 async def activate_tenant(
     tenant_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ) -> TenantResponse:
-    """Активировать ранее деактивированный tenant."""
+    """Activate a previously deactivated tenant."""
     _require_superadmin(user)
 
     tenant_repo = TenantRepository(db)
@@ -320,6 +324,7 @@ async def activate_tenant(
     if tenant is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "TENANT_NOT_FOUND"},
             detail="Tenant not found",
         )
 
@@ -335,7 +340,7 @@ async def activate_tenant(
 @router.get(
     "/tenants/{tenant_id}/users",
     response_model=list[UserResponse],
-    summary="Пользователи клиента (только superadmin)",
+    summary="Client users (superadmin only)",
 )
 async def list_tenant_users(
     tenant_id: uuid.UUID,
@@ -344,9 +349,9 @@ async def list_tenant_users(
     user: CurrentUser = Depends(get_current_user),
 ) -> list[UserResponse]:
     """
-    Вернуть список пользователей указанного tenant'а.
+    Return a list of users for the specified tenant.
 
-    Доступ: только superadmin.
+    Access: superadmin only.
     """
     _require_superadmin(user)
 
@@ -355,6 +360,7 @@ async def list_tenant_users(
     if tenant is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "TENANT_NOT_FOUND"},
             detail="Tenant not found",
         )
 
@@ -371,7 +377,7 @@ async def list_tenant_users(
     "/tenants/{tenant_id}/users",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать пользователя в клиенте (только superadmin)",
+    summary="Create user in client (superadmin only)",
 )
 async def create_tenant_user(
     tenant_id: uuid.UUID,
@@ -380,15 +386,15 @@ async def create_tenant_user(
     user: CurrentUser = Depends(get_current_user),
 ) -> UserResponse:
     """
-    Создать нового пользователя в указанном tenant'е.
+    Create a new user within the specified tenant scope.
 
-    Доступ: только superadmin.
+    Access: superadmin only.
 
-    Проверяет:
-    - существование tenant'а;
-    - уникальность email в системе.
+    Validation logic:
+    - Verifies tenant exists;
+    - Ensures email uniqueness across the system.
 
-    Разрешённые system_role: tenant_admin, member.
+    Allowed system roles: tenant_admin, member.
     """
     _require_superadmin(user)
 
@@ -397,12 +403,14 @@ async def create_tenant_user(
     if tenant is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "TENANT_NOT_FOUND"},
             detail="Tenant not found",
         )
 
     if not tenant.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            headers={"X-Error-Code": "INACTIVE_TENANT_USER_CREATION_FAILED"},
             detail="Cannot create user in inactive tenant",
         )
 
@@ -410,6 +418,7 @@ async def create_tenant_user(
     if payload.system_role not in allowed_roles:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            headers={"X-Error-Code": "INVALID_SYSTEM_ROLE"},
             detail=f"Invalid system_role. Allowed: {', '.join(sorted(allowed_roles))}",
         )
 
@@ -417,8 +426,8 @@ async def create_tenant_user(
     existing = await user_repo.get_by_email_any(payload.email)
 
     if existing is not None:
-        # Если пользователь деактивирован и принадлежит тому же tenant'у —
-        # реактивируем его с новыми данными вместо создания дубликата.
+        # If user is deactivated and belongs to the target tenant,
+        # reactivate with updated attributes instead of creating a duplicate.
         if not existing.is_active and existing.tenant_id == tenant_id:
             new_password_hash = hash_password(payload.password)
 
@@ -444,10 +453,10 @@ async def create_tenant_user(
 
             return UserResponse.model_validate(refreshed)
 
-        # Если пользователь активен или принадлежит другому tenant'у —
-        # создание невозможно.
+        # Conflict raised if user is already active or exists under a different tenant.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
+            headers={"X-Error-Code": "USER_EMAIL_DUPLICATE"},
             detail=f"User with email '{payload.email}' already exists",
         )
 
@@ -478,7 +487,7 @@ async def create_tenant_user(
 @router.put(
     "/tenants/{tenant_id}/users/{target_user_id}",
     response_model=UserResponse,
-    summary="Обновить пользователя (только superadmin)",
+    summary="Update user (superadmin only)",
 )
 async def update_tenant_user(
     tenant_id: uuid.UUID,
@@ -488,11 +497,11 @@ async def update_tenant_user(
     user: CurrentUser = Depends(get_current_user),
 ) -> UserResponse:
     """
-    Обновить данные пользователя.
+    Update target user properties.
 
-    Доступ: только superadmin.
+    Access: superadmin only.
 
-    Можно обновить:
+    Supported parameters for modification:
     - full_name;
     - system_role;
     - password;
@@ -506,6 +515,7 @@ async def update_tenant_user(
     if target is None or target.tenant_id != tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "USER_NOT_FOUND_IN_TENANT"},
             detail="User not found in this tenant",
         )
 
@@ -514,6 +524,7 @@ async def update_tenant_user(
         if payload.system_role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                headers={"X-Error-Code": "INVALID_SYSTEM_ROLE"},
                 detail=f"Invalid system_role. Allowed: {', '.join(sorted(allowed_roles))}",
             )
 
@@ -535,6 +546,7 @@ async def update_tenant_user(
     if updated is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "USER_NOT_FOUND"},
             detail="User not found",
         )
 
@@ -547,7 +559,7 @@ async def update_tenant_user(
 @router.patch(
     "/tenants/{tenant_id}/users/{target_user_id}/deactivate",
     response_model=UserResponse,
-    summary="Деактивировать пользователя (только superadmin)",
+    summary="Deactivate user (superadmin only)",
 )
 async def deactivate_tenant_user(
     tenant_id: uuid.UUID,
@@ -556,10 +568,10 @@ async def deactivate_tenant_user(
     user: CurrentUser = Depends(get_current_user),
 ) -> UserResponse:
     """
-    Деактивировать пользователя.
+    Deactivate the specified user.
 
-    После деактивации пользователь не сможет войти в систему.
-    Данные не удаляются.
+    The user is unable to log in post-deactivation.
+    No personal account data is deleted.
     """
     _require_superadmin(user)
 
@@ -569,6 +581,7 @@ async def deactivate_tenant_user(
     if target is None or target.tenant_id != tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "USER_NOT_FOUND_IN_TENANT"},
             detail="User not found in this tenant",
         )
 
@@ -577,6 +590,7 @@ async def deactivate_tenant_user(
     if updated is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "USER_NOT_FOUND"},
             detail="User not found",
         )
 
@@ -598,16 +612,16 @@ async def deactivate_tenant_user(
 
 @router.get(
     "/yaml-instructions",
-    summary="Список YAML-инструкций по типам документов",
+    summary="List of document-type YAML instructions",
     response_model=list[YamlInstructionDTO],
 )
 async def list_yaml_instructions(
     user: CurrentUser = Depends(get_current_user),
 ) -> list[YamlInstructionDTO]:
     """
-    Перечисляет файлы playbooks/document_types/*.yaml.
+    Enumerate YAML files located in playbooks/document_types/*.yaml.
 
-    Доступ: superadmin и tenant_admin.
+    Access: superadmin and tenant_admin only.
     """
     _require_admin_or_superadmin(user)
 
@@ -664,5 +678,3 @@ async def list_yaml_instructions(
         )
 
     return items
-
-

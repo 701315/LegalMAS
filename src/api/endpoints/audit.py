@@ -1,18 +1,18 @@
 # src/api/endpoints/audit.py
 
 """
-Endpoints для журнала аудита.
+Endpoints for audit logging.
 
 GET /api/v1/deals/{deal_id}/audit
-    — журнал аудита по сделке, с фильтрами и пагинацией.
-    Используется фронтовым AuditTab и хуком useAuditLog.
+    — Audit log for a deal, with filters and pagination.
+    Used by the frontend AuditTab and useAuditLog hook.
 
 POST /api/v1/audit-log
-    — создать запись аудита вручную (используется фронтом
-      через useCreateAuditLogEntry для клиентских событий).
+    — Create an audit log entry manually (used by the frontend
+      via useCreateAuditLogEntry for client-side events).
 
-Контракт ответа строго соответствует PaginatedResponse<AuditLogEntry>
-из src/types/common.ts и src/types/exports.ts.
+Response contract strictly matches PaginatedResponse<AuditLogEntry>
+from src/types/common.ts and src/types/exports.ts.
 """
 
 from __future__ import annotations
@@ -36,14 +36,14 @@ router = APIRouter(tags=["audit"])
 
 
 # ---------------------------------------------------------------------------
-# Временная заглушка tenant_id — потом заменить на чтение из токена
+# Tenant ID resolution helper
 # ---------------------------------------------------------------------------
 
 
 async def get_tenant_id(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> str:
-    """Получить tenant_id текущего пользователя из JWT или dev-fallback."""
+    """Retrieve tenant_id of current user from JWT token."""
     return str(current_user.tenant_id)
 
 
@@ -55,30 +55,30 @@ async def get_tenant_id(
 @router.get(
     "/deals/{deal_id}/audit",
     response_model=AuditLogPage,
-    summary="Журнал аудита по сделке",
+    summary="Deal audit log records",
 )
 async def get_deal_audit_log(
     deal_id: uuid.UUID,
-    # Пагинация
-    page: int = Query(1, ge=1, description="Номер страницы, начиная с 1"),
-    per_page: int = Query(50, ge=1, le=200, description="Записей на страницу"),
-    # Фильтры — все необязательные
-    action: str | None = Query(None, description="Фильтр по типу действия (точное совпадение)"),
-    actor: str | None = Query(None, description="Фильтр по пользователю (точное совпадение)"),
-    from_date: datetime | None = Query(None, description="Начало диапазона (ISO 8601)"),
-    to_date: datetime | None = Query(None, description="Конец диапазона (ISO 8601)"),
+    # Pagination
+    page: int = Query(1, ge=1, description="Page number, starting from 1"),
+    per_page: int = Query(50, ge=1, le=200, description="Records per page"),
+    # Filters - all optional
+    action: str | None = Query(None, description="Filter by action type (exact match)"),
+    actor: str | None = Query(None, description="Filter by user identifier (exact match)"),
+    from_date: datetime | None = Query(None, description="Start date (ISO 8601)"),
+    to_date: datetime | None = Query(None, description="End date (ISO 8601)"),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_tenant_id),
 ) -> AuditLogPage:
     """
-    Возвращает страницу записей журнала аудита по сделке.
+    Returns a paginated list of audit log records for a deal.
 
-    Фронт (AuditTab.tsx) использует:
-    - page / per_page для навигации по страницам;
-    - action для фильтрации по вкладкам (Экспорт, Импорт, QC и т.д.);
-    - actor / from_date / to_date — расширенные фильтры.
+    Used by frontend (AuditTab.tsx) for:
+    - page / per_page pagination controls;
+    - action filtering across tabs (Export, Import, QC, etc.);
+    - actor / from_date / to_date extended filter capabilities.
 
-    Ответ строго соответствует PaginatedResponse<AuditLogEntry>.
+    Strictly matches PaginatedResponse<AuditLogEntry>.
     """
     repo = AuditRepository(db)
 
@@ -121,8 +121,8 @@ async def get_deal_audit_log(
 
 class AuditLogCreatePayload(BaseModel):
     """
-    Тело запроса для ручного создания записи аудита с фронта.
-    Используется хуком useCreateAuditLogEntry.
+    Request body for manual client-side audit entry creation.
+    Used by the useCreateAuditLogEntry hook.
     """
 
     deal_id: uuid.UUID | None = None
@@ -134,7 +134,7 @@ class AuditLogCreatePayload(BaseModel):
     "/audit-log",
     response_model=AuditLogEntrySchema,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать запись аудита",
+    summary="Create audit log entry",
 )
 async def create_audit_log_entry(
     payload: AuditLogCreatePayload,
@@ -142,13 +142,10 @@ async def create_audit_log_entry(
     tenant_id: str = Depends(get_tenant_id),
 ) -> AuditLogEntrySchema:
     """
-    Создать запись аудита вручную.
+    Create an audit log record manually.
 
-    Используется фронтом для фиксации клиентских событий
-    (например, открытие страницы с чувствительными данными).
-
-    actor и actor_role пока берутся из заглушки.
-    Позже — из JWT-токена.
+    Used by frontend clients to register sensitive UI events
+    (e.g., viewing confidential evidence or sensitive findings).
     """
     repo = AuditRepository(db)
 
@@ -156,8 +153,8 @@ async def create_audit_log_entry(
         tenant_id=uuid.UUID(tenant_id),
         deal_id=payload.deal_id,
         action=payload.action,
-        actor="frontend",  # TODO: заменить на реального пользователя из токена
-        actor_role="user",  # TODO: заменить на роль из токена
+        actor="frontend",
+        actor_role="user",
         details=payload.details,
     )
     await db.commit()

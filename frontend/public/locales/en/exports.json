@@ -70,7 +70,12 @@
     },
     "pageFooter": "Page {{current}} of {{total}}",
     "metadataSheet": "Metadata"
+  },
+  "display": {
+    "error": "⚠ Error",
+    "present": "Present",
+    "yes": "Yes",
+    "no": "No"
   }
 }
-
 

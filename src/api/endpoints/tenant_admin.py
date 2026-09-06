@@ -3,15 +3,15 @@
 """
 Tenant Admin Dashboard API.
 
-Административная панель для tenant_admin.
-Каждый tenant_admin видит только данные своего tenant'а.
-superadmin может смотреть любой tenant через query param tenant_id.
+Administrative panel for tenant_admin.
+Each tenant_admin can only see data belonging to their tenant.
+superadmin can view any tenant via tenant_id query param.
 
 Endpoints:
-    GET /api/v1/tenant/dashboard                     — сводная статистика
-    GET /api/v1/tenant/metrics                       — proxy к Prometheus
-    GET /api/v1/tenant/logs                          — proxy к Loki
-    GET /api/v1/tenant/projects/{deal_id}/insights   — сводка + история ошибок из PostgreSQL
+    GET /api/v1/tenant/dashboard                     — summary statistics
+    GET /api/v1/tenant/metrics                       — proxy to Prometheus
+    GET /api/v1/tenant/logs                          — proxy to Loki
+    GET /api/v1/tenant/projects/{deal_id}/insights   — summary + error history from PostgreSQL
 """
 
 from __future__ import annotations
@@ -54,8 +54,8 @@ PROMETHEUS_TIMEOUT_SECONDS = 10.0
 LOKI_TIMEOUT_SECONDS = 15.0
 ALERTMANAGER_TIMEOUT_SECONDS = 5.0
 MAX_LOG_LIMIT = 500
-# Верхняя граница явно заданного периода. 30 дней — компромисс между
-# полезностью и защитой от случайных огромных запросов.
+# Upper bound of explicitly defined period. 30 days is a compromise between
+# usefulness and protection against accidental humongous queries.
 MAX_LOG_SINCE_MINUTES = 43_200  # 30 days
 
 OPERATIONAL_LEVELS = {"warning", "error", "critical"}
@@ -66,15 +66,15 @@ GROUP_SIMILAR_MIN_COUNT = 2
 LOKI_FETCH_MULTIPLIER = 3
 LOKI_FETCH_HARD_CAP = 5_000
 
-# Максимум "проблемных" записей, которые отдаём в drill-down.
-# Это долговременная историческая выборка из БД — 100 записей достаточно.
+# Maximum number of "troubled" records returned in drill-down.
+# This is a long-term historical slice from DB — 100 records is sufficient.
 PROJECT_ERROR_LIMIT = 100
 
-# Bounded query cost для Loki:
-# при широком временном окне автоматически понижаем limit.
+# Bounded query cost for Loki:
+# Automatically lower the limit when the time window is too wide.
 _LOKI_COST_CAPS: list[tuple[int, int]] = [
-    (43_200, 100),  # >= 30 дней или since_minutes=0 ("всё время")
-    (10_080, 200),  # >= 7 дней
+    (43_200, 100),  # >= 30 days or since_minutes=0 ("all time")
+    (10_080, 200),  # >= 7 days
 ]
 
 _LOKI_SLOW_QUERY_THRESHOLD_SECONDS = 3.0
@@ -84,10 +84,10 @@ _LOKI_SLOW_QUERY_THRESHOLD_SECONDS = 3.0
 
 def _apply_loki_cost_cap(since_minutes: int, requested_limit: int) -> tuple[int, bool]:
     """
-    Применить cap к limit в зависимости от ширины временного окна.
+    Apply a cap to the limit depending on the width of the time window.
 
-    since_minutes == 0 трактуется как "всё время", но фактически
-    ограничивается MAX_LOG_SINCE_MINUTES.
+    since_minutes == 0 is treated as "all time", but is actually
+    capped by MAX_LOG_SINCE_MINUTES.
     """
     effective_since = since_minutes if since_minutes > 0 else MAX_LOG_SINCE_MINUTES
 
@@ -117,39 +117,39 @@ def _observe_admin_logs_query_duration(since_minutes: int, duration_seconds: flo
             since_minutes_bucket=_since_minutes_bucket(since_minutes),
         ).observe(duration_seconds)
     except Exception:
-        # Метрики не должны ломать response pipeline.
+        # Metrics must not break the response pipeline.
         pass
 
 
 def _strip_trailing_slash(url: str) -> str:
-    """Нормализовать base URL без завершающего /."""
+    """Normalize base URL by stripping the trailing slash."""
     return str(url or "").rstrip("/")
 
 
 def _prometheus_base_url() -> str:
-    """Internal base URL Prometheus для backend-to-backend запросов."""
+    """Internal Prometheus base URL for backend-to-backend queries."""
     return _strip_trailing_slash(settings.PROMETHEUS_INTERNAL_URL)
 
 
 def _loki_base_url() -> str:
-    """Internal base URL Loki для backend-to-backend запросов."""
+    """Internal Loki base URL for backend-to-backend queries."""
     return _strip_trailing_slash(settings.LOKI_INTERNAL_URL)
 
 
 def _alertmanager_base_url() -> str:
-    """Internal base URL Alertmanager для backend-to-backend запросов."""
+    """Internal Alertmanager base URL for backend-to-backend queries."""
     return _strip_trailing_slash(settings.ALERTMANAGER_INTERNAL_URL)
 
 
 def _build_external_tools_response(*, is_superadmin: bool) -> ExternalToolsDTO:
     """
-    Собрать response для /tenant/tools из backend settings.
+    Build response for /tenant/tools from backend settings.
 
-    Важно:
-    - internal URLs используются только backend'ом и сюда не попадают;
-    - external URLs должны быть реально достижимы браузером;
-    - superadmin получает расширенный список deep links;
-    - tenant_admin получает только legacy-поля для обратной совместимости.
+    Important:
+    - internal URLs are used only by backend and do not belong here;
+    - external URLs must be physically reachable by browser;
+    - superadmin receives expanded list of deep links;
+    - tenant_admin receives only legacy fields for backwards compatibility.
     """
     grafana_url = settings.GRAFANA_EXTERNAL_URL
     prometheus_url = settings.PROMETHEUS_EXTERNAL_URL
@@ -262,13 +262,13 @@ def _build_external_tools_response(*, is_superadmin: bool) -> ExternalToolsDTO:
     )
 
 
-
 # ── Guards ──────────────────────────────────────────────────────────────────
 
 def _require_tenant_admin(user: CurrentUser) -> None:
     if user.global_role not in ("tenant_admin", "superadmin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
+            headers={"X-Error-Code": "TENANT_ADMIN_ACCESS_REQUIRED"},
             detail="Tenant admin access required",
         )
 
@@ -280,6 +280,7 @@ def _resolve_tenant_id(user: CurrentUser, tenant_id_param: uuid.UUID | None) -> 
     if not user.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            headers={"X-Error-Code": "NO_TENANT_ASSOCIATED"},
             detail="User has no tenant associated",
         )
     return uuid.UUID(str(user.tenant_id))
@@ -294,12 +295,14 @@ async def _assert_deal_in_tenant(
     if deal is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "DEAL_NOT_FOUND"},
             detail="Deal not found",
         )
 
     if deal.tenant_id != tenant_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
+            headers={"X-Error-Code": "DEAL_NOT_IN_TENANT"},
             detail="Deal does not belong to tenant",
         )
 
@@ -480,17 +483,16 @@ class ProjectMemberDTO(BaseModel):
 
 class ProjectErrorItem(BaseModel):
     """
-    Одна запись из истории проблем/ошибок проекта.
+    A single record from the project's issue/error history.
 
-    Источник — только PostgreSQL (Document.processing_error_details и
-    Run.error_details). Живёт столько же, сколько сама БД, поэтому доступна
-    и через год после инцидента, когда Loki-логов уже нет.
+    Source is PostgreSQL only (Document.processing_error_details and
+    Run.error_details). It lives as long as the DB itself, meaning it remains
+    available even a year after the incident when Loki logs are already purged.
 
-    Поле kind говорит, к чему относится ошибка:
-      - "document" — падение конкретного документа;
-      - "run"      — падение или проблемы конкретного анализа.
+    The 'kind' field determines what the error relates to:
+      - "document" — failures of a specific document;
+      - "run"      — failures or issues of a specific run.
     """
-
     kind: str  # "document" | "run"
     occurred_at: datetime | None = None
     document_id: str | None = None
@@ -527,10 +529,11 @@ class ProjectInsightsResponse(BaseModel):
     last_activity_at: datetime | None = None
     errors: ProjectErrorStats = Field(default_factory=ProjectErrorStats)
 
+
 class ActiveAlertDTO(BaseModel):
     """
-    Один активный алерт из Alertmanager.
-    Нормализованная форма Alertmanager API v2 response.
+    Single active alert from Alertmanager.
+    Normalized form of Alertmanager API v2 response.
     """
     fingerprint: str
     alertname: str
@@ -541,7 +544,7 @@ class ActiveAlertDTO(BaseModel):
     updated_at: str | None = None
     summary: str | None = None
     description: str | None = None
-    source: str | None = None       # prometheus | loki (из label 'source')
+    source: str | None = None       # prometheus | loki (from label 'source')
     category: str | None = None     # security | performance | pipeline | system
     labels: dict[str, str] = Field(default_factory=dict)
     annotations: dict[str, str] = Field(default_factory=dict)
@@ -560,47 +563,47 @@ class AlertsResponse(BaseModel):
 
 class ExternalServiceDTO(BaseModel):
     """
-    Один внешний сервис (Grafana, Prometheus, MinIO и т.д.).
-    Показывается как пункт в dropdown "Внешние инструменты".
+    Single external service (Grafana, Prometheus, MinIO, etc.).
+    Shown as an item in the "External Tools" dropdown.
     """
-    key: str          # уникальный идентификатор для React key
-    label: str        # человекочитаемое название
-    url: str          # полный URL для открытия в новой вкладке
-    description: str  # короткое описание что показывает
+    key: str          # unique identifier for React key
+    label: str        # human-readable label
+    url: str          # full URL to open in a new tab
+    description: str  # short description of what it shows
 
 
 class ExternalDashboardDTO(BaseModel):
     """
-    Один Grafana dashboard.
-    URL строится как {grafana_url}/d/{uid}.
+    Single Grafana dashboard.
+    URL is built as {grafana_url}/d/{uid}.
     """
-    uid: str          # Grafana dashboard UID (например "operations-overview")
-    label: str        # человекочитаемое название
-    description: str  # короткое описание
-    url: str          # полный URL для открытия
+    uid: str          # Grafana dashboard UID (e.g., "operations-overview")
+    label: str        # human-readable label
+    description: str  # short description
+    url: str          # full URL to open
 
 
 class ExternalToolsDTO(BaseModel):
     """
-    Внешние monitoring tools для навигации из admin panel.
+    External monitoring tools for navigation from admin panel.
 
-    Возвращает 2 списка:
-    - services: инфраструктурные сервисы (Grafana, Prometheus, ...)
-    - dashboards: конкретные Grafana dashboards с deep links
+    Returns 2 lists:
+    - services: infrastructure services (Grafana, Prometheus, ...)
+    - dashboards: specific Grafana dashboards with deep links
 
-    Оба списка пустые для не-superadmin.
-    Frontend проверяет is_superadmin и скрывает панель если False.
+    Both lists are empty for non-superadmins.
+    Frontend checks is_superadmin and hides the panel if False.
 
-    Обратная совместимость: старые поля grafana_url / prometheus_url /
-    alertmanager_url оставлены для существующих компонентов (AlertsPanel).
+    Backwards compatibility: legacy fields grafana_url / prometheus_url /
+    alertmanager_url are kept for existing components (AlertsPanel).
     """
-    # Обратная совместимость — не удалять, используется в AlertsPanel
+    # Backwards compatibility — do not remove, used in AlertsPanel
     grafana_url: str
     prometheus_url: str
     alertmanager_url: str
     is_superadmin: bool
 
-    # Расширенные данные для dropdown "Внешние инструменты"
+    # Expanded details for "External Tools" dropdown
     services: list[ExternalServiceDTO] = Field(default_factory=list)
     dashboards: list[ExternalDashboardDTO] = Field(default_factory=list)
 
@@ -797,10 +800,10 @@ def _extract_error_from_dict(
     details: dict[str, Any] | None,
 ) -> tuple[str | None, str | None, str | None, str | None, datetime | None]:
     """
-    Универсальный парсер поля error_details / processing_error_details.
+    Universal parser for error_details / processing_error_details fields.
 
-    Возвращает (stage, error_type, reason, message, timestamp).
-    Все поля опциональные — контракт совместим с реальным JSON из моделей:
+    Returns (stage, error_type, reason, message, timestamp).
+    All fields are optional — contract is compatible with actual JSON models:
     {stage, type, reason?, message, run_id?, timestamp}
     """
     if not isinstance(details, dict):
@@ -815,7 +818,7 @@ def _extract_error_from_dict(
     ts_parsed: datetime | None = None
     if isinstance(ts_raw, str):
         try:
-            # Loki / worker обычно пишут ISO-8601 в UTC
+            # Loki / worker usually write ISO-8601 in UTC
             ts_parsed = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
         except ValueError:
             ts_parsed = None
@@ -831,16 +834,16 @@ async def _collect_project_errors(
     all_runs: list[Run],
 ) -> ProjectErrorStats:
     """
-    Собирает историю проблем/ошибок по проекту из PostgreSQL.
+    Collects project issue/error history from PostgreSQL.
 
-    Источники:
-      - Document со статусом failed/quarantine (+ processing_error_details);
-      - Run со статусом failed/completed_with_errors (+ error_details);
+    Sources:
+      - Document with failed/quarantine status (+ processing_error_details);
+      - Run with failed/completed_with_errors status (+ error_details);
 
-    Гарантированно доступно всегда, пока жива БД — даже через год после
-    инцидента, когда Loki уже удалил соответствующие логи.
+    Guaranteed to be available as long as the DB exists — even a year after
+    the incident when Loki logs have already been rotated.
     """
-    # ── Проблемные документы ───────────────────────────────────────────────
+    # ── Troubled documents ───────────────────────────────────────────────────
     failed_docs_result = await db.execute(
         select(Document)
         .where(
@@ -868,7 +871,7 @@ async def _collect_project_errors(
     )
     quarantine_documents_count = int(docs_quarantine_count_result.scalar_one() or 0)
 
-    # ── Проблемные runs ────────────────────────────────────────────────────
+    # ── Troubled runs ────────────────────────────────────────────────────────
     problem_runs = [
         r
         for r in all_runs
@@ -939,7 +942,7 @@ async def _collect_project_errors(
         )
 
     def _sort_key(item: ProjectErrorItem) -> datetime:
-        # Записи без timestamp считаем самыми старыми, чтобы они уходили вниз.
+        # Items without timestamp are considered oldest to sink to bottom.
         return item.occurred_at or datetime.min.replace(tzinfo=UTC)
 
     items.sort(key=_sort_key, reverse=True)
@@ -970,12 +973,12 @@ async def _collect_project_errors(
 @router.get(
     "/dashboard",
     response_model=TenantDashboardResponse,
-    summary="Административный дашборд для tenant_admin",
+    summary="Tenant admin dashboard summary statistics",
 )
 async def get_tenant_dashboard(
     tenant_id: uuid.UUID | None = Query(
         default=None,
-        description="Только для superadmin: посмотреть конкретный tenant",
+        description="Only for superadmin: view a specific tenant",
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
@@ -1125,14 +1128,14 @@ async def get_tenant_dashboard(
 @router.get(
     "/projects/{deal_id}/insights",
     response_model=ProjectInsightsResponse,
-    summary="Детальная сводка + история ошибок по проекту (из PostgreSQL)",
+    summary="Detailed summary and project error history (from PostgreSQL)",
 )
 async def get_project_insights(
     deal_id: uuid.UUID,
     request: Request,
     tenant_id: uuid.UUID | None = Query(
         default=None,
-        description="Только для superadmin: контекст tenant",
+        description="Only for superadmin: tenant context",
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
@@ -1289,12 +1292,12 @@ async def get_project_insights(
 
     last_activity_at = max(activity_candidates) if activity_candidates else None
 
-    # ── История проблем / ошибок ─────────────────────────────────────────────
+    # ── Error history ────────────────────────────────────────────────────────
     errors_stats = await _collect_project_errors(db, deal_id, all_runs)
 
-    # ── Прямой audit для insights ────────────────────────────────────────────
-    # Суффикс /insights слишком общий для AuditMiddleware, поэтому пишем audit
-    # явно внутри endpoint'а через отдельную сессию.
+    # ── Direct audit for insights ────────────────────────────────────────────
+    # The /insights suffix is too generic for AuditMiddleware, so we write the audit
+    # log explicitly inside the endpoint using a separate session.
     try:
         async with get_session() as audit_session:
             audit_repo = AuditRepository(audit_session)
@@ -1340,12 +1343,12 @@ async def get_project_insights(
 @router.get(
     "/metrics",
     response_model=PlatformMetricsResponse,
-    summary="Глобальные метрики платформы для admin панели",
+    summary="Global platform metrics for admin panel",
 )
 async def get_platform_metrics(
     tenant_id: uuid.UUID | None = Query(
         default=None,
-        description="Только для superadmin: контекст tenant (метрики глобальные)",
+        description="Only for superadmin: tenant context (global metrics)",
     ),
     user: CurrentUser = Depends(get_current_user),
     _rate_limit: None = Depends(check_admin_rate_limit),
@@ -1545,36 +1548,36 @@ async def get_platform_metrics(
 @router.get(
     "/logs",
     response_model=LogsResponse,
-    summary="Логи платформы для admin панели",
+    summary="Platform logs for admin panel",
 )
 async def get_tenant_logs(
     tenant_id: uuid.UUID | None = Query(
         default=None,
-        description="Только для superadmin: посмотреть конкретный tenant",
+        description="Only for superadmin: view a specific tenant",
     ),
-    deal_id: str | None = Query(default=None, description="Фильтр по проекту"),
-    run_id: str | None = Query(default=None, description="Фильтр по конкретному run_id"),
+    deal_id: str | None = Query(default=None, description="Filter by project"),
+    run_id: str | None = Query(default=None, description="Filter by specific run_id"),
     document_id: str | None = Query(
-        default=None, description="Фильтр по конкретному document_id"
+        default=None, description="Filter by specific document_id"
     ),
-    task_id: str | None = Query(default=None, description="Фильтр по task_id"),
+    task_id: str | None = Query(default=None, description="Filter by task_id"),
     level: str | None = Query(default=None),
     stage: str | None = Query(default=None),
     queue: str | None = Query(default=None),
     mode: str = Query(
         default="operational",
-        description="operational — только warning+/error+; debug — все логи",
+        description="operational — only warning+/error+; debug — all logs",
     ),
     group_similar: bool = Query(
         default=True,
-        description="Группировать повторяющиеся однотипные события",
+        description="Group similar repeating events",
     ),
     limit: int = Query(default=50, ge=1, le=MAX_LOG_LIMIT),
     since_minutes: int = Query(
         default=60,
         ge=0,
         le=MAX_LOG_SINCE_MINUTES,
-        description="Период в минутах. 0 = максимум доступного (по retention Loki).",
+        description="Time range in minutes. 0 = maximum available (by Loki retention).",
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
@@ -1607,12 +1610,14 @@ async def get_tenant_logs(
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                headers={"X-Error-Code": "INVALID_DEAL_ID"},
                 detail="Invalid deal_id",
             ) from exc
 
         if requested_deal_id not in allowed_deal_ids_set:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
+                headers={"X-Error-Code": "DEAL_NOT_IN_TENANT"},
                 detail="Deal does not belong to tenant",
             )
 
@@ -1646,8 +1651,8 @@ async def get_tenant_logs(
     query = f"{selector} | json | " + " | ".join(filters)
 
     end_dt = datetime.now(UTC)
-    # since_minutes == 0 → "всё время" (запрашиваем максимум допустимого
-    # окна, реальный горизонт ограничен retention Loki).
+    # since_minutes == 0 → "all time" (request maximum allowed
+    # window, actual horizon is limited by Loki retention).
     if since_minutes > 0:
         start_dt = end_dt - timedelta(minutes=since_minutes)
     else:
@@ -1829,30 +1834,31 @@ async def get_tenant_logs(
         ),
     )
 
+
 # ─── Alerts & External Tools ────────────────────────────────────────────────
 
 @router.get(
     "/alerts",
     response_model=AlertsResponse,
-    summary="Активные алерты из Alertmanager",
+    summary="Active alerts from Alertmanager",
 )
 async def get_tenant_alerts(
     tenant_id: uuid.UUID | None = Query(
         default=None,
-        description="Только для superadmin: контекст tenant (алерты глобальные)",
+        description="Only for superadmin: tenant context (global alerts)",
     ),
     user: CurrentUser = Depends(get_current_user),
     _rate_limit: None = Depends(check_admin_rate_limit),
 ) -> AlertsResponse:
     """
-    Вернуть активные алерты из Alertmanager.
+    Return active alerts from Alertmanager.
 
-    Alerts генерируются:
-    - Prometheus (по метрикам из mas_dd_*)
-    - Loki ruler (по паттернам в логах)
+    Alerts are generated by:
+    - Prometheus (by metrics from mas_dd_*)
+    - Loki ruler (by patterns in logs)
 
-    Endpoint работает как proxy к Alertmanager API v2.
-    Если Alertmanager недоступен — возвращает пустой список с
+    Endpoint acts as a proxy to Alertmanager API v2.
+    If Alertmanager is unreachable, returns empty list with
     alertmanager_available=false.
     """
     _require_tenant_admin(user)
@@ -1929,13 +1935,12 @@ async def get_tenant_alerts(
             generator_url=_safe_optional_text(raw.get("generatorURL")),
         ))
 
-    # Сортировка: critical → warning → info → остальное, потом по startsAt новее сверху
+    # Sort: critical → warning → info → other, then by startsAt (newer on top)
     severity_order = {"critical": 0, "warning": 1, "info": 2}
     alerts.sort(
         key=lambda a: (severity_order.get(a.severity, 99), a.starts_at),
         reverse=False,
     )
-    # Reverse только по времени для одинаковой severity — но проще так:
     alerts.sort(key=lambda a: severity_order.get(a.severity, 99))
 
     return AlertsResponse(
@@ -1952,24 +1957,22 @@ async def get_tenant_alerts(
 @router.get(
     "/tools",
     response_model=ExternalToolsDTO,
-    summary="URLs внешних monitoring инструментов",
+    summary="URLs of external monitoring tools",
 )
 async def get_external_tools(
     user: CurrentUser = Depends(get_current_user),
 ) -> ExternalToolsDTO:
     """
-    Вернуть URLs Grafana / Prometheus / Alertmanager + расширенный
-    список сервисов и Grafana dashboards для admin panel.
+    Return URLs of Grafana / Prometheus / Alertmanager + expanded
+    list of services and Grafana dashboards for admin panel.
 
-    Источник истины — backend settings текущего контура.
-    Frontend не должен угадывать URLs самостоятельно.
+    Source of truth is backend settings of the current environment.
+    Frontend should not guess URLs on its own.
 
-    Расширенные списки (services, dashboards) заполняются только для
-    superadmin — tenant_admin получает is_superadmin=False и пустые списки.
+    Expanded lists (services, dashboards) are filled only for
+    superadmin — tenant_admin receives is_superadmin=False and empty lists.
     """
     _require_tenant_admin(user)
     return _build_external_tools_response(
         is_superadmin=user.global_role == "superadmin"
     )
-
-    

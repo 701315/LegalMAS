@@ -1,20 +1,20 @@
 # src/services/export/summary_builder.py
 
 """
-Построитель Excel-отчёта Deal Summary по результатам одного Run.
+Excel summary report builder for Deal Summary based on a single Run.
 
-Листы:
-  1. "Overview"                — KPI, разбор по severity, условные проверки
-  2. "Top Risks"               — топ критических/существенных рисков с evidence и структурными данными
-  3. "By Doc Type"             — сводка по типам документов с качеством классификации
-  4. "Request List"            — DD-запросы с адресатом и типами документов
-  5. "Classification Quality"  — качество классификации по документам (включается опционально)
+Sheets:
+  1. "Overview"                — KPIs, severity breakdown, conditional checks
+  2. "Top Risks"               — Top critical/high risks with evidence and structured data
+  3. "By Doc Type"             — Document type summary with classification quality
+  4. "Request List"            — DD requests with addressees and related document types
+  5. "Classification Quality"  — Classification quality per document (optional)
 
-Архитектурный принцип:
-  - Никакой зависимости от aggregator.py
-  - Чтение напрямую из check_results + documents + checks_by_id
-  - Детерминированный порядок секций и сортировка
-  - Декларативная локализация через core.i18n.export_translator
+Architectural principles:
+  - Zero dependency on aggregator.py
+  - Reads directly from check_results + documents + checks_by_id
+  - Deterministic section ordering and sorting
+  - Declarative localization via core.i18n.export_translator
 """
 
 from __future__ import annotations
@@ -53,12 +53,12 @@ _FONT_WHITE = Font(color="FFFFFF", bold=True)
 
 
 # ---------------------------------------------------------------------------
-# Helpers — прямой подсчёт метрик
+# Helpers — direct computation of metrics
 # ---------------------------------------------------------------------------
 
 
 def _count_severity(check_results: list[dict[str, Any]]) -> dict[str, int]:
-    """Подсчитать severity counts напрямую из check_results."""
+    """Compute severity counts directly from check_results."""
     counts = {"critical": 0, "high": 0, "medium": 0, "pass": 0, "unclear": 0}
     for cr in check_results:
         result = cr.get("result", "unclear")
@@ -75,7 +75,7 @@ def _count_severity(check_results: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _count_conditional(check_results: list[dict[str, Any]]) -> dict[str, int]:
-    """Подсчитать conditional checks статистику."""
+    """Compute conditional checks statistics."""
     total = sum(1 for cr in check_results if cr.get("conditional_check_triggered"))
     triggered_fail = sum(
         1 for cr in check_results
@@ -88,7 +88,7 @@ def _count_quality_metrics(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    """Подсчитать метрики качества анализа."""
+    """Compute analysis quality metrics."""
     quarantine_count = sum(
         1 for doc in documents.values()
         if doc.get("status") == "quarantine"
@@ -127,7 +127,7 @@ def _get_top_risks(
     limit: int = 50,
     locale: str = "en",
 ) -> list[dict]:
-    """Получить топ рисков из check_results."""
+    """Retrieve top risks from check_results."""
     severity_order = {"critical": 0, "high": 1, "medium": 2}
 
     fail_rows = [
@@ -166,7 +166,7 @@ def _build_doc_type_summaries(
     documents: dict[str, dict[str, Any]],
     locale: str = "en",
 ) -> list[dict]:
-    """Построить сводки по типам документов."""
+    """Build document type summaries."""
     by_type: dict[str, dict] = defaultdict(lambda: {
         "documents": set(),
         "checks": set(),
@@ -238,7 +238,7 @@ def _build_dd_requests_for_summary(
     checks_by_id: dict[str, CheckDefinition],
     locale: str = "en",
 ) -> list[dict]:
-    """Построить DD requests для Summary (аналогично Word Report)."""
+    """Build DD requests for Summary (similar to Word Report)."""
     from services.export.dd_request_loader import get_dd_request_loader
 
     loader = get_dd_request_loader()
@@ -338,7 +338,7 @@ def _get_extracted_values(
     limit: int = 500,
     locale: str = "en",
 ) -> list[dict]:
-    """Извлечь structured values для Classification Quality sheet."""
+    """Extract structured values for Classification Quality sheet."""
     rows = []
 
     for cr in check_results:
@@ -372,7 +372,7 @@ def _get_extracted_values(
 
 
 # ---------------------------------------------------------------------------
-# Точка входа
+# Entry point
 # ---------------------------------------------------------------------------
 
 
@@ -386,9 +386,9 @@ def build_summary_excel(
     locale: str = "en",
 ) -> bytes:
     """
-    Построить Excel-файл Deal Summary по результатам одного Run.
+    Build Excel file for Deal Summary based on a single Run.
 
-    checks_mode и pipeline_strategy отображаются в шапке листа "Overview".
+    checks_mode and pipeline_strategy are displayed in the "Overview" sheet header.
     """
     wb = Workbook()
 
@@ -419,7 +419,7 @@ def build_summary_excel(
 
 
 # ---------------------------------------------------------------------------
-# Листы
+# Sheets
 # ---------------------------------------------------------------------------
 
 
@@ -466,7 +466,7 @@ def _build_overview_sheet(
         ("Pass", counts["pass"]),
         ("Unclear", counts["unclear"]),
         (t_export("summary.in_quarantine", locale), quality_metrics["quarantine_count"]),
-        (t_export("summary.dd_requests", locale), 0),  # Заполняется в _build_requests_sheet
+        (t_export("summary.dd_requests", locale), 0),  # Hydrated dynamically in _build_requests_sheet
         (t_export("summary.evidence_validity", locale), f"{quality_metrics['evidence_validity_rate']:.0%}"),
         (t_export("summary.conditional_fail", locale), conditional_stats["triggered_fail"]),
         (t_export("summary.extracted_values", locale), len(extracted_values)),
@@ -508,10 +508,10 @@ def _build_top_risks_sheet(
 
     for i, risk in enumerate(risks, 2):
         ws.cell(row=i, column=1, value=i - 1)
-        sev_cell = ws.cell(row=i, column=2, value=risk["severity"].upper())
-        sev_cell.fill = _PRIORITY_FILLS.get(risk["severity"], PatternFill())
+        prio_cell = ws.cell(row=i, column=2, value=risk["severity"].upper())
+        prio_cell.fill = _PRIORITY_FILLS.get(risk["severity"], PatternFill())
         if risk["severity"] == "critical":
-            sev_cell.font = _FONT_WHITE
+            prio_cell.font = _FONT_WHITE
         ws.cell(row=i, column=3, value=risk["check_name"])
         ws.cell(row=i, column=4, value=risk["document_name"])
         ws.cell(row=i, column=5, value=risk["doc_type"])
@@ -605,7 +605,7 @@ def _build_requests_sheet(
 
     requests = _build_dd_requests_for_summary(check_results, documents, checks_by_id, locale=locale)
 
-    # Обновляем счётчик в Overview
+    # Update counter in Overview sheet
     overview_sheet_name = t_export("sheets.overview", locale)
     if overview_sheet_name in wb.sheetnames:
         overview_ws = wb[overview_sheet_name]

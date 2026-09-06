@@ -56,10 +56,10 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
       <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            {t("upload.preparedTable.title")}
+            {t("prepared.title")}
           </h2>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
-            {t("upload.preparedTable.subtitle")}
+            {t("prepared.subtitle")}
           </p>
         </div>
 
@@ -72,7 +72,7 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
             disabled={!canUpload}
             isLoading={isUploading}
           >
-            {t("upload.preparedTable.uploadBtn")}
+            {t("prepared.uploadBtn")}
           </Button>
 
           <Button
@@ -82,18 +82,18 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
             onClick={onRemoveSelected}
             disabled={!hasSelection}
           >
-            {t("upload.preparedTable.clearBtn")}
+            {t("prepared.clearBtn")}
           </Button>
         </div>
       </div>
 
       {!hasRows ? (
         <div className="px-5 py-8 text-sm text-[var(--text-muted)]">
-          {t("upload.preparedTable.empty")}
+          {t("prepared.empty")}
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse">
+          <table className="min-w-full table-fixed border-collapse">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--bg-base)]">
                 <th className="w-12 px-4 py-3 text-left">
@@ -101,24 +101,24 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
                     type="checkbox"
                     checked={allSelected}
                     onChange={onToggleAll}
-                    aria-label={t("upload.preparedTable.selectAllAria")}
+                    aria-label={t("prepared.selectAllAria")}
                     className="h-4 w-4 rounded border-[var(--border)]"
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  {t("upload.preparedTable.columns.file")}
+                  {t("prepared.columns.file")}
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  {t("upload.preparedTable.columns.type")}
+                  {t("prepared.columns.type")}
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  {t("upload.preparedTable.columns.size")}
+                  {t("prepared.columns.size")}
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  {t("upload.preparedTable.columns.path")}
+                  {t("prepared.columns.path")}
                 </th>
                 <th className="w-24 px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  {t("upload.preparedTable.columns.action")}
+                  {t("prepared.columns.action")}
                 </th>
               </tr>
             </thead>
@@ -137,17 +137,17 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
                         type="checkbox"
                         checked={checked}
                         onChange={() => onToggleRow(row.id)}
-                        aria-label={t("upload.preparedTable.selectFileAria", { name: row.name })}
+                        aria-label={t("prepared.selectFileAria", { name: row.name })}
                         className="h-4 w-4 rounded border-[var(--border)]"
                       />
                     </td>
 
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex items-center gap-2">
-                        <div className="text-[var(--text-muted)]">
+                    <td className="px-4 py-3 align-middle min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="shrink-0 text-[var(--text-muted)]">
                           {getFileIcon(row.extension)}
                         </div>
-                        <span className="text-sm text-[var(--text-primary)]">
+                        <span className="text-sm text-[var(--text-primary)] truncate" title={row.name}>
                           {row.name}
                         </span>
                       </div>
@@ -173,7 +173,7 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
                         onClick={() => onRemoveSingle(row.id)}
                         disabled={!checked}
                       >
-                        {t("upload.preparedTable.removeBtn")}
+                        {t("prepared.removeBtn")}
                       </Button>
                     </td>
                   </tr>

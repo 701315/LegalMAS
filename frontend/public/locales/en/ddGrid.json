@@ -414,6 +414,29 @@
       "tooltipRuntime": "Runtime parameters: {{count}}",
       "tooltipCells": "Cells: defined {{defined}} · not found {{notFound}} · errors {{errors}}"
     }
+  },
+  "displayValues": {
+    "error": "⚠ Error",
+    "present": "Present",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "locationFallbackReasons": {
+    "default": "Exact location in the document is not defined",
+    "heuristic": "Extracted from display text (heuristic)"
+  },
+  "planStatusReasons": {
+    "planned": "Check is planned and awaiting execution.",
+    "dispatched": "Check is planned and awaiting execution.",
+    "started": "Check is currently executing.",
+    "failed": "Error occurred during check execution.",
+    "timeout": "Check execution timed out.",
+    "cancelled": "Check was cancelled.",
+    "skipped": "Check skipped (result accounted for in another plan).",
+    "succeeded": "Result is expected.",
+    "unknown": "Unknown check status."
+  },
+  "groupLabels": {
+    "ungrouped": "Other Checks"
   }
 }
-

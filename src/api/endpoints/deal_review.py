@@ -1,37 +1,37 @@
 # src/api/endpoints/deal_review.py
 
 """
-FastAPI-эндпоинты для UI-обзора сделки (deal review).
+FastAPI endpoints for UI deal review.
 
-Все эндпоинты требуют роли viewer/editor/admin в проекте.
-Данные строятся через прямое чтение check_results из БД.
+All endpoints require the user to have a viewer/editor/admin project role.
+Data is compiled by querying check_results directly from the database.
 
-Маршруты:
+Routes:
   GET /{deal_id}/runs/{run_id}/documents
-      Список документов со счётчиками рисков.
+      List of documents with risk counters.
 
   GET /{deal_id}/runs/{run_id}/documents/{document_id}
-      Детальная карточка документа со всеми проверками.
+      Detailed document card with all checks.
 
   GET /{deal_id}/runs/{run_id}/documents/{document_id}/structured-data
-      Структурированные значения по одному документу.
+      Structured values extracted for a single document.
 
   GET /{deal_id}/runs/{run_id}/dd-requests
-      DD-запросы по результатам рана.
+      DD requests compiled from run results.
 
   GET /{deal_id}/runs/{run_id}/conditional-checks
-      Сработавшие условные проверки.
+      Triggered conditional checks.
 
   GET /{deal_id}/runs/{run_id}/extracted-values
-      Все извлечённые структурированные значения.
+      All extracted structured values.
 
   GET /{deal_id}/runs/{run_id}/dd-matrix
-      Матричное представление DD Grid (документы × чеки).
+      Matrix representation of DD Grid (documents x checks).
 """
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.models.run import Run
 from api.deps.auth import CurrentUser, get_current_user
@@ -59,14 +59,14 @@ from ..schemas.deal_review import (
     ExtractedValueDTO,
 )
 
-from db.models.deal import Deal  # добавить к существующим импортам
+from db.models.deal import Deal
 
 router = APIRouter(prefix="/deals", tags=["deal_review"])
 
 
 # ---------------------------------------------------------------------------
-# Вспомогательная функция: проверка доступа + загрузка run
-# Используется в эндпоинтах которым нужен объект run (не только deal_id).
+# Helper function: access validation and run loading
+# Used across endpoints requiring specific run context.
 # ---------------------------------------------------------------------------
 
 
@@ -77,21 +77,29 @@ async def _get_run_with_access_check(
     user: CurrentUser,
 ) -> object:
     """
-    Загрузить Run из БД и проверить что:
-    1. Run существует.
-    2. Run принадлежит указанной сделке.
-    3. Пользователь имеет роль viewer/editor/admin в этой сделке.
+    Load Run from database and validate that:
+    1. Run exists.
+    2. Run belongs to the specified deal.
+    3. User has viewer/editor/admin project role on the associated deal.
 
-    Возвращает объект Run.
-    Выбрасывает HTTPException 404 / 400 / 403 при нарушении условий.
+    Returns the Run object.
+    Raises HTTPException 404 / 400 / 403 on violation.
     """
     run_repo = RunRepository(db)
     run = await run_repo.get_by_id(uuid.UUID(run_id))
     if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "RUN_NOT_FOUND"},
+            detail="Run not found",
+        )
 
     if str(run.deal_id) != deal_id:
-        raise HTTPException(status_code=400, detail="Run does not belong to this deal")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            headers={"X-Error-Code": "RUN_DEAL_MISMATCH"},
+            detail="Run does not belong to this deal",
+        )
 
     await require_project_role(
         db=db,
@@ -103,14 +111,14 @@ async def _get_run_with_access_check(
 
 
 # ---------------------------------------------------------------------------
-# Эндпоинты
+# Endpoints
 # ---------------------------------------------------------------------------
 
 
 @router.get(
     "/{deal_id}/runs/{run_id}/documents",
     response_model=list[DocumentSummaryDTO],
-    summary="Список документов и рисков для run",
+    summary="List of documents and risks for run",
 )
 async def get_documents_for_run(
     deal_id: str,
@@ -119,10 +127,10 @@ async def get_documents_for_run(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Список документов со счётчиками рисков по уровням критичности
-    для указанного рана.
+    Retrieve list of documents with aggregated risk counters by severity level
+    for the specified run execution.
 
-    Доступ: viewer / editor / admin проекта.
+    Access: project viewer / editor / admin.
     """
     await require_project_role(
         db=db,
@@ -140,7 +148,7 @@ async def get_documents_for_run(
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
-    # Прямой подсчёт severity по документам
+    # Direct severity count by documents
     doc_stats: dict[str, dict[str, int]] = {
         doc_id: {"critical": 0, "high": 0, "medium": 0, "pass": 0, "unclear": 0}
         for doc_id in documents.keys()
@@ -162,7 +170,7 @@ async def get_documents_for_run(
         else:
             doc_stats[doc_id]["unclear"] += 1
 
-    # Сборка DTO
+    # DTO Assembly
     summaries: list[DocumentSummaryDTO] = []
     for doc_id, doc_meta in documents.items():
         stats = doc_stats.get(doc_id, {})
@@ -177,7 +185,7 @@ async def get_documents_for_run(
                 medium_count=stats.get("medium", 0),
                 pass_count=stats.get("pass", 0),
                 unclear_count=stats.get("unclear", 0),
-                has_degraded_structure=False,  # Можно добавить если нужно
+                has_degraded_structure=False,  # Can be added if needed
                 in_quarantine=doc_meta.get("status") == "quarantine",
                 classification_level=doc_meta.get("classification_level", ""),
                 classification_confidence=float(doc_meta.get("classification_confidence", 0.0)),
@@ -191,7 +199,7 @@ async def get_documents_for_run(
 @router.get(
     "/{deal_id}/runs/{run_id}/documents/{document_id}",
     response_model=DocumentDetailDTO,
-    summary="Детальная карточка документа для run",
+    summary="Detailed document card for run",
 )
 async def get_document_detail_for_run(
     deal_id: str,
@@ -201,10 +209,10 @@ async def get_document_detail_for_run(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Детальная карточка одного документа: все проверки, evidence, structured_data,
-    метаданные классификации.
+    Retrieve detailed parameters of a single document: checks performed,
+    evidences, structured_data, and classification metadata.
 
-    Доступ: viewer / editor / admin проекта.
+    Access: project viewer / editor / admin.
     """
     await require_project_role(
         db=db,
@@ -223,17 +231,21 @@ async def get_document_detail_for_run(
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
     if document_id not in documents:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "DOCUMENT_NOT_FOUND"},
+            detail="Document not found",
+        )
 
     doc_meta = documents[document_id]
 
-    # Фильтруем check_results по document_id
+    # Filter check_results by document_id
     doc_check_results = [
         cr for cr in check_results
         if cr.get("document_id") == document_id
     ]
 
-    # Сборка CheckItemDTO
+    # Assemble CheckItemDTO
     checks: list[CheckItemDTO] = []
     for cr in doc_check_results:
         checks.append(
@@ -280,7 +292,7 @@ async def get_document_detail_for_run(
 @router.get(
     "/{deal_id}/runs/{run_id}/documents/{document_id}/structured-data",
     response_model=DocumentStructuredDataDTO,
-    summary="Структурированные значения по документу в рамках run",
+    summary="Structured values for document within run",
 )
 async def get_document_structured_data_for_run(
     deal_id: str,
@@ -290,10 +302,10 @@ async def get_document_structured_data_for_run(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Все структурированные значения (суммы, даты, стороны и т.п.)
-    извлечённые из одного документа в рамках указанного рана.
+    Retrieve structured properties (monetary thresholds, dates, counterparties)
+    extracted from a document within the specified run sequence.
 
-    Доступ: viewer / editor / admin проекта.
+    Access: project viewer / editor / admin.
     """
     run_uuid = uuid.UUID(run_id)
     run = await _get_run_with_access_check(deal_id, run_id, db, user)
@@ -308,9 +320,13 @@ async def get_document_structured_data_for_run(
 
     doc_meta = documents.get(document_id)
     if not doc_meta:
-        raise HTTPException(status_code=404, detail="Document not found in this run")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "DOCUMENT_NOT_FOUND_IN_RUN"},
+            detail="Document not found in this run",
+        )
 
-    # Загружаем имя плейбука
+    # Load playbook name
     playbook_name: str | None = None
     playbook_version_id_str: str | None = None
     if getattr(run, "playbook_version_id", None):
@@ -322,7 +338,7 @@ async def get_document_structured_data_for_run(
         except Exception:
             pass
 
-    # Извлекаем structured values напрямую из check_results
+    # Extract structured values directly from check_results
     doc_values: list[ExtractedValueDTO] = []
 
     for cr in check_results:
@@ -332,7 +348,7 @@ async def get_document_structured_data_for_run(
         structured_data = cr.get("structured_data") or {}
 
         for field_name, field_value in structured_data.items():
-            # Нормализация значения
+            # Value normalization
             if isinstance(field_value, dict) and "value" in field_value:
                 raw_display_value = field_value.get("value")
             else:
@@ -389,7 +405,7 @@ async def get_document_structured_data_for_run(
 @router.get(
     "/{deal_id}/runs/{run_id}/dd-requests",
     response_model=list[DDRequestDTO],
-    summary="DD-запросы по результатам run",
+    summary="DD requests based on run results",
 )
 async def get_dd_requests(
     deal_id: str,
@@ -398,10 +414,10 @@ async def get_dd_requests(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Список DD-запросов сгенерированных по missing required полям.
-    Дедуплицированы по check_id, отсортированы по приоритету.
+    Compile DD requests extracted from missing required properties.
+    Deduplicated by check_id, ordered by critical priority indices.
 
-    Доступ: viewer / editor / admin проекта.
+    Access: project viewer / editor / admin.
     """
     await require_project_role(
         db=db,
@@ -425,18 +441,26 @@ async def get_dd_requests(
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
-        # Загружаем PlaybookVersion для получения CheckDefinition
+        # Load PlaybookVersion to retrieve CheckDefinition
         run = await uow.session.get(Run, run_uuid)
         if not run:
-            raise HTTPException(status_code=404, detail="Run not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                headers={"X-Error-Code": "RUN_NOT_FOUND"},
+                detail="Run not found",
+            )
 
         pb_version = await pb_repo.get_by_id(run.playbook_version_id)
         if not pb_version:
-            raise HTTPException(status_code=404, detail="PlaybookVersion not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                headers={"X-Error-Code": "PLAYBOOK_VERSION_NOT_FOUND"},
+                detail="PlaybookVersion not found",
+            )
 
         playbook = load_playbook_from_version(pb_version)
 
-        # Строим {check_id: CheckDefinition}
+        # Build {check_id: CheckDefinition}
         checks_by_id = {check.id: check for check in playbook.checks}
 
     return build_dd_requests(check_results, documents, checks_by_id)
@@ -445,7 +469,7 @@ async def get_dd_requests(
 @router.get(
     "/{deal_id}/runs/{run_id}/conditional-checks",
     response_model=list[ConditionalCheckDTO],
-    summary="Список сработавших условных проверок",
+    summary="List of triggered conditional checks",
 )
 async def get_conditional_checks(
     deal_id: str,
@@ -454,10 +478,10 @@ async def get_conditional_checks(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Список условных проверок которые были активированы триггерами
-    из applicabletriggers документов в этом ране.
+    Retrieve list of conditional checks activated by instruction triggers
+    registered under applicable triggers for the run workspace.
 
-    Доступ: viewer / editor / admin проекта.
+    Access: project viewer / editor / admin.
     """
     await require_project_role(
         db=db,
@@ -478,7 +502,7 @@ async def get_conditional_checks(
 @router.get(
     "/{deal_id}/runs/{run_id}/extracted-values",
     response_model=list[ExtractedValueDTO],
-    summary="Все извлечённые структурированные значения по run",
+    summary="All extracted structured values for run",
 )
 async def get_extracted_values(
     deal_id: str,
@@ -487,10 +511,10 @@ async def get_extracted_values(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Все структурированные значения извлечённые по всем документам рана:
-    суммы, даты, стороны, кадастровые номера и т.п.
+    Compile all structured metadata fields extracted across the run scope:
+    valuation sums, expiration limits, parties, etc.
 
-    Доступ: viewer / editor / admin проекта.
+    Access: project viewer / editor / admin.
     """
     await require_project_role(
         db=db,
@@ -511,7 +535,7 @@ async def get_extracted_values(
 @router.get(
     "/{deal_id}/runs/{run_id}/dd-matrix",
     response_model=DDMatrixResponseDTO,
-    summary="Матричное представление DD Grid (документы × чеки)",
+    summary="Matrix representation of DD Grid (documents x checks)",
 )
 async def get_dd_matrix(
     deal_id: str,
@@ -520,9 +544,9 @@ async def get_dd_matrix(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Полное матричное представление результатов DD для рана.
+    Compile standard matrix layout representation for the run dataset.
 
-    Доступ: viewer / editor / admin проекта.
+    Access: project viewer / editor / admin.
     """
     await require_project_role(
         db=db,
@@ -547,14 +571,22 @@ async def get_dd_matrix(
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
-        # Загружаем PlaybookVersion для CheckDefinition
+        # Load PlaybookVersion for CheckDefinition
         run = await run_repo.get_by_id(run_uuid)
         if not run:
-            raise HTTPException(status_code=404, detail="Run not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                headers={"X-Error-Code": "RUN_NOT_FOUND"},
+                detail="Run not found",
+            )
 
         pb_version = await pb_repo.get_by_id(run.playbook_version_id)
         if not pb_version:
-            raise HTTPException(status_code=404, detail="PlaybookVersion not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                headers={"X-Error-Code": "PLAYBOOK_VERSION_NOT_FOUND"},
+                detail="PlaybookVersion not found",
+            )
 
         playbook = load_playbook_from_version(pb_version)
         checks_by_id = {check.id: check for check in playbook.checks}
@@ -571,10 +603,11 @@ async def get_dd_matrix(
         deal_name=deal_name,
     )
 
+
 @router.get(
     "/{deal_id}/runs/{run_id}/dd-grid-v1",
     response_model=DDGridV1ResponseDTO,
-    summary="DD Grid V1 — иерархическое представление (groups → columns → cells)",
+    summary="DD Grid V1 — hierarchical representation (groups -> columns -> cells)",
 )
 async def get_dd_grid_v1(
     deal_id: str,
@@ -583,30 +616,30 @@ async def get_dd_grid_v1(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    DD Grid V1: полная иерархическая структура DD-проверок для нового UI.
+    DD Grid V1: Complete hierarchical structure of DD validation metrics for the new UI.
 
-    Возвращает DDGridV1ResponseDTO — готовую структуру для рендеринга
-    DD Grid без дополнительных запросов к серверу.
+    Returns DDGridV1ResponseDTO — a compiled payload structure ready for immediate
+    rendering by DD Grid components without additional round-trips.
 
-    Отличия от /dd-matrix:
-    - иерархия global_groups (group → checks → columns)
-    - иерархия doc_type_classes (registry groups → types → checks)
-    - cell_values с cell_state:
-        defined         — значение найдено, display_value форматировано.
-        not_defined     — check выполнен, значение не найдено.
-        not_applicable  — check не применим к doc_type документа.
-        not_executed    — check не выполнялся для этого документа.
-        error           — техническая ошибка выполнения.
-    - drawer_contents с reason + field details + evidence + location.
+    Distinctions from /dd-matrix:
+    - strict hierarchy of global_groups (group → checks → columns)
+    - strict hierarchy of doc_type_classes (registry groups → types → checks)
+    - cell_values containing detailed cell_state:
+        defined         — value discovered, display_value formatted.
+        not_defined     — check executed, value not discovered.
+        not_applicable  — check not applicable to the document doc_type.
+        not_executed    — check was not executed for this document segment.
+        error           — technical processing error.
+    - drawer_contents containing reason + field details + evidence + location.
     - location propagation:
-        exact (high confidence) — clause_ref + page из LLM extraction.
-        fallback (low confidence) — check-level ref или null.
+        exact (high confidence) — clause_ref + page pinpoint from LLM extraction.
+        fallback (low confidence) — check-level instruction fallback or null.
 
     Column formats:
-      text           — plain string (+ unit если задан).
-      enum           — lookup enum_labels[raw_value].
-      yes_no         — 'Да' / 'Нет'.
-      presence_only  — 'Присутствует'.
+      text           — plain string (+ unit if specified).
+      enum           — lookup mapping of enum_labels[raw_value].
+      yes_no         — 'Yes' / 'No'.
+      presence_only  — 'Present'.
 
     Drawer reason precedence:
       1. metadata field 'reason'
@@ -615,9 +648,9 @@ async def get_dd_grid_v1(
       4. review_message (CheckResult)
       5. display_text (CheckResult)
 
-    Полный API contract: docs/dd_grid_v1_contract.md
+    Full API specification contract: docs/dd_grid_v1_contract.md
 
-    Доступ: viewer / editor / admin проекта.
+    Access: project viewer / editor / admin.
     """
     await require_project_role(
         db=db,
@@ -628,7 +661,8 @@ async def get_dd_grid_v1(
     try:
         return await build_dd_grid_v1_response(deal_id=deal_id, run_id=run_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    
-
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "GRID_BUILD_FAILED"},
+            detail=str(exc),
+        ) from exc

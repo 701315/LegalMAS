@@ -1,46 +1,39 @@
 # src/workers/export_pending.py
 
-# src/workers/export_pending.py
-
 """
 Export Pending Worker.
 
-Этот модуль содержит Celery‑воркер, который по одному обрабатывает
-отложенные (pending) задачи экспорта из базы данных.
+This module contains a Celery worker that processes pending export
+tasks from the database one by one.
 
-Назначение:
-  - периодически проверять наличие задач экспорта в состоянии "ожидание";
-  - брать одну такую задачу и пытаться её обработать до конца;
-  - обеспечивать атомарность изменений по одному экспорту через db_uow;
-  - инкапсулировать всю бизнес‑логику обработки в
+Purpose:
+  - Periodically check for export tasks in 'pending' state;
+  - Claim a single task and process it to completion;
+  - Ensure atomicity of single export updates via db_uow;
+  - Encapsulate processing business logic inside
     services.export.service.process_one_pending_export.
 
-Поведение:
-  - если в БД есть хотя бы один экспорт в статусе "pending",
-    воркер берёт его, выполняет все шаги обработки и возвращает True;
-  - если подходящих задач нет, воркер ничего не делает и возвращает False;
-  - если во время работы происходит временная ошибка (БД, сеть и т.п.),
-    MASBaseTask помечает её как транзиентную и инициирует повторный запуск.
+Behavior:
+  - If at least one export in 'pending' status exists in DB,
+    worker claims it, runs all processing steps, and returns True;
+  - If no eligible tasks exist, worker does nothing and returns False;
+  - If a transient error occurs (DB, network, etc.),
+    MASBaseTask marks it as transient and initiates a retry.
 
-Архитектура:
-  - снаружи — синхронная Celery‑таска export_process_pending (def),
-    зарегистрированная в общем приложении mas_queue.celery_app.celery_app;
-  - внутри — один переход sync → async через run_async(), который запускает
-    асинхронную функцию _export_process_pending_async(...);
-  - _export_process_pending_async открывает UnitOfWork через db_uow(),
-    вызывает process_one_pending_export(db=uow.session, tenant_id=...),
-    и возвращает булево значение "что‑то обработано / нет".
+Architecture:
+  - External layer: synchronous Celery task export_process_pending (def),
+    registered in mas_queue.celery_app.celery_app;
+  - Internal layer: sync-to-async transition via run_async(), invoking
+    async function _export_process_pending_async(...);
+  - _export_process_pending_async opens a Unit of Work via db_uow(),
+    calls process_one_pending_export(db=uow.session, tenant_id=...),
+    and returns a boolean indicating whether work was performed.
 
 Audit trail:
-  - Если pending export обработан, пишет EXPORT_PENDING_PROCESSED.
-  - Если pending export не найден, пишет EXPORT_PENDING_IDLE.
-  - Если произошла ошибка, пишет EXPORT_PENDING_FAILED.
-  - Audit logging best-effort: проблемы аудита не должны ломать воркер.
-
-Таким образом, этот воркер постепенно «разгрызает» очередь отложенных экспортов.
-Для пользователя это означает: если экспорт находится в ожидании, именно этот
-воркер со временем его подхватит и либо успешно завершит, либо зафейлит с
-понятным статусом и ошибкой в логах.
+  - If pending export is processed, records EXPORT_PENDING_PROCESSED.
+  - If pending export is not found, records EXPORT_PENDING_IDLE.
+  - If an error occurs, records EXPORT_PENDING_FAILED.
+  - Best-effort audit logging: audit failures must not crash the worker.
 """
 
 from __future__ import annotations
@@ -62,9 +55,9 @@ logger = get_logger(__name__)
 
 async def _export_process_pending_async(tenant_id: str) -> bool:
     """
-    Асинхронная реализация обработки одной "ожидающей" задачи экспорта.
+    Async implementation of processing a single pending export task.
 
-    Здесь вся работа с БД и бизнес‑логика.
+    Encapsulates database operations and business logic execution.
     """
     start = time.time()
     tenant_uuid: uuid.UUID | None = None
@@ -164,12 +157,12 @@ def export_process_pending(
     **kwargs: Any,
 ) -> bool:
     """
-    Синхронная Celery‑таска обработки одной "ожидающей" задачи экспорта.
+    Synchronous Celery task for processing a single pending export task.
 
-    Внутри:
-      - вызывает асинхронную функцию _export_process_pending_async(...)
-        через общий мост run_async();
-      - возвращает True, если что‑то было обработано, иначе False.
+    Workflow:
+      - Executes async function _export_process_pending_async(...)
+        via the run_async() bridge;
+      - Returns True if an export was claimed and processed, otherwise False.
     """
     _ = self
     return run_async(_export_process_pending_async(tenant_id))

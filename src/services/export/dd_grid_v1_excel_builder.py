@@ -3,21 +3,21 @@
 """
 DD Grid V1 Excel Builder.
 
-Генерирует Excel-книгу из DDGridV1Data (новая модель) без зависимости от AggregatedResults.
+Generates an Excel workbook from DDGridV1Data (new model) without dependencies on AggregatedResults.
 
-Листы:
-  1. "DD Grid"            — плоский список результатов из cell_values
-  2. "DD Matrix"          — матричное представление из cell_values
-  3. "Summary"            — KPI-сводка (прямой подсчёт из check_results)
-  4. "By Doc Type"        — сводка по типам документов (группировка check_results)
-  5. "Conditional Checks" — сработавшие условные проверки (мигрировано)
-  6. "Extracted Values"   — структурированные значения (мигрировано)
+Sheets:
+  1. "DD Grid"            — Flat list of results compiled from cell_values
+  2. "DD Matrix"          — Matrix representation from cell_values
+  3. "Summary"            — KPI dashboard (computed directly from check_results)
+  4. "By Doc Type"        — Aggregated stats grouped by document types
+  5. "Conditional Checks" — Triggered conditional checks
+  6. "Extracted Values"   — Extracted structured values
 
-Архитектурный принцип:
-  - Никакой зависимости от aggregator.py
-  - Чтение напрямую из DDGridV1Data + check_results
-  - Детерминированный порядок строк/столбцов
-  - Декларативная локализация через core.i18n.export_translator
+Architectural principles:
+  - Zero dependency on aggregator.py
+  - Reads directly from DDGridV1Data and check_results
+  - Deterministic ordering of rows and columns
+  - Declarative localization via core.i18n.export_translator
 """
 
 from __future__ import annotations
@@ -40,7 +40,27 @@ logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Стили
+# Synthetic display value localization
+# ---------------------------------------------------------------------------
+
+_SYNTHETIC_DISPLAY_MAP: dict[str, str] = {
+    "⚠ Error": "display.error",
+    "Present": "display.present",
+    "Yes": "display.yes",
+    "No": "display.no",
+}
+
+
+def _localize_display_value(value: str, locale: str) -> str:
+    """Localize synthetic display tokens; pass through real data unchanged."""
+    key = _SYNTHETIC_DISPLAY_MAP.get(value)
+    if key:
+        return t_export(key, locale)
+    return value
+
+
+# ---------------------------------------------------------------------------
+# Styles
 # ---------------------------------------------------------------------------
 
 _FILLS = {
@@ -67,7 +87,7 @@ _CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 
 # ---------------------------------------------------------------------------
-# Лист 1: DD Grid — плоский список
+# Sheet 1: DD Grid — Flat List
 # ---------------------------------------------------------------------------
 
 _BASE_COLUMN_SPECS = [
@@ -84,12 +104,12 @@ _BASE_COLUMN_SPECS = [
 
 
 def _build_grid_sheet(wb: Workbook, grid_data: DDGridV1Data, locale: str = "en") -> None:
-    """Лист 1: DD Grid — плоский список результатов."""
+    """Sheet 1: DD Grid — flat list of check results."""
     ws = wb.active
     ws.title = t_export("sheets.grid", locale)
     ws.freeze_panes = "A2"
 
-    # Заголовки
+    # Set up headers
     for col_idx, (header_key, width, _) in enumerate(_BASE_COLUMN_SPECS, 1):
         cell = ws.cell(row=1, column=col_idx, value=t_export(header_key, locale))
         cell.font = _FONT_HEADER
@@ -97,7 +117,7 @@ def _build_grid_sheet(wb: Workbook, grid_data: DDGridV1Data, locale: str = "en")
         cell.alignment = _CENTER
         ws.column_dimensions[get_column_letter(col_idx)].width = width
 
-    # Собираем плоские строки из cell_values
+    # Compile flat rows from cell_values
     rows_data: list[dict] = []
 
     doc_meta_by_id = {dm.document_id: dm for dm in grid_data.documents_meta}
@@ -134,7 +154,7 @@ def _build_grid_sheet(wb: Workbook, grid_data: DDGridV1Data, locale: str = "en")
                     "check_name": check_name,
                     "column_label": column_label,
                     "cell_state": cell.cell_state,
-                    "display_value": cell.display_value,
+                    "display_value": _localize_display_value(cell.display_value, locale),
                     "location_page": cell.location_page,
                     "location_clause_ref": cell.location_clause_ref,
                     "severity": _infer_severity_from_state(cell.cell_state),
@@ -177,12 +197,12 @@ def _infer_severity_from_state(cell_state: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Лист 2: DD Matrix — матричное представление
+# Sheet 2: DD Matrix — Matrix Representation
 # ---------------------------------------------------------------------------
 
 
 def _build_matrix_sheet(wb: Workbook, grid_data: DDGridV1Data, locale: str = "en") -> None:
-    """Лист 2: DD Matrix — матрица документы × проверки."""
+    """Sheet 2: DD Matrix — document x check validation grid."""
     ws = wb.create_sheet(t_export("sheets.matrix", locale))
 
     if not grid_data.cell_values:
@@ -310,9 +330,12 @@ def _build_matrix_sheet(wb: Workbook, grid_data: DDGridV1Data, locale: str = "en
                         cell_value.cell_state,
                         cell_value.cell_state,
                     )
+                    localized_display = _localize_display_value(
+                        cell_value.display_value, locale
+                    )
                     cell.value = (
-                        f"{state_label}\n{cell_value.display_value[:50]}"
-                        if cell_value.display_value
+                        f"{state_label}\n{localized_display[:50]}"
+                        if localized_display
                         else state_label
                     )
                     cell.fill = _FILLS.get(
@@ -326,7 +349,7 @@ def _build_matrix_sheet(wb: Workbook, grid_data: DDGridV1Data, locale: str = "en
 
 
 # ---------------------------------------------------------------------------
-# Лист 3: Summary — KPI
+# Sheet 3: Summary — KPI
 # ---------------------------------------------------------------------------
 
 
@@ -340,7 +363,7 @@ def _build_summary_sheet(
     pipeline_strategy: str,
     locale: str = "en",
 ) -> None:
-    """Лист 3: Summary — KPI-сводка (прямой подсчёт из check_results)."""
+    """Sheet 3: Summary — KPI dashboard summary."""
     ws = wb.create_sheet(t_export("sheets.summary", locale))
     ws.column_dimensions["A"].width = 50
     ws.column_dimensions["B"].width = 30
@@ -435,7 +458,7 @@ def _build_summary_sheet(
 
 
 # ---------------------------------------------------------------------------
-# Лист 4: By Doc Type
+# Sheet 4: By Doc Type
 # ---------------------------------------------------------------------------
 
 
@@ -445,7 +468,7 @@ def _build_doc_type_sheet(
     documents: dict[str, dict[str, Any]],
     locale: str = "en",
 ) -> None:
-    """Лист 4: By Doc Type — сводка по типам документов."""
+    """Sheet 4: By Doc Type — aggregated stats grouped by document types."""
     ws = wb.create_sheet(t_export("sheets.by_doc_type", locale))
     ws.freeze_panes = "A2"
 
@@ -531,7 +554,7 @@ def _build_doc_type_sheet(
 
 
 # ---------------------------------------------------------------------------
-# Лист 5: Conditional Checks
+# Sheet 5: Conditional Checks
 # ---------------------------------------------------------------------------
 
 
@@ -541,7 +564,7 @@ def _build_conditional_sheet(
     documents: dict[str, dict[str, Any]],
     locale: str = "en",
 ) -> None:
-    """Лист 5: Conditional Checks — сработавшие условные проверки."""
+    """Sheet 5: Conditional Checks — triggered conditional check records."""
     ws = wb.create_sheet(t_export("sheets.conditional", locale))
     ws.freeze_panes = "A2"
 
@@ -602,7 +625,7 @@ def _build_conditional_sheet(
 
 
 # ---------------------------------------------------------------------------
-# Лист 6: Extracted Values
+# Sheet 6: Extracted Values
 # ---------------------------------------------------------------------------
 
 
@@ -623,7 +646,7 @@ def _build_extracted_values_sheet(
     documents: dict[str, dict[str, Any]],
     locale: str = "en",
 ) -> None:
-    """Лист 6: Extracted Values — структурированные значения."""
+    """Sheet 6: Extracted Values — structured data fields."""
     ws = wb.create_sheet(t_export("sheets.extracted", locale))
     ws.freeze_panes = "A2"
 
@@ -695,7 +718,7 @@ def _build_extracted_values_sheet(
 
 
 # ---------------------------------------------------------------------------
-# Точка входа
+# Entry Point
 # ---------------------------------------------------------------------------
 
 
@@ -711,21 +734,21 @@ def build_dd_grid_v1_excel(
     locale: str = "en",
 ) -> bytes:
     """
-    Построить полную Excel-книгу из DDGridV1Data.
+    Generate complete Excel workbook from DDGridV1Data.
 
     Args:
-        grid_data: DDGridV1Data из build_dd_grid_v1()
-        check_results: Сырые результаты проверок из БД
-        documents: Метаданные документов {doc_id: {...}}
-        checks_by_id: Словарь {check_id: CheckDefinition}
-        deal_name: Название сделки для шапки
-        run_id: ID Run для логирования
-        checks_mode: Режим проверок (для шапки)
-        pipeline_strategy: Стратегия пайплайна (для шапки)
+        grid_data: DDGridV1Data compiled from build_dd_grid_v1()
+        check_results: Raw check results from database
+        documents: Document metadata registry map {doc_id: {...}}
+        checks_by_id: Dictionary mapping check_id to CheckDefinition
+        deal_name: Deal name for header branding
+        run_id: Run UUID for tracing and logging
+        checks_mode: Checks execution mode (for header summary)
+        pipeline_strategy: Pipeline re-run strategy (for header summary)
         locale: presentation locale for export labels (en canonical default)
 
     Returns:
-        Excel file as bytes
+        Excel workbook file bytes
     """
     logger.info(
         "Building DD Grid V1 Excel",

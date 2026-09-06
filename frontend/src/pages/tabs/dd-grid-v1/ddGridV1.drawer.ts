@@ -24,6 +24,59 @@ import type { DDGridV1LocationAvailability } from "./ddGridV1.types";
 type TFunction = (key: string, options?: Record<string, unknown>) => string;
 
 // -------------------------------------------------------------
+// i18n: Backend EN canonical → i18n key mapping
+// -------------------------------------------------------------
+
+/**
+ * Maps EN canonical reason strings from _PLAN_STATUS_TO_REASON
+ * to i18n keys in ddGrid.planStatusReasons.
+ */
+const PLAN_REASON_I18N: Record<string, string> = {
+  "Check is planned and awaiting execution.": "planStatusReasons.planned",
+  "Check is currently executing.": "planStatusReasons.started",
+  "Error occurred during check execution.": "planStatusReasons.failed",
+  "Check execution timed out.": "planStatusReasons.timeout",
+  "Check was cancelled.": "planStatusReasons.cancelled",
+  "Check skipped (result accounted for in another plan).": "planStatusReasons.skipped",
+  "Result is expected.": "planStatusReasons.succeeded",
+  "Unknown check status.": "planStatusReasons.unknown",
+};
+
+/**
+ * Maps EN canonical location fallback reasons to i18n keys.
+ */
+const LOCATION_FALLBACK_I18N: Record<string, string> = {
+  "Exact location in the document is not defined": "locationFallbackReasons.default",
+  "Extracted from display text (heuristic)": "locationFallbackReasons.heuristic",
+  "Extracted from result text (heuristic)": "locationFallbackReasons.heuristic",
+};
+
+/**
+ * Localizes a drawer reason string if it matches a known EN canonical token.
+ * Real document data (Russian text from metadata) passes through unchanged.
+ */
+export function localizeDrawerReason(
+  reason: string | null,
+  tFn?: TFunction,
+): string | null {
+  if (!reason || !tFn) return reason;
+  const key = PLAN_REASON_I18N[reason];
+  return key ? tFn(key) : reason;
+}
+
+/**
+ * Localizes a location_fallback_reason string.
+ */
+export function localizeLocationFallbackReason(
+  reason: string | null,
+  tFn?: TFunction,
+): string | null {
+  if (!reason || !tFn) return reason;
+  const key = LOCATION_FALLBACK_I18N[reason];
+  return key ? tFn(key) : reason;
+}
+
+// -------------------------------------------------------------
 // Reason precedence
 // -------------------------------------------------------------
 
@@ -49,11 +102,12 @@ function firstNonEmpty(...values: Array<string | null | undefined>): string | nu
 
 export function resolveDDGridV1DrawerReason(
   drawer: DDGridV1DrawerContentDTO | null,
+  tFn?: TFunction,
 ): DDGridV1ResolvedReason {
   if (!drawer) return { text: null, source: "none" };
 
   const reason = firstNonEmpty(drawer.reason);
-  if (reason) return { text: reason, source: "reason" };
+  if (reason) return { text: localizeDrawerReason(reason, tFn), source: "reason" };
 
   const reviewMessage = firstNonEmpty(drawer.review_message);
   if (reviewMessage) return { text: reviewMessage, source: "review_message" };
@@ -132,7 +186,13 @@ export function buildDDGridV1DrawerFieldViews(
       tone: getDDGridV1CellTone(field.cell_state),
       displayText,
       locationAvailability: availability,
-      raw: field,
+      raw: {
+        ...field,
+        location_fallback_reason: localizeLocationFallbackReason(
+          field.location_fallback_reason,
+          tFn,
+        ),
+      },
     };
   });
 }

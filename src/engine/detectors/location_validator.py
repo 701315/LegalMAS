@@ -289,7 +289,7 @@ def validate_location(
         )
         return (
             None,
-            LocationFallback(reason="LLM не указал точную ссылку для поля"),
+            LocationFallback(reason="Exact location in the document is not defined"),
         )
 
     clause_ref_display = _normalize_clause_ref_display(location.get("clause_ref"))
@@ -301,7 +301,7 @@ def validate_location(
         )
         return (
             None,
-            LocationFallback(reason="LLM не указал clause_ref/page для поля"),
+            LocationFallback(reason="Exact location in the document is not defined"),
         )
 
     # Numeric-core matching для clause_ref
@@ -369,7 +369,7 @@ def validate_location(
     )
     return (
         None,
-        LocationFallback(reason="Точная ссылка не подтверждена по контексту"),
+        LocationFallback(reason="Exact location in the document is not defined"),
     )
 
 

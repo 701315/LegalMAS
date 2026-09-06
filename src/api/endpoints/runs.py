@@ -1,16 +1,16 @@
 # src/api/endpoints/runs.py
 
 """
-Эндпоинты для запусков анализа (runs).
+Endpoints for analysis runs (runs).
 
-Основные маршруты:
-- POST /runs                               — запуск анализа по сделке
-- GET  /runs/{run_id}                      — статус run + (опционально) stats классификации
-- GET  /runs/{run_id}/classification-report — подробный отчёт по классификации
-- GET  /runs/{run_id}/events               — SSE-стрим прогресса Run (status + completed/total)
+Core routes:
+- POST /runs                               — start analysis run for a deal
+- GET  /runs/{run_id}                      — run status + (optional) classification stats
+- GET  /runs/{run_id}/classification-report — detailed classification quality report
+- GET  /runs/{run_id}/events               — SSE stream of Run progress (status + completed/total)
 """
 
-from __future__ import annotations  # сильно упрощает жизнь с аннотациями
+from __future__ import annotations
 
 import json
 import uuid
@@ -74,40 +74,43 @@ async def _start_run_core(
     user: CurrentUser,
 ) -> RunResponse:
     """
-    Общая логика запуска run для сделки.
+    Common logic for starting a deal analysis run.
 
-    Теперь:
-    1) проверяем существование сделки;
-    2) находим playbook для этой сделки (или default);
-    3) берём из него model_config_id;
-    4) создаём Run с этими ID;
-    5) обновляем last_run_id у сделки;
-    6) ставим одну оркестрационную Celery-задачу start_run_pipeline(run_id),
-       которая уже сама разберётся, какие документы и какие стадии пайплайна
-       нужно пройти (extract → pii → structure → classify → run_deal_checks).
+    Pipeline sequence:
+    1) Validate deal existence;
+    2) Retrieve the playbook for this deal (or fallback to default);
+    3) Fetch model_config_id from the playbook;
+    4) Instantiate a new Run linked to these IDs;
+    5) Update the last_run_id attribute on the Deal model;
+    6) Dispatch a single orchestration Celery task: start_run_pipeline(run_id),
+       which dynamically evaluates documents and handles pipeline stages
+       (extract → pii → structure → classify → run_deal_checks).
     """
     run_repo = RunRepository(db)
     deal_repo = DealRepository(db)
     playbook_repo = PlaybookRepository(db)
     audit_repo = AuditRepository(db)
 
-    # 1. Проверяем, что сделка существует в рамках tenant пользователя
+    # 1. Validate deal existence within user's tenant scope
     deal = await deal_repo.get_by_id(
         deal_uuid,
         tenant_id=user.tenant_id,
     )
     if not deal:
-        raise HTTPException(status_code=404, detail="Deal not found")
+        raise HTTPException(
+            status_code=404,
+            headers={"X-Error-Code": "DEAL_NOT_FOUND"},
+            detail="Deal not found",
+        )
 
-    # 1.1. Для запуска анализа основной язык сделки должен быть выбран заранее.
+    # 1.1. Deal primary language must be selected beforehand to start analysis.
     #
-    # Архитектурное правило системы:
-    # - сначала выполняется pre-run language discovery;
-    # - затем пользователь выбирает primary_language сделки;
-    # - только после этого разрешён запуск Run.
+    # System architectural rule:
+    # - Run pre-run language discovery first;
+    # - Let user select the primary_language of the deal;
+    # - Start Run only after selection is made.
     #
-    # Поэтому backend здесь жёстко запрещает запуск анализа,
-    # если основной язык сделки ещё не задан.
+    # Hence, the backend strictly rejects run start if primary_language is missing.
     if not getattr(deal, "primary_language", None):
         logger.warning(
             "Run start rejected: primary_language is not set",
@@ -121,12 +124,12 @@ async def _start_run_core(
         )
         raise HTTPException(
             status_code=400,
-            detail=("Primary language must be selected before starting analysis"),
+            headers={"X-Error-Code": "PRIMARY_LANGUAGE_NOT_SET"},
+            detail="Primary language must be selected before starting analysis",
         )
 
-    # 1.2. Пока language discovery ещё выполняется, запуск Run запрещён.
-    # Это защита на backend уровне: даже если UI ошибётся или кто-то вызовет
-    # API напрямую, analysis нельзя стартовать до завершения pre-run discovery.
+    # 1.2. Analysis start is forbidden while language discovery is still active.
+    # This acts as a backend safeguard against UI race conditions or direct API calls.
     if getattr(deal, "language_discovery_status", None) == LanguageDiscoveryStatus.PROCESSING:
         logger.warning(
             "Run start rejected: language discovery is still in progress",
@@ -141,68 +144,59 @@ async def _start_run_core(
         )
         raise HTTPException(
             status_code=400,
+            headers={"X-Error-Code": "LANGUAGE_DISCOVERY_IN_PROGRESS"},
             detail=(
                 "Language discovery is still in progress. "
                 "Please wait until it completes before starting analysis."
             ),
         )
 
-    # 2. Берём playbook для сделки (привязанный или default)
+    # 2. Fetch the playbook for the deal (assigned playbook or fallback)
     playbook = await playbook_repo.get_for_deal(deal_uuid)
     if not playbook:
         raise HTTPException(
             status_code=400,
+            headers={"X-Error-Code": "DEAL_PLAYBOOK_NOT_CONFIGURED"},
             detail="Deal is not configured with a playbook",
         )
 
-    # 3. Проверяем, что у playbook есть model_config
+    # 3. Ensure the playbook has model_config attached
     if not playbook.model_config_id:
         raise HTTPException(
             status_code=400,
+            headers={"X-Error-Code": "PLAYBOOK_MODEL_CONFIG_NOT_CONFIGURED"},
             detail="Playbook is not configured with model_config",
         )
 
     playbook_version_id = playbook.id
     model_config_id = playbook.model_config_id
 
-    # 4. Определяем стратегию пайплайна и создаём run.
+    # 4. Determine pipeline strategy and instantiate run.
     #
-    # Сейчас у нас есть два ключевых фактора:
-    # - модель (model_config_id), привязанная к playbook;
-    # - выбранный playbook_version (playbook_version_id).
+    # Currently evaluated against:
+    # - model (model_config_id) linked to the playbook;
+    # - selected playbook_version (playbook_version_id).
     #
-    # Идея такая:
-    # - если модель изменилась по сравнению с последним Run по этой сделке —
-    #   безопаснее пересчитать всё с нуля (FULL_RERUN);
-    # - если модель та же, мы можем переиспользовать структуру документов
-    #   и только заново прогнать проверки под новым плейбуком (REUSE_STRUCTURE).
+    # Execution policy:
+    # - If model changed relative to the latest Run: trigger full recompute (FULL_RERUN);
+    # - If model remains identical: reuse document structure and re-evaluate checks only (REUSE_STRUCTURE).
     #
-    # Отдельно от этого, в будущем сюда можно будет добавить сравнение
-    # "технического окружения" через Run.environment_hash и/или
-    # конфигурационный fingerprint плейбука, когда появится единый источник
-    # этих данных (см. TODO ниже).
+    # Future extension: evaluate environment changes via Run.environment_hash
+    # and/or config fingerprint once a single configuration registry source is available.
     pipeline_strategy = "REUSE_STRUCTURE"
 
     last_run = await run_repo.get_latest_for_deal(deal_uuid)
     if last_run:
         same_model = last_run.model_config_id == model_config_id
-        # TODO (env/reproducibility):
-        #  - Run.environment_hash сейчас почти всегда None и не заполняется
-        #    на уровне инфраструктуры;
-        #  - на уровне плейбука/ModelConfig пока нет единого fingerprint'а
-        #    конфигурации анализа.
-        # Когда появится:
-        #  - функция, считающая environment_hash для текущего запуска
-        #    (docker + libs + weights),
-        #  - и/или config_fingerprint для (playbook + model_config + registry),
-        # сюда можно добавить сравнение окружения и конфигурации анализа.
-        # Если модель или окружение изменились — лучше прогнать всё с нуля
-        # (FULL_RERUN), иначе можно безопасно REUSE_STRUCTURE.
+        # TODO (reproducibility):
+        #  - Run.environment_hash is currently almost always None;
+        #  - No single configuration fingerprint is currently implemented.
+        # Once implemented:
+        #  - compute environment_hash (libs, docker, models) and config_fingerprint
+        #    to determine if FULL_RERUN or REUSE_STRUCTURE is appropriate.
         if not same_model:
             pipeline_strategy = "FULL_RERUN"
         else:
-            # Модель та же; структура документа не зависит от набора проверок,
-            # поэтому достаточно переиспользовать структуру и заново оценить риски.
             pipeline_strategy = "REUSE_STRUCTURE"
 
     run = await run_repo.create(
@@ -229,7 +223,7 @@ async def _start_run_core(
         },
     )
 
-    # 5. Обновляем last_run_id и агрегированные поля по последнему Run у сделки
+    # 5. Update last_run_id and aggregate properties on the Deal model
     await deal_repo.set_last_run_id(
         deal_id=deal_uuid,
         run_id=run.id,
@@ -237,20 +231,18 @@ async def _start_run_core(
         pipeline_strategy=getattr(run, "pipeline_strategy", None),
     )
 
-    # 5.1. Сбрасываем флаг незакрытых ручных переклассификаций:
-    # юрист только что запустил новый анализ, значит все текущие
-    # переклассификации считаем «учтёнными» этим run.
+    # 5.1. Reset pending manual reclassifications flag:
+    # Starting a new analysis run supersedes previous manual reclassifications.
     await deal_repo.set_has_pending_manual_reclassifications(
         deal_id=deal_uuid,
         value=False,
     )
 
-    # 6. Фиксируем изменения в БД перед постановкой задач
+    # 6. Persist database state prior to dispatching async tasks
     await db.commit()
     await db.refresh(run)
 
-    # 6.1. Аудит: пользователь запросил запуск анализа.
-    # Tenant берётся из deal — canonical source of truth ownership.
+    # 6.1. Audit trail: Log user-initiated analysis request
     try:
         await audit_repo.log(
             tenant_id=deal.tenant_id,
@@ -282,8 +274,7 @@ async def _start_run_core(
             },
         )
 
-    # 7. Ставим Celery-задачу.
-    # tenant_id берётся из run — он уже зафиксирован в БД из deal.tenant_id.
+    # 7. Dispatch Celery orchestration pipeline task
     try:
         logger.info(
             "Scheduling start_run_pipeline",
@@ -311,7 +302,7 @@ async def _start_run_core(
         msg = str(e)
         lower_msg = msg.lower()
 
-        # Простейшая классификация ошибок брокера очередей.
+        # Classify message errors from message broker connection failures
         if any(
             token in lower_msg
             for token in (
@@ -328,9 +319,11 @@ async def _start_run_core(
                 "Failed to start deal analysis: task queue is temporarily unavailable. "
                 "Please try again later."
             )
+            http_code = "TASK_QUEUE_UNAVAILABLE"
         else:
             reason = "infrastructure_error"
             http_detail = "Failed to start deal analysis: internal infrastructure error."
+            http_code = "INFRASTRUCTURE_ERROR"
 
         await _mark_run_failed_orchestrator(
             run_repo=run_repo,
@@ -340,6 +333,7 @@ async def _start_run_core(
         )
         raise HTTPException(
             status_code=503,
+            headers={"X-Error-Code": http_code},
             detail=http_detail,
         )
 
@@ -354,10 +348,7 @@ async def _mark_run_failed_orchestrator(
     message: str,
 ) -> None:
     """
-    Пометить Run как FAILED при ошибке на уровне оркестратора/старта пайплайна.
-
-    Используется, когда мы не смогли даже запустить workers.start_run_pipeline
-    (проблема с брокером, Celery, конфигурацией и т.п.).
+    Mark Run as FAILED in case of broker/orchestrator setup errors.
     """
     await run_repo.update_status(
         run_id,
@@ -378,24 +369,21 @@ async def _mark_run_failed_orchestrator(
 @router.post(
     "",
     response_model=RunResponse,
-    summary="Запуск анализа по сделке",
+    summary="Start analysis run for a deal",
 )
 async def start_run(
     data: RunCreate,
-    deal_id: str = Query(..., description="ID сделки, для которой запускаем анализ"),
+    deal_id: str = Query(..., description="Deal ID to trigger analysis for"),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Старый эндпоинт запуска: POST /api/v1/runs?deal_id=...
+    Legacy run initiation endpoint: POST /api/v1/runs?deal_id=...
 
-    Теперь:
-    - перед вызовом общей логики _start_run_core добавлена проверка ролей;
-    - запуск разрешён только для ролей "admin" и "editor".
+    Access: Restricted to 'admin' and 'editor' project members only.
     """
     deal_uuid = uuid.UUID(deal_id)
 
-    # Проверяем право запускать анализ по этой сделке
     await require_project_role(
         db=db,
         user=user,
@@ -408,7 +396,7 @@ async def start_run(
 
 @router.get("/deal/{deal_id}", response_model=list[RunResponse])
 async def list_runs_for_deal(
-    # СИСТЕМНЫЙ ФИКС: Проверка тенанта через scoped зависимость
+    # Tenant verification via scoped dependency
     deal: Deal = Depends(get_scoped_deal),
     include_classification_stats: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
@@ -423,15 +411,12 @@ async def list_runs_for_deal(
     return result
 
 
-# --- Раньше был ручной поиск, теперь одной строкой ---
-
 @router.get("/{run_id}", response_model=RunResponse)
 async def get_run(
-    run: Run = Depends(get_scoped_run), # СИСТЕМНЫЙ ФИКС: Изоляция тенанта автоматом
+    run: Run = Depends(get_scoped_run),  # Automatic tenant scope isolation
     include_classification_stats: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
 ):
-    # Теперь нам не нужен if not run и manual require_project_role для базового просмотра
     run_out = RunResponse.model_validate(run)
 
     if include_classification_stats:
@@ -443,21 +428,22 @@ async def get_run(
 
     return run_out
 
+
 @router.get("/{run_id}/progress", response_model=RunPipelineProgressResponse)
 async def get_run_pipeline_progress(
-    run: Run = Depends(get_scoped_run), # СИСТЕМНЫЙ ФИКС
+    run: Run = Depends(get_scoped_run),
     db: AsyncSession = Depends(get_db),
 ):
     service = RunPipelineProgressService(db)
     return await service.build_progress(run)
 
+
 @router.get("/{run_id}/events")
 async def stream_run_events(
     request: Request,
-    run: Run = Depends(get_scoped_run), # СИСТЕМНЫЙ ФИКС
+    run: Run = Depends(get_scoped_run),
     db: AsyncSession = Depends(get_db),
 ):
-    # Логика SSE остается прежней, но проверка прав теперь в одной строке параметров
     async def event_generator():
         async for event in subscribe_run_progress(run.id):
             if await request.is_disconnected():
@@ -472,6 +458,7 @@ def get_run_analytics_service(
 ) -> RunAnalyticsService:
     return RunAnalyticsService(db)
 
+
 def get_effective_instruction_service(
     db: AsyncSession = Depends(get_db),
 ) -> EffectiveInstructionService:
@@ -481,7 +468,7 @@ def get_effective_instruction_service(
 @router.get(
     "/{run_id}/documents/{document_id}/effective-instruction",
     response_model=EffectiveInstructionResponse,
-    summary="Единая инструкция (global + doc-type checks), применённая к документу в этом Run",
+    summary="Unified effective instruction (global + doc-type checks) applied to document in this Run",
 )
 async def get_effective_instruction(
     document_id: uuid.UUID,
@@ -491,14 +478,13 @@ async def get_effective_instruction(
     service: EffectiveInstructionService = Depends(get_effective_instruction_service),
 ):
     """
-    Вернуть единую инструкцию, реально применённую к документу в данном Run.
+    Return the unified instruction set applied to the specified document in this Run.
 
-    Доступ: любой участник проекта (admin/editor/viewer) — read-only.
+    Access: Read-only for any verified project member (admin/editor/viewer).
 
-    is_frozen_snapshot=True означает, что doc_type_checks взяты из
-    зафиксированного в момент запуска Run snapshot (гарантированная
-    воспроизводимость). False — fallback на текущий live YAML
-    (для Run, созданных до введения snapshot-логики).
+    is_frozen_snapshot=True indicates doc_type_checks are derived from the
+    immutable snapshot captured at Run initialization. False indicates fallback
+    to live configuration.
     """
     await require_project_role(
         db=db,
@@ -510,23 +496,26 @@ async def get_effective_instruction(
     try:
         result = await service.get_for_document(run_id=run.id, document_id=document_id)
     except EffectiveInstructionNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(
+            status_code=404,
+            headers={"X-Error-Code": "EFFECTIVE_INSTRUCTION_NOT_FOUND"},
+            detail=str(e),
+        )
 
     return EffectiveInstructionResponse(**result)
+
 
 @router.get(
     "/{run_id}/classification-report",
     response_model=ClassificationReportResponse,
-    summary="Подробный отчёт о качестве классификации для run",
+    summary="Detailed classification quality report for run",
 )
 async def get_classification_report(
-    # СИСТЕМНЫЙ ФИКС: Используем защищенную зависимость для автоматической изоляции тенанта
     run: Run = Depends(get_scoped_run), 
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
     service: RunAnalyticsService = Depends(get_run_analytics_service),
 ):
-    # 1. Проверяем проектную роль (внутри require_project_role теперь есть проверка тенанта)
     await require_project_role(
         db=db,
         user=user,
@@ -534,20 +523,22 @@ async def get_classification_report(
         allowed_roles=("admin", "editor", "viewer"),
     )
 
-    # 2. Вызываем сервис, используя ID из уже проверенного объекта 'run'
     try:
         return await service.build_classification_report(run.id)
     except RunNotFoundError:
-        raise HTTPException(status_code=404, detail="Classification report not found")
+        raise HTTPException(
+            status_code=404,
+            headers={"X-Error-Code": "CLASSIFICATION_REPORT_NOT_FOUND"},
+            detail="Classification report not found",
+        )
 
 
 class RunExportCreate(BaseModel):
     """
-    Тело запроса экспорта.
+    Request body for initiating export results.
 
-    Клиент передаёт только тип экспорта.
-    requested_by / requester_role вычисляются на сервере
-    по текущему пользователю и project role.
+    The export type is explicitly supplied. requested_by and requester_role properties
+    are resolved server-side from user identity and workspace scopes.
     """
 
     export_type: Literal[
@@ -560,7 +551,7 @@ class RunExportCreate(BaseModel):
 
 class RunExportResponse(BaseModel):
     """
-    Краткий ответ об экспорте для UI.
+    Short export status response payload for UI wrappers.
     """
 
     id: uuid.UUID
@@ -574,22 +565,20 @@ class RunExportResponse(BaseModel):
 @router.post(
     "/{run_id}/export",
     response_model=RunExportResponse,
-    summary="Запустить экспорт результатов по run",
+    summary="Start exporting run results",
 )
 async def start_run_export(
     data: RunExportCreate,
-    # СИСТЕМНЫЙ ФИКС: Автоматическая проверка тенанта и существования рана
     run: Run = Depends(get_scoped_run), 
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Запускает экспорт результатов анализа.
-    Доступ: только admin/editor текущего тенанта.
+    Triggers run metrics export process.
+    Access: Restricted to tenant admin/editor workspace roles.
     """
     export_repo = ExportRepository(db)
 
-    # 1. Проверяем проектную роль (admin/editor) по deal_id из уже проверенного объекта run
     await require_project_role(
         db=db,
         user=user,
@@ -597,19 +586,17 @@ async def start_run_export(
         allowed_roles=("admin", "editor"),
     )
 
-    # 2. Проверяем статус run — допускаем только завершенные
     if run.status not in (RunStatus.COMPLETED.value, "completed_with_errors"):
         raise HTTPException(
             status_code=400,
+            headers={"X-Error-Code": "RUN_NOT_COMPLETED"},
             detail=f"Run status must be completed to export, got '{run.status}'",
         )
 
-    # 3. Определяем данные для аудита и текущую локаль пользователя
     requested_by = getattr(user, "id", None)
     requester_role = getattr(user, "global_role", "user")
     user_locale = getattr(user, "ui_locale", "en") or "en"
 
-    # 4. Создаём запись экспорта
     export = await export_repo.create(
         deal_id=run.deal_id,
         run_id=run.id,
@@ -619,11 +606,9 @@ async def start_run_export(
         status="pending",
     )
 
-    # Фиксируем в БД перед постановкой задачи
     await db.commit()
     await db.refresh(export)
 
-    # 5. Ставим задачу в Celery с указанием ясного языка пользователя
     try:
         send_task_with_context(
             "workers.export_by_id",
@@ -644,14 +629,17 @@ async def start_run_export(
         )
 
     except Exception as e:
-        # Если очередь упала - помечаем экспорт как failed
         await export_repo.update_status(
             export.id,
             status="failed",
             error_details={"stage": "export", "type": "infrastructure_error", "message": str(e)},
         )
         await db.commit()
-        raise HTTPException(status_code=503, detail="Queue unavailable, try again later")
+        raise HTTPException(
+            status_code=503,
+            headers={"X-Error-Code": "EXPORT_QUEUE_UNAVAILABLE"},
+            detail="Queue unavailable, try again later",
+        )
 
     return RunExportResponse(
         id=export.id,
@@ -666,7 +654,7 @@ async def start_run_export(
 @router.get(
     "/{run_id}/results",
     response_model=PaginatedResponseSchema[CheckResultResponse],
-    summary="Пагинированный список результатов проверок для run (DD Grid)",
+    summary="Paginated list of check results for run (DD Grid)",
 )
 async def list_run_results(
     run_id: uuid.UUID,
@@ -674,38 +662,40 @@ async def list_run_results(
     per_page: int = Query(200, ge=1, le=1000),
     doc_type: str | None = Query(
         default=None,
-        description="Фильтр по типу документа (doc_type)",
+        description="Filter checks by document type (doc_type)",
     ),
     severity: str | None = Query(
         default=None,
-        description="Фильтр по уровню риска (severity: critical/high/medium/pass/unclear)",
+        description="Filter results by risk severity level: critical/high/medium/pass/unclear",
     ),
     conditional_only: bool | None = Query(
         default=None,
-        description="Если true — только условные проверки",
+        description="Retrieve only conditional results",
     ),
     has_structured_data: bool | None = Query(
         default=None,
-        description="Если true — только результаты с structured_data",
+        description="Retrieve only results containing structured_data values",
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Результаты проверок для одного run в формате PaginatedResponse[CheckResultResponse],
-    пригодном для DD Grid.
+    Check validation results for a run, returned in paginated layout
+    suitable for DD Grid components.
 
-    ВАЖНО:
-    - Смотреть результаты могут только участники проекта (viewer/editor/admin)
-      для той сделки, к которой относится этот run.
-    - Пользователь, не входящий в проект, получит 403 Forbidden.
+    Access requirements:
+    - User must be a registered project member (admin/editor/viewer) of the associated deal.
+    - Non-associated identities receive 403 Forbidden.
     """
     run_repo = RunRepository(db)
     run = await run_repo.get_by_id(run_id)
     if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
+        raise HTTPException(
+            status_code=404,
+            headers={"X-Error-Code": "RUN_NOT_FOUND"},
+            detail="Run not found",
+        )
 
-    # Проверяем, что пользователь — участник проекта (любой роли достаточно).
     await require_project_role(
         db=db,
         user=user,
@@ -752,13 +742,11 @@ async def get_deal_run_summary(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Краткое резюме последнего Run по сделке.
+    Retrieve concise progress summary metrics of the latest Run associated with a deal.
 
-    Источник истины:
-    - Deal.last_run_id указывает на последний запущенный run для сделки.
-    - Доступ проверяется через require_project_role, а не через repo-level user_id.
-
-    Это endpoint для status/progress блока фронта.
+    Source of truth rules:
+    - Deal.last_run_id determines the latest active/historical pipeline state.
+    - Security scope permissions verified through require_project_role.
     """
     deal_repo = DealRepository(db)
     deal = await deal_repo.get_by_id(
@@ -767,9 +755,12 @@ async def get_deal_run_summary(
     )
 
     if not deal or not deal.last_run_id:
-        raise HTTPException(status_code=404, detail="Run not found for this deal")
+        raise HTTPException(
+            status_code=404,
+            headers={"X-Error-Code": "RUN_NOT_FOUND_FOR_DEAL"},
+            detail="Run not found for this deal",
+        )
 
-    # Проверяем, что пользователь — участник проекта.
     await require_project_role(
         db=db,
         user=user,
@@ -780,14 +771,16 @@ async def get_deal_run_summary(
     run_repo = RunRepository(db)
     run = await run_repo.get_by_id(deal.last_run_id)
     if not run:
-        raise HTTPException(status_code=404, detail="Run not found for this deal")
+        raise HTTPException(
+            status_code=404,
+            headers={"X-Error-Code": "RUN_NOT_FOUND_FOR_DEAL"},
+            detail="Run not found for this deal",
+        )
 
-    # При необходимости подтягиваем статистику классификации
     classification_stats = None
     if include_classification_stats:
         classification_stats = await run_repo.get_classification_stats_for_run(run.id)
 
-    # Человекочитаемое сообщение об ошибке уровня Run (если есть).
     error_user_message = None
     if getattr(run, "error_details", None):
         error_user_message = render_error_message(run.error_details)
@@ -808,11 +801,11 @@ async def get_deal_run_summary(
         classification_stats=classification_stats,
     )
 
-    
+
 @router.get(
     "/{run_id}/instruction-snapshot",
     response_model=RunInstructionSnapshotResponse,
-    summary="Frozen instruction snapshot для исторического Run",
+    summary="Frozen instruction snapshot for historical Run",
 )
 async def get_run_instruction_snapshot(
     run: Run = Depends(get_scoped_run),
@@ -820,16 +813,13 @@ async def get_run_instruction_snapshot(
     user: CurrentUser = Depends(get_current_user),
 ) -> RunInstructionSnapshotResponse:
     """
-    Вернуть frozen instruction snapshot для Run.
+    Return frozen instruction snapshot configuration metrics for Run.
 
-    Показывает:
-    - exact instruction versions, зафиксированные на момент запуска;
-    - snapshot manifest с hashes;
-    - execution manifest;
-    - is_reproducible — можно ли воспроизвести Run.
-
-    Доступ: viewer/editor/admin проекта.
-    is_reproducible=False для legacy runs (до введения strict snapshot).
+    Includes:
+    - Exact instruction versions recorded at Run initialization;
+    - Snapshot checksum manifest data;
+    - Pipeline execution details;
+    - is_reproducible flag indicating snapshot payload integrity.
     """
     await require_project_role(
         db=db,
@@ -863,33 +853,29 @@ async def get_run_instruction_snapshot(
         warning=warning,
     )
 
+
 @router.get(
     "/{run_id}/check-plan",
     response_model=RunCheckPlanResponse,
-    summary="Execution ledger проверок для Run (check-plan)",
+    summary="Checks execution ledger for Run (check-plan)",
 )
 async def get_run_check_plan(
     run: Run = Depends(get_scoped_run),
     status: RunCheckPlanItemStatus | None = Query(
         default=None,
         description=(
-            "Фильтр по статусу execution ledger. Применяется только к items; "
-            "summary всегда отражает overall состояние Run независимо от фильтра."
+            "Filter ledger items by status. Summary totals "
+            "always represent absolute progress metrics regardless of filtering."
         ),
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ) -> RunCheckPlanResponse:
     """
-    Вернуть execution ledger (source-of-truth прогресса) для Run.
+    Return the execution plan details (source of truth progress metrics) for a Run.
 
-    items фильтруются по status (если передан).
-    summary — overall статистика по всему Run, независимо от фильтра.
-
-    Невалидное значение status приводит к 422 Unprocessable Entity
-    (валидация на уровне FastAPI/Pydantic до входа в repository).
-
-    Доступ: viewer/editor/admin проекта, read-only.
+    Items filtered by state properties (if supplied). Summary statistics are absolute.
+    Access: Read-only for authorized project members.
     """
     await require_project_role(
         db=db,
@@ -912,7 +898,7 @@ async def get_run_check_plan(
 @router.get(
     "/{run_id}/check-plan/{plan_item_id}",
     response_model=RunCheckPlanItemResponse,
-    summary="Один элемент execution ledger по ID",
+    summary="Single execution ledger item by ID",
 )
 async def get_run_check_plan_item(
     plan_item_id: uuid.UUID,
@@ -921,9 +907,7 @@ async def get_run_check_plan_item(
     user: CurrentUser = Depends(get_current_user),
 ) -> RunCheckPlanItemResponse:
     """
-    Вернуть один check-plan item, scoped по run_id (защита от cross-run leakage).
-
-    Доступ: viewer/editor/admin проекта, read-only.
+    Return a single check plan item, scoped by run_id (safeguarding against cross-run leaks).
     """
     await require_project_role(
         db=db,
@@ -935,7 +919,11 @@ async def get_run_check_plan_item(
     repo = RunCheckPlanItemRepository(db)
     item = await repo.get_by_id_scoped(plan_item_id, run.id)
     if not item:
-        raise HTTPException(status_code=404, detail="Check plan item not found")
+        raise HTTPException(
+            status_code=404,
+            headers={"X-Error-Code": "CHECK_PLAN_ITEM_NOT_FOUND"},
+            detail="Check plan item not found",
+        )
 
     return RunCheckPlanItemResponse.model_validate(item)
 

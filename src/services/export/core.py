@@ -1,21 +1,21 @@
 # src/services/export/core.py
 
 """
-Ядро экспорта результатов анализа по сделке/Run.
+Core orchestrator for analysis results export per deal/Run.
 
-Отвечает за:
-- загрузку данных из БД (результаты проверок, документы, метаданные сделки, Run/Playbook);
-- агрегацию результатов (services.export.aggregator);
-- генерацию файлов экспорта (DD Grid, Summary, Word‑отчёт, JSON‑дамп);
-- сохранение файлов в ArtifactStore и возврат ссылок (refs).
+Responsible for:
+- Loading dataset from DB (check results, documents, deal metadata, Run/Playbook);
+- Aggregating result structures (services.export.aggregator);
+- Generating target export files (DD Grid, Summary, Word report, JSON dump);
+- Persisting output files via ArtifactStore and returning tracking references (refs).
 
-Важно:
-- не знает ничего про Celery/FastAPI, работает поверх AsyncSession;
-- сам не создаёт/не обновляет записи Export и не меняет статус Run;
-- старается быть максимально детерминированным и воспроизводимым:
-  в отчёты явно передаются playbook_version, playbook_profile, checks_mode,
-  pipeline_strategy и environment_hash для трассировки контекста Run;
-- поддерживает presentation_locale для генерации отчётов на языке пользователя.
+Important features:
+- Agnostic of Celery/FastAPI execution contexts, operates directly over AsyncSession;
+- Does not create or update Export records or change Run states;
+- Strives for maximum determinism and reproducibility:
+  explicitly passes playbook_version, playbook_profile, checks_mode,
+  pipeline_strategy, and environment_hash into report templates;
+- Evaluates presentation_locale parameters to produce localized report assets.
 """
 
 from __future__ import annotations
@@ -50,14 +50,14 @@ logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Загрузка данных из БД
+# Database Data Retrieval
 # ---------------------------------------------------------------------------
 
 
 async def _load_check_results(run_id: str, db: AsyncSession) -> list[dict[str, Any]]:
     """
-    Загрузить результаты проверок из БД для данного run_id и
-    вернуть список словарей (core не знает про ORM-модели).
+    Fetch check results from DB for a given run_id
+    and return as a list of dictionaries (core is agnostic of ORM models).
     """
     repo = ResultRepository(db)
     results: list[CheckResult] = await repo.get_by_run(uuid.UUID(run_id))
@@ -66,7 +66,7 @@ async def _load_check_results(run_id: str, db: AsyncSession) -> list[dict[str, A
     for r in results:
         rows.append(
             {
-                # Базовые поля
+                # Base attributes
                 "check_id": r.check_id,
                 "check_name": r.check_name,
                 "result": r.result,
@@ -79,7 +79,7 @@ async def _load_check_results(run_id: str, db: AsyncSession) -> list[dict[str, A
                 "document_id": str(r.document_id) if r.document_id else "",
                 "page": getattr(r, "page", None),
                 "clause_uid": getattr(r, "clause_uid", "") or "",
-                # Stage 8
+                # Stage 8 attributes
                 "structured_data": getattr(r, "structured_data", {}) or {},
                 "conditional_check_triggered": getattr(r, "conditional_check_triggered", False)
                 or False,
@@ -92,10 +92,10 @@ async def _load_check_results(run_id: str, db: AsyncSession) -> list[dict[str, A
 
 async def _load_documents_metadata(run_id: str, db: AsyncSession) -> dict[str, dict[str, Any]]:
     """
-    Загрузить метаданные документов, реально участвовавших в указанном run_id.
+    Fetch metadata of documents physically processed during the specified run_id.
 
-    Это корректнее, чем смотреть на "текущие non-duplicate документы сделки":
-    export должен быть привязан к фактическому составу документов данного run.
+    This ensures accuracy as export is pinned to the exact document set
+    state of the corresponding run rather than the current deal document registry.
     """
     repo = RunnerRepository(db)
     documents = await repo.load_documents_for_run(uuid.UUID(run_id))
@@ -128,8 +128,8 @@ async def _load_documents_metadata(run_id: str, db: AsyncSession) -> dict[str, d
 
 async def _load_deal_name(deal_id: str, db: AsyncSession) -> str:
     """
-    Получить название сделки по deal_id.
-    Возвращает deal_id в строковом виде, если имя не найдено.
+    Retrieve deal name by deal_id.
+    Returns deal_id string representation if deal name is not found.
     """
     try:
         repo = DealRepository(db)
@@ -137,14 +137,14 @@ async def _load_deal_name(deal_id: str, db: AsyncSession) -> str:
         if deal and deal.name:
             return deal.name
     except Exception:
-        # Не хотим ломать экспорт, если репозиторий/модель ещё не готовы.
-        logger.warning("Не удалось получить имя сделки", deal_id=deal_id)
+        # Fallback safeguard to prevent export crash if repositories are unready.
+        logger.warning("Failed to retrieve deal name", deal_id=deal_id)
 
     return deal_id
 
 
 # ---------------------------------------------------------------------------
-# Публичный core-API: export_core
+# Public Core API: export_core
 # ---------------------------------------------------------------------------
 
 
@@ -157,19 +157,19 @@ async def export_core(
     presentation_locale: str = "en",
 ) -> dict[str, Any]:
     """
-    Общий core экспорта.
+    Main export process core.
 
-    Делает следующее:
-      - загружает данные из БД,
-      - агрегирует их,
-      - генерирует файлы (grid, summary, report, aggregated JSON),
-      - сохраняет файлы через ArtifactStore,
-      - возвращает структурированную информацию о результатах.
+    Executes:
+      - pulls dataset from DB,
+      - aggregates check results,
+      - compiles output formats (grid, summary, report, aggregated JSON),
+      - uploads artifacts to ArtifactStore,
+      - returns structured summary of references and metrics.
 
-    ВАЖНО:
-      - НЕ создаёт и НЕ обновляет записи Export в БД;
-      - НЕ меняет статус Run;
-      - НЕ зависит от Celery / FastAPI.
+    Important constraints:
+      - Does NOT write or update Export database records;
+      - Does NOT mutate Run execution statuses;
+      - Does NOT depend on Celery or FastAPI dependencies.
     """
     locale = normalize_export_locale(presentation_locale)
 
@@ -180,14 +180,14 @@ async def export_core(
 
     store = ArtifactStore()
 
-    # 1. Загрузка данных
-    logger.info("Загрузка данных для экспорта", run_id=run_id, deal_id=deal_id)
+    # 1. Dataset Retrieval
+    logger.info("Loading export dataset", run_id=run_id, deal_id=deal_id)
 
     check_results = await _load_check_results(run_id, db)
     documents = await _load_documents_metadata(run_id, db)
     deal_name = await _load_deal_name(deal_id, db)
 
-    # 1.1. Загружаем Run и Playbook для целей воспроизводимости отчёта.
+    # 1.1. Retrieve Run and Playbook details for reproducibility headers
     run_repo = RunRepository(db)
     run_obj = await run_repo.get_by_id(uuid.UUID(run_id))
 
@@ -195,7 +195,6 @@ async def export_core(
     playbook_profile_str = "M&A Russia DD"
     env_hash_str = ""
 
-    # Режим проверок и стратегия пайплайна текущего Run.
     checks_mode_str = ""
     pipeline_strategy_str = ""
 
@@ -217,7 +216,7 @@ async def export_core(
             if pb_obj.name:
                 playbook_profile_str = pb_obj.name
 
-    # 1.2. Загружаем CheckDefinition для нового Excel builder
+    # 1.2. Load CheckDefinition metadata for new Excel builder layout mapping
     from db.repositories.playbook_repo import PlaybookRepository
     from engine.playbook.loader import load_playbook_from_version
 
@@ -243,7 +242,7 @@ async def export_core(
             )
 
     logger.info(
-        "Данные для экспорта загружены",
+        "Export dataset loaded successfully",
         run_id=run_id,
         check_results=len(check_results),
         documents=len(documents),
@@ -258,7 +257,7 @@ async def export_core(
         "json": None,
     }
 
-    # 3. DD Grid Excel — новый путь через DDGridV1Data
+    # 3. DD Grid Excel compilation via DDGridV1Data mapper
     try:
         from db.repositories.runner_repo import RunnerRepository
         from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
@@ -304,12 +303,12 @@ async def export_core(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         METRICS.export_duration.labels(export_type="grid_xlsx").observe(0.0)
-        logger.info("DD Grid V1 Excel сохранён", ref=refs["dd_grid"], locale=locale)
+        logger.info("DD Grid V1 Excel saved successfully", ref=refs["dd_grid"], locale=locale)
     except Exception as e:  # noqa: BLE001
-        logger.error("Ошибка генерации DD Grid V1 Excel", error=str(e), exc_info=True)
+        logger.error("Error generating DD Grid V1 Excel", error=str(e), exc_info=True)
         refs["dd_grid"] = None
 
-    # 4. Summary Excel — новый путь через прямое чтение
+    # 4. Summary Excel compilation via direct checking
     try:
         summary_bytes = build_summary_excel(
             check_results=check_results,
@@ -318,7 +317,7 @@ async def export_core(
             deal_name=deal_name,
             checks_mode=checks_mode_str,
             pipeline_strategy=pipeline_strategy_str,
-            locale=locale,  # <-- ПЕРЕДАЕМ LOCALE СЮДА
+            locale=locale,
         )
         refs["summary"] = store.save_export_artifact(
             tenant_id=tenant_id,
@@ -329,12 +328,12 @@ async def export_core(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         METRICS.export_duration.labels(export_type="summary_xlsx").observe(0.0)
-        logger.info("Summary Excel V1 сохранён", ref=refs["summary"])
+        logger.info("Summary Excel V1 saved successfully", ref=refs["summary"])
     except Exception as e:  # noqa: BLE001
-        logger.error("Ошибка генерации Summary Excel V1", error=str(e), exc_info=True)
+        logger.error("Error generating Summary Excel V1", error=str(e), exc_info=True)
         refs["summary"] = None
 
-    # 5. Word report — новый путь через прямое чтение check_results
+    # 5. Word report compilation via direct check_results evaluation
     try:
         report_bytes = build_report_docx(
             check_results=check_results,
@@ -347,7 +346,7 @@ async def export_core(
             environment_hash=env_hash_str,
             checks_mode=checks_mode_str,
             pipeline_strategy=pipeline_strategy_str,
-            locale=locale,  # <-- ПЕРЕДАЕМ LOCALE СЮДА
+            locale=locale,
         )
         refs["report"] = store.save_export_artifact(
             tenant_id=tenant_id,
@@ -358,12 +357,12 @@ async def export_core(
             content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
         METRICS.export_duration.labels(export_type="report_docx").observe(0.0)
-        logger.info("Word Report V1 сохранён", ref=refs["report"])
+        logger.info("Word Report V1 saved successfully", ref=refs["report"])
     except Exception as e:  # noqa: BLE001
-        logger.error("Ошибка генерации Word Report V1", error=str(e), exc_info=True)
+        logger.error("Error generating Word Report V1", error=str(e), exc_info=True)
         refs["report"] = None
 
-    # 6. JSON dump
+    # 6. JSON dump compilation
     try:
         json_payload = {
             "deal_id": deal_id,
@@ -392,9 +391,9 @@ async def export_core(
             content_type="application/json",
         )
         METRICS.export_duration.labels(export_type="aggregated_json").observe(0.0)
-        logger.info("JSON dump V1 сохранён", ref=refs["json"])
+        logger.info("JSON dump V1 saved successfully", ref=refs["json"])
     except Exception as e:  # noqa: BLE001
-        logger.error("Ошибка генерации JSON dump V1", error=str(e), exc_info=True)
+        logger.error("Error generating JSON dump V1", error=str(e), exc_info=True)
         refs["json"] = None
 
     export_ref = refs.get("dd_grid")

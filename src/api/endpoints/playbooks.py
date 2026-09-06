@@ -1,22 +1,21 @@
 # src/api/endpoints/playbooks.py
 
-
 """
-Эндпоинты для работы с плейбуками (Playbook / PlaybookVersion).
+Endpoints for working with playbooks (Playbook / PlaybookVersion).
 
-Что делает этот файл:
-- отдаёт каталог глобальных checks и bundles для конструктора плейбуков;
-- управляет logical playbooks (PlaybookLine) и их line items;
-- создаёт, читает, обновляет и публикует PlaybookVersion;
-- даёт thin HTTP layer поверх playbook repository/service domain.
+What this file does:
+- Exposes global checks and bundles catalog for the playbook builder;
+- Manages logical playbooks (PlaybookLine) and their line items;
+- Creates, reads, updates, and publishes PlaybookVersions;
+- Provides a thin HTTP layer on top of playbook repository/service domain.
 
-Архитектурная роль:
-- API-слой не хранит доменную логику компиляции в себе;
-- для persistence использует PlaybookRepository;
-- для publish/archive использует PlaybookPublishingService;
-- для diff использует PlaybookVersionDiffService;
-- для canonical wiring line items валидирует instruction_code
-  через services.playbooks.line_items и global checks catalog.
+Architectural role:
+- The API layer does not store compiler domain logic within itself;
+- Uses PlaybookRepository for persistence;
+- Uses PlaybookPublishingService for publish/archive actions;
+- Uses PlaybookVersionDiffService for diff actions;
+- Validates instruction_code for canonical wiring of line items
+  via services.playbooks.line_items and the global checks catalog.
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
-from pydantic import BaseModel  # ← добавили
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
@@ -115,12 +114,12 @@ async def require_playbook_admin(
     user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
     """
-    Проверка прав на управление шаблонами playbook.
+    Validate permissions to manage playbook templates.
 
-    Разрешено: superadmin и tenant_admin.
-    Изоляция по scope выполняется на уровне каждого endpoint:
-    - superadmin работает только с platform playbooks
-    - tenant_admin работает только с playbooks своего tenant
+    Allowed: superadmin and tenant_admin.
+    Scope isolation is performed at the endpoint level:
+    - superadmin works exclusively with platform playbooks
+    - tenant_admin works with playbooks of their tenant only
     """
     if user.global_role not in ("superadmin", "tenant_admin"):
         raise api_error(
@@ -133,11 +132,11 @@ async def require_playbook_admin(
 
 def _resolve_write_tenant_id(user: CurrentUser) -> uuid.UUID | None:
     """
-    Определяет tenant_id для write-операций (create/update/publish/archive/delete).
+    Resolve tenant_id for write operations (create/update/publish/archive/delete).
 
-    Правила:
-    - superadmin → работает с platform playbooks (tenant_id = None)
-    - tenant_admin → работает только со своим tenant (tenant_id = user.tenant_id)
+    Rules:
+    - superadmin → works with platform playbooks (tenant_id = None)
+    - tenant_admin → works only with their own tenant (tenant_id = user.tenant_id)
     """
     if user.global_role == "superadmin":
         return None
@@ -153,11 +152,11 @@ def _resolve_write_tenant_id(user: CurrentUser) -> uuid.UUID | None:
 
 def _check_can_modify_playbook(user: CurrentUser, playbook_tenant_id: uuid.UUID | None) -> None:
     """
-    Проверка прав на модификацию (edit/delete/publish/archive) конкретного playbook.
+    Validate permissions to modify (edit/delete/publish/archive) a specific playbook.
 
-    Правила:
-    - superadmin → может модифицировать любые
-    - tenant_admin → только свой tenant scope
+    Rules:
+    - superadmin → can modify any playbook
+    - tenant_admin → can modify their tenant scope only
     """
     if user.global_role == "superadmin":
         return
@@ -180,17 +179,17 @@ def _check_can_modify_playbook(user: CurrentUser, playbook_tenant_id: uuid.UUID 
 
 def _check_can_read_playbook(user: CurrentUser, playbook_tenant_id: uuid.UUID | None) -> None:
     """
-    Проверка прав на чтение конкретного playbook.
+    Validate permissions to read a specific playbook.
 
-    Правила:
-    - superadmin → видит всё
-    - tenant_admin / member → видят platform + свой tenant
+    Rules:
+    - superadmin → can read everything
+    - tenant_admin / member → can read platform + their own tenant scope
     """
     if user.global_role == "superadmin":
         return
 
     if playbook_tenant_id is None:
-        # platform playbook — виден всем
+        # Platform playbook — visible to everyone
         return
 
     if user.tenant_id is None or str(playbook_tenant_id) != str(user.tenant_id):
@@ -204,7 +203,7 @@ def _check_can_read_playbook(user: CurrentUser, playbook_tenant_id: uuid.UUID | 
 @router.get(
     "/catalog",
     response_model=list[PlaybookTopicInfo],
-    summary="Каталог глобальных чеков (темы и инструкции)",
+    summary="Global checks catalog (topics and instructions)",
 )
 async def get_playbooks_catalog(
     db: AsyncSession = Depends(get_db),
@@ -215,7 +214,7 @@ async def get_playbooks_catalog(
 @router.get(
     "/checks",
     response_model=list[GlobalCheckInfo],
-    summary="Список всех глобальных проверок (global_checks)",
+    summary="List of all global checks (global_checks)",
 )
 async def list_global_checks(
     db: AsyncSession = Depends(get_db),
@@ -240,7 +239,7 @@ async def list_global_checks(
 @router.get(
     "/bundles",
     response_model=list[BundleInfo],
-    summary="Список всех преднастроенных bundles (presets)",
+    summary="List of all preconfigured bundles (presets)",
 )
 async def list_bundles(
     db: AsyncSession = Depends(get_db),
@@ -275,41 +274,41 @@ async def list_bundles(
 @router.get(
     "/lines",
     response_model=list[PlaybookLineShort],
-    summary="Список логических плейбуков (Playbook-шаблонов)",
+    summary="List of logical playbooks (Playbook templates)",
 )
 async def list_playbook_lines(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_playbook_admin),
     deal_type: str | None = Query(
         default=None,
-        description="Фильтр по типу сделки: real_estate, mna, nda, corporate и т.п.",
+        description="Filter by deal type: real_estate, mna, nda, corporate, etc.",
     ),
     jurisdiction: str | None = Query(
         default=None,
-        description="Фильтр по юрисдикции: RU, EN, DE и т.п.",
+        description="Filter by jurisdiction: RU, EN, DE, etc.",
     ),
     language: str | None = Query(
         default=None,
-        description="Фильтр по языку документов: 'ru', 'en' и т.п.",
+        description="Filter by document language: 'ru', 'en', etc.",
     ),
     scope: str | None = Query(
         default=None,
-        description="Опциональный фильтр по scope: 'platform' | 'tenant' | 'all'",
+        description="Optional scope filter: 'platform' | 'tenant' | 'all'",
     ),
 ):
     """
-    Возвращает playbooks с учётом tenant scope:
-    - superadmin: видит все platform playbooks (tenant playbooks других tenant'ов не показываем)
-    - tenant_admin / member: видит platform + свой tenant
-    - при scope='tenant' → только tenant-owned (свои)
-    - при scope='platform' → только platform
+    Returns playbooks respecting tenant scope:
+    - superadmin: sees all platform playbooks (other tenants' playbooks are hidden)
+    - tenant_admin / member: sees platform + their own tenant
+    - with scope='tenant' → only tenant-owned (own)
+    - with scope='platform' → only platform
     """
     repo = PlaybookRepository(db)
 
     if user.global_role == "superadmin":
-        # Superadmin работает на уровне платформы
+        # Superadmin works at the platform level
         if scope == "tenant":
-            # Явно запрошены tenant-owned — но без tenant_id это неоднозначно; отдаём пусто
+            # Explicitly requested tenant-owned but without tenant_id context, return empty
             return []
         playbooks = await repo.list_playbooks(
             deal_type=deal_type,
@@ -370,7 +369,7 @@ async def list_playbook_lines(
     "",
     response_model=PlaybookCreateResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать новую версию плейбука (PlaybookVersion)",
+    summary="Create new playbook version (PlaybookVersion)",
 )
 async def create_playbook_version(
     payload: PlaybookCreateRequest,
@@ -378,21 +377,21 @@ async def create_playbook_version(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Создать новую версию плейбука.
+    Create a new playbook version.
 
-    Источники состава (checks):
+    Check composition sources:
 
-    1) bundles + include_ids / exclude_ids — прямой compile contract.
-    2) from_line_id — берём PlaybookLine и его items,
-       читаем instruction_code и строим include_ids напрямую.
+    1) bundles + include_ids / exclude_ids — direct compile contract.
+    2) from_line_id — read PlaybookLine and its items,
+       extract instruction_code values and build include_ids directly.
     """
 
     repo = PlaybookRepository(db)
 
-    # Стартовый include_ids из payload (старый контракт сохраняем)
+    # Base include_ids from payload (preserving legacy contract)
     include_ids: list[str] = list(payload.include_ids or [])
 
-    # Если указан from_line_id — достаём линию и её элементы
+    # If from_line_id is set, fetch the line and its items
     if payload.from_line_id:
         line, items = await repo.get_line_with_items(payload.from_line_id)
         if line is None:
@@ -419,7 +418,7 @@ async def create_playbook_version(
             if code not in include_ids:
                 include_ids.append(code)
 
-        # Если playbook_id не задан, логично привязать версию к этой линии
+        # If playbook_id is not specified, implicitly link version to this line
         if not payload.playbook_id:
             payload.playbook_id = line.id
 
@@ -433,7 +432,7 @@ async def create_playbook_version(
             unknown_instruction_codes=exc.unknown_codes,
         ) from exc
 
-    # Проверка: хотя бы bundles, или include_ids (включая собранные из from_line_id)
+    # Validate: must have at least bundles, or include_ids (including those compiled from from_line_id)
     if not payload.bundles and not include_ids:
         raise api_error(
             status.HTTP_400_BAD_REQUEST,
@@ -441,7 +440,7 @@ async def create_playbook_version(
             "At least one bundle, include_ids, or from_line_id must be provided.",
         )
 
-    # Загружаем все глобальные проверки вместе с refs
+    # Load all global checks with refs
     all_checks, global_refs = await load_global_checks_with_refs_from_db(db)
     if not all_checks:
         raise api_error(
@@ -450,7 +449,7 @@ async def create_playbook_version(
             "No global checks loaded; check server configuration.",
         )
 
-    # Компилируем итоговый набор checks через существующий механизм
+    # Compile the final set of checks using existing compilation logic
     try:
         compiled = build_compiled_checks(
             all_checks=all_checks,
@@ -480,8 +479,7 @@ async def create_playbook_version(
             "Failed to build compiled_checks.",
         )
 
-
-    # Определяем tenant scope для новой версии
+    # Resolve tenant scope for the new version
     if payload.playbook_id is not None:
         parent_playbook = await repo.get_playbook_by_id(payload.playbook_id)
         if parent_playbook is None:
@@ -496,7 +494,7 @@ async def create_playbook_version(
         # Version without parent playbook — inherit scope from user
         version_tenant_id = _resolve_write_tenant_id(user)
 
-    # Имя версии
+    # Version name resolution
     if payload.name:
         name = payload.name
     elif payload.bundles:
@@ -505,8 +503,6 @@ async def create_playbook_version(
         name = "Playbook from template"
     else:
         name = "Custom playbook"
-
-    from core.constants import PlaybookStatus
 
     semver = payload.semver or "0.1.0"
     status_value = payload.status or PlaybookStatus.DRAFT.value
@@ -551,19 +547,18 @@ async def create_playbook_version(
 @router.get(
     "",
     response_model=list[PlaybookVersionShort],
-    summary="Список версий плейбуков (PlaybookVersion)",
+    summary="List of playbook versions (PlaybookVersion)",
 )
 async def list_playbook_versions(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Список версий с учётом tenant scope:
-    - superadmin: только platform
-    - tenant_admin / member: platform + свой tenant
+    List versions respecting tenant scope:
+    - superadmin: platform only
+    - tenant_admin / member: platform + their own tenant
     """
     from sqlalchemy import or_, select
-
     from db.models.playbook import PlaybookVersion
 
     stmt = select(PlaybookVersion)
@@ -599,20 +594,20 @@ async def list_playbook_versions(
 @router.get(
     "/{version_id}",
     response_model=PlaybookVersionDetail,
-    summary="Детальная информация о версии плейбука",
+    summary="Detailed information about a playbook version",
 )
 async def get_playbook_version_detail(
     response: Response,
-    version_id: uuid.UUID = Path(..., description="ID версии плейбука"),
+    version_id: uuid.UUID = Path(..., description="Playbook version ID"),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Возвращает детальное представление версии плейбука.
+    Returns a detailed representation of a playbook version.
 
-    Используется фронтендом для:
-    - просмотра состава плейбука;
-    - отображения профилей, секций и DD-запросов на UI.
+    Used by frontend to:
+    - Inspect playbook composition;
+    - Render profiles, sections, and DD requests in the UI.
     """
     repo = PlaybookRepository(db)
     pv = await repo.get_by_id(version_id)
@@ -643,7 +638,7 @@ async def get_playbook_version_detail(
 @router.get(
     "/lines/{line_id}",
     response_model=PlaybookLineDetail,
-    summary="Детали шаблона плейбука (PlaybookLine)",
+    summary="Playbook template details (PlaybookLine)",
 )
 async def get_playbook_line(
     line_id: uuid.UUID,
@@ -684,7 +679,7 @@ async def get_playbook_line(
     "/lines",
     response_model=PlaybookLineDetail,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать шаблон плейбука (PlaybookLine)",
+    summary="Create playbook template (PlaybookLine)",
 )
 async def create_playbook_line(
     payload: PlaybookLineCreate,
@@ -705,7 +700,7 @@ async def create_playbook_line(
 
     write_tenant_id = _resolve_write_tenant_id(user)
 
-    # Преобразуем Pydantic-объекты в dict, чтобы репозиторий не зависел от Pydantic
+    # Convert Pydantic objects to dicts so repository does not depend on Pydantic directly
     items_payload = [item.model_dump() for item in payload.items]
 
     line, items = await repo.create_line_with_items(
@@ -743,7 +738,7 @@ async def create_playbook_line(
 @router.put(
     "/lines/{line_id}",
     response_model=PlaybookLineDetail,
-    summary="Обновить шаблон плейбука (PlaybookLine)",
+    summary="Update playbook template (PlaybookLine)",
 )
 async def update_playbook_line(
     line_id: uuid.UUID,
@@ -816,7 +811,7 @@ async def update_playbook_line(
 @router.delete(
     "/lines/{line_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Удалить шаблон плейбука (PlaybookLine), если он не используется",
+    summary="Delete playbook template (PlaybookLine) if not in use",
 )
 async def delete_playbook_line(
     line_id: uuid.UUID,
@@ -825,15 +820,15 @@ async def delete_playbook_line(
     user: CurrentUser = Depends(require_playbook_admin),
 ):
     """
-    Удаляет логический шаблон плейбука (PlaybookLine), только если он не используется.
+    Deletes logical playbook template (PlaybookLine) only if it is not in use.
 
-    Для непрофессионального программиста:
-    - Сначала проверяем, существует ли такой шаблон.
-    - Затем проверяем, есть ли у него версии, которые:
-      * назначены сделкам (Deal.playbook_version_id),
-      * или уже использовались в запуске анализа (Run.playbook_version_id).
-    - Если есть использования — возвращаем 409 Conflict с понятным текстом.
-    - Если нет — удаляем шаблон и его элементы (line_items), возвращаем 204.
+    Steps:
+    - Validate template existence.
+    - Validate if there are associated versions which are:
+      * assigned to deals (Deal.playbook_version_id),
+      * or used in a analysis run (Run.playbook_version_id).
+    - If in use, raise 409 Conflict with meaningful message.
+    - Otherwise, perform delete of line and its line_items, return 204.
     """
     repo = PlaybookRepository(db)
 
@@ -848,13 +843,12 @@ async def delete_playbook_line(
 
     usage = await repo.get_line_usage(line_id)
 
-    # 1. Шаблон не найден — 404
+    # 1. Template not found - 404
     if not usage.line_exists:
         raise _playbook_line_not_found(line_id)
 
-    # 2. Есть версии, которые используются сделками или запусками — 409
+    # 2. Used in deals or runs - 409
     if usage.used_in_deals > 0 or usage.used_in_runs > 0:
-        # Human-readable message (canonical English source copy)
         parts: list[str] = []
 
         if usage.used_in_deals > 0:
@@ -883,40 +877,25 @@ async def delete_playbook_line(
             detail,
         )
 
-    # 3. Опциональный консервативный режим:
-    #    если не хочешь удалять шаблон, у которого есть версии, но они нигде не используются,
-    #    раскомментируй блок ниже.
-    #
-    # if usage.versions_count > 0:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_409_CONFLICT,
-    #         detail=(
-    #             "Шаблон имеет связанные версии плейбука и не может быть удалён. "
-    #             "Сначала удалите или заархивируйте связанные PlaybookVersion."
-    #         ),
-    #     )
-
     deleted = await repo.delete_line_with_items(line_id)
     if not deleted:
-        # Редкий случай гонки:
-        # шаблон существовал на этапе проверки usage,
-        # но был удалён другим запросом до текущего delete.
+        # Race condition safeguard: template was deleted by another request
         raise _playbook_line_not_found(line_id)
 
     await db.commit()
 
 
 # -------------------------------------------------------------------
-# Новый эндпоинт: смена ModelConfig у PlaybookVersion
+# ModelConfig migration endpoint for PlaybookVersion
 # -------------------------------------------------------------------
 
 
 class PlaybookVersionModelConfigUpdate(BaseModel):
     """
-    Тело запроса для обновления профиля модели (ModelConfig) у версии плейбука.
+    Request body for updating ModelConfig link of a playbook version.
 
-    Если model_config_id = null, версия плейбука больше не будет
-    указывать конкретный профиль модели.
+    If model_config_id is null, the version will no longer point to a
+    specific model profile.
     """
 
     model_config_id: uuid.UUID | None
@@ -925,7 +904,7 @@ class PlaybookVersionModelConfigUpdate(BaseModel):
 @router.patch(
     "/{version_id}/model-config",
     response_model=PlaybookVersionDetail,
-    summary="Обновить профиль модели (ModelConfig) у версии плейбука",
+    summary="Update model configuration (ModelConfig) for a playbook version",
 )
 async def set_playbook_version_model_config(
     request: Request,
@@ -936,12 +915,11 @@ async def set_playbook_version_model_config(
     user: CurrentUser = Depends(require_playbook_admin),
 ):
     """
-    Обновляет поле model_config_id у PlaybookVersion.
+    Updates model_config_id on PlaybookVersion.
 
-    Используется в админке плейбуков, чтобы:
-    - привязать версию плейбука к новому профилю модели;
-    - очистить старую привязку (model_config_id = null),
-      чтобы затем можно было удалить старый профиль модели.
+    Used inside playbook admin workspace to:
+    - Re-link playbook version to a new model profile;
+    - Clear old linkage (model_config_id = null) to allow deleting obsolete model configs.
     """
     repo = PlaybookRepository(db)
 
@@ -957,7 +935,7 @@ async def set_playbook_version_model_config(
     if pv.status == PlaybookStatus.PUBLISHED.value:
         raise _published_version_immutable()
 
-    # Если профиль не меняется — просто возвращаем текущее состояние
+    # If configuration is identical, return early with current state
     if pv.model_config_id == payload.model_config_id:
 
         set_response_etag(response, getattr(pv, "updated_at", None))
@@ -976,7 +954,7 @@ async def set_playbook_version_model_config(
             classification_config=pv.classification_config,
         )
 
-    # Если указан новый профиль — проверяем, что он существует
+    # If new profile specified, validate its existence in the database
     if payload.model_config_id is not None:
         mc = await repo.get_model_config(payload.model_config_id)
         if mc is None:
@@ -1045,7 +1023,7 @@ async def publish_playbook_version(
 @router.patch(
     "/{version_id}",
     response_model=PlaybookVersionDetail,
-    summary="Обновить draft-версию плейбука",
+    summary="Update draft playbook version",
 )
 async def update_playbook_draft(
     request: Request,
@@ -1070,7 +1048,7 @@ async def update_playbook_draft(
     if pv.status != PlaybookStatus.DRAFT.value:
         raise _published_version_immutable()
 
-    # Обновляем source_payload
+    # Update source_payload metadata
     source = dict(pv.source_payload or {})
     if payload.bundles is not None:
         source["bundles"] = payload.bundles
@@ -1080,7 +1058,7 @@ async def update_playbook_draft(
 
     pv.source_payload = source
 
-    # Пересобираем compiled_checks
+    # Re-compile compiled_checks using compiler logic
     all_checks, global_refs = await load_global_checks_with_refs_from_db(db)
     
     compiled = build_compiled_checks(
@@ -1099,7 +1077,7 @@ async def update_playbook_draft(
 
     pv.compiled_checks = compiled
 
-    # Пересчитываем source hash
+    # Recompute payload SHA256 checksum
     from db.repositories.playbook_repo import compute_source_payload_hash
     pv.source_payload_sha256 = compute_source_payload_hash(source)
 
@@ -1117,11 +1095,11 @@ async def update_playbook_draft(
 @router.get(
     "/{version_id}/diff",
     response_model=PlaybookVersionDiffResponse,
-    summary="Diff между двумя версиями плейбука",
+    summary="Diff between two playbook versions",
 )
 async def diff_playbook_versions(
     version_id: uuid.UUID,
-    against: uuid.UUID = Query(..., description="ID версии для сравнения"),
+    against: uuid.UUID = Query(..., description="Version ID for comparison"),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_playbook_admin),
 ):
@@ -1226,7 +1204,7 @@ _tenant_router = APIRouter(
 @_tenant_router.get(
     "/{tenant_id}/playbooks",
     response_model=list[PlaybookLineShort],
-    summary="Каталог tenant-owned playbooks организации",
+    summary="Catalog of organization's tenant-owned playbooks",
 )
 async def list_tenant_owned_playbooks(
     tenant_id: uuid.UUID,
@@ -1237,11 +1215,11 @@ async def list_tenant_owned_playbooks(
     language: str | None = Query(default=None),
 ):
     """
-    Только tenant-owned playbooks (без platform).
+    Returns only tenant-owned playbooks (excluding platform).
 
-    Доступ:
-    - superadmin: любой tenant
-    - tenant_admin / member: только свой tenant
+    Access:
+    - superadmin: any tenant context
+    - tenant_admin / member: only matching own tenant
     """
     if user.global_role != "superadmin":
         if user.tenant_id is None or str(user.tenant_id) != str(tenant_id):
@@ -1275,7 +1253,7 @@ async def list_tenant_owned_playbooks(
     ]
 
 
-# Экспортируем второй router — регистрируем его отдельно в main.py
+# Export second router to be registered inside main.py
 router_tenant = _tenant_router
 
 

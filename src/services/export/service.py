@@ -3,36 +3,34 @@
 """
 Export service for processing Export records and generating output files.
 
-Сервис запускает экспорт для уже созданной записи `Export`, переводит её
-по жизненному циклу статусов и сохраняет ссылки на сгенерированные файлы.
+The service executes export tasks for created `Export` database records,
+handles lifecycle status transitions, and persists storage references to generated artifacts.
 
-Основные функции:
+Key functions:
 - run_export_for_record(export, db, tenant_id, presentation_locale):
-  - переводит запись Export в статус `processing`;
-  - вызывает `export_core(...)`, который строит экспортные файлы и возвращает refs;
-  - обновляет поля записи Export:
-    `status`, `file_ref`, `file_refs` (и при необходимости `file_size_bytes`);
-  - при успехе ставит `status="completed"`;
-  - при ошибке логирует исключение, ставит `status="failed"` и возвращает пустой результат;
-  - не делает commit — это ответственность вызывающего кода.
+  - transitions the Export record into `processing` status;
+  - invokes `export_core(...)`, which builds the target export artifacts and returns refs;
+  - updates target Export fields:
+    `status`, `file_ref`, `file_refs` (and optionally `file_size_bytes`);
+  - sets `status="completed"` on success;
+  - logs exceptions, updates `status="failed"`, and returns an empty dict on error;
+  - does not commit transaction — this is delegated to the caller.
 
 - process_one_pending_export(db, tenant_id):
-  - выбирает одну самую раннюю запись Export со статусом `pending`;
-  - обрабатывает её через `run_export_for_record(...)`;
-  - коммитит изменения в БД;
-  - возвращает `True`, если запись была найдена и обработана,
-    иначе `False`.
+  - claims the earliest pending Export record;
+  - executes generation via `run_export_for_record(...)`;
+  - commits database transaction;
+  - returns `True` if a record was discovered and processed, otherwise `False`.
 
-Назначение:
-- быть тонким orchestration-слоем вокруг `export_core`,
-  который управляет статусами Export и сохранением refs в БД;
-- использоваться воркером/джобой, которая последовательно обрабатывает
-  pending-экспорты из очереди.
+Purpose:
+- Thin orchestration layer wrapping `export_core` to track Export lifecycles
+  and persist MinIO references to the database;
+- Utilized by background task workers pulling pending items from the mas_queue.
 
 Audit trail:
-- EXPORT_COMPLETED — успешный экспорт конкретной записи Export.
-- EXPORT_FAILED — экспорт упал на уровне run_export_for_record.
-- Audit logging best-effort: ошибки аудита не ломают основной флоу.
+- EXPORT_COMPLETED — successful generation of an Export record.
+- EXPORT_FAILED — execution error during run_export_for_record.
+- Best-effort audit logging: telemetry failures do not disrupt file generation workflows.
 """
 
 from __future__ import annotations
@@ -57,26 +55,26 @@ async def run_export_for_record(
     presentation_locale: str | None = None,
 ) -> dict[str, Any]:
     """
-    Выполнить экспорт для уже существующей записи Export.
+    Execute export for an existing Export record.
 
-    Ожидается, что:
-      - export.status сейчас 'pending' (или 'queued');
-      - export.run_id и export.deal_id заполнены.
+    Expectations:
+      - export.status is currently 'pending' (or 'queued');
+      - export.run_id and export.deal_id are populated.
 
-    Делает:
-      - меняет статус Export на 'processing';
-      - вызывает export_core(...), который генерирует файлы и возвращает refs;
-      - обновляет поля Export:
-          - status: 'completed' или 'failed',
-          - file_ref: основной файл,
-          - file_refs: словарь всех файлов,
-          - file_size_bytes: при желании можно посчитать суммарный размер.
-      - НЕ коммитит транзакцию — это ответственность вызывающего кода.
+    Workflow:
+      - transitions Export status to 'processing';
+      - invokes export_core(...), generating files and returning refs;
+      - updates Export fields:
+          - status: 'completed' or 'failed',
+          - file_ref: primary output file reference,
+          - file_refs: dictionary of all generated artifact references,
+          - file_size_bytes: optional total size computation.
+      - does NOT commit the transaction (caller responsibility).
 
-    Дополнительно:
-      - пишет EXPORT_COMPLETED / EXPORT_FAILED в audit trail (best-effort).
+    Additional:
+      - records EXPORT_COMPLETED / EXPORT_FAILED in audit trail (best-effort).
     """
-    # Определяем локаль: явный параметр -> атрибут модели -> "en"
+    # Resolve presentation locale: explicit param -> model attribute -> "en"
     locale = (
         presentation_locale
         or getattr(export, "presentation_locale", None)
@@ -85,7 +83,7 @@ async def run_export_for_record(
     )
 
     logger.info(
-        "Запуск run_export_for_record",
+        "Starting run_export_for_record",
         export_id=str(export.id),
         run_id=str(export.run_id),
         deal_id=str(export.deal_id),
@@ -113,7 +111,7 @@ async def run_export_for_record(
         export.status = "completed"
 
         logger.info(
-            "Экспорт для записи Export завершён",
+            "Export record processing completed",
             export_id=str(export.id),
             tenant_id=str(export.tenant_id),
             status=export.status,
@@ -148,7 +146,7 @@ async def run_export_for_record(
 
     except Exception as e:  # noqa: BLE001
         logger.exception(
-            "Ошибка при выполнении run_export_for_record",
+            "Error executing run_export_for_record",
             export_id=str(export.id),
             tenant_id=str(export.tenant_id),
             error=str(e),
@@ -187,14 +185,14 @@ async def process_one_pending_export(
     tenant_id: str,
 ) -> bool:
     """
-    Найти одну pending-запись Export и обработать её атомарно.
+    Claim a single pending Export record and process it atomically.
 
-    Использует FOR UPDATE SKIP LOCKED для исключения race condition
-    при параллельных воркерах: каждый воркер возьмёт свою уникальную запись.
+    Uses FOR UPDATE SKIP LOCKED to prevent race conditions across
+    concurrent worker processes: each worker claims a unique record.
 
-    Возвращает:
-      - True, если запись была найдена и обработана (успешно или с ошибкой);
-      - False, если pending-записей не было.
+    Returns:
+      - True if a record was claimed and processed (success or failure);
+      - False if no pending records were available.
     """
     stmt = (
         select(Export)
@@ -223,7 +221,7 @@ async def process_one_pending_export(
             status=export.status,
         )
 
-        # Передаём локаль из записи экспорта, если она сохранена
+        # Pass presentation locale from export record if present
         record_locale = getattr(export, "presentation_locale", None) or getattr(export, "locale", None)
 
         await run_export_for_record(export, db=db, tenant_id=tenant_id, presentation_locale=record_locale)

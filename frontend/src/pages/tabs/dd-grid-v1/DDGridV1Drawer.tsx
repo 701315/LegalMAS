@@ -451,8 +451,8 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
   );
 
   const resolvedReason = React.useMemo(
-    () => resolveDDGridV1DrawerReason(drawerContent),
-    [drawerContent],
+    () => resolveDDGridV1DrawerReason(drawerContent, t),
+    [drawerContent, t],
   );
 
   if (!open || !drawerContent || !documentId) {

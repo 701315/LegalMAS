@@ -70,7 +70,12 @@
     },
     "pageFooter": "Страница {{current}} из {{total}}",
     "metadataSheet": "Metadata"
+  },
+  "display": {
+    "error": "⚠ Ошибка",
+    "present": "Присутствует",
+    "yes": "Да",
+    "no": "Нет"
   }
 }
-
 

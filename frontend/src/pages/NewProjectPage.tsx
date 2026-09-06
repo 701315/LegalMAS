@@ -377,7 +377,7 @@ const NewProjectPage: React.FC = () => {
         {/* 3 COLUMNS */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr_1fr]">
           {/* FLOW */}
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <FlowBlock
               step={1}
               title={t("newProject.steps.step1Title")}
@@ -511,7 +511,7 @@ const NewProjectPage: React.FC = () => {
           </div>
 
           {/* RIGHT RAIL — готовность + сводка */}
-          <div className="hidden xl:block">
+          <div className="hidden xl:block min-w-0">
             <ReadinessRail
               readiness={readinessData}
               summary={summaryData}
@@ -519,7 +519,7 @@ const NewProjectPage: React.FC = () => {
           </div>
 
           {/* FAR-RIGHT RAIL — визуал */}
-          <div className="hidden xl:block">
+          <div className="hidden xl:block min-w-0">
             <FlowVisualRail />
           </div>
         </div>

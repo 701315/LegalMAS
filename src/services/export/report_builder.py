@@ -1,36 +1,35 @@
 # src/services/export/report_builder.py
 
 """
-Построитель Word‑отчёта по результатам юридического DD‑анализа (DD Report).
+Word report builder based on legal due diligence analysis results (DD Report).
 
-Что делает:
-- формирует многостраничный .docx‑отчёт по одному Run;
-- добавляет титульную страницу с данными сделки и контекстом анализа;
-- собирает ключевые метрики и риски в удобные для юриста разделы.
+What it does:
+- Generates a multi-page .docx report for a single Run;
+- Adds a title page with deal details and analysis context;
+- Consolidates key metrics and risks into user-friendly sections for lawyers.
 
-Структура отчёта:
-- Титульная страница:
-  - название отчёта и сделки;
-  - профиль плейбука, версия, Run ID;
-  - режим проверок (checks_mode) и стратегия пайплайна (pipeline_strategy).
-- 1. Executive Summary — краткая сводка по severity и общему объёму анализа.
-- 2. Критические находки — детализированный список critical/high рисков.
-- 3. Качество анализа — карантин, degraded‑документы, валидность evidence.
-- 4. Условные проверки — сработавшие conditional checks (если есть).
-- 5. Извлечённые значения — таблица структурированных данных (если есть).
-- Приложение A: Список запросов — DD‑запросы с адресатом и привязкой к документам.
-- Футер воспроизводимости — краткий отпечаток контекста анализа (профиль, плейбук, Run, окружение).
+Report structure:
+- Title page:
+  - Report and deal names;
+  - Playbook profile, version, Run ID;
+  - Checks mode and pipeline strategy.
+- 1. Executive Summary — brief summary of severity counts and overall analysis scope.
+- 2. Critical Findings — detailed list of critical/high risks.
+- 3. Analysis Quality — quarantine, degraded documents, evidence validity.
+- 4. Conditional Checks — triggered conditional checks (if any).
+- 5. Extracted Values — table of structured data (if any).
+- Appendix A: Request List — DD requests with addressee and document bindings.
+- Reproducibility footer — concise footprint of analysis context (profile, playbook, Run, env).
 
-Особенности:
-- отчёт ориентирован на юриста: минимум технических деталей, максимум читабельности;
-- все ключевые параметры Run (плейбук, режим, стратегия, окружение) явно зашиты
-  в титульную страницу и футер для последующего аудита и воспроизводимости;
-- декларативная локализация через core.i18n.export_translator.
+Features:
+- Tailored for lawyers: minimal technical jargon, maximum readability;
+- All key Run parameters explicitly baked into the cover page and footer for auditing;
+- Declarative localization via core.i18n.export_translator.
 
-Архитектурный принцип:
-- Никакой зависимости от aggregator.py
-- Чтение напрямую из check_results + documents + checks_by_id
-- Детерминированный порядок секций и сортировка
+Architectural principle:
+- Zero dependency on aggregator.py
+- Direct reading from check_results + documents + checks_by_id
+- Deterministic section ordering and sorting
 """
 
 from __future__ import annotations
@@ -59,12 +58,12 @@ _SEVERITY_COLORS = {
 
 
 # ---------------------------------------------------------------------------
-# Helpers — прямой подсчёт метрик из check_results
+# Helpers — direct computation of metrics from check_results
 # ---------------------------------------------------------------------------
 
 
 def _count_severity(check_results: list[dict[str, Any]]) -> dict[str, int]:
-    """Подсчитать severity counts напрямую из check_results."""
+    """Compute severity counts directly from check_results."""
     counts = {"critical": 0, "high": 0, "medium": 0, "pass": 0, "unclear": 0}
     for cr in check_results:
         result = cr.get("result", "unclear")
@@ -81,7 +80,7 @@ def _count_severity(check_results: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _count_conditional(check_results: list[dict[str, Any]]) -> dict[str, int]:
-    """Подсчитать conditional checks статистику."""
+    """Compute conditional checks statistics."""
     total = sum(1 for cr in check_results if cr.get("conditional_check_triggered"))
     triggered_fail = sum(
         1 for cr in check_results
@@ -96,7 +95,7 @@ def _get_top_risks(
     limit: int = 15,
     locale: str = "en",
 ) -> list[dict]:
-    """Получить топ рисков (critical/high) из check_results."""
+    """Get top risks (critical/high) from check_results."""
     severity_order = {"critical": 0, "high": 1, "medium": 2}
 
     fail_rows = [
@@ -134,7 +133,7 @@ def _count_quality_metrics(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    """Подсчитать метрики качества анализа."""
+    """Compute analysis quality metrics."""
     quarantine_count = sum(
         1 for doc in documents.values()
         if doc.get("status") == "quarantine"
@@ -173,7 +172,7 @@ def _get_conditional_rows(
     limit: int = 20,
     locale: str = "en",
 ) -> list[dict]:
-    """Получить сработавшие conditional checks."""
+    """Get triggered conditional checks."""
     rows = []
     for cr in check_results:
         if not cr.get("conditional_check_triggered"):
@@ -204,7 +203,7 @@ def _get_extracted_values(
     limit: int = 30,
     locale: str = "en",
 ) -> list[dict]:
-    """Извлечь structured values из check_results."""
+    """Extract structured values from check_results."""
     rows = []
 
     for cr in check_results:
@@ -248,7 +247,7 @@ def _build_dd_requests_for_report(
     locale: str = "en",
 ) -> list[dict]:
     """
-    Построить DD requests для отчёта.
+    Build DD requests for the report.
     """
     from services.export.dd_request_loader import get_dd_request_loader
 
@@ -343,7 +342,7 @@ def _build_dd_requests_for_report(
 
 
 # ---------------------------------------------------------------------------
-# Точка входа
+# Entry point
 # ---------------------------------------------------------------------------
 
 
@@ -361,7 +360,7 @@ def build_report_docx(
     locale: str = "en",
 ) -> bytes:
     """
-    Сформировать Word‑отчёт DD Report по результатам одного Run.
+    Generate DD Report as Word document based on single Run results.
     """
     doc = Document()
 
@@ -406,7 +405,7 @@ def build_report_docx(
 
 
 # ---------------------------------------------------------------------------
-# Секции отчёта
+# Report sections
 # ---------------------------------------------------------------------------
 
 
@@ -587,7 +586,7 @@ def _add_conditional_checks_section(
     conditional_rows: list[dict],
     locale: str = "en",
 ) -> None:
-    """Раздел по сработавшим условным (triggered) проверкам."""
+    """Section for triggered conditional checks."""
     doc.add_heading(t_export("report.sec4_title", locale), level=1)
     doc.add_paragraph(t_export("report.conditional_desc", locale))
 
@@ -619,7 +618,7 @@ def _add_extracted_values_section(
     extracted_values: list[dict],
     locale: str = "en",
 ) -> None:
-    """Раздел по структурированным извлечённым значениям (суммы, даты и т.п.)."""
+    """Section for structured extracted values (amounts, dates, etc.)."""
     doc.add_heading(t_export("report.sec5_title", locale), level=1)
     doc.add_paragraph(t_export("report.extracted_desc", locale))
 
@@ -692,7 +691,6 @@ def _add_footer(
     p = doc.add_paragraph(footer_text)
     p.runs[0].font.size = Pt(8)
     p.runs[0].font.color.rgb = RGBColor(0x80, 0x80, 0x80)
-
 
 
     
