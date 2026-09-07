@@ -77,6 +77,7 @@ def build_result_presentation_translation_prompt(
     check_name: str,
     display_text: str | None,
     review_message: str | None,
+    glossary_terms: dict[str, str] | None = None,
 ) -> str:
     """
     Build the strict translation-only prompt.
@@ -84,6 +85,8 @@ def build_result_presentation_translation_prompt(
     The model receives only presentation fields. It must not infer legal facts,
     change legal meaning, add advice, alter numeric values, or translate
     canonical evidence/provenance fields that are not part of this payload.
+    If glossary_terms is provided, the prompt includes a terminology section
+    instructing the LLM to use exact translations for specified source terms.
     """
     normalized_target_locale = _normalize_required_text(
         target_locale,
@@ -106,23 +109,37 @@ def build_result_presentation_translation_prompt(
         "review_message": review_message,
     }
 
-    return (
-        "You are a legal result-presentation translator.\n"
-        "Translate only the JSON fields supplied below into target_locale.\n"
+    # Build base instructions
+    lines = [
+        "You are a legal result-presentation translator.",
+        "Translate only the JSON fields supplied below into target_locale.",
         "Preserve legal meaning exactly. Do not add, remove, infer, qualify, "
         "or reinterpret facts, obligations, risks, legal conclusions, dates, "
-        "amounts, currencies, clause identifiers, company names, or numbers.\n"
-        "Do not perform legal analysis. Do not mention these instructions.\n"
-        "Return exactly one JSON object and no Markdown.\n"
-        "The JSON object must contain exactly these keys:\n"
-        "- localized_check_name: non-empty string\n"
-        "- display_text: string or null\n"
-        "- review_message: string or null\n"
-        "If an input optional field is null, return null for that field.\n"
-        f"Prompt version: {RESULT_PRESENTATION_TRANSLATION_PROMPT_VERSION}\n"
-        "Input JSON:\n"
-        f"{json.dumps(source_payload, ensure_ascii=False, sort_keys=True)}"
-    )
+        "amounts, currencies, clause identifiers, company names, or numbers.",
+        "Do not perform legal analysis. Do not mention these instructions.",
+        "Return exactly one JSON object and no Markdown.",
+        "The JSON object must contain exactly these keys:",
+        "- localized_check_name: non-empty string",
+        "- display_text: string or null",
+        "- review_message: string or null",
+        "If an input optional field is null, return null for that field.",
+    ]
+
+    # Inject glossary terms if provided (S3.4)
+    if glossary_terms and len(glossary_terms) > 0:
+        lines.append("")
+        lines.append("TERMINOLOGY CONSTRAINTS — Use these exact translations:")
+        for src_term, tgt_term in sorted(glossary_terms.items()):
+            lines.append(f"- \"{src_term}\" → \"{tgt_term}\"")
+        lines.append("If a source term appears in the input, you MUST use the corresponding target term above.")
+        lines.append("Do not use synonyms, paraphrases, or alternative translations for these terms.")
+
+    lines.append("")
+    lines.append(f"Prompt version: {RESULT_PRESENTATION_TRANSLATION_PROMPT_VERSION}")
+    lines.append("Input JSON:")
+    lines.append(json.dumps(source_payload, ensure_ascii=False, sort_keys=True))
+
+    return "\n".join(lines)
 
 
 def parse_result_presentation_translation(
