@@ -27,10 +27,10 @@ User принадлежит ровно одному Tenant и имеет:
 - При логине: найти User по email, проверить password_hash через bcrypt,
   выдать JWT с payload {user_id, tenant_id, system_role, email}.
 - get_current_user декодирует JWT и возвращает CurrentUser
-  с данными из этого payload.
+  with данные из этого payload.
 
 Безопасность:
-- Никогда не хранить пароль в открытом виде.
+- Никогда не хранить пароль в открывом виде.
 - password_hash генерируется через bcrypt в auth_service.py.
 - При деактивации пользователя (is_active = False) логин блокируется
   на уровне get_by_email (фильтр is_active = True).
@@ -50,12 +50,14 @@ class User(Base):
     Пользователь системы.
 
     Поля:
-    - tenant_id    : к какому tenant принадлежит (FK → tenants.id);
-    - email        : уникальный email — основной идентификатор для логина;
-    - password_hash: bcrypt-хэш пароля;
-    - full_name    : отображаемое имя в UI (опционально);
-    - system_role  : глобальная роль: superadmin / tenant_admin / member;
-    - is_active    : False — пользователь деактивирован, логин заблокирован.
+    - tenant_id            : к какому tenant принадлежит (FK → tenants.id);
+    - email                : уникальный email — основной идентификатор для логина;
+    - password_hash        : bcrypt-хэш пароля;
+    - full_name            : отображаемое имя в UI (опционально);
+    - ui_locale            : выбранный язык интерфейса (UI);
+    - default_output_locale: дефолтный язык результатов анализа (отдельная ось!).
+    - system_role          : глобальная роль: superadmin / tenant_admin / member;
+    - is_active            : False — пользователь деактивирован, логин заблокирован.
     """
 
     __tablename__ = "users"
@@ -103,6 +105,20 @@ class User(Base):
         comment="Выбранный язык интерфейса (BCP 47 tag: 'en', 'ru' и др.)",
     )
 
+    default_output_locale: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+        default=None,
+        server_default=None,
+        comment=(
+            "Preferred output locale for result presentations (BCP 47: 'en', 'ru'). "
+            "Separate axis from ui_locale (Invariant #5). "
+            "Used as level-2 fallback in locale resolution chain when "
+            "no explicit presentation_locale is requested. "
+            "Validated against result_locales.json at write/update time."
+        ),
+    )
+
     system_role: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -126,5 +142,6 @@ class User(Base):
             "Данные пользователя при этом не удаляются."
         ),
     )
+
 
     
