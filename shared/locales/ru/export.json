@@ -64,7 +64,12 @@
     "evidence_validity": "Evidence validity",
     "conditional_total": "Условных проверок (всего)",
     "conditional_fail": "Условных проверок (FAIL)",
-    "extracted_values": "Извлечённых значений"
+    "extracted_values": "Извлечённых значений",
+    "metadata_header": "Метаданные генерации",
+    "meta_run_id": "ID Запуска",
+    "meta_locale": "Локаль экспорта",
+    "meta_generated_at": "Дата генерации",
+    "meta_status": "Статус комплаенса"
   },
   "report": {
     "title": "ОТЧЁТ О ЮРИДИЧЕСКОМ DUE DILIGENCE",
@@ -74,38 +79,31 @@
     "run_id": "Run ID: {run_id}",
     "checks_mode": "Режим проверок: {mode}",
     "pipeline_strategy": "Стратегия пайплайна: {strategy}",
-
     "sec1_title": "1. Executive Summary",
     "sec2_title": "2. Критические находки",
     "sec3_title": "3. Качество анализа",
     "sec4_title": "4. Условные проверки",
     "sec5_title": "5. Извлечённые значения",
     "appA_title": "Приложение A. Список запросов",
-
     "summary_scope": "В рамках анализа проверено {doc_count} документов, выполнено {check_count} проверок.",
     "summary_conditional": "Выявлены и проверены {total} условных проверок (triggered checks), из которых {fail_count} завершились с результатом FAIL.",
     "total": "Итого",
     "assessment_critical": "⚠️ ВЫЯВЛЕНЫ КРИТИЧЕСКИЕ РИСКИ ({count}). Рекомендуется немедленная проработка с юридической командой.",
     "assessment_high": "Выявлены существенные риски ({count} high). Рекомендуется детальный анализ до закрытия сделки.",
     "assessment_none": "Критических и существенных рисков не выявлено.",
-
     "document_label": "Документ: {doc_name} ({doc_type})",
     "clause_page": "Пункт: {clause}, стр. {page}",
     "clause_only": "Пункт: {clause}",
     "page_only": "стр. {page}",
     "extracted_data": "Извлечённые данные: {data}",
     "triggered_by": "ℹ️ Проверка активирована триггером: «{trigger_name}»",
-
     "quarantine_docs": "Документов в карантине: {count}",
     "degraded_docs": "Документов с degraded структурой: {count}",
     "evidence_validity_rate": "Evidence validity rate: {rate}",
     "quarantine_warning": "⚠️ Документы в карантине не были проанализированы. Рекомендуется загрузить текстовые версии для повторного анализа.",
-
     "conditional_desc": "Следующие проверки были активированы автоматически на основании триггеров, определённых в YAML‑инструкциях типов документов (conditional_checks).",
     "no_conditional_violations": "Нарушений по условным проверкам не выявлено.",
-
     "extracted_desc": "В ходе анализа из документов были извлечены следующие структурированные значения (суммы, даты, стороны и пр.).",
-
     "no_requests": "Запросы не сформированы.",
     "addressee": "Адресат: {addressee}",
     "documents_count": "Документы ({count}): {names}",
@@ -117,5 +115,3 @@
     "na": "n/a"
   }
 }
-
-

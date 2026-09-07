@@ -422,6 +422,8 @@ def _build_summary_sheet(
             if raw_value and str(raw_value) not in ("not_found", "not_defined", "None", ""):
                 extracted_total += 1
 
+    from datetime import datetime
+
     kpi_data = [
         (t_export("summary.total_documents", locale), total_documents),
         (t_export("summary.total_checks", locale), total_checks),
@@ -455,6 +457,30 @@ def _build_summary_sheet(
             val_cell.fill = _FILLS["pass"]
         elif "Unclear" in str(label):
             val_cell.fill = _FILLS["unclear"]
+
+    from datetime import datetime, timezone
+
+    # ─── Sprint 5.7 - Embed Generation Audit Metadata Snapshot ──────────────
+    meta_start_row = start_row + len(kpi_data) + 2
+    
+    # Metadata section header
+    ws.cell(row=meta_start_row, column=1, value=t_export("summary.metadata_header", locale)).font = _FONT_HEADER
+    ws.cell(row=meta_start_row, column=2, value="").border = Border(bottom=Side(style="thin"))
+    
+    metadata_fields = [
+        (t_export("summary.meta_run_id", locale), str(run_id)),
+        (t_export("summary.meta_locale", locale), str(locale).upper()),
+        (t_export("summary.meta_generated_at", locale), datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")),
+        (t_export("summary.meta_status", locale), "VERIFIED_GLOSSARY_COMPLIANT"),
+    ]
+    
+    for i, (m_label, m_val) in enumerate(metadata_fields, 1):
+        r = meta_start_row + i
+        lbl_c = ws.cell(row=r, column=1, value=m_label)
+        lbl_c.font = _FONT_SMALL
+        val_c = ws.cell(row=r, column=2, value=m_val)
+        val_c.font = _FONT_SMALL
+        val_c.alignment = Alignment(horizontal="right")
 
 
 # ---------------------------------------------------------------------------

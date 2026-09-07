@@ -64,7 +64,12 @@
     "evidence_validity": "Evidence validity",
     "conditional_total": "Conditional checks (total)",
     "conditional_fail": "Conditional checks (FAIL)",
-    "extracted_values": "Extracted values"
+    "extracted_values": "Extracted values",
+    "metadata_header": "Generation Metadata",
+    "meta_run_id": "Run ID",
+    "meta_locale": "Export Locale",
+    "meta_generated_at": "Generated At",
+    "meta_status": "Compliance Status"
   },
   "report": {
     "title": "LEGAL DUE DILIGENCE REPORT",
@@ -74,38 +79,31 @@
     "run_id": "Run ID: {run_id}",
     "checks_mode": "Checks mode: {mode}",
     "pipeline_strategy": "Pipeline strategy: {strategy}",
-
     "sec1_title": "1. Executive Summary",
     "sec2_title": "2. Critical Findings",
     "sec3_title": "3. Analysis Quality",
     "sec4_title": "4. Conditional Checks",
     "sec5_title": "5. Extracted Values",
     "appA_title": "Appendix A. Request List",
-
     "summary_scope": "A total of {doc_count} documents were reviewed and {check_count} checks were completed during the analysis.",
     "summary_conditional": "{total} conditional checks (triggered checks) were identified and verified, of which {fail_count} resulted in FAIL.",
     "total": "Total",
     "assessment_critical": "⚠️ CRITICAL RISKS IDENTIFIED ({count}). Immediate review with the legal team is recommended.",
     "assessment_high": "Significant risks identified ({count} high). Detailed analysis before deal closing is recommended.",
     "assessment_none": "No critical or significant risks identified.",
-
     "document_label": "Document: {doc_name} ({doc_type})",
     "clause_page": "Clause: {clause}, p. {page}",
     "clause_only": "Clause: {clause}",
     "page_only": "p. {page}",
     "extracted_data": "Extracted data: {data}",
     "triggered_by": "ℹ️ Check activated by trigger: «{trigger_name}»",
-
     "quarantine_docs": "Documents in quarantine: {count}",
     "degraded_docs": "Documents with degraded structure: {count}",
     "evidence_validity_rate": "Evidence validity rate: {rate}",
     "quarantine_warning": "⚠️ Documents in quarantine were not analyzed. It is recommended to upload text versions for re-analysis.",
-
     "conditional_desc": "The following checks were activated automatically based on triggers defined in document type YAML instructions (conditional_checks).",
     "no_conditional_violations": "No violations found for conditional checks.",
-
     "extracted_desc": "During the analysis, the following structured values (amounts, dates, parties, etc.) were extracted from the documents.",
-
     "no_requests": "No requests generated.",
     "addressee": "Addressee: {addressee}",
     "documents_count": "Documents ({count}): {names}",
@@ -117,5 +115,3 @@
     "na": "n/a"
   }
 }
-
-
