@@ -7,7 +7,7 @@ Uses SQLAlchemy metadata inspection — no async_session fixture required
 
 from __future__ import annotations
 
-from src.db.models.legal_glossary import LegalGlossary
+from db.models.legal_glossary import LegalGlossary
 
 
 # ── Table structure ──────────────────────────────────────────────
@@ -165,6 +165,6 @@ class TestLegalGlossaryInvariants:
 
     def test_model_registered_in_init(self) -> None:
         """Model must be importable from src.db.models (pattern 3.9)."""
-        from src.db.models import LegalGlossary as Imported
+        from db.models import LegalGlossary as Imported
 
         assert Imported is LegalGlossary

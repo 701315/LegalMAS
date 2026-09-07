@@ -15,7 +15,6 @@ from sqlalchemy import inspect
 
 from db.models.tenant_result_locale_policy import TenantResultLocalePolicy
 
-
 def test_explicit_field_assignment() -> None:
     """Verify that all fields can be explicitly set on instantiation."""
     tenant_id = uuid.uuid4()
