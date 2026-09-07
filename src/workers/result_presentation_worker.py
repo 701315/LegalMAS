@@ -34,6 +34,8 @@ RESULT_PRESENTATION_TRANSLATION_TASK_NAME = (
     name=RESULT_PRESENTATION_TRANSLATION_TASK_NAME,
     track_job=False,
     queue="heavy_llm_checks",
+    soft_time_limit=300,
+    time_limit=360,
 )
 def process_pending_result_presentations(
     self,

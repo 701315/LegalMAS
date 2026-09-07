@@ -17,7 +17,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
-
+from core.exceptions import TransientError, PermanentError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.result_presentation_content import (
@@ -201,10 +201,38 @@ class ResultPresentationTranslationUseCase:
             )
         except Exception as exc:
             duration_ms = int((time.perf_counter() - started) * 1000)
+            exc_str = str(exc)
 
+            # Проверяем, является ли ошибка транзитной (сетевой/LLM таймаут)
+            is_transient = any(
+                marker in exc_str.lower()
+                for marker in ["transient_error", "timeout", "connect_error", "httpx.timeoutexception", "httpx.connecterror"]
+            )
+
+            if is_transient:
+                # Пробрасываем TransientError наверх до Celery, чтобы запустить retry.
+                # Перед этим сбрасываем статус записи обратно в 'pending',
+                # чтобы при повторе SKIP LOCKED мог забрать её заново.
+                await self.presentation_repo.mark_failed(
+                    presentation_id=item.presentation_id,
+                    error_message=f"Transient failure (will retry): {exc_str}",
+                    translation_metadata={
+                        "prompt_version": RESULT_PRESENTATION_TRANSLATION_PROMPT_VERSION,
+                        "failure_reason": "transient_translation_error",
+                        "duration_ms": duration_ms,
+                    },
+                )
+                # Сбрасываем статус в pending в репозитории (добавим этот метод на следующем шаге)
+                await self.presentation_repo.reset_processing_to_pending(
+                    presentation_id=item.presentation_id
+                )
+                await self.db.commit()
+                raise TransientError(f"LLM translation transient failure: {exc_str}") from exc
+
+            # Перманентная ошибка (неверный prompt, JSON parse error, etc.)
             await self.presentation_repo.mark_failed(
                 presentation_id=item.presentation_id,
-                error_message=str(exc),
+                error_message=exc_str,
                 translation_metadata={
                     "prompt_version": RESULT_PRESENTATION_TRANSLATION_PROMPT_VERSION,
                     "failure_reason": "translation_error",

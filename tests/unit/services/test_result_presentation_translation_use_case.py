@@ -337,6 +337,71 @@ def test_execute_marks_failed_when_translation_raises() -> None:
     db.rollback.assert_not_awaited()
 
 
+
+def test_execute_raises_transient_error_on_llm_timeout_with_retry_reset() -> None:
+    """
+    Verify that transient LLM errors (timeout, connect_error) trigger:
+    - TransientError exception propagation to Celery for retry
+    - reset_processing_to_pending() call to release the row for re-claim
+    - No 'failed' increment in summary (retry will re-process)
+    """
+    check_result = make_check_result()
+    claimed = make_claimed_presentation(check_result=check_result)
+    db = make_db(check_result=check_result)
+
+    with patch(
+        "services.result_presentation_translation_use_case."
+        "CheckResultPresentationRepository",
+    ) as repo_cls, patch(
+        "services.result_presentation_translation_use_case."
+        "translate_result_presentation",
+        new=AsyncMock(
+            side_effect=RuntimeError("transient_error: LLM timeout after 30s")
+        ),
+    ) as translate_mock:
+        repo = MagicMock()
+        repo.claim_pending_for_run = AsyncMock(return_value=[claimed])
+        repo.mark_ready = AsyncMock()
+        repo.mark_failed = AsyncMock(return_value=claimed)
+        repo.mark_stale = AsyncMock()
+        repo.reset_processing_to_pending = AsyncMock(return_value=claimed)
+        repo_cls.return_value = repo
+
+        use_case = ResultPresentationTranslationUseCase(
+            db=db,
+            llm_client=MagicMock(),
+        )
+
+        # Ожидаем, что TransientError будет проброшен наверх
+        from core.exceptions import TransientError
+        with pytest.raises(TransientError, match="LLM translation transient failure"):
+            run_execute(use_case)
+
+    # Проверяем что translate был вызван
+    translate_mock.assert_awaited_once()
+
+    # Проверяем что mark_failed был вызван (для логирования временной ошибки)
+    repo.mark_failed.assert_awaited_once()
+    failed_kwargs = repo.mark_failed.await_args.kwargs
+    assert failed_kwargs["presentation_id"] == PRESENTATION_ID
+    assert "Transient failure (will retry)" in failed_kwargs["error_message"]
+    assert failed_kwargs["translation_metadata"]["failure_reason"] == (
+        "transient_translation_error"
+    )
+
+    # Ключевая проверка: reset_processing_to_pending был вызван для возврата в pending
+    repo.reset_processing_to_pending.assert_awaited_once()
+    reset_kwargs = repo.reset_processing_to_pending.await_args.kwargs
+    assert reset_kwargs["presentation_id"] == PRESENTATION_ID
+
+    # mark_ready НЕ должен быть вызван
+    repo.mark_ready.assert_not_awaited()
+    repo.mark_stale.assert_not_awaited()
+
+    # commit должен быть вызван 3 раза: claim, mark_failed+reset, и финальный
+    assert db.commit.await_count >= 2
+
+
 def test_execute_marks_failed_when_canonical_result_is_missing() -> None:
     placeholder_result = make_check_result()
     claimed = make_claimed_presentation(

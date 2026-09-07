@@ -379,3 +379,37 @@ class CheckResultPresentationRepository:
             await self.session.flush()
 
         return presentation
+
+    async def reset_processing_to_pending(
+        self,
+        *,
+        presentation_id: uuid.UUID,
+    ) -> CheckResultPresentation | None:
+        """
+        Reset a presentation's status from processing back to pending.
+
+        Used during transient failures/retries so the SKIP LOCKED claim query
+        can pick up the row again in subsequent worker attempts.
+        """
+        stmt = (
+            update(CheckResultPresentation)
+            .where(
+                CheckResultPresentation.id == presentation_id,
+                CheckResultPresentation.translation_status == "processing",
+            )
+            .values(
+                translation_status="pending",
+                error_message=None,
+            )
+            .returning(CheckResultPresentation)
+        )
+
+        result = await self.session.execute(stmt)
+        presentation = result.scalar_one_or_none()
+
+        if presentation is not None:
+            await self.session.flush()
+
+        return presentation
+
+        
