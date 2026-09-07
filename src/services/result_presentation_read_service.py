@@ -1,3 +1,5 @@
+# src/services/result_presentation_read_service.py
+
 """
 Database-backed read-side integration for locale-specific result presentations.
 
@@ -18,10 +20,10 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.i18n.ui_locales import (
-    get_default_ui_locale,
-    get_supported_ui_locales,
-    is_valid_ui_locale,
+from core.i18n.result_locales import (
+    get_default_output_locale,
+    get_supported_result_locales,
+    is_valid_result_locale,
 )
 from core.result_presentation_content import PRESENTATION_CONTENT_VERSION_V1
 from db.repositories.check_result_presentation_repo import (
@@ -44,7 +46,7 @@ def _normalize_supported_locale(value: str | None) -> str | None:
     if not normalized:
         return None
 
-    if not is_valid_ui_locale(normalized):
+    if not is_valid_result_locale(normalized):
         return None
 
     return normalized
@@ -52,9 +54,9 @@ def _normalize_supported_locale(value: str | None) -> str | None:
 
 def get_supported_presentation_locales() -> set[str]:
     """
-    Return supported UI locales used for result presentations.
+    Return supported result output locales used for result presentations.
     """
-    return set(get_supported_ui_locales())
+    return set(get_supported_result_locales())
 
 
 def resolve_presentation_locale(
@@ -68,9 +70,9 @@ def resolve_presentation_locale(
 
     Precedence:
     1. explicit query parameter;
-    2. CurrentUser.ui_locale;
-    3. Deal.primary_language;
-    4. configured default UI locale.
+    2. CurrentUser.ui_locale (validated against result locales);
+    3. Deal.primary_language (validated against result locales);
+    4. configured default result output locale.
 
     Invalid explicit input is a client error. Invalid persisted fallbacks are
     skipped, because they can originate from legacy records or expired tokens.
@@ -90,7 +92,7 @@ def resolve_presentation_locale(
         if normalized_candidate is not None:
             return normalized_candidate
 
-    default_locale = _normalize_supported_locale(get_default_ui_locale())
+    default_locale = _normalize_supported_locale(get_default_output_locale())
     if default_locale is not None:
         return default_locale
 
@@ -145,3 +147,6 @@ async def apply_presentations_for_read(
         requested_locale=requested_locale,
         content_version=content_version,
     )
+
+
+    
