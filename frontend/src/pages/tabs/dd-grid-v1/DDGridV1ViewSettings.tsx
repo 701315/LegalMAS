@@ -1,11 +1,12 @@
 // =============================================================
 // src/pages/tabs/dd-grid-v1/DDGridV1ViewSettings.tsx
-// View settings panel for DD Grid V1.
+// View settings panel for DD Grid V1 with Output Language Axis selector (Sprint 5.3).
 //
-// Contains three independent toggles:
+// Contains four independent controls:
 // - Data presentation format    (matrix / list)
 // - Checks scope display        (all / global_only / doc_type_only)
 // - Document grouping           (all_docs / by_type)
+// - Output (Results) Language   (dropdown selector for Axis 5 translation)
 //
 // Rules:
 // - each toggle has its own header label;
@@ -15,7 +16,8 @@
 
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Info } from "lucide-react";
+import { Info, Globe } from "lucide-react";
+import { getEnabledResultLocales } from "../../../i18n/resultLocaleRegistry";
 
 import {
   useDDGridV1UIStore,
@@ -141,10 +143,10 @@ function ToggleGroup<T extends string>({
         {options.map((option) => {
           const rawLabel = t(option.labelKey);
           const rawTitle = t(option.titleKey);
-          
+
           const displayLabel =
             stretch && option.shortLabelKey ? t(option.shortLabelKey) : rawLabel;
-            
+
           return (
             <button
               key={option.value}
@@ -189,7 +191,11 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
   const docGrouping = useDDGridV1UIStore((state) => state.docGrouping);
   const setDocGrouping = useDDGridV1UIStore((state) => state.setDocGrouping);
 
+  const outputLocale = useDDGridV1UIStore((state) => state.outputLocale);
+  const setOutputLocale = useDDGridV1UIStore((state) => state.setOutputLocale);
+
   const showGrouping = !hideFormatToggle && format === "matrix";
+  const resultLocales = getEnabledResultLocales();
 
   const rootClassName = stretch
     ? "flex flex-col gap-4"
@@ -229,6 +235,37 @@ export const DDGridV1ViewSettings: React.FC<DDGridV1ViewSettingsProps> = ({
           stretch={stretch}
         />
       ) : null}
+
+      {/* Results Output Language Axis Dropdown Selector (Sprint 5.3) */}
+      <div className={`flex flex-col gap-1.5 ${stretch ? "w-full" : ""}`}>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+          {t("viewSettings.resultsLanguageLabel", "Results Language")}
+        </span>
+        <div className="relative inline-flex items-center">
+          <Globe className="absolute left-3.5 h-3.5 w-3.5 text-[var(--text-muted)] pointer-events-none" />
+          <select
+            aria-label="Results Language"
+            value={outputLocale}
+            onChange={(e) => setOutputLocale(e.target.value)}
+            className={`cursor-pointer rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] py-2 pl-9 pr-8 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-strong)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] ${
+              stretch ? "w-full" : "w-[170px]"
+            }`}
+            style={{
+              appearance: "none",
+              backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 10px center",
+              backgroundSize: "14px",
+            }}
+          >
+            {resultLocales.map((loc) => (
+              <option key={loc.code} value={loc.code}>
+                {loc.nativeName} ({loc.englishName})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
     </div>
   );
 };
@@ -264,4 +301,5 @@ const FormatUnavailableNotice: React.FC<{ stretch?: boolean }> = ({
 };
 
 export default DDGridV1ViewSettings;
+
 
