@@ -4,7 +4,7 @@
 Database-backed read-side integration for locale-specific result presentations.
 
 This module:
-- resolves the effective presentation locale;
+- resolves the effective presentation locale using a strict 6-level chain;
 - reads locale-specific presentation records in one batch query;
 - delegates hash-safe overlay decisions to result_presentation_selection.py.
 
@@ -30,14 +30,22 @@ from db.repositories.check_result_presentation_repo import (
     CheckResultPresentationRepository,
 )
 from services.result_presentation_selection import apply_result_presentations
+from services.tenant_locale_policy_service import (
+    LocalePolicyViolationError,
+    validate_locale_for_tenant,
+)
 
 
-def _normalize_supported_locale(value: str | None) -> str | None:
+async def _normalize_and_validate_fallback(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    value: str | None,
+) -> str | None:
     """
-    Normalize one locale candidate and return it only when it is supported.
+    Validate fallback candidate against global registry and tenant policy.
 
-    Invalid persisted values are intentionally ignored on fallback paths:
-    old JWTs or legacy Deal.primary_language values must not break review reads.
+    If invalid or disallowed, returns None (skips to next fallback level)
+    without raising errors.
     """
     if value is None:
         return None
@@ -46,10 +54,10 @@ def _normalize_supported_locale(value: str | None) -> str | None:
     if not normalized:
         return None
 
-    if not is_valid_result_locale(normalized):
+    try:
+        return await validate_locale_for_tenant(db, tenant_id, normalized)
+    except LocalePolicyViolationError:
         return None
-
-    return normalized
 
 
 def get_supported_presentation_locales() -> set[str]:
@@ -59,42 +67,53 @@ def get_supported_presentation_locales() -> set[str]:
     return set(get_supported_result_locales())
 
 
-def resolve_presentation_locale(
+async def resolve_presentation_locale(
+    db: AsyncSession,
     *,
-    explicit_locale: str | None,
-    user_ui_locale: str | None,
-    deal_primary_language: str | None,
+    tenant_id: uuid.UUID,
+    explicit_locale: str | None = None,
+    user_default_output_locale: str | None = None,
+    user_ui_locale: str | None = None,
+    deal_primary_language: str | None = None,
+    run_analysis_language: str | None = None,
 ) -> str:
     """
-    Resolve locale with deterministic precedence.
+    Resolve effective locale with strict 6-level precedence & tenant validation.
 
-    Precedence:
-    1. explicit query parameter;
-    2. CurrentUser.ui_locale (validated against result locales);
-    3. Deal.primary_language (validated against result locales);
-    4. configured default result output locale.
-
-    Invalid explicit input is a client error. Invalid persisted fallbacks are
-    skipped, because they can originate from legacy records or expired tokens.
+    6-Level Chain:
+    1. Explicit parameter (ValueError on validation/policy failure).
+    2. User default output locale (skips if invalid).
+    3. User UI locale (skips if invalid/isolated).
+    4. Deal primary language (skips if invalid).
+    5. Run analysis language (skips if invalid).
+    6. System default output locale (safest fallback).
     """
+    # Level 1: Explicit Request (Strict, raises ValueError on violation)
     if explicit_locale is not None:
-        normalized_explicit = _normalize_supported_locale(explicit_locale)
-        if normalized_explicit is None:
-            supported = ", ".join(sorted(get_supported_presentation_locales()))
-            raise ValueError(
-                "presentation_locale must be one of the supported locales: "
-                f"{supported}"
-            )
-        return normalized_explicit
+        normalized_explicit = explicit_locale.strip().lower()
+        try:
+            return await validate_locale_for_tenant(db, tenant_id, normalized_explicit)
+        except LocalePolicyViolationError as exc:
+            raise ValueError(str(exc)) from exc
 
-    for candidate in (user_ui_locale, deal_primary_language):
-        normalized_candidate = _normalize_supported_locale(candidate)
-        if normalized_candidate is not None:
-            return normalized_candidate
+    # Level 2-5 Fallback Chain (Safe skips)
+    candidates = [
+        user_default_output_locale,
+        user_ui_locale,
+        deal_primary_language,
+        run_analysis_language,
+    ]
 
-    default_locale = _normalize_supported_locale(get_default_output_locale())
-    if default_locale is not None:
-        return default_locale
+    for candidate in candidates:
+        validated = await _normalize_and_validate_fallback(db, tenant_id, candidate)
+        if validated is not None:
+            return validated
+
+    # Level 6: System Default (Always safe fallback)
+    default_locale = get_default_output_locale()
+    validated_default = await _normalize_and_validate_fallback(db, tenant_id, default_locale)
+    if validated_default is not None:
+        return validated_default
 
     return "en"
 
@@ -108,11 +127,6 @@ async def apply_presentations_for_read(
 ) -> list[dict[str, Any]]:
     """
     Overlay locale-specific result presentations onto copied result dictionaries.
-
-    The repository query is batch-based: one query for all canonical result IDs
-    in the response. apply_result_presentations() still enforces source hash,
-    locale, content version, and allowed lifecycle state before localized content
-    can replace canonical content.
     """
     result_ids: list[uuid.UUID] = []
 
