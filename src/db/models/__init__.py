@@ -26,6 +26,7 @@ from .run_check_plan_item import RunCheckPlanItem
 from .llm_usage import LLMUsageEvent
 from .run_summary import RunSummary
 from .global_instruction import GlobalInstructionVersion
+from .tenant_result_locale_policy import TenantResultLocalePolicy
 
 __all__ = [
     "AuditLog",
@@ -63,5 +64,6 @@ __all__ = [
     "LLMUsageEvent",
     "RunSummary",
     "GlobalInstructionVersion",
+    "TenantResultLocalePolicy",
 ]
 
