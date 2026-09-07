@@ -39,6 +39,7 @@ from services.dd_matrix_builder import build_dd_matrix as build_dd_matrix_respon
 from services.result_presentation_read_service import (
     apply_presentations_for_read,
 )
+from services.instruction_localization_resolver import InstructionLocalizationResolver
 # Engine
 from classifiers.yaml_registry import YAMLRegistry
 from db.repositories.document_type_instruction_version_repo import (
@@ -596,6 +597,22 @@ async def build_dd_grid_v1_response(
                 requested_locale=presentation_locale,
             )
 
+        # ─── S4.4 - S4.5 Dynamic Localization Resolver Layer ──────────────────
+        target_locale = (presentation_locale or run.analysis_language or "en").strip().lower()
+
+        # Check if localized snapshots are already frozen in execution_manifest
+        localization_map: dict[str, str] = {}
+        if run.execution_manifest and "localizations" in run.execution_manifest:
+            localization_map = run.execution_manifest["localizations"].get(target_locale) or {}
+            logger.info("DD Grid V1: Using frozen localizations from execution_manifest")
+        else:
+            # Fallback to Live DB load
+            resolver = InstructionLocalizationResolver(
+                db=uow.session,
+                tenant_id=run.tenant_id,
+                locale=target_locale,
+            )
+            localization_map = await resolver.load_all()
 
         # Построение DocTypeCheckLoader из зафиксированных snapshot'ов.
         # Если instruction_versions пуст — loader упадёт на FilesystemProvider,
@@ -671,6 +688,7 @@ async def build_dd_grid_v1_response(
         registry=registry,
         plan_items=plan_items,
         checks_mode=checks_mode,
+        localization_map=localization_map,
     )
 
     return _map_dd_grid_v1_to_response(
