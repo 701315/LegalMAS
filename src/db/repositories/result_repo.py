@@ -28,7 +28,9 @@ from core.check_result_persist_errors import (
 from core.constants import CheckExecutionStatus
 from core.logging import get_logger
 from db.repositories.check_result_persist_error_repo import CheckResultPersistErrorRepository
-
+from core.result_presentation_content import build_presentation_source_hash
+from ..models.run import Run
+from ..models.result import CheckResultPresentation
 from ..models.document import Document
 from ..models.result import CheckResult
 
@@ -159,6 +161,19 @@ class ResultRepository:
         ВАЖНО: он не учитывает segment_id и уникальные индексы.
         Для нормальной работы пайплайна используется upsert_single_check_result.
         """
+
+        # Вычисляем хэш канонического контента
+        new_hash = build_presentation_source_hash(
+            check_name=check_name,
+            display_text=None,
+            review_message=None,
+            dd_request_text=None,
+        )
+
+        # Получаем язык анализа из запущенного рана
+        run_stmt = select(Run.analysis_language).where(Run.id == run_id)
+        run_lang = (await self.session.execute(run_stmt)).scalar_one_or_none()
+
         cr = CheckResult(
             run_id=run_id,
             document_id=document_id,
@@ -175,6 +190,9 @@ class ResultRepository:
             conditional_check_triggered=conditional_check_triggered,
             trigger_name=trigger_name,
             origin=origin,
+            canonical_locale=run_lang,         # <-- ДОБАВИТЬ
+            canonical_content_hash=new_hash,   # <-- ДОБАВИТЬ
+            content_revision=1,                # <-- ДОБАВИТЬ
         )
 
         self.session.add(cr)
@@ -659,6 +677,20 @@ class ResultRepository:
           review_status, review_message, needs_manual_review записываются
           в CheckResult при create и update.
         """
+
+        # Вычисляем хэш канонического контента на основе Display-semantics полей
+        new_hash = build_presentation_source_hash(
+            check_name=check_name,
+            display_text=display_text,
+            review_message=review_message,
+            dd_request_text=None,
+        )
+
+        # Получаем язык анализа из запущенного рана
+        run_stmt = select(Run.analysis_language).where(Run.id == run_id)
+        run_lang = (await self.session.execute(run_stmt)).scalar_one_or_none()
+
+
         now = datetime.now(UTC)
 
         started_statuses = {
@@ -736,12 +768,37 @@ class ResultRepository:
                         review_status=review_status,
                         review_message=review_message,
                         needs_manual_review=needs_manual_review,
+                        # ── Sprint 1: канонические поля ────────────────────────
+                        canonical_locale=run_lang,
+                        canonical_content_hash=new_hash,
+                        content_revision=1,
                     )
                     self.session.add(cr)
                     await self.session.flush()
                     return cr
 
                 # ── UPDATE path ───────────────────────────────────────────────
+                # Проверяем, изменился ли канонический контент
+                hash_changed = existing.canonical_content_hash != new_hash
+
+                if hash_changed:
+                    # Увеличиваем монотонный счетчик ревизии канонического контента
+                    existing.content_revision = (existing.content_revision or 1) + 1
+                    existing.canonical_content_hash = new_hash
+
+                    # В рамках этой же транзакции инвалидируем связанные презентации (устарели)
+                    # Сделаем это через batched UPDATE (Task 1.5)
+                    await self.session.execute(
+                        update(CheckResultPresentation)
+                        .where(
+                            CheckResultPresentation.check_result_id == existing.id,
+                            CheckResultPresentation.translation_status.in_(
+                                ["ready", "reviewed", "approved"]
+                            )
+                        )
+                        .values(translation_status="stale")
+                    )
+
                 existing.check_name = check_name
                 existing.result = result
                 existing.severity = severity
@@ -777,6 +834,9 @@ class ResultRepository:
                 existing.review_status = review_status
                 existing.review_message = review_message
                 existing.needs_manual_review = needs_manual_review
+                
+                # Обновляем canonical_locale на случай, если применился backfill
+                existing.canonical_locale = run_lang
 
                 if existing.started_at is None and status_value in started_statuses:
                     existing.started_at = now

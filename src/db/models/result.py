@@ -14,6 +14,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Integer,  # <-- ДОБАВИТЬ СЮДА
     String,
     Text,
     UniqueConstraint,
@@ -324,6 +325,38 @@ class CheckResult(Base):
         comment="Explicit boolean flag for review workflow filtering.",
     )
 
+    # --- Canonical multilingual and lifecycle fields (Sprint 1) ---
+
+    canonical_locale: Mapped[str | None] = mapped_column(
+        String(35),
+        nullable=True,
+        comment=(
+            "Target language in which the canonical legal analysis was conducted. "
+            "Frozen snapshot of Run.analysis_language. Used as source_locale "
+            "for translation and as fallback."
+        ),
+    )
+
+    content_revision: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+        comment=(
+            "Monotonic revision counter of display-facing canonical content. "
+            "Increments whenever canonical_content_hash changes."
+        ),
+    )
+
+    canonical_content_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment=(
+            "Deterministic SHA-256 fingerprint of human-facing canonical fields "
+            "(check_name, display_text, review_message) used to detect content drift."
+        ),
+    )
+
 
     __table_args__ = (
         Index("idx_results_run", "run_id"),
@@ -368,6 +401,11 @@ class CheckResult(Base):
             postgresql_where=(needs_manual_review.is_(True)),
         ),
     )
+
+
+
+
+
 
 class CheckResultPresentation(Base):
     """
