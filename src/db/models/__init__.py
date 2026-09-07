@@ -27,7 +27,9 @@ from .llm_usage import LLMUsageEvent
 from .run_summary import RunSummary
 from .global_instruction import GlobalInstructionVersion
 from .tenant_result_locale_policy import TenantResultLocalePolicy
+from .legal_glossary import LegalGlossary  # S3.1
 
+    
 __all__ = [
     "AuditLog",
     "Bundle",
@@ -65,5 +67,6 @@ __all__ = [
     "RunSummary",
     "GlobalInstructionVersion",
     "TenantResultLocalePolicy",
+    "LegalGlossary",
 ]
 
