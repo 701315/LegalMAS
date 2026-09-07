@@ -28,8 +28,9 @@ from .run_summary import RunSummary
 from .global_instruction import GlobalInstructionVersion
 from .tenant_result_locale_policy import TenantResultLocalePolicy
 from .legal_glossary import LegalGlossary  # S3.1
+from .instruction_presentation_localization import InstructionPresentationLocalization  # S4.1
 
-    
+
 __all__ = [
     "AuditLog",
     "Bundle",
@@ -68,5 +69,6 @@ __all__ = [
     "GlobalInstructionVersion",
     "TenantResultLocalePolicy",
     "LegalGlossary",
+    "InstructionPresentationLocalization",
 ]
 
