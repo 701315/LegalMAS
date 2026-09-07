@@ -190,6 +190,7 @@ async def translate_result_presentation(
     check_name: str,
     display_text: str | None,
     review_message: str | None,
+    glossary_terms: dict[str, str] | None = None,
 ) -> ResultPresentationTranslation:
     """
     Translate one presentation through the active configured LLM provider.
@@ -203,6 +204,7 @@ async def translate_result_presentation(
         check_name=check_name,
         display_text=display_text,
         review_message=review_message,
+        glossary_terms=glossary_terms,
     )
 
     response, retry_details = await llm_client.call_with_retries_async(
