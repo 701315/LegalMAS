@@ -37,6 +37,12 @@ from services.result_presentation_translation_service import (
     RESULT_PRESENTATION_TRANSLATION_PROMPT_VERSION,
     translate_result_presentation,
 )
+from engine.localization.glossary_resolver import GlossaryResolver
+from engine.localization.validator import (
+    validate_translation_response,
+    GlossaryComplianceError,
+)
+from db.repositories.legal_glossary_repo import LegalGlossaryRepository
 
 
 @dataclass(frozen=True)
@@ -59,10 +65,12 @@ class ResultPresentationTranslationUseCase:
         *,
         db: AsyncSession,
         llm_client: LLMClient | None = None,
+        glossary_resolver: GlossaryResolver | None = None,
     ) -> None:
         self.db = db
         self.llm_client = llm_client or LLMClient()
         self.presentation_repo = CheckResultPresentationRepository(db)
+        self.glossary_resolver = glossary_resolver
 
     async def execute(
         self,
@@ -191,6 +199,23 @@ class ResultPresentationTranslationUseCase:
         started = time.perf_counter()
 
         try:
+            # Build source text for glossary compliance validation (S3.6)
+            source_text_parts = [check_name]
+            if display_text:
+                source_text_parts.append(display_text)
+            if review_message:
+                source_text_parts.append(review_message)
+            source_text = " ".join(source_text_parts) if source_text_parts else None
+
+            # Load glossary terms if resolver is provided (S3.6)
+            glossary_terms: dict[str, str] | None = None
+            if self.glossary_resolver:
+                glossary_terms = await self.glossary_resolver.resolve_terms(
+                    tenant_id=uuid.UUID(tenant_id),
+                    source_locale=item.source_locale or "ru",
+                    target_locale=item.locale,
+                )
+
             translated = await translate_result_presentation(
                 llm_client=self.llm_client,
                 source_locale=item.source_locale,
@@ -198,7 +223,47 @@ class ResultPresentationTranslationUseCase:
                 check_name=check_name,
                 display_text=display_text,
                 review_message=review_message,
+                glossary_terms=glossary_terms if glossary_terms else None,
             )
+
+            # Post-translation validation if glossary was used (S3.5/S3.6)
+            if glossary_terms:
+                expected_keys = {"localized_check_name", "display_text", "review_message"}
+                validation_result = validate_translation_response(
+                    response_text=translated.raw_response.get("text", ""),
+                    expected_keys=expected_keys,
+                    glossary_terms=glossary_terms,
+                    source_text=source_text,
+                )
+
+                # If glossary violations found, raise retryable error
+                if validation_result.glossary_violations:
+                    violation = validation_result.glossary_violations[0]
+                    raise GlossaryComplianceError(
+                        f"Glossary compliance failed: {violation.source_term} -> {violation.expected_target}",
+                        source_term=violation.source_term,
+                        expected_target=violation.expected_target,
+                        actual_target=violation.actual_target,
+                    )
+
+        except GlossaryComplianceError as exc:
+            # Glossary violations are retryable — reset to pending
+            duration_ms = int((time.perf_counter() - started) * 1000)
+            await self.presentation_repo.mark_failed(
+                presentation_id=item.presentation_id,
+                error_message=str(exc),
+                translation_metadata={
+                    "prompt_version": RESULT_PRESENTATION_TRANSLATION_PROMPT_VERSION,
+                    "failure_reason": "glossary_compliance_violation",
+                    "duration_ms": duration_ms,
+                },
+            )
+            await self.presentation_repo.reset_processing_to_pending(
+                presentation_id=item.presentation_id
+            )
+            await self.db.commit()
+            raise TransientError(f"Glossary compliance violation (will retry): {exc}") from exc
+
         except Exception as exc:
             duration_ms = int((time.perf_counter() - started) * 1000)
             exc_str = str(exc)

@@ -32,6 +32,7 @@ from services.llm_usage_recorder import (
 from services.result_presentation_translation_service import (
     ResultPresentationTranslation,
 )
+from engine.localization.validator import ValidationResult
 from services.result_presentation_translation_use_case import (
     ResultPresentationTranslationUseCase,
 )
@@ -144,9 +145,19 @@ def test_execute_claims_and_marks_ready_with_translation_usage() -> None:
         "CheckResultPresentationRepository",
     ) as repo_cls, patch(
         "services.result_presentation_translation_use_case."
+        "LegalGlossaryRepository",
+    ) as glossary_repo_cls, patch(
+        "services.result_presentation_translation_use_case."
+        "GlossaryResolver",
+    ) as resolver_cls, patch(
+        "services.result_presentation_translation_use_case."
         "translate_result_presentation",
         new=AsyncMock(return_value=make_translation()),
     ) as translate_mock, patch(
+        "services.result_presentation_translation_use_case."
+        "validate_translation_response",
+        new=MagicMock(return_value=ValidationResult(is_valid=True, errors=[], glossary_violations=[])),
+    ) as validate_mock, patch(
         "services.result_presentation_translation_use_case."
         "LLMUsageRecorder",
     ) as usage_recorder_cls:
@@ -156,6 +167,13 @@ def test_execute_claims_and_marks_ready_with_translation_usage() -> None:
         repo.mark_failed = AsyncMock()
         repo.mark_stale = AsyncMock()
         repo_cls.return_value = repo
+
+        glossary_repo = MagicMock()
+        glossary_repo_cls.return_value = glossary_repo
+
+        resolver = MagicMock()
+        resolver.resolve_terms = AsyncMock(return_value={})
+        resolver_cls.return_value = resolver
 
         usage_recorder = MagicMock()
         usage_recorder.record_event = AsyncMock(return_value=MagicMock())
@@ -195,6 +213,7 @@ def test_execute_claims_and_marks_ready_with_translation_usage() -> None:
         check_name="Liability cap",
         display_text="No aggregate liability cap was found.",
         review_message="Request a liability cap.",
+        glossary_terms=None,
     )
 
     mark_ready_kwargs = repo.mark_ready.await_args.kwargs
