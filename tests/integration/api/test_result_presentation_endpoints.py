@@ -58,6 +58,7 @@ def make_run() -> SimpleNamespace:
         id=RUN_ID,
         deal_id=DEAL_ID,
         tenant_id=TENANT_ID,
+        analysis_language="ru",
     )
 
 
@@ -200,7 +201,10 @@ def test_editor_request_enqueues_outbox_and_returns_queued_progress(
         "api.endpoints.deal_review.AuditRepository",
     ) as audit_repo_cls, patch(
         "api.endpoints.deal_review.OutboxService",
-    ) as outbox_service_cls:
+    ) as outbox_service_cls, patch(
+        "api.endpoints.deal_review._resolve_presentation_locale_or_422",
+        new=AsyncMock(return_value="en"),
+    ):
         run_repo = MagicMock()
         run_repo.get_by_id = AsyncMock(return_value=make_run())
         run_repo_cls.return_value = run_repo
@@ -311,7 +315,10 @@ def test_progress_is_available_to_viewer_project_role(
         new=AsyncMock(return_value=None),
     ) as require_role_mock, patch(
         "api.endpoints.deal_review.ResultPresentationRequestService",
-    ) as request_service_cls:
+    ) as request_service_cls, patch(
+        "api.endpoints.deal_review._resolve_presentation_locale_or_422",
+        new=AsyncMock(return_value="en"),
+    ):
         run_repo = MagicMock()
         run_repo.get_by_id = AsyncMock(return_value=make_run())
         run_repo_cls.return_value = run_repo

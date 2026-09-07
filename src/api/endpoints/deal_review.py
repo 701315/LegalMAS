@@ -593,6 +593,19 @@ async def get_document_structured_data_for_run(
     deal_id: str,
     run_id: str,
     document_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description="Requested output locale for result presentation.",
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -605,12 +618,29 @@ async def get_document_structured_data_for_run(
     run_uuid = uuid.UUID(run_id)
     run = await _get_run_with_access_check(deal_id, run_id, db, user)
 
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run.tenant_id,
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run.analysis_language,
+    )
+
     from db.repositories.runner_repo import RunnerRepository
     from db.uow import db_uow
 
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
     doc_meta = documents.get(document_id)
@@ -705,6 +735,19 @@ async def get_document_structured_data_for_run(
 async def get_dd_requests(
     deal_id: str,
     run_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description="Requested output locale for result presentation.",
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -729,11 +772,29 @@ async def get_dd_requests(
     from db.models.run import Run
     from engine.playbook.loader import load_playbook_from_version
 
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, uuid.UUID(run_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         pb_repo = PlaybookRepository(uow.session)
 
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
         # Load PlaybookVersion to retrieve CheckDefinition
@@ -769,6 +830,19 @@ async def get_dd_requests(
 async def get_conditional_checks(
     deal_id: str,
     run_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description="Requested output locale for result presentation.",
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -785,11 +859,30 @@ async def get_conditional_checks(
         allowed_roles=("admin", "editor", "viewer"),
     )
     run_uuid = uuid.UUID(run_id)
+
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, uuid.UUID(run_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
     from db.repositories.runner_repo import RunnerRepository
     from db.uow import db_uow
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
     return build_conditional_checks(check_results, documents)
 
@@ -802,6 +895,19 @@ async def get_conditional_checks(
 async def get_extracted_values(
     deal_id: str,
     run_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description="Requested output locale for result presentation.",
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -818,11 +924,30 @@ async def get_extracted_values(
         allowed_roles=("admin", "editor", "viewer"),
     )
     run_uuid = uuid.UUID(run_id)
+
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, uuid.UUID(run_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
     from db.repositories.runner_repo import RunnerRepository
     from db.uow import db_uow
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
     return build_extracted_values(check_results, documents)
 
