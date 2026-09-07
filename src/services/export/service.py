@@ -52,6 +52,7 @@ async def run_export_for_record(
     export: Export,
     db: AsyncSession,
     tenant_id: str,
+    output_locale: str | None = None,
     presentation_locale: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -76,7 +77,9 @@ async def run_export_for_record(
     """
     # Resolve presentation locale: explicit param -> model attribute -> "en"
     locale = (
-        presentation_locale
+        output_locale
+        or presentation_locale
+        or getattr(export, "output_locale", None)
         or getattr(export, "presentation_locale", None)
         or getattr(export, "locale", None)
         or "en"
@@ -222,9 +225,19 @@ async def process_one_pending_export(
         )
 
         # Pass presentation locale from export record if present
-        record_locale = getattr(export, "presentation_locale", None) or getattr(export, "locale", None)
+        record_locale = (
+            getattr(export, "output_locale", None) 
+            or getattr(export, "presentation_locale", None) 
+            or getattr(export, "locale", None)
+        )
 
-        await run_export_for_record(export, db=db, tenant_id=tenant_id, presentation_locale=record_locale)
+        await run_export_for_record(
+            export, 
+            db=db, 
+            tenant_id=tenant_id, 
+            output_locale=record_locale,
+            presentation_locale=record_locale,
+        )
         await db.commit()
         return True
 

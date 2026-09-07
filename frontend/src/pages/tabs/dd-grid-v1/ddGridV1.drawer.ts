@@ -106,7 +106,7 @@ export function resolveDDGridV1PresentationInfo(
     return null;
   }
 
-  const locale = drawer.presentation_locale?.trim();
+  const locale = (drawer.output_locale || drawer.presentation_locale)?.trim();
 
   if (drawer.presentation_is_fallback === false) {
     return {

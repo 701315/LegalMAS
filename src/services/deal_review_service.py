@@ -206,9 +206,10 @@ def _map_dd_grid_v1_to_response(
     data: DDGridV1Data,
     deal_id: str,
     run_id: str,
-    instruction_versions: dict[str, str],
-    compiled_payloads: dict[str, dict[str, Any]],
-    global_playbook_checks: list[CheckDefinition],
+    instruction_versions: dict[str, str] | None = None,
+    compiled_payloads: dict[str, dict[str, Any]] | None = None,
+    global_playbook_checks: list[CheckDefinition] | None = None,
+    resolved_locale: str | None = None,
 ) -> DDGridV1ResponseDTO:
     """
     Перепаковать DDGridV1Data (runtime dataclasses) в Pydantic API DTO.
@@ -310,6 +311,7 @@ def _map_dd_grid_v1_to_response(
 
     def _map_drawer(drawer: Any) -> DDGridDrawerDTO:
         """Маппинг одного DrawerContentDTO → DDGridDrawerDTO."""
+        _drawer_locale = getattr(drawer, "presentation_locale", None)
         return DDGridDrawerDTO(
             check_id=drawer.check_id,
             check_name=drawer.check_name,
@@ -319,7 +321,8 @@ def _map_dd_grid_v1_to_response(
             review_status=drawer.review_status,
             review_message=drawer.review_message,
             display_text=drawer.display_text,
-            presentation_locale=drawer.presentation_locale,
+            output_locale=_drawer_locale,
+            presentation_locale=_drawer_locale,
             presentation_content_version=drawer.presentation_content_version,
             presentation_source_locale=drawer.presentation_source_locale,
             presentation_status=drawer.presentation_status,
@@ -377,13 +380,16 @@ def _map_dd_grid_v1_to_response(
     ) -> DDGridInstructionSnapshotDTO | None:
         if not doc_type:
             return None
-        version_id = instruction_versions.get(doc_type)
-        payload = compiled_payloads.get(doc_type)
+        v_versions = instruction_versions or {}
+        v_payloads = compiled_payloads or {}
+        v_globals = global_playbook_checks or []
+        version_id = v_versions.get(doc_type)
+        payload = v_payloads.get(doc_type)
         return DDGridInstructionSnapshotDTO(
             doc_type=doc_type,
             version_id=version_id,
-            is_persisted_snapshot=doc_type in instruction_versions,
-            global_checks=_extract_global_check_summaries(global_playbook_checks, doc_type),
+            is_persisted_snapshot=doc_type in v_versions,
+            global_checks=_extract_global_check_summaries(v_globals, doc_type),
             doc_type_checks=_extract_doc_type_check_summaries(payload),
         )
 
@@ -402,21 +408,22 @@ def _map_dd_grid_v1_to_response(
         for dm in data.documents_meta
     ]
 
+    _effective_locale = resolved_locale or next(
+        (
+            getattr(drawer, "presentation_locale", None)
+            for doc_drawers in data.drawer_contents.values()
+            for segment_drawers in doc_drawers.values()
+            for drawer in segment_drawers.values()
+            if getattr(drawer, "presentation_locale", None)
+        ),
+        None,
+    )
+
     return DDGridV1ResponseDTO(
         deal_id=deal_id,
         run_id=run_id,
-        presentation_locale=(
-            next(
-                (
-                    drawer.presentation_locale
-                    for doc_drawers in data.drawer_contents.values()
-                    for segment_drawers in doc_drawers.values()
-                    for drawer in segment_drawers.values()
-                    if drawer.presentation_locale
-                ),
-                None,
-            )
-        ),
+        output_locale=_effective_locale,
+        presentation_locale=_effective_locale,
         global_groups=global_groups_dto,
         doc_type_classes=doc_type_classes_dto,
         column_registry=column_registry_dto,
@@ -537,7 +544,8 @@ async def build_dd_grid_v1_response(
     deal_id: str,
     run_id: str,
     checks_mode: str = "all",
-    presentation_locale: str | None = None,
+    output_locale: str | None = None,
+    presentation_locale: str | None = None,  # Deprecated: use output_locale
 ) -> DDGridV1ResponseDTO:
     """
     Загрузить данные и построить DD Grid V1 response.
@@ -590,15 +598,17 @@ async def build_dd_grid_v1_response(
         if not deal:
             raise ValueError(f"Deal {deal_id} not found")
 
-        if presentation_locale:
+        effective_locale = output_locale or presentation_locale
+
+        if effective_locale:
             check_results = await apply_presentations_for_read(
                 session=uow.session,
                 check_results=check_results,
-                requested_locale=presentation_locale,
+                requested_locale=effective_locale,
             )
 
         # ─── S4.4 - S4.5 Dynamic Localization Resolver Layer ──────────────────
-        target_locale = (presentation_locale or run.analysis_language or "en").strip().lower()
+        target_locale = (effective_locale or run.analysis_language or "en").strip().lower()
 
         # Check if localized snapshots are already frozen in execution_manifest
         localization_map: dict[str, str] = {}
@@ -698,4 +708,5 @@ async def build_dd_grid_v1_response(
         instruction_versions=run.instruction_versions or {},
         compiled_payloads=compiled_map,
         global_playbook_checks=playbook.checks,
+        resolved_locale=effective_locale,
     )

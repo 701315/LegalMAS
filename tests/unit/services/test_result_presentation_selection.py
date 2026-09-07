@@ -64,6 +64,7 @@ def test_ready_presentation_overlays_user_facing_result_fields() -> None:
     assert selected[0]["canonical_review_message"] == (
         "Review the indemnity wording."
     )
+    assert selected[0]["output_locale"] == "ru"
     assert selected[0]["presentation_locale"] == "ru"
     assert selected[0]["presentation_status"] == "ready"
     assert selected[0]["presentation_is_fallback"] is False

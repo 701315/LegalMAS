@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+import warnings
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.result_presentation_read_service import (
+    get_supported_output_locales,
+    get_supported_presentation_locales,
+    resolve_output_locale,
     resolve_presentation_locale,
 )
 
@@ -24,12 +28,12 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-class TestResolvePresentationLocale6Levels:
+class TestResolveOutputLocale6Levels:
     def test_level_1_explicit_highest_priority(self):
         """Level 1: Explicit parameter overrides everything."""
         db = _make_db()
         with patch("services.result_presentation_read_service.validate_locale_for_tenant", new=AsyncMock(return_value="ru")):
-            result = _run(resolve_presentation_locale(
+            result = _run(resolve_output_locale(
                 db,
                 tenant_id=TENANT_ID,
                 explicit_locale="ru",
@@ -48,7 +52,7 @@ class TestResolvePresentationLocale6Levels:
         
         with patch("services.result_presentation_read_service.validate_locale_for_tenant", new=AsyncMock(side_effect=mock_err)):
             with pytest.raises(ValueError, match="Blocked"):
-                _run(resolve_presentation_locale(
+                _run(resolve_output_locale(
                     db,
                     tenant_id=TENANT_ID,
                     explicit_locale="invalid",
@@ -58,12 +62,11 @@ class TestResolvePresentationLocale6Levels:
         """Level 2: User-specific result locale preference overrides UI locale and below."""
         db = _make_db()
         
-        # Мокаем нормализацию: возвращаем кандидата, если он поддерживается
         async def mock_norm(d, t_id, val):
             return val if val in ("ru", "en") else None
 
         with patch("services.result_presentation_read_service._normalize_and_validate_fallback", new=AsyncMock(side_effect=mock_norm)):
-            result = _run(resolve_presentation_locale(
+            result = _run(resolve_output_locale(
                 db,
                 tenant_id=TENANT_ID,
                 explicit_locale=None,
@@ -79,11 +82,10 @@ class TestResolvePresentationLocale6Levels:
         db = _make_db()
 
         async def mock_norm(d, t_id, val):
-            # Симулируем, что "invalid" не поддерживается, а "ru" поддерживается
             return val if val == "ru" else None
 
         with patch("services.result_presentation_read_service._normalize_and_validate_fallback", new=AsyncMock(side_effect=mock_norm)):
-            result = _run(resolve_presentation_locale(
+            result = _run(resolve_output_locale(
                 db,
                 tenant_id=TENANT_ID,
                 explicit_locale=None,
@@ -102,7 +104,7 @@ class TestResolvePresentationLocale6Levels:
             return val if val == "ru" else None
 
         with patch("services.result_presentation_read_service._normalize_and_validate_fallback", new=AsyncMock(side_effect=mock_norm)):
-            result = _run(resolve_presentation_locale(
+            result = _run(resolve_output_locale(
                 db,
                 tenant_id=TENANT_ID,
                 explicit_locale=None,
@@ -121,7 +123,7 @@ class TestResolvePresentationLocale6Levels:
             return val if val == "ru" else None
 
         with patch("services.result_presentation_read_service._normalize_and_validate_fallback", new=AsyncMock(side_effect=mock_norm)):
-            result = _run(resolve_presentation_locale(
+            result = _run(resolve_output_locale(
                 db,
                 tenant_id=TENANT_ID,
                 explicit_locale=None,
@@ -137,12 +139,11 @@ class TestResolvePresentationLocale6Levels:
         db = _make_db()
 
         async def mock_norm(d, t_id, val):
-            # 'en' поддерживается системой
             return val if val == "en" else None
 
         with patch("services.result_presentation_read_service.get_default_output_locale", return_value="en"), \
              patch("services.result_presentation_read_service._normalize_and_validate_fallback", new=AsyncMock(side_effect=mock_norm)):
-            result = _run(resolve_presentation_locale(
+            result = _run(resolve_output_locale(
                 db,
                 tenant_id=TENANT_ID,
                 explicit_locale=None,
@@ -152,6 +153,26 @@ class TestResolvePresentationLocale6Levels:
                 run_analysis_language=None,
             ))
         assert result == "en"
+
+
+class TestResolvePresentationLocaleDeprecatedAlias:
+    def test_deprecated_resolve_presentation_locale_emits_warning(self):
+        """Calling resolve_presentation_locale emits DeprecationWarning and delegates to resolve_output_locale."""
+        db = _make_db()
+        with patch("services.result_presentation_read_service.validate_locale_for_tenant", new=AsyncMock(return_value="en")):
+            with pytest.deprecated_call():
+                result = _run(resolve_presentation_locale(
+                    db,
+                    tenant_id=TENANT_ID,
+                    explicit_locale="en",
+                ))
+            assert result == "en"
+
+    def test_deprecated_get_supported_presentation_locales_emits_warning(self):
+        """Calling get_supported_presentation_locales emits DeprecationWarning."""
+        with pytest.deprecated_call():
+            result = get_supported_presentation_locales()
+        assert result == get_supported_output_locales()
 
 
         

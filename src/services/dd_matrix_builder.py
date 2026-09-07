@@ -1,3 +1,5 @@
+# src/services/dd_matrix_builder.py
+
 """
 DD Matrix Builder.
 
@@ -326,6 +328,7 @@ def build_dd_matrix(
                 review_message=best.get("review_message"),
                 needs_manual_review=best.get("needs_manual_review", False),
                 ui_mode=best.get("ui_mode"),
+                output_locale=best.get("output_locale") or best.get("presentation_locale"),
                 presentation_locale=best.get("presentation_locale"),
                 presentation_content_version=best.get(
                     "presentation_content_version"
@@ -409,6 +412,7 @@ def build_dd_matrix(
                 review_message=best.get("review_message"),
                 needs_manual_review=best.get("needs_manual_review", False),
                 ui_mode=best.get("ui_mode"),
+                output_locale=best.get("output_locale") or best.get("presentation_locale"),
                 presentation_locale=best.get("presentation_locale"),
                 presentation_content_version=best.get(
                     "presentation_content_version"
@@ -460,6 +464,12 @@ def build_dd_matrix(
         deal_id=deal_id,
         run_id=run_id,
         deal_name=deal_name,
+        output_locale=(
+            check_results[0].get("output_locale")
+            or check_results[0].get("presentation_locale")
+            if check_results
+            else None
+        ),
         presentation_locale=(
             check_results[0].get("presentation_locale")
             if check_results

@@ -153,6 +153,7 @@ class DrawerContentDTO:
     review_status: str | None
     review_message: str | None = None
     display_text: str | None = None
+    output_locale: str | None = None
     presentation_locale: str | None = None
     presentation_content_version: str | None = None
     presentation_source_locale: str | None = None
@@ -1305,6 +1306,7 @@ def _build_drawer_content(
             review_status=None,
             review_message=None,
             display_text=None,
+            output_locale=None,
             presentation_locale=None,
             presentation_content_version=None,
             presentation_source_locale=None,
@@ -1405,6 +1407,7 @@ def _build_drawer_content(
         review_status=review_status,
         review_message=review_message,
         display_text=display_text,
+        output_locale=check_result.get("output_locale") or check_result.get("presentation_locale"),
         presentation_locale=check_result.get("presentation_locale"),
         presentation_content_version=check_result.get(
             "presentation_content_version"
@@ -1947,3 +1950,5 @@ def build_dd_grid_v1(
         drawer_contents=drawer_contents,
         documents_meta=documents_meta,
     )
+
+    

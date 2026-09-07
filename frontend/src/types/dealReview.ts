@@ -593,7 +593,8 @@ export interface DDGridV1DrawerContentDTO {
 
   // Locale-specific presentation metadata. The backend remains the
   // source of truth for selecting localized versus canonical content.
-  presentation_locale?: string | null;
+  output_locale?: string | null;
+  presentation_locale?: string | null; // Deprecated: use output_locale
   presentation_content_version?: string | null;
   presentation_source_locale?: string | null;
   presentation_status?: string | null;

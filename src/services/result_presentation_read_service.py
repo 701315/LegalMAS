@@ -4,7 +4,7 @@
 Database-backed read-side integration for locale-specific result presentations.
 
 This module:
-- resolves the effective presentation locale using a strict 6-level chain;
+- resolves the effective output locale using a strict 6-level chain;
 - reads locale-specific presentation records in one batch query;
 - delegates hash-safe overlay decisions to result_presentation_selection.py.
 
@@ -14,6 +14,7 @@ CheckResultPresentation lifecycle state.
 
 from __future__ import annotations
 
+import warnings
 import uuid
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -60,14 +61,26 @@ async def _normalize_and_validate_fallback(
         return None
 
 
-def get_supported_presentation_locales() -> set[str]:
+def get_supported_output_locales() -> set[str]:
     """
     Return supported result output locales used for result presentations.
     """
     return set(get_supported_result_locales())
 
 
-async def resolve_presentation_locale(
+def get_supported_presentation_locales() -> set[str]:
+    """
+    [Deprecated] Use get_supported_output_locales instead.
+    """
+    warnings.warn(
+        "get_supported_presentation_locales is deprecated, use get_supported_output_locales",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return get_supported_output_locales()
+
+
+async def resolve_output_locale(
     db: AsyncSession,
     *,
     tenant_id: uuid.UUID,
@@ -78,7 +91,7 @@ async def resolve_presentation_locale(
     run_analysis_language: str | None = None,
 ) -> str:
     """
-    Resolve effective locale with strict 6-level precedence & tenant validation.
+    Resolve effective output locale with strict 6-level precedence & tenant validation.
 
     6-Level Chain:
     1. Explicit parameter (ValueError on validation/policy failure).
@@ -116,6 +129,35 @@ async def resolve_presentation_locale(
         return validated_default
 
     return "en"
+
+
+async def resolve_presentation_locale(
+    db: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    explicit_locale: str | None = None,
+    user_default_output_locale: str | None = None,
+    user_ui_locale: str | None = None,
+    deal_primary_language: str | None = None,
+    run_analysis_language: str | None = None,
+) -> str:
+    """
+    [Deprecated] Use resolve_output_locale instead.
+    """
+    warnings.warn(
+        "resolve_presentation_locale is deprecated, use resolve_output_locale",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return await resolve_output_locale(
+        db=db,
+        tenant_id=tenant_id,
+        explicit_locale=explicit_locale,
+        user_default_output_locale=user_default_output_locale,
+        user_ui_locale=user_ui_locale,
+        deal_primary_language=deal_primary_language,
+        run_analysis_language=run_analysis_language,
+    )
 
 
 async def apply_presentations_for_read(

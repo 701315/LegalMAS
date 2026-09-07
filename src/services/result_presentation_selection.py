@@ -118,7 +118,8 @@ def apply_result_presentations(
             and presentation_status in _READY_PRESENTATION_STATUSES
         )
 
-        row["presentation_locale"] = normalized_locale
+        row["output_locale"] = normalized_locale
+        row["presentation_locale"] = normalized_locale  # Deprecated alias for backward compatibility
         row["presentation_content_version"] = normalized_version
         row["presentation_source_hash"] = canonical_hash
         row["presentation_source_locale"] = _presentation_value(

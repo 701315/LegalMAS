@@ -109,7 +109,8 @@ class CheckItemDTO(BaseModel):
 
     # Locale-specific presentation metadata.
     # Existing fields above remain the effective fields to render.
-    presentation_locale: str | None = None
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
     presentation_content_version: str | None = None
     presentation_source_locale: str | None = None
     presentation_status: str | None = None
@@ -217,7 +218,8 @@ class MatrixCellDTO(BaseModel):
     ui_mode: str | None = None
 
     # Locale-specific presentation metadata.
-    presentation_locale: str | None = None
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
     presentation_content_version: str | None = None
     presentation_source_locale: str | None = None
     presentation_status: str | None = None
@@ -299,7 +301,8 @@ class DDMatrixResponseDTO(BaseModel):
     deal_name: str
 
     # Effective locale resolved for this response.
-    presentation_locale: str | None = None
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
 
     checks: list["CheckMetaDTO"]
     global_check_ids: list[str]
@@ -339,7 +342,8 @@ class DocumentDetailDTO(BaseModel):
     checks: list[CheckItemDTO]
 
     # Effective locale resolved for this response.
-    presentation_locale: str | None = None
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
 
 
 class DDRequestDTO(BaseModel):
@@ -574,7 +578,8 @@ class DDGridDrawerDTO(BaseModel):
     display_text: str | None = None
 
     # Locale-specific presentation metadata for the check-level drawer text.
-    presentation_locale: str | None = None
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
     presentation_content_version: str | None = None
     presentation_source_locale: str | None = None
     presentation_status: str | None = None
@@ -884,7 +889,8 @@ class DDGridV1ResponseDTO(BaseModel):
     run_id: str
 
     # Effective locale resolved for this response.
-    presentation_locale: str | None = None
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
 
     global_groups: list[DDGridGlobalGroupDTO]
     doc_type_classes: list[DDGridDocTypeClassDTO]
