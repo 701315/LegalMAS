@@ -35,6 +35,9 @@ from .result_repo import ResultRepository
 from .run_repo import JobRepository, RunRepository
 from .runner_repo import RunnerRepository
 
+from .legal_glossary_repo import LegalGlossaryRepository  # S3.2
+
+
 __all__ = [
     "AuditRepository",
     "BundleRepository",
@@ -60,4 +63,5 @@ __all__ = [
     "CheckResultPersistErrorRepository",
     "CheckResultPresentationRepository",
     "CheckResultRepository",
+    "LegalGlossaryRepository",
 ]
