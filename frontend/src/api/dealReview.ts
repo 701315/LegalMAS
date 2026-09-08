@@ -171,7 +171,7 @@ export const dealReviewApi = {
       `${buildDealReviewBasePath(dealId, runId)}/documents/${documentId}`,
       {
         params: {
-          presentationlocale: toPresentationLocale(presentationLocale),
+          output_locale: toPresentationLocale(presentationLocale),
         },
       },
     );
@@ -228,7 +228,7 @@ export const dealReviewApi = {
       `${buildDealReviewBasePath(dealId, runId)}/dd-matrix`,
       {
         params: {
-          presentationlocale: toPresentationLocale(presentationLocale),
+          output_locale: toPresentationLocale(presentationLocale),
         },
       },
     );
@@ -248,7 +248,7 @@ export const dealReviewApi = {
       `${buildDealReviewBasePath(dealId, runId)}/dd-grid-v1`,
       {
         params: {
-          presentationlocale: toPresentationLocale(presentationLocale),
+          output_locale: toPresentationLocale(presentationLocale),
         },
       },
     );

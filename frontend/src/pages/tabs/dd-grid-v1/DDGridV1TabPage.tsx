@@ -407,8 +407,11 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const { t, i18n } = useTranslation("ddGrid");
   const { projectRoles } = useAuth();
 
-  const presentationLocale =
-    i18n.resolvedLanguage ?? i18n.language;
+  // Sprint 6.x: DD Grid uses dedicated Output Locale axis, independent from UI locale.
+  // The lawyer selects Results Language in DDGridV1ViewSettings dropdown; it is
+  // persisted in useDDGridV1UIStore.outputLocale and drives all backend queries.
+  const outputLocale = useDDGridV1UIStore((state) => state.outputLocale);
+  const presentationLocale = outputLocale;
 
   const projectRole = projectRoles[dealId] ?? null;
 
