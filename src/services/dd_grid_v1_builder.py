@@ -330,6 +330,11 @@ def _normalize_location_bundle(
     - если has_location_fallback=False, fallback reason всегда None.
     """
     normalized_clause_ref = _safe_str_or_none(location_clause_ref)
+    is_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
+    if is_en and normalized_clause_ref and normalized_clause_ref.lower().startswith(("п.", "п ")):
+        normalized_clause_ref = re.sub(r"^[Пп]\.\s*", "cl. ", normalized_clause_ref)
+        normalized_clause_ref = re.sub(r"^[Пп]\s+", "cl. ", normalized_clause_ref)
+
     normalized_page = (
         location_page
         if location_page is not None
@@ -512,6 +517,62 @@ def _normalize_qc_at_for_api(raw_qc_at: Any) -> str | None:
     text = _safe_str_or_none(str(raw_qc_at))
     return text
 
+
+def _merge_localized_structured_data(
+    check_id: str,
+    original_payload: Any,
+    localized_values: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """
+    Merge locale-specific free-text values into canonical structured_data.
+
+    Rules:
+    - keep original field metadata (location, qc, confidence, found, source);
+    - replace only field["value"] when localized translation exists;
+    - never invent fields that were absent in canonical structured_data.
+    """
+    base = _normalize_structured_data(check_id, original_payload)
+
+    if not isinstance(localized_values, dict) or not localized_values:
+        return base
+
+    merged: dict[str, Any] = {}
+    for field_name, field_payload in base.items():
+        if not isinstance(field_payload, dict):
+            merged[field_name] = field_payload
+            continue
+
+        if field_name not in localized_values:
+            merged[field_name] = field_payload
+            continue
+
+        translated = localized_values.get(field_name)
+        if translated is None:
+            merged[field_name] = field_payload
+            continue
+
+        # Accept plain translated string or {"value": "..."}.
+        if isinstance(translated, dict):
+            translated_value = translated.get("value")
+        else:
+            translated_value = translated
+
+        if not isinstance(translated_value, str):
+            merged[field_name] = field_payload
+            continue
+
+        normalized_value = translated_value.strip()
+        if not normalized_value:
+            merged[field_name] = field_payload
+            continue
+
+        merged[field_name] = {
+            **field_payload,
+            "value": normalized_value,
+        }
+
+    return merged
+    
 
 def _normalize_structured_data(check_id: str, payload: Any) -> dict[str, Any]:
     """
@@ -1008,10 +1069,13 @@ def _build_cell_value(
             location_fallback_reason=None,
         )
 
-    # Есть результат — единый путь через resolve + format
-    structured_data = _normalize_structured_data(
+    # Есть результат — единый путь через resolve + format.
+    # If read-side presentation overlay provided localized_structured_data,
+    # replace only free-text values and keep location/qc metadata intact.
+    structured_data = _merge_localized_structured_data(
         check.id,
         check_result.get("structured_data"),
+        check_result.get("localized_structured_data"),
     )
 
     value_payload = _extract_field_payload(structured_data, column.value_field)
@@ -1037,6 +1101,7 @@ def _build_cell_value(
         localization_map=localization_map,
     )
 
+
     location_payload = value_payload if value_payload is not None else status_payload
     (
         location_clause_ref,
@@ -1055,10 +1120,12 @@ def _build_cell_value(
                 if match:
                     location_page = _safe_int_or_none(match.group(1))
                     break
+            is_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
+            clause_prefix = "cl." if is_en else "п."
             for pattern in _CLAUSE_PATTERNS:
                 match = pattern.search(display_text)
                 if match:
-                    location_clause_ref = f"п. {match.group(1)}"
+                    location_clause_ref = f"{clause_prefix} {match.group(1)}"
                     break
             if location_page is not None or location_clause_ref:
                 has_location_fallback = True
@@ -1726,11 +1793,18 @@ def _build_doc_type_classes(
         else None
     ) or _DEFAULT_UNGROUPED_LABEL
 
+    is_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
+
     classes: list[DocTypeClassDTO] = []
     for group_id, type_map in type_checks_by_group.items():
         group_config = registry_groups.get(group_id)
+        group_label_localized = (
+            getattr(group_config, "label_en", None) if is_en else None
+        )
+
         group_label = (
-            getattr(group_config, "label", None)
+            _safe_str_or_none(group_label_localized)
+            or getattr(group_config, "label", None)
             or (ungrouped_fallback if group_id == _DEFAULT_UNGROUPED_GROUP_ID else None)
             or _humanize_identifier(group_id)
             or group_id
@@ -1740,8 +1814,13 @@ def _build_doc_type_classes(
         type_nodes: list[DocTypeNodeDTO] = []
         for type_code, type_checks in type_map.items():
             type_config = registry.get_config(type_code)
+            type_name_localized = (
+                getattr(type_config, "name_en", None) if is_en else None
+            )
+
             type_name = (
-                _safe_str_or_none(getattr(type_config, "name", None))
+                _safe_str_or_none(type_name_localized)
+                or _safe_str_or_none(getattr(type_config, "name", None))
                 or _humanize_identifier(type_code)
                 or type_code
             )
@@ -1843,6 +1922,16 @@ def build_dd_grid_v1(
         checks, localization_map=localization_map
     )
     result_index = _build_result_index(check_results)
+
+    # Update check_subgroups check_name if localized in check_results
+    for check in checks:
+        if check.id in check_subgroups:
+            for (d_id, s_id, c_id), cr_row in result_index.items():
+                if c_id == check.id and isinstance(cr_row, dict):
+                    loc_name = cr_row.get("check_name")
+                    if loc_name and not cr_row.get("presentation_is_fallback", True):
+                        check_subgroups[check.id].check_name = loc_name
+                        break
     plan_index = _build_plan_index(plan_items)
     documents_meta = _build_documents_meta(documents)
 

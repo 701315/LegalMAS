@@ -1,5 +1,13 @@
 # src/workers/outbox_dispatcher.py
 
+"""
+Celery task for dispatching outbox messages to their target queues.
+
+This task runs periodically via Celery Beat (every 5 seconds by default).
+It claims unprocessed outbox messages and publishes them to the appropriate
+Celery queue based on message headers.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -15,6 +23,7 @@ logger = get_logger(__name__)
 
 
 def _retry_delay(attempt: int) -> int:
+    """Exponential backoff for failed dispatch attempts."""
     schedule = {
         1: 5,
         2: 15,
@@ -41,7 +50,13 @@ def outbox_dispatcher(
     orchestration_strategy: str | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
+    """
+    Dispatch pending outbox messages to their target Celery queues.
+    """
     _ = self
+    _ = stage_execution_id
+    _ = orchestration_strategy
+    _ = kwargs
 
     async def _wrapper() -> dict[str, Any]:
         published_count = 0
@@ -109,6 +124,3 @@ def outbox_dispatcher(
         }
 
     return run_async(_wrapper())
-
-
-

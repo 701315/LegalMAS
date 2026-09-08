@@ -26,7 +26,7 @@ from core.i18n.result_locales import (
     get_supported_result_locales,
     is_valid_result_locale,
 )
-from core.result_presentation_content import PRESENTATION_CONTENT_VERSION_V1
+from core.result_presentation_content import PRESENTATION_CONTENT_VERSION_V2
 from db.repositories.check_result_presentation_repo import (
     CheckResultPresentationRepository,
 )
@@ -165,7 +165,7 @@ async def apply_presentations_for_read(
     session: AsyncSession,
     check_results: Sequence[Mapping[str, Any]],
     requested_locale: str,
-    content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+    content_version: str = PRESENTATION_CONTENT_VERSION_V2,
 ) -> list[dict[str, Any]]:
     """
     Overlay locale-specific result presentations onto copied result dictionaries.

@@ -13,6 +13,7 @@ from typing import Any
 
 from core.result_presentation_content import (
     PRESENTATION_CONTENT_VERSION_V1,
+    PRESENTATION_CONTENT_VERSION_V2,
     build_presentation_source_hash,
 )
 
@@ -47,6 +48,11 @@ def _canonical_source_hash(
         check_name=str(row.get("check_name") or ""),
         display_text=row.get("display_text"),
         review_message=row.get("review_message"),
+        structured_data=(
+            row.get("structured_data")
+            if content_version == PRESENTATION_CONTENT_VERSION_V2
+            else None
+        ),
         content_version=content_version,
     )
 
@@ -56,7 +62,7 @@ def apply_result_presentations(
     check_results: Sequence[Mapping[str, Any]],
     presentations_by_result_id: Mapping[str, Any],
     requested_locale: str,
-    content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+    content_version: str = PRESENTATION_CONTENT_VERSION_V2,
 ) -> list[dict[str, Any]]:
     """
     Return copied check-result rows enriched with presentation selection metadata.
@@ -144,6 +150,10 @@ def apply_result_presentations(
                 presentation,
                 "review_message",
             )
+            localized_structured_data = _presentation_value(
+                presentation,
+                "localized_structured_data",
+            )
 
             # Sprint 6.3: Human override takes priority over LLM translation.
             # If a QC reviewer edited the presentation, human_override_text
@@ -160,10 +170,15 @@ def apply_result_presentations(
                     localized_display_text = human_override["display_text"]
                 if human_override.get("review_message") is not None:
                     localized_review_message = human_override["review_message"]
+                if human_override.get("localized_structured_data") is not None:
+                    localized_structured_data = human_override[
+                        "localized_structured_data"
+                    ]
 
             row["canonical_check_name"] = row.get("check_name")
             row["canonical_display_text"] = row.get("display_text")
             row["canonical_review_message"] = row.get("review_message")
+            row["canonical_structured_data"] = row.get("structured_data")
 
             if localized_check_name:
                 row["check_name"] = localized_check_name
@@ -173,6 +188,10 @@ def apply_result_presentations(
 
             if localized_review_message:
                 row["review_message"] = localized_review_message
+
+            # Matrix cells: free-text values translated for requested locale.
+            if isinstance(localized_structured_data, dict) and localized_structured_data:
+                row["localized_structured_data"] = localized_structured_data
 
         selected_rows.append(row)
 

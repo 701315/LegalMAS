@@ -17,6 +17,7 @@ from typing import Any
 
 
 PRESENTATION_CONTENT_VERSION_V1 = "v1"
+PRESENTATION_CONTENT_VERSION_V2 = "v2"
 
 
 def _normalize_text(value: str | None) -> str | None:
@@ -33,14 +34,17 @@ def build_presentation_source_payload(
     display_text: str | None,
     review_message: str | None,
     dd_request_text: str | None = None,
-    content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+    structured_data: dict[str, Any] | None = None,
+    content_version: str = PRESENTATION_CONTENT_VERSION_V2,
 ) -> dict[str, Any]:
     """
     Build the immutable source payload for one localized presentation.
 
-    This intentionally excludes evidence, page, clause, bbox, structured data,
-    execution status, severity, and QC state. Those fields remain canonical
-    CheckResult data and are not translated by this presentation layer.
+    User-facing presentation fields are always included.
+    For content_version=v2, free-text values from structured_data are also
+    included so Matrix cell translations stay fingerprint-consistent.
+
+    Evidence/location/qc/provenance metadata are intentionally excluded.
     """
     normalized_version = content_version.strip()
 
@@ -52,13 +56,27 @@ def build_presentation_source_payload(
     if normalized_check_name is None or not normalized_check_name.strip():
         raise ValueError("check_name must be a non-empty string")
 
-    return {
+    payload: dict[str, Any] = {
         "content_version": normalized_version,
         "check_name": normalized_check_name,
         "display_text": _normalize_text(display_text),
         "review_message": _normalize_text(review_message),
         "dd_request_text": _normalize_text(dd_request_text),
     }
+
+    # v2: fingerprint only free-text field values used by Matrix cells.
+    if normalized_version == PRESENTATION_CONTENT_VERSION_V2 and structured_data:
+        sd_text_values: dict[str, str | None] = {}
+        for field_name, field_payload in structured_data.items():
+            if not isinstance(field_payload, dict):
+                continue
+            raw_value = field_payload.get("value")
+            if isinstance(raw_value, str):
+                sd_text_values[str(field_name)] = _normalize_text(raw_value)
+        if sd_text_values:
+            payload["structured_data_values"] = sd_text_values
+
+    return payload
 
 
 def build_presentation_source_hash(
@@ -67,20 +85,22 @@ def build_presentation_source_hash(
     display_text: str | None,
     review_message: str | None,
     dd_request_text: str | None = None,
-    content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+    structured_data: dict[str, Any] | None = None,
+    content_version: str = PRESENTATION_CONTENT_VERSION_V2,
 ) -> str:
     """
     Return the SHA-256 fingerprint of canonical presentation source content.
 
     Equal normalized source payloads always produce the same hash. Any change
-    to source text or content version produces another hash and therefore
-    makes an older locale-specific presentation distinguishable from a new one.
+    to source text, structured free-text values (v2), or content version
+    produces another hash.
     """
     payload = build_presentation_source_payload(
         check_name=check_name,
         display_text=display_text,
         review_message=review_message,
         dd_request_text=dd_request_text,
+        structured_data=structured_data,
         content_version=content_version,
     )
 
@@ -92,3 +112,5 @@ def build_presentation_source_hash(
     )
 
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    

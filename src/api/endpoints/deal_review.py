@@ -288,7 +288,7 @@ async def request_result_presentations(
             "tenant_id": str(run.tenant_id),
             "locale": target_locale,
             "content_version": progress.content_version,
-            "batch_limit": 5,
+            "batch_limit": 25,
         },
         aggregate_type="run",
         aggregate_id=run_id,

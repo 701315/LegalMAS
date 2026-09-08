@@ -12,6 +12,7 @@ from typing import Any
 
 from core.logging import get_logger
 from db.uow import db_uow
+from db.repositories.outbox import OutboxRepository
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
@@ -92,5 +93,36 @@ def process_pending_result_presentations(
         failed=result.get("failed"),
         stale=result.get("stale"),
     )
+
+    # Outbox-driven continuation: if we hit the batch limit, more pending
+    # rows likely exist. Create a new outbox message so the dispatcher picks
+    # up the next batch within 5 seconds. This is crash-safe (PostgreSQL-
+    # backed) unlike Redis self-chaining.
+    if result.get("claimed", 0) >= batch_limit:
+        async def _schedule_next() -> None:
+            async with db_uow() as uow:
+                repo = OutboxRepository(uow.session)
+                await repo.create(
+                    task_name=RESULT_PRESENTATION_TRANSLATION_TASK_NAME,
+                    payload={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "tenant_id": tenant_id,
+                        "locale": locale,
+                        "content_version": content_version,
+                        "batch_limit": batch_limit,
+                    },
+                    aggregate_type="run_translation",
+                    aggregate_id=f"{run_id}:{locale}",
+                    headers={"queue": "heavy_llm_checks"},
+                )
+
+        run_async(_schedule_next())
+        logger.info(
+            "Scheduled next translation batch via outbox continuation",
+            run_id=run_id,
+            locale=locale,
+            claimed=result.get("claimed"),
+        )
 
     return result

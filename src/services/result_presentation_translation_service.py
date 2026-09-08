@@ -19,8 +19,8 @@ from typing import Any
 from engine.llm.client import LLMClient
 
 
-RESULT_PRESENTATION_TRANSLATION_PROMPT_VERSION = "v1"
-RESULT_PRESENTATION_TRANSLATION_MAX_TOKENS = 512
+RESULT_PRESENTATION_TRANSLATION_PROMPT_VERSION = "v2"
+RESULT_PRESENTATION_TRANSLATION_MAX_TOKENS = 2048
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,7 @@ class ResultPresentationTranslation:
     localized_check_name: str
     display_text: str | None
     review_message: str | None
+    localized_structured_data: dict[str, str] | None
     provider: str
     model: str
     prompt_tokens: int | None
@@ -77,16 +78,15 @@ def build_result_presentation_translation_prompt(
     check_name: str,
     display_text: str | None,
     review_message: str | None,
+    structured_data_fields: dict[str, str] | None = None,
     glossary_terms: dict[str, str] | None = None,
 ) -> str:
     """
     Build the strict translation-only prompt.
 
-    The model receives only presentation fields. It must not infer legal facts,
-    change legal meaning, add advice, alter numeric values, or translate
-    canonical evidence/provenance fields that are not part of this payload.
-    If glossary_terms is provided, the prompt includes a terminology section
-    instructing the LLM to use exact translations for specified source terms.
+    The model receives presentation fields and optional structured free-text values.
+    It must not infer legal facts, change legal meaning, add advice, alter numeric
+    values, or translate canonical evidence/provenance fields.
     """
     normalized_target_locale = _normalize_required_text(
         target_locale,
@@ -97,7 +97,7 @@ def build_result_presentation_translation_prompt(
         field_name="check_name",
     )
 
-    source_payload = {
+    source_payload: dict[str, Any] = {
         "source_locale": (
             source_locale.strip().lower()
             if isinstance(source_locale, str) and source_locale.strip()
@@ -107,6 +107,7 @@ def build_result_presentation_translation_prompt(
         "check_name": normalized_check_name,
         "display_text": display_text,
         "review_message": review_message,
+        "structured_data_fields": structured_data_fields or None,
     }
 
     # Build base instructions
@@ -122,6 +123,10 @@ def build_result_presentation_translation_prompt(
         "- localized_check_name: non-empty string",
         "- display_text: string or null",
         "- review_message: string or null",
+        "- localized_structured_data: object mapping input field_name to translated string, or null",
+        "For localized_structured_data: translate each value from structured_data_fields into target_locale.",
+        "Preserve machine enum codes (e.g. 'yes', 'no', 'present', 'absent', 'not_defined') unchanged.",
+        "If structured_data_fields is null or empty, return null for localized_structured_data.",
         "If an input optional field is null, return null for that field.",
     ]
 
@@ -144,7 +149,7 @@ def build_result_presentation_translation_prompt(
 
 def parse_result_presentation_translation(
     response_text: str,
-) -> dict[str, str | None]:
+) -> dict[str, Any]:
     """Parse and validate one JSON-only translation response."""
     try:
         payload = json.loads(response_text)
@@ -158,13 +163,23 @@ def parse_result_presentation_translation(
         "localized_check_name",
         "display_text",
         "review_message",
+        "localized_structured_data",
     }
 
     if set(payload) != expected_keys:
         raise ValueError(
             "LLM response must contain exactly: "
-            "localized_check_name, display_text, review_message"
+            "localized_check_name, display_text, review_message, localized_structured_data"
         )
+
+    localized_sd_raw = payload.get("localized_structured_data")
+    localized_sd: dict[str, str] | None = None
+
+    if isinstance(localized_sd_raw, dict) and localized_sd_raw:
+        localized_sd = {}
+        for k, v in localized_sd_raw.items():
+            if isinstance(k, str) and isinstance(v, str) and v.strip():
+                localized_sd[k.strip()] = v.strip()
 
     return {
         "localized_check_name": _normalize_required_text(
@@ -179,6 +194,7 @@ def parse_result_presentation_translation(
             payload["review_message"],
             field_name="review_message",
         ),
+        "localized_structured_data": localized_sd,
     }
 
 
@@ -190,13 +206,13 @@ async def translate_result_presentation(
     check_name: str,
     display_text: str | None,
     review_message: str | None,
+    structured_data_fields: dict[str, str] | None = None,
     glossary_terms: dict[str, str] | None = None,
 ) -> ResultPresentationTranslation:
     """
     Translate one presentation through the active configured LLM provider.
 
-    The worker injects the shared LLMClient instance. This function does not
-    hardcode Ollama, a model name, endpoint, timeout, or provider.
+    The worker injects the shared LLMClient instance.
     """
     prompt = build_result_presentation_translation_prompt(
         source_locale=source_locale,
@@ -204,6 +220,7 @@ async def translate_result_presentation(
         check_name=check_name,
         display_text=display_text,
         review_message=review_message,
+        structured_data_fields=structured_data_fields,
         glossary_terms=glossary_terms,
     )
 
@@ -230,6 +247,7 @@ async def translate_result_presentation(
         localized_check_name=translated["localized_check_name"] or "",
         display_text=translated["display_text"],
         review_message=translated["review_message"],
+        localized_structured_data=translated["localized_structured_data"],
         provider=response.provider,
         model=response.model,
         prompt_tokens=response.prompt_tokens,
@@ -237,3 +255,5 @@ async def translate_result_presentation(
         attempts=attempts,
         raw_response=response.raw_response or {},
     )
+
+    

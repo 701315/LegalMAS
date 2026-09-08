@@ -70,6 +70,7 @@ class RunRepository:
         pipeline_strategy: str = "REUSE_STRUCTURE",
         checks_mode: str = "global_and_doc_type",
         checks_scope: dict | None = None,
+        analysis_language: str | None = None,  # <-- ДОБАВИТЬ
     ) -> Run:
         """
         Создать новый запуск анализа (Run) для сделки.
@@ -89,6 +90,7 @@ class RunRepository:
             pipeline_strategy=pipeline_strategy,
             checks_mode=checks_mode,
             checks_scope=checks_scope,
+            analysis_language=analysis_language,  # <-- ДОБАВИТЬ
         )
         self.session.add(run)
         await self.session.flush()

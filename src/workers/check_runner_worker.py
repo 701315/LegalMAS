@@ -1384,6 +1384,17 @@ def finalize_run_if_ready(
                         dedup_key=f"generate_run_summary:{run_id}",
                         headers={"queue": "heavy_llm_checks"},
                     )
+
+                    # ── Auto-prime English translation post-run ──────────────
+                    from services.auto_translation_dispatcher import (
+                        dispatch_auto_translation_if_needed,
+                    )
+                    await dispatch_auto_translation_if_needed(
+                        uow.session,
+                        run=updated_run,
+                        target_locale="en",
+                        actor="system:post_run_finalize",
+                    )
                 # ── конец trigger ───────────────────────────────────────
 
                 # Резолюция tenant_id: task kwargs → run_snap.tenant_id → None.

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.result_presentation_content import (
     PRESENTATION_CONTENT_VERSION_V1,
+    PRESENTATION_CONTENT_VERSION_V2,
     build_presentation_source_hash,
 )
 from db.models.result import CheckResult
@@ -87,7 +88,7 @@ class ResultPresentationTranslationUseCase:
         deal_id: str,
         tenant_id: str,
         locale: str,
-        content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+        content_version: str = PRESENTATION_CONTENT_VERSION_V2,
         batch_limit: int = 25,
     ) -> dict[str, Any]:
         """
@@ -216,10 +217,21 @@ class ResultPresentationTranslationUseCase:
         document_id = check_result.document_id
         check_id = check_result.check_id
 
+        # Extract free-text fields from structured_data for Matrix translation
+        raw_structured_data = check_result.structured_data or {}
+        structured_data_fields: dict[str, str] = {}
+        if isinstance(raw_structured_data, dict):
+            for field_name, field_payload in raw_structured_data.items():
+                if isinstance(field_payload, dict):
+                    raw_val = field_payload.get("value")
+                    if isinstance(raw_val, str) and raw_val.strip():
+                        structured_data_fields[field_name] = raw_val.strip()
+
         current_hash = build_presentation_source_hash(
             check_name=check_name,
             display_text=display_text,
             review_message=review_message,
+            structured_data=raw_structured_data if item.content_version == PRESENTATION_CONTENT_VERSION_V2 else None,
             content_version=item.content_version,
         )
 
@@ -267,6 +279,7 @@ class ResultPresentationTranslationUseCase:
                 check_name=check_name,
                 display_text=display_text,
                 review_message=review_message,
+                structured_data_fields=structured_data_fields or None,
                 glossary_terms=glossary_terms if glossary_terms else None,
             )
 
@@ -415,6 +428,7 @@ class ResultPresentationTranslationUseCase:
             localized_check_name=translated.localized_check_name,
             display_text=translated.display_text,
             review_message=translated.review_message,
+            localized_structured_data=translated.localized_structured_data,
             translation_provider=translated.provider,
             translation_model=translated.model,
             translation_metadata=translation_metadata,

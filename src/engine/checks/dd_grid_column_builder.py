@@ -81,10 +81,8 @@ _RESERVED_METADATA_FIELD_NAMES: frozenset[str] = frozenset({
 # Универсальные ru-локализованные labels для типовых enum values.
 # Применяются только когда AllowedValueSpec.label не задан в YAML.
 _GENERIC_ENUM_LABELS: dict[str, str] = {
-    # yes/no
     "yes": "Да",
     "no": "Нет",
-    # presence-family
     "present": "Указано",
     "missing": "Не указано",
     "unclear": "Не удалось определить",
@@ -94,6 +92,20 @@ _GENERIC_ENUM_LABELS: dict[str, str] = {
     "not_defined": "Не определено",
     "not_found": "Не найдено",
     "absent": "Отсутствует",
+}
+
+_GENERIC_ENUM_LABELS_EN: dict[str, str] = {
+    "yes": "Yes",
+    "no": "No",
+    "present": "Present",
+    "missing": "Missing",
+    "unclear": "Unclear",
+    "not_specified": "Not specified",
+    "not_addressed": "Not addressed",
+    "defined": "Defined",
+    "not_defined": "Not defined",
+    "not_found": "Not found",
+    "absent": "Absent",
 }
 
 # Yes/No detection markers — используются в правиле D для определения yes_no колонки.
@@ -243,7 +255,9 @@ def _build_enum_labels(
         elif value in explicit_labels:
             labels[value] = explicit_labels[value]
         elif value in _GENERIC_ENUM_LABELS:
-            labels[value] = _GENERIC_ENUM_LABELS[value]
+            use_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
+            generic_dict = _GENERIC_ENUM_LABELS_EN if use_en else _GENERIC_ENUM_LABELS
+            labels[value] = generic_dict.get(value, _GENERIC_ENUM_LABELS[value])
         else:
             labels[value] = _humanize(value)
     return labels
@@ -348,18 +362,23 @@ def _get_label(
 
     Приоритет:
     1. DB localization override: "dd_grid.column.{col_id}.label"
-    2. cfg.label (explicit из YAML)
-    3. humanize(cfg.name)
-    4. humanize(fallback_name) если задан
-
-    fallback_name используется для paired-колонок, где имя может быть
-    prefix без _status/_details/_value.
+    2. cfg.label_en (если Results Language = en и поле задано)
+    3. cfg.label (explicit из YAML)
+    4. humanize(cfg.name)
+    5. humanize(fallback_name) если задан
     """
     col_id = cfg.name or fallback_name or ""
     db_key = f"dd_grid.column.{col_id.strip().lower()}.label"
 
     if localization_map and db_key in localization_map:
         return localization_map[db_key]
+
+    is_en = bool(
+        localization_map and localization_map.get("dd_grid.system.lang") == "en"
+    )
+    label_en = getattr(cfg, "label_en", None)
+    if is_en and isinstance(label_en, str) and label_en.strip():
+        return label_en.strip()
 
     if cfg.label and cfg.label.strip():
         return cfg.label.strip()
@@ -483,10 +502,20 @@ class DDGridColumnBuilder:
             )
 
             # Resolve localized label
+            is_en = bool(
+                localization_map and localization_map.get("dd_grid.system.lang") == "en"
+            )
+            spec_label_en = getattr(spec, "label_en", None)
+            spec_label = (
+                spec_label_en.strip()
+                if is_en and isinstance(spec_label_en, str) and spec_label_en.strip()
+                else spec.label
+            )
+
             label_key = f"dd_grid.column.{spec.column_id.strip().lower()}.label"
             label = (
                 (localization_map.get(label_key) if localization_map else None)
-                or spec.label
+                or spec_label
                 or _humanize(spec.column_id)
             )
 

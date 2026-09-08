@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.result_presentation_content import (
     PRESENTATION_CONTENT_VERSION_V1,
+    PRESENTATION_CONTENT_VERSION_V2,
     build_presentation_source_hash,
 )
 from db.models.result import CheckResult
@@ -102,6 +103,7 @@ def _canonical_source_hash(
         check_name=check_result.check_name,
         display_text=check_result.display_text,
         review_message=check_result.review_message,
+        structured_data=check_result.structured_data if content_version == PRESENTATION_CONTENT_VERSION_V2 else None,
         content_version=content_version,
     )
 
@@ -122,7 +124,7 @@ def build_result_presentation_progress(
     check_results: Sequence[CheckResult],
     presentations_by_result_id: Mapping[str, Any],
     locale: str,
-    content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+    content_version: str = PRESENTATION_CONTENT_VERSION_V2,
     created_pending: int = 0,
     existing: int = 0,
 ) -> ResultPresentationProgress:
@@ -229,7 +231,7 @@ class ResultPresentationRequestService:
         *,
         run_id: uuid.UUID,
         locale: str,
-        content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+        content_version: str = PRESENTATION_CONTENT_VERSION_V2,
     ) -> ResultPresentationProgress:
         """Return current derived progress without creating any records."""
         normalized_locale = _normalize_locale(locale)
@@ -281,7 +283,7 @@ class ResultPresentationRequestService:
         run_id: uuid.UUID,
         locale: str,
         source_locale: str | None,
-        content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+        content_version: str = PRESENTATION_CONTENT_VERSION_V2,
         actor: str | None = None,
         tenant_id: uuid.UUID | None = None,
         deal_id: uuid.UUID | None = None,

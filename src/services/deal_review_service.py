@@ -39,6 +39,9 @@ from services.dd_matrix_builder import build_dd_matrix as build_dd_matrix_respon
 from services.result_presentation_read_service import (
     apply_presentations_for_read,
 )
+from services.auto_translation_dispatcher import (
+    dispatch_auto_translation_if_needed,
+)
 from services.instruction_localization_resolver import InstructionLocalizationResolver
 # Engine
 from classifiers.yaml_registry import YAMLRegistry
@@ -601,6 +604,14 @@ async def build_dd_grid_v1_response(
         effective_locale = output_locale or presentation_locale
 
         if effective_locale:
+            # ── Lazy On-Demand Auto-Translation Trigger ──
+            await dispatch_auto_translation_if_needed(
+                uow.session,
+                run=run,
+                target_locale=effective_locale,
+                actor="system:read_dd_grid",
+            )
+
             check_results = await apply_presentations_for_read(
                 session=uow.session,
                 check_results=check_results,

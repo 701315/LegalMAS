@@ -470,6 +470,15 @@ class CheckResultPresentation(Base):
         comment="Locale-specific primary factual result text.",
     )
 
+    localized_structured_data: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Locale-specific translated structured_data field values. "
+            "Maps field_name -> translated free-text value for Matrix cells."
+        ),
+    )
+
     review_message: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,

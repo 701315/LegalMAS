@@ -106,6 +106,7 @@ class InstructionLocalizationResolver:
 
         # Tenant overrides platform
         merged = {**platform, **tenant}
+        merged["dd_grid.system.lang"] = self._locale
         self._cache = merged
 
         logger.debug(
