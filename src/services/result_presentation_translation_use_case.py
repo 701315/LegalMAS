@@ -43,6 +43,13 @@ from engine.localization.validator import (
     GlossaryComplianceError,
 )
 from db.repositories.legal_glossary_repo import LegalGlossaryRepository
+from services.translation_audit import (
+    ACTION_CLAIMED,
+    ACTION_FAILED,
+    ACTION_TRANSLATED,
+    ACTOR_WORKER,
+    log_translation_event,
+)
 
 
 @dataclass(frozen=True)
@@ -121,6 +128,26 @@ class ResultPresentationTranslationUseCase:
         # Commit the pending -> processing claim before any LLM call.
         # No PostgreSQL row lock remains active during local model inference.
         await self.db.commit()
+
+        # Sprint 6.4: Audit — log claim of presentations by background worker
+        if claimed:
+            try:
+                await log_translation_event(
+                    self.db,
+                    tenant_id=uuid.UUID(tenant_id),
+                    deal_id=uuid.UUID(deal_id),
+                    action=ACTION_CLAIMED,
+                    actor=ACTOR_WORKER,
+                    details={
+                        "run_id": run_id,
+                        "locale": normalized_locale,
+                        "content_version": normalized_version,
+                        "claimed_count": len(claimed),
+                    },
+                )
+                await self.db.commit()
+            except Exception:
+                await self.db.rollback()
 
         summary: dict[str, Any] = {
             "status": "completed",
@@ -211,7 +238,7 @@ class ResultPresentationTranslationUseCase:
             glossary_terms: dict[str, str] | None = None
             if self.glossary_resolver:
                 glossary_terms = await self.glossary_resolver.resolve_terms(
-                    tenant_id=uuid.UUID(tenant_id),
+                    tenant_id=uuid.UUID(summary["tenant_id"]),
                     source_locale=item.source_locale or "ru",
                     target_locale=item.locale,
                 )
@@ -275,9 +302,6 @@ class ResultPresentationTranslationUseCase:
             )
 
             if is_transient:
-                # Пробрасываем TransientError наверх до Celery, чтобы запустить retry.
-                # Перед этим сбрасываем статус записи обратно в 'pending',
-                # чтобы при повторе SKIP LOCKED мог забрать её заново.
                 await self.presentation_repo.mark_failed(
                     presentation_id=item.presentation_id,
                     error_message=f"Transient failure (will retry): {exc_str}",
@@ -287,7 +311,6 @@ class ResultPresentationTranslationUseCase:
                         "duration_ms": duration_ms,
                     },
                 )
-                # Сбрасываем статус в pending в репозитории (добавим этот метод на следующем шаге)
                 await self.presentation_repo.reset_processing_to_pending(
                     presentation_id=item.presentation_id
                 )
@@ -306,6 +329,27 @@ class ResultPresentationTranslationUseCase:
             )
             await self.db.commit()
             summary["failed"] += 1
+
+            # Sprint 6.4: Audit — log permanent translation failure
+            try:
+                await log_translation_event(
+                    self.db,
+                    tenant_id=uuid.UUID(summary["tenant_id"]),
+                    deal_id=uuid.UUID(summary["deal_id"]),
+                    action=ACTION_FAILED,
+                    actor=ACTOR_WORKER,
+                    details={
+                        "presentation_id": str(item.presentation_id),
+                        "locale": item.locale,
+                        "failure_reason": "translation_error",
+                        "duration_ms": duration_ms,
+                        "error": exc_str[:500],
+                    },
+                )
+                await self.db.commit()
+            except Exception:
+                await self.db.rollback()
+
             return
 
         duration_ms = int((time.perf_counter() - started) * 1000)
@@ -333,6 +377,26 @@ class ResultPresentationTranslationUseCase:
             translation_metadata=translation_metadata,
         )
         await self.db.commit()
+
+        # Sprint 6.4: Audit — log successful translation
+        try:
+            await log_translation_event(
+                self.db,
+                tenant_id=uuid.UUID(summary["tenant_id"]),
+                deal_id=uuid.UUID(summary["deal_id"]),
+                action=ACTION_TRANSLATED,
+                actor=ACTOR_WORKER,
+                details={
+                    "presentation_id": str(item.presentation_id),
+                    "locale": item.locale,
+                    "duration_ms": duration_ms,
+                    "provider": translated.provider,
+                    "model": translated.model,
+                },
+            )
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
 
         try:
             usage_recorder = LLMUsageRecorder(self.db)

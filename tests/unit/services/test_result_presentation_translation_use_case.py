@@ -113,6 +113,9 @@ def make_db(
     db.get = AsyncMock(return_value=check_result)
     db.commit = AsyncMock()
     db.rollback = AsyncMock()
+    # Мокаем метод add для AuditRepository, предотвращая непреднамеренные rollback'и
+    db.add = MagicMock()
+    db.flush = AsyncMock()
     return db
 
 
@@ -160,7 +163,11 @@ def test_execute_claims_and_marks_ready_with_translation_usage() -> None:
     ) as validate_mock, patch(
         "services.result_presentation_translation_use_case."
         "LLMUsageRecorder",
-    ) as usage_recorder_cls:
+    ) as usage_recorder_cls, patch(
+        "services.result_presentation_translation_use_case."
+        "log_translation_event",
+        new=AsyncMock(),
+    ) as log_mock:
         repo = MagicMock()
         repo.claim_pending_for_run = AsyncMock(return_value=[claimed])
         repo.mark_ready = AsyncMock(return_value=claimed)
@@ -250,8 +257,9 @@ def test_execute_claims_and_marks_ready_with_translation_usage() -> None:
 
     repo.mark_failed.assert_not_awaited()
     repo.mark_stale.assert_not_awaited()
-    assert db.commit.await_count == 4
+    assert db.commit.await_count == 6  # 4 base commits + 2 audit commits (claimed, translated)
     db.rollback.assert_not_awaited()
+    assert log_mock.await_count == 2  # claimed + translated
 
 
 def test_execute_marks_stale_without_calling_llm_when_source_hash_changed() -> None:
@@ -272,11 +280,15 @@ def test_execute_marks_stale_without_calling_llm_when_source_hash_changed() -> N
     ) as translate_mock, patch(
         "services.result_presentation_translation_use_case."
         "LLMUsageRecorder",
-    ) as usage_recorder_cls:
+    ) as usage_recorder_cls, patch(
+        "services.result_presentation_translation_use_case."
+        "log_translation_event",
+        new=AsyncMock(),
+    ) as log_mock:
         repo = MagicMock()
         repo.claim_pending_for_run = AsyncMock(return_value=[claimed])
         repo.mark_ready = AsyncMock()
-        repo.mark_failed = AsyncMock()
+        repo.mark_failed = MagicMock()
         repo.mark_stale = AsyncMock(return_value=claimed)
         repo_cls.return_value = repo
 
@@ -304,10 +316,11 @@ def test_execute_marks_stale_without_calling_llm_when_source_hash_changed() -> N
 
     translate_mock.assert_not_awaited()
     repo.mark_ready.assert_not_awaited()
-    repo.mark_failed.assert_not_awaited()
+    repo.mark_failed.assert_not_called()
     usage_recorder_cls.assert_not_called()
-    assert db.commit.await_count == 2
+    assert db.commit.await_count == 3  # 2 base commits + 1 audit commit (claimed)
     db.rollback.assert_not_awaited()
+    assert log_mock.await_count == 1  # claimed (stale is not logged as translated or failed)
 
 
 def test_execute_marks_failed_when_translation_raises() -> None:
@@ -322,7 +335,11 @@ def test_execute_marks_failed_when_translation_raises() -> None:
         "services.result_presentation_translation_use_case."
         "translate_result_presentation",
         new=AsyncMock(side_effect=RuntimeError("LLM unavailable")),
-    ) as translate_mock:
+    ) as translate_mock, patch(
+        "services.result_presentation_translation_use_case."
+        "log_translation_event",
+        new=AsyncMock(),
+    ) as log_mock:
         repo = MagicMock()
         repo.claim_pending_for_run = AsyncMock(return_value=[claimed])
         repo.mark_ready = AsyncMock()
@@ -352,9 +369,9 @@ def test_execute_marks_failed_when_translation_raises() -> None:
 
     repo.mark_ready.assert_not_awaited()
     repo.mark_stale.assert_not_awaited()
-    assert db.commit.await_count == 3
+    assert db.commit.await_count == 5  # 3 base commits + 2 audit commits (claimed, failed)
     db.rollback.assert_not_awaited()
-
+    assert log_mock.await_count == 2  # claimed + failed
 
 
 def test_execute_raises_transient_error_on_llm_timeout_with_retry_reset() -> None:
@@ -377,7 +394,11 @@ def test_execute_raises_transient_error_on_llm_timeout_with_retry_reset() -> Non
         new=AsyncMock(
             side_effect=RuntimeError("transient_error: LLM timeout after 30s")
         ),
-    ) as translate_mock:
+    ) as translate_mock, patch(
+        "services.result_presentation_translation_use_case."
+        "log_translation_event",
+        new=AsyncMock(),
+    ):
         repo = MagicMock()
         repo.claim_pending_for_run = AsyncMock(return_value=[claimed])
         repo.mark_ready = AsyncMock()
@@ -391,15 +412,12 @@ def test_execute_raises_transient_error_on_llm_timeout_with_retry_reset() -> Non
             llm_client=MagicMock(),
         )
 
-        # Ожидаем, что TransientError будет проброшен наверх
         from core.exceptions import TransientError
         with pytest.raises(TransientError, match="LLM translation transient failure"):
             run_execute(use_case)
 
-    # Проверяем что translate был вызван
     translate_mock.assert_awaited_once()
 
-    # Проверяем что mark_failed был вызван (для логирования временной ошибки)
     repo.mark_failed.assert_awaited_once()
     failed_kwargs = repo.mark_failed.await_args.kwargs
     assert failed_kwargs["presentation_id"] == PRESENTATION_ID
@@ -408,16 +426,13 @@ def test_execute_raises_transient_error_on_llm_timeout_with_retry_reset() -> Non
         "transient_translation_error"
     )
 
-    # Ключевая проверка: reset_processing_to_pending был вызван для возврата в pending
     repo.reset_processing_to_pending.assert_awaited_once()
     reset_kwargs = repo.reset_processing_to_pending.await_args.kwargs
     assert reset_kwargs["presentation_id"] == PRESENTATION_ID
 
-    # mark_ready НЕ должен быть вызван
     repo.mark_ready.assert_not_awaited()
     repo.mark_stale.assert_not_awaited()
 
-    # commit должен быть вызван 3 раза: claim, mark_failed+reset, и финальный
     assert db.commit.await_count >= 2
 
 
@@ -435,7 +450,11 @@ def test_execute_marks_failed_when_canonical_result_is_missing() -> None:
         "services.result_presentation_translation_use_case."
         "translate_result_presentation",
         new=AsyncMock(),
-    ) as translate_mock:
+    ) as translate_mock, patch(
+        "services.result_presentation_translation_use_case."
+        "log_translation_event",
+        new=AsyncMock(),
+    ):
         repo = MagicMock()
         repo.claim_pending_for_run = AsyncMock(return_value=[claimed])
         repo.mark_ready = AsyncMock()
@@ -467,7 +486,7 @@ def test_execute_marks_failed_when_canonical_result_is_missing() -> None:
     translate_mock.assert_not_awaited()
     repo.mark_ready.assert_not_awaited()
     repo.mark_stale.assert_not_awaited()
-    assert db.commit.await_count == 2
+    assert db.commit.await_count == 3  # 2 base commits + 1 audit commit (claimed)
     db.rollback.assert_not_awaited()
 
 
@@ -486,11 +505,15 @@ def test_telemetry_failure_does_not_rollback_ready_presentation() -> None:
     ), patch(
         "services.result_presentation_translation_use_case."
         "LLMUsageRecorder",
-    ) as usage_recorder_cls:
+    ) as usage_recorder_cls, patch(
+        "services.result_presentation_translation_use_case."
+        "log_translation_event",
+        new=AsyncMock(),
+    ) as log_mock:
         repo = MagicMock()
         repo.claim_pending_for_run = AsyncMock(return_value=[claimed])
         repo.mark_ready = AsyncMock(return_value=claimed)
-        repo.mark_failed = AsyncMock()
+        repo.mark_failed = MagicMock()
         repo.mark_stale = AsyncMock()
         repo_cls.return_value = repo
 
@@ -511,12 +534,13 @@ def test_telemetry_failure_does_not_rollback_ready_presentation() -> None:
     assert summary["stale"] == 0
 
     repo.mark_ready.assert_awaited_once()
-    repo.mark_failed.assert_not_awaited()
+    repo.mark_failed.assert_not_called()
     repo.mark_stale.assert_not_awaited()
     usage_recorder.record_event.assert_awaited_once()
 
-    assert db.commit.await_count == 3
+    assert db.commit.await_count == 5  # 3 base commits + 2 audit commits (claimed, translated)
     db.rollback.assert_awaited_once()
+    assert log_mock.await_count == 2  # claimed + translated
 
 
 def test_execute_empty_claim_batch_skips_llm_and_returns_completed_summary() -> None:
@@ -532,11 +556,15 @@ def test_execute_empty_claim_batch_skips_llm_and_returns_completed_summary() -> 
     ) as translate_mock, patch(
         "services.result_presentation_translation_use_case."
         "LLMUsageRecorder",
-    ) as usage_recorder_cls:
+    ) as usage_recorder_cls, patch(
+        "services.result_presentation_translation_use_case."
+        "log_translation_event",
+        new=AsyncMock(),
+    ) as log_mock:
         repo = MagicMock()
         repo.claim_pending_for_run = AsyncMock(return_value=[])
         repo.mark_ready = AsyncMock()
-        repo.mark_failed = AsyncMock()
+        repo.mark_failed = MagicMock()
         repo.mark_stale = AsyncMock()
         repo_cls.return_value = repo
 
@@ -563,11 +591,12 @@ def test_execute_empty_claim_batch_skips_llm_and_returns_completed_summary() -> 
     translate_mock.assert_not_awaited()
     usage_recorder_cls.assert_not_called()
     repo.mark_ready.assert_not_awaited()
-    repo.mark_failed.assert_not_awaited()
+    repo.mark_failed.assert_not_called()
     repo.mark_stale.assert_not_awaited()
     db.get.assert_not_awaited()
     db.commit.assert_awaited_once()
     db.rollback.assert_not_awaited()
+    assert log_mock.await_count == 0  # No claim means no log
 
 
 @pytest.mark.parametrize(

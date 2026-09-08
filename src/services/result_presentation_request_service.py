@@ -28,6 +28,10 @@ from db.repositories.check_result_presentation_repo import (
     CheckResultPresentationRepository,
 )
 from db.repositories.result_repo import ResultRepository
+from services.translation_audit import (
+    ACTION_REQUESTED,
+    log_translation_event,
+)
 
 
 _PRESENTATION_STATUSES = (
@@ -278,6 +282,9 @@ class ResultPresentationRequestService:
         locale: str,
         source_locale: str | None,
         content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+        actor: str | None = None,
+        tenant_id: uuid.UUID | None = None,
+        deal_id: uuid.UUID | None = None,
     ) -> ResultPresentationProgress:
         """
         Create missing pending presentation rows and return final progress.
@@ -344,6 +351,25 @@ class ResultPresentationRequestService:
             created_pending=created_pending,
             existing=existing,
         )
+
+        # Sprint 6.4: Audit — write log when new presentations are requested
+        if created_pending > 0 and actor and tenant_id and deal_id:
+            try:
+                await log_translation_event(
+                    self.session,
+                    tenant_id=tenant_id,
+                    deal_id=deal_id,
+                    action=ACTION_REQUESTED,
+                    actor=actor,
+                    details={
+                        "run_id": str(run_id),
+                        "locale": normalized_locale,
+                        "content_version": normalized_version,
+                        "created_pending": created_pending,
+                    },
+                )
+            except Exception:
+                pass  # Audit logging is best-effort and must not fail the execution
 
         return ResultPresentationProgress(
             run_id=str(run_id),
