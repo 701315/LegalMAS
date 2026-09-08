@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
-  Languages,
   Loader2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +13,6 @@ import {
   useRequestResultPresentations,
   useResultPresentationProgress,
 } from "../../../api/dealReview";
-import Button from "../../../components/ui/Button";
 
 interface ResultPresentationStatusProps {
   dealId: string;
@@ -37,7 +35,6 @@ export const ResultPresentationStatus: React.FC<
   dealId,
   runId,
   presentationLocale,
-  canRequest,
 }) => {
   const { t } = useTranslation("ddGrid");
   const queryClient = useQueryClient();
@@ -117,15 +114,6 @@ export const ResultPresentationStatus: React.FC<
   const hasFailures = progress.failed > 0;
   const hasStale = progress.stale > 0;
   const hasMissing = progress.missing > 0;
-  const canStartRequest =
-    canRequest &&
-    hasMissing &&
-    !hasActiveWork &&
-    !requestMutation.isPending;
-
-  const handleRequest = () => {
-    requestMutation.mutate(presentationLocale);
-  };
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -196,21 +184,7 @@ export const ResultPresentationStatus: React.FC<
         </div>
       ) : null}
 
-      {canStartRequest ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          isLoading={requestMutation.isPending}
-          onClick={handleRequest}
-          leftIcon={<Languages className="h-4 w-4" />}
-          title={t("v1Tab.presentations.requestTitle", {
-            locale: presentationLocale,
-          })}
-        >
-          {t("v1Tab.presentations.requestButton")}
-        </Button>
-      ) : null}
+      {/* Manual request button removed: auto-translation handles all cases */}
 
       {requestMutation.isError ? (
         <div
