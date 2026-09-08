@@ -43,6 +43,9 @@ from db.models.user import User
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.deal_repo import DealRepository
 from db.repositories.run_repo import RunRepository
+from db.repositories.tenant_locale_policy_repo import TenantLocalePolicyRepository
+from db.models.tenant_result_locale_policy import TenantResultLocalePolicy
+from core.i18n.result_locales import get_supported_result_locales
 from db.session import get_db, get_session
 from ops.metrics import get_metrics
 
@@ -1975,4 +1978,115 @@ async def get_external_tools(
     _require_tenant_admin(user)
     return _build_external_tools_response(
         is_superadmin=user.global_role == "superadmin"
+    )
+
+
+# ─── Tenant Locale Policy settings (Sprint 6.7) ───────────────────────────
+
+class TenantLocalePolicyDTO(BaseModel):
+    allowed_locales: list[str] = Field(default_factory=list, description="Allowed BCP 47 codes (e.g. ['en', 'ru'])")
+    is_translation_enabled: bool = Field(default=True, description="Enable or disable translation pipeline")
+    restrict_to_allowed: bool = Field(default=True, description="Strictly enforce allowed_locales validation")
+
+
+@router.get(
+    "/locale-policy",
+    response_model=TenantLocalePolicyDTO,
+    summary="Get tenant result locale policy settings",
+)
+async def get_tenant_locale_policy(
+    tenant_id: uuid.UUID | None = Query(
+        default=None,
+        description="Only for superadmin: context tenant id",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> TenantLocalePolicyDTO:
+    _require_tenant_admin(user)
+    resolved_tenant_id = _resolve_tenant_id(user, tenant_id)
+
+    repo = TenantLocalePolicyRepository(db)
+    policy = await repo.get_by_tenant_id(resolved_tenant_id)
+
+    if policy is None:
+        # Return default policy if not explicitly configured in DB
+        return TenantLocalePolicyDTO(
+            allowed_locales=[],
+            is_translation_enabled=True,
+            restrict_to_allowed=False,
+        )
+
+    return TenantLocalePolicyDTO(
+        allowed_locales=policy.allowed_locales,
+        is_translation_enabled=policy.is_translation_enabled,
+        restrict_to_allowed=policy.restrict_to_allowed,
+    )
+
+
+@router.put(
+    "/locale-policy",
+    response_model=TenantLocalePolicyDTO,
+    summary="Update or create tenant result locale policy",
+)
+async def update_tenant_locale_policy(
+    payload: TenantLocalePolicyDTO,
+    tenant_id: uuid.UUID | None = Query(
+        default=None,
+        description="Only for superadmin: context tenant id",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> TenantLocalePolicyDTO:
+    _require_tenant_admin(user)
+    resolved_tenant_id = _resolve_tenant_id(user, tenant_id)
+
+    # Validate that BCP 47 locales are globally supported
+    supported = get_supported_result_locales()
+    for loc in payload.allowed_locales:
+        norm = loc.strip().lower()
+        if norm not in supported:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Locale '{loc}' is not supported globally.",
+            )
+
+    repo = TenantLocalePolicyRepository(db)
+    policy = await repo.get_by_tenant_id(resolved_tenant_id)
+
+    if policy is None:
+        policy = TenantResultLocalePolicy(
+            tenant_id=resolved_tenant_id,
+            allowed_locales=[loc.strip().lower() for loc in payload.allowed_locales],
+            is_translation_enabled=payload.is_translation_enabled,
+            restrict_to_allowed=payload.restrict_to_allowed,
+        )
+        db.add(policy)
+    else:
+        policy.allowed_locales = [loc.strip().lower() for loc in payload.allowed_locales]
+        policy.is_translation_enabled = payload.is_translation_enabled
+        policy.restrict_to_allowed = payload.restrict_to_allowed
+
+    await db.commit()
+
+    # Log action to audit trail
+    try:
+        audit_repo = AuditRepository(db)
+        await audit_repo.log(
+            tenant_id=resolved_tenant_id,
+            action="tenant.locale_policy_updated",
+            actor=user.email or str(user.id),
+            details={
+                "allowed_locales": policy.allowed_locales,
+                "is_translation_enabled": policy.is_translation_enabled,
+                "restrict_to_allowed": policy.restrict_to_allowed,
+            },
+        )
+        await db.commit()
+    except Exception:
+        logger.exception("Failed to log locale policy update audit log")
+
+    return TenantLocalePolicyDTO(
+        allowed_locales=policy.allowed_locales,
+        is_translation_enabled=policy.is_translation_enabled,
+        restrict_to_allowed=policy.restrict_to_allowed,
     )
