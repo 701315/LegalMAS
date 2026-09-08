@@ -604,6 +604,99 @@ class MetricsRegistry:
             registry=r,
         )
 
+        # ==============================================================
+        # 16. TRANSLATION & REVIEW METRICS (Sprint 6.5)
+        # ==============================================================
+
+        self.translation_requested_total = Counter(
+            f"{_P}_translation_requested_total",
+            "Total translation requests created by target locale.",
+            labelnames=["locale"],
+            registry=r,
+        )
+
+        self.translation_claimed_total = Counter(
+            f"{_P}_translation_claimed_total",
+            "Total translations claimed by workers.",
+            labelnames=["locale"],
+            registry=r,
+        )
+
+        self.translation_success_total = Counter(
+            f"{_P}_translation_success_total",
+            "Total successful LLM translations by target locale and model.",
+            labelnames=["locale", "provider", "model"],
+            registry=r,
+        )
+
+        self.translation_failed_total = Counter(
+            f"{_P}_translation_failed_total",
+            "Total failed translations by target locale and failure reason.",
+            labelnames=["locale", "reason"],  # reason: limit | permanent | glossary
+            registry=r,
+        )
+
+        self.translation_review_approved_total = Counter(
+            f"{_P}_translation_review_approved_total",
+            "Total translations approved by QC reviewer.",
+            labelnames=["locale"],
+            registry=r,
+        )
+
+        self.translation_review_rejected_total = Counter(
+            f"{_P}_translation_review_rejected_total",
+            "Total translations rejected by QC reviewer.",
+            labelnames=["locale"],
+            registry=r,
+        )
+
+        self.translation_review_edited_total = Counter(
+            f"{_P}_translation_review_edited_total",
+            "Total human edits/overrides applied by QC reviewer.",
+            labelnames=["locale"],
+            registry=r,
+        )
+
+        self.translation_review_reset_total = Counter(
+            f"{_P}_translation_review_reset_total",
+            "Total rejected translations reset to pending.",
+            labelnames=["locale"],
+            registry=r,
+        )
+
+        self.translation_duration_seconds = Histogram(
+            f"{_P}_translation_duration_seconds",
+            "Time taken to translate a single CheckResult via LLM.",
+            labelnames=["locale", "provider"],
+            buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 45.0],
+            registry=r,
+        )
+
+        self.translation_review_action_duration_seconds = Histogram(
+            f"{_P}_translation_review_action_duration_seconds",
+            "API response duration for translation QC review actions.",
+            labelnames=["action"],  # action: approve | reject | edit | reset
+            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
+            registry=r,
+        )
+
+        self.translation_queue_size = Gauge(
+            f"{_P}_translation_queue_size",
+            "Current count of presentation translations in pending status.",
+            registry=r,
+        )
+
+        self.translation_review_approved_rate = Gauge(
+            f"{_P}_translation_review_approved_rate",
+            "Fraction of translations approved (versus rejected) by QC.",
+            registry=r,
+        )
+
+        self.translation_human_override_rate = Gauge(
+            f"{_P}_translation_human_override_rate",
+            "Fraction of localized presentations containing human edits.",
+            registry=r,
+        )
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
 

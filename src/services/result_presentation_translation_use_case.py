@@ -43,6 +43,7 @@ from engine.localization.validator import (
     GlossaryComplianceError,
 )
 from db.repositories.legal_glossary_repo import LegalGlossaryRepository
+from ops.metrics import get_metrics
 from services.translation_audit import (
     ACTION_CLAIMED,
     ACTION_FAILED,
@@ -129,6 +130,13 @@ class ResultPresentationTranslationUseCase:
         # No PostgreSQL row lock remains active during local model inference.
         await self.db.commit()
 
+        # Sprint 6.5: Emit Prometheus metric for claimed items
+        if claimed:
+            try:
+                get_metrics().translation_claimed_total.labels(locale=normalized_locale).inc(len(claimed))
+            except Exception:
+                pass
+
         # Sprint 6.4: Audit — log claim of presentations by background worker
         if claimed:
             try:
@@ -189,6 +197,15 @@ class ResultPresentationTranslationUseCase:
             await self.db.commit()
             summary["failed"] += 1
             summary["missing_result"] += 1
+
+            # Sprint 6.5: Emit Prometheus failure metric
+            try:
+                get_metrics().translation_failed_total.labels(
+                    locale=item.locale, reason="check_result_not_found"
+                ).inc()
+            except Exception:
+                pass
+
             return
 
         # Snapshot canonical values while the ORM row is loaded and before the
@@ -289,6 +306,15 @@ class ResultPresentationTranslationUseCase:
                 presentation_id=item.presentation_id
             )
             await self.db.commit()
+
+            # Sprint 6.5: Emit Prometheus failure metric
+            try:
+                get_metrics().translation_failed_total.labels(
+                    locale=item.locale, reason="glossary_compliance_violation"
+                ).inc()
+            except Exception:
+                pass
+
             raise TransientError(f"Glossary compliance violation (will retry): {exc}") from exc
 
         except Exception as exc:
@@ -315,6 +341,15 @@ class ResultPresentationTranslationUseCase:
                     presentation_id=item.presentation_id
                 )
                 await self.db.commit()
+
+                # Sprint 6.5: Emit Prometheus failure metric
+                try:
+                    get_metrics().translation_failed_total.labels(
+                        locale=item.locale, reason="transient_translation_error"
+                    ).inc()
+                except Exception:
+                    pass
+
                 raise TransientError(f"LLM translation transient failure: {exc_str}") from exc
 
             # Перманентная ошибка (неверный prompt, JSON parse error, etc.)
@@ -329,6 +364,14 @@ class ResultPresentationTranslationUseCase:
             )
             await self.db.commit()
             summary["failed"] += 1
+
+            # Sprint 6.5: Emit Prometheus failure metric
+            try:
+                get_metrics().translation_failed_total.labels(
+                    locale=item.locale, reason="translation_error"
+                ).inc()
+            except Exception:
+                pass
 
             # Sprint 6.4: Audit — log permanent translation failure
             try:
@@ -377,6 +420,20 @@ class ResultPresentationTranslationUseCase:
             translation_metadata=translation_metadata,
         )
         await self.db.commit()
+
+        # Sprint 6.5: Emit success and duration metrics to Prometheus
+        try:
+            get_metrics().translation_success_total.labels(
+                locale=item.locale,
+                provider=translated.provider,
+                model=translated.model,
+            ).inc()
+            get_metrics().translation_duration_seconds.labels(
+                locale=item.locale,
+                provider=translated.provider,
+            ).observe(duration_ms / 1000.0)
+        except Exception:
+            pass
 
         # Sprint 6.4: Audit — log successful translation
         try:

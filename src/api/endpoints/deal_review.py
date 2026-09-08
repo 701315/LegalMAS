@@ -72,6 +72,7 @@ from ..schemas.deal_review import (
 )
 
 from db.models.deal import Deal
+from ops.metrics import get_metrics
 
 router = APIRouter(prefix="/deals", tags=["deal_review"])
 
@@ -243,11 +244,18 @@ async def request_result_presentations(
         source_locale=deal.primary_language,
     )
 
+    # Sprint 6.5: Emit Prometheus translation requested metrics
+    try:
+        get_metrics().translation_requested_total.labels(locale=target_locale).inc(progress.created_pending)
+    except Exception:
+        pass
+
+    from services.translation_audit import ACTION_REQUESTED
     audit_repo = AuditRepository(db)
     await audit_repo.log(
         tenant_id=run.tenant_id,
         deal_id=run.deal_id,
-        action="RESULT_PRESENTATIONS_REQUESTED",
+        action=ACTION_REQUESTED,
         actor=user.email or user.id,
         actor_role=user.global_role,
         details={

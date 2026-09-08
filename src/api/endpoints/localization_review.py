@@ -13,6 +13,7 @@ Canonical CheckResult is never modified (Invariants #1, #3).
 
 from __future__ import annotations
 
+import time
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -104,6 +105,7 @@ async def approve_translation(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ) -> ReviewResponse:
+    start_time = time.perf_counter()
     await _resolve_deal_and_check_access(db, presentation_id, user)
 
     service = ResultLocalizationReviewService(db)
@@ -126,6 +128,10 @@ async def approve_translation(
         ) from exc
 
     await db.commit()
+    try:
+        get_metrics().translation_review_action_duration_seconds.labels(action="approve").observe(time.perf_counter() - start_time)
+    except Exception:
+        pass
     return _build_response(presentation)
 
 
@@ -241,3 +247,5 @@ async def reset_translation(
 
     await db.commit()
     return _build_response(presentation)
+
+from ops.metrics import get_metrics

@@ -20,6 +20,7 @@ from db.models.result import CheckResult, CheckResultPresentation
 from db.models.run import Run
 from db.models.deal import Deal
 from db.repositories.audit_repo import AuditRepository
+from ops.metrics import get_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,12 @@ class ResultLocalizationReviewService:
         presentation.approved_at = now
         presentation.review_comment = comment.strip() if comment else None
 
+        # Sprint 6.5: Emit approved metric to Prometheus
+        try:
+            get_metrics().translation_review_approved_total.labels(locale=presentation.locale).inc()
+        except Exception:
+            pass
+
         # Resolve context for audit logs
         tenant_id, deal_id = await get_presentation_audit_context(self.session, presentation_id)
         await self.audit_repo.log(
@@ -167,6 +174,12 @@ class ResultLocalizationReviewService:
         presentation.reviewed_by = user_id
         presentation.reviewed_at = now
         presentation.review_comment = comment.strip()
+
+        # Sprint 6.5: Emit rejected metric to Prometheus
+        try:
+            get_metrics().translation_review_rejected_total.labels(locale=presentation.locale).inc()
+        except Exception:
+            pass
 
         # Resolve context for audit logs
         tenant_id, deal_id = await get_presentation_audit_context(self.session, presentation_id)
@@ -264,6 +277,12 @@ class ResultLocalizationReviewService:
         presentation.reviewed_at = now
         presentation.review_comment = comment.strip() if comment else presentation.review_comment
 
+        # Sprint 6.5: Emit edited metric to Prometheus
+        try:
+            get_metrics().translation_review_edited_total.labels(locale=presentation.locale).inc()
+        except Exception:
+            pass
+
         # Resolve context for audit logs
         tenant_id, deal_id = await get_presentation_audit_context(self.session, presentation_id)
         await self.audit_repo.log(
@@ -300,6 +319,12 @@ class ResultLocalizationReviewService:
 
         presentation.translation_status = "pending"
         presentation.error_message = None
+
+        # Sprint 6.5: Emit reset metric to Prometheus
+        try:
+            get_metrics().translation_review_reset_total.labels(locale=presentation.locale).inc()
+        except Exception:
+            pass
 
         # Resolve context for audit logs
         tenant_id, deal_id = await get_presentation_audit_context(self.session, presentation_id)
