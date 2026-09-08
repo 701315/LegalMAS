@@ -36,6 +36,7 @@ _PRESENTATION_STATUSES = (
     "ready",
     "reviewed",
     "approved",
+    "rejected",
     "failed",
     "stale",
 )

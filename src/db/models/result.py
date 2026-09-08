@@ -546,6 +546,26 @@ class CheckResultPresentation(Base):
         comment="Timestamp when this presentation was approved.",
     )
 
+    # --- Sprint 6.1: Translation review fields ---
+
+    review_comment: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Reviewer comment for approval, rejection or edit.",
+    )
+
+    human_override_text: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Human-edited override of localized presentation fields.",
+    )
+
+    original_translation_snapshot: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Snapshot of original LLM translation before first human edit.",
+    )
+
     __table_args__ = (
         UniqueConstraint(
             "check_result_id",
