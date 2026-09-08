@@ -224,3 +224,99 @@ def test_empty_content_version_is_rejected() -> None:
         assert str(exc) == "content_version must be a non-empty string"
     else:
         raise AssertionError("ValueError was not raised")
+
+
+# ── Sprint 6.3: Human override priority tests ───────────────────────
+
+
+def test_human_override_replaces_llm_display_text() -> None:
+    """When human_override_text has display_text, it wins over LLM value."""
+    row = _canonical_row()
+
+    presentation = {
+        "locale": "ru",
+        "content_version": "v1",
+        "source_content_hash": _source_hash(row),
+        "source_locale": "en",
+        "translation_status": "reviewed",
+        "localized_check_name": "Лимит ответственности",
+        "display_text": "LLM перевод текста.",
+        "review_message": "LLM перевод сообщения.",
+        "human_override_text": {
+            "display_text": "Человеческий перевод текста.",
+        },
+    }
+
+    selected = apply_result_presentations(
+        check_results=[row],
+        presentations_by_result_id={row["id"]: presentation},
+        requested_locale="ru",
+    )
+
+    # Human override wins for display_text
+    assert selected[0]["display_text"] == "Человеческий перевод текста."
+    # LLM value still used for fields NOT in override
+    assert selected[0]["check_name"] == "Лимит ответственности"
+    assert selected[0]["review_message"] == "LLM перевод сообщения."
+    # Canonical preserved
+    assert selected[0]["canonical_display_text"] == (
+        "No aggregate liability cap was found."
+    )
+
+
+def test_human_override_replaces_all_fields() -> None:
+    """When human_override_text has all fields, all override LLM values."""
+    row = _canonical_row()
+
+    presentation = {
+        "locale": "ru",
+        "content_version": "v1",
+        "source_content_hash": _source_hash(row),
+        "source_locale": "en",
+        "translation_status": "reviewed",
+        "localized_check_name": "LLM Имя",
+        "display_text": "LLM текст",
+        "review_message": "LLM сообщение",
+        "human_override_text": {
+            "localized_check_name": "Человеческое имя",
+            "display_text": "Человеческий текст",
+            "review_message": "Человеческое сообщение",
+        },
+    }
+
+    selected = apply_result_presentations(
+        check_results=[row],
+        presentations_by_result_id={row["id"]: presentation},
+        requested_locale="ru",
+    )
+
+    assert selected[0]["check_name"] == "Человеческое имя"
+    assert selected[0]["display_text"] == "Человеческий текст"
+    assert selected[0]["review_message"] == "Человеческое сообщение"
+
+
+def test_no_human_override_uses_llm_values() -> None:
+    """When human_override_text is None, LLM values are used as before."""
+    row = _canonical_row()
+
+    presentation = {
+        "locale": "ru",
+        "content_version": "v1",
+        "source_content_hash": _source_hash(row),
+        "source_locale": "en",
+        "translation_status": "ready",
+        "localized_check_name": "Лимит ответственности",
+        "display_text": "LLM перевод текста.",
+        "review_message": "LLM перевод сообщения.",
+        "human_override_text": None,
+    }
+
+    selected = apply_result_presentations(
+        check_results=[row],
+        presentations_by_result_id={row["id"]: presentation},
+        requested_locale="ru",
+    )
+
+    assert selected[0]["check_name"] == "Лимит ответственности"
+    assert selected[0]["display_text"] == "LLM перевод текста."
+    assert selected[0]["review_message"] == "LLM перевод сообщения."

@@ -145,6 +145,22 @@ def apply_result_presentations(
                 "review_message",
             )
 
+            # Sprint 6.3: Human override takes priority over LLM translation.
+            # If a QC reviewer edited the presentation, human_override_text
+            # contains the corrected fields. We merge selectively: only
+            # non-None override fields replace the LLM values.
+            human_override = _presentation_value(
+                presentation,
+                "human_override_text",
+            )
+            if isinstance(human_override, dict):
+                if human_override.get("localized_check_name") is not None:
+                    localized_check_name = human_override["localized_check_name"]
+                if human_override.get("display_text") is not None:
+                    localized_display_text = human_override["display_text"]
+                if human_override.get("review_message") is not None:
+                    localized_review_message = human_override["review_message"]
+
             row["canonical_check_name"] = row.get("check_name")
             row["canonical_display_text"] = row.get("display_text")
             row["canonical_review_message"] = row.get("review_message")
