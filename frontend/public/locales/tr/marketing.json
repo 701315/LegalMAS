@@ -1,0 +1,2414 @@
+{
+  "nav": {
+    "platform": "Platform",
+    "security": "Güvenlik",
+    "solutions": "Kullanım Senaryoları",
+    "about": "Hakkımızda"
+  },
+  "cta": {
+    "demo": "Demo Talep Et",
+    "login": "Giriş Yap"
+  },
+  "megaMenu": {
+    "byDirection": {
+      "title": "Yöne Göre",
+      "maDueDiligence": {
+        "label": "M&A ve Due Diligence",
+        "description": "Tek kurallar altında kapsamlı veri odası analizi"
+      },
+      "contractReview": {
+        "label": "Sözleşme İncelemesi",
+        "description": "Tek bir standarda göre sözleşme doğrulaması"
+      },
+      "compliance": {
+        "label": "Uyum ve Kontrol",
+        "description": "Dahili politikalara uyumun doğrulanması"
+      },
+      "internalAudit": {
+        "label": "İç Denetim",
+        "description": "Sözleşme portföyü doğrulaması"
+      }
+    },
+    "byTeam": {
+      "title": "Ekip Türüne Göre",
+      "lawFirms": {
+        "label": "Hukuk Büroları",
+        "description": "Uzmanlığın ölçeklendirilmesi"
+      },
+      "corporateLegal": {
+        "label": "Kurumsal Hukuk",
+        "description": "Birleşik doğrulama standardı"
+      },
+      "auditCompliance": {
+        "label": "İç Denetim",
+        "description": "Tekrarlanabilir süreç"
+      }
+    },
+    "enrichment": {
+      "title": "Gelişmiş Analiz",
+      "counterparties": {
+        "label": "Karşı Taraf Analizi",
+        "description": "Veri zenginleştirme ve UBO doğrulaması"
+      },
+      "realEstate": {
+        "label": "Varlık Analizi",
+        "description": "Hakların ve yükümlülüklerin doğrulanması"
+      }
+    }
+  },
+  "home": {
+    "brand": {
+      "name": "Steloom",
+      "tagline": "Hukuki çalışmalar için zeka katmanı"
+    },
+    "hero": {
+      "title": "Belgeleri yapıya\nve bilgiye dönüştürün",
+      "description": [
+        "Steloom, hukuki belge yığınlarını bağlantılı, doğrulanabilir ve eyleme geçirilebilir bir zeka sistemine dönüştürür.",
+        "Ekibiniz arama ve çapraz kontrol için daha az zaman harcar — sonuçlar ve kararlar için daha fazla zaman ayırır."
+      ],
+      "primaryCta": "Demo Talep Et",
+      "secondaryCta": "Senaryoları Keşfet",
+      "chips": [
+        "Playbook tabanlı inceleme",
+        "Kaynak bağlantılı bulgular",
+        "Local-first LLM",
+        "Denetlenebilir iş akışı"
+      ],
+      "panelTitle": "Bu bir belge görüntüleyici, depo veya sohbet değildir",
+      "panelItems": [
+        "Hukuki çalışmalar için yeni bir altyapı katmanı — prompt'larla değil, mimariyle.",
+        "Kontroller tek bir sorgu etrafında değil, playbook'unuz etrafında inşa edilir.",
+        "Her bulgu kaynağına bağlıdır ve incelemeye ve denetime hazırdır.",
+        "Local-first modu, en hassas belgeler için tasarlanmıştır."
+      ]
+    },
+    "trustStrip": [
+      "DD ve M&A için tasarlandı",
+      "Kaynak bağlantılı bulgular",
+      "Varsayılan olarak privacy-first",
+      "Hibrit arama + kural tabanlı kontroller",
+      "Denetlenebilir iş akışı",
+      "Playbook tabanlı inceleme",
+      "Kurumsal düzeyde güvenlik"
+    ],
+    "conceptTags": {
+      "eyebrow": "Platformun kapsadığı alanlar",
+      "title": "Belge çalışması,\nbir sistem olarak kurgulandı.",
+      "description": "Due Diligence, anahtar hükümlerin otomatik çıkarımı, hukuki risk haritalama, yükümlülük ve son tarih takibi, kaynak bağlantılı bulgular ve belge yapısı analizi — Steloom, dağınık görevleri tek, yönetilebilir bir süreçte birleştirir.",
+      "row1": [
+        "Due Diligence",
+        "Hüküm Çıkarımı",
+        "Risk Haritalama",
+        "M&A",
+        "Data Room Analizi",
+        "Playbook İncelemesi",
+        "Yükümlülük Takibi",
+        "Anlaşma Yapılandırma"
+      ],
+      "row2": [
+        "Bilgi Grafiği",
+        "Belge Zekası",
+        "Yapı Analizi",
+        "Sözleşme İncelemesi",
+        "Denetim İzleri",
+        "Kaynak Bağlantılı Bulgular",
+        "Hukuk Operasyonları",
+        "Çapraz Referanslar"
+      ]
+    },
+    "audience": {
+      "eyebrow": "Kimler için",
+      "title": "Temel hukuk iş akışları için\ntek platform",
+      "description": "Steloom, hukuk fonksiyonundaki birkaç kilit rol için uygundur — sadece tek bir niş kullanıcı için değil.",
+      "roles": [
+        {
+          "id": "ma",
+          "title": "M&A Ekipleri",
+          "headline": "Data room'da hız ve kontrol.",
+          "body": "Playbook'lara karşı yapılandırılmış inceleme, hüküm ve risklerin otomatik çıkarımı. Anlaşmalar kaliteden ödün vermeden daha hızlı ilerler.",
+          "tags": [
+            "Due Diligence",
+            "Data Room",
+            "Risk Çıkarımı",
+            "Playbook İncelemesi"
+          ]
+        },
+        {
+          "id": "legal_ops",
+          "title": "Hukuk Operasyonları",
+          "headline": "Tekrarlanabilirlik, şeffaflık ve ölçeklenebilirlik.",
+          "body": "Belirli bir avukata bağlı olmayan standartlaştırılmış inceleme süreci. Steloom, ekibinizin metodolojisini playbook'a kodlar.",
+          "tags": [
+            "Süreç Standardizasyonu",
+            "Denetim İzleri",
+            "İş Akışı Otomasyonu"
+          ]
+        },
+        {
+          "id": "gc",
+          "title": "Genel Hukuk Danışmanı",
+          "headline": "Yönetilen risk ve savunulabilir bulgular.",
+          "body": "Her bulgu kaynağına bağlıdır. Kararlar özetlere değil, doğrulanabilir verilere dayanarak alınır.",
+          "tags": [
+            "Risk Yönetimi",
+            "Karar Desteği",
+            "Açıklanabilir Bulgular"
+          ]
+        }
+      ]
+    },
+    "stats": {
+      "eyebrow": "Ölçülebilir etki",
+      "title": "Sürelerde, saatlerde ve\nhata maliyetinde görünen etki.",
+      "description": "Hızlandırılmış inceleme, azaltılmış manuel analiz ve missed risk maliyetinin düşürülmesi — soyut bir teknoloji vaadi olarak değil, ölçülebilir bir sonuç olarak.",
+      "items": [
+        {
+          "value": 10,
+          "suffix": "×",
+          "label": "Daha hızlı due diligence",
+          "sub": "manuel belge incelemesine kıyasla"
+        },
+        {
+          "value": 40,
+          "suffix": "s",
+          "label": "Anlaşma başına tasarruf",
+          "sub": "M&A süreçlerinde ortalama"
+        },
+        {
+          "value": 2,
+          "suffix": "M",
+          "prefix": "$",
+          "label": "Gözden kaçan bir maddenin maliyeti",
+          "sub": "büyük anlaşmalar için sektör referansı"
+        }
+      ],
+      "quote": "Bunlar tahminler değildir. Bunlar, manuel incelemeyi yapılandırılmış analitik ile değiştiren hukuk ekiplerinin kaydettiği sonuçlardır."
+    },
+    "capabilities": {
+      "eyebrow": "Yetenekler",
+      "title": "Bir belge üzerindeki\ntemel operasyonlar — tek bir mantıkta.",
+      "description": "Hüküm çıkarımı, risk navigasyonu, kaynak bağlantılı bulgular, playbook incelemesi, yükümlülük yapılandırması ve doğrulanabilir raporlama — birleşik bir sistem olarak çalışır.",
+      "featured": [
+        {
+          "id": "playbook",
+          "title": "Playbook tabanlı analiz",
+          "description": "Platform, yapılandırılabilir playbook'lara göre hukuki kontroller uygular — ekibinize birleşik, tekrarlanabilir ve kontrollü bir inceleme yaklaşımı sunar."
+        },
+        {
+          "id": "packages",
+          "title": "Belge paketleri ve bağlantılarla çalışma",
+          "description": "Steloom sadece tek bir belgeyi değil, tüm anlaşma paketini analiz eder: kopya belgeler, sürümler, çapraz referanslar ve dosyalar arası bağlam."
+        }
+      ],
+      "support": [
+        {
+          "id": "privacy",
+          "title": "Privacy-first mimari",
+          "description": "Harici modellerden önce local-first işleme ve PII-gateway. Belgeler, yöneticinin açık onayı olmadan sınırı terk etmez."
+        },
+        {
+          "id": "source",
+          "title": "Kaynak bağlantılı bulgular",
+          "description": "Her bulgu, belirli bir metin parçasına — maddeye, sayfaya veya belgeye bağlıdır. Tek tıklamayla doğrulayın."
+        },
+        {
+          "id": "reporting",
+          "title": "Yapılandırılmış raporlama",
+          "description": "Sonuçlar, elektronik tablolara, DD raporlarına ve ekibin ileri iş akışlarına dışa aktarıma hazırdır."
+        }
+      ]
+    },
+    "architecturePreview": {
+      "eyebrow": "Mimari",
+      "title": "Bulgunun arkasında model\nbüyüsü değil, tekrarlanabilir bir sistem var.",
+      "description": "Steloom'un temelinde yapısal işleme katmanları, varlık ilişkileri ve kaynak belgeden nihai sonuca giden net bir yol vardır.",
+      "steps": [
+        {
+          "id": "upload",
+          "title": "Yükleme",
+          "text": "PDF, DOCX, XLSX ve taramaların birleşik bir işleme akışına yüklenmesi."
+        },
+        {
+          "id": "normalize",
+          "title": "Normalizasyon",
+          "text": "OCR, dil tespiti, yapı ayrıştırma ve anlamsal parçalama."
+        },
+        {
+          "id": "evaluate",
+          "title": "Değerlendirme",
+          "text": "Hibrit arama, playbook kontrolleri, LLM + kural mantığı ve risk tespiti."
+        },
+        {
+          "id": "report",
+          "title": "Raporlama",
+          "text": "Kaynak bağlantıları, durumlar ve dışa aktarıma hazır formatlarla yapılandırılmış sonuçlar."
+        }
+      ],
+      "bullets": [
+        "OCR ve metin çıkarımı",
+        "Dil tespiti",
+        "PII sanitizasyonu",
+        "Belge yapısı ayrıştırma",
+        "Hibrit arama + kontroller",
+        "Olay güdümlü pipeline"
+      ],
+      "linkLabel": "Mimariyi ve pipeline'ı keşfet"
+    },
+    "useCases": {
+      "eyebrow": "Senaryolar",
+      "title": "Anlaşmanın her aşamasında\nakıllı işleme.",
+      "description": "Due diligence'den taslağa, incelemeye ve imza öncesi aşamaya kadar — Steloom, ekibin gerçek iş akışına gömülüdür.",
+      "tabs": [
+        {
+          "id": "diligence",
+          "label": "Due Diligence",
+          "headline": "İlk kırmızı bayraktan önce her yükümlülüğü çıkarın.",
+          "body": "Steloom, data room'u playbook'unuza karşı işler — her hüküm, risk ve çapraz referans haftalar değil, saatler içinde yapılandırılır ve erişilebilir hale gelir.",
+          "tags": [
+            "Hüküm Çıkarımı",
+            "Risk Haritalama",
+            "Playbook İncelemesi"
+          ]
+        },
+        {
+          "id": "drafting",
+          "label": "Taslak Hazırlama",
+          "headline": "Kanıtlanmış şablonlara dayalı sözleşme yapısı oluşturun.",
+          "body": "Zeka tabanı, kaynağına bağlı kanıtlanmış ifadeleri saklar. Yeni bir belge hazırlarken ekip, kişisel notlara değil, kurumsal hafızaya güvenir.",
+          "tags": [
+            "Şablon Zekası",
+            "Madde Kütüphanesi",
+            "Kaynak Bağlantısı"
+          ]
+        },
+        {
+          "id": "review",
+          "label": "İnceleme",
+          "headline": "Farklılıkları, riskleri ve sapmaları hızlı ve eksiksiz görün.",
+          "body": "Steloom, standart pozisyonlardan sapmaları vurgular, farklı belgelerdeki benzer hükümleri otomatik olarak bağlar ve her bulgunun bağlamını doğrudan kaynak bağlantısı üzerinden gösterir.",
+          "tags": [
+            "Revizyon Analizi",
+            "Çapraz Referanslar",
+            "Sapma Bayrakları"
+          ]
+        },
+        {
+          "id": "closing",
+          "label": "İmza Öncesi",
+          "headline": "Koşulların yerine getirilmesini doğrulayın ve anlaşmayı güvenle kapatın.",
+          "body": "Yükümlülük izleyici, her anlaşma koşulunun gerçek zamanlı durumunu gösterir. Ekip, imzadan önce neyin tamamlandığını, neyin açık olduğunu ve neyin escalasyon gerektirdiğini görür.",
+          "tags": [
+            "Yükümlülük Takibi",
+            "Kapanış Kontrol Listesi",
+            "Denetim İzleri"
+          ]
+        }
+      ]
+    },
+    "security": {
+      "eyebrow": "Güvenlik",
+      "title": "Erişim kontrolü, veri sınırları\nve savunulabilirlik — varsayılan olarak.",
+      "description": "Esnek rol ve erişim yönetimi, yerleşik hassas veri koruma mekanizmaları, her bulgunun tam izlenebilirliği ve eksiksiz kullanıcı eylem günlüğü.",
+      "badges": [
+        "Local-first işleme",
+        "PII sanitizasyon gateway'i",
+        "Erişim ayrımı",
+        "Denetim izleri"
+      ],
+      "cards": [
+        {
+          "id": "local",
+          "title": "Varsayılan olarak Local-first",
+          "text": "Belgeler, yöneticinin açık onayı olmadan sınırı terk etmez."
+        },
+        {
+          "id": "cloud",
+          "title": "Kontrollü bulut modu",
+          "text": "Harici LLM'ler, önceden veri sanitizasyonu ile yönetilen bir modda bağlanır."
+        },
+        {
+          "id": "audit",
+          "title": "Kaynak bağlantılı ve denetlenebilir",
+          "text": "Sonuçlar incelemeye, iç kontrole ve açıklanabilir analize uygundur."
+        }
+      ],
+      "linkLabel": "Platform güvenliği hakkında daha fazla bilgi edinin"
+    },
+    "testimonial": {
+      "eyebrow": "Zaten kullanan ekipler",
+      "title": "Bir ekip, sadece sonuca değil,\noraya giden yola da güvenmelidir.",
+      "quote": "Yıllardır data room'larla çalışmamızda ilk kez, sadece metni arayan değil, anlaşma yapısını anlayan bir aracımız var. Steloom, DD sürecimiz için tam olarak aradığımız şeydi.",
+      "author": "Ortak, M&A Uygulaması",
+      "company": "Büyük Uluslararası Hukuk Bürosu"
+    },
+    "faq": {
+      "eyebrow": "SSS",
+      "title": "Pilot öncesi sorulan\nsorular.",
+      "description": "Zor sorulardan kaçınmıyoruz. İşte kurumsal ekiplerin en sık sorduğu sorulara dürüst cevaplar.",
+      "contactLabel": "Kendi sorunuzu sorun",
+      "contactHref": "mailto:hello@steloom.com",
+      "items": [
+        {
+          "q": "Steloom, kurumsal bir bilgi tabanından nasıl farklıdır?",
+          "a": "Bilgi tabanı, içine koyduğunuzu saklar. Steloom, yapılandırılmış bilgiyi doğrudan belgelerden çıkarır — otomatik olarak, kaynak bağlantılı ve playbook'unuz bağlamında."
+        },
+        {
+          "q": "NDA'ya hassas belgelerle, harici modellere göndermeden çalışabilir miyiz?",
+          "a": "Evet. Steloom, harici modellere ulaşmadan önce PII-gateway ile local-first işleme modunu destekler."
+        },
+        {
+          "q": "Model bir hata yaparsa bunu nasıl göreceğiz?",
+          "a": "Her sistem bulgusu, belirli bir kaynağa — maddeye, sayfaya ve belgeye bağlıdır. Steloom, bir kara kutu olarak değil, denetlenebilir bir sistem olarak tasarlanmıştır."
+        },
+        {
+          "q": "Sistem standart olmayan sözleşme yapılarıyla nasıl başa çıkar?",
+          "a": "Steloom, katı belge yapı şablonlarına dayanmaz. Çıkarım, biçimlendirme düzeyinde değil, anlamsal düzeyde çalışır."
+        },
+        {
+          "q": "DMS / iManage / SharePoint entegrasyonu ne kadar sürer?",
+          "a": "Temel API entegrasyonu 3 ila 7 iş günü sürer. Daha derin çift yönlü senkronizasyon altyapınıza bağlıdır."
+        },
+        {
+          "q": "Uygulama için ayrı bir BT ekibine ihtiyacımız var mı?",
+          "a": "Hayır. Standart uygulama, BT kaynaklarınızı kullanmadan ekibimiz tarafından yönetilir. Sözleşmeden ilk çalışan incelemeye kadar geçen tipik süre 2 haftadır."
+        },
+        {
+          "q": "Sistem playbook'umuza ne kadar iyi adapte olur?",
+          "a": "Playbook yapılandırması, bir seçenek değil, ürünün çekirdeğidir. Steloom, inceleme öncelikleriniz, kritik hükümleriniz ve risk işaretleme mantığınızla çalışır."
+        }
+      ]
+    },
+    "finalCta": {
+      "title": "Belgeleri yapıya\nve bilgiye dönüştürün",
+      "description": "Steloom, ekibinize herhangi bir belge setinden yapılandırılmış, doğrulanabilir ve eyleme geçirilebilir bilgi sağlar — hızlı, sakin ve kontrol kaybı olmadan.",
+      "primary": "Demo Talep Et",
+      "secondary": "Senaryoları Keşfet"
+    },
+    "founder": {
+      "name": "Vladimir",
+      "role": "Kurucu, Steloom",
+      "eyebrow": "Kurucudan",
+      "quote": "Her hukuki sonuç belgelere dayanmalı, doğrulanabilir olmalı ve profesyonel incelemeye dayanıklı olmalıdır. Bu nedenle Steloom'u kurduk; hukuki düşünceyi yerine koymayan, ancak şeffaf ve kaynağa dayalı analize dayalı kararlar almanıza yardımcı olan bir platform.",
+      "ctaLabel": "Ekiple tanışın"
+    },
+    "knowledgeGrowth": {
+      "eyebrow": "Yetenekler",
+      "title": "Büyüyen\nbilgi.",
+      "paragraphs": [
+        "Steloom, binlerce dağınık sözleşme hükmünü tek bir canlı yapıda toplar — arama için değil, bağlantılar ve bağlam üzerinden anlayışınızı oluşturmak için.",
+        "Tek bir belge veya yüzlerce belgeden oluşan bir paket — sistem aynı şekilde çalışır: türü tanır (SPA, SHA, NDA, iş sözleşmesi), yapıyı oluşturur ve bu belirli anlaşma veya belge için sizin tarafınızdan önceden tanımlanmış risk setini uygular.",
+        "Her bulgu, kaynağına bağlıdır — belirli bir belgedeki belirli bir maddeye. Halüsinasyon yok, kopuk genellemeler yok."
+      ],
+      "ctaLabel": "Tüm platform yeteneklerini keşfedin"
+    },
+    "application": {
+      "title": "Temel hukuk iş akışları için\ntek platform",
+      "eyebrow": "Kullanım senaryosu",
+      "moreButton": "Tüm senaryoları keşfet",
+      "roles": {
+        "ma": {
+          "title": "M&A ve Due Diligence",
+          "description": "Otomatik data room analizi: DD grid oluşturma ve her bulgunun doğrudan kaynağına bağlı şekilde riskleri tespit etme."
+        },
+        "contract": {
+          "title": "Sözleşme İncelemesi",
+          "description": "Sözleşmelerin standartlara uygunluğunun kontrolü. Playbook'tan sapmaların, eksik hükümlerin ve risklerin tek formatta tespiti."
+        },
+        "compliance": {
+          "title": "Uyum ve Kontrol",
+          "description": "Sözleşme portföyünün iç politikalara uygunluğunun izlenmesi. Hızlı iş onayı için sapmaların otomatik tespiti."
+        },
+        "audit": {
+          "title": "İç Denetim",
+          "description": "Aktif ve geçmiş sözleşmelerin büyük portföylerinin incelenmesi. Kontrol için tam izlenebilirlik ile tekrarlanabilir bulgu geçmişi oluşturma."
+        },
+        "enrichment": {
+          "title": "Gelişmiş Analiz (karşı taraflar ve varlıklar)",
+          "description": "Dış kayıtlar aracılığıyla karşı tarafların ve varlıkların (UBO, yaptırımlar, gayrimenkul yükümlülükleri) derinlemesine doğrulanması; sonuçların deal DD grid'ine entegrasyonu."
+        }
+      }
+    },
+    "securityFoundation": {
+      "teasers": [
+        {
+          "title": "Local-First",
+          "desc": "Verilerin sizin sınırınız içinde işlenmesi"
+        },
+        {
+          "title": "PII Gateway",
+          "desc": "LLM öncesi otomatik anonimleştirme"
+        },
+        {
+          "title": "RBAC",
+          "desc": "Proje düzeyinde erişim kontrolü"
+        },
+        {
+          "title": "Audit Trail",
+          "desc": "Tüm eylemlerin tam günlük kaydı"
+        },
+        {
+          "title": "Observability",
+          "desc": "Şeffaf sistem sağlığı izleme"
+        },
+        {
+          "title": "AI Governance",
+          "desc": "Kuruluşun LLM erişimini belirlemesi"
+        }
+      ],
+      "paragraphs": [
+        "Steloom güvenliği, sıfır güven ilkesi ve kuruluşunuz içindeki veriler üzerinde tam kontrol üzerine kuruludur.",
+        "Sistemin her düğümü, yapay zeka ile çalışırken gizli bilgilerin sızmasını önleyecek şekilde tasarlanmıştır. Platform, hukuki gizliliğin dokunulmazlığını garanti ederek sizin sınırınız içinde çalışır."
+      ],
+      "ctaLabel": "Güvenlik mimarisi hakkında daha fazla bilgi edinin",
+      "eyebrow": "Güvenlik",
+      "title": "Erişim kontrolü,\nveri sınırları ve kanıtlanabilirlik - varsayılan olarak."
+    },
+    "contactModal": {
+      "closeAria": "Modalı kapat",
+      "eyebrow": "Bize Ulaşın",
+      "title": "Kişiselleştirilmiş Demo Talep Edin",
+      "description": "Formu doldurun, iş süreçlerinize özel olarak hazırlanmış bir platform demonstrasyonu sunalım.",
+      "stepsTitle": "Nasıl çalışır",
+      "steps": [
+        "Demo talebi gönderin",
+        "Detayları netleştirmek için sizinle iletişime geçeceğiz",
+        "Kişiselleştirilmiş bir platform demonstrasyonu gerçekleştireceğiz"
+      ],
+      "emailInfo": "Bize ulaşın: demo@steloom.com",
+      "emailLabel": "İş E-postası",
+      "emailPlaceholder": "ad@sirket.com",
+      "scenarioLabel": "Senaryonuzu veya görevinizi açıklayın",
+      "scenarioPlaceholder": "Örneğin: kira sözleşmelerinin gizli riskler açısından incelenmesi...",
+      "securityNote": "🔒 Verileriniz korunmaktadır. Bilgileri üçüncü taraflarla paylaşmıyoruz ve yalnızca demonstrasyonu hazırlamak için kullanıyoruz.",
+      "submit": "Demo Talep Et",
+      "cancel": "İptal"
+    }
+  },
+  "footer": {
+    "description": "Playbook tabanlı inceleme, kaynak bağlantılı bulgular ve M&A ile kurumsal hukuk ekipleri için yönetilen belge iş akışları.",
+    "copyright": "© 2026 Steloom. Tüm hakları saklıdır.",
+    "homeLabel": "Steloom — ana sayfa",
+    "website": "Steloom.com"
+  },
+  "application": {
+    "title": "Temel hukuk iş akışları için tek platform",
+    "eyebrow": "Kullanım senaryosu",
+    "moreButton": "Tüm senaryoları keşfet",
+    "roles": {
+      "ma": {
+        "title": "M&A ve Due Diligence",
+        "description": "Otomatik data room analizi: DD grid oluşturma ve her bulgunun doğrudan kaynağına bağlı şekilde riskleri tespit etme."
+      },
+      "contract": {
+        "title": "Sözleşme İncelemesi",
+        "description": "Sözleşmelerin standartlara uygunluğunun kontrolü. Playbook'tan sapmaların, eksik hükümlerin ve risklerin tek formatta tespiti."
+      },
+      "compliance": {
+        "title": "Uyum ve Kontrol",
+        "description": "Sözleşme portföyünün iç politikalara uygunluğunun izlenmesi. Hızlı iş onayı için sapmaların otomatik tespiti."
+      },
+      "audit": {
+        "title": "İç Denetim",
+        "description": "Aktif ve geçmiş sözleşmelerin büyük portföylerinin incelenmesi. Kontrol için tam izlenebilirlik ile tekrarlanabilir bulgu geçmişi oluşturma."
+      },
+      "enrichment": {
+        "title": "Gelişmiş Analiz (karşı taraflar ve varlıklar)",
+        "description": "Dış kayıtlar aracılığıyla karşı tarafların ve varlıkların (UBO, yaptırımlar, gayrimenkul yükümlülükleri) derinlemesine doğrulanması; sonuçların deal DD grid'ine entegrasyonu."
+      }
+    }
+  },
+  "roles": {
+    "ma": {
+      "title": "Birleşme ve Satın Alma",
+      "description": "Hukuki due diligence üzerinde tam kontrol. Rutin işler olmadan yüzlerce sözleşmenin otomatik analizi, standart dışı koşulların ve gizli risklerin tespit edilmesi."
+    },
+    "operations": {
+      "title": "Hukuk Operasyonları",
+      "description": "İç süreçlerin optimizasyonu. Kesintisiz işleyiş için sözleşmelerin anında yönlendirilmesi, temel verilerin çıkarılması ve son tarihlerin kontrolü."
+    },
+    "gc": {
+      "title": "Genel Hukuk Danışmanı",
+      "description": "Stratejik risk yönetimi. Şirketin tüm hukuki belgeleri üzerinde tek bir kontrol paneli, uyumluluğun sağlanması ve menfaatlerin korunması."
+    },
+    "audit": {
+      "title": "İç Denetim",
+      "description": "Uyumluluk kontrollerinin otomasyonu. Standartlardan sapmaların anında tespiti, zorunlu hükümlerin varlığının kontrolü ve her belge için şeffaf bir iz oluşturulması."
+    }
+  },
+  "about": {
+    "cta": {
+      "title": "Steloom'u belgelerinizde\ngösterelim",
+      "paragraphs": [
+        "Bilgi hazırlamanın doğruluğunu ve hızını değerlendirebilmeniz için, çalışma belgelerinizin örneklerini kullanarak kişiselleştirilmiş bir platform demosu yapmaya hazırız.",
+        "Mevcut görevlerinizi tartışmak ve Steloom'u eylem halinde görmek için ekibimizle bir toplantı ayırtın."
+      ],
+      "buttonLabel": "Demo talep edin",
+      "meta": "Genellikle bir iş günü içinde yanıt verir ve bir toplantı planlarız."
+    },
+    "hero": {
+      "pathRoot": "Hakkımızda",
+      "pathLeaf": "Ne Yapıyoruz",
+      "title": "Bilgi hazırlığını otomatikleştiriyoruz,\nhukuki düşünceyi değil",
+      "description1": "Steloom, veri toplama ve yapılandırma mekaniklerini üstlenir, böylece strateji, riskler ve karar alma üzerine odaklanabilirsiniz.",
+      "description2": "Hassasiyete değer veren ve rutinlerini değil, uzmanlıklarını ölçeklendirmek isteyen hukuk ekipleri için araçlar geliştiriyoruz."
+    },
+    "philosophy": {
+      "card1": {
+        "eyebrow": "Konumlandırma",
+        "title": "Günlük sürecin bir parçası",
+        "description": "Steloom avukatın yerini almaz, çalışmaları için altyapı haline gelir. Platform belgeleri sınıflandırır ve profesyonel inceleme için zemin hazırlar.",
+        "tags": [
+          "Workflow Integration",
+          "Scale Intelligence"
+        ]
+      },
+      "card2": {
+        "eyebrow": "Yaklaşım",
+        "title": "Yapılandırılmış temel",
+        "description": "Parçalı yanıtlar yerine bir sistem elde edersiniz: belge türlerine göre DD ızgaraları, kaynaklarıyla bulgular ve risk önceliklendirmesi.",
+        "badges": [
+          "Verified Output",
+          "Evidence-Based"
+        ]
+      }
+    },
+    "principles": {
+      "title": "Tasarım ilkeleri",
+      "items": [
+        {
+          "title": "Önce süreç",
+          "desc": "Belgeyi değil, hukuk ekibinin gerçek iş akışını otomatikleştiriyoruz."
+        },
+        {
+          "title": "Doğrulanabilirlik",
+          "desc": "Sistemin her ifadesi doğrudan bir kaynak bağlantısıyla desteklenir."
+        },
+        {
+          "title": "Gizli karmaşıklık",
+          "desc": "Güçlü uzman modelleri orkestra eden temiz bir arayüz."
+        },
+        {
+          "title": "Öngörülebilirlik",
+          "desc": "Tüm kuruluş genelinde birleşik ve şeffaf veri analiz mantığı."
+        }
+      ]
+    },
+    "team": {
+      "title": "Ekip",
+      "intro": "Finans, hukuk, endüstri ve teknoloji alanlarından gelen, birikmiş bilgi ve deneyimini kullanıcıların gerçek sorunlarını çözen bir üründe birleştiren bir uzman grubuyuz.",
+      "blocks": [
+        {
+          "id": "experience",
+          "image": "/photo 1.jpg",
+          "title": "Deneyimimiz",
+          "description": "Yolculuğumuz M&A ve yatırım bankacılığından yüksek yüklü sistem geliştirme kadar çeşitli endüstrilerde başladı. Bilgi işlemedeki sistemsel ağrıları ortadan kaldıran bir ürün yaratmak için bu bilgileri birleştirdik."
+        },
+        {
+          "id": "policy",
+          "image": "/photo 2.jpg",
+          "title": "Politikamız",
+          "description": "Steloom'u algoritmalar için değil, insanlar için tasarlıyoruz. Önceliğimiz, her uzmana açık gelen sezgisel bir arayüz ve kullanılabilirliktir. Bu, bir 'dijital meraklısı' için değil, bir profesyonel için bir araçtır."
+        },
+        {
+          "id": "product",
+          "image": "/photo 3.jpg",
+          "title": "Ürünümüz",
+          "description": "Platformun temelinde şeffaflık ve kanıtlanabilir sonuçlar yatar. Her adımın öngörülebilirliğini, süreçlerin açıklığını ve günlük kullanımda olağanüstü kolaylığı sağlıyoruz."
+        },
+        {
+          "id": "operations",
+          "image": "/photo 4.jpg",
+          "title": "Operasyonlarımız",
+          "description": "Pazarın zorluklarına ve kullanıcı taleplerine uyum sağlayarak platformu sürekli olarak geliştiriyoruz. Ürünümüzün değerine inanıyor ve veri çalışması standartlarını değiştirerek onu ileriye taşıyoruz."
+        }
+      ]
+    },
+    "process": {
+      "steps": [
+        {
+          "label": "Raw Data",
+          "title": "Belge Dizisi",
+          "desc": "Ham veriler, arşivler ve dağınık kaynaklar."
+        },
+        {
+          "label": "Logic",
+          "title": "Talimatlar",
+          "desc": "Dahili standartlarınızın ve doğrulama mantığınızın uygulanması."
+        },
+        {
+          "label": "Review",
+          "title": "Doğrulama",
+          "desc": "Analiz için sapmaların ve kritik risklerin belirlenmesi."
+        },
+        {
+          "label": "Findings",
+          "title": "Sonuç",
+          "desc": "Kaynaklarla doğrudan bağlantılı nihai rapor."
+        }
+      ]
+    }
+  },
+  "demo": {
+    "audience": {
+      "title": "Bu demo kimler için",
+      "items": [
+        {
+          "id": "legal_leaders",
+          "title": "Hukuk Fonksiyonu Liderleri",
+          "description": "Hangi görevlerin gerçekten otomatikleştirilebileceğini ve ürünün nerede ölçülebilir değer sağladığını anlamak istiyorsanız."
+        },
+        {
+          "id": "ma_dd_teams",
+          "title": "M&A ve Due Diligence Ekipleri",
+          "description": "Bir Veri Odanız, oyun kitaplarınız varsa ve sözleşme paketi analizini hızlandırma ihtiyacınız varsa."
+        },
+        {
+          "id": "it_security",
+          "title": "IT / Güvenlik / Mimari",
+          "description": "Veri işleme çevresini, PII sanitizasyonunu, dağıtım modelini ve entegrasyon kısıtlamalarını değerlendirmeniz gerekiyorsa."
+        }
+      ]
+    },
+    "form": {
+      "title": "Talep gönder",
+      "subtitle": "Ekibinizi, belge türlerini ve görevi açıklayın — böylece demo genel değil spesifik olabilir.",
+      "fields": {
+        "name": "Ad",
+        "company": "Şirket",
+        "email": "İş e-postası",
+        "useCase": "Senaryo ve belge türleri"
+      },
+      "placeholders": {
+        "name": "Adınız",
+        "company": "Şirket adı",
+        "email": "ad@sirket.com",
+        "useCase": "Örneğin: Due Diligence, NDA / SPA / SHA, 500+ belge, Excel raporu gerekli"
+      },
+      "note": "Şu anda form talepleri e-postaya veya bir backend endpoint'ine gönderebilir — projenizde zaten var olan yöntemi seçin.",
+      "submit": "Talebi gönder",
+      "emailBody": {
+        "name": "Ad",
+        "company": "Şirket",
+        "email": "E-posta",
+        "useCase": "Kullanım Durumu"
+      }
+    },
+    "aside": {
+      "title": "Spesifik bir demoyu hızlandıracak şeyler",
+      "items": [
+        "En sık analiz ettiğiniz belge türleri.",
+        "Oyun kitaplarınız veya dahili kontrol listeleriniz olup olmadığı.",
+        "Harici LLM'ler olmadan yerel çevreye ihtiyacınız olup olmadığı.",
+        "Ekibinizin hangi sonuç formatına ihtiyacı olduğu: UI, Excel, DD raporu."
+      ],
+      "time": "Genellikle 1 iş günü içinde yanıt."
+    },
+    "hero": {
+      "eyebrow": "Demo",
+      "title": "Steloom Demo Talep Edin",
+      "description": "Steloom'un tipik hukuki belgeler ve oyun kitaplarıyla nasıl çalıştığını göstereceğiz: paket yüklemesinden kaynak referanslı yapılandırılmış rapora kadar."
+    },
+    "whatYouSee": {
+      "eyebrow": "Neler göreceksiniz",
+      "title": "Demoda neler göreceksiniz",
+      "items": [
+        {
+          "id": "document_pipeline",
+          "title": "Belge iş akışı walkthrough'u",
+          "description": "Sistemin bir belgeyi nasıl aldığını, metni nasıl çıkardığını, yapıyı nasıl oluşturduğunu, verileri nasıl parçaladığını ve analize nasıl hazırladığını göstereceğiz."
+        },
+        {
+          "id": "playbook_checks",
+          "title": "Gerçek bir vakada oyun kitabı kontrolleri",
+          "description": "Kontrollerin nasıl uygulandığını, sonuçların nasıl oluşturulduğunu ve avukatların her sonucun dayanağını nasıl gördüğünü göstereceğiz."
+        },
+        {
+          "id": "export_results",
+          "title": "Sonuç dışa aktarma",
+          "description": "Nihai sonuç formatını göstereceğiz: yapılandırılmış rapor, kaynak bağlantıları ve Excel dışa aktarma hazırliği."
+        },
+        {
+          "id": "privacy_model",
+          "title": "Gizlilik öncelikli model",
+          "description": "Yerel işlemenin nerede kullanıldığını, PII sanitizasyonunun nerede uygulandığını ve hassas veri işlemenin nasıl kontrol edildiğini tartışacağız."
+        }
+      ]
+    },
+    "faq": {
+      "title": "Demo öncesi sık sorulan sorular",
+      "items": [
+        {
+          "id": "custom_documents",
+          "question": "Belgelerimiz üzerinde demo gösterebilir misiniz?",
+          "answer": "Evet, dahili politikalarınız izin veriyorsa. Hassas vakalar için format ve kapsamı önceden anlaşmak daha iyidir."
+        },
+        {
+          "id": "playbook_needed",
+          "question": "Hazır bir oyun kitabına ihtiyacım var mı?",
+          "answer": "Mutlaka değil. Tipik bir senaryoda demo gösterebilir ve ardından kontrolleri ekibinize uyarlamayı tartışabiliriz."
+        },
+        {
+          "id": "duration",
+          "question": "Demo ne kadar sürer?",
+          "answer": "Genellikle 30-45 dakika: kısa genel bakış, belge akışı walkthrough'u, güvenlik ve mimari hakkında SSS."
+        }
+      ]
+    }
+  },
+  "platform": {
+    "hero": {
+      "eyebrow": {
+        "root": "PLATFORM",
+        "leaf": "Belge Analizi"
+      },
+      "title": "Yapılandırılmış Sonuçlar ve Veri Oluşturma",
+      "paragraphs": [
+        "Steloom, avukatların belgelerle (tek bir belgeden yüzlerce farklı türde belgeye kadar) çalışmasını organize etmelerine, bunları sistematize etmelerine, yerleşik riskler/kalıplar açısından kontrol etmelerine ve daha fazla analiz için yapılandırılmış sonuçlar ve/veya veriler oluşturmalarına yardımcı olur.",
+        "Çıktı uzun bir metin yanıtı değil, hukuki çalışma için uygun bir sonuçtur: belge türlerine göre DD ızgarası, kaynak referanslarıyla riskler ve yorumlar listesi ve ilk olarak neye bakılması gerektiğine dair anlayış."
+      ],
+      "cta": {
+        "primaryLabel": "Demo Talep Edin",
+        "secondaryLabel": "Ekiple İletişime Geçin"
+      },
+      "flowNodes": {
+        "inputs": [
+          "Sözleşme",
+          "Ekler",
+          "Kurumsal Belgeler"
+        ],
+        "processing": "Steloom",
+        "outputs": [
+          "DD Izgarası",
+          "Bulgular",
+          "İnceleme Materyalleri"
+        ]
+      }
+    },
+    "workflow": {
+      "eyebrow": "Süreç",
+      "title": "Sonuç kalitesinden ödün vermeden tek bir belgeden yüzlercesine tek bir doğrulama kalıbı",
+      "steps": [
+        "Belge",
+        "Sınıflandırma",
+        "Analiz",
+        "Bulgular",
+        "DD Izgarası",
+        "İnceleme",
+        "Karar"
+      ],
+      "paragraphs": [
+        "Her belge türü (örn. SPA, NDA, iş sözleşmesi, kurumsal belge vb.) için belirli bir analiz senaryosu ve karşılık gelen kontrol seti uygulanır.",
+        "Tek bir belge veya beş yüz tane - her dosya aynı doğrulama sürecinden geçer, proje hacmi ne olursa olsun üniform bir analiz standardı sağlar."
+      ],
+      "bullets": [
+        "Farklı belge türlerinin otomatik sistematizasyonu",
+        "Özel analiz senaryosu veya önceden ayarlanmış kontrol seti",
+        "Temel doğrulama sonuçlarına dayalı DD ızgarası",
+        "Proje hacmi ne olursa olsun üniform analiz standardı"
+      ],
+      "bulletsLabel": "Bu avukata ne kazandırır"
+    },
+    "structure": {
+      "eyebrow": "Belge Yapısı",
+      "title": "Belgedeki rollerini dikkate alarak sözleşmeyi ve ekleri analiz eder",
+      "paragraphs": [
+        "Steloom, belge yapısını otomatik olarak çıkarır, ana sözleşmeyi eklerden ayırır ve aralarındaki bağlantıyı korur.",
+        "Avukat, ilgili koşulun nerede bulunduğunu - ana sözleşmede mi yoksa bir ekte mi - hemen görür ve onu doğru bağlamda değerlendirebilir."
+      ],
+      "bullets": [
+        "Ana sözleşme ve ekler ayrı ayrı analiz edilir",
+        "Her bulgu, belgenin ilgili bölümüne bağlanır",
+        "Eklerdeki ve cetvellerdeki koşullar doğrulama sırasında kaybolmaz",
+        "Analiz, sadece sürekli metni değil, belge yapısını dikkate alır"
+      ],
+      "bulletsLabel": "Bu avukata ne kazandırır",
+      "chain": [
+        {
+          "label": "Belge",
+          "meta": "Yüklenen dosya"
+        },
+        {
+          "label": "Ana Sözleşme",
+          "meta": "Ana metin"
+        },
+        {
+          "label": "Cetveller",
+          "meta": "Önemli koşullar"
+        },
+        {
+          "label": "Ekler",
+          "meta": "Ek hükümler"
+        },
+        {
+          "label": "Bulgular",
+          "meta": "Bölüme bağlı"
+        }
+      ]
+    },
+    "standards": {
+      "eyebrow": "Kurallar ve Standartlar",
+      "title": "Belge analizini iç standartlara ve ekip ihtiyaçlarına göre özelleştirir",
+      "paragraphs": [
+        "Steloom, belgeleri evrensel bir şablona göre değil, kuruluşunuzun kurallarına göre doğrular. Bu, ekibin iç uygulamasının, uyum politikalarının, sektör gereksinimlerinin ve onaylanmış kurumsal analiz yaklaşımlarının dikkate alınmasını sağlar.",
+        "Ekip, belirli belge türleri için kontroller ekleyebilir veya tüm belge paketi için geçerli olacak küresel kurallar belirleyebilir.",
+        "Mezuat değiştikçe veya uygulama geliştikçe, genel iş akışı değiştirilmeden kurallar güncellenebilir. Sonuç olarak, belgeler, yürütücüden veya proje hacminden bağımsız olarak üniform standartlara göre değerlendirilir."
+      ],
+      "diagram": {
+        "sources": [
+          "Oyun Kitapları",
+          "Politikalar",
+          "Talimatlar"
+        ],
+        "core": "Analiz Kuralları",
+        "targets": [
+          "Belge A",
+          "Belge B",
+          "Belge C"
+        ]
+      }
+    },
+    "findings": {
+      "eyebrow": "Sonuçlar",
+      "title": "Doğrulanabilen yapılandırılmış sonuçlar",
+      "paragraphs": [
+        "Analiz sonucu bir metin yanıtı değil, belgeler üzerindeki bulgular, riskler ve yorumlar setidir. Her bulgu, sonucun dayandığı belgeye, bölüme, hükme veya eke bir bağlantı içerir.",
+        "Bu, birincil kaynağa hızlı gezinmeye, bağlamı kontrol etmeye ve belgeyle çalışmaya devam etmeye olanak tanır.",
+        "Bulgular, belge türlerine ve risk kategorilerine göre gruplandırılarak raporlar, dahili inceleme ve sonraki ekip doğrulaması için uygun bir DD ızgarası oluşturur."
+      ],
+      "chain": [
+        {
+          "label": "Belge",
+          "meta": "Dosya"
+        },
+        {
+          "label": "Madde",
+          "meta": "Bölüm / hüküm"
+        },
+        {
+          "label": "Risk",
+          "meta": "Kategori"
+        },
+        {
+          "label": "Önem Derecesi",
+          "meta": "Seviye"
+        },
+        {
+          "label": "Kaynak Bağlantısı",
+          "meta": "Doğrulanabilir bağlantı",
+          "accent": true
+        }
+      ]
+    },
+    "methodology": {
+      "eyebrow": "Metodoloji",
+      "title": "Ekibin çalışma metodolojisini değiştirmez",
+      "leadIn": "Steloom mevcut sürece entegre olur, onun yerini almaz.",
+      "paragraphs": [
+        "Platform, Due Diligence, dahili inceleme veya sözleşme analiz sürecini yeniden yapılandırmayı gerektirmez. Belgeler tanıdık kaynaklardan yüklenir ve sonuçlar mevcut raporlama formatlarında ve ekibin dahili çalışmasında kullanılır.",
+        "Ekip, mevcut süreçleri ve tanıdık çalışma formatlarını koruyarak tek bir senaryoyla başlayabilir ve platform kullanımını kademeli olarak genişletebilir."
+      ],
+      "chain": [
+        {
+          "label": "Mevcut İş Akışı",
+          "meta": "Ekibin tanıdık süreçleri"
+        },
+        {
+          "label": "Steloom",
+          "meta": "Bilgi hazırlığı",
+          "accent": true
+        },
+        {
+          "label": "Aynı İş Akışı",
+          "meta": "Metodolojide değişiklik yok"
+        },
+        {
+          "label": "Daha İyi Hazırlanmış Bilgi",
+          "meta": "Bulgular, DD ızgarası, inceleme materyalleri"
+        }
+      ]
+    },
+    "cta": {
+      "title": "Steloom'un belgelerinizle nasıl çalıştığını görün",
+      "paragraphs": [
+        "Demo sırasında tam analiz yolunu göstereceğiz: belge yükleme, tür tanımlama, kontrollerin uygulanması, bulguların oluşturulması ve kaynak referanslarıyla bir DD ızgarası.",
+        "Kendi sözleşmeleriniz veya anlaşma materyalleriniz varsa, bunlar örnek olarak kullanılabilir. Bu, platformun performansını görevlerinize ve iç süreçlerinize mümkün olduğunca yakın koşullarda değerlendirmenizi sağlayacaktır."
+      ],
+      "meta": "Ortalama demo süresi: 30-45 dakika",
+      "ctaButton": {
+        "primaryLabel": "Demo Talep Edin"
+      }
+    },
+    "technical": {
+      "title": "Steloom Nasıl Çalışır",
+      "intro": "Platform teknik yetenekleri - belge işlemekten güvenliğe ve ölçeklendirmeye.",
+      "groups": [
+        {
+          "title": "Belge İşleme",
+          "items": [
+            "PDF, DOCX, XLSX, taramalar ve karışık formatlar",
+            "Gerektiğinde OCR",
+            "Belge dili tespiti",
+            "Yapı ve meta veri normalizasyonu"
+          ]
+        },
+        {
+          "title": "Belge Yapısal Analizi",
+          "items": [
+            "Bölümler ve alt bölümler",
+            "Tablolar, listeler ve ekler",
+            "Ekler, cetveller ve ilaveler",
+            "Ana sözleşme ve eklerin ayrılması",
+            "Bulguların belirli dosya bölümlerine bağlanması"
+          ]
+        },
+        {
+          "title": "Belge Türü Tanımlama",
+          "items": [
+            "Türlere göre otomatik sınıflandırma",
+            "Tek bir proje içinde farklı belge kategorilerinin desteklenmesi",
+            "Belgelerin türe özgü analize hazırlanması"
+          ]
+        },
+        {
+          "title": "Hukuki Açıdan Önemli Bilgilerin Çıkarılması",
+          "items": [
+            "Sözleşme tarafları",
+            "Tutarlar ve ödeme yükümlülükleri",
+            "Tarihler ve son tarihler",
+            "Temel sözleşme hükümleri",
+            "Analiz için gereken diğer yasal açıdan önemli bilgiler"
+          ]
+        },
+        {
+          "title": "Belge Türüne Göre Analiz",
+          "items": [
+            "Her belge türü için özel analiz senaryosu",
+            "Belirli bir kategoriye özgü risk setleri",
+            "Belgenin türünün mantığında doğrulanması",
+            "DD ızgarası için sonuçların oluşturulması"
+          ]
+        },
+        {
+          "title": "Özelleştirilebilir Doğrulama Kuralları",
+          "items": [
+            "Belirli belge türleri için özel kontroller",
+            "Tüm belgeler için küresel kontroller",
+            "Ekibin iç uygulamasına göre özelleştirme",
+            "Uyum politikalarının ve onaylanmış kuralların dikkate alınması",
+            "Uygulama geliştikçe kuralların güncellenmesi"
+          ]
+        },
+        {
+          "title": "Belge Paketleriyle Çalışma",
+          "items": [
+            "Tek bir belge veya tam bir anlaşma paketi",
+            "Belgelerin türlere göre üniform sınıflandırılması",
+            "Tüm paket için genel bir DD ızgarası oluşturulması",
+            "Üniform analiz süreci korunurken belge paketinin kademeli olarak genişletilmesi",
+            "Proje hacmi ne olursa olsun üniform analiz süreci"
+          ]
+        },
+        {
+          "title": "Sonuç Oluşturma",
+          "items": [
+            "Kaynak belirtimiyle bulgular",
+            "Belgeye, bölüme, hükme veya eke bağlama",
+            "Belge türlerine ve risk kategorilerine göre yapılandırma",
+            "Tüm belge paketi için DD ızgarası",
+            "Her sonucun yeniden doğrulanabilme yeteneği"
+          ]
+        },
+        {
+          "title": "Dışa Aktarma ve Süreç Entegrasyonu",
+          "items": [
+            "Sonuçların raporlara ve elektronik tablolara aktarılması",
+            "Mevcut dahili süreçlerde kullanım",
+            "Kurumsal belge kaynaklarına bağlantı",
+            "Mevcut hukuki iş akışının bir parçası olarak çalışma"
+          ]
+        },
+        {
+          "title": "Mimari ve Ölçeklendirme",
+          "items": [
+            "Belge hacminden bağımsız olarak üniform işleme",
+            "Paralel dosya işleme",
+            "Proje hacmine göre ölçeklendirme",
+            "Kurumsal kullanım senaryolarının desteklenmesi"
+          ]
+        },
+        {
+          "title": "Güvenlik ve Erişim Kontrolü",
+          "items": [
+            "Role dayalı erişim modeli",
+            "Kullanıcı eylem denetimi",
+            "Kurumsal ortamda veri koruması",
+            "İç kurumsal gereksinimlere uyum"
+          ]
+        }
+      ]
+    },
+    "findingsDiagram": {
+      "ariaLabel": "Bulgu yapısı",
+      "levelPrefix": "Seviye",
+      "footerNote": "Her bulgu, birincil kaynaktan sonuca kadar izlenebilir"
+    },
+    "flowSchema": {
+      "ariaLabel": "Belge analiz süreci"
+    },
+    "heroFlowVisual": {
+      "inputLabel": "Girdi",
+      "analysisLabel": "Analiz",
+      "outputLabel": "Çıktı"
+    },
+    "standardsDiagram": {
+      "inputLabel": "Girdi",
+      "engineLabel": "Motor",
+      "appliedToLabel": "Uygulanan"
+    }
+  },
+  "landing": {
+    "brand": {
+      "name": "Steloom",
+      "tagline": "Hukuki çalışmalar için akıllı katman"
+    },
+    "hero": {
+      "title": "Belgeleri yapıya ve\nbilgiye dönüştürün",
+      "description": [
+        "Steloom, hukuki belge yığınlarını bağlantılı, doğrulanabilir ve eyleme geçirilebilir bir istihbarat sistemine dönüştürür.",
+        "Ekip, arama ve çapraz kontrol için daha az zaman harcar - içgörüler ve kararlar için daha fazla zaman harcar."
+      ],
+      "primaryCta": "Demo talep edin",
+      "secondaryCta": "Senaryoları inceleyin",
+      "chips": [
+        "Playbook tabanlı kontroller",
+        "Kaynağa bağlı bulgular",
+        "Yerel öncelikli (Local-first) LLM",
+        "Denetlenebilir iş akışı"
+      ],
+      "panelTitle": "Bu bir belge görüntüleyici, depo veya sohbet değildir",
+      "panelItems": [
+        "Hukuki çalışmalar için yeni bir altyapı katmanı - sadece istemlerle değil, mimariyle.",
+        "Kontroller tek bir sorgu etrafında değil, playbook'unuz etrafında inşa edilir.",
+        "Her bulgu bir kaynağa bağlıdır ve incelemeye ve denetime hazırdır.",
+        "Yerel öncelikli mod, en hassas belgeler için uygundur."
+      ]
+    },
+    "trustStrip": [
+      "DD ve M&A için oluşturuldu",
+      "Kaynağa bağlı bulgular",
+      "Varsayılan olarak gizlilik öncelikli",
+      "Hibrit arama + kural tabanlı kontroller",
+      "Denetlenebilir iş akışı",
+      "Playbook tabanlı kontroller",
+      "Kurumsal düzeyde güvenlik"
+    ],
+    "conceptTags": {
+      "eyebrow": "Platformun kapsadığı alanlar",
+      "title": "Bir sistem olarak\ninşa edilmiş belge çalışması.",
+      "description": "Due Diligence, temel hükümlerin otomatik çıkarımı, hukuki risk haritalama, yükümlülük ve son tarih takibi, kaynağa bağlı bulgular, belge yapısı analizi - Steloom, dağınık görevleri tek bir yönetilebilir süreçte birleştirir.",
+      "row1": [
+        "Due Diligence",
+        "Hüküm çıkarımı",
+        "Risk haritası",
+        "M&A",
+        "Veri Odası analizi",
+        "Playbook kontrolleri",
+        "Yükümlülük takibi",
+        "Anlaşma yapılandırması"
+      ],
+      "row2": [
+        "Bilgi grafiği",
+        "Belge Zekası",
+        "Yapı analizi",
+        "Sözleşme analizi",
+        "Denetim İzleri",
+        "Kaynağa bağlı bulgular",
+        "Hukuk Operasyonları",
+        "Çapraz referanslar"
+      ]
+    },
+    "audience": {
+      "eyebrow": "Kimler için",
+      "title": "Temel hukuki çalışma\nkonturları için tek platform",
+      "description": "Steloom, hukuk fonksiyonundaki birkaç kilit rol için uygundur — sadece tek bir dar kullanıcı için değil.",
+      "roles": [
+        {
+          "id": "ma_teams",
+          "icon": "Handshake",
+          "title": "M&A Ekipleri",
+          "headline": "Veri odasında hız ve kontrol.",
+          "body": "Playbook'lara karşı yapılandırılmış inceleme, hükümlerin ve risklerin otomatik çıkarımı, belgeden bulguya şeffaf yol. Anlaşma, kaliteden ödün vermeden daha hızlı ilerler.",
+          "tags": [
+            "Due Diligence",
+            "Veri Odası",
+            "Risk çıkarımı",
+            "Playbook kontrolleri"
+          ]
+        },
+        {
+          "id": "legal_ops",
+          "icon": "Building2",
+          "title": "Hukuk Operasyonları (Legal Ops)",
+          "headline": "Tekrarlanabilirlik, şeffaflık ve ölçeklenebilirlik.",
+          "body": "Belirli bir avukata bağlı olmayan standartlaştırılmış bir inceleme süreci. Steloom, ekibin metodolojisini bir playbook'a kaydeder ve her yeni belge yığınında bunu yeniden üretir.",
+          "tags": [
+            "Süreç standardizasyonu",
+            "Denetim İzleri",
+            "İş akışı otomasyonu"
+          ]
+        },
+        {
+          "id": "general_counsel",
+          "icon": "Scale",
+          "title": "Genel Danışman",
+          "headline": "Yönetilen risk ve kanıtlanabilir bulgular.",
+          "body": "Her bulgu bir kaynağa bağlıdır. Kararlar, yeniden anlatıma değil, doğrulanabilir verilere dayanarak alınır. Steloom, yönetim kararları için netlik sağlar ve kaçırılan risklerin maliyetini düşürür.",
+          "tags": [
+            "Risk yönetimi",
+            "Karar desteği",
+            "Açıklanabilir bulgular"
+          ]
+        }
+      ]
+    },
+    "stats": {
+      "eyebrow": "Ölçülebilir sonuçlar",
+      "title": "Sürelerde, saatlerde ve\nhata maliyetlerinde görünen etki.",
+      "description": "Hızlandırılmış inceleme, azaltılmış manuel analiz ve düşürülen kaçırılan risk maliyeti — soyut bir teknoloji vaadi olarak değil, ölçülebilir bir sonuç olarak.",
+      "items": [
+        {
+          "value": 10,
+          "suffix": "×",
+          "label": "Daha hızlı due diligence",
+          "sub": "manuel belge incelemesine kıyasla"
+        },
+        {
+          "value": 40,
+          "suffix": "sa",
+          "label": "Anlaşma başına tasarruf",
+          "sub": "M&A süreçlerinde ortalama"
+        },
+        {
+          "value": 2,
+          "suffix": "M",
+          "prefix": "$",
+          "label": "Kaçırılan bir hükmün maliyeti",
+          "sub": "büyük anlaşmalar için sektör referansı"
+        }
+      ],
+      "quote": "Bunlar tahminler değil. Bunlar, manuel incelemeyi yapılandırılmış analitik ile değiştiren hukuk ekipleri tarafından kaydedilen sonuçlardır."
+    },
+    "capabilities": {
+      "eyebrow": "Yetenekler",
+      "title": "Bir belge üzerindeki temel\noperasyonlar — tek bir mantıkta.",
+      "description": "Hüküm çıkarımı, risk navigasyonu, kaynağa bağlı bulgular, playbook incelemesi, yükümlülük yapılandırması ve doğrulanabilir sonuç oluşturma - hepsi birleşik bir sistem olarak çalışır.",
+      "featured": [
+        {
+          "id": "playbook_analysis",
+          "icon": "FileSearch",
+          "title": "Playbook tabanlı analiz",
+          "description": "Platform, özelleştirilebilir playbook'lara dayalı hukuki kontroller uygular - ekip, incelemeye birleşik, tekrarlanabilir ve kontrollü bir yaklaşım elde eder. Şablon sadece bir başlangıç noktasıdır, çekirdek sizin mantığınızdır."
+        },
+        {
+          "id": "document_packages",
+          "icon": "GitBranch",
+          "title": "Belge paketleri ve bağlantılarla çalışma",
+          "description": "Steloom tek bir belgeyi değil, tüm anlaşma paketini analiz eder: kopyalar, sürümler, çapraz referanslar ve dosyalar arasındaki bağlam. Sayfa 47'de hiçbir şey kaybolmaz."
+        }
+      ],
+      "support": [
+        {
+          "id": "privacy_arch",
+          "icon": "Lock",
+          "title": "Gizlilik öncelikli mimari",
+          "description": "Harici modellerden önce yerel öncelikli işleme ve PII-gateway. Belgeler, yöneticinin açık onayı olmadan çevreyi terk etmez."
+        },
+        {
+          "id": "source_linked",
+          "icon": "CheckCircle2",
+          "title": "Kaynağa bağlı bulgular",
+          "description": "Her bulgu belirli bir metin parçasına - maddeye, sayfaya, belgeye bağlıdır. Tek tıklamayla doğrulayın."
+        },
+        {
+          "id": "structured_reporting",
+          "icon": "FileSpreadsheet",
+          "title": "Yapılandırılmış raporlama",
+          "description": "Sonuçlar, elektronik tablolara, DD raporlarına ve ekibin ileriki çalışmasına aktarılmaya hazırdır."
+        }
+      ]
+    },
+    "architecturePreview": {
+      "eyebrow": "Mimari",
+      "title": "Bulgunun arkasında model\nbüyüsü değil, tekrarlanabilir bir sistem var.",
+      "description": "Steloom'un temelinde yapısal işleme katmanları, varlık ilişkileri ve kaynak belgeden nihai bulguya giden açık bir yol yatar. Bu, sonucun sadece hızlı değil, aynı zamanda açıklanabilir olmasını sağlar.",
+      "steps": [
+        {
+          "id": "upload",
+          "icon": "ScanSearch",
+          "title": "Yükleme",
+          "text": "PDF, DOCX, XLSX ve taramaların birleşik bir işleme akışına yüklenmesi."
+        },
+        {
+          "id": "normalization",
+          "icon": "Workflow",
+          "title": "Normalizasyon",
+          "text": "OCR, dil tespiti, yapı ayrıştırma ve anlamsal parçalama."
+        },
+        {
+          "id": "evaluation",
+          "icon": "Layers3",
+          "title": "Değerlendirme",
+          "text": "Hibrit arama, playbook kontrolleri, LLM + kural mantığı ve risk tespiti."
+        },
+        {
+          "id": "report",
+          "icon": "ArrowUpRight",
+          "title": "Rapor",
+          "text": "Kaynak bağlantıları, durumlar ve dışa aktarmaya hazır format ile yapılandırılmış sonuç."
+        }
+      ],
+      "bullets": [
+        "OCR ve metin çıkarımı",
+        "Dil tespiti",
+        "PII sanitizasyonu",
+        "Belge yapısı ayrıştırma",
+        "Hibrit arama + kontroller",
+        "Olay güdümlü (Event-driven) boru hattı"
+      ],
+      "linkLabel": "Mimariyi ve boru hattını keşfedin"
+    },
+    "useCases": {
+      "eyebrow": "Senaryolar",
+      "title": "Anlaşmanın her aşamasında\nakıllı işleme.",
+      "description": "Due diligence'den taslağa, incelemeye ve ön kapanışa kadar - Steloom, ekibin gerçek iş akışına gömülüdür.",
+      "tabs": [
+        {
+          "id": "diligence",
+          "label": "Due Diligence",
+          "headline": "İlk kırmızı bayraktan önce her yükümlülüğü çıkarın.",
+          "body": "Steloom, veri odasını playbook'unuza karşı işler - her hüküm, risk ve çapraz referans haftalar değil, saatler içinde yapılandırılır ve erişilebilir hale gelir. Sayfa 47'de hiçbir koşul kaybolmaz.",
+          "tags": [
+            "Hüküm çıkarımı",
+            "Risk haritası",
+            "Playbook kontrolleri"
+          ],
+          "video": "/video/workflow-process.mp4"
+        },
+        {
+          "id": "drafting",
+          "label": "Belge Hazırlama",
+          "headline": "Kanıtlanmış şablonlara dayalı sözleşme yapısı oluşturun.",
+          "body": "Akıllı taban, kaynağa bağlı doğrulanmış formülasyonları korur. Yeni bir belge geliştirirken ekip, kişisel notlara değil, kurumsal hafızaya dayanır.",
+          "tags": [
+            "Şablon zekası",
+            "Hüküm kütüphanesi",
+            "Kaynak bağlantısı"
+          ],
+          "video": "/video/workflow-process.mp4"
+        },
+        {
+          "id": "review",
+          "label": "İnceleme",
+          "headline": "Farkları, riskleri ve sapmaları - hızlıca ve eksiksiz görün.",
+          "body": "Steloom, standart pozisyonlardan sapmaları vurgular, belgeler arasındaki benzer hükümleri otomatik olarak bağlar ve doğrudan kaynak bağlantısı aracılığıyla her bulgunun bağlamını gösterir.",
+          "tags": [
+            "Değişiklik analizi",
+            "Çapraz referanslar",
+            "Sapma bayrakları"
+          ],
+          "video": "/video/workflow-process.mp4"
+        },
+        {
+          "id": "closing",
+          "label": "Ön Kapanış",
+          "headline": "Koşulların yerine getirilmesini doğrulayın ve anlaşmayı güvenle kapatın.",
+          "body": "Yükümlülük izleyici, her anlaşma koşulunun durumunu gerçek zamanlı olarak gösterir. Ekip, imzalamadan önce neyin tamamlandığını, neyin açık olduğunu ve neyin tırmanma gerektirdiğini görür.",
+          "tags": [
+            "Yükümlülük takibi",
+            "Kapanış kontrol listesi",
+            "Denetim izleri"
+          ],
+          "video": "/video/workflow-process.mp4"
+        }
+      ]
+    },
+    "security": {
+      "eyebrow": "Güvenlik",
+      "title": "Erişim kontrolü, veri sınırları\nve kanıtlanabilirlik - varsayılan olarak.",
+      "description": "Esnek rol ve erişim yönetimi, yerleşik hassas veri koruma mekanizmaları, her bulgunun tam izlenebilirliği ve tüm kullanıcı eylemlerinin günlüğü, Steloom'u yalnızca hukuk ekipleri için değil, aynı zamanda bilgi güvenliği ve BT uzmanları için de anlaşılır ve kullanışlı hale getirir. Platform mimarisi, kurumsal güvenlik değerlendirme gereksinimlerini karşılar.",
+      "badges": [
+        "Yerel öncelikli işleme",
+        "PII sanitizasyon geçidi",
+        "Erişim ayrımı",
+        "Denetim izleri"
+      ],
+      "cards": [
+        {
+          "id": "local_first",
+          "icon": "Lock",
+          "title": "Varsayılan olarak yerel öncelikli",
+          "text": "Belgeler, yöneticinin açık onayı olmadan çevreyi terk etmez."
+        },
+        {
+          "id": "cloud_mode",
+          "icon": "Layers3",
+          "title": "Kontrollü bulut modu",
+          "text": "Harici LLM'ler, önceden veri sanitizasyonu ile yönetilen bir modda bağlanır."
+        },
+        {
+          "id": "source_linked",
+          "icon": "CheckCircle2",
+          "title": "Kaynağa bağlı ve denetlenebilir",
+          "text": "Sonuçlar incelemeye, dahili kontrole ve açıklanabilir analize uygundur."
+        }
+      ],
+      "linkLabel": "Platform güvenliği hakkında daha fazla bilgi edinin"
+    },
+    "testimonial": {
+      "eyebrow": "Zaten kullanan ekipler",
+      "title": "Bir ekip, sadece bulguya değil,\nona giden yola da güvenmelidir.",
+      "quote": "Veri odalarıyla çalışma yıllarında ilk kez, sadece metinde arama yapan değil, anlaşma yapısını anlayan bir aracımız var. Steloom, DD sürecimiz için tam olarak aradığımız şeydi.",
+      "author": "Ortak, M&A Uygulaması",
+      "company": "Büyük uluslararası hukuk firması",
+      "placeholder": true
+    },
+    "faq": {
+      "eyebrow": "SSS",
+      "title": "Pilota gitmeden önce\nsorulan sorular.",
+      "description": "Zor sorulardan kaçınmıyoruz. İşte kurumsal ekiplerin en sık sorduğu sorulara dürüst yanıtlar.",
+      "contactLabel": "Kendi sorunuza",
+      "contactHref": "mailto:hello@steloom.com",
+      "items": [
+        {
+          "id": "knowledge_base",
+          "q": "Steloom kurumsal bir bilgi tabanından nasıl farklıdır?",
+          "a": "Bir bilgi tabanı, içine koyduğunuzu saklar. Steloom, yapılandırılmış bilgiyi doğrudan belgelerden çıkarır - otomatik olarak, kaynağa bağlı ve playbook'unuzun bağlamında. Bu pasif bir depo değil, aktif bir istihbarat katmanıdır."
+        },
+        {
+          "id": "nda_sensitive",
+          "q": "NDA'ya hassas belgeleri harici modellere göndermeden üzerinde çalışabilir miyiz?",
+          "a": "Evet. Steloom, harici modellere ulaşmadan önce bir PII-gateway ile yerel öncelikli işleme modunu destekler. Hassas senaryolar için belgeler altyapı çevrenizi asla terk etmez."
+        },
+        {
+          "id": "model_error",
+          "q": "Model bir hata yaparsa - bunu nasıl göreceğiz?",
+          "a": "Her sistem bulgusu belirli bir kaynağa - maddeye, sayfaya ve belgeye bağlıdır. Sonucun neye dayandığını her zaman görürsünüz ve doğrulayabilirsiniz. Steloom, kara bir kutu olarak değil, denetlenebilir bir sistem olarak tasarlanmıştır."
+        },
+        {
+          "id": "non_standard",
+          "q": "Sistem standart dışı sözleşme yapılarıyla nasıl başa çıkar?",
+          "a": "Steloom, katı belge yapı şablonlarına dayanmaz. Çıkarım, biçimlendirmeden değil, anlam düzeyinde çalışır. Standart dışı sözleşmeler, atipik numaralandırmalar ve karışık yapılar doğru bir şekilde işlenir."
+        },
+        {
+          "id": "dms_integration",
+          "q": "DMS / iManage / SharePoint entegrasyonu - ne kadar sürer?",
+          "a": "Temel API entegrasyonu 3 ila 7 iş günü sürer. Daha derin iki yönlü senkronizasyon altyapınıza bağlıdır. Demo sırasında, belirli yığınınızı inceler ve gerçekçi zaman çizelgeleri sağlarız."
+        },
+        {
+          "id": "it_team",
+          "q": "Uygulama için ayrı bir BT ekibine ihtiyacımız var mı?",
+          "a": "Hayır. Standart uygulama, BT kaynaklarınızı çekmeden ekibimiz tarafından yönetilir. Sözleşmeden ilk çalışan incelemeye kadar geçen tipik süre 2 haftadır."
+        },
+        {
+          "id": "playbook_adapt",
+          "q": "Sistem playbook'umuza ne kadar iyi adapte olur?",
+          "a": "Playbook yapılandırması, bir seçenek değil, ürünün çekirdeğidir. Steloom, kontrol önceliklerinizle, kritik hükümlerinizle ve risk işaretleme mantığınızla çalışır. Şablon modu, hızlı bir başlangıç için sadece bir başlangıç noktasıdır."
+        }
+      ]
+    },
+    "finalCta": {
+      "title": "Belgeleri yapıya ve\nbilgiye dönüştürün",
+      "description": "Steloom, ekibe herhangi bir belge kümesinden yapılandırılmış, doğrulanabilir ve eyleme geçirilebilir bilgi sağlar - hızlı, sakin ve kontrol kaybı olmadan.",
+      "primary": "Demo talep edin",
+      "secondary": "Senaryoları keşfedin"
+    },
+    "footer": {
+      "description": "M&A ve kurumsal hukuk ekipleri için playbook tabanlı kontroller, kaynağa bağlı bulgular ve yönetilen belge iş akışları.",
+      "legal": "© 2026 Steloom. Tüm hakları saklıdır.",
+      "built": "Hassas hukuki belgelerle çalışmak için oluşturulmuştur."
+    }
+  },
+  "solutions": {
+    "hero": {
+      "eyebrow": "Kullanım Senaryoları",
+      "title": "Tek bir sözleşmeden tam bir veri odasına — birleşik analiz süreci, birleşik kurallar, doğrulanabilir sonuçlar",
+      "paragraphs": [
+        "Tek bir sözleşmeyi inceliyor, hukuki bir görüş hazırlıyor veya büyük bir anlaşmanın due diligence'ini yapıyor olun, Steloom tüm belge inceleme aşamalarını tek, tekrarlanabilir bir analiz sürecinde birleştirir.",
+        "Platform, belge türünü otomatik olarak belirler, ilgili doğrulama kurallarını uygular ve belge hacmi ne olursa olsun birleşik bir çalışma standardını koruyarak kaynaklara bağlı yapılandırılmış bulgular oluşturur."
+      ]
+    },
+    "byDirection": [
+      {
+        "id": "ma-due-diligence",
+        "eyebrow": "Due Diligence",
+        "title": "M&A ve Due Diligence",
+        "intro": "Veri odası ne kadar büyükse, birleşik bir inceleme standardını korumak o kadar zorlaşır. Farklı avukatlar farklı riskleri fark eder, bulgular farklı elektronik tablolarda son bulur ve nihai bir yorumu belirli bir sözleşme hükmüne kadar izlemek zaman alır.",
+        "body": "Steloom, tüm veri odasını tek bir belge dizisi olarak ele alır. Platform, belgeleri türlerine göre otomatik olarak sınıflandırır, her birine karşılık gelen analiz senaryosunu uygular ve tüm proje için yapılandırılmış bir DD ızgarası oluşturur.",
+        "bullets": [
+          "Hacimden bağımsız olarak birleşik kurallarla veri odasını analiz edin",
+          "Farklı belge türlerine otomatik olarak farklı inceleme senaryoları uygulayın",
+          "Bulguları kaynaklara bağlı bir DD ızgarası alın",
+          "Nihai yorumdan doğrudan belirli belge hükmüne geçin"
+        ],
+        "outcome": "Sonuç olarak, ekip proje genelinde birleşik bir inceleme standardı elde eder ve genel rapordan doğrulanmış bulgulara daha hızlı geçer."
+      },
+      {
+        "id": "contract-review",
+        "eyebrow": "Sözleşme İncelemesi",
+        "title": "Sözleşme İncelemesi",
+        "intro": "Tek bir sözleşmeyi veya bir sözleşme paketini incelerken, standart pozisyonlardan sapmaları ve eksik hükümleri hızlıca tespit etmek çok önemlidir.",
+        "body": "Steloom, standart pozisyonlardan sapmaları, eksik hükümleri ve riskli ifadeleri vurgular. Her bulgu, orijinal sözleşme hükmüne bağlı kalır.",
+        "bullets": [
+          "İlk belge incelemesini hızlandırın",
+          "Kurumsal oyun kitabından sapmaları arayın",
+          "Tüm proje belgeleri için birleşik bulgu formatı",
+          "Özetten belirli bir sözleşme parçasına hızlı geçiş"
+        ],
+        "outcome": "Sonuç olarak, avukatlar tekrarlayan kontroller için daha az, hukuki değerlendirme için daha fazla zaman harcar."
+      },
+      {
+        "id": "compliance",
+        "eyebrow": "Uyum ve Kontrol",
+        "title": "İç Standartların Doğrulanması",
+        "intro": "Kurumsal hukuk departmanları aynı anda satın alma, satış, İK ve ticari projeleri yönetir. Sözleşme sayısı arttıkça, birleşik bir inceleme standardını sağlamak zorlaşır.",
+        "body": "Steloom, kurumsal iç standartları otomatik olarak uygulamanıza, kurumsal oyun kitabından sapmaları tespit etmenize ve onay için doğrulanabilir sonuçlar oluşturmanıza olanak tanır.",
+        "bullets": [
+          "Sözleşmeleri kurumsal oyun kitabına göre inceleyin",
+          "Kabul edilen pozisyonlardan sapmaları hızlıca bulun",
+          "İş birimiyle uyum için bulgular alın",
+          "Departman ölçeğinde birleşik bir inceleme standardı sağlayın"
+        ],
+        "outcome": "Sonuç olarak, departman daha tutarlı bir inceleme süreci ve risk yönetimi için şeffaf bir temel elde eder."
+      },
+      {
+        "id": "internal-audit",
+        "eyebrow": "İç Denetim",
+        "title": "İç Denetim ve Arşiv İncelemesi",
+        "intro": "İç denetim, aktif ve geçmiş sözleşmelerin büyük dizilerini düzenli olarak inceler. Manuel inceleme emek yoğun hale gelir ve sonuçların tekrarlanması zordur.",
+        "body": "Steloom, birleşik kurallar altında tutarlı belge incelemesi sağlar ve her sonucun tam izlenebilirliği ile yapılandırılmış bulgular oluşturur.",
+        "bullets": [
+          "Sözleşme dizilerini iç gereksinimlere uygunluk açısından inceleyin",
+          "Eksik veya atipik hükümleri tespit edin",
+          "Tekrarlanabilir bir bulgu geçmişi oluşturun",
+          "Sonuçları iç ve dış kontrol için kullanın"
+        ],
+        "outcome": "Sonuç olarak, ekip ileri kontrol için şeffaf bir temele sahip yönetilebilir bir inceleme süreci elde eder."
+      }
+    ],
+    "byTeam": [
+      {
+        "id": "law-firms",
+        "eyebrow": "Hukuk Firmaları",
+        "title": "Hukuk Firmaları",
+        "intro": "Aynı anda birden fazla proje yürütüldüğünde, ekip uzmanlığını ölçeklendirmek zorlaşır. İç standartlar vardır, ancak bunların uygulanması zaman alır.",
+        "body": "Steloom, ilk analiz aşamasını otomatikleştirir, kurumsal oyun kitabının tüm projelere uygulanmasına olanak tanır ve müşteri önerileri için bulgular oluşturur.",
+        "bullets": [
+          "Birleşik standardı korurken ilk incelemeyi hızlandırın",
+          "Kurumsal oyun kitabını tüm projelere uygulayın",
+          "Müşteri raporları için yapılandırılmış bulgular alın",
+          "Tekrarlayan kontroller için daha az zaman harcayın"
+        ],
+        "outcome": "Sonuç olarak, firma, analiz kalitesinin bireysel uygulayıcıya daha az bağlı olduğu ölçeklenebilir bir süreç elde eder."
+      },
+      {
+        "id": "corporate-legal",
+        "eyebrow": "Kurumsal Avukatlar",
+        "title": "Kurumsal Hukuk Departmanları",
+        "intro": "Kurumsal hukuk departmanları satın alma, satış, İK ve ticari projeleri yönetir. Sözleşme hacmi arttıkça, sapmaları tespit etmek zorlaşır.",
+        "body": "Steloom, iç standartları otomatik olarak uygulamanıza, oyun kitabı sapmalarını tespit etmenize ve onay için sonuçlar oluşturmanıza olanak tanır.",
+        "bullets": [
+          "Sözleşmeleri kurumsal oyun kitabına göre inceleyin",
+          "Standart ifadelerden sapmaları bulun",
+          "Yönetim onayı için bulgular alın",
+          "Departman ölçeğinde birleşik bir standardı sağlayın"
+        ],
+        "outcome": "Sonuç olarak, departman tutarlı bir inceleme süreci ve risk yönetimi için şeffaf bir temel elde eder."
+      },
+      {
+        "id": "audit-compliance",
+        "eyebrow": "İç Denetim",
+        "title": "İç Denetim ve Uyum",
+        "intro": "İç denetim büyük sözleşme dizilerini inceler. Manuel inceleme emek yoğundur ve sonuçların yeniden doğrulama upon tekrarlanması zordur.",
+        "body": "Steloom, birleşik kurallar altında tutarlı inceleme sağlar ve tam izlenebilirliğe sahip bulgular oluşturur.",
+        "bullets": [
+          "Dizileri gereksinimlere uygunluk açısından inceleyin",
+          "Eksik hükümleri tespit edin",
+          "Uyum için tekrarlanabilir bir geçmiş oluşturun",
+          "Sonuçları dış kontrol için kullanın"
+        ],
+        "outcome": "Sonuç olarak, ekip kontrol için şeffaf bir temele sahip yönetilebilir bir süreç elde eder."
+      }
+    ],
+    "enrichment": [
+      {
+        "id": "counterparties",
+        "title": "Karşı Taraf Analizi",
+        "body": "Steloom, anlaşma belgelerinin metinlerinde, tablolarında ve eklerinde karşı tarafları otomatik olarak tespit eder, proje için birleşik bir kayıt defteri oluşturur ve profili harici ve dahili kaynaklar aracılığıyla zenginleştirir.",
+        "capabilities": [
+          "Tüm paket genelinde otomatik karşı taraf tespiti",
+          "Rolü ve sözleşmeleri belirten birleşik kayıt defteri",
+          "Risk toplama: yaptırımlar, iflas, davalar, mülkiyet",
+          "Finansal bağlamla karşı taraf kartı",
+          "Kritik karşı tarafların önceliklendirilmesi",
+          "Belgelere bağlı karşı taraflar için DD ızgarası"
+        ],
+        "sources": [
+          "Küresel sağlayıcılar: Orbis, D&B, OpenCorporates",
+          "Yerel kayıt defterleri: DED, MERSIS, ticari siciller",
+          "Dahili kaynaklar: ERP, tedarikçi ana verisi, uyum VT"
+        ]
+      },
+      {
+        "id": "real-estate",
+        "title": "Gayrimenkul Varlık Analizi",
+        "body": "Steloom, belgelerdeki gayrimenkul nesnelerini — adresler, kadastral numaralar, alanlar — tespit eder ve bir varlık kayıt defteri oluşturur. Her nesne, harici kayıt defteri verileriyle eşleştirilir.",
+        "capabilities": [
+          "Belgelerdeki nesnelerin otomatik tespiti",
+          "Kayıt defteri doğrulaması: EGRN, DLD, ulusal siciller",
+          "Yük kontrolü: ipotek, haciz, irtifak hakkı",
+          "Yasal kontroller: unvan zinciri, kayıt defteri eşleşmesi, imar durumu",
+          "Kayıt defteri anlık görüntüsü ile nesne kartı",
+          "Risk önceliklendirmesi ile birleşik varlık kayıt defteri"
+        ],
+        "sources": [
+          "Rusya: EGRN, halka açık kadastral harita",
+          "BAE: Dubai Arazi Departmanı, emirlik sicilleri",
+          "Avrupa: ulusal arazi sicilleri",
+          "Dahili veritabanları: varlık kayıt defteri, kira kayıt defteri"
+        ]
+      }
+    ],
+    "stories": [
+      {
+        "id": "story-1",
+        "title": "5 günde 2.000 belgede Due Diligence",
+        "role": "Ortak, M&A Uygulaması",
+        "company": "Uluslararası Hukuk Firması",
+        "duration": "4:30"
+      },
+      {
+        "id": "story-2",
+        "title": "12 yargı bölgesi için birleşik inceleme standardı",
+        "role": "Hukuk Operasyonları Başkanı",
+        "company": "Küresel Endüstriyel Grup",
+        "duration": "6:15"
+      },
+      {
+        "id": "story-3",
+        "title": "Sözleşme dizisi denetimi: 2 haftada 800 sözleşme",
+        "role": "Baş Uyum Sorumlusu",
+        "company": "Finansal Hizmetler Şirketi",
+        "duration": "5:45"
+      }
+    ],
+    "cta": {
+      "title": "Steloom'un ekibinizin zorluklarını nasıl çözdüğünü görün",
+      "paragraphs": [
+        "Gösterim sırasında, platformun due diligence, sözleşme incelemesi, oyun kitabı doğrulaması veya iç denetim gibi görevlerinize en yakın senaryoda belgelerle nasıl çalıştığını göstereceğiz.",
+        "Kendi sözleşmeleriniz veya anlaşma materyalleriniz varsa, bunlar örnek olarak kullanılabilir."
+      ],
+      "buttonLabel": "Gösterim talep edin",
+      "meta": "Ortalama gösterim süresi: 30-45 dakika · Format: çevrimiçi veya yüz yüze"
+    },
+    "internalAudit": {
+      "hero": {
+        "eyebrowCategory": "Kullanım Senaryosu",
+        "eyebrowScenario": "İç Denetim",
+        "titlePart1": "Manuel olarak derlemenize gerek olmayan bir denetim izi -",
+        "titlePart2": "sistem bulgularından birincil kaynağın paragrafına",
+        "description": "Steloom, iç denetimin tüm sözleşme dizisine birleşik kurallar uygulamasına, bulguların temellerini belgelemesine ve yeniden doğrulama ve raporlama için bir kanıt temeli hazırlamasına yardımcı olur.",
+        "buttonLabel": "Gösterim talep edin"
+      },
+      "intro": {
+        "eyebrow": "Denetçinin zamanını ne alır",
+        "titlePart1": "Rutin denetim prosedürleri -",
+        "titlePart2": "birleşik bir analiz akışında",
+        "paragraphs": [
+          "Dizi yapılandırma, kontrol listesi doğrulaması, kanıt temeli oluşturma ve dönemler arası karşılaştırma, denetçinin zamanını tüketen ve ekibi manuel işlerle aşırı yükleyen rutin prosedürlerdir.",
+          "Steloom bu aşamaları otomatikleştirir: tüm diziye birleşik kurallar uygular, profesyonel yargı gerektiren belgeleri ve sapmaları vurgular ve izlenebilir bir denetim izi oluşturur — sistem bulgularından birincil kaynağın belirli bir paragrafına."
+        ]
+      },
+      "visualCards": [
+        {
+          "id": "checklist",
+          "title": "Birleşik Kontrol Listesi",
+          "text": "Birleşik doğrulama kuralları tüm diziye uygulanır — hiçbir belge denetimden düşmez. Binlerce sözleşmeyi aynı anda analiz ederken örnekleme ve insan hatasına bağımlılık azalır.",
+          "image": "/ia-1-1.png",
+          "alt": "Sözleşme dizisi doğrulaması için birleşik kontrol listesi"
+        },
+        {
+          "id": "audit_trail",
+          "title": "Denetim İzi",
+          "text": "Her yorum belirli bir belge hükmüne bağlanır. Sonuç, incelenen konular, tespit edilen sapmalar ve dayanaklarla hazırlanır — iç ve dış kontrol için hazır bir kanıt temeli olarak.",
+          "image": "/ia-1-2.png",
+          "alt": "Denetim izi ve bulguların belgeye bağlanması"
+        },
+        {
+          "id": "period_comparison",
+          "title": "Dönem Karşılaştırması",
+          "text": "Geçmiş denetimlerin sonuçları karşılaştırma için erişilebilir kalır. Dönemler arasında dizileri karşılaştırabilir, dinamikleri görebilir ve ekip dikkat gerektiren yeni risk bölgelerini daha hızlı tespit edebilirsiniz.",
+          "image": "/ia-1-3.png",
+          "alt": "Denetim dönemleri arasında sonuçların karşılaştırılması"
+        }
+      ],
+      "capabilities": {
+        "eyebrow": "Steloom neyi otomatikleştirir",
+        "titlePart1": "Rutin denetim prosedürleri -",
+        "titlePart2": "birleşik bir analiz akışında",
+        "items": [
+          {
+            "id": "structuring",
+            "icon": "FolderSearch",
+            "title": "Dizi Yapılandırma",
+            "bullets": [
+              "Türler, tarihler, karşı taraflar ve risk kategorilerine göre otomatik sınıflandırma",
+              "Manuel sıralama ve ön belge filtrelemenin ortadan kaldırılması",
+              "Farklı formatların birleşik temsili — taramalar, PDF'ler ve Word — yapılandırılmış bir görünümde"
+            ]
+          },
+          {
+            "id": "checklists",
+            "icon": "ListChecks",
+            "title": "Kontrol Listesi Doğrulaması",
+            "bullets": [
+              "Tüm belgelere birleşik kuralların uygulanması — örnekleme yerine %100 kapsam",
+              "Eksik zorunlu koşulların, standart formlardan ve iç politikalardan sapmaların tespiti",
+              "Denetçinin profesyonel yargısını gerektiren belgelerin işaretlenmesi"
+            ]
+          },
+          {
+            "id": "evidence",
+            "icon": "ClipboardCheck",
+            "title": "Denetim İzi ve Kanıtlanabilirlik",
+            "bullets": [
+              "Her sonuç, birincil kaynağın belirli bir paragrafına bağlantıyla birlikte gelir",
+              "Eksiksiz geçmiş: ne yüklendi, hangi kurallar uygulandı ve hangi sapmalar bulundu",
+              "İç denetim ve dış denetimler için dışa aktarılabilir raporlar"
+            ]
+          },
+          {
+            "id": "unified_logic",
+            "icon": "Scale",
+            "title": "Birleşik Doğrulama Mantığı",
+            "bullets": [
+              "Tüm belgelerin birleşik bir kontrol kriterleri setiyle karşılaştırılması",
+              "Manuel değişkenliğe ve denetçiler arasındaki yaklaşım farklılıklarına bağımlılığın azaltılması",
+              "Sonraki kontrol ve sonuçların savunulması için daha tekrarlanabilir metodoloji"
+            ]
+          },
+          {
+            "id": "risks",
+            "icon": "AlertTriangle",
+            "title": "İstisnaların ve Risk Bölgelerinin Tespiti",
+            "bullets": [
+              "Ayrı analiz gerektiren sapmaları olan belgelerin vurgulanması",
+              "Tırmanma, takip ve ek doğrulama için istisnaların belirlenmesi",
+              "Ekip çalışmasının riske ve sapmaların önemine göre daha uygun önceliklendirilmesi"
+            ]
+          },
+          {
+            "id": "reporting",
+            "icon": "BarChart3",
+            "title": "Yönetim Raporlaması",
+            "bullets": [
+              "Tipik sapmaların, risk bölgelerinin ve dikkat gerektiren belgelerin konsolide görünümü",
+              "Yönetim, denetim komitesi ve ikinci savunma hattıyla tartışma için temel",
+              "İç denetim sonuçlarının fonksiyon ve dönem seviyelerinde daha net iletişimi"
+            ]
+          }
+        ]
+      },
+      "signals": {
+        "eyebrow": "Sistemin tespit ettiği sinyaller",
+        "title": "Doğrulamanın odağına tam olarak ne girer",
+        "description": "Bu blok hızlı yönlendirme içindir: Steloom'un sözleşme dizisinde tam olarak neleri vurgulayabileceği, böylece iç denetim ekibinin manuel incelemeden daha hedefli analize geçmesi.",
+        "items": [
+          {
+            "id": "sig_1",
+            "icon": "FileWarning",
+            "text": "İç politikalara göre mevcut olması gereken eksik zorunlu koşullar ve hükümler."
+          },
+          {
+            "id": "sig_2",
+            "icon": "ScanSearch",
+            "text": "Standart formlardan, şablonlardan ve onaylanmış sözleşme yapılarından sapmalar."
+          },
+          {
+            "id": "sig_3",
+            "icon": "FileWarning",
+            "text": "Temel sözleşme hükümlerinde standart dışı veya riskli ifadeler."
+          },
+          {
+            "id": "sig_4",
+            "icon": "ScanSearch",
+            "text": "Gerekli onaylar, confirmations veya zorunlu kontrol unsurları eksik belgeler."
+          },
+          {
+            "id": "sig_5",
+            "icon": "FileWarning",
+            "text": "Dönemler arasında yeniden doğrulama gerektiren sözleşme dizisindeki değişiklikler."
+          },
+          {
+            "id": "sig_6",
+            "icon": "ScanSearch",
+            "text": "Sistemik bir süreç sorununa işaret eden tekrarlayan sapma türleri."
+          },
+          {
+            "id": "sig_7",
+            "icon": "FileWarning",
+            "text": "Risk seviyesi veya ifade belirsizliği nedeniyle denetçiye tırmanma gerektiren belgeler."
+          },
+          {
+            "id": "sig_8",
+            "icon": "ScanSearch",
+            "text": "Takip doğrulaması ve düzeltici eylemlerin kontrolü için dayanaklar."
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Steloom, iç denetimin kanıtlara dayalı çalışmasına yardımcı olur",
+        "titlePart2": "manuel malzeme derlemesi ve seçici analiz yerine",
+        "paragraphs": [
+          "Platform, sözleşme dizisini yapılandırır, belgeleri birleşik kurallara göre doğrular, bulguları kaynaklara bağlar ve iç ve dış kontrol için malzeme hazırlamaya yardımcı olur.",
+          "Belgeleri yükleyin — Steloom sapmaları vurgulayacak, izlenebilir bir kanıt temeli oluşturacak ve iç denetim departmanı çalışanları için rutin iş hacmini azaltacaktır."
+        ],
+        "buttonLabel": "Gösterim talep edin",
+        "meta": "Genellikle bir iş günü içinde yanıt veririz."
+      }
+    },
+    "compliance": {
+      "hero": {
+        "eyebrowRoot": "Kullanım Senaryoları",
+        "eyebrowLeaf": "Uyum ve Kontrol",
+        "description": "Sözleşme dizisinin iç politikalara ve düzenleyici gereksinimlere sürekli uyumunu sağlayın. İnceleme kalitesi üzerinde insan hatasının etkisini en aza indirerek kritik sapmaların tespitini otomatikleştirin.",
+        "titlePart1": "Birleşik bir inceleme standardı -",
+        "titlePart2": "yargı bölgesinden ve veri hacminden bağımsız olarak.",
+        "buttonLabel": "Gösterim talep edin"
+      },
+      "briefBlocks": [
+        {
+          "id": "policy_control",
+          "icon": "ShieldCheck",
+          "title": "Politika Kontrolü",
+          "text": "Yorumlama değişkenliğini ve koşulların kaçırılmasını ortadan kaldırarak iç standartları otomatik olarak uygulayın."
+        },
+        {
+          "id": "realtime_insights",
+          "icon": "Zap",
+          "title": "Gerçek Zamanlı İçgörüler",
+          "text": "Hazırlık aşamasında anormallikleri, atipik riskleri ve sapmaları anında tespit edin."
+        },
+        {
+          "id": "audit_readiness",
+          "icon": "History",
+          "title": "Denetime Hazırlık",
+          "text": "Bulguların tam izlenebilirliği ile şeffaf bir uyum incelemeleri geçmişi oluşturun."
+        }
+      ],
+      "capabilities": {
+        "eyebrow": "Steloom neyi otomatikleştirir",
+        "titlePart1": "Rutin uyum görevleri -",
+        "titlePart2": "birleşik bir analiz akışında",
+        "items": [
+          {
+            "id": "counterparties",
+            "icon": "Building2",
+            "title": "Karşı Taraf Doğrulaması",
+            "bullets": [
+              "Mülkiyet yapısı analizi ve devlet bağlantısının tespiti",
+              "Offshore yargı bölgelerinin ve atipik ödeme bilgilerinin işaretlenmesi",
+              "Yolsuzlukla mücadele maddelerinin ve çıkar çatışması koşullarının doğrulanması"
+            ]
+          },
+          {
+            "id": "corruption_risks",
+            "icon": "AlertTriangle",
+            "title": "Yolsuzluk Riski Analizi",
+            "bullets": [
+              "Atipik ödeme koşullarının tespiti: üçüncü şahıslar üzerinden hesaplamalar, standart dışı hesaplar",
+              "Zorla dayatılan alt yüklenicilerin ve haksız danışmanlık anlaşmalarının işaretlenmesi",
+              "Anlaşma koşullarının iç eşiklere ve politikalara göre izlenmesi"
+            ]
+          },
+          {
+            "id": "policies",
+            "icon": "Scale",
+            "title": "Politika Uygulaması",
+            "bullets": [
+              "Her sözleşmenin iç oyun kitapları ve standart formlarla eşleştirilmesi",
+              "Eksik zorunlu koşulların, maddelerin ve hükümlerin tespiti",
+              "Belgelerin türlere, risk kategorilerine ve yargı bölgelerine göre sınıflandırılması"
+            ]
+          },
+          {
+            "id": "audit_traceability",
+            "icon": "ClipboardCheck",
+            "title": "Denetim ve İzlenebilirlik",
+            "bullets": [
+              "Her sonuç, birincil kaynağın belirli bir paragrafına bağlantıyla birlikte gelir",
+              "Eksiksiz inceleme geçmişi: ne yüklendi, hangi kurallar uygulandı",
+              "İç denetim ve düzenleyici denetimler için dışa aktarılabilir raporlar"
+            ]
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Steloom hukuki uzmanlığın yerini almaz",
+        "titlePart2": "ve şeffaf olmayan cevaplar üretmez",
+        "paragraphs": [
+          "Sistem, manuel belge çalışmasını azaltarak önemli gerçeklerin ve verilerin kaçırılmasına yardımcı olur.",
+          "Sözleşme dizisini yükleyin - Steloom uyum oyun kitaplarınızı uygulayacak ve uzman dikkati gerektiren sapmaları vurgulayacaktır."
+        ],
+        "buttonLabel": "Gösterim talep edin",
+        "meta": "Genellikle bir iş günü içinde yanıt veririz."
+      }
+    },
+    "contractReview": {
+      "hero": {
+        "eyebrowRoot": "Kullanım Senaryoları",
+        "eyebrowLeaf": "Sözleşme İncelemesi",
+        "description": "Sıkı son tarihler ve büyük veri hacimleri altında manuel analizin risklerini en aza indirerek ve kurumsal standartlardan sapmaların otomatik tespitini sağlayarak sözleşme dizisi inceleme sürecini optimize edin.",
+        "buttonLabel": "Demo talep edin",
+        "titlePart1": "Her sözleşme hükmü —",
+        "titlePart2": "metodolojinizin ve oyun kitabınızın tam kontrolü altında."
+      },
+      "briefBlocks": [
+        {
+          "id": "unified_standard",
+          "icon": "Library",
+          "title": "Birleşik Standart",
+          "text": "Uygulayıcıdan bağımsız olarak aynı inceleme seviyesini sağlayarak herhangi bir sözleşmenin hükümlerini iç oyun kitabınızla otomatik olarak eşleştirin."
+        },
+        {
+          "id": "anomaly_detection",
+          "icon": "AlertTriangle",
+          "title": "Anomali Tespiti",
+          "text": "Sistem, eksik koşulları, atipik ifadeleri ve acil uzman dikkati gerektiren gizli riskleri anında vurgular."
+        },
+        {
+          "id": "data_linkage",
+          "icon": "Link",
+          "title": "Veri Bağlantısı",
+          "text": "Kaynak metne doğrudan bağlantı ile yapılandırılmış bulgular alın. İş akışlarınıza entegrasyona hazır kayıtlar ve raporlar oluşturun."
+        }
+      ],
+      "cta": {
+        "titlePart1": "Steloom hukuki uzmanlığın yerini almaz",
+        "titlePart2": "ve şeffaf olmayan cevaplar üretmez",
+        "paragraphs": [
+          "Sistem, manuel belge çalışmasını azaltır, önemli gerçekleri ve verileri kaçırmamaya yardımcı olarak derin hukuki değerlendirme için zaman yaratır.",
+          "Sözleşme dizisini yükleyin - Steloom önemli koşulları vurgulayacak ve ekibinizin iş sonuçlarını ve anlaşma koşullarını gerçekten etkileyen risklere odaklanmasına yardımcı olacaktır."
+        ],
+        "buttonLabel": "Gösterim talep edin",
+        "meta": "Genellikle bir iş günü içinde yanıt verir ve toplantı planlarız."
+      }
+    },
+    "corporateLegal": {
+      "hero": {
+        "eyebrowRoot": "Kullanım Senaryosu",
+        "eyebrowLeaf": "Kurumsal Avukatlar",
+        "paragraphs": [
+          "Kurumsal hukuk departmanı iş temposuna ayak uydurmalıdır: iç paydaşlara daha hızlı yanıt vermek, birleşik bir inceleme standardını korumak ve sözleşme dizisi büyüdükçe risk kontrolünü kaybetmemek.",
+          "Steloom, ilk belge işlemini üstlenir: kurumsal oyun kitaplarını uygular, sapmaları tespit eder, bulguları yapılandırır ve her sonucu belirli bir kaynak parçasına bağlar."
+        ]
+      },
+      "pressure": {
+        "eyebrow": "Aşırı yüklenmenin yaşandığı yerler",
+        "items": [
+          {
+            "id": "speed",
+            "title": "İş, ekip büyümesinden daha hızlı bekliyor",
+            "text": "Satış, satın alma, İK ve ürün ekipleri hızlı onaylar bekler. Talep hacmi, hukuk departmanının ölçeklenebilme hızından daha hızlı büyür."
+          },
+          {
+            "id": "consistency",
+            "title": "Değişken analiz seviyeleri",
+            "text": "Güçlü bir ekip bile aynı sözleşme hükümlerini farklı değerlendirir. Birleşik bir oyun kitabı olmadan, kalite belirli uygulayıcıya bağlıdır."
+          },
+          {
+            "id": "control",
+            "title": "Tam kontrolü korumak zordur",
+            "text": "Sözleşme sayısı çok olduğunda, seçici inceleme norm haline gelir. Bu, kaçırılan sapmalar, yükümlülükler ve standart dışı maddeler riski yaratır."
+          }
+        ]
+      },
+      "outcomes": {
+        "eyebrow": "Hukuk departmanı ne elde eder",
+        "items": [
+          {
+            "id": "speed_biz",
+            "image": "/lf-1-1.png",
+            "title": "İç paydaşlar için hız",
+            "text": "Hukuk departmanı işe daha hızlı yanıt verir çünkü rutin ilk tarama ve oyun kitabı eşleşmesi otomatikleştirilmiştir."
+          },
+          {
+            "id": "unified_std",
+            "image": "/lf-1-2.png",
+            "title": "Tüm sözleşmeler için birleşik standart",
+            "text": "Uygulayıcıdan, ekip yükünden veya karşı taraf türünden bağımsız olarak aynı kurallar tüm belgelere uygulanır."
+          },
+          {
+            "id": "traceable",
+            "image": "/lf-1-3.png",
+            "title": "İzlenebilir bulgular",
+            "text": "Her sonuç belirli bir kaynak paragrafına bağlanır. Bu, iş birimi, yönetim, denetçiler ve uyum ile uyumu kolaylaştırır."
+          },
+          {
+            "id": "full_coverage",
+            "image": "/lf-1-4.png",
+            "title": "%100 dizi kapsamı",
+            "text": "Steloom, bir örneklem yerine tüm belge dizisini kontrol eder. Ekip, sapmalar ve riskler hakkında daha eksiksiz bir resim elde eder."
+          },
+          {
+            "id": "strategy_time",
+            "image": "/lf-1-5.png",
+            "title": "Strateji için daha fazla zaman",
+            "text": "Avukatlar mekanik proofreading için daha az, müzakereler, risk değerlendirmesi ve işin hukuki pozisyonu için daha fazla zaman harcar."
+          },
+          {
+            "id": "less_manual",
+            "image": "/lf-1-6.png",
+            "title": "Manuel süreçlere daha az bağımlılık",
+            "text": "İnceleme tekrarlanabilir ve yönetilebilir hale gelir: iş yükü arttıkça devretmek, ölçeklendirmek ve kaliteyi korumak daha kolaydır."
+          }
+        ]
+      },
+      "scenarios": {
+        "eyebrow": "Uygulama senaryoları",
+        "title": "Steloom'un departman çalışmasını nerede hızlandırdığı",
+        "items": [
+          {
+            "id": "inbound",
+            "title": "Gelen sözleşme akışı",
+            "text": "Satış, satın alma ve ortak ekipler departmana belgeler gönderir ve Steloom, kurumsal standartlardan sapmaları hızlıca vurgulamaya ve yalnızca tartışmalı öğeleri manuel incelemeye sunmaya yardımcı olur."
+          },
+          {
+            "id": "compliance_update",
+            "title": "Uyum ve politika güncellemeleri",
+            "text": "İç gereksinimler ve düzenlemeler değiştiğinde, platform sözleşme portföyünde halihazırda sapmaların nerede olduğunu ve hangi belgelerin dikkat gerektirdiğini kontrol etmeye yardımcı olur."
+          },
+          {
+            "id": "portfolio_audit",
+            "title": "Sözleşme portföyü denetimi",
+            "text": "Belge dizisi genelinde hangi yükümlülüklerin, kısıtlamaların ve risklerin dağıldığını hızlıca anlamanız gerekiyorsa, Steloom verileri yapılandırır ve sorunlu alanları tek bir akışta yüzeye çıkarır."
+          },
+          {
+            "id": "mgmt_prep",
+            "title": "Yönetim ve kontrol için hazırlık",
+            "text": "Birincil kaynağa bağlı yapılandırılmış bulgular, CFO, satın alma, iç denetim ve uyum ile tartışma için net ve kanıtlanabilir bir temel sağlar."
+          }
+        ]
+      },
+      "capabilities": {
+        "eyebrow": "Steloom neyi otomatikleştirir",
+        "title": "Temel departman görevleri - birleşik bir analiz akışında",
+        "items": [
+          {
+            "id": "structuring",
+            "icon": "Layers",
+            "title": "Dizi yapılandırma",
+            "bullets": [
+              "Sözleşmelerin ve ilgili belgelerin otomatik sınıflandırılması",
+              "Hukuk departmanı için dizinin birleşik temsili",
+              "Talep hacmi arttıkça kaosun azaltılması"
+            ]
+          },
+          {
+            "id": "playbooks",
+            "icon": "ShieldCheck",
+            "title": "Oyun kitabı uygulaması",
+            "bullets": [
+              "Belgelerin şirket iç standartlarıyla eşleştirilmesi",
+              "Sapmaların ve standart dışı ifadelerin tespit edilmesi",
+              "Tüm ekip genelinde birleşik inceleme mantığı"
+            ]
+          },
+          {
+            "id": "traceability",
+            "icon": "FileSearch",
+            "title": "Sonuç izlenebilirliği",
+            "bullets": [
+              "Her bulgu belirli bir kaynak paragrafına bağlanır",
+              "İş birimi ve kontrol ile uyum için net temel",
+              "İç tartışmalar için sonuçların kanıtlanabilirliği"
+            ]
+          },
+          {
+            "id": "economics",
+            "icon": "TrendingUp",
+            "title": "Departman ekonomisi",
+            "bullets": [
+              "Daha az manuel rutin - stratejik konular için daha fazla zaman",
+              "Eşdeğer personel artışına gerek kalmadan ölçeklendirme",
+              "Daha öngörülebilir ve yönetilebilir bir hukuk fonksiyonu"
+            ]
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Daha az manuel rutin -",
+        "titlePart2": "işin hukuki pozisyonu için daha fazla zaman",
+        "paragraphs": [
+          "Steloom, kurumsal hukuk departmanının iç paydaşlara daha hızlı yanıt vermesine, birleşik bir inceleme standardını korumasına ve belge hacmi arttıkça kontrolü kaybetmemesine yardımcı olur.",
+          "Belge dizisini yükleyin - platform oyun kitaplarınızı uygulayacak, sapmaları vurgulayacak ve karar verme için izlenebilir bulgular oluşturacaktır."
+        ],
+        "buttonLabel": "Gösterim talep edin",
+        "meta": "Genellikle bir iş günü içinde yanıt veririz."
+      }
+    },
+    "counterparties": {
+      "hero": {
+        "eyebrow": "Gelişmiş Analiz",
+        "title": "Karşı Taraf ve İlişkili Kişi Doğrulaması",
+        "paragraphs": [
+          "Steloom, anlaşma belgelerinin metinlerinde, tablolarında ve eklerinde karşı tarafları otomatik olarak tespit eder, birleşik bir kayıt defteri oluşturur ve şirket profillerini harici ve dahili kaynaklar aracılığıyla zenginleştirir.",
+          "Ekip, karşı tarafın hangi sözleşmelerde ve hangi rolde yer aldığını görür ve tüm anlaşma bağlamında toplam maruziyeti değerlendirebilir."
+        ],
+        "buttonLabel": "Gösterim talep edin"
+      },
+      "risks": {
+        "title": "Taraf Tanımlama Riskleri",
+        "items": [
+          {
+            "id": "affiliation",
+            "title": "Gizli Bağlılık",
+            "text": "Büyük Veri Odalarında mülkiyet zincirlerinin ve nihai faydalanıcıların (UBO) manuel olarak tespit edilmesinin zorluğu."
+          },
+          {
+            "id": "sanctions",
+            "title": "Yaptırım Riskleri",
+            "text": "Sürekli güncellenen uluslararası listelere göre yüzlerce kişinin kontrol edilmesi gerekliliği."
+          },
+          {
+            "id": "fragmentation",
+            "title": "Veri Dağınıklığı",
+            "text": "Karşı tarafların finansal göstergeleri ve davaları hakkındaki bilgiler genellikle sözleşme metinlerinden kopuktur."
+          }
+        ]
+      },
+      "howItHelps": {
+        "title": "Steloom Bu Görevleri Nasıl Çözer",
+        "intro": "Platform, bağlantılı bir analiz katmanı oluşturur: tespit edilen her karşı taraf, küresel ve yerel kayıt defterlerinden verilerle bir Kayıt Defteri Anlık Görüntüsü (Registry Snapshot) alır.",
+        "benefits": [
+          {
+            "id": "ben_1",
+            "text": "Tüm belge paketi genelinde kişilerin otomatik olarak tespit edilmesi"
+          },
+          {
+            "id": "ben_2",
+            "text": "Risk toplama: yaptırımlar, iflas, davalar, mülkiyet"
+          },
+          {
+            "id": "ben_3",
+            "text": "Finansal ve yasal bağlamla karşı taraf kartı"
+          },
+          {
+            "id": "ben_4",
+            "text": "Tırmanma için kritik karşı tarafların önceliklendirilmesi"
+          }
+        ]
+      },
+      "cta": {
+        "title": "KYC ve Taraf Doğrulamasını Otomatikleştirin",
+        "buttonLabel": "Gösterim talep edin"
+      }
+    },
+    "internalAuditPage": {
+      "hero": {
+        "eyebrowRoot": "Kullanım Senaryoları",
+        "eyebrowLeaf": "İç Denetim",
+        "intro": "Dizi yapılandırma, kontrol listesi doğrulaması, kanıt temeli oluşturma ve dönemler arası karşılaştırma, denetçinin zamanını tüketen rutin prosedürlerdir. Steloom bunları otomatikleştirir: tüm diziye birleşik kurallar uygular ve izlenebilir bir denetim izi oluşturur - sistem bulgularından birincil kaynağın belirli bir paragrafına.",
+        "titlePart1": "Manuel olarak derlemenize gerek olmayan bir denetim izi -",
+        "titlePart2": "sistem bulgularından birincil kaynağın paragrafına."
+      },
+      "pillars": [
+        {
+          "id": "checklist",
+          "icon": "ClipboardCheck",
+          "title": "Birleşik Kontrol Listesi",
+          "text": "Birleşik doğrulama kuralları tüm diziye uygulanır - hiçbir belge denetimden düşmez. Binlerce sözleşmeyi aynı anda analiz ederken örnekleme ve insan hatasını ortadan kaldırır."
+        },
+        {
+          "id": "audit_trail",
+          "icon": "FileSearch",
+          "title": "Denetim İzi",
+          "text": "Her yorum belirli bir belge hükmüne bağlanır. Sonuç, incelenen konular, tespit edilen sapmalar ve dayanaklarla hazırlanır - dış kontrol için hazır bir kanıt temeli."
+        },
+        {
+          "id": "period_comparison",
+          "icon": "History",
+          "title": "Dönem Karşılaştırması",
+          "text": "Geçmiş denetimlerin sonuçları karşılaştırma için erişilebilir kalır. Dönemler arasında dizileri karşılaştırın, dinamikleri ve dikkat gerektiren yeni risk bölgelerini belirleyin."
+        }
+      ],
+      "capabilities": {
+        "eyebrow": "Steloom neyi otomatikleştirir",
+        "titlePart1": "Rutin denetim prosedürleri -",
+        "titlePart2": "birleşik bir analiz akışında",
+        "items": [
+          {
+            "id": "structuring",
+            "icon": "Layers",
+            "title": "Dizi Yapılandırma",
+            "bullets": [
+              "Türler, tarihler, karşı taraflar, risk kategorilerine göre otomatik sınıflandırma",
+              "Manuel sıralama ve ön filtrelemenin ortadan kaldırılması",
+              "Farklı formatların (taramalar, PDF, Word) yapılandırılmış bir görünümde birleşik temsili"
+            ]
+          },
+          {
+            "id": "checklists",
+            "icon": "ClipboardCheck",
+            "title": "Kontrol Listesi Doğrulaması",
+            "bullets": [
+              "Tüm belgelere birleşik kuralların uygulanması - örnekleme yerine %100 kapsam",
+              "Eksik zorunlu koşulların, standart formlardan ve iç politikalardan sapmaların tespiti",
+              "Denetçinin profesyonel yargısını gerektiren belgelerin işaretlenmesi"
+            ]
+          },
+          {
+            "id": "evidence",
+            "icon": "ShieldCheck",
+            "title": "Denetim İzi ve Kanıtlanabilirlik",
+            "bullets": [
+              "Her sonuç, birincil kaynağın belirli bir paragrafına bağlantıyla birlikte gelir",
+              "Eksiksiz geçmiş: ne yüklendi, hangi kurallar uygulandı, hangi sapmalar bulundu",
+              "İç denetim ve dış denetimler için dışa aktarılabilir raporlar"
+            ]
+          },
+          {
+            "id": "monitoring",
+            "icon": "GitCompare",
+            "title": "Dönem Karşılaştırması ve İzleme",
+            "bullets": [
+              "Farklı dönemlerin denetim sonuçlarının karşılaştırılması - dinamiklerin ve yeni risklerin belirlenmesi",
+              "Düzeltici eylemlerin (CAPA) ve takip denetimlerinin durumlarının izlenmesi",
+              "Denetim dönemleri arasında sözleşme dizisindeki değişikliklerin izlenmesi"
+            ]
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Steloom profesyonel yargının yerini almaz -",
+        "titlePart2": "ona olgular temelli bir temel sağlar",
+        "paragraphs": [
+          "Sistem, denetçinin manuel olarak kanıt toplamak yerine gerçek riskleri değerlendirmeye odaklanabilmesi için dizi yapılandırma, ilk kontrol listesi doğrulaması ve denetim izi oluşturma işlemlerini üstlenir.",
+          "Denetim için belgeleri yükleyin - Steloom diziyi yapılandıracak, sapmaları vurgulayacak ve izlenebilir bir kanıt temeli oluşturacaktır. Her bulgu - birincil kaynağa bir bağlantı ile."
+        ],
+        "buttonLabel": "Gösterim talep edin",
+        "meta": "Genellikle bir iş günü içinde yanıt verir ve toplantı planlarız."
+      }
+    },
+    "lawFirms": {
+      "hero": {
+        "eyebrowRoot": "Kullanım Senaryoları",
+        "eyebrowLeaf": "Hukuk Firmaları",
+        "intro": "Bir avukatın çalışma zamanının %63'üne kadarı rutin belge işleme - okuma, sapma arama ve dizi sıralama - ile geçer. Steloom bu rutini üstlenir: diziyi yapılandırır, firmanın oyun kitaplarını tüm belgelere uygular ve izlenebilir bulgular oluşturur.",
+        "titlePart1": "Rutini platform üstlenir -",
+        "titlePart2": "karar avukata kalır.",
+        "buttonLabel": "Gösterim talep edin"
+      },
+      "results": {
+        "eyebrow": "Hukuk firması ne elde eder",
+        "items": [
+          {
+            "id": "speed",
+            "image": "/lf-1-1.png",
+            "title": "Hız ve Kapsam",
+            "text": "Sözleşme inceleme süresinin 2-4 saatten 20-40 dakikaya düşürülmesi. %100 dizi kapsamı - her belge kontrol edilir, hiçbiri düşmez."
+          },
+          {
+            "id": "quality",
+            "image": "/lf-1-2.png",
+            "title": "Kalite ve Azaltılmış Kaçışlar",
+            "text": "Birleşik kurallar tüm belgelere uygulanır. Sistem, avukat yorgunluğundan bağımsız olarak sorunlu maddeleri ve sapmaları tespit eder."
+          },
+          {
+            "id": "traceability",
+            "image": "/lf-1-3.png",
+            "title": "İzlenebilirlik ve Kanıtlanabilirlik",
+            "text": "Her sonuç, belirli bir kaynak paragrafına bağlantıyla birlikte gelir. Müşteri veya düzenleyici için hazır bir kanıt temeli."
+          }
+        ]
+      },
+      "scenarios": {
+        "eyebrow": "Uygulama Senaryoları",
+        "title": "Steloom'un firma çalışmasını nerede hızlandırdığı",
+        "items": [
+          {
+            "id": "dd_ma",
+            "title": "M&A'da Due Diligence",
+            "text": "Tek seferde yüzlerce kurumsal belge, sözleşme ve mahkeme davası. Riskler ve sınıflandırma ile özet rapor."
+          },
+          {
+            "id": "counterparties",
+            "title": "Karşı Taraf Doğrulaması",
+            "text": "Mülkiyet yapısı analizi, bağlılık tespiti, offshore yargı bölgelerinin işaretlenmesi. Her durum için birleşik standart."
+          },
+          {
+            "id": "compliance",
+            "title": "Sözleşme Uyum Kontrolü",
+            "text": "İç oyun kitaplarının tüm diziye uygulanması. Eksik zorunlu koşulların ve standart formlardan sapmaların tespiti."
+          },
+          {
+            "id": "audit",
+            "title": "Sözleşme Portföyü Denetimi",
+            "text": "Dizi yapılandırma, kontrol listesi doğrulaması, birincil kaynağa izlenebilirlikle denetim izi oluşturma."
+          }
+        ]
+      },
+      "capabilities": {
+        "eyebrow": "Steloom neyi otomatikleştirir",
+        "title": "Temel firma görevleri - birleşik bir analiz akışında",
+        "items": [
+          {
+            "id": "structuring",
+            "icon": "Layers",
+            "title": "Dizi Yapılandırma",
+            "bullets": [
+              "Türler, tarihler, karşı taraflara göre otomatik sınıflandırma",
+              "Farklı formatların birleşik temsili (taramalar, PDF, Word)",
+              "Manuel sıralamanın ortadan kaldırılması"
+            ]
+          },
+          {
+            "id": "playbooks",
+            "icon": "ShieldCheck",
+            "title": "Oyun Kitabı Uygulaması",
+            "bullets": [
+              "Her sözleşmenin firmanın iç formlarıyla eşleştirilmesi",
+              "Eksik zorunlu koşulların ve maddelerin tespiti",
+              "Avukatın yargısı için belgelerin işaretlenmesi"
+            ]
+          },
+          {
+            "id": "audit_trail",
+            "icon": "FileSearch",
+            "title": "Denetim İzi",
+            "bullets": [
+              "Her sonuç belirli bir kaynak paragrafına bağlanır",
+              "Eksiksiz geçmiş: ne yüklendi, hangi kurallar uygulandı",
+              "Müşteri görüşleri için dışa aktarılabilir raporlar"
+            ]
+          },
+          {
+            "id": "economics",
+            "icon": "TrendingUp",
+            "title": "Firma Ekonomisi",
+            "bullets": [
+              "Daha az non-billable saat - müşteri için daha fazla zaman",
+              "Tüm projeler ve ekipler arasında birleşik kalite standardı",
+              "Belirli uygulayıcıya bağımlılığın azaltılması"
+            ]
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Daha az non-billable saat -",
+        "titlePart2": "müşteri için daha fazla zaman",
+        "paragraphs": [
+          "Steloom, dizi taramayı, ilk analizi ve oyun kitaplarıyla eşleştirmeyi üstlenir - avukatların billable saatlerini strateji ve müşteri çalışması için serbest bırakır.",
+          "Belge dizisini yükleyin - Steloom oyun kitaplarınızı uygulayacak, sapmaları vurgulayacak ve izlenebilir bir kanıt temeli oluşturacaktır."
+        ],
+        "buttonLabel": "Gösterim talep edin",
+        "meta": "Genellikle bir iş günü içinde yanıt veririz."
+      }
+    },
+    "maDueDiligence": {
+      "hero": {
+        "eyebrowRoot": "Kullanım Senaryoları",
+        "eyebrowLeaf": "M&A ve Due Diligence",
+        "intro": "Hukuki belge analizini optimize ederek, kritik hukuki bilgilerin çıkarılmasını otomatikleştirerek ve binlerce belgeden oluşan dizilerdeki temel riskleri tespit ederek yoğun iş hacmini en aza indirin.",
+        "titlePart1": "Orijinal dil veya geçerli yargı bölgesinden bağımsız olarak —",
+        "titlePart2": "Steloom birleşik bir inceleme kalite standardı sağlar."
+      },
+      "threeBlocks": [
+        {
+          "id": "volume",
+          "icon": "Database",
+          "title": "Hacim ve Format",
+          "text": "Analiz edilen bilgi hacmini kendiniz belirleyin. Analizin kalitesi ve eksiksizliği, yüklenen belge sayısı ve formatından bağımsızdır."
+        },
+        {
+          "id": "focus",
+          "icon": "Target",
+          "title": "Odak ve Yönler",
+          "text": "Talimatlar aracılığıyla belge analizinin konusunu kendiniz yapılandırın. Tüm belgeler için ortak riskleri/hükümleri ve belirli türlere özgü olanları tespit edin."
+        },
+        {
+          "id": "systematization",
+          "icon": "FileCheck",
+          "title": "Veri Sistemleştirme",
+          "text": "Sonuçları uygun bir formatta (DD ızgarası, kayıtlar) alın ve her bulgu ile kaynak belge arasında doğrulanabilir bir bağlantıyı koruyun."
+        }
+      ],
+      "cta": {
+        "titlePart1": "Steloom hukuki uzmanlığın yerini almaz",
+        "titlePart2": "ve şeffaf olmayan cevaplar üretmez",
+        "paragraphs": [
+          "Sistem, manuel belge çalışmasını azaltır, önemli gerçekleri ve verileri kaçırmamaya yardımcı olarak strateji için zaman yaratır.",
+          "Anlaşma belgelerini yükleyin — Steloom veri odasını yapılandıracak ve ekibinizin closing, fiyat ve anlaşma koşullarını gerçekten etkileyen risklere odaklanmasına yardımcı olacaktır."
+        ],
+        "buttonLabel": "Gösterim talep edin"
+      }
+    },
+    "realEstate": {
+      "hero": {
+        "eyebrow": "Gelişmiş Analiz",
+        "title": "Gayrimenkul ve Haklar Analizi",
+        "paragraphs": [
+          "Steloom, anlaşma belgelerindeki gayrimenkul nesnelerini — adresler, kadastral numaralar ve alanlar — tespit eder ve bir proje varlık kayıt defteri oluşturur.",
+          "Her nesne, hakların ve yüklerin anında doğrulanması için harici kayıt defteri verileriyle (EGRN, DLD) eşleştirilir."
+        ],
+        "buttonLabel": "Gösterim talep edin"
+      },
+      "risks": {
+        "title": "Varlık Doğrulama Riskleri",
+        "items": [
+          {
+            "id": "encumbrances",
+            "title": "Gizli Yükler",
+            "text": "Eklerde veya tarihi belgelerde kayıtlı bir ipotek, haciz veya irtifak hakkını kaçırma riski."
+          },
+          {
+            "id": "outdated_data",
+            "title": "Güncel Olmayan Veriler",
+            "text": "Sözleşme metni ile devlet sicilindeki mevcut nesne durumu arasındaki tutarsızlıklar."
+          },
+          {
+            "id": "verification_complexity",
+            "title": "Doğrulama Karmaşıklığı",
+            "text": "Yüzlerce kadastral numaranın güncel kayıtlarla manuel olarak eşleştirilmesinin iş yükü."
+          }
+        ]
+      },
+      "howItHelps": {
+        "title": "Birleşik Varlık Kayıt Defteri",
+        "intro": "Ekip, Veri Odasındaki kaynak belgelere doğrudan bağlantı ile hakları ve kayıt durumu doğrulamak için çalışan bir arayüz elde eder.",
+        "benefits": [
+          {
+            "id": "ben_1",
+            "text": "Belgelerdeki gayrimenkul nesnelerinin otomatik tespiti"
+          },
+          {
+            "id": "ben_2",
+            "text": "Gerçek zamanlı kayıt defteri doğrulaması"
+          },
+          {
+            "id": "ben_3",
+            "text": "Mülkiyet zinciri ve imar durumu doğrulaması"
+          },
+          {
+            "id": "ben_4",
+            "text": "Kayıt defteri anlık görüntüsü ve bağlantılarla nesne kartı"
+          }
+        ]
+      },
+      "cta": {
+        "title": "Varlıkları Daha Hızlı Envanterleyin",
+        "buttonLabel": "Gösterim talep edin"
+      }
+    }
+  }
+}

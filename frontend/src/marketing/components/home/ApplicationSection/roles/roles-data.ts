@@ -1,26 +1,12 @@
-import type { RoleData, RoleId } from '../types';
+// src/marketing/components/home/ApplicationSection/roles/roles-data.ts
+import type { RoleId } from '../types';
 
-export const ROLE_ORDER: RoleId[] = ['ma', 'operations', 'gc', 'audit'];
-
-export const ROLES: Record<RoleId, RoleData> = {
-  ma: {
-    id: 'ma',
-    title: 'Слияния и поглощения',
-    description: 'Полный контроль над правовой проверкой. Автоматический анализ сотен договоров, выявление нестандартных условий и скрытых рисков при сделках без рутины.',
-  },
-  operations: {
-    id: 'operations',
-    title: 'Операционная работа',
-    description: 'Оптимизация внутренних процессов. Мгновенная маршрутизация контрактов, извлечение ключевых данных и контроль сроков для бесперебойной работы бизнеса.',
-  },
-  gc: {
-    id: 'gc',
-    title: 'Главный юрист',
-    description: 'Стратегическое управление рисками. Единая панель контроля над всей юридической документацией компании, обеспечение соответствия нормам и защита интересов.',
-  },
-  audit: {
-    id: 'audit',
-    title: 'Внутренний аудит',
-    description: 'Автоматизация проверок. Мгновенный поиск отклонений от стандартов, проверка наличия обязательных оговорок и формирование прозрачного следа по каждому документу.',
-  }
-};
+/**
+ * Порядок отображения ролей в UI.
+ * Используется компонентами для итерации по ролям в правильном порядке.
+ * 
+ * Сами данные (title, description) теперь берутся из i18n:
+ *   t(`application.roles.${roleId}.title`)
+ *   t(`application.roles.${roleId}.description`)
+ */
+export const ROLE_ORDER: RoleId[] = ['ma', 'contract', 'compliance', 'audit', 'enrichment'];

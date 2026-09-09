@@ -3,10 +3,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";  
 import { useScrollReveal } from "../../../../hooks/useScrollReveal";
+import { useTranslation } from "react-i18next";
 import KnowledgeTree from "./KnowledgeTree";
-import { landingContent } from "../../../content/landingContent";
 
 const KnowledgeGrowthSection: React.FC = () => {
+  const { t, i18n } = useTranslation("marketing");
+  const isRTL = i18n.language === "ar";
+
   const left = useScrollReveal(0);
   const right = useScrollReveal(150);
   const sectionRef = useRef<HTMLElement>(null);
@@ -33,13 +36,24 @@ const KnowledgeGrowthSection: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const content = landingContent.capabilities;
+  // Получаем данные из i18n
+  const eyebrow = t("home.knowledgeGrowth.eyebrow");
+  const title = t("home.knowledgeGrowth.title");
+  const ctaLabel = t("home.knowledgeGrowth.ctaLabel");
+  
+  // БЕЗОПАСНОЕ получение массива абзацев:
+  // Если ключ не найден или возвращает строку, мы принудительно оборачиваем его в массив,
+  // чтобы .map() не падал с ошибкой.
+  const paragraphsRaw = t("home.knowledgeGrowth.paragraphs", { returnObjects: true });
+  const paragraphs = Array.isArray(paragraphsRaw) 
+    ? paragraphsRaw 
+    : [t("home.knowledgeGrowth.paragraphs")];
 
   return (
     <section
       ref={sectionRef}
       id="knowledge"
-      className="relative flex min-h-screen items-center bg-[#FAF8F5] py-20 lg:py-28 scroll-mt-0"
+      className="relative flex min-h-screen items-center bg-[var(--bg-base)] py-20 lg:py-28 scroll-mt-0"
       data-header-theme="light"
     >
       <div
@@ -48,7 +62,7 @@ const KnowledgeGrowthSection: React.FC = () => {
       >
         <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
           
-          {/* ── Левая колонка: Дерево (увеличена в 1.5 раза) ── */}
+          {/* ── Левая колонка: Дерево ── */}
           <div
             ref={left.ref as React.Ref<HTMLDivElement>}
             style={left.style}
@@ -62,44 +76,44 @@ const KnowledgeGrowthSection: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Правая колонка: Концепция (уменьшена, чтобы дать место дереву) ── */}
+          {/* ── Правая колонка: Концепция ── */}
           <div
             ref={right.ref as React.Ref<HTMLDivElement>}
             style={right.style}
             className="flex flex-col justify-center lg:col-span-4"
           >
-            <span className="eyebrow">{content.eyebrow}</span>
+            <span className="eyebrow">{eyebrow}</span>
 
-            <h2 className="section-title !mt-2 text-[#1A1917]">
-              Растущее
+            {/* whitespace-pre-line сохраняет перенос строки \n из JSON */}
+            <h2 className="section-title !mt-2 text-[var(--text-primary)] whitespace-pre-line">
+              {title.split("\n")[0]}
               <br />
-              <em className="not-italic text-[#C86B52]">знание.</em>
+              <em className="not-italic text-[var(--accent-primary)]">
+                {title.split("\n")[1] || ""}
+              </em>
             </h2>
 
             <div className="mt-8 flex flex-col gap-6">
-              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
-                Steloom собирает тысячи разрозненных положений договора
-                в единую живую структуру - не для поиска, а для формирования 
-                Вашего понимания из связей и контекста.
-              </p>
-
-              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
-                Один документ или пакет из сотен разных документов - система работает
-                одинаково: распознаёт тип (SPA, SHA, NDA, трудовой договор),
-                выстраивает структуру и применяет набор рисков, заранее
-                определённый Вами под конкретную сделку или документ.
-              </p>
-
-              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
-                Каждый вывод привязан к источнику - конкретному пункту
-                в конкретном документе. Без галлюцинаций, без отвязанных
-                обобщений.
-              </p>
+              {paragraphs.map((paragraph, index) => (
+                <p 
+                  key={index} 
+                  className="text-body leading-[1.7] text-[var(--text-secondary)]"
+                >
+                  {paragraph}
+                </p>
+              ))}
             </div>
 
-            <Link to="/capabilities" className="cta-link mt-12">
-              Все возможности платформы
-              <ArrowRight className="h-3.5 w-3.5" />
+            <Link to="/capabilities" className="cta-link mt-12 inline-flex items-center gap-2">
+              {ctaLabel}
+              {/* RTL FIX: разворот стрелки для арабского языка */}
+              <ArrowRight 
+                className="h-3.5 w-3.5" 
+                style={{ 
+                  transform: isRTL ? "rotate(180deg)" : "none",
+                  transition: "transform 0.2s ease"
+                }} 
+              />
             </Link>
           </div>
 
@@ -110,5 +124,3 @@ const KnowledgeGrowthSection: React.FC = () => {
 };
 
 export default KnowledgeGrowthSection;
-
-

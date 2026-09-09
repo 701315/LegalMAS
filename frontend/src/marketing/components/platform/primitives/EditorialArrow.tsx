@@ -1,6 +1,5 @@
-// src/marketing/components/platform/primitives/EditorialArrow.tsx
-
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * EditorialArrow — editorial-style «loop-arrow» ↳ для текстовых ссылок.
@@ -11,11 +10,6 @@ import React from "react";
  *
  * Композиция как inline-SVG для полного контроля стиля.
  * Наследует currentColor от родителя (сам меняет цвет от контекста).
- *
- * Пример:
- *   <a className="cta-link">
- *     Подробнее <EditorialArrow />
- *   </a>
  */
 
 interface EditorialArrowProps {
@@ -27,6 +21,10 @@ const EditorialArrow: React.FC<EditorialArrowProps> = ({
   size = 12,
   className,
 }) => {
+  // RTL FIX: Инициализация i18n для определения направления письма
+  const { i18n } = useTranslation();
+  const isRTL = i18n.language === "ar";
+
   return (
     <svg
       width={size}
@@ -35,7 +33,13 @@ const EditorialArrow: React.FC<EditorialArrowProps> = ({
       fill="none"
       className={className}
       aria-hidden="true"
-      style={{ display: "inline-block", verticalAlign: "baseline" }}
+      // RTL FIX: Зеркалирование стрелки для арабского языка (указывает влево-вниз)
+      style={{
+        display: "inline-block",
+        verticalAlign: "baseline",
+        transform: isRTL ? "scaleX(-1)" : "none",
+        transition: "transform 0.2s ease", // Плавность при смене языка
+      }}
     >
       {/* Вертикальная часть — идёт сверху вниз */}
       <path
@@ -65,5 +69,3 @@ const EditorialArrow: React.FC<EditorialArrowProps> = ({
 };
 
 export default EditorialArrow;
-
-

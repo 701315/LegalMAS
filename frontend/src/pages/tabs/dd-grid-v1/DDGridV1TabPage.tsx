@@ -404,7 +404,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
 // -------------------------------------------------------------
 
 const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
-  const { t, i18n } = useTranslation("ddGrid");
+  const { t } = useTranslation("ddGrid");
   const { projectRoles } = useAuth();
 
   // Sprint 6.x: DD Grid uses dedicated Output Locale axis, independent from UI locale.

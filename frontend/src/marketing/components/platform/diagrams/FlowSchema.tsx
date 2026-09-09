@@ -1,39 +1,23 @@
-// src/marketing/components/platform/diagrams/FlowSchema.tsx
-
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
-
-/**
- * FlowSchema — универсальная горизонтальная пайплайн-схема.
- *
- * Используется в PlatformWorkflowSection для отображения последовательности:
- *   Документ → Classification → Analysis → Findings → DD Grid → Review → Decision
- *
- * Композиция:
- *   • Ряд карточек с подписями шагов
- *   • Между ними — тонкие соединительные линии со стрелками
- *   • На мобильных: превращается в вертикальную колонку
- *
- * Принципы:
- *   • Без иконок — только текст. Иконки бы шумели и делали схему «слишком SaaS».
- *   • Ноды одинакового размера, нейтральные — никаких цветных бейджей.
- *   • Появление узлов последовательное (staggerChildren в родителе).
- */
+import { useTranslation } from "react-i18next";
 
 interface FlowSchemaProps {
   steps: string[];
-  /**
-   * Опционально подсвечивает индекс акцентным цветом (используется, если
-   * нужно выделить конкретный шаг). По умолчанию не подсвечивает ничего.
-   */
   accentIndex?: number;
 }
 
-// Отдельная кривая для консистентности с остальными анимациями
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const FlowSchema: React.FC<FlowSchemaProps> = ({ steps, accentIndex }) => {
   const shouldReduceMotion = useReducedMotion();
+  
+  // RTL FIX: Инициализация i18n и определение направления
+  const { t, i18n } = useTranslation("marketing");
+  const isRTL = i18n.language === "ar";
+
+  // RTL FIX: Защита от сбоев, если prop steps не передан или не является массивом
+  const safeSteps = Array.isArray(steps) ? steps : [];
 
   return (
     <motion.div
@@ -51,16 +35,16 @@ const FlowSchema: React.FC<FlowSchemaProps> = ({ steps, accentIndex }) => {
       }}
       className="w-full"
       role="list"
-      aria-label="Процесс анализа документов"
+      aria-label={t("platform.flowSchema.ariaLabel")}
     >
       {/* ── Desktop: horizontal row ───────────────────────────────────── */}
       <div className="hidden md:flex md:items-stretch md:justify-between md:gap-0">
-        {steps.map((step, i) => {
+        {safeSteps.map((step, i) => {
           const isAccent = accentIndex === i;
-          const isLast = i === steps.length - 1;
+          const isLast = i === safeSteps.length - 1;
 
           return (
-            <React.Fragment key={step}>
+            <React.Fragment key={`${step}-${i}`}>
               <motion.div
                 role="listitem"
                 variants={{
@@ -81,15 +65,14 @@ const FlowSchema: React.FC<FlowSchemaProps> = ({ steps, accentIndex }) => {
                   }}
                 >
                   <span
-                    className="text-[0.8125rem] font-medium leading-tight"
+                    className="text-eyebrow font-medium leading-tight"
                     style={{ color: isAccent ? "#B55D46" : "#1A1917" }}
                   >
                     {step}
                   </span>
                 </div>
 
-                {/* Порядковый номер под карточкой — сдержанный editorial-элемент */}
-                <div className="mt-2.5 text-[10px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
+                <div className="mt-2.5 text-meta">
                   {String(i + 1).padStart(2, "0")}
                 </div>
               </motion.div>
@@ -108,7 +91,8 @@ const FlowSchema: React.FC<FlowSchemaProps> = ({ steps, accentIndex }) => {
                   className="flex shrink-0 items-start pt-6"
                   style={{
                     width: 32,
-                    transformOrigin: "left center",
+                    // RTL FIX: В RTL анимация должна идти справа налево
+                    transformOrigin: isRTL ? "right center" : "left center",
                   }}
                   aria-hidden="true"
                 >
@@ -116,8 +100,10 @@ const FlowSchema: React.FC<FlowSchemaProps> = ({ steps, accentIndex }) => {
                     width="32"
                     height="8"
                     viewBox="0 0 32 8"
-                    className="text-[#D6D0C7]"
+                    className="text-[var(--text-faint)]"
                     fill="none"
+                    // RTL FIX: Зеркалирование стрелки для арабского языка (указывает влево)
+                    style={{ transform: isRTL ? "scaleX(-1)" : "none" }}
                   >
                     <line
                       x1="0"
@@ -145,12 +131,12 @@ const FlowSchema: React.FC<FlowSchemaProps> = ({ steps, accentIndex }) => {
 
       {/* ── Mobile: vertical column ───────────────────────────────────── */}
       <div className="flex flex-col gap-2 md:hidden">
-        {steps.map((step, i) => {
+        {safeSteps.map((step, i) => {
           const isAccent = accentIndex === i;
-          const isLast = i === steps.length - 1;
+          const isLast = i === safeSteps.length - 1;
 
           return (
-            <React.Fragment key={step}>
+            <React.Fragment key={`${step}-${i}`}>
               <motion.div
                 variants={{
                   hidden: { opacity: 0, x: -6 },
@@ -165,11 +151,11 @@ const FlowSchema: React.FC<FlowSchemaProps> = ({ steps, accentIndex }) => {
                   borderColor: isAccent ? "#C86B52" : "#E8E4DD",
                 }}
               >
-                <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
+                <span className="text-meta">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <span
-                  className="text-[0.875rem] font-medium"
+                  className="text-sm font-medium"
                   style={{ color: isAccent ? "#B55D46" : "#1A1917" }}
                 >
                   {step}
@@ -177,8 +163,9 @@ const FlowSchema: React.FC<FlowSchemaProps> = ({ steps, accentIndex }) => {
               </motion.div>
 
               {!isLast && (
+                // RTL FIX: ml-6 заменен на ms-6 (логический отступ)
                 <div
-                  className="ml-6 h-3 w-px bg-[#D6D0C7]"
+                  className="ms-6 h-3 w-px bg-[#D6D0C7]"
                   aria-hidden="true"
                 />
               )}
@@ -191,6 +178,3 @@ const FlowSchema: React.FC<FlowSchemaProps> = ({ steps, accentIndex }) => {
 };
 
 export default FlowSchema;
-
-
-

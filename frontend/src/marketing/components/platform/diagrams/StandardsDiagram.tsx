@@ -1,34 +1,11 @@
-// src/marketing/components/platform/diagrams/StandardsDiagram.tsx
-
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
-
-/**
- * StandardsDiagram — архитектурная схема для тёмной Section 3.
- *
- * Показывает, как входы (Playbooks / Policies / Instructions) сходятся
- * в единый движок правил (Analysis Rules), который затем применяется
- * к каждому документу (Document A / B / C).
- *
- * Визуальная логика:
- *   [ Playbooks ]  ─┐
- *   [ Policies  ]  ─┼─► [ Analysis Rules ] ─┬─► [ Document A ]
- *   [ Instructions] ┘                       ├─► [ Document B ]
- *                                           └─► [ Document C ]
- *
- * Специально стилизована под тёмный фон:
- *   • Полупрозрачные светлые бордеры вместо тёмных
- *   • Текст в off-white (#FAF8F5) с разной прозрачностью для иерархии
- *   • Центральный «Analysis Rules» — акцентная terracotta-обводка
- *   • Соединительные линии — очень тонкие, полупрозрачные светлые
- *
- * Никаких иконок, никаких заливок — только линии, бордеры, текст.
- */
+import { useTranslation } from "react-i18next";
 
 interface StandardsDiagramProps {
-  sources: string[]; // 3 источника правил (левая колонка)
-  core: string;       // центральный узел (движок правил)
-  targets: string[]; // 3 применения (правая колонка)
+  sources: string[];
+  core: string;
+  targets: string[];
 }
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -39,6 +16,20 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
   targets,
 }) => {
   const shouldReduceMotion = useReducedMotion();
+  
+  // RTL FIX: Инициализация i18n и определение направления
+  const { t, i18n } = useTranslation("marketing");
+  const isRTL = i18n.language === "ar";
+
+  // RTL FIX: Защита от сбоев при получении массивов из props
+  const safeSources = Array.isArray(sources) ? sources : [];
+  const safeTargets = Array.isArray(targets) ? targets : [];
+
+  // RTL FIX: Динамические направления анимации появления
+  // В LTR: источники выезжают слева (-6), цели справа (6)
+  // В RTL: источники (теперь справа) выезжают справа (6), цели (теперь слева) выезжают слева (-6)
+  const slideFromStart = isRTL ? 6 : -6;
+  const slideFromEnd = isRTL ? -6 : 6;
 
   return (
     <motion.div
@@ -63,6 +54,8 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
         viewBox="0 0 400 400"
         className="absolute inset-0 h-full w-full"
         preserveAspectRatio="none"
+        // RTL FIX: Зеркалирование SVG-кривых для арабского языка (поток справа налево)
+        style={{ transform: isRTL ? "scaleX(-1)" : "none" }}
       >
         {/* Sources → Core: 3 линии сходятся в центральный узел */}
         {[75, 200, 325].map((y, i) => (
@@ -72,19 +65,9 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
             stroke="rgba(250, 248, 245, 0.14)"
             strokeWidth="1"
             fill="none"
-            initial={
-              shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }
-            }
-            animate={
-              shouldReduceMotion
-                ? undefined
-                : { pathLength: 1, opacity: 1 }
-            }
-            transition={{
-              duration: 0.7,
-              delay: 0.25 + i * 0.04,
-              ease: EASE,
-            }}
+            initial={shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }}
+            animate={shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }}
+            transition={{ duration: 0.7, delay: 0.25 + i * 0.04, ease: EASE }}
           />
         ))}
 
@@ -96,40 +79,31 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
             stroke="rgba(250, 248, 245, 0.14)"
             strokeWidth="1"
             fill="none"
-            initial={
-              shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }
-            }
-            animate={
-              shouldReduceMotion
-                ? undefined
-                : { pathLength: 1, opacity: 1 }
-            }
-            transition={{
-              duration: 0.7,
-              delay: 0.55 + i * 0.04,
-              ease: EASE,
-            }}
+            initial={shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }}
+            animate={shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }}
+            transition={{ duration: 0.7, delay: 0.55 + i * 0.04, ease: EASE }}
           />
         ))}
       </svg>
 
-      {/* ── Left: sources ─────────────────────────────────────────────── */}
+      {/* ── Left/Start: sources ────────────────────────────────────────── */}
+      {/* RTL FIX: left-0 заменен на start-0. В RTL это правый край (начало потока) */}
       <div
-        className="absolute inset-y-0 left-0 flex flex-col justify-between"
+        className="absolute inset-y-0 start-0 flex flex-col justify-between"
         style={{ width: "32%" }}
       >
-        {sources.map((label, i) => (
+        {safeSources.map((label, i) => (
           <motion.div
-            key={label}
+            key={`${label}-${i}`} // RTL FIX: Стабильный ключ
             variants={{
-              hidden: { opacity: 0, x: -6 },
+              hidden: { opacity: 0, x: slideFromStart },
               visible: {
                 opacity: 1,
                 x: 0,
                 transition: { duration: 0.5, ease: EASE, delay: i * 0.04 },
               },
             }}
-            className="rounded-lg border px-3.5 py-2.5"
+            className="rounded-lg border px-3.5 py-2.5 text-start"
             style={{
               borderColor: "rgba(250, 248, 245, 0.14)",
               background: "rgba(250, 248, 245, 0.02)",
@@ -139,10 +113,10 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
               className="text-[10px] font-medium uppercase tracking-[0.14em]"
               style={{ color: "rgba(250, 248, 245, 0.45)" }}
             >
-              Input
+              {t("platform.standardsDiagram.inputLabel")}
             </div>
             <div
-              className="mt-0.5 text-[0.8125rem] font-medium leading-tight"
+              className="mt-0.5 text-eyebrow font-medium leading-tight"
               style={{ color: "#FAF8F5" }}
             >
               {label}
@@ -162,7 +136,7 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
               transition: { duration: 0.55, ease: EASE, delay: 0.42 },
             },
           }}
-          className="relative rounded-xl px-5 py-3.5"
+          className="relative rounded-xl px-5 py-3.5 text-center"
           style={{
             border: "1px solid rgba(200, 107, 82, 0.55)",
             background: "rgba(200, 107, 82, 0.08)",
@@ -174,10 +148,10 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
             className="text-[10px] font-medium uppercase tracking-[0.14em]"
             style={{ color: "#E89A82" }}
           >
-            Engine
+            {t("platform.standardsDiagram.engineLabel")}
           </div>
           <div
-            className="mt-0.5 text-[0.9375rem] font-semibold leading-tight"
+            className="mt-0.5 text-body-sm font-semibold leading-tight"
             style={{ color: "#FAF8F5" }}
           >
             {core}
@@ -185,27 +159,24 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
         </motion.div>
       </div>
 
-      {/* ── Right: targets ────────────────────────────────────────────── */}
+      {/* ── Right/End: targets ────────────────────────────────────────── */}
+      {/* RTL FIX: right-0 заменен на end-0. В RTL это левый край (конец потока) */}
       <div
-        className="absolute inset-y-0 right-0 flex flex-col justify-between"
+        className="absolute inset-y-0 end-0 flex flex-col justify-between"
         style={{ width: "32%" }}
       >
-        {targets.map((label, i) => (
+        {safeTargets.map((label, i) => (
           <motion.div
-            key={label}
+            key={`${label}-${i}`} // RTL FIX: Стабильный ключ
             variants={{
-              hidden: { opacity: 0, x: 6 },
+              hidden: { opacity: 0, x: slideFromEnd },
               visible: {
                 opacity: 1,
                 x: 0,
-                transition: {
-                  duration: 0.5,
-                  ease: EASE,
-                  delay: 0.72 + i * 0.04,
-                },
+                transition: { duration: 0.5, ease: EASE, delay: 0.72 + i * 0.04 },
               },
             }}
-            className="rounded-lg border px-3.5 py-2.5"
+            className="rounded-lg border px-3.5 py-2.5 text-start"
             style={{
               borderColor: "rgba(250, 248, 245, 0.14)",
               background: "rgba(250, 248, 245, 0.02)",
@@ -215,10 +186,10 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
               className="text-[10px] font-medium uppercase tracking-[0.14em]"
               style={{ color: "rgba(250, 248, 245, 0.45)" }}
             >
-              Applied to
+              {t("platform.standardsDiagram.appliedToLabel")}
             </div>
             <div
-              className="mt-0.5 text-[0.8125rem] font-medium leading-tight"
+              className="mt-0.5 text-eyebrow font-medium leading-tight"
               style={{ color: "#FAF8F5" }}
             >
               {label}
@@ -231,5 +202,3 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
 };
 
 export default StandardsDiagram;
-
-

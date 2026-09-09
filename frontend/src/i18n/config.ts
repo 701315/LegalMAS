@@ -21,7 +21,7 @@ i18n
       "common", "navigation", "auth", "projects", "documents",
       "analysis", "pipeline", "findings", "requests", "playbooks",
       "instructions", "admin", "tenantAdmin", "counterparties",
-      "realEstate", "ddGrid", "errors", "exports", "marketing"
+      "realEstate", "ddGrid", "errors", "exports", "marketing", "security" // <-- ДОБАВЛЕНО
     ],
     backend: {
       loadPath: "/locales/{{lng}}/{{ns}}.json",

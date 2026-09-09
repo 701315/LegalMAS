@@ -23,6 +23,10 @@ import { RunSummaryPanel } from "./RunSummaryPanel";
 import { useDealLLMUsage } from "../../../api/deals";
 import { useDocuments } from "../../../api/documents";
 import { useRunProgress, useRunSummary } from "../../../api/runs";
+import {
+  getPersistedOutputLocale,
+  setPersistedOutputLocale,
+} from "../../../i18n/localePersistence";
 import Button from "../../../components/ui/Button";
 import { DEMO_AGGREGATES } from "../counterparties/constants";
 import {
@@ -832,11 +836,25 @@ const DocumentsContent: React.FC<{
   const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(false);
   const [isMobilePipelineOpen, setIsMobilePipelineOpen] = React.useState(false);
 
+  // Summary locale state с persistence (инициализация из localStorage)
+  const [summaryLocale, setSummaryLocaleState] = React.useState<string>(() => {
+    return getPersistedOutputLocale() || "ru";
+  });
+
+  // Wrapper для записи в localStorage + state
+  const setSummaryLocale = (locale: string) => {
+    setPersistedOutputLocale(locale);
+    setSummaryLocaleState(locale);
+  };
+
   const { data: progress } = useRunProgress(runId);
   const isTerminal = isTerminalRunStatus(progress?.run_status);
   const isRunActive = !!runId && !isTerminal;
 
-  const { data: summary, refetch: refetchSummary } = useRunSummary(runId);
+  const { data: summary, refetch: refetchSummary } = useRunSummary(
+    runId,
+    summaryLocale,
+  );
 
   React.useEffect(() => {
     if (isTerminal && summary?.status === "ready") {
@@ -959,6 +977,7 @@ const DocumentsContent: React.FC<{
                   <RunSummaryPanel
                     summary={summary}
                     onRegenerate={() => refetchSummary()}
+                    onLocaleChange={setSummaryLocale}
                     onClose={() => setIsSummaryExpanded(false)}
                     documents={documents}
                     dealId={dealId}
@@ -1071,6 +1090,7 @@ const DocumentsContent: React.FC<{
                       <RunSummaryPanel
                         summary={summary}
                         onRegenerate={() => refetchSummary()}
+                        onLocaleChange={setSummaryLocale}
                         onClose={() => setIsSummaryExpanded(false)}
                         documents={documents}
                         dealId={dealId}

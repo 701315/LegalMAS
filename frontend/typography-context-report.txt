@@ -1,0 +1,206 @@
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  🔍 ДЕТАЛЬНЫЙ АУДИТ НЕСТАНДАРТНЫХ ЗНАЧЕНИЙ ТИПОГРАФИКИ
+  Дата: 2026-09-09
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+
+📌 text-[10px]  (14 случаев)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/about/AboutPhilosophySection.tsx:60  [элемент: <?>]
+      className="bg-[var(--color-accent)]/10 text-[var(--accent-primary)] px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-sm"
+   📄 src/marketing/components/about/AboutProcessSection.tsx:43  [элемент: <p>]
+      <p className="eyebrow !mb-0 block uppercase text-white/40 tracking-[0.2em] text-[10px]">
+   📄 src/marketing/components/platform/PlatformTechnicalSection.tsx:36  [элемент: <?>]
+      className="text-[10px] font-medium uppercase tracking-[0.22em] shrink-0"
+   📄 src/marketing/components/platform/diagrams/FindingsDiagram.tsx:72  [элемент: <?>]
+      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+   📄 src/marketing/components/platform/diagrams/FindingsDiagram.tsx:188  [элемент: <?>]
+      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+   📄 src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:106  [элемент: <?>]
+      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+   📄 src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:143  [элемент: <?>]
+      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+   📄 src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:174  [элемент: <?>]
+      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+   📄 src/marketing/components/platform/diagrams/StandardsDiagram.tsx:113  [элемент: <?>]
+      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+   📄 src/marketing/components/platform/diagrams/StandardsDiagram.tsx:148  [элемент: <?>]
+      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+   📄 src/marketing/components/platform/diagrams/StandardsDiagram.tsx:186  [элемент: <?>]
+      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+   📄 src/marketing/components/security/SecurityFAQSection.tsx:39  [элемент: <?>]
+      className="shrink-0 text-[10px] font-medium uppercase tracking-[0.22em]"
+   📄 src/marketing/components/security/SecurityFAQSection.tsx:89  [элемент: <span>]
+      <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[var(--text-muted)]">
+   📄 src/marketing/components/shared/MobileMenu.tsx:203  [элемент: <p>]
+      <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+
+📌 text-[11px]  (9 случаев)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/about/AboutPhilosophySection.tsx:35  [элемент: <li>]
+      <li key={tag} className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+   📄 src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:238  [элемент: <h3>]
+      <h3 className="mb-6 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+   📄 src/marketing/components/home/ContactModal.tsx:53  [элемент: <p>]
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+   📄 src/marketing/components/home/ContactModal.tsx:66  [элемент: <p>]
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+   📄 src/marketing/components/home/ContactModal.tsx:77  [элемент: <div>]
+      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1A1917] text-[11px] font-medium text-white">
+   📄 src/marketing/components/home/ContactModal.tsx:98  [элемент: <label>]
+      <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
+   📄 src/marketing/components/home/ContactModal.tsx:112  [элемент: <label>]
+      <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
+   📄 src/marketing/components/platform/primitives/PathCrumb.tsx:37  [элемент: <?>]
+      className="inline-flex items-baseline gap-2 text-[11px] font-medium uppercase tracking-[0.22em]"
+   📄 src/marketing/components/shared/SiteHeader.tsx:298  [элемент: <h3>]
+      <h3 className="mb-6 text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">
+
+📌 text-[1rem]  (8 случаев)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/platform/diagrams/VerticalNodeChain.tsx:29  [элемент: <?>]
+      const labelSize = size === "md" ? "text-[1rem]" : "text-body-sm";
+   📄 src/marketing/components/shared/MobileMenu.tsx:144  [элемент: <?>]
+      className="flex items-center rounded-xl px-4 py-3 text-[1rem] font-medium transition-colors"
+   📄 src/marketing/components/shared/MobileMenu.tsx:165  [элемент: <?>]
+      className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-[1rem] font-medium transition-colors"
+   📄 src/marketing/components/shared/MobileMenu.tsx:247  [элемент: <?>]
+      className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-[1rem] font-medium text-[var(--text-secondary)] transition-colors hov...
+   📄 src/marketing/pages/solutions/AuditCompliancePage.tsx:126  [элемент: <?>]
+      className="mt-8 max-w-xl text-[1rem] leading-[1.75] text-white/72 font-light text-start"
+   📄 src/marketing/pages/solutions/AuditCompliancePage.tsx:184  [элемент: <div>]
+      <div className="space-y-6 text-[1rem] leading-[1.8] text-[var(--text-secondary)] font-light">
+   📄 src/marketing/pages/solutions/CounterpartiesPage.tsx:90  [элемент: <h3>]
+      <h3 className="text-[1rem] font-medium text-[var(--text-primary)]">{item.title}</h3>
+   📄 src/marketing/pages/solutions/RealEstatePage.tsx:90  [элемент: <h3>]
+      <h3 className="text-[1rem] font-medium text-[var(--text-primary)]">{item.title}</h3>
+
+📌 text-[1.125rem]  (5 случаев)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:210  [элемент: <p>]
+      <p className="mt-4 text-base leading-[1.8] text-stone-300 lg:text-[1.125rem] font-medium">
+   📄 src/marketing/components/home/FounderSection.tsx:50  [элемент: <div>]
+      <div className="text-[1.125rem] font-serif italic text-[var(--text-primary)]">
+   📄 src/marketing/components/home/SecurityFoundationSection/index.tsx:62  [элемент: <h3>]
+      <h3 className="text-[1.125rem] font-medium text-[var(--text-primary)] tracking-tight mb-2">
+   📄 src/marketing/components/platform/PlatformTechnicalSection.tsx:44  [элемент: <?>]
+      className="text-body font-medium leading-tight tracking-[-0.005em] transition-colors lg:text-[1.125rem]"
+   📄 src/marketing/components/security/SecurityFAQSection.tsx:46  [элемент: <?>]
+      className="text-body font-medium leading-tight tracking-[-0.005em] transition-colors lg:text-[1.125rem]"
+
+📌 text-[15px]  (2 случаев)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:249  [элемент: <p>]
+      <p className="text-[15px] font-semibold text-[var(--text-primary)] group-hover/item:text-[var(--accent-primary)] transition-colors">
+   📄 src/marketing/components/shared/SiteHeader.tsx:309  [элемент: <p>]
+      <p className="text-[15px] font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] transition-colors">
+
+📌 text-[13px]  (2 случаев)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:252  [элемент: <p>]
+      <p className="text-[13px] text-gray-500 font-normal leading-relaxed mt-1">
+   📄 src/marketing/components/shared/SiteHeader.tsx:312  [элемент: <p>]
+      <p className="text-[13px] text-gray-500 font-normal leading-relaxed mt-1">
+
+📌 text-[clamp(2.5rem,5vw,4rem)]  (2 случаев)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/home/PremiumHeroSection.tsx:66  [элемент: <?>]
+      className={`font-serif text-[clamp(2.5rem,5vw,4rem)] text-white ${
+   📄 src/marketing/components/security/SecurityHeroSection.tsx:81  [элемент: <?>]
+      className="mt-5 font-serif text-[clamp(2.5rem,5vw,4rem)] leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)] whitespace-pre-line"
+
+📌 text-[0.875rem]  (2 случаев)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/platform/diagrams/FlowSchema.tsx:158  [элемент: <?>]
+      className="text-[0.875rem] font-medium"
+   📄 src/marketing/components/security/SecurityDeploymentSection.tsx:81  [элемент: <span>]
+      <span className="text-[0.875rem] leading-[1.65] text-[var(--text-secondary)]">{feature}</span>
+
+📌 text-[2.5rem]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/about/AboutTeamSection.tsx:24  [элемент: <h2>]
+      <h2 className="font-serif text-[2.5rem] leading-tight tracking-tight text-[var(--text-primary)] text-start">
+
+📌 text-[1.75rem]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/about/AboutTeamSection.tsx:47  [элемент: <h3>]
+      <h3 className="mt-8 font-serif text-[1.75rem] leading-none tracking-tight text-[var(--text-primary)]">
+
+📌 text-[4.5rem]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/demo/DemoHeroSection.tsx:16  [элемент: <h1>]
+      <h1 className="mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[var(--text-primary)] sm:text-6xl lg:text-[4.5rem] text-st...
+
+📌 text-[clamp(1.5rem,3vw,2rem)]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/security/SecurityCapabilitiesSection.tsx:103  [элемент: <h3>]
+      <h3 className="mt-4 font-serif text-[clamp(1.5rem,3vw,2rem)] leading-[1.15] tracking-[-0.02em] text-[var(--text-primary)]">
+
+📌 text-[1.375rem]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/security/SecurityDeploymentSection.tsx:67  [элемент: <h3>]
+      <h3 className="mt-5 font-serif text-[1.375rem] leading-[1.2] tracking-[-0.02em] text-[var(--text-primary)]">
+
+📌 text-[0.6875rem]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/security/SecurityDeploymentSection.tsx:98  [элемент: <?>]
+      const n = 'rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--...
+
+📌 text-[rgba(250,248,245,0.75)]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/security/SecurityHeroSection.tsx:248  [элемент: <?>]
+      className="mb-8 ps-7 text-eyebrow uppercase tracking-[0.24em] text-[rgba(250,248,245,0.75)]"
+
+📌 text-[rgba(200,107,82,1)]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/security/SecurityHeroSection.tsx:273  [элемент: <?>]
+      className="w-8 text-body-sm font-medium tabular-nums text-[rgba(200,107,82,1)]"
+
+📌 text-[2rem]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/security/SecurityHeroSection.tsx:281  [элемент: <?>]
+      className="font-serif text-[2rem] italic leading-[1.15] text-[rgba(250,248,245,1)] lg:text-[2.25rem]"
+
+📌 text-[2.25rem]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/security/SecurityHeroSection.tsx:281  [элемент: <?>]
+      className="font-serif text-[2rem] italic leading-[1.15] text-[rgba(250,248,245,1)] lg:text-[2.25rem]"
+
+📌 text-[rgba(250,248,245,1)]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/components/security/SecurityHeroSection.tsx:281  [элемент: <?>]
+      className="font-serif text-[2rem] italic leading-[1.15] text-[rgba(250,248,245,1)] lg:text-[2.25rem]"
+
+📌 text-[clamp(2rem,4vw,3.05rem)]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/pages/solutions/AuditCompliancePage.tsx:113  [элемент: <?>]
+      className="mt-10 font-serif text-[clamp(2rem,4vw,3.05rem)] leading-[1.08] tracking-[-0.03em] text-[var(--text-inverse)] whitespace-pre-line"
+
+📌 text-[0.95rem]  (1 случай)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   📄 src/marketing/pages/solutions/AuditCompliancePage.tsx:329  [элемент: <p>]
+      <p className="mt-5 text-[0.95rem] leading-[1.75] text-[var(--text-secondary)] font-light max-w-md text-start">
+
+
+🎨 INLINE fontSize (стиль в JS-объекте)
+
+   📄 src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:107
+      fontSize: `${line.fontSize}px`,
+   📄 src/marketing/components/home/PremiumFinalCtaSection.tsx:109
+      fontSize: "clamp(2.25rem, 4.5vw, 4rem)",
+   📄 src/marketing/components/shared/SiteHeader.tsx:166
+      fontSize: "15px",
+   📄 src/marketing/components/shared/SiteHeader.tsx:411
+      style={{ fontSize: "14px", fontWeight: 500 }}
+   📄 src/marketing/pages/solutions/CounterpartiesPage.tsx:44
+      <h1 className="mt-6 font-serif tracking-[-0.03em] text-start" style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)", lineHeight: 1.05 }}>
+   📄 src/marketing/pages/solutions/LawFirmsPage.tsx:97
+      fontSize: "clamp(2.5rem, 5vw, 4.2rem)",
+   📄 src/marketing/pages/solutions/RealEstatePage.tsx:44
+      <h1 className="mt-6 font-serif tracking-[-0.03em] text-start" style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)", lineHeight: 1.05 }}>
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════

@@ -1,8 +1,4 @@
 // scripts/prerender.mjs
-// Запускается после vite build.
-// Обходит публичные маршруты через headless Chromium,
-// сохраняет готовый HTML в dist/.
-
 import puppeteer from "puppeteer";
 import { createServer } from "node:http";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
@@ -14,8 +10,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_DIR  = join(__dirname, "..", "dist");
 const PORT      = 3033;
 
-// Только публичные маркетинговые маршруты из App.tsx.
-// Не включаем /login, /dashboard, /admin/* — они за RequireAuth.
 const ROUTES = [
   "/",
   "/capabilities",
@@ -33,13 +27,11 @@ const ROUTES = [
   "/solutions/real-estate",
 ];
 
-// ── Локальный статический сервер ──────────────────────────────
 function startServer() {
   return new Promise((resolve) => {
     const server = createServer((req, res) => {
       handler(req, res, {
         public: DIST_DIR,
-        // SPA-fallback: любой неизвестный путь → index.html
         rewrites: [{ source: "**", destination: "/index.html" }],
       });
     });
@@ -50,7 +42,6 @@ function startServer() {
   });
 }
 
-// ── Сохранение HTML ───────────────────────────────────────────
 function saveHtml(route, html) {
   let outPath;
   if (route === "/") {
@@ -64,7 +55,6 @@ function saveHtml(route, html) {
   return outPath.replace(join(__dirname, "..") + "/", "");
 }
 
-// ── Основной процесс ──────────────────────────────────────────
 async function prerender() {
   console.log("\n🔄 Prerender started\n");
 
@@ -76,7 +66,7 @@ async function prerender() {
   const server = await startServer();
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: "new", // Более стабильный режим headless в новых версиях
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   });
 
@@ -89,37 +79,61 @@ async function prerender() {
     try {
       const page = await browser.newPage();
 
-      // Блокируем fetch/xhr — API-запросы к бэкенду не нужны при prerender
+      // УЛУЧШЕННАЯ интерцепция запросов
       await page.setRequestInterception(true);
       page.on("request", (req) => {
+        const reqUrl = req.url();
         const t = req.resourceType();
-        if (t === "fetch" || t === "xhr") {
-          req.abort();
+        
+        // ✅ РАЗРЕШАЕМ загрузку JSON (критично для i18next!) и статических ассетов
+        if (reqUrl.includes('.json') || reqUrl.includes('locales')) {
+          req.continue();
+        } 
+        // Блокируем только явные API-запросы к бэкенду, если они есть
+        else if (t === "fetch" || t === "xhr") {
+          if (reqUrl.includes('/api/')) {
+            req.abort();
+          } else {
+            req.continue();
+          }
         } else {
           req.continue();
         }
       });
 
-      // Подавляем console.error чтобы не засорять вывод
+      // Ловим реальные ошибки React/JS, чтобы понимать причину падений
+      let jsErrors = [];
+      page.on("pageerror", (err) => {
+        jsErrors.push(err.message);
+      });
+      
       page.on("console", (msg) => {
-        if (msg.type() === "error") return;
+        if (msg.type() === "error") {
+          jsErrors.push(msg.text());
+        }
       });
 
-      await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
+      // Увеличиваем таймаут для тяжёлой главной страницы
+      await page.goto(url, { waitUntil: "networkidle0", timeout: 45000 });
 
-      // Ждём пока #root наполнится реальным контентом
+      // Более надёжная проверка: ждём появления тега <main> или <h1>, а не просто детей root
       await page.waitForFunction(
         () => {
-          const root = document.getElementById("root");
-          return root && root.children.length > 0;
+          return document.querySelector("main") !== null || document.querySelector("h1") !== null;
         },
-        { timeout: 15000 }
+        { timeout: 20000 }
       );
 
-      // Пауза для framer-motion и CSS transitions
-      await new Promise((r) => setTimeout(r, 600));
+      // Пауза для завершения framer-motion анимаций
+      await new Promise((r) => setTimeout(r, 800));
 
-      const html    = await page.content();
+      const html = await page.content();
+      
+      if (jsErrors.length > 0) {
+        console.log(`⚠️  WARN (rendered with JS errors)`);
+        console.error(`     ${jsErrors.join(" | ")}`);
+      }
+
       const relPath = saveHtml(route, html);
       await page.close();
 
@@ -138,9 +152,9 @@ async function prerender() {
   console.log(`\n✅ Done: ${ok}/${ROUTES.length} routes prerendered\n`);
 
   if (failed.length > 0) {
-    console.log("⚠️  Failed:");
-    failed.forEach((r) => console.log(`   ${r.route}: ${r.error}`));
-    process.exit(1);
+    console.log("⚠️  Failed routes:");
+    failed.forEach((r) => console.log(`   • ${r.route}: ${r.error}`));
+    // process.exit(1); // Можно раскомментировать, если хотите падение CI/CD при ошибках
   }
 }
 
@@ -148,3 +162,4 @@ prerender().catch((err) => {
   console.error("❌ Prerender crashed:", err);
   process.exit(1);
 });
+

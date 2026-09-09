@@ -1,0 +1,42 @@
+{
+  "sidebar": {
+    "adminSection": "Administration",
+    "clients": "Clients",
+    "instructions": "Instructions",
+    "monitoring": "Monitoring",
+    "orgSection": "Organization",
+    "adminPanel": "Admin panel",
+    "dashboard": "Dashboard",
+    "projects": "Projects",
+    "newProject": "New project",
+    "noProjects": "No available projects",
+    "loadError": "Failed to load projects",
+    "moreProjects": "{{count}} more",
+    "needsSetup": "Setup required",
+    "analysisCompleted": "Analysis completed",
+    "analysisRunning": "Analysis in progress…"
+  },
+  "header": {
+    "workspace": "Review Workspace",
+    "dataSecured": "Data secured"
+  },
+  "actions": {
+    "expandMenu": "Expand menu",
+    "collapseMenu": "Collapse menu",
+    "closeMenu": "Close menu",
+    "openNav": "Open navigation menu",
+    "mainNav": "Main navigation",
+    "logout": "Sign out",
+    "closeLogout": "Close sign out dialog"
+  },
+  "logout": {
+    "heading": "CONFIRMATION",
+    "title": "Sign out?",
+    "message": "You will be redirected to the sign-in page and your current session will be ended.",
+    "cancel": "No",
+    "confirm": "Yes"
+  },
+  "breadcrumbs": "Breadcrumb"
+}
+
+

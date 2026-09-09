@@ -1,0 +1,61 @@
+{
+  "runLaunch": {
+    "title": "Launch analysis",
+    "description": "Review analysis parameters for this deal.",
+    "cancel": "Cancel",
+    "submit": "Launch analysis",
+    "readiness": {
+      "ready": "Parameters are ready to launch the analysis.",
+      "needPlaybook": "Please select a playbook to launch the analysis.",
+      "needPrimaryLanguage": "Please select the primary analysis language."
+    },
+    "previousRunHint": "The analysis has been run before. A new run will refresh results for current documents.",
+    "documents": {
+      "title": "Documents",
+      "countInfo": "The project contains {{count}} document(s).",
+      "loadingInfo": "Loading document information…",
+      "hint": "Use the dedicated upload flow to add new documents.",
+      "uploadButton": "Upload documents"
+    },
+    "checksMode": {
+      "title": "Check mode",
+      "global_and_doc_type_title": "Playbook and document types",
+      "global_and_doc_type_hint": "Recommended mode: combines the global playbook with document-type checks.",
+      "global_only_title": "Playbook only",
+      "global_only_hint": "Runs only playbook rules, independent of document type.",
+      "doc_type_only_title": "Document types only",
+      "doc_type_only_hint": "Uses checks bound to document types."
+    },
+    "playbook": {
+      "title": "Project playbook",
+      "hint": "Used to build checks and the DD Grid.",
+      "openButton": "Open playbook",
+      "selected": "A playbook is selected. You can change it before launching if needed.",
+      "notSelected": "No playbook selected. Analysis cannot be launched without a playbook."
+    },
+    "modelProfile": {
+      "title": "Model profile",
+      "hint": "Model profile configuration for special analysis scenarios.",
+      "configureButton": "Configure model profile",
+      "current": "Current profile: {{name}}.",
+      "fallback": "The profile bound to the project or playbook will be used."
+    },
+    "primaryLanguage": {
+      "title": "Primary analysis language",
+      "placeholderMulti": "Select primary language",
+      "placeholderAuto": "Auto (single deal language)",
+      "saving": "Saving…",
+      "documentLanguages": "Document languages: {{list}}",
+      "warningMulti": "The deal contains documents in several languages. Please select the primary language before launching the analysis."
+    },
+    "extra": {
+      "title": "Additional parameters",
+      "forceReclassifyTitle": "Force reclassify documents",
+      "forceReclassifyHint": "Use after manual reclassification to refresh document types."
+    }
+  },
+  "flowSummary": {
+    "modelProfileLabel": "Model profile"
+  }
+}
+

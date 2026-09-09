@@ -1,0 +1,284 @@
+{
+  "hero": {
+    "pathRoot": "GÜVENLİK",
+    "pathLeaf": "Koruma Mimarisi",
+    "title": "Mimariye yerleşik\ngüvenlik",
+    "subtitle": "Hukuki belgeler yalnızca veri koruması değil, aynı zamanda nerede işlendikleri, kimlerin erişebildiği ve harici hizmetlerin nasıl kullanıldığı üzerinde tam kontrol gerektirir.",
+    "description": "Steloom'da belge depolama, veri işleme, yapay zeka modeli kullanımı ve erişim kontrolü kararları platform mimarisi seviyesinde alınır. Kuruluş, çalışmanın her aşamasında belgeleri üzerinde kontrolü elinde tutar.",
+    "layersTitle": "Altı koruma katmanı",
+    "layers": [
+      "Altyapı",
+      "Veri",
+      "Erişim",
+      "İşleme",
+      "Denetim ve Günlük Kaydı",
+      "Harici AI Kontrolü"
+    ]
+  },
+  "capabilities": {
+    "eyebrow": "Güvenlik Mekanizmaları",
+    "title": "Kurumsal Güvenlik",
+    "description": "Her mekanizma platform mimarisi seviyesinde uygulanır ve ek yapılandırmaya gerek kalmadan otomatik olarak çalışır.",
+    "keyPrinciples": "Temel İlkeler",
+    "items": [
+      {
+        "label": "Veri İşleme",
+        "title": "Belgeler altyapınız içinde kalır",
+        "subtitle": "Local-First Processing",
+        "paragraphs": [
+          "Varsayılan olarak, metin çıkarmadan analiz sonuçlarına kadar tüm belge işleme aşamaları kuruluşun kontrollü sınırı içinde gerçekleştirilir. Veriler otomatik olarak harici hizmetlere iletilmez.",
+          "Platform, kuruluşun güvenlik gereksinimlerini karşılayan yerel altyapıya, özel bir buluta veya başka bir güvenilir ortama dağıtılabilir."
+        ],
+        "bullets": [
+          "Varsayılan olarak kurumsal sınır içinde belge işleme",
+          "Dağıtım modeline kuruluş karar verir",
+          "Açık izin olmadan veriler harici hizmetlere iletilmez"
+        ],
+        "layout": "left"
+      },
+      {
+        "label": "Veri Koruması",
+        "title": "Harici modeller kullanılırken veri koruması",
+        "subtitle": "PII Sanitization Gateway",
+        "paragraphs": [
+          "Kuruluş belirli görevler için harici dil modellerini kullanmaya karar verirse, Steloom iletimden önce belgeyi otomatik olarak anonimleştirir.",
+          "PII Sanitization Gateway, kişisel verileri, şirket adlarını, kimlik bilgilerini ve diğer hassas öğeleri algılar ve bunları nötr tanımlayıcılarla değiştirir. Belge yapısı ve bağlam korunur."
+        ],
+        "bullets": [
+          "Gizli veriler sınır dışına çıkmadan önce anonimleştirilir",
+          "Belge yapısı ve analiz bağlamı korunur",
+          "Orijinal veri geri yüklemesi yalnızca kuruluşun altyapısı içinde gerçekleşir"
+        ],
+        "layout": "right"
+      },
+      {
+        "label": "Erişim Yönetimi",
+        "title": "Her kullanıcı yalnızca izin verilenleri görür",
+        "subtitle": "RBAC",
+        "paragraphs": [
+          "Steloom, hakların projedeki kullanıcının işlevi tarafından belirlendiği role dayalı bir erişim modeli kullanır. Ayrım; belgeler, analiz sonuçları, doğrulama ayarları ve yönetimsel işlevler için geçerlidir."
+        ],
+        "bullets": [
+          "Erişim, kullanıcının projedeki rolü tarafından belirlenir",
+          "Ayrım belgeler, bulgular ve ayarlar için geçerlidir",
+          "Erişim modeli hukuk uygulaması ilkeleriyle uyumludur"
+        ],
+        "layout": "left"
+      },
+      {
+        "label": "Denetim Günlüğü",
+        "title": "Belge işlemenin tam geçmişi",
+        "subtitle": "Audit Trail",
+        "paragraphs": [
+          "Steloom, belge işleme ve kullanıcı eylemlerindeki kilit olayları kaydeder: dosya yüklemeleri, analiz başlatma, doğrulama kurallarının uygulanması, bulgu durumlarının değiştirilmesi, açıklamaların onaylanması veya reddedilmesi, sürüm güncellemeleri ve sonuç dışa aktarmaları."
+        ],
+        "bullets": [
+          "Her belge için kilit işleme olaylarının kaydedilmesi",
+          "Bir projedeki eylem sırasının yeniden oluşturulabilmesi",
+          "Dahili kontrol ve uyumluluk için süreç şeffaflığı"
+        ],
+        "layout": "right"
+      },
+      {
+        "label": "Gözlemlenebilirlik",
+        "title": "İzleme, günlüğe kaydetme ve izleme",
+        "subtitle": "Observability",
+        "paragraphs": [
+          "Platform, sistem sağlığını izleme, performans metriklerini toplama, merkezi günlüğe kaydetme ve dağıtılmış istek izleme için araçlar sağlar."
+        ],
+        "bullets": [
+          "Merkezi olay günlüğü",
+          "Performans ve sistem sağlığı metrikleri",
+          "Uçtan uca izlenebilirlik için dağıtılmış izleme"
+        ],
+        "layout": "left"
+      },
+      {
+        "label": "AI Yönetimi",
+        "title": "Harici modeller yalnızca kuruluşun kararıyla bağlanır",
+        "subtitle": "Controlled AI Access",
+        "paragraphs": [
+          "Harici dil modellerinin bağlantısı her zaman kuruluşun politikası tarafından belirlenir. Platform, açık izin olmadan verileri harici hizmetlere göndermez. Harici bir modele yapılan her istek, kontrollü bir ağ geçidinden geçer."
+        ],
+        "bullets": [
+          "Harici modeller yalnızca kuruluşun kararıyla bağlanır",
+          "Her istek için kontrollü ağ geçidi",
+          "Harici hizmetlerle etkileşimlerin tam izlenebilirliği"
+        ],
+        "layout": "right"
+      }
+    ]
+  },
+  "deployment": {
+    "eyebrow": "Dağıtım",
+    "title": "Dağıtım Modelleri",
+    "description": "Steloom, yerel altyapıdan özel buluta kadar çeşitli dağıtım seçeneklerini destekler. Kuruluş, güvenlik gereksinimlerine uygun modeli seçer.",
+    "models": [
+      {
+        "id": "onPremise",
+        "title": "Yerel Altyapı (On-Premise)",
+        "description": "Kuruluşun altyapısı içinde tam dağıtım.",
+        "features": [
+          "Veriler üzerinde tam kontrol",
+          "Harici hizmetlerden yalıtım",
+          "Kurumsal sistemlerle entegrasyon"
+        ]
+      },
+      {
+        "id": "privateCloud",
+        "title": "Özel Bulut (Private Cloud)",
+        "description": "Kuruluşa ait ayrılmış bulut sınırında dağıtım.",
+        "features": [
+          "Yönetilen altyapı",
+          "Kiracı izolasyonu (Tenant isolation)",
+          "Talep üzerine ölçeklendirme"
+        ]
+      },
+      {
+        "id": "hybrid",
+        "title": "Hibrit (Hybrid)",
+        "description": "Esnek işlem dağıtımı ile birleştirilmiş model.",
+        "features": [
+          "Esnek yük dağıtımı",
+          "Hassas verilerin yerel işlenmesi",
+          "Ölçeklendirme için bulut kaynakları"
+        ]
+      }
+    ]
+  },
+  "cta": {
+    "title": "Steloom'un güvenlik\nsınırınız içinde nasıl çalıştığını görün",
+    "paragraphs": [
+      "Demo sırasında platformun kurumsal altyapı içinde nasıl dağıtıldığını, erişimin nasıl ayrıldığını, işleme sırasında verilerin nasıl korunduğunu ve kullanıcı eylemlerinin nasıl günlüğe kaydedildiğini göstereceğiz.",
+      "Kuruluşunuzun dahili güvenlik gereksinimleri varsa veya mimari bir değerlendirme yapıyorsa, bunları belirli senaryolar kullanarak tartışmaya ve gerekli teknik belgeleri sağlamaya hazırız."
+    ],
+    "ctaPrimary": "Güvenlik İncelemesi Talep Edin",
+    "meta": "Ortalama demo süresi: 30–45 dakika"
+  },
+  "faq": {
+    "eyebrow": "Güvenlik İncelemesi ve Uyumluluk",
+    "title": "Platform güvenliği hakkında\nsorulara yanıtlar",
+    "description": "Aşağıda, kurumsal güvenlik incelemelerinde genellikle ele alınan ana konular yer almaktadır. Bu bilgiler, çözümün mimarisini anlamanıza yardımcı olur.",
+    "disclaimer": "Bu bilgiler, mimari ve teknik önlemlerin mevcut durumunu yansıtır ve sertifikasyon veya harici denetçi sonucu olarak kabul edilemez.",
+    "reviewAreasLabel": "İnceleme alanları",
+    "items": [
+      {
+        "number": "01",
+        "question": "Erişim yönetimi (RBAC) nasıl uygulanır?",
+        "answer": "Steloom, hakların projedeki kullanıcının işlevi tarafından belirlendiği role dayalı bir erişim modeli kullanır. Ayrım belgeler, analiz sonuçları ve ayarlar için geçerlidir.",
+        "tags": [
+          "Authentication",
+          "Authorization",
+          "Least Privilege"
+        ]
+      },
+      {
+        "number": "02",
+        "question": "Denetim günlüğü (Audit Trail) nasıl tutulur?",
+        "answer": "Platform, dosya yüklemeleri, analiz başlatma, doğrulama kurallarının uygulanması, bulgu durumlarının değiştirilmesi ve sonuç dışa aktarmaları gibi kilit olayları kaydeder.",
+        "tags": [
+          "Evidence",
+          "Logging",
+          "Traceability"
+        ]
+      },
+      {
+        "number": "03",
+        "question": "Kişisel veriler nasıl korunur (PII Sanitization)?",
+        "answer": "PII Sanitization Gateway, kişisel verileri, şirket adlarını ve kimlik bilgilerini otomatik olarak algılar ve harici hizmetlere iletilmeden önce bunları nötr tanımlayıcılarla değiştirir.",
+        "tags": [
+          "Privacy",
+          "Data Protection",
+          "Sensitive Data"
+        ]
+      },
+      {
+        "number": "04",
+        "question": "Veri izolasyonu (Tenant Isolation) nasıl sağlanır?",
+        "answer": "Her kuruluşun verileri platform düzeyinde izole edilir. Ayrım, depolama, erişim ve işleme mimarisinde uygulanır. Kiracılar arası veri aktarımı imkansızdır.",
+        "tags": [
+          "Data Segregation",
+          "Access Control",
+          "Multi-tenancy"
+        ]
+      },
+      {
+        "number": "05",
+        "question": "Veri şifrelemesi nasıl uygulanır?",
+        "answer": "Veriler hem saklanırken hem de iletilirken korunur. Ağ trafiği için TLS, depolama şifrelemesi ve yönetilen anahtar yaşam döngüsü kullanılır.",
+        "tags": [
+          "Data at Rest",
+          "Data in Transit",
+          "Key Management"
+        ]
+      },
+      {
+        "number": "06",
+        "question": "İzleme ve olay tespiti (Observability) nasıl yapılandırılır?",
+        "answer": "Platform, merkezi günlüğe kaydetme, performans metriklerinin toplanması ve dağıtılmış izleme sağlayarak sistem durumunun gözlemlenebilirliğini garanti eder.",
+        "tags": [
+          "Monitoring",
+          "Incident Detection",
+          "Metrics"
+        ]
+      },
+      {
+        "number": "07",
+        "question": "Harici AI modellerinin kullanımı nasıl kontrol edilir?",
+        "answer": "Harici dil modellerinin bağlantısı kuruluşun politikası tarafından belirlenir. Her istek kontrollü bir ağ geçidinden geçer. Açık izin olmadan veriler harici olarak gönderilmez.",
+        "tags": [
+          "Third-party Risk",
+          "Data Egress",
+          "Policy Enforcement"
+        ]
+      },
+      {
+        "number": "08",
+        "question": "Belgeler fiziksel olarak nerede işlenir (Local Processing)?",
+        "answer": "Varsayılan olarak işleme, kuruluşun altyapısı içinde gerçekleşir. Kuruluş dağıtım modelini belirler. Açık bir karar olmadan veriler sınırı terk etmez.",
+        "tags": [
+          "Data Residency",
+          "Processing Control",
+          "Infrastructure"
+        ]
+      },
+      {
+        "number": "09",
+        "question": "Hangi dağıtım mimarisi desteklenir?",
+        "answer": "Steloom, yerel altyapı, özel bulut ve hibrit dağıtım modellerini destekler. Mimari, kurumsal depolama ve erişim yönetimi sistemleriyle entegre olur.",
+        "tags": [
+          "Deployment",
+          "Infrastructure"
+        ]
+      },
+      {
+        "number": "10",
+        "question": "Veriler platform içinde nasıl akar (Data Flow)?",
+        "answer": "Bir belge kontrollü bir hat üzerinden geçer: yükleme → sınıflandırma → analiz → bulgular → inceleme → dışa aktarma. Her aşamada güvenlik mekanizmaları çalışır.",
+        "tags": [
+          "Data Flow",
+          "Processing"
+        ]
+      },
+      {
+        "number": "11",
+        "question": "Kullanıcılar nasıl kimlik doğrulaması yapar?",
+        "answer": "Kurumsal SSO sağlayıcılarını destekleyen birleşik bir kimlik doğrulama modeli kullanılır. Oturum yaşam döngüsü yönetilir ve mevcut kimlik sistemleriyle entegrasyon mümkündür.",
+        "tags": [
+          "Authentication",
+          "SSO",
+          "Session Management"
+        ]
+      },
+      {
+        "number": "12",
+        "question": "Güvenlik incelemesi için hangi materyaller mevcuttur?",
+        "answer": "Steloom ekibi şunları sağlar: Mimariye Genel Bakış, Veri Akışı Dokümantasyonu, Güvenlik Kontrolleri Matrisi, Dağıtım Kılavuzu ve Kurumsal Güvenlik Brifingi.",
+        "tags": [
+          "Documentation",
+          "Security Package"
+        ]
+      }
+    ]
+  }
+}

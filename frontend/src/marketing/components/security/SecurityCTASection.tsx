@@ -1,18 +1,24 @@
 // src/marketing/components/security/SecurityCTASection.tsx
-
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import Reveal from '../../motion/Reveal';
 import { useContactModal } from '../../context/ContactModalContext';
-import { ctaContent } from './content/securityContent';
+import { useTranslation } from 'react-i18next';
 
 /**
  * SecurityCTASection — финальная CTA-секция страницы Security.
- * Композиция идентична PlatformCTASection.
+ * Композиция идентична PlatformCTASection, с поддержкой i18n и RTL.
  */
-
 const SecurityCTASection: React.FC = () => {
   const { openContactModal } = useContactModal();
+  const { t, i18n } = useTranslation('security');
+  const isRTL = i18n.language === 'ar';
+
+  // Безопасное получение массива абзацев
+  const paragraphsRaw = t('cta.paragraphs', { returnObjects: true });
+  const paragraphs = Array.isArray(paragraphsRaw) 
+    ? paragraphsRaw 
+    : [t('cta.paragraphs')];
 
   return (
     <section
@@ -32,22 +38,17 @@ const SecurityCTASection: React.FC = () => {
             {/* Верхний тонкий якорь */}
             <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
 
-            {/* ✅ Заголовок — унифицированная шкала */}
-            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
-              {ctaContent.title.split('\n').map((line: string, i: number) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <br />}
-                  {line}
-                </React.Fragment>
-              ))}
+            {/* ✅ Заголовок — используем whitespace-pre-line вместо ручного .split('\n') */}
+            <h2 className="mt-10 text-h1 whitespace-pre-line">
+              {t('cta.title')}
             </h2>
 
             {/* Абзацы */}
             <div className="mt-7 space-y-5" style={{ maxWidth: 620 }}>
-              {ctaContent.paragraphs.map((p: string, i: number) => (
+              {paragraphs.map((p: string, i: number) => (
                 <p
                   key={i}
-                  className="text-[1.0625rem] leading-[1.75] text-[#78756F]"
+                  className="text-body leading-[1.75] text-[var(--text-secondary)]"
                 >
                   {p}
                 </p>
@@ -59,16 +60,23 @@ const SecurityCTASection: React.FC = () => {
               <button
                 type="button"
                 onClick={openContactModal}
-                className="cta-primary"
+                className="cta-primary inline-flex items-center gap-2"
               >
-                {ctaContent.ctaPrimary}
-                <ArrowRight className="h-3.5 w-3.5" />
+                {t('cta.ctaPrimary')}
+                {/* RTL FIX: разворот стрелки для арабского языка */}
+                <ArrowRight 
+                  className="h-3.5 w-3.5" 
+                  style={{ 
+                    transform: isRTL ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.2s ease'
+                  }} 
+                />
               </button>
             </div>
 
             {/* Мета-строка */}
-            <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
-              {ctaContent.meta}
+            <p className="mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]">
+              {t('cta.meta')}
             </p>
           </div>
         </Reveal>
@@ -78,5 +86,3 @@ const SecurityCTASection: React.FC = () => {
 };
 
 export default SecurityCTASection;
-
-

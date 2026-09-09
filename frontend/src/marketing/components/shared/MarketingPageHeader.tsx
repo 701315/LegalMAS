@@ -2,6 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface MarketingPageHeaderProps {
   ctaHref?: string;
@@ -11,9 +12,14 @@ interface MarketingPageHeaderProps {
 
 const MarketingPageHeader: React.FC<MarketingPageHeaderProps> = ({
   ctaHref = "/demo",
-  ctaLabel = "Запросить демо",
+  ctaLabel,
   hideLeftHomeLink = false,
 }) => {
+  const { t, i18n } = useTranslation("marketing");
+
+  // Если родитель не передал ctaLabel, используем переведенный дефолт
+  const resolvedCtaLabel = ctaLabel || t("cta.demo");
+
   return (
     <header className="border-b border-white/[0.06] bg-[#1A1917]/95 backdrop-blur-xl">
       <div
@@ -25,15 +31,22 @@ const MarketingPageHeader: React.FC<MarketingPageHeaderProps> = ({
         ) : (
           <Link
             to="/"
-            className="inline-flex items-center gap-2 text-[0.9375rem] font-medium text-[#A8A29E] transition-colors hover:text-[#FAF8F5]"
+            className="inline-flex items-center gap-2 text-body-sm font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text-inverse)]"
           >
-            <ArrowLeft className="h-4 w-4" />
-            На главную
+            {/* RTL-фикс: в арабском языке иконка "назад" должна смотреть вправо */}
+            <ArrowLeft
+              className="h-4 w-4"
+              style={{
+                transform: i18n.language === "ar" ? "rotate(180deg)" : "none",
+                transition: "transform 0.2s ease",
+              }}
+            />
+            {t("header.backToHome")}
           </Link>
         )}
 
         <Link to={ctaHref} className="cta-primary">
-          {ctaLabel}
+          {resolvedCtaLabel}
         </Link>
       </div>
     </header>
@@ -41,5 +54,3 @@ const MarketingPageHeader: React.FC<MarketingPageHeaderProps> = ({
 };
 
 export default MarketingPageHeader;
-
-

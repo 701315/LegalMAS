@@ -1,3 +1,4 @@
+// src/marketing/components/home/SecurityFoundationSection/index.tsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { 
@@ -9,48 +10,39 @@ import {
   Activity, 
   Settings2 
 } from "lucide-react";
-import { landingContent } from "../../../content/landingContent";
+import { useTranslation } from "react-i18next";
 
-const SECURITY_TEASERS = [
-  {
-    icon: <ShieldCheck strokeWidth={1.2} className="h-7 w-7" />,
-    title: "Local-First",
-    desc: "Обработка данных внутри вашего контура"
-  },
-  {
-    icon: <Lock strokeWidth={1.2} className="h-7 w-7" />,
-    title: "PII Gateway",
-    desc: "Автоматическое обезличивание перед LLM"
-  },
-  {
-    icon: <Users strokeWidth={1.2} className="h-7 w-7" />,
-    title: "RBAC",
-    desc: "Разграничение прав на уровне проекта"
-  },
-  {
-    icon: <History strokeWidth={1.2} className="h-7 w-7" />,
-    title: "Audit Trail",
-    desc: "Полная фиксация всех действий в логе"
-  },
-  {
-    icon: <Activity strokeWidth={1.2} className="h-7 w-7" />,
-    title: "Observability",
-    desc: "Прозрачный мониторинг здоровья системы"
-  },
-  {
-    icon: <Settings2 strokeWidth={1.2} className="h-7 w-7" />,
-    title: "AI Governance",
-    desc: "Организация сама определяет доступ к LLM моделям"
-  }
+// Иконки вынесены отдельно, чтобы сопоставить их с данными из i18n по индексу
+const SECURITY_ICONS = [
+  <ShieldCheck key="shield" strokeWidth={1.2} className="h-7 w-7" />,
+  <Lock key="lock" strokeWidth={1.2} className="h-7 w-7" />,
+  <Users key="users" strokeWidth={1.2} className="h-7 w-7" />,
+  <History key="history" strokeWidth={1.2} className="h-7 w-7" />,
+  <Activity key="activity" strokeWidth={1.2} className="h-7 w-7" />,
+  <Settings2 key="settings" strokeWidth={1.2} className="h-7 w-7" />
 ];
 
 const SecurityFoundationSection: React.FC = () => {
-  const content = landingContent.security;
+  const { t, i18n } = useTranslation("marketing");
+  const isRTL = i18n.language === "ar";
+
+  // Безопасное получение массивов из i18n
+  const teasersRaw = t("home.securityFoundation.teasers", { returnObjects: true });
+  const teasers = Array.isArray(teasersRaw) 
+    ? teasersRaw 
+    : [];
+    
+  const paragraphsRaw = t("home.securityFoundation.paragraphs", { returnObjects: true });
+  const paragraphs = Array.isArray(paragraphsRaw) 
+    ? paragraphsRaw 
+    : [t("home.securityFoundation.paragraphs")];
+
+  const ctaLabel = t("home.securityFoundation.ctaLabel");
 
   return (
     <section
       id="security"
-      className="relative flex min-h-screen items-center bg-[#FAF8F5] py-20 lg:py-28 border-y border-[#E8E4DD] scroll-mt-0"
+      className="relative flex min-h-screen items-center bg-[var(--bg-base)] py-20 lg:py-28 border-y border-[var(--border-color)] scroll-mt-0"
       data-header-theme="light"
     >
       <div
@@ -59,18 +51,18 @@ const SecurityFoundationSection: React.FC = () => {
       >
         <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-20">
           
-          {/* ── Левая колонка: 6 тезисов (7 колонок — стала чуть уже) ── */}
+          {/* ── Левая колонка: 6 тезисов ── */}
           <div className="lg:col-span-7">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-12 lg:gap-y-16">
-              {SECURITY_TEASERS.map((item, i) => (
+              {teasers.map((item, i) => (
                 <div key={i} className="flex flex-col group">
-                  <div className="mb-5 text-[#C86B52] transition-transform duration-500 group-hover:-translate-y-1">
-                    {item.icon}
+                  <div className="mb-5 text-[var(--accent-primary)] transition-transform duration-500 group-hover:-translate-y-1">
+                    {SECURITY_ICONS[i]}
                   </div>
-                  <h3 className="text-[1.125rem] font-medium text-[#1A1917] tracking-tight mb-2">
+                  <h3 className="text-lg font-medium text-[var(--text-primary)] tracking-tight mb-2">
                     {item.title}
                   </h3>
-                  <p className="text-[0.9375rem] leading-relaxed text-[#78756F] max-w-[280px]">
+                  <p className="text-body-sm leading-relaxed text-[var(--text-secondary)] max-w-[280px]">
                     {item.desc}
                   </p>
                 </div>
@@ -78,26 +70,32 @@ const SecurityFoundationSection: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Правая колонка: Текст (5 колонок — стала шире) ── */}
+          {/* ── Правая колонка: Текст ── */}
           <div className="flex flex-col justify-center lg:col-span-5 lg:sticky lg:top-32">
-            <span className="eyebrow">{content.eyebrow}</span>
+            <span className="eyebrow">{t("home.securityFoundation.eyebrow") || "Security"}</span>
 
-            <h2 className="section-title !mt-2 text-[#1A1917]">
-              {content.title}
+            <h2 className="section-title !mt-2 text-[var(--text-primary)] whitespace-pre-line">
+              {t("home.securityFoundation.title") || "Security built into the architecture"}
             </h2>
 
             <div className="mt-8 flex flex-col gap-6">
-              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
-                Безопасность Steloom строится на принципе нулевого доверия и полного контроля над данными внутри вашей организации.
-              </p>
-              <p className="text-[1.0625rem] leading-[1.7] text-[#78756F]">
-                Каждый узел системы спроектирован так, чтобы исключить утечку конфиденциальной информации при работе с искусственным интеллектом. Платформа работает в вашем контуре, гарантируя неприкосновенность юридической тайны.
-              </p>
+              {paragraphs.map((paragraph, index) => (
+                <p key={index} className="text-body leading-[1.7] text-[var(--text-secondary)]">
+                  {paragraph}
+                </p>
+              ))}
             </div>
 
-            <Link to="/security" className="cta-link mt-12">
-              Подробнее об архитектуре безопасности
-              <ArrowRight className="h-3.5 w-3.5" />
+            <Link to="/security" className="cta-link mt-12 inline-flex items-center gap-2">
+              {ctaLabel}
+              {/* RTL FIX: разворот стрелки для арабского языка */}
+              <ArrowRight 
+                className="h-3.5 w-3.5" 
+                style={{ 
+                  transform: isRTL ? "rotate(180deg)" : "none",
+                  transition: "transform 0.2s ease"
+                }} 
+              />
             </Link>
           </div>
 
@@ -108,5 +106,3 @@ const SecurityFoundationSection: React.FC = () => {
 };
 
 export default SecurityFoundationSection;
-
-

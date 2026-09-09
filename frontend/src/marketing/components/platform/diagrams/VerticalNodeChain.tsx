@@ -1,28 +1,5 @@
-// src/marketing/components/platform/diagrams/VerticalNodeChain.tsx
-
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
-
-/**
- * VerticalNodeChain — универсальная вертикальная цепочка узлов.
- *
- * Используется в:
- *   • PlatformDocumentStructureSection — Document → Main → Schedules → Annexes → Findings
- *   • PlatformMethodologySection      — Current Workflow → Steloom → Same → Better Prepared
- *
- * Композиция:
- *   • Список узлов сверху вниз
- *   • Каждый узел — прямоугольник с label и meta-подписью
- *   • Между узлами — тонкая вертикальная линия (не стрелка — не претендует
- *     на процессность, только на структурную связь)
- *   • Опциональный accent для выделения ключевого узла (например, «Steloom»)
- *
- * Принципы:
- *   • Без иконок
- *   • Единый стиль карточек — только accent-узел отличается тонкой
- *     terracotta-обводкой
- *   • Последовательное появление сверху вниз (stagger)
- */
 
 export interface ChainNode {
   label: string;
@@ -49,8 +26,11 @@ const VerticalNodeChain: React.FC<VerticalNodeChainProps> = ({
   const shouldReduceMotion = useReducedMotion();
 
   const nodePadding = size === "md" ? "px-6 py-5" : "px-5 py-4";
-  const labelSize = size === "md" ? "text-[1rem]" : "text-[0.9375rem]";
+  const labelSize = size === "md" ? "text-base" : "text-body-sm";
   const connectorHeight = size === "md" ? 28 : 22;
+
+  // RTL FIX: Защитная проверка входящего массива
+  const safeNodes = Array.isArray(nodes) ? nodes : [];
 
   return (
     <motion.div
@@ -69,12 +49,12 @@ const VerticalNodeChain: React.FC<VerticalNodeChainProps> = ({
       className="flex w-full flex-col items-stretch"
       role="list"
     >
-      {nodes.map((node, i) => {
-        const isLast = i === nodes.length - 1;
+      {safeNodes.map((node, i) => {
+        const isLast = i === safeNodes.length - 1;
         const { label, meta, accent } = node;
 
         return (
-          <React.Fragment key={label}>
+          <React.Fragment key={`${label}-${i}`}> {/* RTL FIX: Стабильный ключ */}
             <motion.div
               role="listitem"
               variants={{
@@ -93,9 +73,9 @@ const VerticalNodeChain: React.FC<VerticalNodeChainProps> = ({
                   : "0 1px 2px rgba(26,25,23,0.03)",
               }}
             >
-              {/* Индекс шага — маленькая метка слева сверху для editorial-ритма */}
               <div className="flex items-baseline justify-between gap-4">
-                <div className="min-w-0 flex-1">
+                {/* RTL FIX: Добавлен text-start для корректного выравнивания в арабском */}
+                <div className="min-w-0 flex-1 text-start">
                   <div
                     className={`${labelSize} font-semibold leading-tight tracking-[-0.005em]`}
                     style={{ color: accent ? "#B55D46" : "#1A1917" }}
@@ -103,15 +83,14 @@ const VerticalNodeChain: React.FC<VerticalNodeChainProps> = ({
                     {label}
                   </div>
                   {meta && (
-                    <div
-                      className="mt-1 text-[0.8125rem] leading-[1.5] text-[#78756F]"
-                    >
+                    <div className="mt-1 text-eyebrow leading-[1.5] text-[var(--text-secondary)] text-start">
                       {meta}
                     </div>
                   )}
                 </div>
 
-                <div className="shrink-0 text-[10px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
+                {/* Номер шага автоматически окажется слева в RTL благодаря justify-between */}
+                <div className="shrink-0 text-meta">
                   {String(i + 1).padStart(2, "0")}
                 </div>
               </div>
@@ -144,5 +123,3 @@ const VerticalNodeChain: React.FC<VerticalNodeChainProps> = ({
 };
 
 export default VerticalNodeChain;
-
-

@@ -1,0 +1,170 @@
+{
+  "shared": {
+    "documentsList": {
+      "empty": "No documents specified",
+      "shownCount": "Showing {{visible}} of {{total}} · {{remaining}} more"
+    },
+    "priorityBadge": {
+      "ariaLabel": "Priority: {{label}}"
+    },
+    "segmentSummary": {
+      "title": "Segment context",
+      "primaryBadge": "Primary segment",
+      "typeLabel": "Segment type",
+      "orderLabel": "Order",
+      "openInViewer": "Open in viewer"
+    },
+    "structuredValuesList": {
+      "empty": "No extracted data available"
+    }
+  },
+  "table": {
+    "eyebrow": "Requests",
+    "title": "Requests",
+    "newRequest": "New request",
+    "searchPlaceholder": "Search by request text or check ID…",
+    "searchAria": "Search DD requests",
+    "columns": {
+      "priority": "Priority",
+      "text": "Request text",
+      "documents": "Documents",
+      "status": "Status",
+      "source": "Source"
+    },
+    "checkPrefix": "Check: {{label}}",
+    "docsSuffix": "{{count}} docs",
+    "empty": {
+      "title": "No requests found",
+      "descNoRequests": "Requests will appear after analysis with identified issues or manual addition.",
+      "descFiltered": "Try changing search criteria or resetting the filter."
+    }
+  },
+  "reviewTable": {
+    "searchPlaceholder": "Search by text, check, or document…",
+    "searchAria": "Search review requests",
+    "columns": {
+      "priority": "Priority",
+      "text": "Request text",
+      "documents": "Documents",
+      "segment": "Segment"
+    },
+    "addresseePrefix": "Addressee: {{name}}",
+    "empty": {
+      "title": "No requests found",
+      "descNoRequests": "Requests will appear after document analysis.",
+      "descFiltered": "Try changing search criteria."
+    }
+  },
+  "reviewPanel": {
+    "title": "Review request",
+    "closeAria": "Close request panel",
+    "modeTitle": "Mode",
+    "modeValue": "View only",
+    "modeDesc": "This request was generated in the review context of the run-scoped API and cannot be edited from this panel.",
+    "priority": "Priority",
+    "text": "Request text",
+    "documents": "Documents ({{count}})",
+    "docTypes": "Document types",
+    "segmentContext": "Segment context",
+    "openInViewer": "Open in viewer",
+    "checkId": "Check (check_id)",
+    "structuredValues": "Extracted data ({{count}})",
+    "jumpDisabledApi": "Jump to document location will be available after API update (document_id in request).",
+    "jumpDisabledNoSegment": "Segment context is missing — jump is not possible."
+  },
+  "tab": {
+    "loading": {
+      "title": "Loading requests",
+      "description": "Preparing table and request details."
+    },
+    "errors": {
+      "noPermissions": {
+        "title": "Insufficient permissions",
+        "editDescription": "Editing requests is only available to editors and project administrators.",
+        "deleteDescription": "Deleting requests is only available to editors and project administrators."
+      },
+      "exportWordFailed": {
+        "title": "Failed to export to Word"
+      },
+      "exportExcelFailed": {
+        "title": "Failed to export to Excel"
+      },
+      "exportFailedDescription": "Please try again later. If the error persists, check the status of the export service.",
+      "createUnavailable": {
+        "title": "Creation unavailable",
+        "description": "Creating requests is only available to editors and project administrators."
+      }
+    },
+    "info": {
+      "createRequest": {
+        "title": "Create new request",
+        "description": "The function to create a new DD request is not yet implemented in the current interface."
+      }
+    },
+    "title": "Requests",
+    "subtitles": {
+      "reviewWithCount_one": "Request generated based on analysis results: 1",
+      "reviewWithCount_other": "Requests generated based on analysis results: {{count}}",
+      "reviewEmpty": "Requests based on analysis results have not been generated yet",
+      "manualWithCount_one": "Active list of DD requests for this deal: 1.",
+      "manualWithCount_other": "Active list of DD requests for this deal: {{count}}.",
+      "manualEmpty": "No requests have been added to this deal yet."
+    },
+    "buttons": {
+      "newRequest": "New request"
+    },
+    "viewOnly": {
+      "title": "View-only mode",
+      "description": "Export is available, but creating, editing, and deleting requests are restricted by project permissions."
+    },
+    "detailsPanel": {
+      "title": "Request Details",
+      "back": "← Back"
+    }
+  },
+  "status": {
+    "open": "🔴 Open",
+    "in_progress": "🟡 In progress",
+    "resolved": "🟢 Closed"
+  },
+  "source": {
+    "yaml_template": "YAML template",
+    "manual": "Manual",
+    "aggregator": "Aggregator",
+    "helpers": {
+      "yaml_template": "Text and addressee were generated automatically from document type YAML instruction."
+    }
+  },
+  "panel": {
+    "title": "DD-request",
+    "defaultTitle": "Request #{{id}}",
+    "defaultReviewTitle": "Request",
+    "checkLabel": "Check: {{checkId}}",
+    "priority": "Priority",
+    "status": "Status",
+    "addressee": "Addressee",
+    "source": "Source",
+    "text": "Request text",
+    "documents": "Documents ({{count}})",
+    "evidenceRefs": "Sources ({{count}})",
+    "structuredValues": "Extracted data ({{count}})",
+    "yamlLink": "Connection to check",
+    "yamlLinkDescription": "Linked to YAML-check (check_id: {{checkId}}).",
+    "copyText": "Copy text",
+    "copied": "Copied",
+    "deleteConfirm": "Delete request? This action cannot be undone.",
+    "closeAria": "Close request panel"
+  },
+  "priorities": {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium"
+  },
+  "statuses": {
+    "open": "Open",
+    "in_progress": "In progress",
+    "resolved": "Closed"
+  }
+}
+
+

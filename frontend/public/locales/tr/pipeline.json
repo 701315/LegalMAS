@@ -1,0 +1,382 @@
+{
+  "structureViewer": {
+    "pending": "Document structure is not ready in v2 format yet. Please try again later.",
+    "missing": "Structured artifact is expected but unavailable or corrupted. Check the pipeline status for STRUCTURE stage.",
+    "unavailable": "No STRUCTURE preview available for this stage.",
+    "title": "Document Structure",
+    "sectionsCount": "Sections: {{count}}",
+    "noSections": "No sections in STRUCTURE yet.",
+    "selectSection": "Select a section on the left.",
+    "openInDocument": "Open in document",
+    "mappedTrace": "Source text fragments mapped to the selected section",
+    "unmappedTrace": "No mapped chunks found for the selected section",
+    "chunksPending": "CHUNKS are not ready in v2 format yet. Please try again later.",
+    "chunksMissing": "CHUNKS artifact expected but unavailable or corrupted.",
+    "chunksUnavailable": "CHUNKS stage unavailable — cannot show source text.",
+    "untitled": "Untitled",
+    "noHeader": "(untitled)",
+    "level": "Level {{level}}",
+    "pagesSingle": "p. {{from}}",
+    "pagesRange": "p. {{from}}–{{to}}",
+    "mappingBadge": {
+      "mapped": "Linked to CHUNKS",
+      "unmapped": "No CHUNKS mapping for this section"
+    },
+    "canonicalPanel": {
+      "title": "Section Details",
+      "desc": "In canonical mode, this shows the document structure node (structure_text), not the enriched text from CHUNKS.",
+      "fieldsTitle": "Node Fields",
+      "clauseTreeTitle": "Clause Tree Text (structure_text)",
+      "noTextDesc": "Clause tree text is not set for this node. This is normal for canonical STRUCTURE if the tree only contains the node header and metadata."
+    },
+    "friendlyPanel": {
+      "title": "Section Text",
+      "desc": "In friendly mode, this shows the section text enriched from CHUNKS (enriched_text) with fallback to structure_text.",
+      "noTextDesc": "No text preview available for this section."
+    },
+    "jsonPanel": {
+      "title": "Node JSON",
+      "desc": "Shows the current section object from preview.segments[].sections[]."
+    },
+    "fields": {
+      "id": "ID",
+      "clauseUid": "Clause UID",
+      "level": "Level",
+      "pages": "Pages",
+      "segmentId": "Segment ID",
+      "segmentType": "Segment Type",
+      "segmentTitle": "Segment Title",
+      "segmentOrder": "Segment Order",
+      "primarySegment": "Primary Segment"
+    }
+  },
+  "stageStatusBadge": {
+    "ready": {
+      "label": "Ready",
+      "title": "Stage artifact is ready for viewing"
+    },
+    "pending": {
+      "label": "Pending",
+      "title": "Stage is not finished or artifact is not prepared yet"
+    },
+    "missing": {
+      "label": "Unavailable",
+      "title": "Stage artifact not found"
+    }
+  },
+  "stageBanner": {
+    "ariaLabel": "Stage representation mode",
+    "modeLabelCanonical": "Canonical",
+    "modeLabelFriendly": "Friendly",
+    "modeHintCanonical": "Canonical stage representation",
+    "modeHintFriendly": "Friendly stage representation",
+    "defaultCanonicalLabel": "Canonical representation",
+    "defaultFriendlyLabel": "Friendly representation",
+    "defaultCanonicalDesc": "Displays canonical stage data without additional user enrichment.",
+    "defaultFriendlyDesc": "Displays stage data in user-friendly view mode.",
+    "previewSource": "Preview source: {{source}}",
+    "previewSourceTitle": "Preview data source",
+    "textEnriched": "Text enriched from CHUNKS",
+    "textEnrichmentTitle": "Text enrichment"
+  },
+  "stageRow": {
+    "pages": "p.: {{count}}",
+    "elements": "elements: {{count}}",
+    "sections": "sections: {{count}}",
+    "chunks": "chunks: {{count}}",
+    "open": "Open",
+    "openStageTitle": "Open stage",
+    "disabledReasons": {
+      "pending": "Stage is not ready yet",
+      "missing": "Stage artifact is unavailable or corrupted",
+      "unavailable": "Stage is unavailable for viewing",
+      "notYetAvailable": "Stage is not yet available for viewing"
+    }
+  },
+  "stageModal": {
+    "switchError": "Failed to switch stage view mode",
+    "noViewer": "No viewer available for this stage yet.",
+    "switching": "Switching...",
+    "closeAria": "Close modal",
+    "closePanelAria": "Close pipeline stage panel",
+    "representationMode": "Representation mode: <bold>{{mode}}</bold>",
+    "toggle": {
+      "chunksFriendly": "RAG basis",
+      "chunksCanonical": "Stage artifact",
+      "chunksFriendlyTitle": "Show retrieval-visible corpus — what risk analysis is based on",
+      "chunksCanonicalTitle": "Show full canonical artifact of CHUNKS stage (all levels)",
+      "genericFriendly": "Friendly format",
+      "genericCanonical": "Canonical format",
+      "genericFriendlyTitle": "Show a more reader-friendly view",
+      "genericCanonicalTitle": "Return to the canonical stage result"
+    }
+  },
+  "pdfViewer": {
+    "unavailable": "PDF preview is unavailable.",
+    "notAvailableEmbedded": "PDF not available for embedded viewing",
+    "noInlinePreview": "No inline preview was found for this stage.",
+    "loading": "Loading stage PDF…",
+    "loadError": "Failed to load stage PDF"
+  },
+  "layoutViewer": {
+    "unavailable": "Layout preview is unavailable.",
+    "pagesCount": "Pages: {{count}}",
+    "elementsCount": "Elements: {{count}}",
+    "ariaLabel": "Layout artifact view mode",
+    "tabView": "View",
+    "tabJson": "JSON",
+    "pageTitle": "Page {{page}}",
+    "pageSubtitle": "Layout snapshot for the document page",
+    "noPagesTitle": "No pages to display",
+    "noPagesDesc": "Layout artifact does not contain page preview for this document.",
+    "rawPayload": "Raw payload"
+  },
+  "chunksViewer": {
+    "pending": "Chunks are not ready in v2 format yet. Please try again later.",
+    "missing": "CHUNKS artifact expected but unavailable or corrupted. Check the pipeline status for CHUNKS stage.",
+    "unavailable": "CHUNKS preview is unavailable for this stage.",
+    "sourcePaneTitle": "Source Document Text",
+    "sourcePaneDescLinked": "Chunks associated with the selected section are highlighted inline.",
+    "sourcePaneDescNotLinked": "No associated chunks found for the selected section.",
+    "highlightedCount": "Highlighted: {{count}}",
+    "sourceTextUnavailable": "Source document text is unavailable.",
+    "pageAbbr": "p. {{pages}}",
+    "selectChunkPrompt": "Select a chunk on the left.",
+    "openInDocument": "Open in document",
+    "openSection": "Open section",
+    "contextSection": "Associated context section",
+    "chunkText": "Chunk Text",
+    "stageContext": "Stage Context",
+    "stageContextDesc": "On the right, you can switch between the selected chunk's JSON and the full stage snapshot scrolled to this chunk.",
+    "json": {
+      "chunkTitle": "Chunk JSON",
+      "snapshotTitle": "JSON snapshot",
+      "chunkDesc": "Technical object of the chunk. Stores raw index and backend metadata.",
+      "snapshotDesc": "Full stage snapshot; the text fragment of the selected chunk is highlighted."
+    },
+    "layers": {
+      "section": "Section",
+      "clause": "Clause",
+      "subclause": "Subclause",
+      "legal_unit": "Legal unit"
+    },
+    "layersTab": {
+      "section": "Section layer",
+      "clause": "Clause layer",
+      "subclause": "Subclause layer",
+      "legal_unit": "Legal unit layer"
+    },
+    "friendly": {
+      "evidence": "Evidence",
+      "context": "Context",
+      "clause": "Clause"
+    },
+    "listPanel": {
+      "canonical": {
+        "title": "Canonical CHUNKS layers",
+        "description": "Displays all layers of materialized chunks. Numbering is local within the selected layer, not global across the document."
+      },
+      "retrieval": {
+        "title": "Basis of Risk Analysis (RAG Evidence)",
+        "description": "Working evidence-chunks used for the checks are shown on the left. The context section is displayed separately in the selected chunk's card."
+      },
+      "noChunks": "No chunks in the selected layer.",
+      "canonicalNote": "Important note: <bold>numbering is local within the selected layer</bold>. Technical index is stored in JSON/debug.",
+      "retrievalNote": "Only <bold>evidence-chunks</bold> (working retrieval fragments) are shown on the left. The associated section is shown in the card on the right as context."
+    },
+    "detailPanel": {
+      "canonical": {
+        "title": "Canonical materialized chunk",
+        "description": "Displays a single chunk of the selected layer. UID is the chunk's anchor, not a promise of a perfect boundary exactly along one clause."
+      },
+      "retrieval": {
+        "title": "RAG evidence chunk",
+        "description": "Displays the working retrieval-visible fragment and the associated context section of this area."
+      },
+      "canonicalNoteUid": "<bold>UID is the anchor identity of the chunk</bold>, not a guarantee that text will perfectly match exactly one visible clause of the contract. Therefore, a chunk with uid `{{uid}}` may contain text of 2.2, 2.3, and subsequent lines of the same block.",
+      "canonicalNoteLeaf": "<bold>Leaf-node clause chunk:</bold> this clause layer chunk corresponds to a leaf-node of the clause tree. Internal numbered subclauses might not be separate clause-nodes.",
+      "canonicalNoteRaw": "Displays raw materialized text. At the chunk boundary, next section headers or adjacent block boundary lines may occur.",
+      "canonicalNoteSection": "This is the context section layer: such a chunk can contain an entire section of the contract and serves as a broad context layer.",
+      "retrievalNote": "This is a working <bold>evidence chunk</bold> of the retrieval corpus. Below, the associated <bold>context section</bold> is shown separately so that the user sees not only the fragment but also the broader section of the document."
+    }
+  },
+  "stages": {
+    "import": "File import",
+    "extract": "Text extraction",
+    "pii": "PII sanitization",
+    "structure": "Structure construction",
+    "classify": "Classification",
+    "checks": "Playbook checks",
+    "export": "Report generation",
+    "unknown": "Unknown stage"
+  },
+  "documentStatuses": {
+    "pending": "Awaiting processing",
+    "extracting": "Extracting text",
+    "extracted": "Text extracted",
+    "sanitized": "PII hidden",
+    "structured": "Structure built",
+    "classified": "Classification completed",
+    "analyzing": "Running checks",
+    "completed": "Checks completed",
+    "quarantine": "Quarantine (requires verification)",
+    "failed": "Processing error",
+    "duplicate": "Duplicate",
+    "language_selection_required": {
+      "label": "Language selection required",
+      "tooltip": "Document upload complete. For documents with several detected languages, further processing is stopped until the primary analysis language is selected. Russian is set by default.",
+      "description": "Document upload complete. For documents with several detected languages, further processing — including translation to monolingual format, extraction, sanitization, structure building, chunking, and classification — will not proceed until the primary analysis language is selected. Russian is set by default."
+    }
+  },
+  "runStatuses": {
+    "pending": "Awaiting run",
+    "running": "Running",
+    "completed": "Completed",
+    "completed_with_errors": "Completed with errors",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "trace": {
+    "loading": "Loading processing trace…",
+    "error": "Failed to load processing trace.",
+    "unavailable": "Processing trace is unavailable.",
+    "stagesCompleted": "{{succeeded}}/{{total}} stages completed",
+    "legacy": "legacy",
+    "segmentsCount_one": "{{count}} segment",
+    "segmentsCount_other": "{{count}} segments",
+    "duration_ms": "{{ms}}ms",
+    "duration_s": "{{seconds}}s",
+    "duration_m_s": "{{minutes}}m {{seconds}}s",
+    "start": "Start:",
+    "completedAt": "Completed:",
+    "warnings": "Warnings",
+    "input": "Input",
+    "output": "Output",
+    "artifacts": "Artifacts",
+    "errorLabel": "Error"
+  },
+  "traceStages": {
+    "workers_build_primary_language_source": "Language source",
+    "workers_extract_document": "Text extraction",
+    "pii_sanitize_document": "PII sanitization",
+    "workers_build_structure": "Structure construction",
+    "workers_build_chunks": "Chunking",
+    "workers_classify_document": "Document classification",
+    "workers_classify_document_segments": "Segment classification",
+    "workers_build_legal_units_enrichment": "Semantic enrichment"
+  },
+  "traceStrategies": {
+    "text": "Native text",
+    "trigger_and_policy_based": "PII policy",
+    "structure_v2": "Structure v2",
+    "segment_chunk_builder_v2": "Chunk builder v2",
+    "hybrid_classifier_stage8": "Hybrid classifier",
+    "hybrid_segment_classifier_stage8": "Segment classifier",
+    "semantic_enrichment_llm": "LLM enrichment"
+  },
+  "classification": {
+    "loading": "Loading classification decision…",
+    "panelTitle": "How decision was made",
+    "candidatesCount_one": "{{count}} candidate",
+    "candidatesCount_other": "{{count}} candidates",
+    "decisionLabel": "Decision",
+    "confidenceZoneLabel": "Confidence zone",
+    "cascadeLevelLabel": "Cascade level",
+    "outcomeLabel": "Outcome",
+    "confidenceLabel": "Confidence",
+    "languageLabel": "Language",
+    "jurisdictionLabel": "Jurisdiction",
+    "votingScoreLabel": "Voting score",
+    "requiresManual": "Requires manual review",
+    "l4Triggered": "L4 LLM triggered",
+    "unknownCorridor": "Unknown corridor",
+    "passedCascade": "Cascade levels passed:",
+    "candidatesTitle": "Classification candidates ({{count}}):",
+    "winnerBadge": "Selected",
+    "noCandidatesFallback": "No alternative candidates were considered — decision made deterministically at rule level {{level}}.",
+    "decidedBy": {
+      "L1": "L1 — deterministic match",
+      "L2": "L2 — exact rule match",
+      "L3": "L3 — hybrid decision",
+      "L4": "L4 — LLM classification",
+      "HYBRID": "HYBRID — hybrid decision",
+      "unknown": "Not determined",
+      "failed": "Classification error",
+      "pending": "In progress"
+    },
+    "confidenceZones": {
+      "confident": "Confident",
+      "low": "Low",
+      "unknown": "Undetermined"
+    },
+    "candidate": {
+      "conf": "conf: {{value}}",
+      "level": "level: {{value}}",
+      "method": "method: {{value}}"
+    },
+    "playbookVersion": "Playbook version: {{version}}"
+  },
+  "pipelinePanel": {
+    "stagesLoading": "Loading processing stages…",
+    "stagesError": "Failed to load document stages",
+    "missingDocId": "Document ID not specified",
+    "pathDescription": "The path of the document through processing stages — from original PDF to structure and chunks.",
+    "notAvailable": "Processing stages are not available yet.",
+    "title": "Document pipeline",
+    "stageInfo": {
+      "source": {
+        "title": "SOURCE: source document",
+        "description": "Original processing document: raw file or PDF converted from office format."
+      },
+      "primary": {
+        "title": "PRIMARY: single-language source",
+        "description": "Document after selecting primary deal language, used as main downstream pipeline input."
+      },
+      "extract": {
+        "title": "EXTRACT: extracted layout",
+        "description": "Text layout after extraction: primary-language layout or raw multilingual layout."
+      },
+      "pii": {
+        "title": "PII: sanitized layout",
+        "description": "Layout after PII sanitization. Main downstream layout for structure, chunking, and checks."
+      },
+      "structure": {
+        "title": "STRUCTURE: document structure",
+        "description": "Structured document representation with clauses, headings, and hierarchy."
+      },
+      "chunks": {
+        "title": "CHUNKS: vector chunks",
+        "description": "Chunked text segments prepared for LLM analysis and retrieval."
+      }
+    }
+  },
+  "classificationLevels": {
+    "L0": {
+      "label": "L0 — No match",
+      "description": "Document type not determined"
+    },
+    "L1": {
+      "label": "L1 — Filename",
+      "description": "Classification by filename"
+    },
+    "L2": {
+      "label": "L2 — Keywords",
+      "description": "Classification by keywords"
+    },
+    "L3": {
+      "label": "L3 — Semantics",
+      "description": "Semantic search (embeddings)"
+    },
+    "L4": {
+      "label": "L4 — LLM",
+      "description": "Confirmed by language model"
+    },
+    "L_manual": {
+      "shortLabel": "Manual",
+      "label": "Manual override",
+      "description": "Type set manually by operator"
+    }
+  }
+}
+
+

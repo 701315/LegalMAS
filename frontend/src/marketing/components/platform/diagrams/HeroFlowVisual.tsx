@@ -1,32 +1,22 @@
-// src/marketing/components/platform/diagrams/HeroFlowVisual.tsx
-
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { HERO_CONTENT } from "../content/platformContent";
-
-/**
- * HeroFlowVisual — минималистичная document-flow иллюстрация для hero-секции.
- *
- * Композиция:
- *   • Слева: 3 узла-источника (входящие документы) — приглушённые (input)
- *   • Центр: узел «Steloom» (обработка) — акцентный
- *   • Справа: 3 узла-результата (DD Grid, Findings, материалы для review) —
- *     чуть более выразительные (output)
- *   • Между ними — тонкие SVG-линии, показывающие поток
- *
- * Контраст ролей (обновлено):
- *   • Input: приглушённый бордер #EBE8E1, светло-серый фон
- *   • Center: акцентный terracotta бордер + мягкое свечение
- *   • Output: более чёткий бордер #DFDAD0, лёгкий тонированный фон
- *
- * Это создаёт визуальную считываемость: серые входы → яркий центр →
- * чуть более определённые выходы. Читатель видит «поток становится
- * структурированным».
- */
+import { useTranslation } from "react-i18next";
 
 const HeroFlowVisual: React.FC = () => {
   const shouldReduceMotion = useReducedMotion();
-  const { inputs, processing, outputs } = HERO_CONTENT.flowNodes;
+  
+  // RTL FIX: Инициализация i18n и определение направления
+  const { t, i18n } = useTranslation("marketing");
+  const isRTL = i18n.language === "ar";
+
+  // RTL FIX: Защита от сбоев при получении массивов из i18n
+  const inputsRaw = t("platform.hero.flowNodes.inputs", { returnObjects: true });
+  const inputs = Array.isArray(inputsRaw) ? inputsRaw : [];
+
+  const outputsRaw = t("platform.hero.flowNodes.outputs", { returnObjects: true });
+  const outputs = Array.isArray(outputsRaw) ? outputsRaw : [];
+
+  const processing = t("platform.hero.flowNodes.processing");
 
   const nodeTransition = {
     duration: 0.5,
@@ -45,15 +35,18 @@ const HeroFlowVisual: React.FC = () => {
     <div
       className="relative w-full"
       aria-hidden="true"
-      style={{ aspectRatio: "1 / 1", maxWidth: 520, marginLeft: "auto" }}
+      // RTL FIX: marginLeft заменен на ms-auto (логический отступ)
+      style={{ aspectRatio: "1 / 1", maxWidth: 520, marginInlineStart: "auto" }}
     >
       {/* ── SVG-слой с соединительными линиями ─────────────────────────── */}
       <svg
         viewBox="0 0 400 400"
         className="absolute inset-0 h-full w-full"
         preserveAspectRatio="none"
+        // RTL FIX: Зеркалирование SVG-кривых для арабского языка (поток справа налево)
+        style={{ transform: isRTL ? "scaleX(-1)" : "none" }}
       >
-        {/* Линии от inputs к core — более приглушённые */}
+        {/* Линии от inputs к core */}
         {[75, 200, 325].map((y, i) => (
           <motion.path
             key={`in-${i}`}
@@ -62,9 +55,7 @@ const HeroFlowVisual: React.FC = () => {
             strokeWidth="1"
             fill="none"
             initial={shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }}
-            animate={
-              shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }
-            }
+            animate={shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }}
             transition={{
               duration: 0.6,
               delay: delays.lines1 + i * 0.04,
@@ -73,7 +64,7 @@ const HeroFlowVisual: React.FC = () => {
           />
         ))}
 
-        {/* Линии от core к outputs — чуть более выраженные */}
+        {/* Линии от core к outputs */}
         {[75, 200, 325].map((y, i) => (
           <motion.path
             key={`out-${i}`}
@@ -82,9 +73,7 @@ const HeroFlowVisual: React.FC = () => {
             strokeWidth="1"
             fill="none"
             initial={shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }}
-            animate={
-              shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }
-            }
+            animate={shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }}
             transition={{
               duration: 0.6,
               delay: delays.lines2 + i * 0.04,
@@ -94,18 +83,19 @@ const HeroFlowVisual: React.FC = () => {
         ))}
       </svg>
 
-      {/* ── Left column: INPUTS (приглушённые) ─────────────────────────── */}
+      {/* ── Left/Start column: INPUTS ─────────────────────────────────── */}
+      {/* RTL FIX: left-0 заменен на start-0. В RTL это будет правый край, что корректно для начала потока */}
       <div
-        className="absolute inset-y-0 left-0 flex flex-col justify-between"
+        className="absolute inset-y-0 start-0 flex flex-col justify-between"
         style={{ width: "35%" }}
       >
         {inputs.map((label, i) => (
           <motion.div
-            key={label}
+            key={`${label}-${i}`} // RTL FIX: Стабильный ключ
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: 8 }}
             animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
             transition={{ ...nodeTransition, delay: delays.inputs[i] }}
-            className="rounded-lg px-3 py-2.5"
+            className="rounded-lg px-3 py-2.5 text-start"
             style={{
               border: "1px solid #EBE8E1",
               background: "#FAF8F5",
@@ -116,10 +106,10 @@ const HeroFlowVisual: React.FC = () => {
               className="text-[10px] font-medium uppercase tracking-[0.14em]"
               style={{ color: "#B8B2AA" }}
             >
-              Input
+              {t("platform.heroFlowVisual.inputLabel")}
             </div>
             <div
-              className="mt-0.5 text-[0.8125rem] font-medium leading-tight"
+              className="mt-0.5 text-eyebrow font-medium leading-tight"
               style={{ color: "#78756F" }}
             >
               {label}
@@ -134,7 +124,7 @@ const HeroFlowVisual: React.FC = () => {
           initial={shouldReduceMotion ? undefined : { opacity: 0, y: 8 }}
           animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
           transition={{ ...nodeTransition, delay: delays.core }}
-          className="relative rounded-xl bg-white px-5 py-3.5"
+          className="relative rounded-xl bg-white px-5 py-3.5 text-center"
           style={{
             border: "1px solid rgba(200,107,82,0.35)",
             boxShadow: "0 6px 20px rgba(200,107,82,0.12)",
@@ -153,27 +143,28 @@ const HeroFlowVisual: React.FC = () => {
               className="text-[10px] font-medium uppercase tracking-[0.14em]"
               style={{ color: "#C86B52" }}
             >
-              Analysis
+              {t("platform.heroFlowVisual.analysisLabel")}
             </div>
-            <div className="mt-0.5 text-[0.9375rem] font-semibold leading-tight text-[#1A1917]">
+            <div className="mt-0.5 text-body-sm font-semibold leading-tight text-[var(--text-primary)]">
               {processing}
             </div>
           </div>
         </motion.div>
       </div>
 
-      {/* ── Right column: OUTPUTS (чуть выразительнее) ──────────────────── */}
+      {/* ── Right/End column: OUTPUTS ─────────────────────────────────── */}
+      {/* RTL FIX: right-0 заменен на end-0. В RTL это будет левый край, что корректно для конца потока */}
       <div
-        className="absolute inset-y-0 right-0 flex flex-col justify-between"
+        className="absolute inset-y-0 end-0 flex flex-col justify-between"
         style={{ width: "35%" }}
       >
         {outputs.map((label, i) => (
           <motion.div
-            key={label}
+            key={`${label}-${i}`} // RTL FIX: Стабильный ключ
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: 8 }}
             animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
             transition={{ ...nodeTransition, delay: delays.outputs[i] }}
-            className="rounded-lg bg-white px-3 py-2.5"
+            className="rounded-lg bg-white px-3 py-2.5 text-start"
             style={{
               border: "1px solid #D6D0C7",
               boxShadow: "0 2px 6px rgba(26,25,23,0.04)",
@@ -183,10 +174,10 @@ const HeroFlowVisual: React.FC = () => {
               className="text-[10px] font-medium uppercase tracking-[0.14em]"
               style={{ color: "#8A857D" }}
             >
-              Output
+              {t("platform.heroFlowVisual.outputLabel")}
             </div>
             <div
-              className="mt-0.5 text-[0.8125rem] font-medium leading-tight"
+              className="mt-0.5 text-eyebrow font-medium leading-tight"
               style={{ color: "#1A1917" }}
             >
               {label}
@@ -199,4 +190,3 @@ const HeroFlowVisual: React.FC = () => {
 };
 
 export default HeroFlowVisual;
-

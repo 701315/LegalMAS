@@ -1,19 +1,22 @@
-// src/marketing/components/platform/PlatformDocumentStructureSection.tsx
-
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Reveal from "../../motion/Reveal";
-import { STRUCTURE_CONTENT } from "./content/platformContent";
 import VerticalNodeChain from "./diagrams/VerticalNodeChain";
 
-/**
- * PlatformDocumentStructureSection — Section 2.
- *
- * Композиция (split 50/50 на десктопе):
- *   • Слева: eyebrow → h2 → 2 абзаца → bullets «Что это даёт юристу»
- *   • Справа: VerticalNodeChain с 5 узлами структуры документа
- */
-
 const PlatformDocumentStructureSection: React.FC = () => {
+  // Инициализация i18n (i18n объект не нужен, так как RTL решается через CSS)
+  const { t } = useTranslation("marketing");
+
+  // RTL FIX: Защита от сбоев при получении массивов из i18n
+  const paragraphsRaw = t("platform.structure.paragraphs", { returnObjects: true });
+  const paragraphs = Array.isArray(paragraphsRaw) ? paragraphsRaw : [];
+
+  const bulletsRaw = t("platform.structure.bullets", { returnObjects: true });
+  const bullets = Array.isArray(bulletsRaw) ? bulletsRaw : [];
+
+  const chainRaw = t("platform.structure.chain", { returnObjects: true });
+  const chain = Array.isArray(chainRaw) ? chainRaw : [];
+
   return (
     <section
       className="relative"
@@ -28,39 +31,39 @@ const PlatformDocumentStructureSection: React.FC = () => {
           {/* ── Left: текст ─────────────────────────────────────────────── */}
           <Reveal className="lg:col-span-7">
             <div className="max-w-2xl">
-              <div className="eyebrow">{STRUCTURE_CONTENT.eyebrow}</div>
+              <div className="eyebrow text-start">{t("platform.structure.eyebrow")}</div>
 
-              {/* ✅ Унифицированный размер h2 */}
-              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
-                {STRUCTURE_CONTENT.title}
+              <h2 className="mt-4 text-h1 text-start">
+                {t("platform.structure.title")}
               </h2>
 
               <div className="mt-7 space-y-5">
-                {STRUCTURE_CONTENT.paragraphs.map((p, i) => (
+                {paragraphs.map((p, i) => (
                   <p
                     key={i}
-                    className="text-[1rem] leading-[1.75] text-[#78756F]"
+                    className="text-body text-start"
                   >
                     {p}
                   </p>
                 ))}
               </div>
 
-              <div className="mt-10 border-l border-[#E8E4DD] pl-6">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A8A29E]">
-                  {STRUCTURE_CONTENT.bulletsLabel}
+              {/* RTL FIX: border-l заменен на border-s, pl-6 заменен на ps-6 */}
+              <div className="mt-10 border-s border-[var(--border-color)] ps-6">
+                <div className="text-meta text-start">
+                  {t("platform.structure.bulletsLabel")}
                 </div>
                 <ul className="mt-4 space-y-3">
-                  {STRUCTURE_CONTENT.bullets.map((bullet) => (
+                  {bullets.map((bullet, i) => (
                     <li
-                      key={bullet}
-                      className="flex items-start gap-3 text-[#78756F]"
+                      key={i} // Используем индекс, так как это массив строк из i18n
+                      className="flex items-start gap-3 text-[var(--text-secondary)] text-start"
                     >
                       <span
-                        className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[#C86B52]"
+                        className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]"
                         aria-hidden="true"
                       />
-                      <span className="text-[0.9375rem] leading-[1.65]">
+                      <span className="text-body-sm leading-[1.65]">
                         {bullet}
                       </span>
                     </li>
@@ -75,7 +78,7 @@ const PlatformDocumentStructureSection: React.FC = () => {
             <Reveal delay={0.15}>
               <div className="mx-auto" style={{ maxWidth: 380 }}>
                 <VerticalNodeChain
-                  nodes={STRUCTURE_CONTENT.chain}
+                  nodes={chain}
                   size="sm"
                 />
               </div>
@@ -88,5 +91,3 @@ const PlatformDocumentStructureSection: React.FC = () => {
 };
 
 export default PlatformDocumentStructureSection;
-
-

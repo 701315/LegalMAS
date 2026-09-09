@@ -1,10 +1,11 @@
 # src/api/endpoints/run_summary.py
 
 """
-Endpoints для executive summary run.
+Endpoints для executive summary run с поддержкой мультиязычности.
 
-GET  /api/v1/runs/{run_id}/summary           — статус + текст + fallback
-POST /api/v1/runs/{run_id}/summary/regenerate — принудительная перегенерация
+GET  /api/v1/runs/{run_id}/summary            — статус + текст + fallback (с параметром ?locale=)
+POST /api/v1/runs/{run_id}/summary/translate  — принудительный запуск/повтор перевода
+POST /api/v1/runs/{run_id}/summary/regenerate — принудительная перегенерация резюме
 
 Tenant-изоляция — через get_scoped_run (тот же контракт, что в runs.py).
 """
@@ -15,7 +16,7 @@ import asyncio
 import uuid
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,18 +40,26 @@ class RunSummaryResponse(BaseModel):
     prompt_version: Optional[str] = None
     error_message: Optional[str] = None
     generated_at: Optional[str] = None
+    # i18n metadata
+    locale: Optional[str] = None
+    supported_locales: Optional[list[str]] = None
+    translation_status: Optional[str] = None  # None | pending | ready | failed
 
 
 @router.get("/{run_id}/summary", response_model=RunSummaryResponse)
 async def get_run_summary(
+    locale: Optional[str] = Query(
+        default=None,
+        description="Target locale for translation (e.g. 'en', 'ru')",
+    ),
     run: Run = Depends(get_scoped_run),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
     Вернуть summary для run.
 
-    Если run terminal и записи ещё нет — создать 'pending' с fallback
-    (dispatcher подхватит генерацию в фоне).
+    Если указан locale (например en) и перевод ещё не готов — автоматически
+    триггерит фоновый перевод и возвращает translation_status='pending'.
     """
     # === СИСТЕМНЫЙ ФИКС: Мягкий статус ожидания для активных запусков ===
     # Если запуск еще выполняется (статус не completed и не completed_with_errors),
@@ -60,13 +69,77 @@ async def get_run_summary(
             run_id=str(run.id),
             status="pending",
             text="Анализ документов еще выполняется. Резюме будет сгенерировано после завершения.",
+            locale=(run.analysis_language or "ru").lower(),
+            supported_locales=["ru", "en"],
         )
     # ===================================================================
 
     async with get_session() as session:
         service = RunSummaryService(session)
         await service.ensure_record(run.id)
-        response = await service.get_response(run.id)
+        
+        # 1. Получаем текущее состояние (RU-оригинал или кэшированный перевод)
+        response = await service.get_response(run.id, locale=locale)
+
+    if response is None:
+        raise HTTPException(status_code=404, detail="Summary not available")
+
+    # 2. Auto-trigger перевода, если запрошен другой язык и статус None (перевод ещё не запрашивался)
+    target_locale = (locale or "").strip().lower()
+    analysis_lang = (run.analysis_language or "ru").strip().lower()
+
+    if (
+        target_locale
+        and target_locale != analysis_lang
+        and response.get("status") == "ready"
+        and response.get("translation_status") is None
+    ):
+        # Используем транзакционную сессию для мутирующей операции постановки в очередь
+        async with transactional_session() as session:
+            service = RunSummaryService(session)
+            try:
+                await service.request_translation(run.id, target_locale)
+            except Exception:
+                # В случае любых инфраструктурных сбоев очереди — не роняем GET эндпоинт,
+                # отдаем оригинальный язык
+                pass
+
+        # Перечитываем актуальный статус после постановки задачи
+        async with get_session() as session:
+            service = RunSummaryService(session)
+            response = await service.get_response(run.id, locale=target_locale)
+
+    return response
+
+
+@router.post("/{run_id}/summary/translate", response_model=RunSummaryResponse)
+async def trigger_summary_translation(
+    locale: str = Query(..., description="Target locale code to translate to"),
+    run: Run = Depends(get_scoped_run),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Явный запуск перевода на целевую локаль (например, при нажатии Retry Translation).
+    """
+    if run.status not in ("completed", "completed_with_errors"):
+        raise HTTPException(status_code=400, detail="Run is not completed yet")
+
+    async with transactional_session() as session:
+        service = RunSummaryService(session)
+        summary = await service.ensure_record(run.id)
+        if not summary or summary.status != "ready":
+            raise HTTPException(
+                status_code=400, detail="Master summary must be ready before translating"
+            )
+
+        try:
+            await service.request_translation(run.id, locale)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    async with get_session() as session:
+        service = RunSummaryService(session)
+        response = await service.get_response(run.id, locale=locale)
 
     if response is None:
         raise HTTPException(status_code=404, detail="Summary not available")
@@ -80,8 +153,8 @@ async def regenerate_run_summary(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Принудительная перегенерация: переводит ready/failed в pending
-    и спавнит генерацию в фоне. Возвращает актуальное состояние.
+    Принудительная перегенерация: переводит ready/failed в pending,
+    сбрасывает все переводы и спавнит генерацию в фоне.
     """
     async with transactional_session() as session:
         repo = RunSummaryRepository(session)
@@ -90,7 +163,12 @@ async def regenerate_run_summary(
             raise HTTPException(status_code=404, detail="Summary not found")
 
         if summary.status != "generating":
-            await repo.update_status(run.id, "pending")
+            await repo.update_status(
+                run.id,
+                "pending",
+                translations=None,
+                translation_status=None,
+            )
 
     # Фоновая генерация в API-процессе (claim защитит от дублей).
     async def _gen() -> None:

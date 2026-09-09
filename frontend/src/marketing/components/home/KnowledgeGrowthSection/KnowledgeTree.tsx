@@ -112,6 +112,8 @@ const KnowledgeTree: React.FC<Props> = ({ active }) => {
                 opacity: 0,
                 willChange: "top, opacity",
                 color: getColorForTone(line.colorTone),
+                // Корректный способ обработки смешанных текстов (арабский + латиница)
+                unicodeBidi: "plaintext",
               }}
             >
               {line.text}

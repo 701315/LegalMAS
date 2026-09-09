@@ -1,26 +1,19 @@
-// src/marketing/components/platform/PlatformMethodologySection.tsx
-
 import React from "react";
+import { useTranslation } from "react-i18next";
 import Reveal from "../../motion/Reveal";
-import { METHODOLOGY_CONTENT } from "./content/platformContent";
 import VerticalNodeChain from "./diagrams/VerticalNodeChain";
 
-/**
- * PlatformMethodologySection — Section 5 (упрощённая версия).
- *
- * Изменения:
- *   • Сжато с 3 до 2 абзацев
- *   • Добавлен короткий lead-in курсивом перед основным текстом —
- *     работает как «tagline» или «эпиграф» к секции
- *   • Убран sticky у схемы, выравнивание по центру
- *
- * Композиция:
- *   • Split 7/5 на десктопе: слева заголовок + lead-in + 2 абзаца,
- *     справа VerticalNodeChain (size="md") с accent на «Steloom»
- *   • Фон белый (#FAF8F5)
- */
-
 const PlatformMethodologySection: React.FC = () => {
+  // Инициализация i18n (i18n объект не нужен, так как RTL решается через CSS)
+  const { t } = useTranslation("marketing");
+
+  // RTL FIX: Защита от сбоев при получении массивов из i18n
+  const paragraphsRaw = t("platform.methodology.paragraphs", { returnObjects: true });
+  const paragraphs = Array.isArray(paragraphsRaw) ? paragraphsRaw : [];
+
+  const chainRaw = t("platform.methodology.chain", { returnObjects: true });
+  const chain = Array.isArray(chainRaw) ? chainRaw : [];
+
   return (
     <section
       className="relative"
@@ -35,25 +28,25 @@ const PlatformMethodologySection: React.FC = () => {
           {/* ── Left: eyebrow + заголовок + lead-in + текст ──────────── */}
           <Reveal className="lg:col-span-7">
             <div className="max-w-2xl">
-              <div className="eyebrow">{METHODOLOGY_CONTENT.eyebrow}</div>
+              <div className="eyebrow text-start">{t("platform.methodology.eyebrow")}</div>
 
-              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
-                {METHODOLOGY_CONTENT.title}
+              <h2 className="mt-4 text-h1 text-start">
+                {t("platform.methodology.title")}
               </h2>
 
               {/* Lead-in — короткое tagline-предложение перед основным текстом */}
               <p
-                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#1A1917]"
+                className="mt-6 font-serif text-h3 italic leading-[1.5] text-[var(--text-primary)] text-start"
                 style={{ maxWidth: 560 }}
               >
-                {METHODOLOGY_CONTENT.leadIn}
+                {t("platform.methodology.leadIn")}
               </p>
 
               <div className="mt-6 space-y-5" style={{ maxWidth: 620 }}>
-                {METHODOLOGY_CONTENT.paragraphs.map((p, i) => (
+                {paragraphs.map((p, i) => (
                   <p
                     key={i}
-                    className="text-[1.0625rem] leading-[1.75] text-[#78756F]"
+                    className="text-body leading-[1.75] text-[var(--text-secondary)] text-start"
                   >
                     {p}
                   </p>
@@ -66,8 +59,9 @@ const PlatformMethodologySection: React.FC = () => {
           <div className="lg:col-span-5">
             <Reveal delay={0.15}>
               <div className="mx-auto" style={{ maxWidth: 420 }}>
+                {/* Передаем безопасный массив chain в диаграмму */}
                 <VerticalNodeChain
-                  nodes={METHODOLOGY_CONTENT.chain}
+                  nodes={chain}
                   size="md"
                 />
               </div>
@@ -80,5 +74,3 @@ const PlatformMethodologySection: React.FC = () => {
 };
 
 export default PlatformMethodologySection;
-
-

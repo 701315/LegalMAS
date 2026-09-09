@@ -1,8 +1,13 @@
-// src/marketing/components/home/PremiumFinalCtaSection.tsx
 import React, { useEffect, useRef, useState } from "react";
-import { landingContent } from "../../content/landingContent";
+import { ArrowRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useContactModal } from "../../context/ContactModalContext";
 
 const PremiumFinalCtaSection: React.FC = () => {
+  const { t, i18n } = useTranslation("marketing");
+  const { openContactModal } = useContactModal();
+  const isRTL = i18n.language === "ar";
+
   const ref = useRef<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -28,12 +33,31 @@ const PremiumFinalCtaSection: React.FC = () => {
     transition: `opacity 0.8s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 0.8s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
   });
 
-  const { finalCta } = landingContent;
+  // Получаем данные из i18n
+  const title = t("home.finalCta.title");
+  const description = t("home.finalCta.description");
+  const primaryLabel = t("home.finalCta.primary");
+  const secondaryLabel = t("home.finalCta.secondary");
+
+  // Разбиваем заголовок по переносу строки
+  const titleParts = title.split("\n");
+
+  const handlePrimaryClick = () => {
+    openContactModal();
+  };
+
+  const handleSecondaryClick = () => {
+    // Плавный скролл к секции сценариев (ApplicationSection)
+    const el = document.getElementById("application");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   return (
     <section
       ref={ref}
-      className="relative flex items-center justify-center border-t border-[#E8E4DD] bg-[#F3F0EB]"
+      className="relative flex items-center justify-center border-t border-[var(--border-color)] bg-[var(--bg-surface)]"
       style={{ minHeight: 480 }}
       data-header-theme="light"
     >
@@ -52,8 +76,9 @@ const PremiumFinalCtaSection: React.FC = () => {
         style={{ maxWidth: "var(--container-max-width)" }}
       >
         {/* Декоративный граф — рандомно внутри блока, под текстом */}
+        {/* RTL FIX: left-20 заменен на start-20 для корректного позиционирования в арабском */}
         <div
-          className="pointer-events-none absolute left-20 top-16 z-0"
+          className="pointer-events-none absolute start-20 top-16 z-0"
           style={{ width: "30%", maxWidth: "380px", opacity: 0.35 }}
           aria-hidden="true"
         >
@@ -77,27 +102,55 @@ const PremiumFinalCtaSection: React.FC = () => {
         </div>
 
         <div className="relative z-10 flex flex-col items-center">
+          {/* ИСПРАВЛЕНО: Использован семантический класс text-h1 вместо инлайн-стилей */}
           <h2
-            className="mt-6 font-serif text-[#1A1917]"
+            className="mt-6 text-h1"
             style={{
-              fontSize: "clamp(2.25rem, 4.5vw, 4rem)",
-              lineHeight: 1.08,
-              letterSpacing: "-0.02em",
               maxWidth: 720,
               ...fadeIn(100),
             }}
           >
-            {finalCta.title.split("\n")[0]}
+            {titleParts[0]}
             <br />
-            {finalCta.title.split("\n")[1]}
+            {titleParts[1] || ""}
           </h2>
 
+          {/* ИСПРАВЛЕНО: Использован семантический класс text-body вместо дублирующих классов */}
           <p
-            className="mt-5 text-[1.0625rem] leading-[1.7] text-[#78756F]"
+            className="mt-5 text-body"
             style={{ maxWidth: 560, ...fadeIn(200) }}
           >
-            {finalCta.description}
+            {description}
           </p>
+
+          {/* CTA Кнопки */}
+          <div
+            className="mt-10 flex flex-col gap-3 sm:flex-row"
+            style={fadeIn(300)}
+          >
+            <button
+              type="button"
+              onClick={handlePrimaryClick}
+              className="cta-primary"
+            >
+              {primaryLabel}
+              <ArrowRight
+                className="h-4 w-4"
+                style={{
+                  transform: isRTL ? "rotate(180deg)" : "none",
+                  transition: "transform 0.2s ease",
+                }}
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSecondaryClick}
+              className="cta-secondary"
+            >
+              {secondaryLabel}
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -105,5 +158,3 @@ const PremiumFinalCtaSection: React.FC = () => {
 };
 
 export default PremiumFinalCtaSection;
-
-

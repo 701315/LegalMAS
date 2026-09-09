@@ -1,0 +1,96 @@
+
+════════════════════════════════════════════════════════════════════════════════
+
+  📊 ОТЧЁТ ПО АНАЛИЗУ ПАПКИ /src/marketing
+  Дата: 2026-09-09
+
+════════════════════════════════════════════════════════════════════════════════
+
+
+📄 1. КАРТА СТРАНИЦ (14 шт.)
+
+   • pages/AboutPage.tsx                                          → /about
+   • pages/CapabilitiesPage.tsx                                   → /capabilities
+   • pages/DemoPage.tsx                                           → /demo
+   • pages/HomePage.tsx                                           → /home
+   • pages/SecurityPage.tsx                                       → /security
+   • pages/solutions/AuditCompliancePage.tsx                      → /solutions/auditcompliance
+   • pages/solutions/CompliancePage.tsx                           → /solutions/compliance
+   • pages/solutions/ContractReviewPage.tsx                       → /solutions/contractreview
+   • pages/solutions/CorporateLegalPage.tsx                       → /solutions/corporatelegal
+   • pages/solutions/CounterpartiesPage.tsx                       → /solutions/counterparties
+   • pages/solutions/InternalAuditPage.tsx                        → /solutions/internalaudit
+   • pages/solutions/LawFirmsPage.tsx                             → /solutions/lawfirms
+   • pages/solutions/MaDueDiligencePage.tsx                       → /solutions/maduediligence
+   • pages/solutions/RealEstatePage.tsx                           → /solutions/realestate
+
+
+🔤 2. АУДИТ ТИПОГРАФИКИ
+
+   📌 Шрифты:
+      • font-serif           — 32
+
+   📏 Размеры (Tailwind):
+      • text-[var(--text-secondary)]        — 66
+      • text-[var(--text-primary)]          — 59
+      • text-[var(--accent-primary)]        — 42
+      • text-[var(--text-muted)]            — 28
+      • text-[10px]                         — 14
+      • text-base                           — 13
+      • text-sm                             — 13
+      • text-xs                             — 11
+      • text-[11px]                         — 9
+      • text-lg                             — 9
+      • text-3xl                            — 7
+      • text-[var(--text-faint)]            — 5
+      • text-[var(--text-inverse)]          — 5
+      • text-xl                             — 4
+      • text-2xl                            — 2
+      • text-4xl                            — 2
+      • text-[15px]                         — 2
+      • text-[13px]                         — 2
+      • text-5xl                            — 1
+      • text-6xl                            — 1
+      • text-[4.5rem]                       — 1
+      • text-[var(--accent-subtle)]         — 1
+      • text-[1.375rem]                     — 1
+      • text-[0.6875rem]                    — 1
+      • text-[rgba(250,248,245,0.75)]       — 1
+      • text-[rgba(200,107,82,1)]           — 1
+      • text-[2rem]                         — 1
+      • text-[rgba(250,248,245,1)]          — 1
+      • text-[2.25rem]                      — 1
+      • text-[clamp(2rem,4vw,3.05rem)]      — 1
+      • text-[0.95rem]                      — 1
+
+   🎨 Inline fontSize:
+      • fontSize: `${line.fontSize}px`           — 1
+      • fontSize: "15px"                         — 1
+      • fontSize: "14px"                         — 1
+
+   📐 Clamp-значений: 1
+
+   🎭 Роли: H1=5, H2=46, H3=29, Eyebrow=55
+
+   🔍 Классы H1:
+      • "mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[var(--text-primary)] sm:text-6xl lg:text-[4.5rem] text-start whitespace-pre-line"
+      • "font-serif text-display leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)] whitespace-pre-line"
+      • "mt-6 text-display text-start"
+      • "mt-20 lg:mt-32 text-display max-w-6xl whitespace-pre-line"
+
+
+🔗 3. ССЫЛКИ
+
+   📎 <Link>: 7
+   📎 <a href>: 0
+   📧 Mailto: 2
+   🌐 Внешние: 1
+
+   ⚠️  СЛОМАННЫЕ:
+      • src/marketing/components/shared/MarketingPageFooter.tsx → / (Link)
+      • src/marketing/components/shared/MarketingPageHeader.tsx → / (Link)
+      • src/marketing/components/shared/SiteFooter.tsx → / (Link)
+      • src/marketing/components/shared/SiteHeader.tsx → / (Link)
+
+
+════════════════════════════════════════════════════════════════════════════════

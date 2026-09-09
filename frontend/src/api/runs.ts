@@ -300,10 +300,21 @@ export interface RunSummaryResponse {
   prompt_version?: string | null;
   error_message?: string | null;
   generated_at?: string | null;
+  // i18n metadata
+  locale?: string | null;
+  supported_locales?: string[] | null;
+  translation_status?: "pending" | "ready" | "failed" | null;
 }
 
-export async function fetchRunSummary(runId: string): Promise<RunSummaryResponse> {
-  const response = await client.get<RunSummaryResponse>(`/api/v1/runs/${runId}/summary`);
+export async function fetchRunSummary(
+  runId: string,
+  locale?: string,
+): Promise<RunSummaryResponse> {
+  const params = locale ? { locale } : {};
+  const response = await client.get<RunSummaryResponse>(
+    `/api/v1/runs/${runId}/summary`,
+    { params },
+  );
   return response.data;
 }
 
@@ -312,19 +323,36 @@ export async function regenerateRunSummary(runId: string): Promise<RunSummaryRes
   return response.data;
 }
 
-export function useRunSummary(runId: string | null | undefined) {
+export async function triggerSummaryTranslation(
+  runId: string,
+  locale: string,
+): Promise<RunSummaryResponse> {
+  const response = await client.post<RunSummaryResponse>(
+    `/api/v1/runs/${runId}/summary/translate`,
+    null,
+    { params: { locale } },
+  );
+  return response.data;
+}
+
+export function useRunSummary(
+  runId: string | null | undefined,
+  locale?: string,
+) {
   return useQuery({
-    queryKey: ["run", runId, "summary"],
-    queryFn: () => fetchRunSummary(runId!),
+    queryKey: ["run", runId, "summary", locale],
+    queryFn: () => fetchRunSummary(runId!, locale),
     enabled: !!runId,
-    // Polling только если статус generating или pending
+    // Поллинг активен при генерации мастер-резюме ИЛИ в процессе его перевода
     refetchInterval: (query) => {
       const data = query.state.data as RunSummaryResponse | undefined;
       if (data?.status === "pending" || data?.status === "generating") {
-        return 3000; // 3 секунды
+        return 3000;
+      }
+      if (data?.translation_status === "pending") {
+        return 3000;
       }
       return false;
     },
   });
 }
-

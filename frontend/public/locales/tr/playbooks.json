@@ -1,0 +1,344 @@
+{
+  "selectorPanel": {
+    "title": "Project Playbook",
+    "subtitle": "Choose, apply, and view the playbook contents for the current deal.",
+    "subtitleEmbedded": "Choose, apply, and view the playbook contents.",
+    "backLink": "← Back to project",
+    "noPermissions": "You do not have permission to configure this project's playbook.",
+    "backButton": "Go Back",
+    "currentVersion": "Current version: <bold>{{versionId}}</bold>",
+    "noVersionSelected": "No playbook has been selected for this project yet.",
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "templates": {
+      "title": "Playbook Templates",
+      "loading": "Loading playbook templates...",
+      "emptyTitle": "No templates configured",
+      "emptyDesc": "Create your first playbook template in the admin section.",
+      "meta": {
+        "type": "Type: {{type}}",
+        "jurisdiction": "Jurisdiction: {{jurisdiction}}",
+        "language": "Language: {{language}}"
+      }
+    },
+    "versions": {
+      "title": "Playbook Versions",
+      "emptyLineTitle": "Template not selected",
+      "emptyLineDesc": "First select a playbook template in the left column.",
+      "emptyVersionsTitle": "No versions yet",
+      "emptyVersionsDesc": "There are no versions for the selected template yet. Select a model and create the first one.",
+      "modelConfigLabel": "Model (ModelConfig)",
+      "loadingModels": "Loading model list...",
+      "noModelsTitle": "Models unavailable",
+      "noModelsDesc": "No models available. Please contact your administrator.",
+      "createDraftButton": "Create Version from Template",
+      "draftWarning": "Draft cannot be applied to a project — publish the version in Playbook Studio first.",
+      "alreadyApplied": "Already applied",
+      "applyButton": "Apply to Project",
+      "loading": "Loading playbook versions..."
+    },
+    "details": {
+      "title": "Playbook Contents",
+      "editTemplate": "Edit Template",
+      "emptyTitle": "Nothing selected",
+      "emptyDesc": "Select a playbook template, then a version.",
+      "generalInfo": "General Information",
+      "sectionsProfiles": "Sections / Profiles",
+      "sectionsEmpty": "Section markers are not defined.",
+      "ddRequests": "DD Requests",
+      "ddRequestsEmpty": "DD request templates are not defined.",
+      "template": "Template",
+      "checks": "Template Checks",
+      "checksEmpty": "There are no items in this template yet.",
+      "loading": "Loading playbook contents..."
+    },
+    "history": {
+      "title": "Playbook Change History",
+      "loading": "Loading history...",
+      "emptyTitle": "History is empty",
+      "emptyDesc": "No playbook changes recorded for this deal.",
+      "wasNotSet": "not set",
+      "notSet": "not set",
+      "was": "Was: {{oldValue}}",
+      "to": "→ {{newValue}}"
+    },
+    "confirm": {
+      "title": "Replace current playbook?",
+      "description": "The current playbook version will be replaced. Continue?",
+      "confirmLabel": "Yes, replace",
+      "cancelLabel": "Cancel"
+    },
+    "errors": {
+      "noVersion": "Select a playbook version first.",
+      "conflict": "Failed to apply playbook: state conflict.",
+      "applyFailed": "Failed to apply playbook to the project. Please try again later.",
+      "noModel": "Select a model (ModelConfig) for this playbook first.",
+      "createFailed": "Failed to create playbook version.",
+      "historyLoadFailed": "Failed to load playbook change history.",
+      "modelsLoadFailed": "Failed to load models list. Please contact your administrator.",
+      "defaultNewVersion": "New version",
+      "draftCreated": "Draft version created. Publish it in Playbook Studio, then apply to the project.",
+      "validationForm": "Form data validation error.",
+      "selectModelConfig": "Please select a model configuration.",
+      "publishFailed": "Template saved and draft created, but publication failed.",
+      "createVersionFailed": "Failed to create playbook version."
+    }
+  },
+  "globalPlaybookDetail": {
+    "backToList": "Global Playbooks",
+    "fallbackTitle": "Playbook",
+    "refreshAction": "Refresh",
+    "refreshAriaVersions": "Refresh versions",
+    "refreshAriaVersionData": "Refresh version data",
+    "versionsSectionTitle": "Versions",
+    "loadingVersions": "Loading versions…",
+    "versionsLoadError": "Failed to load playbook versions.",
+    "emptyVersionsTitle": "No versions",
+    "emptyVersionsDescription": "No versions have been created for this playbook yet.",
+    "versionPage": {
+      "loading": "Loading playbook version…",
+      "notFoundError": "Version not found or failed to load data.",
+      "notFoundTitle": "Version not found",
+      "notFoundDescription": "Verify the link is correct.",
+      "backAction": "Back",
+      "playbookLabel": "Playbook: {{title}}",
+      "fallbackPlaybookLabel": "Global Playbooks",
+      "metadataSectionTitle": "Metadata",
+      "metadata": {
+        "playbookId": "Playbook ID",
+        "versionId": "Version ID",
+        "semver": "Semver"
+      },
+      "infoSectionTitle": "Information",
+      "readOnlyNotice": "Global playbook versions are managed via the playbook domain and cannot be edited directly here. To manage playbook content use the ",
+      "readOnlyLinkLabel": "Admin Playbook Lines",
+      "readOnlyNoticeTail": " section.",
+      "otherVersionsLabel": "Other versions of this playbook"
+    }
+  },
+  "studio": {
+    "title": "Playbook Studio",
+    "subtitle": "Create and manage playbook templates and their versions.",
+    "refresh": "Refresh",
+    "new": "New",
+    "templates": "Templates",
+    "newTemplate": "New template",
+    "templateEditor": "Template editor",
+    "configure": "Configure",
+    "backLabel": "Instructions"
+  },
+  "errors": {
+    "loadTemplateDetail": "Failed to load template details.",
+    "loadTemplates": "Failed to load templates.",
+    "loadingTemplates": "Loading templates…",
+    "validationTitle": "Please specify the playbook template name.",
+    "validationItems": "Please add at least one instruction to the template composition.",
+    "validationNoSelect": "No template selected for saving.",
+    "validationEtag": "Failed to determine template version. Please refresh the page."
+  },
+  "templates": {
+    "emptyTitle": "No templates",
+    "emptyDesc": "Create your first playbook template.",
+    "emptyEditorTitle": "No template selected",
+    "emptyEditorDesc": "Select an existing template on the left or create a new one.",
+    "emptyVersionTitle": "No template selected",
+    "emptyVersionDesc": "To create a version, select or create a playbook template first."
+  },
+  "form": {
+    "title": "Name",
+    "titlePlaceholder": "e.g. Real Estate DD RU",
+    "description": "Description",
+    "descriptionPlaceholder": "Short description of the template's purpose…",
+    "dealType": "Deal type",
+    "dealTypePlaceholder": "mna / real_estate / nda …",
+    "jurisdiction": "Jurisdiction",
+    "jurisdictionPlaceholder": "RU / EN / DE …",
+    "language": "Language",
+    "languagePlaceholder": "ru / en / de …",
+    "versionName": "Version name",
+    "versionNamePlaceholder": "e.g. Real Estate DD RU v1",
+    "versionNumber": "Version number",
+    "versionNumberPlaceholder": "0.1.0",
+    "modelConfig": "Model configuration",
+    "modelConfigLoading": "Loading…",
+    "modelConfigMissing": "Model configurations not found.",
+    "modelConfigCreate": "Create configuration"
+  },
+  "picker": {
+    "title": "Add instruction",
+    "group": "Group",
+    "allGroups": "All groups",
+    "instruction": "Instruction",
+    "allAdded": "All added",
+    "addButton": "Add"
+  },
+  "composition": {
+    "title": "Template composition",
+    "empty": "Composition is empty. Use the block above to add instructions.",
+    "deleteInstruction": "Delete {{code}}"
+  },
+  "version": {
+    "title": "Playbook version",
+    "subtitle": "Save template and create version — in one action.",
+    "newTemplateAuto": "New template (will be created automatically)",
+    "draftButton": "Save draft",
+    "publishButton": "Publish",
+    "existing": "Existing versions",
+    "draftSuccess": "Template saved. Playbook version draft created.",
+    "publishSuccess": "Template saved. Playbook version created and published."
+  },
+  "lines": {
+    "header": {
+      "badge": "Admin · Playbook",
+      "title": "Playbook Template Constructor",
+      "subtitle": "Configure logical lines (templates) and their composition for projects.",
+      "back": "← Back to projects"
+    },
+    "validation": {
+      "titleRequired": "Please specify template name.",
+      "topicRequired": "Item #{{index}}: select a topic.",
+      "checkRequired": "Item #{{index}}: select a check for check type."
+    },
+    "errors": {
+      "loadLines": "Failed to load playbook templates.",
+      "loadDetail": "Failed to load playbook template.",
+      "cannotDeleteInUse": "Template cannot be deleted because it is used in projects or analysis runs.",
+      "notFound": "Template already deleted or not found.",
+      "deleteFailed": "Failed to delete playbook template.",
+      "saveFailed": "Failed to save playbook template."
+    },
+    "messages": {
+      "saved": "Template saved.",
+      "deleted": "Template deleted."
+    },
+    "list": {
+      "title": "Playbook templates",
+      "new": "+ New",
+      "loading": "Loading template list…",
+      "emptyTitle": "No templates created yet",
+      "emptyDesc": "Create your first playbook template to configure a set of topics and checks for projects.",
+      "createButton": "Create template",
+      "typePrefix": "Type: {{type}} · ",
+      "jurisdictionPrefix": "Jurisdiction: {{jurisdiction}} · ",
+      "languagePrefix": "Language: {{language}}"
+    },
+    "form": {
+      "editTitle": "Edit template",
+      "newTitle": "New template",
+      "idLabel": "ID: {{id}}",
+      "loadingDetail": "Loading template data…",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Real estate RU / M&A RU…",
+      "dealTypeLabel": "Deal type",
+      "dealTypePlaceholder": "real_estate, mna, nda…",
+      "jurisdictionLabel": "Jurisdiction",
+      "jurisdictionPlaceholder": "RU, EN, DE…",
+      "languageLabel": "Language",
+      "languagePlaceholder": "ru, en…",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Short description of which projects this template is used for."
+    },
+    "items": {
+      "title": "Template composition (topics / checks)",
+      "catalogNotLoaded": "Topic catalog not loaded",
+      "addItem": "+ Item",
+      "catalogUnavailableTitle": "Topic catalog unavailable",
+      "catalogUnavailableDesc": "Catalog of topics and checks is not loaded or empty. Check endpoint /playbooks/catalog.",
+      "emptyTitle": "Template composition is empty",
+      "emptyDesc": "Add a topic or check to form the contents of the playbook template.",
+      "emptyButton": "Add item",
+      "type": "Type",
+      "topic": "Topic",
+      "check": "Check",
+      "order": "Order",
+      "delete": "Delete",
+      "notSelected": "— not selected —",
+      "selectCheck": "— select check —",
+      "topicCheckUnused": "Check is not used for topic type",
+      "noChecksForTopic": "No checks for selected topic"
+    },
+    "buttons": {
+      "deleteTemplate": "Delete template",
+      "saveFirstHint": "Save the template first, then it can be deleted.",
+      "saveTemplate": "Save template"
+    },
+    "confirm": {
+      "deleteTitle": "Delete template?",
+      "deleteDescWithTitle": "Template \"{{title}}\" will be deleted permanently. If used in projects or historical analysis runs, the server will reject deletion.",
+      "deleteDescGeneric": "The template will be deleted permanently.",
+      "deleteButton": "Delete",
+      "cancelButton": "Cancel"
+    }
+  },
+  "registry": {
+    "header": {
+      "back": "Instructions",
+      "title": "Standard playbook registry",
+      "subtitle": "Published playbooks available to users in projects. Read-only and export.",
+      "count": "Playbooks: {{count}}",
+      "exportExcel": "Excel",
+      "exportWord": "Word",
+      "refresh": "Refresh"
+    },
+    "errors": {
+      "loadFailed": "Failed to load playbook registry."
+    },
+    "loading": "Loading playbook registry…",
+    "empty": {
+      "title": "Registry is empty",
+      "description": "No published playbooks yet. Create and publish a playbook in Playbook Studio.",
+      "button": "Open Playbook Studio"
+    },
+    "list": {
+      "title": "Playbook",
+      "searchPlaceholder": "Search by name, code…",
+      "notFound": "Nothing found."
+    },
+    "detail": {
+      "title": "Playbook details",
+      "emptyTitle": "Playbook not selected",
+      "emptyDesc": "Select a playbook on the left to view details.",
+      "versionLabel": "Version",
+      "dealTypeLabel": "Deal type",
+      "jurisdictionLabel": "Jurisdiction",
+      "languageLabel": "Language",
+      "compositionTitle": "Playbook composition",
+      "compositionEmpty": "Composition is empty.",
+      "colNumber": "#",
+      "colInstruction": "Instruction",
+      "colSeverity": "Severity"
+    },
+    "exports": {
+      "generatedPrefix": "Generated:",
+      "totalPrefix": "Total playbooks:",
+      "compositionTitle": "Composition",
+      "compositionEmpty": "Composition is empty.",
+      "metaCode": "Code:",
+      "metaVersion": "Version: v{{version}}",
+      "metaType": "Type: {{type}}",
+      "metaJurisdiction": "Jurisdiction: {{jurisdiction}}",
+      "metaLanguage": "Language: {{language}}",
+      "csv": {
+        "code": "Playbook code",
+        "title": "Playbook title",
+        "description": "Description",
+        "dealType": "Deal type",
+        "jurisdiction": "Jurisdiction",
+        "language": "Language",
+        "riskProfile": "Risk profile",
+        "publishedVersion": "Published version",
+        "semver": "Semver",
+        "instrCode": "Instruction code",
+        "instrName": "Instruction name",
+        "group": "Group",
+        "severity": "Severity"
+      }
+    }
+  }
+}
+
+
+

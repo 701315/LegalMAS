@@ -10,7 +10,7 @@ import DemoFaqSection from "../components/demo/DemoFaqSection";
 
 const DemoPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
       <SiteHeader variant="default" />
 
       <main

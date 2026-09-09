@@ -117,5 +117,15 @@ class RunSummary(Base):
         onupdate=datetime.utcnow,
     )
 
+    translations: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment='{"en": {"text": "...", "claims": {...}, "fallback": {...}}}',
+    )
 
+    translation_status: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment='{"en": "pending"|"ready"|"failed"}',
+    )
     
