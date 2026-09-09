@@ -50,11 +50,11 @@ const ContactModal: React.FC<ContactModalProps> = ({
           {/* Левая панель */}
           {/* RTL FIX: lg:border-r заменен на lg:border-e */}
           <div className="border-b border-[var(--border-color)] bg-[var(--bg-surface)] p-8 lg:border-b-0 lg:border-e lg:p-10">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            <p className="text-meta font-medium uppercase text-[var(--text-muted)]">
               {t("home.contactModal.eyebrow")}
             </p>
 
-            <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-[var(--text-primary)] whitespace-pre-line">
+            <h3 className="mt-5 max-w-md text-h2 text-[var(--text-primary)] whitespace-pre-line">
               {t("home.contactModal.title")}
             </h3>
 
@@ -63,7 +63,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
             </p>
 
             <div className="mt-7 rounded-xl border border-[var(--border-color)] bg-white p-5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <p className="text-meta font-medium uppercase text-[var(--text-muted)]">
                 {t("home.contactModal.stepsTitle")}
               </p>
 
@@ -74,7 +74,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
                     className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-base)] px-4 py-3.5"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1A1917] text-[11px] font-medium text-white">
+                      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1A1917] text-meta font-medium text-white">
                         0{index + 1}
                       </div>
                       <p className="text-sm leading-6 text-[var(--text-secondary)]">{item}</p>
@@ -95,7 +95,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
 
               <form onSubmit={onSubmit} className="mt-7 space-y-4">
                 <div>
-                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  <label className="mb-2 block text-meta font-medium uppercase text-[var(--text-muted)]">
                     {t("home.contactModal.emailLabel")}
                   </label>
                   <input
@@ -109,7 +109,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  <label className="mb-2 block text-meta font-medium uppercase text-[var(--text-muted)]">
                     {t("home.contactModal.scenarioLabel")}
                   </label>
                   <textarea

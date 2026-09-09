@@ -242,11 +242,11 @@ function ScenariosSection() {
         style={{ maxWidth: "var(--container-max-width)" }}
       >
         <Reveal>
-          <p className="text-eyebrow uppercase tracking-[0.12em] text-white/55 font-medium mb-4 text-start">
+          <p className="text-eyebrow uppercase text-white/55 font-medium mb-4 text-start">
             {t("solutions.corporateLegal.scenarios.eyebrow")}
           </p>
 
-          <h2 className="font-serif text-h2 tracking-[-0.02em] text-white mb-16 text-start">
+          <h2 className="font-serif text-h2 text-white mb-16 text-start">
             {t("solutions.corporateLegal.scenarios.title")}
           </h2>
 
@@ -260,7 +260,7 @@ function ScenariosSection() {
                     </h3>
                   </div>
                   <div className="md:col-span-8">
-                    <p className="text-body-sm leading-[1.7] text-white/72 font-light max-w-2xl text-start">
+                    <p className="text-body-sm leading-relaxed text-white/72 font-light max-w-2xl text-start">
                       {item.text}
                     </p>
                   </div>
@@ -290,7 +290,7 @@ function CapabilitiesSection() {
           <p className="text-eyebrow mb-4 text-start">
             {t("solutions.corporateLegal.capabilities.eyebrow")}
           </p>
-          <h2 className="font-serif text-h2 tracking-[-0.02em] text-[var(--text-primary)] mb-16 max-w-none text-start">
+          <h2 className="font-serif text-h2 text-[var(--text-primary)] mb-16 max-w-none text-start">
             {t("solutions.corporateLegal.capabilities.title")}
           </h2>
 
@@ -361,7 +361,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
                 {t("solutions.corporateLegal.cta.titlePart2")}
               </span>
             </h2>
-            <div className="mt-7 space-y-5 text-body leading-[1.75] text-[var(--text-secondary)]">
+            <div className="mt-7 space-y-5 text-body leading-relaxed text-[var(--text-secondary)]">
               {paragraphs.map((p, i) => (
                 <p key={i} className="text-start">{p}</p>
               ))}
@@ -376,7 +376,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
                 />
               </button>
             </div>
-            <p className="mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]">
+            <p className="mt-8 text-eyebrow leading-normal text-[var(--text-muted)]">
               {t("solutions.corporateLegal.cta.meta")}
             </p>
           </div>

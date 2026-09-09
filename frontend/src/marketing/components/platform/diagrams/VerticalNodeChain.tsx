@@ -77,13 +77,13 @@ const VerticalNodeChain: React.FC<VerticalNodeChainProps> = ({
                 {/* RTL FIX: Добавлен text-start для корректного выравнивания в арабском */}
                 <div className="min-w-0 flex-1 text-start">
                   <div
-                    className={`${labelSize} font-semibold leading-tight tracking-[-0.005em]`}
+                    className={`${labelSize} font-semibold leading-tight`}
                     style={{ color: accent ? "#B55D46" : "#1A1917" }}
                   >
                     {label}
                   </div>
                   {meta && (
-                    <div className="mt-1 text-eyebrow leading-[1.5] text-[var(--text-secondary)] text-start">
+                    <div className="mt-1 text-eyebrow text-[var(--text-secondary)] text-start">
                       {meta}
                     </div>
                   )}

@@ -32,7 +32,7 @@ const DemoFormSection: React.FC = () => {
     <section className="mt-12 grid gap-6 lg:grid-cols-[1fr_0.75fr] lg:items-start">
       {/* Форма */}
       <div className="rounded-2xl border border-[var(--border-color)] bg-white p-7 lg:p-9">
-        <h2 className="font-serif text-2xl tracking-[-0.03em] text-[var(--text-primary)] text-start">
+        <h2 className="text-h3 text-[var(--text-primary)] text-start">
           {t("demo.form.title")}
         </h2>
         <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)] text-start">
@@ -102,7 +102,7 @@ const DemoFormSection: React.FC = () => {
 
       {/* Aside */}
       <aside className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-7">
-        <h3 className="font-serif text-xl tracking-[-0.02em] text-[var(--text-primary)] text-start">
+        <h3 className="text-h3 font-serif text-[var(--text-primary)] text-start">
           {t("demo.aside.title")}
         </h3>
         <ul className="mt-6 space-y-3">

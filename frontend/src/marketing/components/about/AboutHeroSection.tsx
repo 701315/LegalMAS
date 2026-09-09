@@ -78,10 +78,10 @@ const AboutHeroSection: React.FC = () => {
             animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.22, ease }}
           >
-            <p className="text-body leading-[1.7] text-[var(--text-secondary)]">
+            <p className="text-body leading-relaxed text-[var(--text-secondary)]">
               {t('about.hero.description1')}
             </p>
-            <p className="text-body leading-[1.7] text-[var(--text-muted)]">
+            <p className="text-body leading-relaxed text-[var(--text-muted)]">
               {t('about.hero.description2')}
             </p>
           </motion.div>

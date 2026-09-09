@@ -78,7 +78,7 @@ const SecurityHeroSection: React.FC = () => {
             </motion.div>
 
             <motion.h1
-              className="mt-5 font-serif text-display leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)] whitespace-pre-line"
+              className="mt-5 font-serif text-display text-[var(--text-primary)] whitespace-pre-line"
               initial={prefersReduced ? undefined : { opacity: 0, y: 14 }}
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.12, ease }}
@@ -93,10 +93,10 @@ const SecurityHeroSection: React.FC = () => {
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.22, ease }}
             >
-              <p className="text-body leading-[1.7] text-[var(--text-secondary)]">
+              <p className="text-body leading-relaxed text-[var(--text-secondary)]">
                 {t('hero.subtitle')}
               </p>
-              <p className="text-body leading-[1.7] text-[var(--text-muted)]">
+              <p className="text-body leading-relaxed text-[var(--text-muted)]">
                 {t('hero.description')}
               </p>
             </motion.div>
@@ -245,7 +245,7 @@ const SecurityLayersStackDark: React.FC<SecurityLayersStackDarkProps> = ({ layer
 
       <motion.p
         // RTL FIX: pl-7 заменен на ps-7
-        className="mb-8 ps-7 text-eyebrow uppercase tracking-[0.24em] text-[rgba(250,248,245,0.75)]"
+        className="mb-8 ps-7 text-eyebrow uppercase text-[rgba(250,248,245,0.75)]"
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.5 }}
@@ -278,7 +278,7 @@ const SecurityLayersStackDark: React.FC<SecurityLayersStackDarkProps> = ({ layer
               0{i + 1}
             </span>
             <span
-              className="font-serif text-[2rem] italic leading-[1.15] text-[rgba(250,248,245,1)] lg:text-[2.25rem]"
+              className="font-serif text-h2 italic text-[rgba(250,248,245,1)] text-h1"
               style={{
                 textShadow: '0 2px 16px rgba(0,0,0,0.7)',
               }}

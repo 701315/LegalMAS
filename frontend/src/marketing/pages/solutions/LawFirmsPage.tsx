@@ -216,11 +216,11 @@ function ScenariosSection() {
         style={{ maxWidth: "var(--container-max-width)" }}
       >
         <Reveal>
-          <p className="text-eyebrow uppercase tracking-[0.12em] text-white/55 font-medium mb-4 text-start">
+          <p className="text-eyebrow uppercase text-white/55 font-medium mb-4 text-start">
             {t("solutions.lawFirms.scenarios.eyebrow")}
           </p>
 
-          <h2 className="font-serif text-h2 tracking-[-0.02em] text-white mb-16 text-start">
+          <h2 className="font-serif text-h2 text-white mb-16 text-start">
             {t("solutions.lawFirms.scenarios.title")}
           </h2>
 
@@ -234,7 +234,7 @@ function ScenariosSection() {
                     </h3>
                   </div>
                   <div className="md:col-span-8">
-                    {/* ИСПРАВЛЕНО: Убран избыточный leading-[1.7], так как text-body-sm уже содержит line-height */}
+                    {/* ИСПРАВЛЕНО: Убран избыточный leading-relaxed, так как text-body-sm уже содержит line-height */}
                     <p className="text-body-sm text-white/72 font-light max-w-2xl text-start">
                       {item.text}
                     </p>
@@ -265,7 +265,7 @@ function CapabilitiesSection() {
           <p className="text-eyebrow mb-4 text-start">
             {t("solutions.lawFirms.capabilities.eyebrow")}
           </p>
-          <h2 className="font-serif text-h2 tracking-[-0.02em] text-primary mb-16 max-w-none text-start">
+          <h2 className="font-serif text-h2 text-primary mb-16 max-w-none text-start">
             {t("solutions.lawFirms.capabilities.title")}
           </h2>
           <div className="mt-16">
@@ -336,7 +336,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
                 {t("solutions.lawFirms.cta.titlePart2")}
               </span>
             </h2>
-            {/* ИСПРАВЛЕНО: Убран избыточный leading-[1.75], так как text-body уже содержит его */}
+            {/* ИСПРАВЛЕНО: Убран избыточный leading-relaxed, так как text-body уже содержит его */}
             <div className="mt-7 space-y-5 text-body text-secondary">
               {paragraphs.map((p, i) => (
                 <p key={i} className="text-start">{p}</p>

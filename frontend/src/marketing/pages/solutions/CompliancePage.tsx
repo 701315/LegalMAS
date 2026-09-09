@@ -104,13 +104,13 @@ function HeroSection({
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.22, ease }}
             >
-              <p className="text-body leading-[1.75] text-white/70 font-light text-start">
+              <p className="text-body leading-relaxed text-white/70 font-light text-start">
                 {t("solutions.compliance.hero.description")}
               </p>
             </motion.div>
 
             <motion.h1
-              className="mt-12 font-serif text-display leading-[1.05] tracking-[-0.03em] text-[var(--text-inverse)] whitespace-pre-line"
+              className="mt-12 font-serif text-display text-[var(--text-inverse)] whitespace-pre-line"
               initial={prefersReduced ? undefined : { opacity: 0, y: 14 }}
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4, ease }}
@@ -262,7 +262,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
                 {t("solutions.compliance.cta.titlePart2")}
               </span>
             </h2>
-            <div className="mt-7 space-y-5 text-body leading-[1.75] text-[var(--text-secondary)]">
+            <div className="mt-7 space-y-5 text-body leading-relaxed text-[var(--text-secondary)]">
               {paragraphs.map((p, i) => (
                 <p key={i} className="text-start">{p}</p>
               ))}
@@ -277,7 +277,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
                 />
               </button>
             </div>
-            <p className="mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]">
+            <p className="mt-8 text-eyebrow leading-normal text-[var(--text-muted)]">
               {t("solutions.compliance.cta.meta")}
             </p>
           </div>

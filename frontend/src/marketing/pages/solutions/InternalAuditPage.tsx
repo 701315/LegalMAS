@@ -92,7 +92,7 @@ function HeroSection({ prefersReduced }: { prefersReduced: boolean }) {
           animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.3, ease }}
         >
-          <p className="text-body leading-[1.7] text-[var(--text-secondary)] font-light text-start">
+          <p className="text-body leading-relaxed text-[var(--text-secondary)] font-light text-start">
             {t("solutions.internalAuditPage.hero.intro")}
           </p>
         </motion.div>
@@ -254,7 +254,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
 
             <div className="mt-7 space-y-5" style={{ maxWidth: 620 }}>
               {paragraphs.map((p, i) => (
-                <p key={i} className="text-body leading-[1.75] text-[var(--text-secondary)] text-start">
+                <p key={i} className="text-body leading-relaxed text-[var(--text-secondary)] text-start">
                   {p}
                 </p>
               ))}
@@ -275,7 +275,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
               </button>
             </div>
 
-            <p className="mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]">
+            <p className="mt-8 text-eyebrow leading-normal text-[var(--text-muted)]">
               {t("solutions.internalAuditPage.cta.meta")}
             </p>
           </div>

@@ -36,7 +36,7 @@ files.forEach(file => {
     const classNameMatch = match.match(/className=["']([^"']+)["']/);
     if (classNameMatch) {
       const classes = classNameMatch[1];
-      if (!classes.includes('text-h1') && !classes.includes('text-h2') && !classes.includes('text-h3') && !classes.includes('text-display')) {
+      if (!classes.includes('text-h1') && !classes.includes('text-h2') && !classes.includes('text-h3') && !classes.includes('text-display') && !classes.includes('text-meta') && !classes.includes('text-eyebrow')) {
         fileLog += `   ⚠️ Заголовок без токена:\n      "${classes}"\n`;
         hasFindings = true;
       }

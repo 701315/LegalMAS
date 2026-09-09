@@ -26,7 +26,7 @@ const DemoWhatYouSeeSection: React.FC = () => {
       <p className="eyebrow text-start">
         {t("demo.whatYouSee.eyebrow")}
       </p>
-      <h2 className="section-title !mt-4 text-start">
+      <h2 className="text-h2 !mt-4 text-start">
         {t("demo.whatYouSee.title")}
       </h2>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -42,7 +42,7 @@ const DemoWhatYouSeeSection: React.FC = () => {
               <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)]">
                 <IconComponent className="h-5 w-5 text-[var(--text-secondary)]" />
               </div>
-              <h3 className="mt-6 text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              <h3 className="mt-6 text-h3 font-semibold text-[var(--text-primary)]">
                 {item.title}
               </h3>
               <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">

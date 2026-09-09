@@ -23,16 +23,16 @@ const AboutPhilosophySection: React.FC = () => {
             <div className="card-surface p-10 lg:p-12 flex flex-col h-full justify-between border-[var(--border-color)]">
               <div>
                 <p className="eyebrow">{t('about.philosophy.card1.eyebrow')}</p>
-                <h3 className="section-title text-3xl mt-4">
+                <h3 className="text-h2 text-3xl mt-4">
                   {t('about.philosophy.card1.title')}
                 </h3>
-                <p className="text-body-sm leading-[1.7] text-[var(--text-secondary)] mt-6">
+                <p className="text-body-sm leading-relaxed text-[var(--text-secondary)] mt-6">
                   {t('about.philosophy.card1.description')}
                 </p>
               </div>
               <ul className="mt-10 space-y-3">
                 {card1Tags.map((tag: string) => (
-                  <li key={tag} className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+                  <li key={tag} className="flex items-center gap-3 text-meta font-semibold uppercase tracking-widest text-[var(--text-muted)]">
                     <span className="h-1 w-1 rounded-full bg-[var(--color-accent)]" /> {tag}
                   </li>
                 ))}
@@ -45,10 +45,10 @@ const AboutPhilosophySection: React.FC = () => {
             <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-10 lg:p-12 flex flex-col h-full justify-between">
               <div>
                 <p className="eyebrow">{t('about.philosophy.card2.eyebrow')}</p>
-                <h3 className="section-title text-3xl mt-4">
+                <h3 className="text-h2 text-3xl mt-4">
                   {t('about.philosophy.card2.title')}
                 </h3>
-                <p className="text-body-sm leading-[1.7] text-[var(--text-secondary)] mt-6">
+                <p className="text-body-sm leading-relaxed text-[var(--text-secondary)] mt-6">
                   {t('about.philosophy.card2.description')}
                 </p>
               </div>
@@ -57,7 +57,7 @@ const AboutPhilosophySection: React.FC = () => {
                 {card2Badges.map((badge: string) => (
                   <span 
                     key={badge} 
-                    className="bg-[var(--color-accent)]/10 text-[var(--accent-primary)] px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-sm"
+                    className="bg-[var(--color-accent)]/10 text-[var(--accent-primary)] px-3 py-1 text-meta font-bold uppercase tracking-widest rounded-sm"
                   >
                     {badge}
                   </span>

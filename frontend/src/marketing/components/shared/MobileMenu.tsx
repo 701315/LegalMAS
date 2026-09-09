@@ -200,7 +200,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ open, onClose }) => {
                         <div className="mt-1 mb-2 ms-3 border-s border-[var(--border-color)] ps-3">
                           {SOLUTIONS_MEGA_MENU.sections.map((section) => (
                             <div key={section.title} className="pt-3 first:pt-1">
-                              <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                              <p className="px-4 pb-1.5 text-meta font-bold uppercase text-[var(--text-muted)]">
                                 {section.title}
                               </p>
                               <ul className="flex flex-col">

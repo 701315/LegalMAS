@@ -36,14 +36,14 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ item, index, reviewAreasL
       >
         <div className="flex min-w-0 flex-1 items-baseline gap-5">
           <span
-            className="shrink-0 text-[10px] font-medium uppercase tracking-[0.22em]"
+            className="shrink-0 text-meta font-medium uppercase"
             style={{ color: '#A8A29E' }}
           >
             {item.number}
           </span>
 
           <span
-            className="text-body font-medium leading-tight tracking-[-0.005em] transition-colors lg:text-lg"
+            className="text-body font-medium leading-tight transition-colors lg:text-lg"
             style={{ color: '#1A1917' }}
           >
             {item.question}
@@ -80,13 +80,13 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ item, index, reviewAreasL
           >
             {/* RTL FIX: ml заменен на ms (margin-start), pr на pe (padding-end) */}
             <div className="ms-[calc(10px+1.25rem)] pb-7 pe-8 lg:ms-[calc(12px+1.25rem)]">
-              <p className="text-body-sm leading-[1.75] text-[var(--text-secondary)]">
+              <p className="text-body-sm leading-relaxed text-[var(--text-secondary)]">
                 {item.answer}
               </p>
 
               {item.tags && item.tags.length > 0 && (
                 <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-2">
-                  <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                  <span className="text-meta font-medium uppercase text-[var(--text-muted)]">
                     {reviewAreasLabel}
                   </span>
                   <span className="text-[var(--text-faint)]">·</span>
@@ -158,7 +158,7 @@ const SecurityFAQSection: React.FC = () => {
           <div className="mx-auto mb-14 lg:mb-20" style={{ maxWidth: 960 }}>
             {/* RTL FIX: border-l-2, pl-5 заменены на border-s-2, ps-5 */}
             <div className="border-s-2 border-[#D6D0C7] ps-5 py-2">
-              <p className="text-eyebrow leading-[1.7] text-[var(--text-muted)]">
+              <p className="text-eyebrow leading-relaxed text-[var(--text-muted)]">
                 {faqContent.disclaimer}
               </p>
             </div>

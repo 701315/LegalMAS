@@ -102,7 +102,7 @@ function HeroSection({
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.05, ease }}
             >
-              <div className="flex items-center gap-2 text-meta uppercase tracking-[0.14em]">
+              <div className="flex items-center gap-2 text-meta uppercase">
                 <span className="text-white/70">{t("solutions.internalAudit.hero.eyebrowCategory")}</span>
                 <span className="text-white/40" aria-hidden="true">/</span>
                 <span className="text-white/70">{t("solutions.internalAudit.hero.eyebrowScenario")}</span>
@@ -110,7 +110,7 @@ function HeroSection({
             </motion.div>
 
             <motion.h1
-              className="mt-10 font-serif text-[clamp(2rem,4vw,3.05rem)] leading-[1.08] tracking-[-0.03em] text-[var(--text-inverse)] whitespace-pre-line"
+              className="mt-10 font-serif text-h1 text-[var(--text-inverse)] whitespace-pre-line"
               initial={prefersReduced ? undefined : { opacity: 0, y: 14 }}
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.22, ease }}
@@ -123,7 +123,7 @@ function HeroSection({
             </motion.h1>
 
             <motion.p
-              className="mt-8 max-w-xl text-base leading-[1.75] text-white/72 font-light text-start"
+              className="mt-8 max-w-xl text-base leading-relaxed text-white/72 font-light text-start"
               initial={prefersReduced ? undefined : { opacity: 0, y: 12 }}
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.38, ease }}
@@ -181,7 +181,7 @@ function AuditRoutinesIntroSection() {
             </div>
 
             <div className="lg:col-span-7">
-              <div className="space-y-6 text-base leading-[1.8] text-[var(--text-secondary)] font-light">
+              <div className="space-y-6 text-base leading-relaxed text-[var(--text-secondary)] font-light">
                 {paragraphs.map((p, i) => (
                   <p key={i} className="text-start">{p}</p>
                 ))}
@@ -326,7 +326,7 @@ function SignalsSection() {
               <h2 className="text-h2 text-start">
                 {t("solutions.internalAudit.signals.title")}
               </h2>
-              <p className="mt-5 text-[0.95rem] leading-[1.75] text-[var(--text-secondary)] font-light max-w-md text-start">
+              <p className="mt-5 text-body-sm leading-relaxed text-[var(--text-secondary)] font-light max-w-md text-start">
                 {t("solutions.internalAudit.signals.description")}
               </p>
             </div>
@@ -386,7 +386,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
               </span>
             </h2>
 
-            <div className="mt-7 space-y-5 text-body leading-[1.75] text-[var(--text-secondary)]">
+            <div className="mt-7 space-y-5 text-body leading-relaxed text-[var(--text-secondary)]">
               {paragraphs.map((p, i) => (
                 <p key={i} className="text-start">{p}</p>
               ))}
@@ -403,7 +403,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
               </button>
             </div>
 
-            <p className="mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]">
+            <p className="mt-8 text-eyebrow leading-normal text-[var(--text-muted)]">
               {t("solutions.internalAudit.cta.meta")}
             </p>
           </div>

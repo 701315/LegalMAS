@@ -59,7 +59,7 @@ const SecurityFoundationSection: React.FC = () => {
                   <div className="mb-5 text-[var(--accent-primary)] transition-transform duration-500 group-hover:-translate-y-1">
                     {SECURITY_ICONS[i]}
                   </div>
-                  <h3 className="text-lg font-medium text-[var(--text-primary)] tracking-tight mb-2">
+                  <h3 className="text-h3 font-medium text-[var(--text-primary)] mb-2">
                     {item.title}
                   </h3>
                   <p className="text-body-sm leading-relaxed text-[var(--text-secondary)] max-w-[280px]">
@@ -74,13 +74,13 @@ const SecurityFoundationSection: React.FC = () => {
           <div className="flex flex-col justify-center lg:col-span-5 lg:sticky lg:top-32">
             <span className="eyebrow">{t("home.securityFoundation.eyebrow") || "Security"}</span>
 
-            <h2 className="section-title !mt-2 text-[var(--text-primary)] whitespace-pre-line">
+            <h2 className="text-h2 !mt-2 text-[var(--text-primary)] whitespace-pre-line">
               {t("home.securityFoundation.title") || "Security built into the architecture"}
             </h2>
 
             <div className="mt-8 flex flex-col gap-6">
               {paragraphs.map((paragraph, index) => (
-                <p key={index} className="text-body leading-[1.7] text-[var(--text-secondary)]">
+                <p key={index} className="text-body leading-relaxed text-[var(--text-secondary)]">
                   {paragraph}
                 </p>
               ))}

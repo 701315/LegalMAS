@@ -36,7 +36,7 @@ const PlatformMethodologySection: React.FC = () => {
 
               {/* Lead-in — короткое tagline-предложение перед основным текстом */}
               <p
-                className="mt-6 font-serif text-h3 italic leading-[1.5] text-[var(--text-primary)] text-start"
+                className="mt-6 font-serif text-h3 italic text-[var(--text-primary)] text-start"
                 style={{ maxWidth: 560 }}
               >
                 {t("platform.methodology.leadIn")}
@@ -46,7 +46,7 @@ const PlatformMethodologySection: React.FC = () => {
                 {paragraphs.map((p, i) => (
                   <p
                     key={i}
-                    className="text-body leading-[1.75] text-[var(--text-secondary)] text-start"
+                    className="text-body leading-relaxed text-[var(--text-secondary)] text-start"
                   >
                     {p}
                   </p>

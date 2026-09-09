@@ -38,7 +38,7 @@ const SecurityCapabilitiesSection: React.FC = () => {
         <Reveal>
           <div className="max-w-2xl">
             <p className="eyebrow">{capabilitiesContent.eyebrow}</p>
-            <h2 className="section-title">{capabilitiesContent.title}</h2>
+            <h2 className="text-h2">{capabilitiesContent.title}</h2>
             <p className="section-desc">{capabilitiesContent.description}</p>
           </div>
         </Reveal>
@@ -100,7 +100,7 @@ const CapabilityBlock: React.FC<CapabilityBlockProps> = ({
             <p className="eyebrow !mb-0">{capability.label}</p>
           </div>
 
-          <h3 className="mt-4 font-serif text-h2 leading-[1.15] tracking-[-0.02em] text-[var(--text-primary)]">
+          <h3 className="mt-4 font-serif text-h2 text-[var(--text-primary)]">
             {capability.title}
           </h3>
 
@@ -112,7 +112,7 @@ const CapabilityBlock: React.FC<CapabilityBlockProps> = ({
 
           <div className="mt-5 space-y-4" style={{ maxWidth: 620 }}>
             {capability.paragraphs.map((p, i) => (
-              <p key={i} className="text-body-sm leading-[1.7] text-[var(--text-secondary)]">
+              <p key={i} className="text-body-sm leading-relaxed text-[var(--text-secondary)]">
                 {p}
               </p>
             ))}
@@ -172,7 +172,7 @@ const BulletCard: React.FC<BulletCardProps> = ({ bullets, variant }) => {
               className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]"
               aria-hidden="true"
             />
-            <span className="text-body-sm leading-[1.7] text-[var(--text-secondary)]">
+            <span className="text-body-sm leading-relaxed text-[var(--text-secondary)]">
               {bullet}
             </span>
           </li>

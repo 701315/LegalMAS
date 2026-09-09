@@ -33,13 +33,13 @@ const MarketingEditorialShell: React.FC<MarketingEditorialShellProps> = ({
               
               {/* Добавлен whitespace-pre-line для поддержки \n из пропсов */}
               <h1
-                className="font-serif text-display leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)] whitespace-pre-line"
+                className="font-serif text-display text-[var(--text-primary)] whitespace-pre-line"
                 style={{ marginTop: eyebrow ? "1rem" : "0" }}
               >
                 {title}
               </h1>
               
-              <p className="mt-6 max-w-3xl text-body leading-[1.7] text-[var(--text-secondary)]">
+              <p className="mt-6 max-w-3xl text-body leading-relaxed text-[var(--text-secondary)]">
                 {description}
               </p>
             </div>

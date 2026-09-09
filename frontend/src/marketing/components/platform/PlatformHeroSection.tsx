@@ -83,7 +83,7 @@ const PlatformHeroSection: React.FC = () => {
             >
               {paragraphs.map((p, i) => (
                 // RTL FIX: Добавлен text-start для абзацев
-                <p key={i} className="text-body leading-[1.75] text-[var(--text-secondary)] text-start">
+                <p key={i} className="text-body leading-relaxed text-[var(--text-secondary)] text-start">
                   {p}
                 </p>
               ))}

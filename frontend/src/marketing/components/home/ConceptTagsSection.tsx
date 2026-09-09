@@ -33,7 +33,7 @@ const ConceptTagsSection: React.FC = () => {
         style={{ maxWidth: "var(--container-max-width)" }}
       >
         <span className="eyebrow">{eyebrow}</span>
-        <h2 className="section-title !mt-2 max-w-3xl whitespace-pre-line text-balance text-[var(--text-primary)]">
+        <h2 className="text-h2 !mt-2 max-w-3xl whitespace-pre-line text-balance text-[var(--text-primary)]">
           {title}
         </h2>
         <p className="section-desc text-center text-[var(--text-secondary)]">

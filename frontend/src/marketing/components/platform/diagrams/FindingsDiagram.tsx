@@ -69,19 +69,19 @@ const FindingsDiagram: React.FC<FindingsDiagramProps> = ({ chain }) => {
                     }}
                   >
                     <div
-                      className="text-[10px] font-medium uppercase tracking-[0.14em]"
+                      className="text-meta font-medium uppercase"
                       style={{ color: isAccent ? "#C86B52" : "#A8A29E" }}
                     >
                       {t("platform.findingsDiagram.levelPrefix")} {String(i + 1).padStart(2, "0")}
                     </div>
                     <div
-                      className="mt-1 text-body-sm font-semibold leading-tight tracking-[-0.005em]"
+                      className="mt-1 text-body-sm font-semibold leading-tight"
                       style={{ color: isAccent ? "#B55D46" : "#1A1917" }}
                     >
                       {node.label}
                     </div>
                     {node.meta && (
-                      <div className="mt-1.5 text-meta leading-[1.4] text-[var(--text-secondary)] text-start">
+                      <div className="mt-1.5 text-meta text-[var(--text-secondary)] text-start">
                         {node.meta}
                       </div>
                     )}
@@ -185,7 +185,7 @@ const FindingsDiagram: React.FC<FindingsDiagramProps> = ({ chain }) => {
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <div
-                    className="text-[10px] font-medium uppercase tracking-[0.14em]"
+                    className="text-meta font-medium uppercase"
                     style={{ color: isAccent ? "#C86B52" : "#A8A29E" }}
                   >
                     {t("platform.findingsDiagram.levelPrefix")} {String(i + 1).padStart(2, "0")}
@@ -198,7 +198,7 @@ const FindingsDiagram: React.FC<FindingsDiagramProps> = ({ chain }) => {
                   {node.label}
                 </div>
                 {node.meta && (
-                  <div className="mt-1 text-meta leading-[1.4] text-[var(--text-secondary)] text-start">
+                  <div className="mt-1 text-meta text-[var(--text-secondary)] text-start">
                     {node.meta}
                   </div>
                 )}
@@ -216,7 +216,7 @@ const FindingsDiagram: React.FC<FindingsDiagramProps> = ({ chain }) => {
         })}
 
         {/* Финальная подпись на мобильных */}
-        <div className="mt-3 text-meta leading-[1.5] text-[var(--text-muted)] text-start">
+        <div className="mt-3 text-meta text-[var(--text-muted)] text-start">
           {t("platform.findingsDiagram.footerNote")}
         </div>
       </div>

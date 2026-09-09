@@ -34,7 +34,7 @@ const SecurityDeploymentSection: React.FC = () => {
         <Reveal>
           <div className="max-w-2xl">
             <p className="eyebrow">{t('deployment.eyebrow')}</p>
-            <h2 className="section-title">{t('deployment.title')}</h2>
+            <h2 className="text-h2">{t('deployment.title')}</h2>
             <p className="section-desc">{t('deployment.description')}</p>
           </div>
         </Reveal>
@@ -64,11 +64,11 @@ const DeploymentCard: React.FC<{ model: DeploymentModel }> = ({ model }) => {
         {icon}
       </div>
 
-      <h3 className="mt-5 font-serif text-[1.375rem] leading-[1.2] tracking-[-0.02em] text-[var(--text-primary)]">
+      <h3 className="mt-5 text-h3 text-[var(--text-primary)]">
         {model.title}
       </h3>
 
-      <p className="mt-3 text-body-sm leading-[1.7] text-[var(--text-secondary)]">
+      <p className="mt-3 text-body-sm leading-relaxed text-[var(--text-secondary)]">
         {model.description}
       </p>
 
@@ -78,7 +78,7 @@ const DeploymentCard: React.FC<{ model: DeploymentModel }> = ({ model }) => {
         {model.features.map((feature, i) => (
           <li key={i} className="flex items-start gap-3">
             <span className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" aria-hidden="true" />
-            <span className="text-sm leading-[1.65] text-[var(--text-secondary)]">{feature}</span>
+            <span className="text-sm leading-normal text-[var(--text-secondary)]">{feature}</span>
           </li>
         ))}
       </ul>
@@ -95,7 +95,7 @@ const DeploymentCard: React.FC<{ model: DeploymentModel }> = ({ model }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ArchitectureSketch: React.FC<{ modelId: string }> = ({ modelId }) => {
-  const n = 'rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--text-secondary)]';
+  const n = 'rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-1 text-meta font-medium text-[var(--text-secondary)]';
   const h = 'h-px w-4 bg-[var(--color-faint)]';
   const v = 'mx-auto h-3 w-px bg-[var(--color-faint)]';
 

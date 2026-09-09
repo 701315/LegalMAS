@@ -40,16 +40,16 @@ const AboutProcessSection: React.FC = () => {
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <div className="h-px w-6 bg-white/20" />
-                  <p className="eyebrow !mb-0 block uppercase text-white/40 tracking-[0.2em] text-[10px]">
+                  <p className="eyebrow !mb-0 block uppercase text-white/40 text-meta">
                     {step.label}
                   </p>
                 </div>
                 
-                <h3 className="font-serif text-2xl italic mb-4 tracking-tight text-white/90">
+                <h3 className="text-h3 italic mb-4 text-white/90">
                   {step.title}
                 </h3>
                 
-                <p className="text-body-sm leading-[1.7] text-white/50 font-light max-w-[280px]">
+                <p className="text-body-sm leading-relaxed text-white/50 font-light max-w-[280px]">
                   {step.desc}
                 </p>
 

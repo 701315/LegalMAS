@@ -295,7 +295,7 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                         <div className="grid grid-cols-3 gap-12 relative z-10">
                           {SOLUTIONS_MEGA_MENU.sections.map((s) => (
                             <div key={s.title}>
-                              <h3 className="mb-6 text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">
+                              <h3 className="mb-6 text-meta font-bold text-gray-400">
                                 {s.title}
                               </h3>
                               <ul className="space-y-5">
@@ -306,10 +306,10 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                                       onClick={() => setSolutionsOpen(false)}
                                       className="group block"
                                     >
-                                      <p className="text-[15px] font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] transition-colors">
+                                      <p className="text-body-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] transition-colors">
                                         {i.label}
                                       </p>
-                                      <p className="text-[13px] text-gray-500 font-normal leading-relaxed mt-1">
+                                      <p className="text-body-sm text-gray-500 font-normal leading-relaxed mt-1">
                                         {i.description}
                                       </p>
                                     </Link>

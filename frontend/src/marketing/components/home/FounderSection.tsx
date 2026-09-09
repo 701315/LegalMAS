@@ -68,7 +68,7 @@ const FounderSection: React.FC = () => {
               <p className="eyebrow mb-8">{t("home.founder.eyebrow")}</p>
               
               <blockquote>
-                <p className="section-title whitespace-pre-line">
+                <p className="text-h2 whitespace-pre-line">
                   {t("home.founder.quote")}
                 </p>
               </blockquote>

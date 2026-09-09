@@ -21,10 +21,10 @@ const AboutTeamSection: React.FC = () => {
           {/* ── Левая колонка: Заголовок и вводный текст ────────────────── */}
           <div className="lg:col-span-4 lg:sticky lg:top-32 h-fit">
             <Reveal>
-              <h2 className="font-serif text-4xl leading-tight tracking-tight text-[var(--text-primary)] text-start">
+              <h2 className="text-h2 text-[var(--text-primary)] text-start">
                 {t('about.team.title')}
               </h2>
-              <p className="mt-6 text-body leading-[1.6] text-[var(--text-secondary)] max-w-sm text-start">
+              <p className="mt-6 text-body leading-normal text-[var(--text-secondary)] max-w-sm text-start">
                 {t('about.team.intro')}
               </p>
             </Reveal>
@@ -44,11 +44,11 @@ const AboutTeamSection: React.FC = () => {
                       />
                     </div>
                     
-                    <h3 className="mt-8 font-serif text-3xl leading-none tracking-tight text-[var(--text-primary)]">
+                    <h3 className="mt-8 text-h2 text-[var(--text-primary)]">
                       {block.title}
                     </h3>
                     
-                    <p className="mt-4 text-body-sm leading-[1.6] text-[var(--text-secondary)] max-w-[380px]">
+                    <p className="mt-4 text-body-sm leading-normal text-[var(--text-secondary)] max-w-[380px]">
                       {block.description}
                     </p>
                   </div>

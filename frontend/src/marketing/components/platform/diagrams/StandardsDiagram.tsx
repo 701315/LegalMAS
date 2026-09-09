@@ -110,7 +110,7 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
             }}
           >
             <div
-              className="text-[10px] font-medium uppercase tracking-[0.14em]"
+              className="text-meta font-medium uppercase"
               style={{ color: "rgba(250, 248, 245, 0.45)" }}
             >
               {t("platform.standardsDiagram.inputLabel")}
@@ -145,7 +145,7 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
           }}
         >
           <div
-            className="text-[10px] font-medium uppercase tracking-[0.14em]"
+            className="text-meta font-medium uppercase"
             style={{ color: "#E89A82" }}
           >
             {t("platform.standardsDiagram.engineLabel")}
@@ -183,7 +183,7 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
             }}
           >
             <div
-              className="text-[10px] font-medium uppercase tracking-[0.14em]"
+              className="text-meta font-medium uppercase"
               style={{ color: "rgba(250, 248, 245, 0.45)" }}
             >
               {t("platform.standardsDiagram.appliedToLabel")}

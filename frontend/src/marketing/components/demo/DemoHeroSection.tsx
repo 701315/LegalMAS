@@ -13,7 +13,7 @@ const DemoHeroSection: React.FC = () => {
       </div>
       
       {/* RTL FIX: Добавлен text-start для корректного выравнивания заголовка в RTL */}
-      <h1 className="mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[var(--text-primary)] sm:text-6xl lg:text-[4.5rem] text-start whitespace-pre-line">
+      <h1 className="mt-8 max-w-4xl text-display text-[var(--text-primary)] sm:text-6xl text-display text-start whitespace-pre-line">
         {t("demo.hero.title")}
       </h1>
       

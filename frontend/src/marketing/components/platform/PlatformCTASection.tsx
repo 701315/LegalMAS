@@ -51,7 +51,7 @@ const PlatformCTASection: React.FC = () => {
               {paragraphs.map((p, i) => (
                 <p
                   key={i}
-                  className="text-body leading-[1.75] text-[var(--text-secondary)]"
+                  className="text-body leading-relaxed text-[var(--text-secondary)]"
                 >
                   {p}
                 </p>
@@ -78,7 +78,7 @@ const PlatformCTASection: React.FC = () => {
             </div>
 
             {/* Мета-строка (сокращённая) */}
-            <p className="mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]">
+            <p className="mt-8 text-eyebrow leading-normal text-[var(--text-muted)]">
               {t("platform.cta.meta")}
             </p>
           </div>

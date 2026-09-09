@@ -33,7 +33,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, items, index }) =>
         <div className="flex items-baseline gap-5 min-w-0 flex-1">
           {/* Порядковый номер */}
           <span
-            className="text-[10px] font-medium uppercase tracking-[0.22em] shrink-0"
+            className="text-meta font-medium uppercase shrink-0"
             style={{ color: "#A8A29E" }}
           >
             {String(index + 1).padStart(2, "0")}
@@ -41,7 +41,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, items, index }) =>
 
           {/* Заголовок */}
           <span
-            className="text-body font-medium leading-tight tracking-[-0.005em] transition-colors lg:text-lg"
+            className="text-body font-medium leading-tight transition-colors lg:text-lg"
             style={{ color: open ? "#1A1917" : "#1A1917" }}
           >
             {title}
@@ -88,7 +88,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, items, index }) =>
                     className="mt-2 flex h-1 w-1 shrink-0 rounded-full bg-[var(--accent-primary)]"
                     aria-hidden="true"
                   />
-                  <span className="text-body-sm leading-[1.65]">
+                  <span className="text-body-sm leading-normal">
                     {item}
                   </span>
                 </li>

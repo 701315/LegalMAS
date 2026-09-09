@@ -85,7 +85,7 @@ const KnowledgeGrowthSection: React.FC = () => {
             <span className="eyebrow">{eyebrow}</span>
 
             {/* whitespace-pre-line сохраняет перенос строки \n из JSON */}
-            <h2 className="section-title !mt-2 text-[var(--text-primary)] whitespace-pre-line">
+            <h2 className="text-h2 !mt-2 text-[var(--text-primary)] whitespace-pre-line">
               {title.split("\n")[0]}
               <br />
               <em className="not-italic text-[var(--accent-primary)]">
@@ -97,7 +97,7 @@ const KnowledgeGrowthSection: React.FC = () => {
               {paragraphs.map((paragraph, index) => (
                 <p 
                   key={index} 
-                  className="text-body leading-[1.7] text-[var(--text-secondary)]"
+                  className="text-body leading-relaxed text-[var(--text-secondary)]"
                 >
                   {paragraph}
                 </p>

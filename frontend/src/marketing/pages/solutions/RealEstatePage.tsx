@@ -83,7 +83,7 @@ function RiskSection() {
         <Reveal>
           <div className="max-w-4xl">
             <RevealItem>
-              {/* ИСПРАВЛЕНО: section-title заменен на text-h2 для строгой семантики */}
+              {/* ИСПРАВЛЕНО: text-h2 заменен на text-h2 для строгой семантики */}
               <h2 className="text-h2 text-start">{t("solutions.realEstate.risks.title")}</h2>
             </RevealItem>
             <div className="mt-12 grid gap-8 sm:grid-cols-3">
@@ -91,7 +91,7 @@ function RiskSection() {
                 <RevealItem key={item.id}>
                   <div className="rounded-xl border border-border bg-card p-6 h-full text-start">
                     {/* ИСПРАВЛЕНО: text-[var(--text-primary)] заменен на text-primary */}
-                    <h3 className="text-base font-medium text-primary">{item.title}</h3>
+                    <h3 className="text-h3 font-medium text-primary">{item.title}</h3>
                     <p className="mt-3 text-body-sm">{item.text}</p>
                   </div>
                 </RevealItem>

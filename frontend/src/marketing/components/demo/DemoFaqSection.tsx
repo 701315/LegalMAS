@@ -48,7 +48,7 @@ const DemoFaqSection: React.FC = () => {
   return (
     <section className="mt-12">
       <p className="eyebrow text-start">{t("demo.faq.eyebrow")}</p>
-      <h2 className="section-title !mt-4 text-start">
+      <h2 className="text-h2 !mt-4 text-start">
         {t("demo.faq.title")}
       </h2>
       <div className="mt-8 rounded-xl border border-[var(--border-color)] bg-white px-6 py-2">

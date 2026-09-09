@@ -103,7 +103,7 @@ const HeroFlowVisual: React.FC = () => {
             }}
           >
             <div
-              className="text-[10px] font-medium uppercase tracking-[0.14em]"
+              className="text-meta font-medium uppercase"
               style={{ color: "#B8B2AA" }}
             >
               {t("platform.heroFlowVisual.inputLabel")}
@@ -140,7 +140,7 @@ const HeroFlowVisual: React.FC = () => {
           />
           <div className="relative">
             <div
-              className="text-[10px] font-medium uppercase tracking-[0.14em]"
+              className="text-meta font-medium uppercase"
               style={{ color: "#C86B52" }}
             >
               {t("platform.heroFlowVisual.analysisLabel")}
@@ -171,7 +171,7 @@ const HeroFlowVisual: React.FC = () => {
             }}
           >
             <div
-              className="text-[10px] font-medium uppercase tracking-[0.14em]"
+              className="text-meta font-medium uppercase"
               style={{ color: "#8A857D" }}
             >
               {t("platform.heroFlowVisual.outputLabel")}

@@ -22,7 +22,7 @@ const DemoAudienceSection: React.FC = () => {
   return (
     <section className="mt-12">
       <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-7 lg:p-9">
-        <h2 className="font-serif text-3xl tracking-[-0.03em] text-[var(--text-primary)] lg:text-4xl text-start">
+        <h2 className="text-h2 text-[var(--text-primary)] lg:text-4xl text-start">
           {t('demo.audience.title')}
         </h2>
         <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -38,7 +38,7 @@ const DemoAudienceSection: React.FC = () => {
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-base)]">
                   <IconComponent className="h-5 w-5 text-[var(--text-secondary)]" />
                 </div>
-                <h3 className="mt-5 text-base font-semibold text-[var(--text-primary)]">
+                <h3 className="mt-5 text-h3 font-semibold text-[var(--text-primary)]">
                   {item.title}
                 </h3>
                 <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">

@@ -55,13 +55,13 @@ const PlatformMethodologySection: React.FC = () => {
               </div>
 
               {/* Заголовок — Off-white */}
-              <h2 className="mt-4 font-serif text-h1 leading-[1.05] tracking-[-0.03em] text-[var(--text-inverse)] text-start">
+              <h2 className="mt-4 font-serif text-h1 text-[var(--text-inverse)] text-start">
                 {t("platform.methodology.title")}
               </h2>
 
               {/* Lead-in — Serif Italic */}
               <p
-                className="mt-6 font-serif text-h3 italic leading-[1.5] text-[var(--text-inverse)]/90 text-start"
+                className="mt-6 font-serif text-h3 italic text-[var(--text-inverse)]/90 text-start"
                 style={{ maxWidth: 560 }}
               >
                 {t("platform.methodology.leadIn")}
@@ -72,7 +72,7 @@ const PlatformMethodologySection: React.FC = () => {
                 {paragraphs.map((p, i) => (
                   <p
                     key={i}
-                    className="text-body leading-[1.75] text-[var(--text-muted)] text-start"
+                    className="text-body leading-relaxed text-[var(--text-muted)] text-start"
                   >
                     {p}
                   </p>

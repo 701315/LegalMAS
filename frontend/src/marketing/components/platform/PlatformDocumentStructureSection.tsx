@@ -63,7 +63,7 @@ const PlatformDocumentStructureSection: React.FC = () => {
                         className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]"
                         aria-hidden="true"
                       />
-                      <span className="text-body-sm leading-[1.65]">
+                      <span className="text-body-sm leading-normal">
                         {bullet}
                       </span>
                     </li>
