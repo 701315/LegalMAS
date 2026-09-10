@@ -579,10 +579,33 @@ async def _start_run_pipeline_async(
         res_repo=res_repo,
         v2_enabled=v2_enabled,
     )
-    if not can_start_checks:
-        logger.info("Run checks auto-start postponed due to incomplete language resolutions/segments", run_id=run_id)
+    # Инкрементальный запуск проверок для каждого готового документа
+    # Fault isolation: один проблемный документ не блокирует остальные
+    from services.run_checks_auto_starter import start_checks_for_document
+    
+    documents_triggered = 0
+    for doc_snap in doc_snaps:
+        if doc_snap.status in {DocumentStatus.ENRICHED.value, DocumentStatus.COMPLETED.value}:
+            if getattr(doc_snap, "doc_type", None):
+                triggered = await start_checks_for_document(
+                    db=db,
+                    run_id=run_snap.run_id,
+                    document_id=uuid.UUID(doc_snap.document_id),
+                )
+                if triggered:
+                    documents_triggered += 1
+    
+    if documents_triggered > 0:
+        logger.info(
+            "Run checks: incremental dispatch completed",
+            run_id=run_id,
+            documents_triggered=documents_triggered,
+        )
     else:
-        await maybe_start_run_checks(db=db, run_id=run_snap.run_id)
+        logger.debug(
+            "Run checks: no documents ready for incremental dispatch",
+            run_id=run_id,
+        )
 
     return {
         "run_id": run_id,
