@@ -45,11 +45,11 @@ const AboutProcessSection: React.FC = () => {
                   </p>
                 </div>
                 
-                <h3 className="text-h3 italic mb-4 text-white/90">
+                <h3 className="mt-3 text-h2 font-serif !text-white text-start leading-tight">
                   {step.title}
                 </h3>
                 
-                <p className="text-body-sm leading-relaxed text-white/50 font-light max-w-[280px]">
+                <p className="text-body leading-relaxed !text-[#D6D0C7] text-start max-w-[320px]">
                   {step.desc}
                 </p>
 

@@ -290,7 +290,7 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 12 }}
-                        className="absolute left-0 top-full mt-5 w-[1140px] rounded-2xl bg-white shadow-[0_40px_80px_rgba(0,0,0,0.15)] p-12 border border-gray-100 overflow-hidden"
+                        className="absolute left-0 top-full mt-5 hidden lg:block w-[1140px] max-w-[calc(100vw-2rem)] rounded-2xl bg-white shadow-[0_40px_80px_rgba(0,0,0,0.15)] p-12 border border-gray-100 overflow-hidden"
                       >
                         <div className="grid grid-cols-3 gap-12 relative z-10">
                           {SOLUTIONS_MEGA_MENU.sections.map((s) => (
@@ -301,18 +301,23 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                               <ul className="space-y-5">
                                 {s.items.map((i) => (
                                   <li key={i.href}>
-                                    <Link
-                                      to={i.href}
-                                      onClick={() => setSolutionsOpen(false)}
-                                      className="group block"
-                                    >
-                                      <p className="text-body-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] transition-colors">
-                                        {i.label}
-                                      </p>
-                                      <p className="text-body-sm text-gray-500 font-normal leading-relaxed mt-1">
-                                        {i.description}
-                                      </p>
-                                    </Link>
+                                    {(() => {
+                              const isActive = location.pathname === i.href;
+                              return (
+                                <Link
+                                  to={i.href}
+                                  onClick={() => setSolutionsOpen(false)}
+                                  className={`group block p-2 -mx-2 rounded-md transition-all duration-200 ${isActive ? 'bg-[var(--accent-primary)]/10' : 'hover:bg-black/[0.03]'}`}
+                                >
+                                  <p className={`text-body-sm !font-bold transition-colors ${isActive ? '!text-[var(--accent-primary)]' : '!text-[#1A1917] group-hover:!text-[var(--accent-primary)]'}`}>
+                                    {i.label}
+                                  </p>
+                                  <p className={`text-body-sm font-normal leading-relaxed mt-0.5 transition-colors ${isActive ? 'text-[var(--text-primary)] font-medium' : 'text-gray-500'}`}>
+                                    {i.description}
+                                  </p>
+                                </Link>
+                              );
+                            })()}
                                   </li>
                                 ))}
                               </ul>
@@ -347,7 +352,7 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                 onClick={() => setLangOpen((v) => !v)}
                 aria-expanded={langOpen}
                 aria-label="Select language"
-                className="flex items-center gap-1.5 px-2.5 py-2 text-sm font-medium transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-2 text-sm font-semibold text-[var(--text-primary)] transition-colors"
                 style={{
                   color: desktopColorSecondary,
                   borderRadius: "8px",

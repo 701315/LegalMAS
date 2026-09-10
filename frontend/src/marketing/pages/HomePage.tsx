@@ -16,7 +16,7 @@ const HomePage: React.FC = () => {
     <ContactModalProvider>
       <SiteHeader variant="landing" />
 
-      <main className="text-[var(--text-primary)]"> {/* Фиксируем основной цвет для всего контента */}
+      <main className="text-[var(--text-primary)] overflow-x-hidden"> {/* Фиксируем основной цвет для всего контента */}
         <PremiumHeroSection />
         
         {/* Каждую светлую секцию на всякий случай подтверждаем цветом */}

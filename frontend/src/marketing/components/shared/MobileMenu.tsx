@@ -320,7 +320,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ open, onClose }) => {
           </button>
           <a
             href="https://app.steloom.com/login"
-            className="flex w-full items-center justify-center rounded-full border border-[var(--border-color)] bg-white px-5 py-3.5 text-body-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[#D6D0C7]"
+            className="flex w-full items-center justify-center rounded-full border border-[var(--border-color)] bg-white px-5 py-3.5 text-body-sm font-semibold text-[var(--text-primary)] text-[var(--text-primary)] transition-colors hover:border-[#D6D0C7]"
           >
             {t("cta.login")}
           </a>

@@ -75,7 +75,7 @@ const FaqSection: React.FC = () => {
         <div className="grid gap-12 lg:grid-cols-[0.4fr_0.6fr] items-start">
           <div className="sticky top-32">
             <span className="eyebrow">{faq.eyebrow}</span>
-            <h2 className="text-h2 text-[var(--text-primary)] whitespace-pre-line">
+            <h2 className="text-h1 relative z-10 text-[var(--text-primary)] whitespace-pre-line max-w-3xl">
               {faq.title}
             </h2>
             <a

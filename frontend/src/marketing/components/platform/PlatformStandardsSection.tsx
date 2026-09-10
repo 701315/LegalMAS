@@ -1,92 +1,58 @@
+// src/marketing/components/platform/PlatformStandardsSection.tsx
+
 import React from "react";
 import { useTranslation } from "react-i18next";
-import Reveal from "../../motion/Reveal";
 
-const PlatformMethodologySection: React.FC = () => {
-  // RTL FIX: Инициализация i18n и определение направления
-  const { t, i18n } = useTranslation("marketing");
-  const isRTL = i18n.language === "ar";
+const PlatformStandardsSection: React.FC = () => {
+  const { t } = useTranslation("marketing");
 
-  // RTL FIX: Защита от сбоев при получении массива из i18n
-  const paragraphsRaw = t("platform.methodology.paragraphs", { returnObjects: true });
-  const paragraphs = Array.isArray(paragraphsRaw) ? paragraphsRaw : [];
-
-  // RTL FIX: Зеркалирование градиента для арабского языка.
-  // В LTR текст слева, градиент плотный слева (90deg).
-  // В RTL текст справа, градиент должен быть плотным справа (270deg).
-  const gradientStyle = {
-    background: isRTL
-      ? "linear-gradient(270deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)"
-      : "linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)",
-  };
+  const eyebrow = t("platform.standards.eyebrow");
+  const title = t("platform.standards.title");
+  const paragraphsRaw = t("platform.standards.paragraphs", { returnObjects: true });
+  const paragraphs: string[] = Array.isArray(paragraphsRaw)
+    ? paragraphsRaw.map((p) => String(p))
+    : [];
 
   return (
     <section
-      className="relative overflow-hidden bg-[#1A1917]"
+      data-theme="dark"
       data-header-theme="dark"
+      className="relative overflow-hidden border-b border-white/10 bg-[#1A1917] py-20 lg:py-28 text-white min-h-[580px] lg:min-h-[660px] flex items-center"
     >
-      {/* ── Background Layer: Картинка на всю площадь секции ────────── */}
-      <div className="absolute inset-0 z-0">
-        <img 
-          src="/platform-1-1.png" 
-          alt="" 
-          className="h-full w-full object-cover object-center opacity-40 lg:opacity-50"
-          aria-hidden="true"
-        />
-        {/* RTL FIX: Динамический градиент в зависимости от направления письма */}
-        <div 
-          className="absolute inset-0" 
-          style={gradientStyle} 
+      {/* 1. 3D КОЛЕСО НА ВСЮ ВЫСОТУ ТЕМНОГО БЛОКА */}
+      <div className="absolute inset-y-0 right-0 z-0 h-full w-full lg:w-[55%] pointer-events-none flex items-center justify-end overflow-hidden">
+        <img
+          src="/platform-1-1.png"
+          alt="Platform Standards"
+          className="h-full w-auto max-w-none object-cover lg:object-contain object-right scale-[1.35] lg:scale-[1.45] translate-x-8 lg:translate-x-12 mix-blend-screen select-none"
         />
       </div>
 
-      {/* ── Content Layer: Текст поверх изображения ─────────────────── */}
+      {/* 2. ТЕКСТОВЫЙ КОНТЕНТ СЕКЦИИ (СЛЕВА) */}
       <div
-        className="relative z-10 mx-auto w-full px-6 py-32 lg:px-8 lg:py-48"
+        className="relative z-10 mx-auto w-full px-6 lg:px-8"
         style={{ maxWidth: "var(--container-max-width)" }}
       >
-        <div className="grid gap-16 lg:grid-cols-12 lg:gap-20">
-          <Reveal className="lg:col-span-7">
-            <div className="max-w-2xl">
-              
-              {/* Eyebrow */}
-              <div className="eyebrow !text-[var(--accent-primary)] brightness-110 text-start">
-                {t("platform.methodology.eyebrow")}
-              </div>
-
-              {/* Заголовок — Off-white */}
-              <h2 className="mt-4 font-serif text-h1 text-[var(--text-inverse)] text-start">
-                {t("platform.methodology.title")}
-              </h2>
-
-              {/* Lead-in — Serif Italic */}
-              <p
-                className="mt-6 font-serif text-h3 italic text-[var(--text-inverse)]/90 text-start"
-                style={{ maxWidth: 560 }}
-              >
-                {t("platform.methodology.leadIn")}
-              </p>
-
-              {/* Основной текст — Muted Grey для темной темы */}
-              <div className="mt-8 space-y-6" style={{ maxWidth: 620 }}>
-                {paragraphs.map((p, i) => (
-                  <p
-                    key={i}
-                    className="text-body leading-relaxed text-[var(--text-muted)] text-start"
-                  >
-                    {p}
-                  </p>
-                ))}
-              </div>
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center">
+          <div className="lg:col-span-7 xl:col-span-6">
+            <span className="eyebrow !text-[var(--accent-primary)] brightness-110 text-start">
+              {eyebrow}
+            </span>
+            <h2 className="mt-4 text-h1 !text-white text-start">
+              {title}
+            </h2>
+            <div className="mt-6 space-y-4 max-w-xl">
+              {paragraphs.map((paragraph, idx) => (
+                <p key={idx} className="text-body !text-[#D6D0C7] text-start">
+                  {paragraph}
+                </p>
+              ))}
             </div>
-          </Reveal>
-
-          {/* Правая колонка остается свободной для визуального баланса */}
-          <div className="hidden lg:block lg:col-span-5" />
+          </div>
         </div>
       </div>
     </section>
   );
 };
 
-export default PlatformMethodologySection;
+export default PlatformStandardsSection;

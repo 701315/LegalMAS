@@ -74,7 +74,7 @@ const SecurityFoundationSection: React.FC = () => {
           <div className="flex flex-col justify-center lg:col-span-5 lg:sticky lg:top-32">
             <span className="eyebrow">{t("home.securityFoundation.eyebrow") || "Security"}</span>
 
-            <h2 className="text-h2 !mt-2 text-[var(--text-primary)] whitespace-pre-line">
+            <h2 className="text-h1 !mt-2 max-w-3xl text-[var(--text-primary)] whitespace-pre-line">
               {t("home.securityFoundation.title") || "Security built into the architecture"}
             </h2>
 

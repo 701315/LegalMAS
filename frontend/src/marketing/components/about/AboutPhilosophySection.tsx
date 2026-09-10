@@ -23,10 +23,10 @@ const AboutPhilosophySection: React.FC = () => {
             <div className="card-surface p-10 lg:p-12 flex flex-col h-full justify-between border-[var(--border-color)]">
               <div>
                 <p className="eyebrow">{t('about.philosophy.card1.eyebrow')}</p>
-                <h3 className="text-h2 text-3xl mt-4">
+                <h3 className="mt-3 text-h2 font-serif text-[var(--text-primary)] text-start leading-tight">
                   {t('about.philosophy.card1.title')}
                 </h3>
-                <p className="text-body-sm leading-relaxed text-[var(--text-secondary)] mt-6">
+                <p className="mt-6 text-body leading-relaxed text-[var(--text-secondary)] text-start">
                   {t('about.philosophy.card1.description')}
                 </p>
               </div>
@@ -45,10 +45,10 @@ const AboutPhilosophySection: React.FC = () => {
             <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-10 lg:p-12 flex flex-col h-full justify-between">
               <div>
                 <p className="eyebrow">{t('about.philosophy.card2.eyebrow')}</p>
-                <h3 className="text-h2 text-3xl mt-4">
+                <h3 className="mt-3 text-h2 font-serif text-[var(--text-primary)] text-start leading-tight">
                   {t('about.philosophy.card2.title')}
                 </h3>
-                <p className="text-body-sm leading-relaxed text-[var(--text-secondary)] mt-6">
+                <p className="mt-6 text-body leading-relaxed text-[var(--text-secondary)] text-start">
                   {t('about.philosophy.card2.description')}
                 </p>
               </div>

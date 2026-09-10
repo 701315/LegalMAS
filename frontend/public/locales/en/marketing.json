@@ -544,7 +544,7 @@
         "Book a meeting with our team to discuss your current tasks and see Steloom in action."
       ],
       "buttonLabel": "Request a demo",
-      "meta": "We typically respond and schedule a meeting within one business day."
+      "meta": ""
     },
     "hero": {
       "pathRoot": "About Us",
@@ -1774,7 +1774,7 @@
           "Upload documents — Steloom will highlight deviations, form a traceable evidence base, and reduce the volume of routine work for internal audit department employees."
         ],
         "buttonLabel": "Request a demonstration",
-        "meta": "We usually respond within one business day."
+        "meta": ""
       }
     },
     "compliance": {
@@ -1861,7 +1861,7 @@
           "Upload the contract array - Steloom will apply your compliance playbooks and highlight deviations requiring specialist attention."
         ],
         "buttonLabel": "Request a demonstration",
-        "meta": "We usually respond within one business day."
+        "meta": ""
       }
     },
     "contractReview": {
@@ -1901,7 +1901,7 @@
           "Upload the contract array - Steloom will highlight essential conditions and help your team focus on risks that truly impact business results and deal terms."
         ],
         "buttonLabel": "Request a demonstration",
-        "meta": "We usually respond and schedule a meeting within one business day."
+        "meta": ""
       }
     },
     "corporateLegal": {
@@ -2054,7 +2054,8 @@
           "Upload the document array - the platform will apply your playbooks, highlight deviations, and form traceable findings for decision-making."
         ],
         "buttonLabel": "Request a demonstration",
-        "meta": "We usually respond within one business day."
+        "meta": "",
+        "eyebrow": "Corporate Legal Automation"
       }
     },
     "counterparties": {
@@ -2065,7 +2066,9 @@
           "Steloom automatically identifies counterparties in the text, tables, and appendices of deal documents, forms a unified registry, and enriches company profiles via external and internal sources.",
           "The team sees in which contracts and in what role the counterparty appears, and can assess the aggregate exposure in the context of the entire deal."
         ],
-        "buttonLabel": "Request a demonstration"
+        "buttonLabel": "Request a demonstration",
+        "p1": "In complex M&A, cross-border restructuring, and corporate financing, undisclosed affiliations create severe legal and financial liabilities. Steloom automatically extracts, reconciles, and maps every corporate entity, officer, and related party buried across your deal room.",
+        "p2": "Legal and deal teams immediately see where each party appears, their exact contractual role, nominee involvement, and cumulative risk exposure across the entire transaction portfolio."
       },
       "risks": {
         "title": "Party Identification Risks",
@@ -2085,7 +2088,20 @@
             "title": "Data Fragmentation",
             "text": "Information about counterparties' financial indicators and litigation is often detached from the texts of the contracts themselves."
           }
-        ]
+        ],
+        "eyebrow": "Operational Risks & Blind Spots",
+        "i1": {
+          "title": "Hidden Affiliation & UBO Chains",
+          "text": "Complex holding structures, nominee shareholders, and off-balance-sheet vehicles hidden inside schedules and side letters remain invisible during standard manual sampling."
+        },
+        "i2": {
+          "title": "Dynamic Sanctions & PEP Exposure",
+          "text": "Manually cross-referencing hundreds of counterparties, directors, and signers against shifting international sanction lists and PEP databases creates critical compliance bottlenecks."
+        },
+        "i3": {
+          "title": "Unmapped Portfolio Exposure",
+          "text": "Cross-guarantees, parent indemnity clauses, and pending litigation liabilities are fragmented across hundreds of agreements without a centralized exposure ledger."
+        }
       },
       "howItHelps": {
         "title": "How Steloom Solves These Tasks",
@@ -2111,7 +2127,30 @@
       },
       "cta": {
         "title": "Automate KYC and Party Verification",
-        "buttonLabel": "Request a demonstration"
+        "buttonLabel": "Request a demonstration",
+        "eyebrow": "Institutional Risk & Compliance Infrastructure",
+        "description": "Legacy manual sampling leaves M&A deal teams and compliance officers exposed to hidden liabilities, circular affiliations, and unmapped portfolio exposure. Steloom replaces guesswork with a unified entity intelligence layer—extracting beneficial ownership networks, automating sanctions screening, and quantifying cross-contract risk directly from primary source documentation."
+      },
+      "helps": {
+        "eyebrow": "Connected Asset Intelligence",
+        "title": "How Steloom Uncovers Related Party Networks",
+        "intro": "The platform establishes a unified relational layer across your agreement repository. Every entity is mapped into a dynamic registry dossier with verifiable evidence from primary sources.",
+        "cap1": {
+          "title": "Full-Spectrum Entity & UBO Extraction",
+          "text": "Automatic recognition of legal names, tax IDs, beneficial owners, and key officers across foreign-language contracts, corporate charters, and court filings."
+        },
+        "cap2": {
+          "title": "Cross-Deal Exposure Heatmap",
+          "text": "Aggregating cumulative financial liabilities, parent company guarantees, and cross-default caps for every party across the entire Data Room."
+        },
+        "cap3": {
+          "title": "Continuous Screening & Registry Snapshots",
+          "text": "Enriching company profiles with real-time sanctions screening, insolvency status, litigation history, and corporate registry verification."
+        },
+        "cap4": {
+          "title": "Direct Source Provenance & Audit Dossiers",
+          "text": "Every extracted relationship, liability, or affiliation flag is linked directly to the primary clause in the original contract for instant legal verification."
+        }
       }
     },
     "internalAuditPage": {
@@ -2197,7 +2236,7 @@
           "Upload documents for audit - Steloom will structure the array, highlight deviations, and form a traceable evidence base. Every finding - with a link to the primary source."
         ],
         "buttonLabel": "Request a demonstration",
-        "meta": "We usually respond and schedule a meeting within one business day."
+        "meta": ""
       }
     },
     "lawFirms": {
@@ -2312,7 +2351,8 @@
           "Upload the document array - Steloom will apply your playbooks, highlight deviations, and form a traceable evidence base."
         ],
         "buttonLabel": "Request a demonstration",
-        "meta": "We usually respond within one business day."
+        "meta": "",
+        "eyebrow": "Law Firm Practice Automation"
       }
     },
     "maDueDiligence": {
@@ -2361,7 +2401,9 @@
           "Steloom identifies real estate objects in deal documents — addresses, cadastral numbers, and areas — and forms a project asset registry.",
           "Each object is matched with external registry data (EGRN, DLD) for instant verification of rights and encumbrances."
         ],
-        "buttonLabel": "Request a demonstration"
+        "buttonLabel": "Request a demonstration",
+        "p1": "In large-scale commercial real estate transactions and asset-heavy M&A deals, undetected title defects and unrecorded encumbrances can critically jeopardize deal value. Steloom automatically extracts addresses, cadastral IDs, land plot specs, and lease terms buried in unstructured Data Rooms.",
+        "p2": "Every identified property asset is instantly reconciled with primary state registry records (EGRN, DLD, Land Registries) to verify title continuity, identify active mortgages, and surface hidden liabilities before the deal closes."
       },
       "risks": {
         "title": "Asset Verification Risks",
@@ -2381,7 +2423,20 @@
             "title": "Verification Complexity",
             "text": "The labor intensity of manually matching hundreds of cadastral numbers with current extracts."
           }
-        ]
+        ],
+        "eyebrow": "Property Risk Exposure",
+        "i1": {
+          "title": "Hidden Encumbrances & Easements",
+          "text": "Pledges, third-party rights, and historical easements buried in annexes or historical title deeds routinely escape manual sampling, exposing the buyer to post-transaction litigation."
+        },
+        "i2": {
+          "title": "Title & Registry Discrepancies",
+          "text": "Contractual descriptions frequently contradict current state registry data due to unrecorded zoning changes, illegal subdivisions, or outdated cadastral IDs."
+        },
+        "i3": {
+          "title": "Manual Verification Bottlenecks",
+          "text": "Cross-referencing hundreds of contractual assets against fresh state registry extracts consumes hundreds of billable hours and delays deal closing."
+        }
       },
       "howItHelps": {
         "title": "Unified Asset Registry",
@@ -2407,8 +2462,34 @@
       },
       "cta": {
         "title": "Inventory Assets Faster",
-        "buttonLabel": "Request a demonstration"
+        "buttonLabel": "Request a demonstration",
+        "eyebrow": "Institutional Property Intelligence",
+        "description": "Transform sprawling real estate documentation into a structured asset ledger. Empower your investment and legal teams to verify title continuity, identify undisclosed encumbrances, and accelerate closing cycles with absolute confidence."
+      },
+      "helps": {
+        "eyebrow": "Unified Property Registry",
+        "title": "Automate Commercial Real Estate Due Diligence",
+        "intro": "The platform equips investment and legal teams with an interactive property analysis ledger—matching contractual commitments against live registry data with verifiable source citations.",
+        "cap1": {
+          "title": "Automated Cadastral & Asset Extraction",
+          "text": "Instant extraction of property boundaries, cadastral registration IDs, square footage, and usage designations across foreign or multi-jurisdictional agreements."
+        },
+        "cap2": {
+          "title": "Real-Time Registry Reconciliation",
+          "text": "Direct cross-matching of extracted property assets against official registries (EGRN, DLD, Land Registries) to flag active encumbrances, litigation, or arrests."
+        },
+        "cap3": {
+          "title": "Title Chain & Zoning Continuity Analysis",
+          "text": "Tracing historical ownership transfers and legal permitted use compliance to safeguard acquisition integrity and post-close development rights."
+        },
+        "cap4": {
+          "title": "Unified Property Dossier & Source Links",
+          "text": "Generating an interactive property ledger with direct deep-links to original contract paragraphs and official registry snapshots for seamless legal review."
+        }
       }
     }
+  },
+  "mobileMenu": {
+    "language": "Language"
   }
 }

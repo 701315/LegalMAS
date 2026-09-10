@@ -34,7 +34,7 @@ const SecurityDeploymentSection: React.FC = () => {
         <Reveal>
           <div className="max-w-2xl">
             <p className="eyebrow">{t('deployment.eyebrow')}</p>
-            <h2 className="text-h2">{t('deployment.title')}</h2>
+            <h2 className="mt-4 text-h1 text-[var(--text-primary)] text-start">{t('deployment.title')}</h2>
             <p className="section-desc">{t('deployment.description')}</p>
           </div>
         </Reveal>
@@ -64,11 +64,11 @@ const DeploymentCard: React.FC<{ model: DeploymentModel }> = ({ model }) => {
         {icon}
       </div>
 
-      <h3 className="mt-5 text-h3 text-[var(--text-primary)]">
+      <h3 className="mt-5 text-h3 font-serif text-[var(--text-primary)] text-start">
         {model.title}
       </h3>
 
-      <p className="mt-3 text-body-sm leading-relaxed text-[var(--text-secondary)]">
+      <p className="text-body leading-relaxed text-[var(--text-secondary)] text-start">
         {model.description}
       </p>
 

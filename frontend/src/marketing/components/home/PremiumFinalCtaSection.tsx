@@ -104,7 +104,7 @@ const PremiumFinalCtaSection: React.FC = () => {
         <div className="relative z-10 flex flex-col items-center">
           {/* ИСПРАВЛЕНО: Использован семантический класс text-h1 вместо инлайн-стилей */}
           <h2
-            className="mt-6 text-h1"
+            className="mt-6 text-display max-w-4xl mx-auto"
             style={{
               maxWidth: 720,
               ...fadeIn(100),

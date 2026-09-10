@@ -21,7 +21,7 @@ const AboutTeamSection: React.FC = () => {
           {/* ── Левая колонка: Заголовок и вводный текст ────────────────── */}
           <div className="lg:col-span-4 lg:sticky lg:top-32 h-fit">
             <Reveal>
-              <h2 className="text-h2 text-[var(--text-primary)] text-start">
+              <h2 className="text-h1 text-[var(--text-primary)] text-start">
                 {t('about.team.title')}
               </h2>
               <p className="mt-6 text-body leading-normal text-[var(--text-secondary)] max-w-sm text-start">
@@ -44,7 +44,7 @@ const AboutTeamSection: React.FC = () => {
                       />
                     </div>
                     
-                    <h3 className="mt-8 text-h2 text-[var(--text-primary)]">
+                    <h3 className="mt-8 text-h2 font-serif text-[var(--text-primary)] text-start">
                       {block.title}
                     </h3>
                     

@@ -85,7 +85,7 @@ const KnowledgeGrowthSection: React.FC = () => {
             <span className="eyebrow">{eyebrow}</span>
 
             {/* whitespace-pre-line сохраняет перенос строки \n из JSON */}
-            <h2 className="text-h2 !mt-2 text-[var(--text-primary)] whitespace-pre-line">
+            <h2 className="text-h1 !mt-2 max-w-3xl text-[var(--text-primary)] whitespace-pre-line">
               {title.split("\n")[0]}
               <br />
               <em className="not-italic text-[var(--accent-primary)]">

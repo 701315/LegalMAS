@@ -39,17 +39,14 @@ const SecurityCTASection: React.FC = () => {
             <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
 
             {/* ✅ Заголовок — используем whitespace-pre-line вместо ручного .split('\n') */}
-            <h2 className="mt-10 text-h1 whitespace-pre-line">
+            <h2 className="mt-10 text-h1 text-start">
               {t('cta.title')}
             </h2>
 
             {/* Абзацы */}
             <div className="mt-7 space-y-5" style={{ maxWidth: 620 }}>
-              {paragraphs.map((p: string, i: number) => (
-                <p
-                  key={i}
-                  className="text-body leading-relaxed text-[var(--text-secondary)]"
-                >
+              {paragraphs.map((p: string) => (
+                <p className="text-body leading-relaxed text-[var(--text-secondary)] text-start">
                   {p}
                 </p>
               ))}

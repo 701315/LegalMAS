@@ -1,35 +1,33 @@
+// src/marketing/components/platform/diagrams/StandardsDiagram.tsx
+
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 
 interface StandardsDiagramProps {
-  sources: string[];
-  core: string;
-  targets: string[];
+  sources?: string[];
+  targets?: string[];
 }
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
-  sources,
-  core,
-  targets,
+  sources = ["Playbooks", "Policies", "Instructions"],
+  targets = ["Document A", "Document B", "Document C"],
 }) => {
   const shouldReduceMotion = useReducedMotion();
-  
-  // RTL FIX: Инициализация i18n и определение направления
   const { t, i18n } = useTranslation("marketing");
   const isRTL = i18n.language === "ar";
 
-  // RTL FIX: Защита от сбоев при получении массивов из props
-  const safeSources = Array.isArray(sources) ? sources : [];
-  const safeTargets = Array.isArray(targets) ? targets : [];
+  const safeSources = Array.isArray(sources) && sources.length > 0
+    ? sources
+    : ["Playbooks", "Policies", "Instructions"];
+  const safeTargets = Array.isArray(targets) && targets.length > 0
+    ? targets
+    : ["Document A", "Document B", "Document C"];
 
-  // RTL FIX: Динамические направления анимации появления
-  // В LTR: источники выезжают слева (-6), цели справа (6)
-  // В RTL: источники (теперь справа) выезжают справа (6), цели (теперь слева) выезжают слева (-6)
-  const slideFromStart = isRTL ? 6 : -6;
-  const slideFromEnd = isRTL ? -6 : 6;
+  const slideFromStart = isRTL ? 12 : -12;
+  const slideFromEnd = isRTL ? -12 : 12;
 
   return (
     <motion.div
@@ -40,83 +38,79 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
         hidden: {},
         visible: {
           transition: {
-            staggerChildren: 0.06,
+            staggerChildren: 0.08,
             delayChildren: 0.05,
           },
         },
       }}
       className="relative w-full"
-      style={{ aspectRatio: "1 / 1", maxWidth: 520 }}
+      style={{ aspectRatio: "1 / 1", maxWidth: 480 }}
       aria-hidden="true"
     >
-      {/* ── SVG-слой с соединительными линиями ─────────────────────────── */}
+      {/* ── Соединительные линии напрямую слева направо (БЕЗ ENGINE) ── */}
       <svg
         viewBox="0 0 400 400"
-        className="absolute inset-0 h-full w-full"
+        className="absolute inset-0 h-full w-full pointer-events-none"
         preserveAspectRatio="none"
-        // RTL FIX: Зеркалирование SVG-кривых для арабского языка (поток справа налево)
         style={{ transform: isRTL ? "scaleX(-1)" : "none" }}
       >
-        {/* Sources → Core: 3 линии сходятся в центральный узел */}
         {[75, 200, 325].map((y, i) => (
-          <motion.path
-            key={`src-${i}`}
-            d={`M 130 ${y} C 165 ${y}, 165 200, 200 200`}
-            stroke="rgba(250, 248, 245, 0.14)"
-            strokeWidth="1"
-            fill="none"
-            initial={shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }}
-            animate={shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }}
-            transition={{ duration: 0.7, delay: 0.25 + i * 0.04, ease: EASE }}
-          />
-        ))}
-
-        {/* Core → Targets: 3 линии расходятся к применениям */}
-        {[75, 200, 325].map((y, i) => (
-          <motion.path
-            key={`tgt-${i}`}
-            d={`M 265 200 C 300 200, 300 ${y}, 335 ${y}`}
-            stroke="rgba(250, 248, 245, 0.14)"
-            strokeWidth="1"
-            fill="none"
-            initial={shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }}
-            animate={shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }}
-            transition={{ duration: 0.7, delay: 0.55 + i * 0.04, ease: EASE }}
-          />
+          <React.Fragment key={`lines-${i}`}>
+            <motion.path
+              d={`M 130 ${y} L 270 ${y}`}
+              stroke="rgba(200, 107, 82, 0.6)"
+              strokeWidth="1.5"
+              strokeDasharray="4 4"
+              fill="none"
+              initial={shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }}
+              animate={shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }}
+              transition={{ duration: 0.7, delay: 0.2 + i * 0.08, ease: EASE }}
+            />
+            {i !== 1 && (
+              <motion.path
+                d={`M 130 ${y} C 200 ${y}, 200 200, 270 200`}
+                stroke="rgba(250, 248, 245, 0.2)"
+                strokeWidth="1"
+                fill="none"
+                initial={shouldReduceMotion ? undefined : { pathLength: 0, opacity: 0 }}
+                animate={shouldReduceMotion ? undefined : { pathLength: 1, opacity: 1 }}
+                transition={{ duration: 0.7, delay: 0.4 + i * 0.08, ease: EASE }}
+              />
+            )}
+          </React.Fragment>
         ))}
       </svg>
 
-      {/* ── Left/Start: sources ────────────────────────────────────────── */}
-      {/* RTL FIX: left-0 заменен на start-0. В RTL это правый край (начало потока) */}
+      {/* ── Левая колонка: Источники ────────────────────────────── */}
       <div
         className="absolute inset-y-0 start-0 flex flex-col justify-between"
-        style={{ width: "32%" }}
+        style={{ width: "34%" }}
       >
         {safeSources.map((label, i) => (
           <motion.div
-            key={`${label}-${i}`} // RTL FIX: Стабильный ключ
+            key={`src-${label}-${i}`}
             variants={{
               hidden: { opacity: 0, x: slideFromStart },
               visible: {
                 opacity: 1,
                 x: 0,
-                transition: { duration: 0.5, ease: EASE, delay: i * 0.04 },
+                transition: { duration: 0.5, ease: EASE, delay: i * 0.06 },
               },
             }}
-            className="rounded-lg border px-3.5 py-2.5 text-start"
+            className="rounded-xl border px-4 py-3 text-start backdrop-blur-md shadow-lg"
             style={{
-              borderColor: "rgba(250, 248, 245, 0.14)",
-              background: "rgba(250, 248, 245, 0.02)",
+              borderColor: "rgba(255, 255, 255, 0.15)",
+              background: "rgba(26, 25, 23, 0.75)",
             }}
           >
             <div
-              className="text-meta font-medium uppercase"
-              style={{ color: "rgba(250, 248, 245, 0.45)" }}
+              className="text-meta font-semibold uppercase tracking-wider"
+              style={{ color: "#C86B52" }}
             >
-              {t("platform.standardsDiagram.inputLabel")}
+              {t("platform.standardsDiagram.inputLabel", "ВХОД")}
             </div>
             <div
-              className="mt-0.5 text-eyebrow font-medium leading-tight"
+              className="mt-1 text-body-sm font-medium leading-snug"
               style={{ color: "#FAF8F5" }}
             >
               {label}
@@ -125,71 +119,36 @@ const StandardsDiagram: React.FC<StandardsDiagramProps> = ({
         ))}
       </div>
 
-      {/* ── Center: core (accent) ─────────────────────────────────────── */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <motion.div
-          variants={{
-            hidden: { opacity: 0, scale: 0.96 },
-            visible: {
-              opacity: 1,
-              scale: 1,
-              transition: { duration: 0.55, ease: EASE, delay: 0.42 },
-            },
-          }}
-          className="relative rounded-xl px-5 py-3.5 text-center"
-          style={{
-            border: "1px solid rgba(200, 107, 82, 0.55)",
-            background: "rgba(200, 107, 82, 0.08)",
-            minWidth: 140,
-            boxShadow: "0 8px 24px rgba(200, 107, 82, 0.12)",
-          }}
-        >
-          <div
-            className="text-meta font-medium uppercase"
-            style={{ color: "#E89A82" }}
-          >
-            {t("platform.standardsDiagram.engineLabel")}
-          </div>
-          <div
-            className="mt-0.5 text-body-sm font-semibold leading-tight"
-            style={{ color: "#FAF8F5" }}
-          >
-            {core}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* ── Right/End: targets ────────────────────────────────────────── */}
-      {/* RTL FIX: right-0 заменен на end-0. В RTL это левый край (конец потока) */}
+      {/* ── Правая колонка: Применение ───────────────────────────── */}
       <div
         className="absolute inset-y-0 end-0 flex flex-col justify-between"
-        style={{ width: "32%" }}
+        style={{ width: "34%" }}
       >
         {safeTargets.map((label, i) => (
           <motion.div
-            key={`${label}-${i}`} // RTL FIX: Стабильный ключ
+            key={`tgt-${label}-${i}`}
             variants={{
               hidden: { opacity: 0, x: slideFromEnd },
               visible: {
                 opacity: 1,
                 x: 0,
-                transition: { duration: 0.5, ease: EASE, delay: 0.72 + i * 0.04 },
+                transition: { duration: 0.5, ease: EASE, delay: 0.3 + i * 0.06 },
               },
             }}
-            className="rounded-lg border px-3.5 py-2.5 text-start"
+            className="rounded-xl border px-4 py-3 text-start backdrop-blur-md shadow-lg"
             style={{
-              borderColor: "rgba(250, 248, 245, 0.14)",
-              background: "rgba(250, 248, 245, 0.02)",
+              borderColor: "rgba(255, 255, 255, 0.15)",
+              background: "rgba(26, 25, 23, 0.75)",
             }}
           >
             <div
-              className="text-meta font-medium uppercase"
-              style={{ color: "rgba(250, 248, 245, 0.45)" }}
+              className="text-meta font-semibold uppercase tracking-wider"
+              style={{ color: "rgba(250, 248, 245, 0.5)" }}
             >
-              {t("platform.standardsDiagram.appliedToLabel")}
+              {t("platform.standardsDiagram.appliedToLabel", "ПРИМЕНЯЕТСЯ К")}
             </div>
             <div
-              className="mt-0.5 text-eyebrow font-medium leading-tight"
+              className="mt-1 text-body-sm font-medium leading-snug"
               style={{ color: "#FAF8F5" }}
             >
               {label}

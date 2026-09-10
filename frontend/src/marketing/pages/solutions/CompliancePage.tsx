@@ -104,20 +104,20 @@ function HeroSection({
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.22, ease }}
             >
-              <p className="text-body leading-relaxed text-white/70 font-light text-start">
+              <p className="text-body leading-relaxed !text-[#D6D0C7] font-medium text-start">
                 {t("solutions.compliance.hero.description")}
               </p>
             </motion.div>
 
             <motion.h1
-              className="mt-12 font-serif text-display text-[var(--text-inverse)] whitespace-pre-line"
+              className="mt-12 font-serif text-display !text-white whitespace-pre-line"
               initial={prefersReduced ? undefined : { opacity: 0, y: 14 }}
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4, ease }}
             >
-              {t("solutions.compliance.hero.titlePart1")}
+              <span className="!text-white">{t("solutions.compliance.hero.titlePart1")}</span>
               <br />
-              <span className="italic font-light text-[var(--accent-primary)] brightness-125">
+              <span className="italic font-normal text-[var(--accent-primary)] brightness-125">
                 {t("solutions.compliance.hero.titlePart2")}
               </span>
             </motion.h1>
@@ -146,27 +146,28 @@ function BriefBlocksSection() {
   const blocks = Array.isArray(blocksRaw) ? blocksRaw : [];
 
   return (
-    <section className="bg-[var(--bg-base)] border-t border-[var(--border-color)]/50">
-      <div className="mx-auto w-full px-6 lg:px-8" style={{ maxWidth: "var(--container-max-width)" }}>
-        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#E8E4DD]/60">
+    <section className="bg-[var(--bg-base)] border-t border-[var(--border-color)]/50 py-16 lg:py-24">
+      <div
+        className="mx-auto w-full px-6 lg:px-8"
+        style={{ maxWidth: "var(--container-max-width)" }}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 divide-y md:divide-y-0 md:divide-x divide-[var(--border-color)]">
           {blocks.map((block, index) => {
             const IconComponent = ICON_MAP[block.icon] || ShieldCheck;
             return (
-              <div 
-                key={block.id} 
-                className="py-16 md:px-8 lg:px-12 flex flex-col items-center text-center first:pl-0 last:pr-0"
+              <div
+                key={block.id || index}
+                className="pt-8 md:pt-0 md:px-8 lg:px-12 flex flex-col items-start text-start first:pl-0 first:pt-0 last:pr-0"
               >
-                <Reveal delay={index * 0.1}>
-                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[var(--border-color)]/40">
-                    <IconComponent className="h-12 w-12 text-[var(--accent-primary)] opacity-30" />
-                  </div>
-                  <p className="text-body-sm text-start">
-                    <strong className="text-[var(--text-primary)] block mb-2 font-serif italic text-lg tracking-tight">
-                      {block.title}
-                    </strong>
-                    {block.text}
-                  </p>
-                </Reveal>
+                <div className="h-40 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[var(--border-color)]">
+                  <IconComponent className="h-10 w-10 text-[var(--accent-primary)] opacity-40" />
+                </div>
+                <h2 className="text-h2 font-serif italic text-[var(--text-primary)] mb-4 leading-tight">
+                  {block.title}
+                </h2>
+                <p className="text-body leading-relaxed text-[var(--text-secondary)]">
+                  {block.text}
+                </p>
               </div>
             );
           })}
@@ -193,10 +194,10 @@ function CapabilitiesSection() {
             <p className="text-eyebrow mb-4 text-start">
               {t("solutions.compliance.capabilities.eyebrow")}
             </p>
-            <h2 className="text-h2 whitespace-pre-line text-start">
+            <h2 className="text-h1 whitespace-pre-line text-start">
               {t("solutions.compliance.capabilities.titlePart1")}
               <br />
-              <span className="italic font-light text-[var(--accent-primary)]">
+              <span className="italic font-normal text-[var(--accent-primary)]">
                 {t("solutions.compliance.capabilities.titlePart2")}
               </span>
             </h2>
@@ -215,9 +216,9 @@ function CapabilitiesSection() {
                   <div className="md:col-span-4">
                     <div className="flex items-center gap-3">
                       <IconComponent className="h-5 w-5 text-[var(--accent-primary)] opacity-50 flex-shrink-0" />
-                      <h3 className="text-h3 italic text-start">
-                        {item.title}
-                      </h3>
+                      <h2 className="text-h3 font-serif italic text-[var(--text-primary)] text-start">
+                  {item.title}
+                </h2>
                     </div>
                   </div>
                   <div className="md:col-span-8">
@@ -277,9 +278,6 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
                 />
               </button>
             </div>
-            <p className="mt-8 text-eyebrow leading-normal text-[var(--text-muted)]">
-              {t("solutions.compliance.cta.meta")}
-            </p>
           </div>
         </Reveal>
       </div>

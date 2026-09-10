@@ -57,7 +57,7 @@ const normalizeSummaryText = (raw: string): string => {
   text = text.replace(/\s+-\s+/g, "\n- ");
 
   // Prepend newline before numbered lists mid-line
-  text = text.replace(/\s+(\d+)\.\s+/g, "\n$1. ");
+  text = text.replace(/\s+(\d+)\.\s+/g, "\nprimary. ");
 
   // Emoji headings are placed on separate lines and marked with §H§ internally
   text = text.replace(

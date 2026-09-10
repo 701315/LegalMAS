@@ -160,7 +160,7 @@ const ApplicationSection: React.FC = () => {
       >
         
         <div className="mb-16 lg:mb-20">
-          <h2 className="text-h2 text-white">
+          <h2 className="text-h1 !text-white max-w-4xl mx-auto mb-4">
             {t('application.title')}
           </h2>
         </div>
@@ -184,7 +184,7 @@ const ApplicationSection: React.FC = () => {
                     onClick={() => { scrollToCard(index); setActiveIndex(index); }}
                   >
                     <div className="flex h-full flex-col justify-end p-8">
-                      <h3 className="text-h3 lg:text-h2 font-serif text-white transition-all duration-300 tracking-tight leading-tight">
+                      <h3 className="text-h1 !text-white max-w-4xl mx-auto mb-4">
                         {role.title}
                       </h3>
                     </div>
@@ -207,7 +207,7 @@ const ApplicationSection: React.FC = () => {
           <div className={styles.rightCol}>
             <div key={activeRoleId} className="flex flex-col animate-fadein">
               <span className="eyebrow !text-[var(--accent-primary)]">{t('application.eyebrow')}</span>
-              <p className="mt-4 text-base leading-relaxed text-stone-300 lg:text-lg font-medium">
+              <p className="mt-4 text-body !text-stone-300 font-medium max-w-2xl mx-auto">
                 {activeRoleData.description}
               </p>
             </div>
@@ -230,7 +230,7 @@ const ApplicationSection: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="absolute bottom-full start-0 mb-6 w-full max-w-[840px] rounded-2xl bg-white shadow-[0_30px_70px_rgba(0,0,0,0.4)] p-10 lg:p-12 z-50 border border-white/10"
+                className="absolute bottom-full start-0 mb-6 w-full max-w-[840px] max-w-[calc(100vw-2rem)] rounded-2xl bg-white shadow-[0_30px_70px_rgba(0,0,0,0.4)] p-10 lg:p-12 z-50 border border-white/10"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16">
                   {SOLUTIONS_MEGA_MENU.sections.map((section: MegaMenuSection) => (
@@ -246,7 +246,7 @@ const ApplicationSection: React.FC = () => {
                               className="group/item block"
                               onClick={() => setMenuOpen(false)}
                             >
-                              <p className="text-body-sm font-semibold text-[var(--text-primary)] group-hover/item:text-[var(--accent-primary)] transition-colors">
+                              <p className="text-body-sm !font-bold !text-[#1A1917] group-hover/item:!text-[var(--accent-primary)] transition-colors">
                                 {item.label}
                               </p>
                               <p className="text-body-sm text-gray-500 font-normal leading-relaxed mt-1">

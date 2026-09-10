@@ -1,226 +1,128 @@
+interface FindingsDiagramProps {
+  chain?: any[];
+}
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import type { ChainNode } from "./VerticalNodeChain";
-
-interface FindingsDiagramProps {
-  chain: ChainNode[];
-}
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-const FindingsDiagram: React.FC<FindingsDiagramProps> = ({ chain }) => {
-  const shouldReduceMotion = useReducedMotion();
-  
-  // RTL FIX: Инициализация i18n и определение направления
-  const { t, i18n } = useTranslation("marketing");
-  const isRTL = i18n.language === "ar";
+interface StepItem {
+  num: string;
+  titleKey: string;
+  subKey: string;
+  fallbackTitle: string;
+  fallbackSub: string;
+  isHighlight?: boolean;
+}
 
-  // RTL FIX: Защита от сбоев, если prop chain не передан или не является массивом
-  const safeChain = Array.isArray(chain) ? chain : [];
+const STEPS: StepItem[] = [
+  {
+    num: "01",
+    titleKey: "platform.findingsDiagram.step1Title",
+    subKey: "platform.findingsDiagram.step1Sub",
+    fallbackTitle: "Document",
+    fallbackSub: "FILE",
+  },
+  {
+    num: "02",
+    titleKey: "platform.findingsDiagram.step2Title",
+    subKey: "platform.findingsDiagram.step2Sub",
+    fallbackTitle: "Clause",
+    fallbackSub: "SECTION",
+  },
+  {
+    num: "03",
+    titleKey: "platform.findingsDiagram.step3Title",
+    subKey: "platform.findingsDiagram.step3Sub",
+    fallbackTitle: "Risk",
+    fallbackSub: "CATEGORY",
+  },
+  {
+    num: "04",
+    titleKey: "platform.findingsDiagram.step4Title",
+    subKey: "platform.findingsDiagram.step4Sub",
+    fallbackTitle: "Severity",
+    fallbackSub: "LEVEL",
+  },
+  {
+    num: "05",
+    titleKey: "platform.findingsDiagram.step5Title",
+    subKey: "platform.findingsDiagram.step5Sub",
+    fallbackTitle: "Source Link",
+    fallbackSub: "VERIFIABLE",
+    isHighlight: true,
+  },
+];
+
+const FindingsDiagram: React.FC<FindingsDiagramProps> = () => {
+  const shouldReduceMotion = useReducedMotion();
+  const { t } = useTranslation("marketing");
 
   return (
-    <motion.div
-      initial={shouldReduceMotion ? undefined : "hidden"}
-      whileInView={shouldReduceMotion ? undefined : "visible"}
-      viewport={{ once: true, margin: "-80px" }}
-      variants={{
-        hidden: {},
-        visible: {
-          transition: {
-            staggerChildren: 0.09,
-            delayChildren: 0.05,
-          },
-        },
-      }}
-      className="w-full"
-      role="list"
-      aria-label={t("platform.findingsDiagram.ariaLabel")}
-    >
-      {/* ── Desktop: horizontal chain ─────────────────────────────────── */}
-      <div className="hidden md:block">
-        <div className="flex items-stretch">
-          {safeChain.map((node, i) => {
-            const isLast = i === safeChain.length - 1;
-            const isAccent = !!node.accent;
-
-            return (
-              <React.Fragment key={`${node.label}-${i}`}>
-                <motion.div
-                  role="listitem"
-                  variants={{
-                    hidden: { opacity: 0, y: 8 },
-                    visible: {
-                      opacity: 1,
-                      y: 0,
-                      transition: { duration: 0.5, ease: EASE },
-                    },
-                  }}
-                  className="flex flex-1 flex-col"
-                >
-                  <div
-                    className="relative flex flex-col rounded-xl bg-white px-4 py-4 text-start"
-                    style={{
-                      border: `1px solid ${isAccent ? "#C86B52" : "#E8E4DD"}`,
-                      boxShadow: isAccent
-                        ? "0 4px 16px rgba(200,107,82,0.08)"
-                        : "0 1px 2px rgba(26,25,23,0.03)",
-                      minHeight: 92,
-                    }}
-                  >
-                    <div
-                      className="text-meta font-medium uppercase"
-                      style={{ color: isAccent ? "#C86B52" : "#A8A29E" }}
-                    >
-                      {t("platform.findingsDiagram.levelPrefix")} {String(i + 1).padStart(2, "0")}
-                    </div>
-                    <div
-                      className="mt-1 text-body-sm font-semibold leading-tight"
-                      style={{ color: isAccent ? "#B55D46" : "#1A1917" }}
-                    >
-                      {node.label}
-                    </div>
-                    {node.meta && (
-                      <div className="mt-1.5 text-meta text-[var(--text-secondary)] text-start">
-                        {node.meta}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-
-                {/* Стрелка между узлами */}
-                {!isLast && (
-                  <motion.div
-                    variants={{
-                      hidden: { opacity: 0, scaleX: 0 },
-                      visible: {
-                        opacity: 1,
-                        scaleX: 1,
-                        transition: { duration: 0.35, ease: EASE },
-                      },
-                    }}
-                    className="flex shrink-0 items-center justify-center"
-                    style={{
-                      width: 28,
-                      transformOrigin: "left center",
-                    }}
-                    aria-hidden="true"
-                  >
-                    {/* RTL FIX: Зеркалирование стрелки для арабского языка (указывает влево) */}
-                    <svg
-                      width="28"
-                      height="8"
-                      viewBox="0 0 28 8"
-                      className="text-[var(--text-faint)]"
-                      fill="none"
-                      style={{ transform: isRTL ? "scaleX(-1)" : "none" }}
-                    >
-                      <line
-                        x1="0"
-                        y1="4"
-                        x2="22"
-                        y2="4"
-                        stroke="currentColor"
-                        strokeWidth="1"
-                      />
-                      <path
-                        d="M 22 1 L 27 4 L 22 7"
-                        stroke="currentColor"
-                        strokeWidth="1"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                      />
-                    </svg>
-                  </motion.div>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-
-        {/* Финальная подпись под цепочкой */}
-        <motion.div
-          variants={{
-            hidden: { opacity: 0, y: 6 },
-            visible: {
-              opacity: 1,
-              y: 0,
-              transition: { duration: 0.5, ease: EASE, delay: 0.05 },
-            },
-          }}
-          className="mt-6 flex items-center gap-2 text-meta text-[var(--text-muted)] text-start"
-        >
-          <span
-            className="inline-block h-px w-6 bg-[#D6D0C7]"
-            aria-hidden="true"
-          />
-          <span>
-            {t("platform.findingsDiagram.footerNote")}
-          </span>
-        </motion.div>
-      </div>
-
-      {/* ── Mobile: vertical chain ────────────────────────────────────── */}
-      <div className="flex flex-col gap-2 md:hidden">
-        {safeChain.map((node, i) => {
-          const isLast = i === safeChain.length - 1;
-          const isAccent = !!node.accent;
+    <div className="w-full py-4">
+      {/* ── ГОРИЗОНТАЛЬНЫЙ ЦЕПНОЙ СПИСОК ИЗ 5 ОДИНАКОВЫХ КАРТОЧЕК ─────── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 lg:flex-nowrap">
+        {STEPS.map((step, idx) => {
+          const title = t(step.titleKey, step.fallbackTitle);
+          const sub = t(step.subKey, step.fallbackSub);
 
           return (
-            <React.Fragment key={`${node.label}-${i}`}>
+            <React.Fragment key={step.num}>
+              {/* Карточка со строгими фиксированными габаритами */}
               <motion.div
-                variants={{
-                  hidden: { opacity: 0, x: -6 },
-                  visible: {
-                    opacity: 1,
-                    x: 0,
-                    transition: { duration: 0.5, ease: EASE },
-                  },
-                }}
-                className="rounded-xl bg-white px-4 py-3.5 text-start"
-                style={{
-                  border: `1px solid ${isAccent ? "#C86B52" : "#E8E4DD"}`,
-                }}
+                initial={shouldReduceMotion ? undefined : { opacity: 0, y: 12 }}
+                whileInView={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: idx * 0.08, ease: EASE }}
+                className={`flex h-32 w-full flex-1 flex-col justify-between rounded-xl border p-3.5 text-center transition-all duration-300 min-w-[105px] max-w-[130px] ${
+                  step.isHighlight
+                    ? "border-[var(--accent-primary)] bg-[#F5EBE7]/50 shadow-sm"
+                    : "border-[var(--border-color)] bg-white shadow-sm"
+                }`}
               >
-                <div className="flex items-baseline justify-between gap-3">
-                  <div
-                    className="text-meta font-medium uppercase"
-                    style={{ color: isAccent ? "#C86B52" : "#A8A29E" }}
-                  >
-                    {t("platform.findingsDiagram.levelPrefix")} {String(i + 1).padStart(2, "0")}
+                <div>
+                  <div className="text-[10px] font-semibold tracking-wider text-[var(--text-muted)] uppercase">
+                    LEVEL {step.num}
+                  </div>
+                  <div className="mt-1.5 text-xs font-bold leading-snug text-[var(--text-primary)]">
+                    {title}
                   </div>
                 </div>
-                <div
-                  className="mt-1 text-body-sm font-semibold leading-tight"
-                  style={{ color: isAccent ? "#B55D46" : "#1A1917" }}
-                >
-                  {node.label}
+
+                <div className="text-[9px] font-medium tracking-wider text-[var(--text-secondary)] uppercase line-clamp-1">
+                  {sub}
                 </div>
-                {node.meta && (
-                  <div className="mt-1 text-meta text-[var(--text-secondary)] text-start">
-                    {node.meta}
-                  </div>
-                )}
               </motion.div>
 
-              {!isLast && (
-                // RTL FIX: ml-6 заменен на ms-6 (логический отступ слева/справа в зависимости от языка)
-                <div
-                  className="ms-6 h-3 w-px bg-[#D6D0C7]"
-                  aria-hidden="true"
-                />
+              {/* Стрелочка-переход между карточками */}
+              {idx < STEPS.length - 1 && (
+                <div className="hidden shrink-0 items-center justify-center text-gray-300 sm:flex">
+                  <svg
+                    className="h-4 w-4 text-[var(--text-muted)] opacity-40"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </div>
               )}
             </React.Fragment>
           );
         })}
-
-        {/* Финальная подпись на мобильных */}
-        <div className="mt-3 text-meta text-[var(--text-muted)] text-start">
-          {t("platform.findingsDiagram.footerNote")}
-        </div>
       </div>
-    </motion.div>
+
+      {/* Подпись снизу */}
+      <div className="mt-6 text-center text-meta text-[var(--text-muted)]">
+        — {t("platform.findings.caption", "EVERY FINDING IS TRACEABLE FROM THE PRIMARY SOURCE TO THE CONCLUSION")} —
+      </div>
+    </div>
   );
 };
 

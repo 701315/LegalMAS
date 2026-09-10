@@ -80,7 +80,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ item, index, reviewAreasL
           >
             {/* RTL FIX: ml заменен на ms (margin-start), pr на pe (padding-end) */}
             <div className="ms-[calc(10px+1.25rem)] pb-7 pe-8 lg:ms-[calc(12px+1.25rem)]">
-              <p className="text-body-sm leading-relaxed text-[var(--text-secondary)]">
+              <p className="text-body leading-relaxed text-[var(--text-secondary)] text-start">
                 {item.answer}
               </p>
 
@@ -93,7 +93,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ item, index, reviewAreasL
                   {item.tags.map((tag, i) => (
                     <React.Fragment key={tag}>
                       {i > 0 && <span className="text-[var(--text-faint)]">·</span>}
-                      <span className="text-eyebrow font-medium text-[var(--text-secondary)]">
+                      <span className="eyebrow text-start">
                         {tag}
                       </span>
                     </React.Fragment>
@@ -143,7 +143,7 @@ const SecurityFAQSection: React.FC = () => {
             <div className="eyebrow">{faqContent.eyebrow}</div>
 
             {/* ✅ Заголовок — используем whitespace-pre-line */}
-            <h2 className="mt-4 text-h1 whitespace-pre-line">
+            <h2 className="mt-4 text-h1 text-[var(--text-primary)] text-start">
               {faqContent.title}
             </h2>
 

@@ -66,7 +66,7 @@ function HeroSection({ prefersReduced }: { prefersReduced: boolean }) {
           animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.22, ease }}
         >
-          <p className="text-body leading-relaxed text-[var(--text-secondary)] font-light text-start">
+          <p className="text-body leading-relaxed text-[var(--text-secondary)] text-start">
             {t("solutions.maDueDiligence.hero.intro")}
           </p>
         </motion.div>
@@ -94,7 +94,7 @@ function HeroSection({ prefersReduced }: { prefersReduced: boolean }) {
         >
           {t("solutions.maDueDiligence.hero.titlePart1")}
           <br />
-          <span className="italic font-light text-[var(--accent-primary)]">
+          <span className="italic font-normal text-[var(--accent-primary)]">
             {t("solutions.maDueDiligence.hero.titlePart2")}
           </span>
         </motion.h1>
@@ -110,30 +110,28 @@ function ThreeBlocksSection() {
   const blocks = Array.isArray(blocksRaw) ? blocksRaw : [];
 
   return (
-    <section className="bg-[var(--bg-base)] border-t border-[var(--border-color)]/50">
+    <section className="bg-[var(--bg-base)] border-t border-[var(--border-color)]/50 py-16 lg:py-24">
       <div
         className="mx-auto w-full px-6 lg:px-8"
         style={{ maxWidth: "var(--container-max-width)" }}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#E8E4DD]/60">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 divide-y md:divide-y-0 md:divide-x divide-[var(--border-color)]">
           {blocks.map((item, index) => {
             const IconComponent = ICON_MAP[item.icon] || Database;
             return (
-              <div 
-                key={item.id} 
-                className="py-16 md:px-8 lg:px-12 flex flex-col items-center text-center first:pl-0 last:pr-0"
+              <div
+                key={item.id || index}
+                className="pt-8 md:pt-0 md:px-8 lg:px-12 flex flex-col items-start text-start first:pl-0 first:pt-0 last:pr-0"
               >
-                <Reveal delay={index * 0.1}>
-                  <div className="h-48 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[var(--border-color)]/40">
-                    <IconComponent className="h-12 w-12 text-[var(--accent-primary)] opacity-30" />
-                  </div>
-                  <p className="text-body-sm text-start">
-                    <strong className="text-[var(--text-primary)] block mb-2 font-serif italic text-lg tracking-tight">
-                      {item.title}
-                    </strong>
-                    {item.text}
-                  </p>
-                </Reveal>
+                <div className="h-40 w-full bg-[var(--bg-surface)] rounded-none mb-8 flex items-center justify-center border border-[var(--border-color)]">
+                  <IconComponent className="h-10 w-10 text-[var(--accent-primary)] opacity-40" />
+                </div>
+                <h2 className="text-h2 font-serif italic text-[var(--text-primary)] mb-4 leading-tight">
+                  {item.title}
+                </h2>
+                <p className="text-body leading-relaxed text-[var(--text-secondary)]">
+                  {item.text}
+                </p>
               </div>
             );
           })}

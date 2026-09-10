@@ -14,11 +14,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from api.schemas.documents import ReclassifyRequest, ReclassifyResponse
+from core.constants import DocumentStatus
+from core.logging import get_logger
 from classifiers.yaml_registry import YAMLRegistry
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 from db.session import get_db
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 

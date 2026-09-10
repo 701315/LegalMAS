@@ -75,9 +75,6 @@ const AboutCTASection: React.FC = () => {
             </div>
 
             {/* Мета-строка */}
-            <p className="mt-8 text-eyebrow leading-normal text-[var(--text-muted)]">
-              {t('about.cta.meta')}
-            </p>
           </div>
         </Reveal>
       </div>

@@ -103,27 +103,27 @@ function HeroSection({
               transition={{ duration: 0.55, delay: 0.05, ease }}
             >
               <div className="flex items-center gap-2 text-meta uppercase">
-                <span className="text-white/70">{t("solutions.internalAudit.hero.eyebrowCategory")}</span>
+                <span className="text-[var(--text-secondary)]">{t("solutions.internalAudit.hero.eyebrowCategory")}</span>
                 <span className="text-white/40" aria-hidden="true">/</span>
-                <span className="text-white/70">{t("solutions.internalAudit.hero.eyebrowScenario")}</span>
+                <span className="text-[var(--text-secondary)]">{t("solutions.internalAudit.hero.eyebrowScenario")}</span>
               </div>
             </motion.div>
 
             <motion.h1
-              className="mt-10 font-serif text-h1 text-[var(--text-inverse)] whitespace-pre-line"
+              className="mt-10 font-serif text-display !text-white whitespace-pre-line"
               initial={prefersReduced ? undefined : { opacity: 0, y: 14 }}
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.22, ease }}
             >
               {t("solutions.internalAudit.hero.titlePart1")}
               <br />
-              <span className="italic font-light text-[var(--accent-primary)] brightness-125">
+              <span className="italic font-normal text-[var(--accent-primary)] brightness-125">
                 {t("solutions.internalAudit.hero.titlePart2")}
               </span>
             </motion.h1>
 
             <motion.p
-              className="mt-8 max-w-xl text-base leading-relaxed text-white/72 font-light text-start"
+              className="mt-8 max-w-xl text-base leading-relaxed !text-[#D6D0C7] font-medium text-start"
               initial={prefersReduced ? undefined : { opacity: 0, y: 12 }}
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.38, ease }}
@@ -171,17 +171,17 @@ function AuditRoutinesIntroSection() {
               <p className="text-eyebrow mb-4 text-start">
                 {t("solutions.internalAudit.intro.eyebrow")}
               </p>
-              <h2 className="text-h2 whitespace-pre-line text-start">
+              <h2 className="text-h1 whitespace-pre-line text-start">
                 {t("solutions.internalAudit.intro.titlePart1")}
                 <br />
-                <span className="italic font-light text-[var(--accent-primary)]">
+                <span className="italic font-normal text-[var(--accent-primary)]">
                   {t("solutions.internalAudit.intro.titlePart2")}
                 </span>
               </h2>
             </div>
 
             <div className="lg:col-span-7">
-              <div className="space-y-6 text-base leading-relaxed text-[var(--text-secondary)] font-light">
+              <div className="space-y-6 text-body leading-relaxed text-[var(--text-secondary)]">
                 {paragraphs.map((p, i) => (
                   <p key={i} className="text-start">{p}</p>
                 ))}
@@ -221,9 +221,9 @@ function VisualCardsSection() {
                   </div>
 
                   <div className="flex flex-1 flex-col px-6 py-7 lg:px-7 lg:py-8 bg-[var(--bg-surface)] text-start">
-                    <h3 className="text-h3 italic">
-                      {card.title}
-                    </h3>
+                    <h2 className="text-h2 font-serif italic text-[var(--text-primary)] text-start mb-3 leading-tight">
+                  {card.title}
+                </h2>
                     <p className="mt-4 text-body-sm text-start">
                       {card.text}
                     </p>
@@ -255,10 +255,10 @@ function CapabilitiesSection() {
             <p className="text-eyebrow mb-4 text-start">
               {t("solutions.internalAudit.capabilities.eyebrow")}
             </p>
-            <h2 className="text-h2 whitespace-pre-line text-start">
+            <h2 className="text-h1 whitespace-pre-line text-start">
               {t("solutions.internalAudit.capabilities.titlePart1")}
               <br />
-              <span className="italic font-light text-[var(--accent-primary)]">
+              <span className="italic font-normal text-[var(--accent-primary)]">
                 {t("solutions.internalAudit.capabilities.titlePart2")}
               </span>
             </h2>
@@ -277,9 +277,9 @@ function CapabilitiesSection() {
                   <div className="md:col-span-4">
                     <div className="flex items-center gap-3">
                       <IconComponent className="h-5 w-5 text-[var(--accent-primary)] opacity-50 flex-shrink-0" />
-                      <h3 className="text-h3 italic text-start">
+                      <h2 className="text-h3 font-serif italic text-[var(--text-primary)] text-start">
                         {item.title}
-                      </h3>
+                      </h2>
                     </div>
                   </div>
 
@@ -323,10 +323,10 @@ function SignalsSection() {
               <p className="text-eyebrow mb-4 text-start">
                 {t("solutions.internalAudit.signals.eyebrow")}
               </p>
-              <h2 className="text-h2 text-start">
+              <h2 className="text-h1 text-start">
                 {t("solutions.internalAudit.signals.title")}
               </h2>
-              <p className="mt-5 text-body-sm leading-relaxed text-[var(--text-secondary)] font-light max-w-md text-start">
+              <p className="mt-5 text-body-sm leading-relaxed text-[var(--text-secondary)] max-w-md text-start">
                 {t("solutions.internalAudit.signals.description")}
               </p>
             </div>
@@ -381,7 +381,7 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
             <h2 className="mt-10 text-h1 whitespace-pre-line">
               {t("solutions.internalAudit.cta.titlePart1")}
               <br />
-              <span className="italic font-light opacity-60 text-[var(--accent-primary)]">
+              <span className="italic font-normal text-[var(--accent-primary)]">
                 {t("solutions.internalAudit.cta.titlePart2")}
               </span>
             </h2>
@@ -403,9 +403,6 @@ function CTASection({ onDemo }: { onDemo: () => void }) {
               </button>
             </div>
 
-            <p className="mt-8 text-eyebrow leading-normal text-[var(--text-muted)]">
-              {t("solutions.internalAudit.cta.meta")}
-            </p>
           </div>
         </Reveal>
       </div>

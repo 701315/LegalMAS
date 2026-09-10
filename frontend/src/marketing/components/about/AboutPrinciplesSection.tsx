@@ -1,4 +1,3 @@
-// src/marketing/components/about/AboutPrinciplesSection.tsx
 import React from 'react';
 import Reveal from '../../motion/Reveal';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +20,7 @@ const AboutPrinciplesSection: React.FC = () => {
     <section className="bg-[var(--bg-base)] py-24 border-t border-[var(--border-color)]">
       <div className="mx-auto w-full px-6 lg:px-8" style={{ maxWidth: 'var(--container-max-width)' }}>
         <Reveal>
-          <h2 className="text-h2 text-3xl mb-16 italic">
+          <h2 className="text-h1 text-[var(--text-primary)] text-start mb-12">
             {t('about.principles.title')}
           </h2>
         </Reveal>
@@ -30,10 +29,10 @@ const AboutPrinciplesSection: React.FC = () => {
             <Reveal key={i}>
               {/* RTL FIX: border-l-2 → border-s-2, pl-6 → ps-6 */}
               <div className="border-s-2 border-[var(--border-color)] ps-6">
-                <h4 className="text-h3 italic mb-3">
+                <h3 className="mt-3 text-h2 font-serif text-[var(--text-primary)] text-start leading-tight">
                   {p.title}
-                </h4>
-                <p className="text-body-sm leading-normal text-[var(--text-secondary)]">
+                </h3>
+                <p className="text-body leading-relaxed text-[var(--text-secondary)] text-start mt-3">
                   {p.desc}
                 </p>
               </div>
