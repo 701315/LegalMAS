@@ -707,7 +707,7 @@ def run_document_checks(
                     payload={
                         "run_id": run_id,
                         "check_id": item.check_id,
-                        "document_id": document_id,
+                        "doc_id": document_id,
                         "deal_id": deal_id,
                         "plan_item_id": str(item.id),
                         "tenant_id": tenant_id,
