@@ -109,3 +109,4 @@ opentelemetry-instrumentation-httpx==0.49b2
 opentelemetry-instrumentation-celery==0.49b2
 
 
+docling
