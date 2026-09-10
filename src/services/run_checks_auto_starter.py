@@ -46,6 +46,7 @@ from core.constants import DocumentStatus, JobStatus, RunStatus
 from core.logging import get_logger
 from db.models.run import Job, Run
 from db.repositories.document_repo import DocumentRepository
+from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
 from mas_queue.task_dispatcher import send_task_with_context
 
 logger = get_logger(__name__)
