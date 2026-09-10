@@ -294,7 +294,7 @@ async def start_checks_for_document(
     
     # 3) Проверяем готовность документа
     doc_repo = DocumentRepository(db)
-    doc = await doc_repo.internal_unsafe_get_by_id(document_id)
+    doc = await doc_repo.get_by_id(document_id)
     if not doc:
         logger.warning("start_checks_for_document: document not found", document_id=doc_id_str)
         return False

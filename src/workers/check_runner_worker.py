@@ -64,7 +64,9 @@ from core.constants import CheckExecutionStatus, RunStatus
 from core.logging import get_logger
 from core.pipeline_snapshots import (
     RunSnapshot,
+    DocumentSnapshot,
     snapshot_run,
+    snapshot_document,
 )
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.document_repo import DocumentRepository
@@ -647,7 +649,7 @@ def run_document_checks(
             playbook = load_playbook_from_version(pb_version)
             
             # 5) Загружаем документ
-            doc = await doc_repo.internal_unsafe_get_by_id(doc_uuid)
+            doc = await doc_repo.get_by_id(doc_uuid)
             if not doc:
                 raise ValueError(f"Document not found: {doc_uuid}")
             
@@ -664,11 +666,8 @@ def run_document_checks(
             )
             
             pairs = []
-            doc_type, applicable_triggers = runner._planner.get_document_profile(doc_snap)
-            ctx = runner._planner.build_context_for_document(doc_snap, None)
-            
             checks, mode, effective_doc_type, triggers, global_checks, doc_type_checks = \
-                runner._planner.select_checks_for_context(ctx, playbook)
+                runner._planner.select_checks_for_document(doc_snap, playbook)
             
             for check in checks:
                 check_id = getattr(check, "id", None)
@@ -676,7 +675,7 @@ def run_document_checks(
                     continue
                 
                 pairs.append({
-                    "doc_id": doc_snap.document_id_str,
+                    "doc_id": str(doc_uuid),
                     "check_id": str(check_id),
                     "doc_type": effective_doc_type,
                     "segment_id": None,
