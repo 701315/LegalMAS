@@ -590,7 +590,7 @@ async def _start_run_pipeline_async(
                 triggered = await start_checks_for_document(
                     db=db,
                     run_id=run_snap.run_id,
-                    document_id=uuid.UUID(doc_snap.document_id),
+                    document_id=doc_snap.document_id,  # Уже UUID, не конвертируем
                 )
                 if triggered:
                     documents_triggered += 1
