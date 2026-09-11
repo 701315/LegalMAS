@@ -8,10 +8,13 @@ use case ResultPresentationTranslationUseCase.
 
 from __future__ import annotations
 
+import uuid
+
 from typing import Any
 
 from core.logging import get_logger
 from db.uow import db_uow
+from db.repositories.check_result_presentation_repo import CheckResultPresentationRepository
 from db.repositories.outbox import OutboxRepository
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
@@ -98,26 +101,39 @@ def process_pending_result_presentations(
     # rows likely exist. Create a new outbox message so the dispatcher picks
     # up the next batch within 5 seconds. This is crash-safe (PostgreSQL-
     # backed) unlike Redis self-chaining.
-    if result.get("claimed", 0) >= batch_limit:
-        async def _schedule_next() -> None:
+    claimed_count = result.get("claimed", 0)
+    if claimed_count > 0:
+        async def _check_and_schedule_next() -> None:
             async with db_uow() as uow:
-                repo = OutboxRepository(uow.session)
-                await repo.create(
-                    task_name=RESULT_PRESENTATION_TRANSLATION_TASK_NAME,
-                    payload={
-                        "run_id": run_id,
-                        "deal_id": deal_id,
-                        "tenant_id": tenant_id,
-                        "locale": locale,
-                        "content_version": content_version,
-                        "batch_limit": batch_limit,
-                    },
-                    aggregate_type="run_translation",
-                    aggregate_id=f"{run_id}:{locale}",
-                    headers={"queue": "heavy_llm_checks"},
+                pres_repo = CheckResultPresentationRepository(uow.session)
+                has_more = await pres_repo.has_pending_for_run(
+                    run_id=uuid.UUID(run_id),
+                    locale=locale,
+                    content_version=content_version,
                 )
+                if has_more:
+                    outbox_repo = OutboxRepository(uow.session)
+                    await outbox_repo.create(
+                        task_name=RESULT_PRESENTATION_TRANSLATION_TASK_NAME,
+                        payload={
+                            "run_id": run_id,
+                            "deal_id": deal_id,
+                            "tenant_id": tenant_id,
+                            "locale": locale,
+                            "content_version": content_version,
+                            "batch_limit": batch_limit,
+                        },
+                        aggregate_type="run_translation",
+                        aggregate_id=f"{run_id}:{locale}",
+                        headers={"queue": "heavy_llm_checks"},
+                    )
+                    logger.info(
+                        "Scheduled continuation translation batch via outbox",
+                        run_id=run_id,
+                        locale=locale,
+                    )
 
-        run_async(_schedule_next())
+        run_async(_check_and_schedule_next())
         logger.info(
             "Scheduled next translation batch via outbox continuation",
             run_id=run_id,

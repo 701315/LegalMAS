@@ -76,7 +76,9 @@ class OutboxRepository:
             return
         now = datetime.now(UTC)
         message.status = "published"
+        message.dedup_key = None
         message.published_at = now
+        message.dedup_key = None
         message.updated_at = now
         message.last_error = None
         await self.db.flush()
@@ -99,6 +101,7 @@ class OutboxRepository:
         if message.attempts >= message.max_attempts:
             message.status = "dead"
             message.available_at = now
+            message.dedup_key = None
         else:
             message.status = "pending"
             message.available_at = now + timedelta(seconds=retry_delay_seconds)

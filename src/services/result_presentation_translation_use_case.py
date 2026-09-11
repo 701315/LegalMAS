@@ -18,6 +18,9 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 from core.exceptions import TransientError, PermanentError
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.result_presentation_content import (
@@ -173,7 +176,18 @@ class ResultPresentationTranslationUseCase:
         }
 
         for item in claimed:
-            await self._process_one(item=item, summary=summary)
+            try:
+                await self._process_one(item=item, summary=summary)
+            except TransientError:
+                logger.warning(
+                    "Transient error on presentation %s, will retry next batch",
+                    item.presentation_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Unexpected error on presentation %s",
+                    item.presentation_id,
+                )
 
         return summary
 

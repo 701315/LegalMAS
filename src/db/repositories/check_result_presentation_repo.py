@@ -382,6 +382,34 @@ class CheckResultPresentationRepository:
 
         return presentation
 
+
+    async def has_pending_for_run(
+        self,
+        *,
+        run_id: uuid.UUID,
+        locale: str,
+        content_version: str,
+    ) -> bool:
+        """
+        Check whether any pending presentations remain for a run and locale.
+        """
+        stmt = (
+            select(CheckResultPresentation.id)
+            .join(
+                CheckResult,
+                CheckResult.id == CheckResultPresentation.check_result_id,
+            )
+            .where(
+                CheckResult.run_id == run_id,
+                CheckResultPresentation.locale == locale.strip().lower(),
+                CheckResultPresentation.content_version == content_version.strip(),
+                CheckResultPresentation.translation_status == "pending",
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
     async def reset_processing_to_pending(
         self,
         *,
