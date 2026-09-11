@@ -15,7 +15,7 @@ redis==5.2.1
 minio==7.2.12
 
 # Configuration
-pydantic-settings==2.7.1
+pydantic-settings==2.15.0
 pydantic==2.10.4
 
 # Logging
@@ -47,7 +47,7 @@ openpyxl==3.1.5
 xlsxwriter==3.2.0
 
 # Import Worker
-python-docx==1.1.2
+python-docx==1.2.0
 
 # Auth
 bcrypt==4.2.1
@@ -109,5 +109,20 @@ opentelemetry-instrumentation-httpx==0.49b2
 opentelemetry-instrumentation-celery==0.49b2
 
 
-docling
-PyMuPDF
+docling==2.121.0
+docling-core==2.92.0
+docling-ibm-models==3.14.0
+docling-parse==7.15.0
+docling-slim==2.121.0
+
+# Storage & Serialization extras
+
+# Layout & Docling extraction
+
+# Storage & Serialization extras
+boto3==1.43.92
+ruamel.yaml==0.19.1
+psycopg2-binary==2.9.12
+
+# Layout & Docling extraction
+PyMuPDF==1.28.2
