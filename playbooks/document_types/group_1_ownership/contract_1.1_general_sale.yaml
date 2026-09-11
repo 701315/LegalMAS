@@ -4247,6 +4247,7 @@ checks_v8:
         - name: "third_party_rights_details"
           type: "string"
           presentation: "fact"
+          label: "Права третьих лиц (детали)"
           display_in_grid: false
           description: >
             Внутренняя краткая формулировка о правах третьих лиц.
@@ -4265,6 +4266,7 @@ checks_v8:
         - name: "pledge_details"
           type: "string"
           presentation: "fact"
+          label: "Залог (детали)"
           display_in_grid: false
           description: >
             Внутренняя краткая формулировка о залоге.
@@ -4283,6 +4285,7 @@ checks_v8:
         - name: "arrest_details"
           type: "string"
           presentation: "fact"
+          label: "Арест (детали)"
           display_in_grid: false
           description: >
             Внутренняя краткая формулировка об аресте.
@@ -4301,6 +4304,7 @@ checks_v8:
         - name: "other_encumbrances_details"
           type: "string"
           presentation: "fact"
+          label: "Иные обременения (детали)"
           display_in_grid: false
           description: >
             Внутренняя краткая формулировка об иных обременениях.

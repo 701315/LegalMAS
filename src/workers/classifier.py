@@ -344,13 +344,20 @@ async def _classify_document_async(
                         except Exception as trig_exc:
                             logger.warning("Classifier skip: non-fatal retrigger failure", error=str(trig_exc))
 
+                    if doc.status != DocumentStatus.CLASSIFIED.value:
+                        await doc_repo.update_status(
+                            doc_id_value,
+                            DocumentStatus.CLASSIFIED.value,
+                            processing_error_details=None,
+                        )
+
                     return {
                         "document_id": document_id,
-                        "status": doc.status,
+                        "status": DocumentStatus.CLASSIFIED.value,
                         "skipped": True,
                         "reason": "already_classified",
                         "doc_type": existing_doc_type,
-                        "committed": False,
+                        "committed": True,
                     }
                 # ── КОНЕЦ FIX #1 ──────────────────────────────────────────────
 

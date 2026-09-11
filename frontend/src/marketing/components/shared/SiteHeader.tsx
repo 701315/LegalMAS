@@ -24,7 +24,6 @@ const MOBILE_BG = "rgba(250, 248, 245, 0.98)";
 const MOBILE_FG = "#1A1917";
 const MOBILE_SHADOW = "0 1px 0 rgba(0, 0, 0, 0.04)";
 
-// Доступные языки
 const LANGUAGES = [
   { code: "ru", label: "RU", name: "Русский" },
   { code: "en", label: "EN", name: "English" },
@@ -53,7 +52,6 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
   const solutionsRef = useRef<HTMLDivElement>(null);
   const langRef = useRef<HTMLDivElement>(null);
 
-  // ── Навигация из i18n ─────────────────────────────────────
   const SITE_NAV = [
     { label: t("nav.platform"), href: "/capabilities" },
     { label: t("nav.security"), href: "/security" },
@@ -114,7 +112,26 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
     return () => window.removeEventListener("scroll", onScroll);
   }, [variant, currentPath]);
 
-  // ── Click outside to close mega menu ───────────────────────
+  // ── Close all menus on route change ───────────────────────
+  useEffect(() => {
+    setSolutionsOpen(false);
+    setLangOpen(false);
+    setMobileOpen(false);
+  }, [currentPath]);
+
+  // ── Close on Escape ───────────────────────────────────────
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSolutionsOpen(false);
+        setLangOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, []);
+
+  // ── Click outside mega menu ───────────────────────────────
   useEffect(() => {
     if (!solutionsOpen) return;
     const clickOutside = (e: MouseEvent) => {
@@ -126,7 +143,7 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
     return () => document.removeEventListener("mousedown", clickOutside);
   }, [solutionsOpen]);
 
-  // ── Click outside to close language dropdown ───────────────
+  // ── Click outside language dropdown ───────────────────────
   useEffect(() => {
     if (!langOpen) return;
     const clickOutside = (e: MouseEvent) => {
@@ -176,12 +193,9 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
     cursor: "pointer",
   };
 
-  // ── Language switcher handler ──────────────────────────────
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
     setLangOpen(false);
-    // Опционально: можно добавить редирект на URL с префиксом языка
-    // когда будет реализован URL-based routing
   };
 
   return (
@@ -194,10 +208,13 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
           backdropFilter: headerBlur,
           WebkitBackdropFilter: headerBlur,
           boxShadow: headerShadow,
+          // Explicit insurance against any leftover overflow rules
+          overflow: "visible",
         }}
       >
+        {/* relative — positioning context for the centered mega-menu */}
         <div
-          className="mx-auto flex w-full items-center justify-between px-6 lg:px-8"
+          className="relative mx-auto flex w-full items-center justify-between px-6 lg:px-8"
           style={{
             maxWidth: "1400px",
             height: `${headerHeight}px`,
@@ -253,13 +270,14 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                 <div
                   key="solutions"
                   ref={solutionsRef}
-                  className="relative flex items-center"
+                  className="flex items-center"
                 >
                   <button
                     type="button"
                     onClick={() => setSolutionsOpen((v) => !v)}
                     aria-expanded={solutionsOpen}
                     aria-haspopup="true"
+                    className="relative"
                     style={{
                       ...navItemStyle,
                       color: isActive
@@ -284,42 +302,65 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                       />
                     )}
                   </button>
+
                   <AnimatePresence>
                     {solutionsOpen && (
                       <motion.div
-                        initial={{ opacity: 0, y: 12 }}
+                        initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 12 }}
-                        className="absolute left-0 top-full mt-5 hidden lg:block w-[1140px] max-w-[calc(100vw-2rem)] rounded-2xl bg-white shadow-[0_40px_80px_rgba(0,0,0,0.15)] p-12 border border-gray-100 overflow-hidden"
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.18, ease: "easeOut" }}
+                        /*
+                          Positioned against the header inner container (relative).
+                          left-1/2 -translate-x-1/2 → perfectly centered under the nav.
+                          top-full mt-3 → sits just below the header bar.
+                          z-[10000] → above hero / any page content.
+                          text-[#1A1917] → hard lock against white-on-white on dark hero.
+                        */
+                        className="absolute left-1/2 -translate-x-1/2 top-full mt-3 hidden lg:block w-[min(1140px,calc(100vw-2rem))] rounded-2xl bg-white text-[#1A1917] shadow-[0_30px_90px_rgba(0,0,0,0.2)] p-10 lg:p-12 border border-gray-100 z-[10000]"
                       >
-                        <div className="grid grid-cols-3 gap-12 relative z-10">
+                        <div className="grid grid-cols-3 gap-10 lg:gap-12">
                           {SOLUTIONS_MEGA_MENU.sections.map((s) => (
                             <div key={s.title}>
                               <h3 className="mb-6 text-meta font-bold text-gray-400">
                                 {s.title}
                               </h3>
-                              <ul className="space-y-5">
-                                {s.items.map((i) => (
-                                  <li key={i.href}>
-                                    {(() => {
-                              const isActive = location.pathname === i.href;
-                              return (
-                                <Link
-                                  to={i.href}
-                                  onClick={() => setSolutionsOpen(false)}
-                                  className={`group block p-2 -mx-2 rounded-md transition-all duration-200 ${isActive ? 'bg-[var(--accent-primary)]/10' : 'hover:bg-black/[0.03]'}`}
-                                >
-                                  <p className={`text-body-sm !font-bold transition-colors ${isActive ? '!text-[var(--accent-primary)]' : '!text-[#1A1917] group-hover:!text-[var(--accent-primary)]'}`}>
-                                    {i.label}
-                                  </p>
-                                  <p className={`text-body-sm font-normal leading-relaxed mt-0.5 transition-colors ${isActive ? 'text-[var(--text-primary)] font-medium' : 'text-gray-500'}`}>
-                                    {i.description}
-                                  </p>
-                                </Link>
-                              );
-                            })()}
-                                  </li>
-                                ))}
+                              <ul className="space-y-4">
+                                {s.items.map((i) => {
+                                  const isLinkActive = location.pathname === i.href;
+                                  return (
+                                    <li key={i.href}>
+                                      <Link
+                                        to={i.href}
+                                        onClick={() => setSolutionsOpen(false)}
+                                        className={`group block p-2 -mx-2 rounded-md transition-all duration-200 ${
+                                          isLinkActive
+                                            ? "bg-[#C86B52]/10"
+                                            : "hover:bg-black/[0.03]"
+                                        }`}
+                                      >
+                                        <p
+                                          className={`text-body-sm !font-bold transition-colors ${
+                                            isLinkActive
+                                              ? "!text-[#C86B52]"
+                                              : "!text-[#1A1917] group-hover:!text-[#C86B52]"
+                                          }`}
+                                        >
+                                          {i.label}
+                                        </p>
+                                        <p
+                                          className={`text-body-sm font-normal leading-relaxed mt-0.5 transition-colors ${
+                                            isLinkActive
+                                              ? "text-[#1A1917] font-medium"
+                                              : "text-gray-500"
+                                          }`}
+                                        >
+                                          {i.description}
+                                        </p>
+                                      </Link>
+                                    </li>
+                                  );
+                                })}
                               </ul>
                             </div>
                           ))}
@@ -352,7 +393,7 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                 onClick={() => setLangOpen((v) => !v)}
                 aria-expanded={langOpen}
                 aria-label="Select language"
-                className="flex items-center gap-1.5 px-2.5 py-2 text-sm font-semibold text-[var(--text-primary)] transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-2 text-sm font-semibold transition-colors"
                 style={{
                   color: desktopColorSecondary,
                   borderRadius: "8px",
@@ -373,10 +414,9 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 8 }}
-                    className="absolute right-0 mt-2 w-40 rounded-xl bg-white shadow-lg border border-[var(--border-color)] py-1 z-[10000]"
-                    style={{
-                      boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
-                    }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-3 w-40 rounded-xl bg-white text-[#1A1917] shadow-lg border border-gray-100 py-1 z-[10000]"
+                    style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.1)" }}
                   >
                     {LANGUAGES.map((lang) => (
                       <button
@@ -384,19 +424,17 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
                         onClick={() => changeLanguage(lang.code)}
                         className={`block w-full text-left px-4 py-2.5 text-sm transition-colors ${
                           i18n.language === lang.code
-                            ? "bg-[#F5EBE7] text-[var(--accent-primary)] font-medium"
-                            : "text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
+                            ? "bg-[#F5EBE7] text-[#C86B52] font-medium"
+                            : "text-[#1A1917] hover:bg-gray-50"
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span>{lang.name}</span>
+                          <span className="text-[#1A1917]">{lang.name}</span>
                           <span
                             className="text-xs font-medium"
                             style={{
                               color:
-                                i18n.language === lang.code
-                                  ? "#C86B52"
-                                  : "#A8A29E",
+                                i18n.language === lang.code ? "#C86B52" : "#A8A29E",
                             }}
                           >
                             {lang.label}
@@ -438,4 +476,3 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
 };
 
 export default SiteHeader;
-

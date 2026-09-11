@@ -38,21 +38,24 @@ const SecurityCTASection: React.FC = () => {
             {/* Верхний тонкий якорь */}
             <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
 
-            {/* ✅ Заголовок — используем whitespace-pre-line вместо ручного .split('\n') */}
+            {/* Заголовок */}
             <h2 className="mt-10 text-h1 text-start">
               {t('cta.title')}
             </h2>
 
-            {/* Абзацы */}
+            {/* Абзацы с исправленным уникальным key */}
             <div className="mt-7 space-y-5" style={{ maxWidth: 620 }}>
-              {paragraphs.map((p: string) => (
-                <p className="text-body leading-relaxed text-[var(--text-secondary)] text-start">
+              {paragraphs.map((p: string, idx: number) => (
+                <p 
+                  key={idx} 
+                  className="text-body leading-relaxed text-[var(--text-secondary)] text-start"
+                >
                   {p}
                 </p>
               ))}
             </div>
 
-            {/* Одна CTA-кнопка */}
+            {/* CTA-кнопка */}
             <div className="mt-10 flex items-center justify-center">
               <button
                 type="button"
@@ -60,7 +63,6 @@ const SecurityCTASection: React.FC = () => {
                 className="cta-primary inline-flex items-center gap-2"
               >
                 {t('cta.ctaPrimary')}
-                {/* RTL FIX: разворот стрелки для арабского языка */}
                 <ArrowRight 
                   className="h-3.5 w-3.5" 
                   style={{ 
@@ -83,3 +85,4 @@ const SecurityCTASection: React.FC = () => {
 };
 
 export default SecurityCTASection;
+
