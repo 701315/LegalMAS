@@ -1,0 +1,142 @@
+==================================================================================================================================
+АУДИТ КАЧЕСТВА group_5_financial  (без дублей — только качество)
+==================================================================================================================================
+
+═══ contract_5.1_loan.yaml ═══  (19 checks)
+
+  check_id                                            st  fld  vis  ctx   mc     risk  edge  json  req  lab   fb
+  -----------------------------------------------------------------------------------------------------------------------------
+  loan_parties_identification                          ✅   16    6    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  loan_subject_and_amount                              ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  loan_interest_terms                                  ✅    8    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  loan_repayment_and_transfer                          ✅    7    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  transfer_evidence_check                              ✅    7    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  repayment_and_acceleration_check                     ✅   12    4   10   14   низкий     ✅     ✅    ✅    ✅    ✅
+  target_loan_control_check                            ✅    8    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  foreign_currency_terms_check                         ✅   10    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  related_party_loan_check                             ✅    8    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  bankruptcy_claw_back_risk_check                      ✅    4    2    6   10      N/A     ✅     ✅    ✅    ✅    ✅
+  convertible_loan_check                               ✅    8    4    8   10   низкий     ❌     ✅    ✅    ✅    ✅
+  multiple_tranches_check                              ✅    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  secured_loan_terms                                   ✅    8    4    8   10   низкий     ❌     ✅    ✅    ✅    ✅
+  tax_consequences_disclosure                          ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  novation_set_off_terms                               ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  loan_forgiveness_terms                               ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  fungible_goods_specification                         ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  on_demand_notice_period                              ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  loan_amendment_and_termination_check                 ✅    8    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+
+═══ contract_5.2_credit_agreement.yaml ═══  (21 checks)
+
+  check_id                                            st  fld  vis  ctx   mc     risk  edge  json  req  lab   fb
+  -----------------------------------------------------------------------------------------------------------------------------
+  credit_subject_extraction                            ⏳    9    5    8   12   низкий     ❌     ✅    ✅    ✅    ✅
+  lender_license_check                                 ⏳    4    2    8   10      N/A     ❌     ✅    ✅    ✅    ✅
+  interest_psk_fees_check                              ⏳    6    2    8   10   низкий     ❌     ✅    ✅    ✅    ✅
+  repayment_schedule_and_early_repayment_check         ⏳    8    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  forced_services_and_insurance_check                  ⏳    8    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  acceleration_events_check                            ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  variable_rate_check                                  ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  payment_allocation_priority_check                    ⏳    5    2    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  financial_covenants_check                            ⏳   10    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  cross_default_check                                  ⏳   10    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  purpose_and_control_check                            ⏳    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  negative_pledge_check                                ⏳    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  collateral_and_security_check                        ⏳   11    5    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  conditions_precedent_check                           ⏳    7    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  non_financial_covenants_check                        ⏳    7    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  currency_and_fx_clause_check                         ⏳    8    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  tax_gross_up_check                                   ⏳    8    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  default_interest_and_penalties_check                 ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  tranche_and_drawdown_mechanics_check                 ⏳   11    5    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  amendment_and_waiver_check                           ⏳    8    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  notices_and_communications_check                     ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+
+═══ contract_5.3_factoring.yaml ═══  (22 checks)
+
+  check_id                                            st  fld  vis  ctx   mc     risk  edge  json  req  lab   fb
+  -----------------------------------------------------------------------------------------------------------------------------
+  factoring_parties_identification                     ✅   10    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  factoring_subject_extraction                         ✅   11    6    8   12   низкий     ❌     ✅    ✅    ✅    ✅
+  assigned_claim_identification_check                  ✅    7    2    8   10   низкий     ❌     ✅    ✅    ✅    ✅
+  financing_and_fee_structure_check                    ✅    5    2    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  recourse_allocation_check                            ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  debtor_notification_check                            ✅    8    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  setoff_and_double_assignment_risk_check              ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  document_transfer_and_bankruptcy_check               ✅    8    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  debtor_defenses_check                                ✅    4    2    6    8      N/A     ✅     ✅    ✅    ✅    ✅
+  hidden_factoring_protection_check                    ✅    8    2    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  claim_validity_warranties_check                      ✅   10    2    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  excess_collection_return                             ✅    8    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  tax_risk_allocation                                  ✅    7    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  assignment_prohibition_disclosure                    ✅    7    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  underlying_contract_change_restriction_check         ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  factor_liability_and_penalties_check                 ✅    5    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  financing_limits_and_concentration_check             ✅    7    4    8   10   низкий     ❌     ✅    ✅    ✅    ✅
+  framework_assignment_mechanics_check                 ✅    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  factor_suspension_right_check                        ✅    7    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  factor_reassignment_right_check                      ✅    5    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  collection_costs_allocation_check                    ✅    5    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  hidden_factoring_penalties_check                     ✅    5    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+
+═══ contract_5.4_bank_deposit_account.yaml ═══  (12 checks)
+
+  check_id                                            st  fld  vis  ctx   mc     risk  edge  json  req  lab   fb
+  -----------------------------------------------------------------------------------------------------------------------------
+  bank_deposit_parties_identification                  ⏳   13    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  bank_deposit_account_subject_extraction              ⏳   11    5    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  deposit_interest_and_fixation_check                  ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  deposit_early_withdrawal_check                       ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  account_tariffs_and_commissions_check                ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  aml_blocking_check                                   ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  unauthorized_debit_check                             ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  dbs_security_check                                   ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  overdraft_terms_check                                ⏳    9    5    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  deposit_insurance_coverage_check                     ⏳    8    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  account_closure_and_termination_check                ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  payment_allocation_priority_check                    ⏳    9    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+
+═══ contract_5.5_guaranty_and_pledge.yaml ═══  (15 checks)
+
+  check_id                                            st  fld  vis  ctx   mc     risk  edge  json  req  lab   fb
+  -----------------------------------------------------------------------------------------------------------------------------
+  security_subject_extraction                          ⏳    8    7    8   12   низкий     ✅     ✅    ✅    ✅    ✅
+  guaranty_liability_scope_check                       ⏳    7    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  guaranty_change_and_termination_check                ⏳    7    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  pledge_subject_and_valuation_check                   ⏳    8    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  pledge_enforcement_check                             ⏳    7    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  mortgage_registration_check                          ⏳    8    4    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  guarantor_default_notice_and_subrogation_check       ⏳    7    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  pledge_insurance_check                               ⏳    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  pledge_bankruptcy_risk_check                         ⏳    4    2    6    8      N/A     ✅     ✅    ✅    ✅    ✅
+  pledge_subsequent_and_priority_check                 ⏳    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  pledge_disposal_restrictions_check                   ⏳    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  pledge_movable_registration_check                    ⏳    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  mortgage_spousal_consent_check                       ⏳    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  mortgage_zakladnaya_check                            ⏳    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+  guarantor_defenses_and_objections_check              ⏳    6    3    8   10   низкий     ✅     ✅    ✅    ✅    ✅
+
+==================================================================================================================================
+ОБЩАЯ СВОДКА
+==================================================================================================================================
+  Всего checks:                89
+  ✅ Отрефакторено вручную:     41
+  ⏳ Осталось:                  48
+
+  Метрики качества (по всем 89 checks):
+    Без edge-case:              8
+    Без canonical JSON:         0
+    Не все поля required:true:  0
+    Visible без label:          0
+    Без fallback в промте:      0
+    Retrieval risk высокий:     0
+    Retrieval risk средний:     0
+
+==================================================================================================================================
+ТОП-30 checks с наибольшим числом проблем (только todo)
+==================================================================================================================================
+  file                                     check_id                                            проблем  issues
+  -----------------------------------------------------------------------------------------------------------------------------
+  contract_5.2_credit_agreement.yaml       credit_subject_extraction                                 1  edge
+  contract_5.2_credit_agreement.yaml       lender_license_check                                      1  edge
+  contract_5.2_credit_agreement.yaml       interest_psk_fees_check                                   1  edge

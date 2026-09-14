@@ -539,7 +539,7 @@ checks_v8:
           "disclosing_party_details": "ООО «Альфа», ИНН 7700000001",
           "receiving_party_status": "defined",
           "receiving_party_details": "ООО «Бета», ИНН 7700000002",
-          "nda_type": "unilateral",
+          "nda_type_code": "unilateral",
           "nda_type_details": "одностороннее: ООО «Альфа» раскрывает, ООО «Бета» получает",
           "purpose_status": "defined",
           "purpose_details": "для целей проведения due diligence в связи с потенциальной сделкой M&A",
@@ -563,7 +563,7 @@ checks_v8:
           "disclosing_party_details": "Данные не определены",
           "receiving_party_status": "not_defined",
           "receiving_party_details": "Данные не определены",
-          "nda_type": "not_defined",
+          "nda_type_code": "not_defined",
           "nda_type_details": "Данные не определены",
           "purpose_status": "not_defined",
           "purpose_details": "Данные не определены",
@@ -589,7 +589,7 @@ checks_v8:
           "disclosing_party_details": "<текст или 'Данные не определены'>",
           "receiving_party_status": "<defined / not_defined>",
           "receiving_party_details": "<текст или 'Данные не определены'>",
-          "nda_type": "<unilateral / mutual / not_defined>",
+          "nda_type_code": "<unilateral / mutual / not_defined>",
           "nda_type_details": "<текст или 'Данные не определены'>",
           "purpose_status": "<defined / not_defined>",
           "purpose_details": "<текст или 'Данные не определены'>",
@@ -681,7 +681,7 @@ checks_v8:
         2. disclosing_party_details — наименование и реквизиты раскрывающей стороны.
         3. receiving_party_status — "defined" или "not_defined".
         4. receiving_party_details — наименование и реквизиты получающей стороны.
-        5. nda_type — "unilateral" / "mutual" / "not_defined".
+        5. nda_type_code — "unilateral" / "mutual" / "not_defined".
         6. nda_type_details — описание типа NDA.
         7. purpose_status — "defined" или "not_defined".
         8. purpose_details — цель раскрытия информации.
@@ -695,7 +695,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - nda_type: "unilateral" — если информация раскрывается только одной стороной;
+        - nda_type_code: "unilateral" — если информация раскрывается только одной стороной;
           "mutual" — если обе стороны обмениваются информацией;
           "not_defined" — если тип прямо не указан.
         - Верни только JSON.
@@ -729,7 +729,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
-        - name: "nda_type"
+        - name: "nda_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["unilateral", "mutual", "not_defined"]
@@ -858,7 +858,7 @@ checks_v8:
         Ответ:
         {
           "definition_status": "defined",
-          "definition_type": "both",
+          "definition_type_code": "both",
           "definition_type_details": "категории и примеры: технические данные, ноу-хау, рецептуры; финансовые показатели; клиентская база; бизнес-планы",
           "categories_status": "defined",
           "categories_details": "технические данные, ноу-хау, рецептуры; финансовые показатели; клиентская база; бизнес-планы",
@@ -883,7 +883,7 @@ checks_v8:
         Ответ:
         {
           "definition_status": "not_defined",
-          "definition_type": "not_defined",
+          "definition_type_code": "not_defined",
           "definition_type_details": "Данные не определены",
           "categories_status": "not_defined",
           "categories_details": "Данные не определены",
@@ -909,7 +909,7 @@ checks_v8:
         Ответь строго в JSON:
         {
           "definition_status": "<defined / not_defined>",
-          "definition_type": "<categories / specific_list / both / unclear / not_defined>",
+          "definition_type_code": "<categories / specific_list / both / unclear / not_defined>",
           "definition_type_details": "<текст или 'Данные не определены'>",
           "categories_status": "<defined / not_defined>",
           "categories_details": "<текст или 'Данные не определены'>",
@@ -1004,7 +1004,7 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
         1. definition_status — "defined" или "not_defined".
-        2. definition_type — categories / specific_list / both / unclear / not_defined.
+        2. definition_type_code — categories / specific_list / both / unclear / not_defined.
         3. definition_type_details — описание типа определения.
         4. categories_status — "defined" или "not_defined".
         5. categories_details — перечень категорий.
@@ -1022,7 +1022,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - definition_type: "categories" — если даны общие категории;
+        - definition_type_code: "categories" — если даны общие категории;
           "specific_list" — если дан конкретный перечень;
           "both" — если и категории, и перечень;
           "unclear" — если определение размыто;
@@ -1039,7 +1039,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения конфиденциальной информации."
           required: true
-        - name: "definition_type"
+        - name: "definition_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["categories", "specific_list", "both", "unclear", "not_defined"]
@@ -3228,7 +3228,7 @@ checks_v8:
         {
           "governing_law_status": "defined",
           "governing_law_details": "право Российской Федерации",
-          "dispute_method": "court",
+          "dispute_method_code": "court",
           "dispute_method_details": "Арбитражный суд г. Москвы",
           "jurisdiction_status": "defined",
           "jurisdiction_details": "Арбитражный суд г. Москвы",
@@ -3247,7 +3247,7 @@ checks_v8:
         {
           "governing_law_status": "not_defined",
           "governing_law_details": "Данные не определены",
-          "dispute_method": "negotiation",
+          "dispute_method_code": "negotiation",
           "dispute_method_details": "путём переговоров",
           "jurisdiction_status": "not_defined",
           "jurisdiction_details": "Данные не определены",
@@ -3273,7 +3273,7 @@ checks_v8:
         {
           "governing_law_status": "<defined / not_defined>",
           "governing_law_details": "<текст или 'Данные не определены'>",
-          "dispute_method": "<court / arbitration / negotiation / mixed / not_defined>",
+          "dispute_method_code": "<court / arbitration / negotiation / mixed / not_defined>",
           "dispute_method_details": "<текст или 'Данные не определены'>",
           "jurisdiction_status": "<defined / not_defined>",
           "jurisdiction_details": "<текст или 'Данные не определены'>",
@@ -3366,7 +3366,7 @@ checks_v8:
         Заполни строго следующие поля:
         1. governing_law_status — "defined" или "not_defined".
         2. governing_law_details — применимое право.
-        3. dispute_method — court / arbitration / negotiation / mixed / not_defined.
+        3. dispute_method_code — court / arbitration / negotiation / mixed / not_defined.
         4. dispute_method_details — способ разрешения споров.
         5. jurisdiction_status — "defined" или "not_defined".
         6. jurisdiction_details — подсудность / юрисдикция.
@@ -3382,7 +3382,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - dispute_method: "court" — государственный суд;
+        - dispute_method_code: "court" — государственный суд;
           "arbitration" — третейский суд / арбитраж;
           "negotiation" — переговоры;
           "mixed" — сочетание;
@@ -3404,7 +3404,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
-        - name: "dispute_method"
+        - name: "dispute_method_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["court", "arbitration", "negotiation", "mixed", "not_defined"]

@@ -1,0 +1,287 @@
+====================================================================================================
+ОСТАТОЧНЫЕ ПРОБЛЕМЫ БЕЗ GLOBAL И ВНУТРЕННИХ ДУБЛЕЙ
+Папка: playbooks/document_types/group_5_financial
+====================================================================================================
+
+=== contract_5.1_loan.yaml ===
+  🟡 D: Checks без edge-case в few-shot  (14)
+      loan_subject_and_amount
+      loan_interest_terms
+      loan_repayment_and_transfer
+      repayment_and_acceleration_check
+      bankruptcy_claw_back_risk_check
+      convertible_loan_check
+      multiple_tranches_check
+      secured_loan_terms
+      tax_consequences_disclosure
+      novation_set_off_terms
+      loan_forgiveness_terms
+      fungible_goods_specification
+      on_demand_notice_period
+      representations_and_warranties
+  🟡 E: Visible fact без fallback в промте  (1)
+      bankruptcy_claw_back_risk_check.economic_purpose_display
+  🟡 F: Неоднородные enum-домены  (17)
+      loan_parties_identification.lender_details_status  домен=defined/not_defined
+      loan_parties_identification.borrower_details_status  домен=defined/not_defined
+      loan_subject_and_amount.loan_amount_status  домен=defined/not_defined
+      loan_repayment_and_transfer.repayment_term_status  домен=defined/not_defined
+      loan_repayment_and_transfer.repayment_obligation_status  домен=defined/not_defined
+      transfer_evidence_check.transfer_evidence_status  домен=defined/not_defined
+      transfer_evidence_check.transfer_at_signing_status  домен=defined/not_defined
+      repayment_and_acceleration_check.acceleration_right_status  домен=defined/not_defined
+      repayment_and_acceleration_check.late_payment_penalty_status  домен=defined/not_defined
+      repayment_and_acceleration_check.repayment_confirmation_status  домен=defined/not_defined
+      target_loan_control_check.purpose_defined_status  домен=defined/not_defined
+      target_loan_control_check.lender_control_right_status  домен=defined/not_defined
+      target_loan_control_check.documentary_reporting_status  домен=defined/not_defined
+      related_party_loan_check.affiliation_disclosed_status  домен=defined/not_defined
+      related_party_loan_check.market_terms_warranty_status  домен=defined/not_defined
+      bankruptcy_claw_back_risk_check.no_insolvency_warranty_status  домен=defined/not_defined
+      bankruptcy_claw_back_risk_check.economic_purpose_status  домен=defined/not_defined
+      convertible_loan_check.conversion_formula_status  домен=defined/not_defined
+      convertible_loan_check.valuation_cap_or_discount_status  домен=defined/not_defined
+      convertible_loan_check.corporate_actions_status  домен=defined/not_defined
+      multiple_tranches_check.total_limit_status  домен=defined/not_defined
+      multiple_tranches_check.tranche_request_procedure_status  домен=defined/not_defined
+      multiple_tranches_check.tranche_conditions_status  домен=defined/not_defined
+      secured_loan_terms.security_presence_status  домен=defined/not_defined
+      secured_loan_terms.security_registration_status  домен=defined/not_defined
+      tax_consequences_disclosure.tax_disclosure_status  домен=defined/not_defined
+      novation_set_off_terms.novation_setoff_presence_status  домен=defined/not_defined
+      loan_forgiveness_terms.forgiveness_presence_status  домен=defined/not_defined
+      fungible_goods_specification.goods_spec_presence_status  домен=defined/not_defined
+      on_demand_notice_period.on_demand_status  домен=defined/not_defined
+      representations_and_warranties.reps_warranties_presence_status  домен=defined/not_defined
+
+=== contract_5.2_credit_agreement.yaml ===
+  🟡 D: Checks без edge-case в few-shot  (3)
+      credit_subject_extraction
+      lender_license_check
+      interest_psk_fees_check
+  🟡 F: Неоднородные enum-домены  (21)
+      credit_subject_extraction.psk  домен=present/not_defined
+      lender_license_check.license_reference_status  домен=present/not_defined
+      interest_psk_fees_check.interest_rate_status  домен=present/not_defined
+      interest_psk_fees_check.psk_status  домен=present/not_defined
+      repayment_schedule_and_early_repayment_check.schedule_status  домен=present/not_defined
+      repayment_schedule_and_early_repayment_check.notice_requirement_for_early_repayment  домен=present/not_defined
+      repayment_schedule_and_early_repayment_check.early_repayment_commission_status  домен=present/not_defined
+      forced_services_and_insurance_check.borrower_opt_out_right  домен=present/not_defined
+      forced_services_and_insurance_check.opt_out_consequences_status  домен=present/not_defined
+      acceleration_events_check.acceleration_right_status  домен=present/not_defined
+      acceleration_events_check.borrower_cure_period  домен=present/not_defined
+      acceleration_events_check.notification_required_status  домен=present/not_defined
+      variable_rate_check.revision_frequency_status  домен=present/not_defined
+      variable_rate_check.borrower_notice_status  домен=present/not_defined
+      variable_rate_check.rate_change_limits_status  домен=present/not_defined
+      payment_allocation_priority_check.allocation_order_status  домен=defined/not_defined
+      financial_covenants_check.review_frequency_status  домен=present/not_defined
+      cross_default_check.grace_period_for_third_party_default  домен=present/not_defined
+      purpose_and_control_check.purpose_defined_status  домен=defined/not_defined
+      purpose_and_control_check.control_mechanism_status  домен=present/not_defined
+      negative_pledge_check.negative_pledge_status  домен=defined/not_defined
+      negative_pledge_check.permitted_liens_status  домен=present/not_defined
+      collateral_and_security_check.collateral_present_status  домен=present/not_defined
+      collateral_and_security_check.collateral_valuation_status  домен=present/not_defined
+      collateral_and_security_check.ltv_status  домен=present/not_defined
+      collateral_and_security_check.collateral_insurance_status  домен=present/not_defined
+      conditions_precedent_check.cp_present_status  домен=present/not_defined
+      conditions_precedent_check.bank_refusal_right_status  домен=present/not_defined
+      conditions_precedent_check.repeating_representations_status  домен=present/not_defined
+      non_financial_covenants_check.negative_covenants_present_status  домен=present/not_defined
+      non_financial_covenants_check.affirmative_covenants_present_status  домен=present/not_defined
+      currency_and_fx_clause_check.fx_clause_status  домен=present/not_defined
+      currency_and_fx_clause_check.conversion_mechanism_status  домен=present/not_defined
+      tax_gross_up_check.gross_up_status  домен=present/not_defined
+      tax_gross_up_check.withholding_tax_status  домен=present/not_defined
+      tax_gross_up_check.vat_on_fees_status  домен=present/not_defined
+      tax_gross_up_check.tax_treaty_status  домен=present/not_defined
+      default_interest_and_penalties_check.penalty_present_status  домен=present/not_defined
+      default_interest_and_penalties_check.penalty_on_overdue_interest_status  домен=present/not_defined
+      default_interest_and_penalties_check.increased_rate_penalty_status  домен=present/not_defined
+      default_interest_and_penalties_check.penalty_cap_status  домен=present/not_defined
+      tranche_and_drawdown_mechanics_check.tranche_mechanics_status  домен=present/not_defined
+      tranche_and_drawdown_mechanics_check.drawdown_request_status  домен=present/not_defined
+      tranche_and_drawdown_mechanics_check.availability_period_status  домен=present/not_defined
+      tranche_and_drawdown_mechanics_check.commitment_fee_status  домен=present/not_defined
+      tranche_and_drawdown_mechanics_check.limit_annulment_status  домен=present/not_defined
+      amendment_and_waiver_check.amendment_form_status  домен=present/not_defined
+      amendment_and_waiver_check.unilateral_amendment_status  домен=present/not_defined
+      amendment_and_waiver_check.waiver_regime_status  домен=present/not_defined
+      amendment_and_waiver_check.no_waiver_by_conduct_status  домен=present/not_defined
+      notices_and_communications_check.notice_methods_status  домен=present/not_defined
+      notices_and_communications_check.notice_effective_moment_status  домен=present/not_defined
+      notices_and_communications_check.email_notices_status  домен=present/not_defined
+      notices_and_communications_check.addresses_specified_status  домен=present/not_defined
+
+=== contract_5.3_factoring.yaml ===
+  🟡 D: Checks без edge-case в few-shot  (3)
+      factoring_subject_extraction
+      assigned_claim_identification_check
+      financing_limits_and_concentration_check
+  🟡 E: Visible fact без fallback в промте  (5)
+      assigned_claim_identification_check.claim_identification_summary
+      hidden_factoring_protection_check.protection_summary
+      claim_validity_warranties_check.warranties_summary
+      factor_liability_and_penalties_check.factor_liability_summary
+      factor_suspension_right_check.early_repayment_demand_display
+      factor_suspension_right_check.factor_rights_summary
+  🟡 F: Неоднородные enum-домены  (17)
+      factoring_parties_identification.factor_details_status  домен=defined/not_defined
+      factoring_parties_identification.client_details_status  домен=defined/not_defined
+      factoring_subject_extraction.financing_amount_status  домен=defined/not_defined
+      factoring_subject_extraction.factor_fee_status  домен=defined/not_defined
+      factoring_subject_extraction.debtor_notification_status  домен=defined/not_defined
+      recourse_allocation_check.client_liability_cap  домен=present/not_defined
+      debtor_notification_check.notification_clause_status  домен=present/not_defined
+      debtor_notification_check.proof_of_notice_mechanism  домен=present/not_defined
+      setoff_and_double_assignment_risk_check.setoff_protection_status  домен=present/not_defined
+      setoff_and_double_assignment_risk_check.subsequent_assignment_prohibition  домен=present/not_defined
+      setoff_and_double_assignment_risk_check.client_warranty_on_no_setoff  домен=present/not_defined
+      document_transfer_and_bankruptcy_check.document_transfer_status  домен=present/not_defined
+      document_transfer_and_bankruptcy_check.bankruptcy_representations_status  домен=present/not_defined
+      document_transfer_and_bankruptcy_check.market_terms_representation  домен=present/not_defined
+      debtor_defenses_check.no_defenses_warranty  домен=present/not_defined
+      debtor_defenses_check.defenses_compensation_clause  домен=present/not_defined
+      hidden_factoring_protection_check.funds_transfer_obligation  домен=present/not_defined
+      hidden_factoring_protection_check.special_account_requirement  домен=present/not_defined
+      hidden_factoring_protection_check.reporting_obligation  домен=present/not_defined
+      hidden_factoring_protection_check.factor_right_to_notify_debtor  домен=present/not_defined
+      claim_validity_warranties_check.existence_warranty  домен=present/not_defined
+      claim_validity_warranties_check.not_discharged_warranty  домен=present/not_defined
+      claim_validity_warranties_check.not_contested_warranty  домен=present/not_defined
+      claim_validity_warranties_check.underlying_contract_validity  домен=present/not_defined
+      claim_validity_warranties_check.delivery_completion_warranty  домен=present/not_defined
+      claim_validity_warranties_check.indemnity_for_invalid_claim  домен=present/not_defined
+      excess_collection_return.excess_return_presence  домен=present/not_defined
+      excess_collection_return.recovery_in_recourse  домен=present/not_defined
+      excess_collection_return.reference_to_tariffs  домен=present/not_defined
+      tax_risk_allocation.tax_allocation_presence  домен=present/not_defined
+      tax_risk_allocation.vat_clause_status  домен=present/not_defined
+      tax_risk_allocation.loss_assignment_clause  домен=present/not_defined
+      assignment_prohibition_disclosure.no_prohibition_warranty  домен=present/not_defined
+      underlying_contract_change_restriction_check.change_restriction_status  домен=present/not_defined
+      underlying_contract_change_restriction_check.breach_consequences_status  домен=present/not_defined
+      factor_liability_and_penalties_check.late_financing_penalty_status  домен=present/not_defined
+      factor_liability_and_penalties_check.wrongful_refusal_liability_status  домен=present/not_defined
+      financing_limits_and_concentration_check.per_debtor_limit_status  домен=present/not_defined
+      financing_limits_and_concentration_check.portfolio_limit_status  домен=present/not_defined
+      financing_limits_and_concentration_check.limits_revision_status  домен=present/not_defined
+      factor_suspension_right_check.refusal_right_status  домен=present/not_defined
+      factor_suspension_right_check.suspension_right_status  домен=present/not_defined
+      factor_suspension_right_check.early_repayment_demand_status  домен=present/not_defined
+      hidden_factoring_penalties_check.late_transfer_penalty_status  домен=present/not_defined
+
+=== contract_5.4_bank_deposit_account.yaml ===
+  🟡 E: Visible fact без fallback в промте  (9)
+      bank_deposit_account_subject_extraction.transfer_evidence_details
+      deposit_early_withdrawal_check.return_procedure_details
+      account_tariffs_and_commissions_check.tariff_change_notice_details
+      aml_blocking_check.unblocking_details
+      unauthorized_debit_check.unauthorized_protection_details
+      dbs_security_check.incident_notice_details
+      overdraft_terms_check.termination_grounds_details
+      deposit_insurance_coverage_check.insurance_coverage_limit_value
+      account_closure_and_termination_check.overdraft_on_closure_details
+  🟡 F: Неоднородные enum-домены  (12)
+      bank_deposit_parties_identification.bank_details_status  домен=defined/not_defined
+      bank_deposit_parties_identification.bank_license_status  домен=defined/not_defined
+      bank_deposit_parties_identification.client_details_status  домен=defined/not_defined
+      bank_deposit_account_subject_extraction.amount_status  домен=defined/not_defined
+      bank_deposit_account_subject_extraction.term_status  домен=defined/not_defined
+      bank_deposit_account_subject_extraction.transfer_evidence_status  домен=defined/not_defined
+      deposit_interest_and_fixation_check.interest_rate_status  домен=defined/not_defined
+      deposit_interest_and_fixation_check.accrual_procedure_status  домен=defined/not_defined
+      deposit_interest_and_fixation_check.capitalization_status  домен=defined/not_defined
+      deposit_interest_and_fixation_check.rate_change_right_status  домен=defined/not_defined
+      deposit_early_withdrawal_check.early_withdrawal_status  домен=defined/not_defined
+      deposit_early_withdrawal_check.recalculation_status  домен=defined/not_defined
+      deposit_early_withdrawal_check.restrictions_status  домен=defined/not_defined
+      deposit_early_withdrawal_check.return_procedure_status  домен=defined/not_defined
+      account_tariffs_and_commissions_check.tariff_reference_status  домен=defined/not_defined
+      account_tariffs_and_commissions_check.fee_list_status  домен=defined/not_defined
+      account_tariffs_and_commissions_check.tariff_change_right_status  домен=defined/not_defined
+      account_tariffs_and_commissions_check.tariff_change_notice_status  домен=defined/not_defined
+      aml_blocking_check.aml_terms_status  домен=defined/not_defined
+      aml_blocking_check.document_request_status  домен=defined/not_defined
+      aml_blocking_check.blocking_grounds_status  домен=defined/not_defined
+      aml_blocking_check.unblocking_status  домен=defined/not_defined
+      unauthorized_debit_check.debit_grounds_status  домен=defined/not_defined
+      unauthorized_debit_check.debit_cases_status  домен=defined/not_defined
+      unauthorized_debit_check.client_notice_status  домен=defined/not_defined
+      unauthorized_debit_check.unauthorized_protection_status  домен=defined/not_defined
+      dbs_security_check.dbs_terms_status  домен=defined/not_defined
+      dbs_security_check.authentication_status  домен=defined/not_defined
+      dbs_security_check.liability_allocation_status  домен=defined/not_defined
+      dbs_security_check.incident_notice_status  домен=defined/not_defined
+      overdraft_terms_check.overdraft_limit_status  домен=defined/not_defined
+      overdraft_terms_check.overdraft_interest_status  домен=defined/not_defined
+      overdraft_terms_check.repayment_status  домен=defined/not_defined
+      overdraft_terms_check.termination_grounds_status  домен=defined/not_defined
+      deposit_insurance_coverage_check.insurance_terms_status  домен=defined/not_defined
+      deposit_insurance_coverage_check.bank_ssv_status  домен=defined/not_defined
+      deposit_insurance_coverage_check.insurance_coverage_limit_status  домен=defined/not_defined
+      account_closure_and_termination_check.closure_by_client_status  домен=defined/not_defined
+      account_closure_and_termination_check.closure_by_bank_status  домен=defined/not_defined
+      account_closure_and_termination_check.bank_termination_grounds_status  домен=defined/not_defined
+      account_closure_and_termination_check.residual_return_status  домен=defined/not_defined
+      account_closure_and_termination_check.overdraft_on_closure_status  домен=defined/not_defined
+      payment_allocation_priority_check.allocation_status  домен=defined/not_defined
+      payment_allocation_priority_check.allocation_rules_status  домен=defined/not_defined
+      payment_allocation_priority_check.bank_priority_status  домен=defined/not_defined
+      payment_allocation_priority_check.deviation_from_law_status  домен=defined/not_defined
+
+=== contract_5.5_guaranty_and_pledge.yaml ===
+  🟡 F: Неоднородные enum-домены  (14)
+      guaranty_liability_scope_check.liability_cap_status  домен=present/not_defined
+      guaranty_change_and_termination_check.guaranty_term_status  домен=present/not_defined
+      guaranty_change_and_termination_check.termination_clause_status  домен=present/not_defined
+      pledge_subject_and_valuation_check.valuation_status  домен=present/not_defined
+      pledge_subject_and_valuation_check.independent_valuation_reference  домен=present/not_defined
+      pledge_enforcement_check.sale_method_status  домен=present/not_defined
+      pledge_enforcement_check.notice_to_pledgor_status  домен=present/not_defined
+      mortgage_registration_check.registration_clause_status  домен=present/not_defined
+      guarantor_default_notice_and_subrogation_check.default_notice_status  домен=present/not_defined
+      guarantor_default_notice_and_subrogation_check.subrogation_status  домен=present/not_defined
+      guarantor_default_notice_and_subrogation_check.document_transfer_to_guarantor  домен=present/not_defined
+      pledge_insurance_check.insurance_obligation_status  домен=present/not_defined
+      pledge_insurance_check.pledgee_as_beneficiary  домен=present/not_defined
+      pledge_insurance_check.insurance_details_status  домен=present/not_defined
+      pledge_bankruptcy_risk_check.bankruptcy_representation_status  домен=present/not_defined
+      pledge_bankruptcy_risk_check.bankruptcy_rep_details_status  домен=present/not_defined
+      pledge_subsequent_and_priority_check.subsequent_pledge_status  домен=present/not_defined
+      pledge_subsequent_and_priority_check.prior_pledgee_consent_status  домен=present/not_defined
+      pledge_subsequent_and_priority_check.prior_pledgee_info_status  домен=present/not_defined
+      pledge_disposal_restrictions_check.disposal_restriction_status  домен=present/not_defined
+      pledge_disposal_restrictions_check.use_and_lease_restriction_status  домен=present/not_defined
+      pledge_disposal_restrictions_check.substitution_rules_status  домен=present/not_defined
+      pledge_movable_registration_check.movable_registration_status  домен=present/not_defined
+      pledge_movable_registration_check.registration_details_status  домен=present/not_defined
+      mortgage_spousal_consent_check.spousal_consent_status  домен=present/not_defined
+      mortgage_spousal_consent_check.marital_representation_status  домен=present/not_defined
+      mortgage_zakladnaya_check.zakladnaya_status  домен=present/not_defined
+      mortgage_zakladnaya_check.zakladnaya_holder_status  домен=present/not_defined
+      guarantor_defenses_and_objections_check.debtor_defenses_right_status  домен=present/not_defined
+      guarantor_defenses_and_objections_check.waiver_of_defenses_status  домен=present/not_defined
+      guarantor_defenses_and_objections_check.refusal_of_acceptance_provision_status  домен=present/not_defined
+
+====================================================================================================
+ИТОГО находок по категориям:
+  🔴 A. Visible signal без парного *_display   : 0
+  🔴 B. Утечки signal/diagnostic в visible      : 0
+  🟠 C. Retrieval-кандидаты                    : 0
+  🟡 D. Checks без edge-case в few-shot        : 20
+  🟡 E. Visible fact без fallback в промте     : 15
+  🟡 F. Неоднородные enum-домены               : 81
+  🔴 G. Дубли имён полей внутри check          : 0
+====================================================================================================
+
+ИНТЕРПРЕТАЦИЯ:
+  A — юрист видит сырой enum (надо добавить *_display)
+  B — критично: техническое поле попадает в DD Grid
+  C — вероятный retrieval risk (проверить поднятие context_k / max_chunks)
+  D — нет примера "не удалось определить" (Паттерн 20)
+  E — промт не обязывает fallback для visible fact-поля
+  F — неоднородность enum-стиля (не ошибка, но стоит унифицировать)
+  G — критично: коллизия имён в одном check-е

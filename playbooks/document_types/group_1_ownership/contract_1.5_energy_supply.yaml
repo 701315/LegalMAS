@@ -794,7 +794,7 @@ checks_v8:
         4. Если данные не указаны прямо — "not_defined" или "Данные не определены".
         5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только цитаты из документа.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -853,7 +853,7 @@ checks_v8:
         5. Если ничего нет — "not_defined" и "Данные не определены".
         6. Evidence — только текст договора.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -969,12 +969,15 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Не делай предположений о типе стороны без прямого текста.
         - Если из текста видно только, что это ЭСО, но не видно её точный тип, используй "unclear".
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "eso_details_status"
           type: "string"
@@ -995,7 +998,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["guaranteeing_supplier", "sales_company", "network_org", "unclear", "not_defined"]
           description: "Тип энергоснабжающей организации."
-          required: false
+          required: true
         - name: "eso_signatory"
           type: "string"
           presentation: "fact"
@@ -1008,7 +1011,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта ЭСО."
-          required: false
+          required: true
         - name: "subscriber_details_status"
           type: "string"
           presentation: "signal"
@@ -1028,7 +1031,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["legal_entity", "individual", "ip", "tszh", "uk", "not_defined"]
           description: "Тип абонента."
-          required: false
+          required: true
         - name: "subscriber_signatory"
           type: "string"
           presentation: "fact"
@@ -1041,7 +1044,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта абонента."
-          required: false
+          required: true
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1119,7 +1122,7 @@ checks_v8:
         4. При отсутствии текстового значения — строго "Данные не определены".
         5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1187,7 +1190,7 @@ checks_v8:
         5. Указана ли мощность числом с единицей?
         6. Что происходит при превышении — прямо ли написано?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -1313,12 +1316,15 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Не подставляй технические нормы.
         - Если вид энергии назван прямо, но остальные параметры отсутствуют, заполняй только найденные поля.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "energy_type_status"
           type: "string"
@@ -1351,7 +1357,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания акта разграничения балансовой принадлежности."
-          required: false
+          required: true
         - name: "boundary_act_details"
           type: "string"
           presentation: "fact"
@@ -1378,7 +1384,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения максимальной мощности."
-          required: false
+          required: true
         - name: "max_capacity_value"
           type: "string"
           presentation: "fact"
@@ -1392,7 +1398,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий превышения объёма или мощности."
-          required: false
+          required: true
         - name: "excess_consumption_details"
           type: "string"
           presentation: "fact"
@@ -1468,7 +1474,7 @@ checks_v8:
         3. При отсутствии текстового значения — строго "Данные не определены".
         4. Не используй "None", "null", "not_defined", пустые строки.
         5. В evidence — только текст договора.
-        6. Верни только один JSON-объект.
+        6. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1527,7 +1533,7 @@ checks_v8:
         4. Указана ли ставка пени (%, 1/130 и т.п.)?
         5. Есть ли прямое условие об отключении при неоплате?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -1651,12 +1657,15 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Если тариф дан через ссылку на регулятора, не пытайся вычислить конкретную цену.
         - Не смешивай общее право ограничения при неоплате с полной процедурой ограничения — здесь извлекай только сам факт и условие.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "tariff_status"
           type: "string"
@@ -1669,7 +1678,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["fixed_amount", "regulatory_reference", "not_defined"]
           description: "Тип указания тарифа."
-          required: false
+          required: true
         - name: "tariff_details"
           type: "string"
           presentation: "fact"
@@ -1683,13 +1692,13 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения тарифной структуры."
-          required: false
+          required: true
         - name: "tariff_rate_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["single_rate", "two_rate", "three_rate", "not_defined"]
           description: "Тип тарифной структуры."
-          required: false
+          required: true
         - name: "payment_deadline_status"
           type: "string"
           presentation: "signal"
@@ -1709,7 +1718,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения пени за просрочку оплаты."
-          required: false
+          required: true
         - name: "penalty_details"
           type: "string"
           presentation: "fact"
@@ -1723,7 +1732,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения права ограничения или отключения при неоплате."
-          required: false
+          required: true
         - name: "disconnection_on_non_payment_details"
           type: "string"
           presentation: "fact"
@@ -1793,7 +1802,7 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1856,7 +1865,7 @@ checks_v8:
         4. Есть ли обязанность абонента по поверке?
         5. Что происходит при повреждении пломбы?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -1966,23 +1975,28 @@ checks_v8:
         6. calculation_without_meter_status — "defined" или "not_defined".
         7. calculation_without_meter_code — normative / calculated / not_defined.
         8. verification_obligation_status — "defined" или "not_defined".
-        9. seal_tampering_status — "defined" или "not_defined".
-        10. seal_tampering_details — последствия повреждения пломбы или вмешательства.
-
+        9. verification_obligation_details — обязанность по поверке прибора учёта
+           (кто, в какие сроки, за чей счёт) или "Данные не определены".
+        10. seal_tampering_status — "defined" или "not_defined".
+        11. seal_tampering_details — последствия повреждения пломбы или вмешательства.
+        
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Если пломба упоминается как нарушение (безучётное потребление, хищение),
-          не включай это в ответ — такие случаи анализируются отдельно.
+        не включай это в ответ — такие случаи анализируются отдельно.
         - Не подставляй правила коммерческого учёта, если их нет в тексте.
         - normative = расчёт по нормативу.
         - calculated = расчётным способом по формуле, мощности, среднему потреблению и т.п.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "metering_procedure_status"
           type: "string"
@@ -1995,7 +2009,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания реквизитов прибора учёта."
-          required: false
+          required: true
         - name: "meter_details_value"
           type: "string"
           presentation: "fact"
@@ -2009,7 +2023,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка передачи показаний."
-          required: false
+          required: true
         - name: "reading_submission_details"
           type: "string"
           presentation: "fact"
@@ -2023,19 +2037,19 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения расчёта при отсутствии или неисправности прибора."
-          required: false
+          required: true
         - name: "calculation_without_meter_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["normative", "calculated", "not_defined"]
           description: "Метод расчёта при отсутствии или неисправности прибора учёта."
-          required: false
+          required: true
         - name: "verification_obligation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязанности по поверке прибора учёта."
-          required: false
+          required: true
         - name: "verification_obligation_details"
           type: "string"
           presentation: "fact"
@@ -2048,7 +2062,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий повреждения пломбы."
-          required: false
+          required: true
         - name: "seal_tampering_details"
           type: "string"
           presentation: "fact"
@@ -2122,7 +2136,7 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -2171,7 +2185,7 @@ checks_v8:
         3. Есть ли условие о праве ЭСО проверять оборудование?
         4. Прямо ли написано: "запрещается" или "допускается с согласия"?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -2285,20 +2299,23 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - "Допускается с согласия ЭСО" = permitted_with_consent.
         - "Запрещается", "не допускается" = prohibited.
         - Не анализируй последствия ограничения подачи — только последствия несогласованного подключения третьих лиц.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "network_maintenance_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязанности абонента содержать сети и оборудование."
-          required: false
+          required: true
         - name: "network_maintenance_details"
           type: "string"
           presentation: "fact"
@@ -2311,7 +2328,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока уведомления об аварии."
-          required: false
+          required: true
         - name: "accident_notification_deadline"
           type: "string"
           presentation: "fact"
@@ -2325,25 +2342,25 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права ЭСО на проверку оборудования абонента."
-          required: false
+          required: true
         - name: "sub_subscriber_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о субабоненте."
-          required: false
+          required: true
         - name: "sub_subscriber_regime"
           type: "string"
           presentation: "signal"
           allowed_values: ["prohibited", "permitted_with_consent", "not_defined"]
           description: "Режим субабонентского подключения."
-          required: false
+          required: true
         - name: "sub_subscriber_penalty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий несогласованного субабонентского подключения."
-          required: false
+          required: true
         - name: "sub_subscriber_penalty_details"
           type: "string"
           presentation: "fact"
@@ -2421,7 +2438,7 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -2459,7 +2476,7 @@ checks_v8:
         3. Разграничены ли права гражданина и юрлица на расторжение?
         4. Есть ли форс-мажор с упоминанием специфики энергетики (аварии в сетях)?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -2479,6 +2496,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 800
     retrieval:
+      retrieval_profile: "term_and_renewal_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2579,13 +2597,16 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Если права расторжения различаются для гражданина и юрлица, используй
-          unilateral_for_individual_court_for_legal.
+        unilateral_for_individual_court_for_legal.
         - Не подставляй нормы ГК без прямого текста договора.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "contract_term_status"
           type: "string"
@@ -2606,7 +2627,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения автоматической пролонгации."
-          required: false
+          required: true
         - name: "auto_renewal_notice_period"
           type: "string"
           presentation: "fact"
@@ -2619,19 +2640,19 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения права абонента на расторжение."
-          required: false
+          required: true
         - name: "subscriber_termination_regime"
           type: "string"
           presentation: "signal"
           allowed_values: ["unilateral", "mutual_consent", "court_only", "unilateral_for_individual_court_for_legal", "not_defined"]
           description: "Режим расторжения договора для абонента."
-          required: false
+          required: true
         - name: "eso_termination_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения права ЭСО на расторжение."
-          required: false
+          required: true
         - name: "eso_termination_details"
           type: "string"
           presentation: "fact"
@@ -2645,7 +2666,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия форс-мажорной оговорки."
-          required: false
+          required: true
         - name: "force_majeure_details"
           type: "string"
           presentation: "fact"
@@ -2709,15 +2730,67 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — конкретные параметры качества:
+        Фрагмент:
+        "ЭСО обязуется подавать электрическую энергию с напряжением
+        220 В и частотой 50 Гц с отклонениями в пределах, установленных
+        ГОСТ 32144-2013. За нарушение параметров качества ЭСО уплачивает
+        Абоненту неустойку в размере 0,1% стоимости некачественно
+        поставленной энергии за каждый час нарушения."
+
+        Ответ:
+        {
+          "quality_requirements_status": "defined",
+          "quality_requirements_level": "detailed",
+          "voltage_status": "defined",
+          "frequency_status": "defined",
+          "temperature_status": "not_defined",
+          "pressure_status": "not_defined",
+          "gost_reference_status": "defined",
+          "gost_reference_details": "ГОСТ 32144-2013",
+          "liability_for_poor_quality_status": "defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "ЭСО обязуется подавать электрическую энергию с напряжением 220 В и частотой 50 Гц."
+            }
+          ]
+        }
+
+        Пример 2 — только «надлежащее качество» без конкретики:
+        Фрагмент:
+        "ЭСО обязуется подавать энергию надлежащего качества
+        в соответствии с действующими нормативными требованиями."
+
+        Ответ:
+        {
+          "quality_requirements_status": "defined",
+          "quality_requirements_level": "basic",
+          "voltage_status": "not_defined",
+          "frequency_status": "not_defined",
+          "temperature_status": "not_defined",
+          "pressure_status": "not_defined",
+          "gost_reference_status": "not_defined",
+          "gost_reference_details": "Данные не определены",
+          "liability_for_poor_quality_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "ЭСО обязуется подавать энергию надлежащего качества в соответствии с действующими нормативными требованиями."
+            }
+          ]
+        }
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Есть ли раздел о качестве энергии?
         2. Указаны ли конкретные числовые параметры?
         3. Есть ли ссылка на конкретный ГОСТ?
         4. "Надлежащее качество" без деталей — это NOT detailed, это basic.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -2832,13 +2905,16 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - basic = есть только общее указание на надлежащее качество.
         - detailed = есть хотя бы один конкретный параметр или нормативная ссылка.
         - Не подставляй ГОСТ или технические требования из внешних норм.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "quality_requirements_status"
           type: "string"
@@ -2851,37 +2927,37 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["detailed", "basic", "not_defined"]
           description: "Уровень детализации требований к качеству энергии."
-          required: false
+          required: true
         - name: "voltage_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания напряжения."
-          required: false
+          required: true
         - name: "frequency_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания частоты."
-          required: false
+          required: true
         - name: "temperature_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания температуры."
-          required: false
+          required: true
         - name: "pressure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания давления."
-          required: false
+          required: true
         - name: "gost_reference_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус ссылки на ГОСТ или иной нормативный документ."
-          required: false
+          required: true
         - name: "gost_reference_details"
           type: "string"
           presentation: "fact"
@@ -2895,7 +2971,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия об ответственности за нарушение качества энергии."
-          required: false
+          required: true
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2950,15 +3026,68 @@ checks_v8:
         3. Строго "Данные не определены" при отсутствии текста.
         4. Общая фраза "вправе ограничить" без оснований и срока — это basic, не detailed.
         5. В evidence — только текст договора.
-        6. Верни только один JSON-объект.
+        6. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — процедура ограничения раскрыта детально:
+        Фрагмент:
+        "ЭСО вправе ограничить или прекратить подачу энергии в случае
+        неисполнения Абонентом обязательств по оплате. ЭСО обязана
+        уведомить Абонента не позднее чем за 10 дней до введения
+        ограничения. Ограничение вводится поэтапно: сначала частичное,
+        при непогашении задолженности — полное прекращение. Возобновление
+        подачи — после полного погашения задолженности и оплаты расходов
+        ЭСО на отключение за счёт Абонента."
+
+        Ответ:
+        {
+          "limitation_procedure_status": "defined",
+          "limitation_procedure_level": "detailed",
+          "grounds_status": "defined",
+          "grounds_details": "неисполнение обязательств по оплате",
+          "notice_period_status": "defined",
+          "notice_period_days": "10",
+          "phased_limitation_status": "defined",
+          "restoration_procedure_status": "defined",
+          "restoration_cost_allocation": "subscriber",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.4",
+              "quote": "ЭСО обязана уведомить Абонента не позднее чем за 10 дней до введения ограничения."
+            }
+          ]
+        }
+
+        Пример 2 — только общая отсылка к закону:
+        Фрагмент:
+        "ЭСО вправе ограничить подачу энергии в установленных законом случаях."
+
+        Ответ:
+        {
+          "limitation_procedure_status": "defined",
+          "limitation_procedure_level": "basic",
+          "grounds_status": "defined",
+          "grounds_details": "в установленных законом случаях",
+          "notice_period_status": "not_defined",
+          "notice_period_days": "Данные не определены",
+          "phased_limitation_status": "not_defined",
+          "restoration_procedure_status": "not_defined",
+          "restoration_cost_allocation": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.4",
+              "quote": "ЭСО вправе ограничить подачу энергии в установленных законом случаях."
+            }
+          ]
+        }
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Перечислены ли конкретные основания ограничения?
         2. Указан ли срок уведомления числом (дней)?
         3. Описана ли поэтапность (частичное → полное)?
         4. Описан ли порядок возобновления?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -3075,14 +3204,17 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - basic = есть только общее право ограничить или прекратить подачу.
         - detailed = есть основания и хотя бы один процедурный элемент
-          (срок уведомления / поэтапность / порядок восстановления).
+        (срок уведомления / поэтапность / порядок восстановления).
         - Если срок уведомления не указан числом или периодом, не считай его defined.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "limitation_procedure_status"
           type: "string"
@@ -3095,13 +3227,13 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["detailed", "basic", "not_defined"]
           description: "Уровень детализации процедуры ограничения или прекращения подачи."
-          required: false
+          required: true
         - name: "grounds_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения оснований ограничения или отключения."
-          required: false
+          required: true
         - name: "grounds_details"
           type: "string"
           presentation: "fact"
@@ -3115,7 +3247,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока предварительного уведомления."
-          required: false
+          required: true
         - name: "notice_period_days"
           type: "string"
           presentation: "fact"
@@ -3129,19 +3261,19 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения поэтапности ограничения подачи."
-          required: false
+          required: true
         - name: "restoration_procedure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка возобновления подачи энергии."
-          required: false
+          required: true
         - name: "restoration_cost_allocation"
           type: "string"
           presentation: "signal"
           allowed_values: ["subscriber", "supplier", "not_defined"]
           description: "Кто несёт расходы на возобновление подачи энергии."
-          required: false
+          required: true
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3192,14 +3324,67 @@ checks_v8:
         1. Только текст документа.
         2. Если условие не указано прямо — "not_defined".
         3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
+        4. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — ответственность и исключения раскрыты:
+        Фрагмент:
+        "ЭСО несёт ответственность за неисполнение или ненадлежащее
+        исполнение обязательств по подаче энергии в виде возмещения
+        реального ущерба. Упущенная выгода возмещению не подлежит.
+        ЭСО не несёт ответственности за перерывы, вызванные действиями
+        непреодолимой силы, авариями в сетях сетевой организации,
+        а также плановыми ремонтными работами."
+
+        Ответ:
+        {
+          "liability_status": "defined",
+          "liability_type_status": "defined",
+          "liability_type_code": "real_damage",
+          "lost_profit_excluded_status": "defined",
+          "lost_profit_excluded_code": "yes",
+          "exclusions_status": "defined",
+          "force_majeure_exclusion_status": "defined",
+          "grid_accident_exclusion_status": "defined",
+          "interruption_fixation_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "ЭСО несёт ответственность за неисполнение обязательств по подаче энергии в виде возмещения реального ущерба. Упущенная выгода возмещению не подлежит."
+            }
+          ]
+        }
+
+        Пример 2 — только общая отсылка к законодательству:
+        Фрагмент:
+        "Стороны несут ответственность в соответствии с действующим
+        законодательством РФ."
+
+        Ответ:
+        {
+          "liability_status": "not_defined",
+          "liability_type_status": "not_defined",
+          "liability_type_code": "not_defined",
+          "lost_profit_excluded_status": "not_defined",
+          "lost_profit_excluded_code": "not_defined",
+          "exclusions_status": "not_defined",
+          "force_majeure_exclusion_status": "not_defined",
+          "grid_accident_exclusion_status": "not_defined",
+          "interruption_fixation_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "Стороны несут ответственность в соответствии с действующим законодательством РФ."
+            }
+          ]
+        }
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Есть ли прямое условие об ответственности ЭСО за перерывы?
         2. Написано ли прямо "реальный ущерб" или "упущенная выгода"?
         3. Перечислены ли исключения?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -3313,13 +3498,16 @@ checks_v8:
         - enum-поле = "not_defined"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - yes для lost_profit_excluded_code — только если упущенная выгода прямо исключена.
         - no — только если упущенная выгода прямо допускается.
         - Если сказано просто "возмещаются убытки", не делай автоматический вывод об исключении упущенной выгоды.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "liability_status"
           type: "string"
@@ -3332,14 +3520,14 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида ответственности за перерывы."
-          required: false
+          required: true
         - name: "liability_type_code"
           type: "string"
           presentation: "signal"
           label: "Вид ответственности за перерывы"
           allowed_values: ["real_damage", "penalty", "both", "not_defined"]
           description: "Вид ответственности за перерывы в подаче энергии."
-          required: false
+          required: true
           display_in_grid: true
           display_priority: 1
         - name: "lost_profit_excluded_status"
@@ -3347,14 +3535,14 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус прямого условия об упущенной выгоде."
-          required: false
+          required: true
         - name: "lost_profit_excluded_code"
           type: "string"
           presentation: "signal"
           label: "Упущенная выгода исключена"
           allowed_values: ["yes", "no", "not_defined"]
           description: "Исключена ли упущенная выгода."
-          required: false
+          required: true
           display_in_grid: true
           display_priority: 2
         - name: "exclusions_status"
@@ -3362,25 +3550,25 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия исключений из ответственности за перерывы."
-          required: false
+          required: true
         - name: "force_majeure_exclusion_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания форс-мажора как исключения."
-          required: false
+          required: true
         - name: "grid_accident_exclusion_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания аварии в сетях как исключения."
-          required: false
+          required: true
         - name: "interruption_fixation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка фиксации перерыва в подаче."
-          required: false
+          required: true
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3435,14 +3623,68 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — бездоговорное и безучётное потребление раскрыты:
+        Фрагмент:
+        "Под бездоговорным потреблением понимается потребление энергии
+        без заключённого в установленном порядке договора. Под безучётным
+        потреблением — потребление с нарушением учёта. Объём бездоговорного
+        потребления рассчитывается как произведение мощности и времени
+        потребления. Абонент уплачивает штраф в размере 5-кратной стоимости.
+        При выявлении нарушения ЭСО вправе немедленно отключить подачу
+        без предварительного уведомления. Акт составляется в присутствии
+        Абонента либо двух незаинтересованных лиц."
+
+        Ответ:
+        {
+          "unauthorized_clause_status": "defined",
+          "unauthorized_clause_level": "detailed",
+          "non_contracted_defined_status": "defined",
+          "unmetered_defined_status": "defined",
+          "calculation_method_status": "defined",
+          "calculation_method_details": "произведение мощности и времени потребления",
+          "penalty_status": "defined",
+          "immediate_disconnection_status": "defined",
+          "act_procedure_status": "defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.2",
+              "quote": "Под бездоговорным потреблением понимается потребление энергии без заключённого в установленном порядке договора."
+            }
+          ]
+        }
+
+        Пример 2 — только право взыскать без раскрытия механики:
+        Фрагмент:
+        "ЭСО вправе взыскать стоимость бездоговорного потребления."
+
+        Ответ:
+        {
+          "unauthorized_clause_status": "defined",
+          "unauthorized_clause_level": "basic",
+          "non_contracted_defined_status": "not_defined",
+          "unmetered_defined_status": "not_defined",
+          "calculation_method_status": "not_defined",
+          "calculation_method_details": "Данные не определены",
+          "penalty_status": "not_defined",
+          "immediate_disconnection_status": "not_defined",
+          "act_procedure_status": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.2",
+              "quote": "ЭСО вправе взыскать стоимость бездоговорного потребления."
+            }
+          ]
+        }
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Определён ли "бездоговорное" или "безучётное" прямо?
         2. Есть ли конкретная методика расчёта?
         3. Право немедленного отключения — прямо написано?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -3461,6 +3703,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 560
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3557,13 +3800,16 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - basic = есть только общее упоминание о запрете или ответственности.
         - detailed = есть определения и хотя бы один процедурный или расчётный элемент.
         - Не подставляй методику из внешнего регулирования.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "unauthorized_clause_status"
           type: "string"
@@ -3576,25 +3822,25 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["detailed", "basic", "not_defined"]
           description: "Уровень детализации условий о несанкционированном потреблении."
-          required: false
+          required: true
         - name: "non_contracted_defined_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия определения бездоговорного потребления."
-          required: false
+          required: true
         - name: "unmetered_defined_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия определения безучётного потребления."
-          required: false
+          required: true
         - name: "calculation_method_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения методики расчёта при выявлении нарушения."
-          required: false
+          required: true
         - name: "calculation_method_details"
           type: "string"
           presentation: "fact"
@@ -3608,19 +3854,19 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения санкций за нарушение."
-          required: false
+          required: true
         - name: "immediate_disconnection_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права немедленного отключения."
-          required: false
+          required: true
         - name: "act_procedure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка оформления акта о нарушении."
-          required: false
+          required: true
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3677,14 +3923,60 @@ checks_v8:
         1. Только текст документа.
         2. Если условие не указано прямо — "not_defined".
         3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
+        4. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — особые условия надёжности раскрыты:
+        Фрагмент:
+        "Абоненту установлена I категория надёжности электроснабжения.
+        ЭСО обеспечивает резервное питание от второго независимого
+        источника. Подача энергии восстанавливается в приоритетном
+        порядке в течение 2 часов. ЭСО возмещает убытки от простоя
+        в размере, определяемом соглашением сторон. Полное отключение
+        Абонента не допускается."
+
+        Ответ:
+        {
+          "reliability_category_status": "defined",
+          "reliability_category_code": "I",
+          "backup_power_status": "defined",
+          "backup_power_details": "второй независимый источник питания",
+          "priority_restoration_status": "defined",
+          "downtime_compensation_status": "defined",
+          "downtime_compensation_details": "в размере, определяемом соглашением сторон",
+          "disconnection_prohibition_status": "defined",
+          "evidence": [
+            {
+              "clause_ref": "п. 9.1",
+              "quote": "Абоненту установлена I категория надёжности электроснабжения. ЭСО обеспечивает резервное питание от второго независимого источника."
+            }
+          ]
+        }
+
+        Пример 2 — особые условия не раскрыты:
+        Фрагмент:
+        "ЭСО обязуется подавать Абоненту электрическую энергию
+        в согласованных объёмах."
+
+        Ответ:
+        {
+          "reliability_category_status": "not_defined",
+          "reliability_category_code": "not_defined",
+          "backup_power_status": "not_defined",
+          "backup_power_details": "Данные не определены",
+          "priority_restoration_status": "not_defined",
+          "downtime_compensation_status": "not_defined",
+          "downtime_compensation_details": "Данные не определены",
+          "disconnection_prohibition_status": "not_defined",
+          "evidence": []
+        }
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Прямо ли написана категория (I, II, III или первая, вторая, третья)?
         2. Прямо ли написано о резервном питании?
         3. Прямо ли написано о компенсации убытков от простоя?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -3798,14 +4090,17 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Не выводи категорию надёжности из характера объекта без прямого указания.
         - Учитывай только специальные условия для промышленных потребителей,
-          объектов первой/второй/третьей категории, критической инфраструктуры
-          или объектов жизнеобеспечения.
-        - Верни только JSON.
-        </rules>
+        объектов первой/второй/третьей категории, критической инфраструктуры
+        или объектов жизнеобеспечения.
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "reliability_category_status"
           type: "string"
@@ -3818,13 +4113,13 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["I", "II", "III", "not_defined"]
           description: "Категория надёжности энергоснабжения (I, II или III)."
-          required: false
+          required: true
         - name: "backup_power_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия требований к резервному питанию."
-          required: false
+          required: true
         - name: "backup_power_details"
           type: "string"
           presentation: "fact"
@@ -3838,13 +4133,13 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о приоритетном восстановлении подачи."
-          required: false
+          required: true
         - name: "downtime_compensation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения компенсации убытков от простоя."
-          required: false
+          required: true
         - name: "downtime_compensation_details"
           type: "string"
           presentation: "fact"
@@ -3858,7 +4153,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус запрета полного отключения для специальных объектов."
-          required: false
+          required: true
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3910,7 +4205,7 @@ checks_v8:
         1. Только текст документа.
         2. Если условие не указано прямо — "not_defined".
         3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
+        4. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3966,7 +4261,7 @@ checks_v8:
         2. Прямо ли описана граница балансовой принадлежности?
         3. Упоминается ли ОДПУ (общедомовой прибор учёта)?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -4080,16 +4375,19 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Учитывай только прямые специальные условия для МКД, ТСЖ, ЖСК, управляющей компании
-          или общедомового имущества.
+        или общедомового имущества.
         - Не делай вывод о применимости к МКД без прямого текста.
         - Если за внутридомовые сети отвечает ТСЖ, ЖСК или управляющая компания, используй "tszh_uk".
         - Если ответственность прямо возложена на энергоснабжающую организацию, используй "eso".
         - Если ответственная сторона прямо не определена, используй "not_defined".
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "mcd_clause_status"
           type: "string"
@@ -4102,7 +4400,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения границы балансовой принадлежности."
-          required: false
+          required: true
         - name: "boundary_details"
           type: "string"
           presentation: "fact"
@@ -4116,7 +4414,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания коллективного (общедомового) прибора учёта."
-          required: false
+          required: true
         - name: "collective_meter_details"
           type: "string"
           presentation: "fact"
@@ -4130,7 +4428,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка расчёта ОДН."
-          required: false
+          required: true
         - name: "odn_calculation_details"
           type: "string"
           presentation: "fact"
@@ -4144,14 +4442,14 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственного за внутридомовые сети."
-          required: false
+          required: true
         - name: "maintenance_responsibility_code"
           type: "string"
           presentation: "signal"
           label: "Ответственный за внутридомовые сети"
           allowed_values: ["eso", "tszh_uk", "not_defined"]
           description: "Кто отвечает за внутридомовые сети."
-          required: false
+          required: true
           display_in_grid: true
           display_priority: 5
         - name: "maintenance_responsibility_details"

@@ -1,0 +1,172 @@
+==============================================================================================================
+ПОЛНЫЙ АУДИТ group_5_financial
+==============================================================================================================
+
+═══ contract_5.1_loan.yaml ═══
+  Всего checks: 19
+
+  check_id                                           status     fields  vis  ctx  edge  JSON       risk
+  ---------------------------------------------------------------------------------------------------------
+  loan_parties_identification                        ✅ done         16    6    8     ✅     ❌     низкий
+  loan_subject_and_amount                            ✅ done          6    3    8     ✅     ❌     низкий
+  loan_interest_terms                                ✅ done          8    4    8     ✅     ❌     низкий
+  loan_repayment_and_transfer                        ✅ done          7    3    8     ✅     ❌     низкий
+  transfer_evidence_check                            ✅ done          7    3    8     ✅     ❌     низкий
+  repayment_and_acceleration_check                   ✅ done         12    4   10     ✅     ❌     низкий
+  target_loan_control_check                          ✅ done          8    3    8     ✅     ❌     низкий
+  foreign_currency_terms_check                       ✅ done         10    4    8     ✅     ❌     низкий
+  related_party_loan_check                           ✅ done          8    4    8     ✅     ❌     низкий
+  bankruptcy_claw_back_risk_check                    ✅ done          4    2    6     ✅     ❌        N/A
+  convertible_loan_check                             ✅ done          8    4    8     ❌     ❌     низкий
+  multiple_tranches_check                            ✅ done          9    4    8     ✅     ❌     низкий
+  secured_loan_terms                                 ✅ done          8    4    8     ❌     ❌     низкий
+  tax_consequences_disclosure                        ✅ done          6    3    8     ✅     ❌     низкий
+  novation_set_off_terms                             ✅ done          6    3    8     ✅     ❌     низкий
+  loan_forgiveness_terms                             ✅ done          6    3    8     ✅     ❌     низкий
+  fungible_goods_specification                       ✅ done          6    3    8     ✅     ❌     низкий
+  on_demand_notice_period                            ✅ done          6    3    8     ✅     ❌     низкий
+  loan_amendment_and_termination_check               ✅ done          8    4    8     ✅     ❌     низкий
+
+  Итог: 19 сделано / 0 осталось
+
+
+═══ contract_5.2_credit_agreement.yaml ═══
+  Всего checks: 21
+
+  check_id                                           status     fields  vis  ctx  edge  JSON       risk
+  ---------------------------------------------------------------------------------------------------------
+  credit_subject_extraction                          ⏳ todo          9    5    7     ❌     ❌    средний ⚠️ DUP: security_and_encumbrances_general, regulatory_licenses_and_permits
+  lender_license_check                               ⏳ todo          4    2    5     ❌     ❌        N/A
+  interest_psk_fees_check                            ⏳ todo          6    2    8     ❌     ❌    средний
+  repayment_schedule_and_early_repayment_check       ⏳ todo          8    3    8     ✅     ❌     низкий ⚠️ DUP: regulatory_licenses_and_permits
+  forced_services_and_insurance_check                ⏳ todo          8    3    8     ✅     ❌     низкий ⚠️ DUP: security_and_encumbrances_general
+  acceleration_events_check                          ⏳ todo          9    4    8     ✅     ❌     низкий ⚠️ DUP: security_and_encumbrances_general
+  variable_rate_check                                ⏳ todo          9    4    8     ✅     ❌     низкий
+  payment_allocation_priority_check                  ⏳ todo          5    2    8     ✅     ❌     низкий
+  financial_covenants_check                          ⏳ todo         10    4    7     ✅     ❌    средний ⚠️ DUP: financial_covenants, cross_default_and_acceleration
+  cross_default_check                                ⏳ todo         10    4    8     ✅     ❌     низкий ⚠️ DUP: cross_default_and_acceleration
+  purpose_and_control_check                          ⏳ todo          6    3    8     ✅     ❌     низкий
+  negative_pledge_check                              ⏳ todo          6    3    8     ✅     ❌     низкий ⚠️ DUP: security_and_encumbrances_general, regulatory_licenses_and_permits
+  collateral_and_security_check                      ⏳ todo         11    5    8     ✅     ❌     низкий ⚠️ DUP: security_and_encumbrances_general
+  conditions_precedent_check                         ⏳ todo          7    3    8     ✅     ❌     низкий ⚠️ DUP: security_and_encumbrances_general
+  non_financial_covenants_check                      ⏳ todo          7    3    8     ✅     ❌     низкий ⚠️ DUP: financial_covenants, security_and_encumbrances_general, regulatory_licenses_and_permits
+  currency_and_fx_clause_check                       ⏳ todo          8    3    8     ✅     ❌     низкий
+  tax_gross_up_check                                 ⏳ todo          8    4    8     ✅     ❌     низкий
+  default_interest_and_penalties_check               ⏳ todo          9    4    8     ✅     ❌     низкий
+  tranche_and_drawdown_mechanics_check               ⏳ todo         11    5    8     ✅     ❌     низкий
+  amendment_and_waiver_check                         ⏳ todo          8    4    8     ✅     ❌     низкий
+  notices_and_communications_check                   ⏳ todo          9    4    8     ✅     ❌     низкий
+
+  Итог: 0 сделано / 21 осталось
+
+  🔴 Кандидаты на дубли с global (10):
+      credit_subject_extraction → security_and_encumbrances_general, regulatory_licenses_and_permits
+      repayment_schedule_and_early_repayment_check → regulatory_licenses_and_permits
+      forced_services_and_insurance_check → security_and_encumbrances_general
+      acceleration_events_check → security_and_encumbrances_general
+      financial_covenants_check → financial_covenants, cross_default_and_acceleration
+      cross_default_check → cross_default_and_acceleration
+      negative_pledge_check → security_and_encumbrances_general, regulatory_licenses_and_permits
+      collateral_and_security_check → security_and_encumbrances_general
+      conditions_precedent_check → security_and_encumbrances_general
+      non_financial_covenants_check → financial_covenants, security_and_encumbrances_general, regulatory_licenses_and_permits
+
+
+═══ contract_5.3_factoring.yaml ═══
+  Всего checks: 22
+
+  check_id                                           status     fields  vis  ctx  edge  JSON       risk
+  ---------------------------------------------------------------------------------------------------------
+  factoring_parties_identification                   ✅ done         10    3    8     ✅     ❌     низкий
+  factoring_subject_extraction                       ✅ done         11    6    8     ❌     ❌     низкий
+  assigned_claim_identification_check                ✅ done          7    2    8     ❌     ❌     низкий
+  financing_and_fee_structure_check                  ✅ done          5    2    8     ✅     ❌     низкий
+  recourse_allocation_check                          ✅ done          6    3    8     ✅     ❌     низкий
+  debtor_notification_check                          ✅ done          8    4    8     ✅     ❌     низкий
+  setoff_and_double_assignment_risk_check            ✅ done          6    3    8     ✅     ❌     низкий
+  document_transfer_and_bankruptcy_check             ✅ done          8    4    8     ✅     ❌     низкий
+  debtor_defenses_check                              ✅ done          4    2    6     ✅     ❌        N/A
+  hidden_factoring_protection_check                  ✅ done          8    2    8     ✅     ❌     низкий
+  claim_validity_warranties_check                    ✅ done         10    2    8     ✅     ❌     низкий
+  excess_collection_return                           ✅ done          8    3    8     ✅     ❌     низкий
+  tax_risk_allocation                                ✅ done          7    3    8     ✅     ❌     низкий
+  assignment_prohibition_disclosure                  ✅ done          7    4    8     ✅     ❌     низкий
+  underlying_contract_change_restriction_check       ✅ done          6    3    8     ✅     ❌     низкий
+  factor_liability_and_penalties_check               ✅ done          5    3    8     ✅     ❌     низкий
+  financing_limits_and_concentration_check           ✅ done          7    4    8     ❌     ❌     низкий
+  framework_assignment_mechanics_check               ✅ done          6    3    8     ✅     ❌     низкий
+  factor_suspension_right_check                      ✅ done          7    4    8     ✅     ❌     низкий
+  factor_reassignment_right_check                    ✅ done          5    3    8     ✅     ❌     низкий
+  collection_costs_allocation_check                  ✅ done          5    3    8     ✅     ❌     низкий
+  hidden_factoring_penalties_check                   ✅ done          5    3    8     ✅     ❌     низкий
+
+  Итог: 22 сделано / 0 осталось
+
+
+═══ contract_5.4_bank_deposit_account.yaml ═══
+  Всего checks: 12
+
+  check_id                                           status     fields  vis  ctx  edge  JSON       risk
+  ---------------------------------------------------------------------------------------------------------
+  bank_deposit_parties_identification                ⏳ todo         13    4    8     ✅     ❌     низкий
+  bank_deposit_account_subject_extraction            ⏳ todo         11    5    8     ✅     ❌     низкий
+  deposit_interest_and_fixation_check                ⏳ todo          9    4    8     ✅     ❌     низкий
+  deposit_early_withdrawal_check                     ⏳ todo          9    4    8     ✅     ❌     низкий
+  account_tariffs_and_commissions_check              ⏳ todo          9    4    8     ✅     ❌     низкий
+  aml_blocking_check                                 ⏳ todo          9    4    8     ✅     ❌     низкий
+  unauthorized_debit_check                           ⏳ todo          9    4    8     ✅     ❌     низкий
+  dbs_security_check                                 ⏳ todo          9    4    8     ✅     ❌     низкий
+  overdraft_terms_check                              ⏳ todo          9    5    8     ✅     ❌     низкий
+  deposit_insurance_coverage_check                   ⏳ todo          8    3    8     ✅     ❌     низкий
+  account_closure_and_termination_check              ⏳ todo          9    4    8     ✅     ❌     низкий
+  payment_allocation_priority_check                  ⏳ todo          9    4    8     ✅     ❌     низкий
+
+  Итог: 0 сделано / 12 осталось
+
+
+═══ contract_5.5_guaranty_and_pledge.yaml ═══
+  Всего checks: 15
+
+  check_id                                           status     fields  vis  ctx  edge  JSON       risk
+  ---------------------------------------------------------------------------------------------------------
+  security_subject_extraction                        ⏳ todo          8    7    8     ✅     ❌     низкий ⚠️ DUP: security_and_encumbrances_general
+  guaranty_liability_scope_check                     ⏳ todo          7    3    8     ✅     ❌    средний ⚠️ DUP: liability_caps_and_baskets
+  guaranty_change_and_termination_check              ⏳ todo          7    3    8     ✅     ❌    средний
+  pledge_subject_and_valuation_check                 ⏳ todo          8    4    8     ✅     ❌    средний ⚠️ DUP: security_and_encumbrances_general
+  pledge_enforcement_check                           ⏳ todo          7    3    8     ✅     ❌    средний
+  mortgage_registration_check                        ⏳ todo          8    4    8     ✅     ❌     низкий ⚠️ DUP: security_and_encumbrances_general
+  guarantor_default_notice_and_subrogation_check     ⏳ todo          7    3    8     ✅     ❌     низкий
+  pledge_insurance_check                             ⏳ todo          6    3    8     ✅     ❌     низкий
+  pledge_bankruptcy_risk_check                       ⏳ todo          4    2    6     ✅     ❌        N/A ⚠️ DUP: security_and_encumbrances_general
+  pledge_subsequent_and_priority_check               ⏳ todo          6    3    8     ✅     ❌     низкий ⚠️ DUP: security_and_encumbrances_general
+  pledge_disposal_restrictions_check                 ⏳ todo          6    3    8     ✅     ❌     низкий
+  pledge_movable_registration_check                  ⏳ todo          6    3    8     ✅     ❌     низкий
+  mortgage_spousal_consent_check                     ⏳ todo          6    3    8     ✅     ❌     низкий
+  mortgage_zakladnaya_check                          ⏳ todo          6    3    8     ✅     ❌     низкий
+  guarantor_defenses_and_objections_check            ⏳ todo          6    3    8     ✅     ❌     низкий
+
+  Итог: 0 сделано / 15 осталось
+
+  🔴 Кандидаты на дубли с global (6):
+      security_subject_extraction → security_and_encumbrances_general
+      guaranty_liability_scope_check → liability_caps_and_baskets
+      pledge_subject_and_valuation_check → security_and_encumbrances_general
+      mortgage_registration_check → security_and_encumbrances_general
+      pledge_bankruptcy_risk_check → security_and_encumbrances_general
+      pledge_subsequent_and_priority_check → security_and_encumbrances_general
+
+
+==============================================================================================================
+ОБЩАЯ СВОДКА ПО ГРУППЕ
+==============================================================================================================
+  Файлов:                       5
+  Всего checks:                 89
+  ✅ Отрефакторено вручную:      41
+  ⏳ Осталось:                   48
+
+  🔵 Canonical JSON:             0/89
+  🟡 Без edge-case:              8
+  🟠 Возможные дубли с global:   16
+  🟠 Retrieval risk высокий:     0
+  🟡 Retrieval risk средний:     7
+==============================================================================================================

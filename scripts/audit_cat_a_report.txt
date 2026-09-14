@@ -1,0 +1,5 @@
+=== contract_5.1_loan.yaml ===
+=== contract_5.2_credit_agreement.yaml ===
+=== contract_5.3_factoring.yaml ===
+=== contract_5.4_bank_deposit_account.yaml ===
+=== contract_5.5_guaranty_and_pledge.yaml ===

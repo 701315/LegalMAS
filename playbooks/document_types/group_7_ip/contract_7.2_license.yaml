@@ -638,7 +638,7 @@ checks_v8:
           "licensee_details": "ООО «Бета», ИНН 7700000002",
           "ip_object_type": "software",
           "ip_object_details": "программа для ЭВМ «Система Х», свидетельство № 2024600001 от 15.01.2024",
-          "license_type": "non_exclusive",
+          "license_type_code": "non_exclusive",
           "license_type_details": "неисключительная лицензия",
           "permitted_uses_status": "defined",
           "permitted_uses_details": "воспроизводить, распространять, модифицировать",
@@ -664,7 +664,7 @@ checks_v8:
           "licensee_details": "Данные не определены",
           "ip_object_type": "not_defined",
           "ip_object_details": "Данные не определены",
-          "license_type": "not_defined",
+          "license_type_code": "not_defined",
           "license_type_details": "Данные не определены",
           "permitted_uses_status": "not_defined",
           "permitted_uses_details": "Данные не определены",
@@ -693,7 +693,7 @@ checks_v8:
           "licensee_details": "<текст или 'Данные не определены'>",
           "ip_object_type": "<patent / trademark / copyright / software / know_how / industrial_design / database / other / not_defined>",
           "ip_object_details": "<текст или 'Данные не определены'>",
-          "license_type": "<exclusive / non_exclusive / not_defined>",
+          "license_type_code": "<exclusive / non_exclusive / not_defined>",
           "license_type_details": "<текст или 'Данные не определены'>",
           "permitted_uses_status": "<defined / not_defined>",
           "permitted_uses_details": "<текст или 'Данные не определены'>",
@@ -787,7 +787,7 @@ checks_v8:
         2. licensee_details — лицензиат.
         3. ip_object_type — patent / trademark / copyright / software / know_how / industrial_design / database / other / not_defined.
         4. ip_object_details — описание объекта ИС с регистрационными данными.
-        5. license_type — exclusive / non_exclusive / not_defined.
+        5. license_type_code — exclusive / non_exclusive / not_defined.
         6. license_type_details — формулировка вида лицензии.
         7. permitted_uses_status — "defined" или "not_defined".
         8. permitted_uses_details — перечень способов использования.
@@ -803,7 +803,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - license_type: "exclusive" — если прямо указано "исключительная";
+        - license_type_code: "exclusive" — если прямо указано "исключительная";
           "non_exclusive" — если прямо указано "неисключительная" или "простая";
           "not_defined" — если вид не указан.
         - permitted_uses_status = "defined" только если есть конкретный перечень
@@ -842,7 +842,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-        - name: "license_type"
+        - name: "license_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["exclusive", "non_exclusive", "not_defined"]

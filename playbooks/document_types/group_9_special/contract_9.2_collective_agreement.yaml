@@ -2540,7 +2540,7 @@ checks_v8:
         Ответ:
         {
           "reorganization_clause_status": "defined",
-          "reorganization_action": "continues",
+          "reorganization_action_code": "continues",
           "reorganization_action_details": "продолжает действовать до окончания срока его действия",
           "ownership_change_status": "defined",
           "ownership_change_details": "сохраняет действие в течение трёх месяцев",
@@ -2559,7 +2559,7 @@ checks_v8:
         Ответ:
         {
           "reorganization_clause_status": "not_defined",
-          "reorganization_action": "not_defined",
+          "reorganization_action_code": "not_defined",
           "reorganization_action_details": "Данные не определены",
           "ownership_change_status": "not_defined",
           "ownership_change_details": "Данные не определены",
@@ -2577,7 +2577,7 @@ checks_v8:
         Ответь строго в JSON:
         {
           "reorganization_clause_status": "<defined / not_defined>",
-          "reorganization_action": "<continues / renegotiation / terminates / not_defined>",
+          "reorganization_action_code": "<continues / renegotiation / terminates / not_defined>",
           "reorganization_action_details": "<текст или 'Данные не определены'>",
           "ownership_change_status": "<defined / not_defined>",
           "ownership_change_details": "<текст или 'Данные не определены'>",
@@ -2661,7 +2661,7 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
         1. reorganization_clause_status — "defined" или "not_defined".
-        2. reorganization_action — continues / renegotiation / terminates / not_defined.
+        2. reorganization_action_code — continues / renegotiation / terminates / not_defined.
         3. reorganization_action_details — что происходит с договором при реорганизации.
         4. ownership_change_status — "defined" или "not_defined".
         5. ownership_change_details — положение о смене собственника.
@@ -2673,7 +2673,7 @@ checks_v8:
         </task>
         <rules>
         - Используй только текст договора.
-        - reorganization_action: "continues" — договор продолжает действие;
+        - reorganization_action_code: "continues" — договор продолжает действие;
         "renegotiation" — стороны обязуются начать переговоры по новому договору;
         "terminates" — договор прекращается;
         "not_defined" — не указано.
@@ -2686,7 +2686,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус положения о реорганизации."
           required: true
-        - name: "reorganization_action"
+        - name: "reorganization_action_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["continues", "renegotiation", "terminates", "not_defined"]
@@ -3650,7 +3650,7 @@ checks_v8:
           "safety_measures_details": "финансирование охраны труда — не менее 0,2% от суммы затрат на производство",
           "ppei_provision_status": "not_defined",
           "ppei_provision_details": "Данные не определены",
-          "sout_status": "not_defined",
+          "sout_status_code": "not_defined",
           "sout_status_details": "Данные не определены",
           "hazardous_guarantees_status": "defined",
           "hazardous_guarantees_details": "доплата 4% оклада, молоко, дополнительный отпуск 7 дней",
@@ -3676,7 +3676,7 @@ checks_v8:
           "safety_measures_details": "Данные не определены",
           "ppei_provision_status": "not_defined",
           "ppei_provision_details": "Данные не определены",
-          "sout_status": "not_defined",
+          "sout_status_code": "not_defined",
           "sout_status_details": "Данные не определены",
           "hazardous_guarantees_status": "not_defined",
           "hazardous_guarantees_details": "Данные не определены",
@@ -3705,7 +3705,7 @@ checks_v8:
           "safety_measures_details": "<текст или 'Данные не определены'>",
           "ppei_provision_status": "<defined / not_defined>",
           "ppei_provision_details": "<текст или 'Данные не определены'>",
-          "sout_status": "<defined / not_defined>",
+          "sout_status_code": "<defined / not_defined>",
           "sout_status_details": "<текст или 'Данные не определены'>",
           "hazardous_guarantees_status": "<defined / not_defined>",
           "hazardous_guarantees_details": "<текст или 'Данные не определены'>",
@@ -3793,7 +3793,7 @@ checks_v8:
         8. safety_measures_details — мероприятия по охране труда и финансирование.
         9. ppei_provision_status — "defined" или "not_defined".
         10. ppei_provision_details — обеспечение СИЗ.
-        11. sout_status — "defined" или "not_defined".
+        11. sout_status_code — "defined" или "not_defined".
         12. sout_status_details — результаты СОУТ / класс условий труда.
         13. hazardous_guarantees_status — "defined" или "not_defined".
         14. hazardous_guarantees_details — гарантии за вредные/опасные условия.
@@ -3875,7 +3875,7 @@ checks_v8:
           label: "СИЗ"
           description: "Обеспечение средствами индивидуальной защиты."
           required: false
-        - name: "sout_status"
+        - name: "sout_status_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]

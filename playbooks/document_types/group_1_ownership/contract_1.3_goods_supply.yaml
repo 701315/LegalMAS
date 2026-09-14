@@ -568,7 +568,7 @@ checks_v8:
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только цитаты из договора.
         7. Не цитируй закон в evidence.
-        8. Верни только один JSON-объект.
+        8. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -623,10 +623,10 @@ checks_v8:
         3. Указан ли конкретный подписант и документ, на основании которого он действует?
         4. Убедись, что evidence содержит только текст договора.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "supplier_details_status": "<defined / not_defined>",
           "supplier_details_value": "<реквизиты или 'Данные не определены'>",
@@ -742,13 +742,16 @@ checks_v8:
         - для текстового поля используй "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Не делай предположений.
         - Не смешивай сведения о Поставщике и Покупателе.
         - Пиши кратко и официально.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "supplier_details_status"
           type: "string"
@@ -775,7 +778,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Документ-основание полномочий подписанта поставщика."
-          required: false
+          required: true
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
         - name: "buyer_details_status"
           type: "string"
@@ -802,7 +805,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Документ-основание полномочий подписанта покупателя."
-          required: false
+          required: true
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
       store_payload: true
 
@@ -823,6 +826,7 @@ checks_v8:
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
+      regex_patterns: []
       keywords:
         - "предмет договора"
         - "наименование товара"
@@ -869,7 +873,7 @@ checks_v8:
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только цитаты из договора.
         7. Не цитируй закон в evidence.
-        8. Верни только один JSON-объект.
+        8. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -922,10 +926,10 @@ checks_v8:
         5. Если чего-то нет — "not_defined" и "Данные не определены".
         6. Убедись, что evidence содержит только текст договора.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "subject_status": "<defined / not_defined>",
           "subject_details": "<наименование товара или 'Данные не определены'>",
@@ -1039,14 +1043,17 @@ checks_v8:
         - для текстового поля используй "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Не подставляй нормы закона.
         - Общая фраза "цена согласовывается дополнительно" не является определённой ценой.
         - Не делай предположений.
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "subject_status"
           type: "string"
@@ -1093,13 +1100,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия указания на НДС в цене товара."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "price_change_mechanism_status"
           type: "string"
           presentation: "signal"
           description: "Статус наличия механизма изменения/индексации цены."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
 
@@ -1183,7 +1190,7 @@ checks_v8:
         4. При отсутствии текстового значения — строго "Данные не определены".
         5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1243,10 +1250,10 @@ checks_v8:
         6. Если ничего нет — "not_defined" и "Данные не определены".
         7. Не подменяй отсутствие условия диспозитивом ГК.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "delivery_term_status": "<defined / not_defined>",
           "delivery_term_details": "<срок или 'Данные не определены'>",
@@ -1359,24 +1366,27 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Срок должен быть конкретным (дата, количество дней, период).
         - Не подменяй отсутствие условия диспозитивными нормами ГК.
         - Для delivery_schedule_type используй только:
-          - "fixed_dates" — если указаны конкретные даты поставок
-          - "periodic" — если указана периодичность (ежемесячно, ежеквартально и т.п.)
-          - "upon_request" — если поставка осуществляется по заявкам покупателя
-          - "not_defined" — если тип графика прямо не определён
+        - "fixed_dates" — если указаны конкретные даты поставок
+        - "periodic" — если указана периодичность (ежемесячно, ежеквартально и т.п.)
+        - "upon_request" — если поставка осуществляется по заявкам покупателя
+        - "not_defined" — если тип графика прямо не определён
         - Для periodicity используй только:
-          - "monthly" — если прямо указано ежемесячно
-          - "quarterly" — если прямо указано ежеквартально
-          - "weekly" — если прямо указано еженедельно
-          - "daily" — если прямо указано ежедневно
-          - "not_defined" — если периодичность прямо не определена
+        - "monthly" — если прямо указано ежемесячно
+        - "quarterly" — если прямо указано ежеквартально
+        - "weekly" — если прямо указано еженедельно
+        - "daily" — если прямо указано ежедневно
+        - "not_defined" — если периодичность прямо не определена
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "delivery_term_status"
           type: "string"
@@ -1396,19 +1406,19 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Тип графика поставок: фиксированные даты, периодический или по заявкам."
-          required: false
+          required: true
           allowed_values: ["fixed_dates", "periodic", "upon_request", "not_defined"]
         - name: "periodicity"
           type: "string"
           presentation: "signal"
           description: "Периодичность поставок, если задана в договоре."
-          required: false
+          required: true
           allowed_values: ["monthly", "quarterly", "weekly", "daily", "not_defined"]
         - name: "batch_size_status"
           type: "string"
           presentation: "signal"
           description: "Статус определённости размера партии поставки."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "batch_size_details"
           type: "string"
@@ -1421,7 +1431,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия условия о восполнении недопоставки."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "shortfall_replenishment_details"
           type: "string"
@@ -1435,7 +1445,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия условия о замене ассортимента при восполнении."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "assortment_substitution_details"
           type: "string"
@@ -1513,7 +1523,7 @@ checks_v8:
         4. При отсутствии текстового значения — строго "Данные не определены".
         5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1580,10 +1590,10 @@ checks_v8:
         6. Есть ли фраза "право собственности сохраняется до полной оплаты"?
         7. Не подменяй отсутствие условия диспозитивом ГК.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "payment_method_status": "<defined / not_defined>",
           "payment_method_code": "<prepayment / postpayment / installments / letter_of_credit / not_defined>",
@@ -1603,6 +1613,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1718,13 +1729,16 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Не подставляй диспозитивные нормы ГК вместо отсутствующих условий.
         - Не путай момент перехода риска с моментом перехода права собственности.
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "payment_method_status"
           type: "string"
@@ -1736,7 +1750,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Форма оплаты: предоплата, постоплата, рассрочка, аккредитив."
-          required: false
+          required: true
           allowed_values: ["prepayment", "postpayment", "installments", "letter_of_credit", "not_defined"]
         - name: "payment_deadline_status"
           type: "string"
@@ -1756,13 +1770,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус определённости момента перехода риска случайной гибели."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "risk_transfer_moment"
           type: "string"
           presentation: "signal"
           description: "Момент перехода риска случайной гибели товара."
-          required: false
+          required: true
           allowed_values: ["upon_delivery", "upon_carrier", "upon_payment", "upon_act", "custom", "not_defined"]
         - name: "risk_transfer_details"
           type: "string"
@@ -1776,13 +1790,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус определённости момента перехода права собственности."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "title_transfer_moment"
           type: "string"
           presentation: "signal"
           description: "Момент перехода права собственности на товар."
-          required: false
+          required: true
           allowed_values: ["upon_delivery", "upon_carrier", "upon_payment", "upon_act", "custom", "not_defined"]
         - name: "title_transfer_details"
           type: "string"
@@ -1795,13 +1809,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Наличие retention of title — сохранение собственности за поставщиком до оплаты."
-          required: false
+          required: true
           allowed_values: ["yes", "no", "not_defined"]
         - name: "title_risk_alignment"
           type: "string"
           presentation: "signal"
           description: "Совпадают ли моменты перехода риска и права собственности."
-          required: false
+          required: true
           allowed_values: ["same", "different", "not_defined"]
       store_payload: true
 
@@ -1875,7 +1889,7 @@ checks_v8:
         4. При отсутствии текстового значения — строго "Данные не определены".
         5. Не используй "None", "null", "not_defined", пустые строки.
         6. В evidence — только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1935,10 +1949,10 @@ checks_v8:
         6. Кто несёт расходы на хранение — поставщик или покупатель?
         7. Если ничего нет — "not_defined" и "Данные не определены".
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "quantity_check_period_status": "<defined / not_defined>",
           "quantity_check_period_details": "<срок или 'Данные не определены'>",
@@ -2062,20 +2076,23 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Срок проверки должен быть числовым (дни, рабочие дни).
         - Не подставляй нормы ГК вместо отсутствующих условий.
         - Не смешивай приёмку при поставке с гарантийными претензиями.
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "quantity_check_period_status"
           type: "string"
           presentation: "signal"
           description: "Статус определённости срока проверки количества при приёмке."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "quantity_check_period_details"
           type: "string"
@@ -2088,7 +2105,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус определённости срока проверки качества при приёмке."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "quality_check_period_details"
           type: "string"
@@ -2102,7 +2119,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия указания на передаточный документ при приёмке."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "acceptance_document_details"
           type: "string"
@@ -2116,7 +2133,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус определённости срока уведомления поставщика о недостатках."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "claim_notification_period_details"
           type: "string"
@@ -2129,13 +2146,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия условия об ответственном хранении при отказе от приёмки."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "storage_cost_allocation"
           type: "string"
           presentation: "signal"
           description: "Сторона, несущая расходы на ответственное хранение при отказе от приёмки."
-          required: false
+          required: true
           allowed_values: ["supplier", "buyer", "at_fault_party", "not_defined"]
       store_payload: true
 
@@ -2214,7 +2231,7 @@ checks_v8:
         3. При отсутствии текстового значения — строго "Данные не определены".
         4. Не используй "None", "null", "not_defined", пустые строки.
         5. В evidence — только текст договора.
-        6. Верни только один JSON-объект.
+        6. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -2280,10 +2297,10 @@ checks_v8:
         7. Указано ли право замещающей покупки?
         8. "В соответствии с законодательством" — это NOT defined.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "warranty_status": "<defined / not_defined>",
           "warranty_details": "<срок или 'Данные не определены'>",
@@ -2403,15 +2420,18 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Не подставляй нормы ГК вместо отсутствующих условий.
         - "В соответствии с законодательством" без конкретики — это "not_defined".
         - Не смешивай приёмку товара (Check 5) с гарантийными претензиями (этот check).
         - Срок гарантии должен быть числовым (месяцы, годы) с прямым указанием начала.
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "warranty_status"
           type: "string"
@@ -2431,7 +2451,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия требований к качеству товара (ГОСТ/ТУ)."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "quality_standard_details"
           type: "string"
@@ -2445,7 +2465,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус определённости срока предъявления требований по явным недостаткам."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "apparent_defects_claim_period_details"
           type: "string"
@@ -2458,7 +2478,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус определённости срока предъявления требований по скрытым недостаткам."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "hidden_defects_claim_period_details"
           type: "string"
@@ -2471,13 +2491,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия требования о форме акта о недостатках."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "replacement_right_status"
           type: "string"
           presentation: "signal"
           description: "Статус наличия права покупателя требовать замены товара."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "replacement_right_details"
           type: "string"
@@ -2490,13 +2510,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия права одностороннего отказа от некачественного товара."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "cover_purchase_right_status"
           type: "string"
           presentation: "signal"
           description: "Статус наличия права замещающей покупки у третьих лиц за счёт поставщика."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
 
@@ -2554,7 +2574,7 @@ checks_v8:
         2. Если термина нет — "not_defined".
         3. Не используй "None", "null", "not_defined", пустые строки.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -2599,10 +2619,10 @@ checks_v8:
         3. Указано ли конкретное место?
         4. Если термина нет — не выводи его из описания доставки.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "incoterms_status": "<defined / not_defined>",
           "incoterms_rule": "<EXW / FCA / FAS / FOB / CFR / CIF / CPT / CIP / DAP / DPU / DDP / not_defined>",
@@ -2616,6 +2636,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2700,16 +2721,19 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Термин Инкотермс принимай только если в тексте есть прямая аббревиатура
-          (EXW, FCA, FAS, FOB, CFR, CIF, CPT, CIP, DAP, DPU, DDP).
+        (EXW, FCA, FAS, FOB, CFR, CIF, CPT, CIP, DAP, DPU, DDP).
         - Не выводи термин из описания доставки без аббревиатуры.
         - Для incoterms_version принимай только "2020" или "2010" как явно указанные в тексте.
         - Если версия не указана явно — ставь "not_defined".
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "incoterms_status"
           type: "string"
@@ -2729,13 +2753,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Версия Инкотермс, указанная в договоре (2020 или 2010)."
-          required: false
+          required: true
           allowed_values: ["2020", "2010", "not_defined"]
         - name: "named_place_status"
           type: "string"
           presentation: "signal"
           description: "Статус наличия именованного места поставки по Инкотермс."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "named_place_value"
           type: "string"
@@ -2749,7 +2773,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус ясности распределения расходов согласно применённому термину."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
 
@@ -2809,7 +2833,7 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -2857,10 +2881,10 @@ checks_v8:
         3. Указано ли прямо возмещение затрат при отказе?
         4. Есть ли конкретный % или сумма компенсации?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "custom_order_confirmed_status": "<defined / not_defined>",
           "custom_order_confirmed_details": "<текст или 'Данные не определены'>",
@@ -2962,17 +2986,20 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Только текст договора.
         - Не делай предположений.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "custom_order_confirmed_status"
           type: "string"
           presentation: "signal"
           description: "Статус наличия прямого подтверждения факта изготовления товара под заказ."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "custom_order_confirmed_details"
           type: "string"
@@ -2986,7 +3013,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус определённости момента, с которого отказ от товара влечёт компенсацию."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "cancellation_point_details"
           type: "string"
@@ -2999,7 +3026,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия условия о возмещении затрат поставщика при отказе покупателя."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "compensation_for_costs_details"
           type: "string"
@@ -3071,7 +3098,7 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3134,10 +3161,10 @@ checks_v8:
         5. Указан ли предельный срок форс-мажора до расторжения?
         6. Упомянуты ли санкции прямо?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "force_majeure_status": "<defined / not_defined>",
           "specific_events_status": "<defined / not_defined>",
@@ -3247,12 +3274,15 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Только текст договора.
         - Не подставляй нормы ГК.
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "force_majeure_status"
           type: "string"
@@ -3264,7 +3294,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия перечня конкретных форс-мажорных событий."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "specific_events_details"
           type: "string"
@@ -3278,7 +3308,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус определённости процедуры уведомления о форс-мажоре."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "notification_procedure_details"
           type: "string"
@@ -3291,13 +3321,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус требования подтверждения форс-мажора свидетельством ТПП."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "max_duration_status"
           type: "string"
           presentation: "signal"
           description: "Статус определённости максимального срока форс-мажора до права расторжения."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "max_duration_details"
           type: "string"
@@ -3311,7 +3341,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус прямого упоминания санкций как форс-мажорного обстоятельства."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
 
@@ -3383,7 +3413,7 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3440,10 +3470,10 @@ checks_v8:
         4. Есть ли условие о возврате тары с конкретным сроком?
         5. Есть ли условие о самовывозе и последствиях невыборки?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "documents_list_status": "<defined / not_defined>",
           "documents_list_details": "<перечень или 'Данные не определены'>",
@@ -3563,22 +3593,25 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Не делай предположений.
         - Не смешивай документацию на товар с передаточными документами при приёмке.
         - Сертификат качества и сертификат/декларация соответствия ТР ТС — разные сущности:
-          documents_list_details — для документов на товар;
-          certification_details — для сертификации соответствия.
+        documents_list_details — для документов на товар;
+        certification_details — для сертификации соответствия.
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "documents_list_status"
           type: "string"
           presentation: "signal"
           description: "Статус наличия перечня передаваемых с товаром документов."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "documents_list_details"
           type: "string"
@@ -3592,7 +3625,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия требований к упаковке и маркировке товара."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "packaging_requirements_details"
           type: "string"
@@ -3605,7 +3638,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус требования сертификата/декларации соответствия ТР ТС."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "certification_details"
           type: "string"
@@ -3619,7 +3652,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия условия о возврате многооборотной тары."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "returnable_packaging_details"
           type: "string"
@@ -3632,7 +3665,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия условий самовывоза товара со склада поставщика."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "pickup_condition_details"
           type: "string"
@@ -3713,7 +3746,7 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3776,10 +3809,10 @@ checks_v8:
         5. Описан ли порядок возврата товара/денег при расторжении?
         6. "В соответствии с законодательством" — это NOT defined.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "delivery_penalty_status": "<defined / not_defined>",
           "delivery_penalty_details": "<ставка и база или 'Данные не определены'>",
@@ -3799,6 +3832,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3916,21 +3950,24 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - Общая фраза "стороны несут ответственность в соответствии с законодательством"
-          не считается специальной неустойкой и не считается основанием для "defined".
+        не считается специальной неустойкой и не считается основанием для "defined".
         - "В соответствии с законодательством" без конкретики — это "not_defined".
         - Не подставляй нормы ГК вместо отсутствующих условий.
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "delivery_penalty_status"
           type: "string"
           presentation: "signal"
           description: "Статус наличия неустойки за просрочку поставки."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "delivery_penalty_details"
           type: "string"
@@ -3944,7 +3981,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия неустойки за просрочку оплаты."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "payment_penalty_details"
           type: "string"
@@ -3958,7 +3995,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия ограничения максимального размера неустойки."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "penalty_cap_details"
           type: "string"
@@ -3971,7 +4008,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия оснований одностороннего расторжения покупателем."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "buyer_termination_grounds_details"
           type: "string"
@@ -3984,7 +4021,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия оснований одностороннего расторжения поставщиком."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "supplier_termination_grounds_details"
           type: "string"
@@ -3997,13 +4034,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           description: "Статус наличия условия о порядке возврата товара при расторжении."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
         - name: "money_return_on_termination_status"
           type: "string"
           presentation: "signal"
           description: "Статус наличия условия о порядке возврата денежных средств при расторжении."
-          required: false
+          required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
 
@@ -4052,7 +4089,7 @@ checks_v8:
         2. Если условие не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -4089,10 +4126,10 @@ checks_v8:
         3. Если прямого условия нет — верни "not_defined" и "Данные не определены".
         4. Не выводи ограничения из общих фраз о конфиденциальности или добросовестности.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "assignment_restriction_status": "<defined / not_defined>",
           "assignment_restriction_details": "<текст или 'Данные не определены'>",
@@ -4194,14 +4231,17 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
 
-        <rules>
+        <context_rules>
         - Используй только текст договора.
         - "defined" ставь не только при запрете, но и при любом прямом порядке уступки/перевода долга.
         - Не выводи ограничения из общих фраз о конфиденциальности, добросовестности или личном исполнении,
-          если уступка/перевод долга прямо не урегулированы.
+        если уступка/перевод долга прямо не урегулированы.
         - Пиши кратко.
-        - Верни только JSON.
-        </rules>
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        </output_expectations>
       fields:
         - name: "assignment_restriction_status"
           type: "string"
