@@ -414,9 +414,386 @@ compliance_rules: []
 
 checks_v8:
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 1: Базовое извлечение структуры договора поручения
-  # ──────────────────────────────────────────────────────────────────────────
+
+- id: mandate_subject_extraction
+  name: "Базовое извлечение структуры договора поручения"
+  description: >
+    Извлекает доверителя, поверенного, предмет поручения, модель действий
+    (от имени доверителя / от своего имени), статус доверенности,
+    возмездность, отчетность и условия прекращения.
+  triggers: {}
+  ui_mode: "field_extraction"
+  severity: "critical"
+  severity_if_pass: "pass"
+  severity_if_fail: "critical"
+  severity_if_unclear: "high"
+  origin: "DOCUMENT_TYPE"
+  detector_type: "hybrid"
+
+  rules:
+    keywords:
+      - "договор поручения"
+      - "поверенный"
+      - "доверитель"
+      - "от имени доверителя"
+      - "доверенность"
+      - "юридические действия"
+      - "отчет поверенного"
+    keyword_mode: "any"
+    regex_patterns:
+      - "(?i)(договор\\s+поручения|поверенн(ый|ого)|доверител(ь|я))"
+      - "(?i)(от\\s+имени\\s+доверителя|за\\s+счет\\s+доверителя)"
+      - "(?i)доверенн(ость|ости)"
+
+  llm:
+    prompt_template: |
+      [КОНТЕКСТ]
+      Ты — российский юрист по договорной работе.
+      Анализируется договор поручения по Главе 49 ГК РФ (ст. 971–979).
+      Проверяется только один вопрос: ключевые параметры договора поручения.
+
+      Нормативный ориентир:
+      - ст. 971 ГК РФ — договор поручения
+      - ст. 972 ГК РФ — возмездность договора поручения
+      - ст. 975 ГК РФ — обязанности поверенного (в том числе представление отчёта)
+      - ст. 977 ГК РФ — основания прекращения договора поручения
+      - ст. 182 ГК РФ — представительство
+
+      Важно:
+      - Твоя задача — только установить, что прямо есть в тексте договора,
+        а чего прямо нет.
+      - Не оценивай серьёзность риска.
+
+      [ЗАДАЧА]
+      Найди в тексте договора:
+      1. Доверитель (наименование / ФИО).
+      2. Поверенный (наименование / ФИО).
+      3. Предмет поручения (перечень юридических действий).
+      4. От чьего имени действует поверенный.
+      5. Статус доверенности.
+      6. Статус возмездности.
+      7. Наличие отчётности.
+      8. Наличие условий прекращения.
+
+      [ПРАВИЛА]
+      1. Используй только текст документа.
+      2. Не подставляй нормы закона вместо текста договора.
+      3. Для текстовых полей: если данные не указаны прямо — возвращай
+         строку "Данные не определены".
+      4. Для статусных полей: если данные не указаны прямо — возвращай
+         значение "not_defined" из соответствующего enum.
+      5. Если условие прямо указано как отсутствующее (например, «отчётность
+         не предусмотрена») — используй "absent" (для reporting_status
+         и termination_status). Если параметр определяется через отсылку
+         к иному документу или соглашению — используй соответствующее
+         значение enum (например, "by_agreement" для remuneration_status).
+      6. Не используй "None", "null" или пустые строки.
+      7. В evidence включай только текст договора.
+      8. Верни РОВНО один валидный JSON-объект со всеми 9 ключами
+         (8 полей + evidence), пригодный для парсинга через `json.loads`
+         без предварительной обработки. Без markdown, без ```json, без
+         комментариев, без текста до или после. Начни ответ сразу с `{`
+         и закончи `}`.
+
+      [ПРИМЕРЫ (FEW-SHOT)]
+
+      Пример 1 — параметры определены:
+      Фрагмент:
+      "Доверитель — ООО «Альфа» поручает, а Поверенный — Иванов И.И. обязуется
+      от имени и за счёт Доверителя заключить договор аренды. Доверитель выдаёт
+      нотариальную доверенность. Вознаграждение — 50 000 рублей. Поверенный
+      представляет отчёт по итогам исполнения."
+
+      Ответ:
+      {
+        "principal": "ООО «Альфа»",
+        "agent": "Иванов И.И.",
+        "mandated_actions": "заключить договор аренды",
+        "acts_in_name_of": "principal",
+        "poa_status": "required_and_mentioned",
+        "remuneration_status": "paid",
+        "reporting_status": "present",
+        "termination_status": "not_defined",
+        "evidence": "Доверитель — ООО «Альфа» поручает, а Поверенный — Иванов И.И. обязуется от имени и за счёт Доверителя заключить договор аренды."
+      }
+
+      Пример 2 — данные отсутствуют:
+      Фрагмент:
+      "Стороны заключили настоящий договор в городе Москве 12 января 2024 года."
+
+      Ответ:
+      {
+        "principal": "Данные не определены",
+        "agent": "Данные не определены",
+        "mandated_actions": "Данные не определены",
+        "acts_in_name_of": "not_defined",
+        "poa_status": "not_defined",
+        "remuneration_status": "not_defined",
+        "reporting_status": "not_defined",
+        "termination_status": "not_defined",
+        "evidence": "Стороны заключили настоящий договор в городе Москве 12 января 2024 года."
+      }
+
+      Пример 3 — частично определено / отсылка к документу:
+      Фрагмент:
+      "Поверенный действует на основании доверенности, выданной Доверителем.
+      Отчёт представляется по требованию Доверителя. Размер вознаграждения
+      определяется дополнительным соглашением сторон."
+
+      Ответ:
+      {
+        "principal": "Данные не определены",
+        "agent": "Данные не определены",
+        "mandated_actions": "Данные не определены",
+        "acts_in_name_of": "not_defined",
+        "poa_status": "mentioned",
+        "remuneration_status": "by_agreement",
+        "reporting_status": "present",
+        "termination_status": "not_defined",
+        "evidence": "Поверенный действует на основании доверенности, выданной Доверителем. Отчёт представляется по требованию Доверителя."
+      }
+
+      [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+      1. Проверь, что все 9 ключей (8 полей + evidence) присутствуют в JSON.
+      2. Найди прямую цитату о доверителе и поверенном.
+      3. Найди прямую цитату о предмете поручения.
+      4. Найди прямую цитату о модели действий (от имени / от своего имени).
+      5. Найди прямую цитату о доверенности, возмездности, отчётности
+         и прекращении — либо подтверди отсутствие каждой.
+
+      Не выводи шаги проверки. Верни только JSON.
+
+      [ФОРМАТ ОТВЕТА]
+      Ответь строго в JSON:
+      {
+        "principal": "<текст или 'Данные не определены'>",
+        "agent": "<текст или 'Данные не определены'>",
+        "mandated_actions": "<текст или 'Данные не определены'>",
+        "acts_in_name_of": "<principal / agent / unclear / not_defined>",
+        "poa_status": "<required_and_mentioned / mentioned / not_defined>",
+        "remuneration_status": "<paid / free / by_agreement / unclear / not_defined>",
+        "reporting_status": "<present / absent / unclear / not_defined>",
+        "termination_status": "<present / absent / unclear / not_defined>",
+        "evidence": "<прямая цитата из договора>"
+      }
+    context_k: 10
+    temperature: 0.0
+    max_tokens: 800
+
+  retrieval:
+    corpus_scope: "primary_segment"
+    levels:
+      - "legal_unit"
+      - "section"
+    required_kind: "legal_unit"
+    retrieval_query: "договор поручения доверитель поверенный от имени доверителя за счёт доверителя доверенность предмет поручения юридические действия вознаграждение возмездность отчёт поверенного отчётность прекращение поручения отмена"
+    retrieval_profile: "scope_of_work_check"
+    preferred_unit_types:
+      - obligation
+      - general_provision
+    excluded_unit_types:
+      - definition
+      - structural_anchor
+      - technical_fragment
+    preferred_clause_functions:
+      - definitions
+      - obligations
+    negative_keywords:
+      - "означает"
+      - "в целях настоящего"
+      - "приложение"
+      - "индекс"
+    position_bias:
+      preferred_range: [0.0, 0.35]
+      boost: 0.20
+      scope: segment
+    context_k: 10
+    max_chunks: 14
+    rerank: true
+
+  enrichment_hints:
+    preferred_segment_types:
+      - "contract"
+      - "amendment"
+    excluded_segment_types:
+      - "technical_specification"
+      - "price_list"
+      - "invoice"
+    preferred_clause_functions:
+      - "definitions"
+      - "obligations"
+    confidence_bonus_on_match: 0.08
+    confidence_penalty_on_excluded_segment: 0.10
+
+  evidence:
+    required: true
+    min_snippet_length: 50
+    max_snippet_length: 700
+
+  extraction:
+    enabled: true
+    mode: "hybrid"
+    llm_max_tokens: 1100
+    compact_output: false
+
+    llm_prompt_extraction: |
+      <role>
+      Ты — российский юрист. Извлеки из текста договора поручения ключевые
+      параметры: доверителя, поверенного, предмет поручения, модель действий,
+      статус доверенности, возмездность, отчётность и прекращение.
+      Не анализируй передоверие, конфликт интересов или конкретные лимиты
+      полномочий.
+      </role>
+
+      <context>
+      {context}
+      </context>
+
+      <task>
+      Заполни строго следующие 8 полей + evidence (всего 9 ключей):
+
+      1. principal — доверитель.
+      2. agent — поверенный.
+      3. mandated_actions — предмет поручения.
+      4. acts_in_name_of — "principal" / "agent" / "unclear" / "not_defined".
+      5. poa_status — "required_and_mentioned" / "mentioned" / "not_defined".
+      6. remuneration_status — "paid" / "free" / "by_agreement" / "unclear"
+         / "not_defined".
+      7. reporting_status — "present" / "absent" / "unclear" / "not_defined".
+      8. termination_status — "present" / "absent" / "unclear" / "not_defined".
+      9. evidence — прямая цитата из договора, подтверждающая извлечённые данные.
+
+      Если данные отсутствуют:
+      - текстовое поле = "Данные не определены"
+      - статусное поле = "not_defined"
+      </task>
+
+      <rules>
+      - Используй только текст договора.
+      - Не делай предположений.
+      - acts_in_name_of: "principal" — если прямо указано "от имени доверителя";
+        "agent" — если прямо указано "от своего имени";
+        "unclear" — если формулировка неоднозначна;
+        "not_defined" — если не указано.
+      - poa_status: "required_and_mentioned" — если доверенность прямо
+        предусмотрена как обязательная; "mentioned" — если упомянута, но не
+        как обязанность; "not_defined" — если не упомянута.
+      - remuneration_status: "paid" — прямо предусмотрено вознаграждение;
+        "free" — прямо указано, что договор безвозмездный;
+        "by_agreement" — размер/условия определяются отдельным соглашением
+        или отсылкой к иному документу; "unclear" — формулировка неоднозначна;
+        "not_defined" — нет упоминания.
+      - reporting_status / termination_status: "present" — прямо предусмотрено;
+        "absent" — прямо указано отсутствие (например, «отчётность
+        не предусмотрена»); "unclear" — формулировка неоднозначна;
+        "not_defined" — нет упоминания.
+      - Верни РОВНО один валидный JSON-объект со всеми 9 ключами
+        (8 полей + evidence), пригодный для парсинга через `json.loads`
+        без предварительной обработки. Без markdown, без ```json, без
+        комментариев, без текста до или после. Начни ответ сразу с `{`
+        и закончи `}`.
+      </rules>
+    fields:
+      - name: "principal"
+        type: "string"
+        presentation: "fact"
+        label: "Доверитель"
+        description: "Доверитель по договору поручения."
+        required: true
+        display_in_grid: true
+        display_priority: 1
+      - name: "agent"
+        type: "string"
+        presentation: "fact"
+        label: "Поверенный"
+        description: "Поверенный по договору поручения."
+        required: true
+        display_in_grid: true
+        display_priority: 2
+      - name: "mandated_actions"
+        type: "string"
+        presentation: "fact"
+        label: "Предмет поручения"
+        description: "Перечень юридических действий, составляющих предмет поручения."
+        required: true
+        display_in_grid: true
+        display_priority: 3
+      - name: "acts_in_name_of"
+        type: "string"
+        presentation: "signal"
+        allowed_values: ["principal", "agent", "unclear", "not_defined"]
+        description: "От чьего имени действует поверенный."
+        required: true
+      - name: "acts_in_name_of_display"
+        type: "string"
+        presentation: "fact"
+        label: "Модель действий"
+        description: "Человекочитаемое отображение модели действий поверенного (backend, by design)."
+        required: false
+        display_in_grid: true
+        display_priority: 4
+      - name: "poa_status"
+        type: "string"
+        presentation: "signal"
+        allowed_values: ["required_and_mentioned", "mentioned", "not_defined"]
+        description: "Статус доверенности в договоре."
+        required: false
+      - name: "poa_status_display"
+        type: "string"
+        presentation: "fact"
+        label: "Доверенность"
+        description: "Человекочитаемое отображение статуса доверенности (backend, by design)."
+        required: false
+        display_in_grid: true
+        display_priority: 5
+      - name: "remuneration_status"
+        type: "string"
+        presentation: "signal"
+        allowed_values: ["paid", "free", "by_agreement", "unclear", "not_defined"]
+        description: "Статус возмездности договора."
+        required: false
+      - name: "remuneration_status_display"
+        type: "string"
+        presentation: "fact"
+        label: "Возмездность"
+        description: "Человекочитаемое отображение статуса возмездности (backend, by design)."
+        required: false
+        display_in_grid: true
+        display_priority: 6
+      - name: "reporting_status"
+        type: "string"
+        presentation: "signal"
+        allowed_values: ["present", "absent", "unclear", "not_defined"]
+        description: "Наличие отчётности поверенного."
+        required: false
+      - name: "reporting_status_display"
+        type: "string"
+        presentation: "fact"
+        label: "Отчётность поверенного"
+        description: "Человекочитаемое отображение статуса отчётности (backend, by design)."
+        required: false
+        display_in_grid: true
+        display_priority: 7
+      - name: "termination_status"
+        type: "string"
+        presentation: "signal"
+        allowed_values: ["present", "absent", "unclear", "not_defined"]
+        description: "Наличие условий прекращения договора."
+        required: false
+      - name: "termination_status_display"
+        type: "string"
+        presentation: "fact"
+        label: "Условия прекращения"
+        description: "Человекочитаемое отображение статуса прекращения (backend, by design)."
+        required: false
+        display_in_grid: true
+        display_priority: 8
+    store_payload: true
+
+
+
+
+
   - id: mandate_subject_extraction
     name: "Базовое извлечение структуры договора поручения"
     description: >
@@ -699,9 +1076,7 @@ checks_v8:
           required: false
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 2: Предмет поручения — конкретные юридические действия
-  # ──────────────────────────────────────────────────────────────────────────
+
   - id: subject_legal_actions_check
     name: "Предмет поручения: конкретные юридические действия"
     description: >
@@ -900,9 +1275,7 @@ checks_v8:
           required: true
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 3: Доверенность и объём полномочий
-  # ──────────────────────────────────────────────────────────────────────────
+
   - id: poa_and_authority_check
     name: "Доверенность и объём полномочий"
     description: >
@@ -1109,9 +1482,7 @@ checks_v8:
           required: false
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 4: Пределы полномочий и конфликт интересов
-  # ──────────────────────────────────────────────────────────────────────────
+
   - id: authority_limits_and_conflict_check
     name: "Пределы полномочий и конфликт интересов"
     description: >
@@ -1307,9 +1678,7 @@ checks_v8:
           required: true
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 5: Указания доверителя и возмещение расходов
-  # ──────────────────────────────────────────────────────────────────────────
+
   - id: instructions_and_expenses_check
     name: "Указания доверителя и возмещение расходов"
     description: >
@@ -1516,9 +1885,7 @@ checks_v8:
           required: false
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 6: Вознаграждение поверенного
-  # ──────────────────────────────────────────────────────────────────────────
+
   - id: remuneration_check
     name: "Вознаграждение поверенного"
     description: >
@@ -1720,9 +2087,7 @@ checks_v8:
           required: false
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 7: Отчётность поверенного и передача всего полученного
-  # ──────────────────────────────────────────────────────────────────────────
+
   - id: reporting_and_transfer_check
     name: "Отчётность поверенного и передача всего полученного"
     description: >
@@ -1936,9 +2301,7 @@ checks_v8:
           required: false
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 8: Прекращение поручения, отзыв доверенности
-  # ──────────────────────────────────────────────────────────────────────────
+
   - id: termination_and_revocation_check
     name: "Прекращение поручения, отзыв доверенности и уведомление третьих лиц"
     description: >
@@ -2157,9 +2520,7 @@ checks_v8:
           required: false
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 9: Передоверие
-  # ──────────────────────────────────────────────────────────────────────────
+
   - id: subdelegation_check
     name: "Передоверие: допустимость, согласие и ответственность"
     description: >
@@ -2365,9 +2726,7 @@ checks_v8:
           required: false
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 10: Коммерческое представительство
-  # ──────────────────────────────────────────────────────────────────────────
+
   - id: commercial_representation_check
     name: "Коммерческое представительство: специальные условия"
     description: >

@@ -333,6 +333,7 @@ classification_runtime_v1:
         severity: soft
         weight: -0.30
         description: "Финансирование под залог, а не под уступку денежного требования"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
@@ -423,6 +424,7 @@ trigger_definitions:
       - "(?i)факторинг\\s+по\\s+инициатив[ее]\\s+покупател[яя]"
       - "(?i)подтвержд[её]нн[ыо]й\\s+факторинг"
       - "(?i)\\bsupply\\s+chain\\s+finance\\b"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
@@ -810,6 +812,7 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     store_payload: true
+
   - id: factoring_subject_extraction
     name: "Базовое извлечение структуры факторинга"
     description: >
@@ -1211,6 +1214,7 @@ checks_v8:
       required: true
       min_snippet_length: 50
       max_snippet_length: 700
+
   - id: assigned_claim_identification_check
     name: "Идентификация уступаемого денежного требования (ст. 826 ГК РФ)"
     description: >
@@ -1558,6 +1562,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: financing_and_fee_structure_check
     name: "Финансирование и структура вознаграждения фактора (ст. 824 ГК РФ)"
     description: >
@@ -1901,6 +1906,7 @@ checks_v8:
       required: true
       min_snippet_length: 45
       max_snippet_length: 650
+
   - id: recourse_allocation_check
     name: "Регресс / безрегрессность и распределение кредитного риска (ст. 831 ГК РФ)"
     description: >
@@ -2295,6 +2301,7 @@ checks_v8:
       required: true
       min_snippet_length: 45
       max_snippet_length: 650
+
   - id: debtor_notification_check
     name: "Уведомление должника и порядок исполнения в пользу фактора (ст. 830 ГК РФ)"
     description: >
@@ -2705,6 +2712,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 580
+
   - id: setoff_and_double_assignment_risk_check
     name: "Защита от зачёта встречных требований и повторной уступки (ст. 832, 388–390 ГК РФ)"
     description: >
@@ -3078,6 +3086,7 @@ checks_v8:
       required: true
       min_snippet_length: 35
       max_snippet_length: 500
+
   - id: document_transfer_and_bankruptcy_check
     name: "Передача документов и банкротные заверения клиента (ст. 61.2, 61.3 ФЗ-127)"
     description: >
@@ -3489,6 +3498,7 @@ checks_v8:
       required: true
       min_snippet_length: 35
       max_snippet_length: 520
+
   - id: debtor_defenses_check
     name: "Возражения должника против требования фактора (ст. 832 ГК РФ)"
     description: >
@@ -3824,6 +3834,7 @@ checks_v8:
       required: true
       min_snippet_length: 35
       max_snippet_length: 550
+
   - id: hidden_factoring_protection_check
     name: "Скрытый факторинг: механизмы защиты фактора"
     description: >
@@ -4231,6 +4242,7 @@ checks_v8:
       required: true
       min_snippet_length: 35
       max_snippet_length: 500
+
   - id: claim_validity_warranties_check
     name: "Гарантии действительности уступаемого требования (ст. 827 ГК РФ)"
     description: >
@@ -4663,6 +4675,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: excess_collection_return
     name: "Возврат клиенту излишка, полученного от должника (ст. 831 ГК РФ)"
     description: >
@@ -5057,6 +5070,7 @@ checks_v8:
       required: true
       min_snippet_length: 30
       max_snippet_length: 500
+
   - id: tax_risk_allocation
     name: "Налоговые последствия и распределение налоговых рисков (ст. 155, 279 НК РФ)"
     description: >
@@ -5433,6 +5447,7 @@ checks_v8:
       required: true
       min_snippet_length: 30
       max_snippet_length: 500
+
   - id: assignment_prohibition_disclosure
     name: "Раскрытие запрета уступки в основном договоре (ст. 828 ГК РФ)"
     description: >
@@ -5823,6 +5838,7 @@ checks_v8:
       required: true
       min_snippet_length: 30
       max_snippet_length: 500
+
   - id: underlying_contract_change_restriction_check
     name: "Запрет изменения основного договора без согласия фактора (ст. 826 ГК РФ)"
     description: >
@@ -6195,6 +6211,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: factor_liability_and_penalties_check
     name: "Ответственность фактора перед клиентом (ст. 824, 831 ГК РФ)"
     description: >
@@ -6536,6 +6553,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: financing_limits_and_concentration_check
     name: "Лимиты финансирования и концентрация портфеля (ст. 824, 826 ГК РФ)"
     description: >
@@ -6918,6 +6936,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: framework_assignment_mechanics_check
     name: "Механика рамочного факторинга: заявки, акты, момент перехода требования (ст. 826, 388.1 ГК РФ)"
     description: >
@@ -7295,6 +7314,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: factor_suspension_right_check
     name: "Право фактора отказать / приостановить финансирование (ст. 824 ГК РФ)"
     description: >
@@ -7663,6 +7683,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: factor_reassignment_right_check
     name: "Право фактора переуступить требование (ст. 388, 388.1, 389.1 ГК РФ)"
     description: >
@@ -8011,6 +8032,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: collection_costs_allocation_check
     name: "Распределение расходов на взыскание и судебных расходов (ст. 393, 831 ГК РФ)"
     description: >
@@ -8349,6 +8371,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: hidden_factoring_penalties_check
     name: "Неустойка за просрочку перечисления при скрытом факторинге (ст. 330, 830 ГК РФ)"
     description: >
