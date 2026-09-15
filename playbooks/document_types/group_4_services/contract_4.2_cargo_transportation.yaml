@@ -862,6 +862,7 @@ compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
+
   - id: transport_document_check
     name: "Транспортный документ: накладная / коносамент (ст. 785 ГК РФ)"
     description: >
@@ -4263,6 +4264,7 @@ checks_v8:
           label: "Тип договора"
           description: "User-friendly отображение типа договора (разовый/рамочный)"
           required: true
+  
   - id: delivery_deadline
     name: "Срок доставки груза (ст. 792 ГК РФ)"
     description: >
@@ -4857,6 +4859,7 @@ checks_v8:
           label: "Распределение расходов"
           description: "User-friendly отображение: определено ли распределение расходов"
           required: true
+  
   - id: delivery_delay_penalty
     name: "Штрафы за просрочку доставки (ст. 793 ГК РФ, УАТ ст. 34)"
     description: >
@@ -5128,6 +5131,7 @@ checks_v8:
           label: "Тип санкции"
           description: "User-friendly отображение типа санкции (договорная/законная)"
           required: true
+  
   - id: vehicle_supply_penalty
     name: "Штраф за непредъявление груза / неподачу ТС (ст. 794 ГК РФ)"
     description: >
@@ -5391,6 +5395,7 @@ checks_v8:
           label: "Штраф за непредъявление груза"
           description: "User-friendly отображение: предусмотрен ли штраф за непредъявление груза"
           required: true
+  
   - id: cargo_acceptance_procedure
     name: "Порядок приёмки груза в пункте назначения"
     description: >
@@ -5719,6 +5724,7 @@ checks_v8:
           label: "Осмотр при получении"
           description: "User-friendly отображение: предусмотрен ли осмотр груза при получении"
           required: true
+  
   - id: application_procedure_framework
     name: "Порядок подачи заявок (для рамочного договора)"
     description: >
@@ -6027,6 +6033,7 @@ checks_v8:
           label: "Изменение/отмена заявки"
           description: "User-friendly отображение: установлены ли правила изменения/отмены заявки"
           required: true
+  
   - id: liability_limitation_explicit
     name: "Лимит ответственности перевозчика (ст. 796 ГК РФ, уставы)"
     description: >
@@ -6335,6 +6342,7 @@ checks_v8:
           label: "Ссылка на устав"
           description: "User-friendly отображение ссылки на транспортный устав/режим"
           required: true
+  
   - id: exclusions_from_liability
     name: "Транспортные основания освобождения от ответственности (ст. 796 ГК РФ)"
     description: >
@@ -6648,6 +6656,7 @@ checks_v8:
           label: "Характер перечня"
           description: "User-friendly отображение: закрытый или открытый перечень оснований освобождения"
           required: true
+  
   - id: pretension_order
     name: "Транспортный претензионный порядок: сроки при утрате, просрочке (ст. 797 ГК РФ)"
     description: >
@@ -6990,6 +6999,7 @@ checks_v8:
           label: "Обязательность до суда"
           description: "User-friendly отображение: обязательна ли претензия до обращения в суд"
           required: true
+  
   - id: limitation_period_notice
     name: "Срок исковой давности — транспортная специфика (ст. 797 ГК РФ)"
     description: >
@@ -7258,6 +7268,7 @@ checks_v8:
           label: "Правовой источник"
           description: "User-friendly отображение ссылки на правовой источник срока исковой давности"
           required: true
+  
   - id: cargo_insurance_clause
     name: "Страхование груза"
     description: >
@@ -7606,6 +7617,7 @@ checks_v8:
           label: "Выгодоприобретатель"
           description: "User-friendly отображение: определён ли выгодоприобретатель"
           required: true
+  
   - id: vat_and_tax
     name: "НДС и налоговые оговорки"
     description: >
@@ -7886,6 +7898,7 @@ checks_v8:
           label: "Международный режим"
           description: "User-friendly отображение: есть ли ссылка на международный налоговый режим"
           required: true
+  
   - id: auto_renewal
     name: "Автопролонгация рамочного договора перевозки"
     description: >
@@ -8160,6 +8173,7 @@ checks_v8:
           label: "Уведомление об отказе"
           description: "User-friendly отображение: требуется ли уведомление для отказа от продления"
           required: true
+  
   - id: carrier_license_check
     name: "Лицензия / разрешение перевозчика"
     description: >
@@ -8480,6 +8494,7 @@ checks_v8:
           label: "Обязанность поддерживать"
           description: "User-friendly отображение: обязана ли сторона поддерживать документ в силе"
           required: true
+  
   - id: packaging_and_marking
     name: "Тара, упаковка и маркировка груза"
     description: >
@@ -8780,6 +8795,7 @@ checks_v8:
           label: "Ответственная сторона"
           description: "User-friendly отображение стороны, ответственной за соблюдение требований"
           required: true
+  
   - id: gps_tracking
     name: "GPS/ГЛОНАСС-мониторинг и отслеживание груза"
     description: >
@@ -9071,6 +9087,7 @@ checks_v8:
           label: "Доступ грузоотправителя"
           description: "User-friendly отображение: есть ли у грузоотправителя доступ к данным мониторинга"
           required: true
+  
   - id: shipper_data_accuracy
     name: "Достоверность сведений о грузе: ответственность грузоотправителя"
     description: >
@@ -9391,6 +9408,7 @@ checks_v8:
           label: "Охват сведений"
           description: "User-friendly отображение охвата сведений, к которым применяются заверения и ответственность"
           required: true
+  
   - id: subcontracting_terms
     name: "Привлечение субперевозчика: условия и ответственность"
     description: >
@@ -9756,6 +9774,7 @@ checks_v8:
           label: "Замена водителя"
           description: "User-friendly отображение: предусмотрено ли условие о замене водителя"
           required: true
+  
   - id: redirection_clause
     name: "Переадресовка груза в пути"
     description: >
@@ -10088,6 +10107,7 @@ checks_v8:
           label: "Срок для требования"
           description: "User-friendly отображение: установлен ли срок для требования о переадресовке"
           required: true
+  
   - id: electronic_waybill_terms
     name: "Электронная транспортная накладная (ЭТрН)"
     description: >
@@ -10381,6 +10401,7 @@ checks_v8:
           label: "Ссылка на ЭДО"
           description: "User-friendly отображение: есть ли ссылка на электронный документооборот"
           required: true
+  
   - id: cargo_escort_terms
     name: "Сопровождение и охрана груза"
     description: >
@@ -10682,6 +10703,7 @@ checks_v8:
           label: "Специальные случаи"
           description: "User-friendly отображение: есть ли специальные случаи обязательного сопровождения"
           required: true
+  
   - id: seasonal_road_restrictions
     name: "Сезонные дорожные ограничения"
     description: >
@@ -10986,6 +11008,7 @@ checks_v8:
           label: "Распределение расходов"
           description: "User-friendly отображение: определено ли распределение расходов из-за ограничений"
           required: true
+
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

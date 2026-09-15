@@ -39,10 +39,12 @@ metadata:
     - "reverse factoring agreement"
     - "supply chain finance agreement"
     - "undisclosed factoring agreement"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
+
 classification_runtime_v1:
   scoring:
     accept_threshold: 0.82
@@ -338,6 +340,7 @@ classification_runtime_v1:
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
 # ════════════════════════════════════════════════════════════════════════════
+
 trigger_definitions:
   recourse_factoring:
     any_keywords:
@@ -429,6 +432,7 @@ trigger_definitions:
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
 # ════════════════════════════════════════════════════════════════════════════
+
 shared_patterns:
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
   percentage_pattern: "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
@@ -443,7 +447,9 @@ compliance_rules: []
 #  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
+
 checks_v8:
+
   - id: factoring_parties_identification
     name: "Стороны договора: идентификация фактора и клиента"
     description: >
@@ -812,6 +818,7 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
+
   - id: factoring_subject_extraction
     name: "Базовое извлечение структуры факторинга"
     description: >
@@ -8553,160 +8560,12 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
+
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
-    extraction:
-      store_payload: true
 
-      enabled: true
-      mode: "hybrid"
-      compact_output: false
-      llm_max_tokens: 1000
-      llm_prompt_extraction: |
-        <role>
-        Ты — российский юрист. Извлеки из текста договора скрытого
-        факторинга сведения о неустойке за просрочку перечисления
-        клиентом полученных от должника сумм: наличие, размер.
-        Не анализируй регресс, комиссию, уведомление должника,
-        банкротство или механизмы защиты фактора (они в отдельном
-        check-е hidden_factoring_protection_check).
-        </role>
-
-        <context>
-        {context}
-        </context>
-
-        <task>
-        Заполни строго следующие 6 полей (все ключи должны присутствовать
-        в ответе, даже если значение — fallback):
-        1.  late_transfer_penalty_status — present / not_defined.
-        2.  late_transfer_penalty_display — "Предусмотрена" /
-            "Не предусмотрена" (должно соответствовать
-            late_transfer_penalty_status).
-        3.  late_transfer_penalty_rate_status — specified / not_defined.
-        4.  late_transfer_penalty_rate_display — конкретный размер
-            текстом (например, "0,2% в день") или "Не установлена"
-            (должно соответствовать late_transfer_penalty_rate_status).
-        5.  hidden_factoring_penalty_summary — сводка одной строкой.
-        6.  evidence — массив цитат с clause_ref и quote.
-        </task>
-
-        <rules>
-        - Используй только текст договора.
-        - late_transfer_penalty_status: "present" — есть неустойка,
-          пеня или иная финансовая санкция за просрочку перечисления;
-          "not_defined" — нет.
-        - late_transfer_penalty_rate_status: "specified" — указан
-          конкретный размер; "not_defined" — размер не указан.
-        - Display-поля строго соответствуют raw enum:
-            late_transfer_penalty_status:
-              present -> "Предусмотрена";
-              not_defined -> "Не предусмотрена".
-            late_transfer_penalty_rate_status:
-              specified -> конкретный размер текстом;
-              not_defined -> "Не установлена".
-        - hidden_factoring_penalty_summary — одной строкой, формат:
-          "Неустойка: <да/нет>; Размер: <...>; Механизм: <...>".
-        - Запрещены значения null, None и пустые строки. Для status-полей
-          используй "not_defined". Для display-полей — "Не предусмотрена"
-          / "Не установлена".
-        - В evidence включай только дословные цитаты из текста договора.
-        - Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо
-          дополнительного текста до или после. Начни ответ сразу с
-          открывающей фигурной скобки и закончи закрывающей. НЕ пиши
-          Markdown, списки, код-фенсы. Ответ должен быть валидным JSON,
-          пригодным для парсинга через json.loads без предварительной
-          обработки.
-        </rules>
-      fields:
-        - name: "late_transfer_penalty_status"
-          type: "string"
-          presentation: "signal"
-          allowed_values: ["present", "not_defined"]
-          description: "Наличие неустойки за просрочку перечисления (raw enum)."
-          required: true
-          display_in_grid: false
-        - name: "late_transfer_penalty_display"
-          type: "string"
-          presentation: "fact"
-          label: "Неустойка за просрочку перечисления"
-          description: "User-facing: Предусмотрена / Не предусмотрена."
-          required: true
-          display_in_grid: true
-          display_priority: 1
-        - name: "late_transfer_penalty_rate_status"
-          type: "string"
-          presentation: "signal"
-          allowed_values: ["specified", "not_defined"]
-          description: "Определённость размера неустойки (raw enum)."
-          required: true
-          display_in_grid: false
-        - name: "late_transfer_penalty_rate_display"
-          type: "string"
-          presentation: "fact"
-          label: "Размер неустойки"
-          description: "User-facing: конкретный размер или 'Не установлена'."
-          required: true
-          display_in_grid: true
-          display_priority: 2
-        - name: "hidden_factoring_penalty_summary"
-          type: "string"
-          presentation: "fact"
-          label: "Сводка по санкциям при скрытом факторинге"
-          description: "Компактная сводка: неустойка, размер, механизм."
-          required: true
-          display_in_grid: true
-          display_priority: 3
-    retrieval:
-      retrieval_profile: "assignment_check"
-      corpus_scope: "primary_segment"
-      levels:
-        - "legal_unit"
-        - "section"
-      required_kind: "legal_unit"
-      retrieval_query: "неустойка за просрочку перечисления пеня за просрочку скрытый факторинг конфиденциальный факторинг санкции за нарушение срока перечисления ответственность клиента за просрочку перечисления полученных сумм штраф за нарушение срока"
-      preferred_unit_types:
-        - obligation
-        - general_provision
-      excluded_unit_types:
-        - definition
-        - structural_anchor
-        - technical_fragment
-      preferred_clause_functions:
-        - obligations
-        - remedies
-      negative_keywords:
-        - "регресс"
-        - "комиссия"
-        - "уведомление должника"
-        - "банкротство"
-        - "означает"
-        - "в целях настоящего"
-      position_bias:
-        preferred_range: [0.30, 0.75]
-        boost: 0.15
-        scope: segment
-      context_k: 8
-      max_chunks: 10
-      rerank: true
-      enrichment_hints:
-        preferred_segment_types:
-          - "contract"
-          - "amendment"
-        excluded_segment_types:
-          - "technical_specification"
-          - "price_list"
-        preferred_clause_functions:
-          - "obligations"
-          - "remedies"
-        confidence_bonus_on_match: 0.10
-        confidence_penalty_on_excluded_segment: 0.12
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
 dd_request_templates:
   factoring_parties_identification:
     text: >
@@ -8820,5 +8679,4 @@ dd_request_templates:
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
-
 

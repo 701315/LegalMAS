@@ -585,6 +585,7 @@ compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
+
   - id: insurance_subject_extraction
     name: "Базовое извлечение предмета и конструкции страхования"
     description: >
@@ -1062,6 +1063,7 @@ checks_v8:
           description: "Выгодоприобретатель по договору страхования."
           required: true
           display_in_grid: false
+
   - id: insured_event_and_exclusions_check
     name: "Страховой случай и исключения из покрытия"
     description: >
@@ -1408,6 +1410,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: rules_of_insurance_attachment_check
     name: "Правила страхования: включение в договор и подтверждение вручения"
     description: >
@@ -1730,6 +1733,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: claim_notification_check
     name: "Уведомление о страховом случае: срок, способ, последствия"
     description: >
@@ -2087,6 +2091,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: claims_payment_procedure_check
     name: "Страховая выплата: документы, сроки, основание для отказа"
     description: >
@@ -2460,6 +2465,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: insured_person_consent_check
     name: "Личное страхование: согласие застрахованного лица и статус выгодоприобретателя"
     description: >
@@ -2802,6 +2808,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: early_termination_and_premium_refund_check
     name: "Досрочное прекращение и возврат страховой премии"
     description: >
@@ -3099,6 +3106,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: risk_increase_and_policyholder_duties_check
     name: "Обязанности страхователя в период действия договора (ст. 959, 961 ГК РФ)"
     description: >
@@ -3437,6 +3445,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: policyholder_actions_on_event_check
     name: "Действия страхователя при наступлении страхового случая"
     description: >
@@ -3793,6 +3802,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 6
+
   - id: territory_and_jurisdiction_check
     name: "Территория страхового покрытия"
     description: >
@@ -4069,6 +4079,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: claims_made_vs_occurrence_check
     name: "Базис покрытия: claims-made vs. occurrence"
     description: >
@@ -4408,6 +4419,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: insurer_identification_and_license
     name: "Страховщик: идентификация и лицензия"
     description: >
@@ -4704,6 +4716,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: premium_and_payment_order
     name: "Страховая премия: размер и порядок уплаты"
     description: >
@@ -5019,6 +5032,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: deductible_check
     name: "Франшиза: тип, размер и порядок применения"
     description: >
@@ -5345,6 +5359,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: subrogation_check
     name: "Суброгация: право требования и отказ от суброгации (ст. 965 ГК РФ)"
     description: >
@@ -5684,6 +5699,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: aggregate_limit_check
     name: "Агрегатный лимит ответственности страховщика"
     description: >
@@ -6022,6 +6038,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

@@ -616,7 +616,6 @@ checks_v8:
         - representations
         - obligations
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "приложение"
         - "индекс"
@@ -672,6 +671,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 9 полей + evidence (всего 10 ключей):
+        
         Заполни строго следующие 9 полей + evidence (всего 10 ключей):
 
         1. principal — комитент (наименование / ФИО).
@@ -742,14 +743,14 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["self", "principal", "unclear", "not_defined"]
           description: "От чьего имени действует комиссионер (self = от своего имени, признак комиссии; principal = от имени комитента, признак поручения)."
-          required: false
+          required: true
 
         - name: "transaction_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["sale", "purchase", "mixed", "unclear", "not_defined"]
           description: "Тип поручаемых сделок."
-          required: false
+          required: true
 
         - name: "subject_of_commission"
           type: "string"
@@ -765,28 +766,28 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["present", "unclear", "not_defined"]
           description: "Наличие условия о комиссионном вознаграждении (сигнал возмездности по ст. 991 ГК РФ)."
-          required: false
+          required: true
 
         - name: "goods_ownership_clause"
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "not_defined"]
           description: "Наличие оговорки о сохранении собственности комитента на переданный товар."
-          required: false
+          required: true
 
         - name: "reporting_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "not_defined"]
           description: "Наличие условия об отчётности комиссионера (ст. 999 ГК РФ)."
-          required: false
+          required: true
 
         - name: "delcredere_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "absent", "not_defined"]
           description: "Наличие ручательства комиссионера за третье лицо (делькредере, ст. 991 ГК РФ)."
-          required: false
+          required: true
 
   - id: subject_and_representation_model_check
     name: "Предмет комиссии, модель действия и ценовые лимиты"
@@ -965,7 +966,6 @@ checks_v8:
         - representations
         - obligations
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
@@ -973,7 +973,7 @@ checks_v8:
         - "возврат товара"
       position_bias:
         preferred_range: [0.0, 0.40]
-        boost: 0.18
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -1024,6 +1024,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 4 полей + evidence (всего 5 ключей):
+        
         Заполни строго следующие 4 поля + evidence (всего 5 ключей):
 
         1. representation_model — юридическая модель действия:
@@ -1090,7 +1092,7 @@ checks_v8:
             - "unclear"
             - "not_defined"
           description: "Юридическая модель действия: комиссия (ст. 990 ГК РФ) vs поручение (Гл. 49 ГК РФ)."
-          required: false
+          required: true
 
         - name: "subject_specificity"
           type: "string"
@@ -1101,7 +1103,7 @@ checks_v8:
             - "generic"
             - "not_defined"
           description: "Степень конкретизации предмета комиссии."
-          required: false
+          required: true
 
         - name: "pricing_limits_status"
           type: "string"
@@ -1113,7 +1115,7 @@ checks_v8:
             - "not_applicable"
             - "not_defined"
           description: "Наличие и тип ценовых лимитов (ст. 995 ГК РФ)."
-          required: false
+          required: true
 
         - name: "representation_summary"
           type: "string"
@@ -1202,7 +1204,7 @@ checks_v8:
         4. Не используй "None", "null", "N/A", "-" или пустые строки —
            только явные значения из [ФОРМАТ ОТВЕТА].
         5. В evidence включай только текст договора, без комментариев.
-        6. Верни РОВНО один валидный JSON-объект со всеми 4 ключами
+        6. Верни РОВНО один валидный JSON-объект со всеми 5 ключами
            (3 поля + evidence), пригодный для парсинга через json.loads
            без предварительной обработки. Без markdown, без ```json,
            без комментариев, без текста до или после. Начни ответ сразу
@@ -1294,7 +1296,6 @@ checks_v8:
         - obligations
         - procedures
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
@@ -1302,7 +1303,7 @@ checks_v8:
         - "возврат товара"
       position_bias:
         preferred_range: [0.15, 0.60]
-        boost: 0.15
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -1352,6 +1353,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 4 полей + evidence (всего 5 ключей):
+        
         Заполни строго следующие 3 поля + evidence (всего 4 ключа):
 
         1. remuneration_clarity — определённость вознаграждения:
@@ -1397,7 +1400,7 @@ checks_v8:
             спорная конструкция, требует внимания юриста);
           * "not_defined" — тема не упомянута (по умолчанию
             действует ст. 997 ГК РФ).
-        - Верни РОВНО один валидный JSON-объект со всеми 4 ключами,
+        - Верни РОВНО один валидный JSON-объект со всеми 5 ключами,
           пригодный для парсинга через json.loads без предварительной
           обработки. Без markdown, без ```json, без комментариев,
           без текста до или после. Начни ответ сразу с `{` и закончи `}`.
@@ -1413,7 +1416,7 @@ checks_v8:
             - "referred"
             - "not_defined"
           description: "Определённость комиссионного вознаграждения (ст. 991 ГК РФ)."
-          required: false
+          required: true
 
         - name: "expenses_reimbursement_status"
           type: "string"
@@ -1425,7 +1428,7 @@ checks_v8:
             - "referred"
             - "not_defined"
           description: "Механизм возмещения расходов комиссионера (ст. 1001 ГК РФ)."
-          required: false
+          required: true
 
         - name: "retention_right_status"
           type: "string"
@@ -1436,7 +1439,7 @@ checks_v8:
             - "excluded"
             - "not_defined"
           description: "Право удержания причитающихся сумм (ст. 997 ГК РФ, императивная норма)."
-          required: false
+          required: true
 
         - name: "remuneration_summary"
           type: "string"
@@ -1522,7 +1525,7 @@ checks_v8:
         4. Не используй "None", "null", "N/A", "-" или пустые строки —
            только явные значения из [ФОРМАТ ОТВЕТА].
         5. В evidence включай только текст договора, без комментариев.
-        6. Верни РОВНО один валидный JSON-объект со всеми 4 ключами
+        6. Верни РОВНО один валидный JSON-объект со всеми 5 ключами
            (3 поля + evidence), пригодный для парсинга через json.loads
            без предварительной обработки. Без markdown, без ```json,
            без комментариев, без текста до или после. Начни ответ сразу
@@ -1614,7 +1617,6 @@ checks_v8:
         - obligations
         - procedures
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
@@ -1622,7 +1624,7 @@ checks_v8:
         - "возврат товара"
       position_bias:
         preferred_range: [0.25, 0.70]
-        boost: 0.12
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -1672,6 +1674,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 4 полей + evidence (всего 5 ключей):
+        
         Заполни строго следующие 3 поля + evidence (всего 4 ключа):
 
         1. reporting_status — порядок отчётности:
@@ -1714,7 +1718,7 @@ checks_v8:
             (поручением, графиком, приложением);
           * "not_defined" — тема перечисления выручки не раскрыта
             (по умолчанию — «немедленно» по ст. 999 п.2 ГК РФ).
-        - Верни РОВНО один валидный JSON-объект со всеми 4 ключами,
+        - Верни РОВНО один валидный JSON-объект со всеми 5 ключами,
           пригодный для парсинга через json.loads без предварительной
           обработки. Без markdown, без ```json, без комментариев,
           без текста до или после. Начни ответ сразу с `{` и закончи `}`.
@@ -1730,7 +1734,7 @@ checks_v8:
             - "referred"
             - "not_defined"
           description: "Порядок и периодичность отчётности комиссионера (ст. 999 п.1 ГК РФ)."
-          required: false
+          required: true
 
         - name: "report_objection_period"
           type: "string"
@@ -1740,7 +1744,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Срок возражений комитента на отчёт (ст. 999 п.3 ГК РФ, по умолчанию 30 дней)."
-          required: false
+          required: true
 
         - name: "proceeds_transfer_timing"
           type: "string"
@@ -1752,7 +1756,7 @@ checks_v8:
             - "referred"
             - "not_defined"
           description: "Срок перечисления выручки комитенту (ст. 999 п.2 ГК РФ, по умолчанию немедленно)."
-          required: false
+          required: true
 
         - name: "reporting_summary"
           type: "string"
@@ -1847,7 +1851,7 @@ checks_v8:
         4. Не используй "None", "null", "N/A", "-" или пустые строки —
            только явные значения из [ФОРМАТ ОТВЕТА].
         5. В evidence включай только текст договора, без комментариев.
-        6. Верни РОВНО один валидный JSON-объект со всеми 4 ключами
+        6. Верни РОВНО один валидный JSON-объект со всеми 5 ключами
            (3 поля + evidence), пригодный для парсинга через json.loads
            без предварительной обработки. Без markdown, без ```json,
            без комментариев, без текста до или после. Начни ответ сразу
@@ -1938,14 +1942,13 @@ checks_v8:
         - obligations
         - representations
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
         - "прекращение"
       position_bias:
         preferred_range: [0.10, 0.55]
-        boost: 0.15
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -1997,6 +2000,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 4 полей + evidence (всего 5 ключей):
+        
         Заполни строго следующие 3 поля + evidence (всего 4 ключа):
 
         1. ownership_clause_status — оговорка о собственности:
@@ -2041,7 +2046,7 @@ checks_v8:
           * "not_defined" — тема не упомянута (по умолчанию
             действует ст. 996 п.2 ГК РФ + ст. 132 ФЗ о банкротстве —
             имущество комитента защищено).
-        - Верни РОВНО один валидный JSON-объект со всеми 4 ключами,
+        - Верни РОВНО один валидный JSON-объект со всеми 5 ключами,
           пригодный для парсинга через json.loads без предварительной
           обработки. Без markdown, без ```json, без комментариев,
           без текста до или после. Начни ответ сразу с `{` и закончи `}`.
@@ -2056,7 +2061,7 @@ checks_v8:
             - "explicit_transfer"
             - "not_defined"
           description: "Оговорка о сохранении собственности комитента (ст. 996 п.1 ГК РФ). explicit_transfer — красный флаг (купля-продажа)."
-          required: false
+          required: true
 
         - name: "segregation_status"
           type: "string"
@@ -2067,7 +2072,7 @@ checks_v8:
             - "referred"
             - "not_defined"
           description: "Обособление товара: раздельное хранение и учёт (ст. 996 п.2 ГК РФ)."
-          required: false
+          required: true
 
         - name: "bankruptcy_protection_status"
           type: "string"
@@ -2077,7 +2082,7 @@ checks_v8:
             - "explicit_waiver"
             - "not_defined"
           description: "Защита от включения имущества комитента в конкурсную массу (ст. 132 ФЗ о банкротстве)."
-          required: false
+          required: true
 
         - name: "ownership_summary"
           type: "string"
@@ -2244,7 +2249,6 @@ checks_v8:
         - obligations
         - procedures
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
@@ -2252,7 +2256,7 @@ checks_v8:
         - "возврат товара"
       position_bias:
         preferred_range: [0.20, 0.65]
-        boost: 0.10
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -2297,6 +2301,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 3 полей + evidence (всего 4 ключей):
+        
         Заполни строго следующие 3 поля + evidence (всего 4 ключа):
 
         1. additional_benefit_status — наличие условия о выгоде:
@@ -2346,7 +2352,7 @@ checks_v8:
             - "defined"
             - "not_defined"
           description: "Наличие специального условия о распределении дополнительной выгоды."
-          required: false
+          required: true
 
         - name: "distribution_model"
           type: "string"
@@ -2358,7 +2364,7 @@ checks_v8:
             - "custom"
             - "not_defined"
           description: "Модель распределения дополнительной выгоды (ст. 992 ГК РФ)."
-          required: false
+          required: true
 
         - name: "additional_benefit_summary"
           type: "string"
@@ -2537,13 +2543,12 @@ checks_v8:
         - obligations
         - limitations
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "прекращение"
         - "возврат товара"
       position_bias:
         preferred_range: [0.30, 0.75]
-        boost: 0.12
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -2586,6 +2591,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 4 полей + evidence (всего 5 ключей):
+        
         Заполни строго следующие 4 поля + evidence (всего 5 ключей):
 
         1. subcommission_status — допустимость субкомиссии:
@@ -2650,7 +2657,7 @@ checks_v8:
             - "unclear"
             - "not_defined"
           description: "Режим допустимости субкомиссии в договоре (ст. 994 ГК РФ)."
-          required: false
+          required: true
 
         - name: "principal_consent_required"
           type: "string"
@@ -2661,7 +2668,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Необходимость согласия комитента на привлечение субкомиссионера."
-          required: false
+          required: true
 
         - name: "commissioner_liability_for_subagent"
           type: "string"
@@ -2672,7 +2679,7 @@ checks_v8:
             - "excluded"
             - "not_defined"
           description: "Объём ответственности комиссионера за действия субкомиссионера (excluded — красный флаг)."
-          required: false
+          required: true
 
         - name: "subcommission_summary"
           type: "string"
@@ -2856,14 +2863,13 @@ checks_v8:
         - limitations
         - remedies
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "прекращение"
         - "возврат товара"
       position_bias:
         preferred_range: [0.25, 0.75]
-        boost: 0.12
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -2910,6 +2916,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 4 полей + evidence (всего 5 ключей):
+        
         Заполни строго следующие 4 поля + evidence (всего 5 ключей):
 
         1. delcredere_status — статус ручательства (делькредере):
@@ -2972,7 +2980,7 @@ checks_v8:
             - "absent"
             - "not_defined"
           description: "Статус принятия комиссионером ручательства за третье лицо (делькредере, ст. 993 ГК РФ)."
-          required: false
+          required: true
 
         - name: "additional_fee_for_delcredere"
           type: "string"
@@ -2983,7 +2991,7 @@ checks_v8:
             - "not_stipulated"
             - "not_defined"
           description: "Наличие и порядок согласования дополнительного вознаграждения за делькредере (ст. 991 п. 1 ГК РФ)."
-          required: false
+          required: true
 
         - name: "liability_trigger_clarity"
           type: "string"
@@ -2995,7 +3003,7 @@ checks_v8:
             - "unclear"
             - "not_defined"
           description: "Определённость оснований, сроков и характера ответственности комиссионера при делькредере."
-          required: false
+          required: true
 
         - name: "delcredere_summary"
           type: "string"
@@ -3185,13 +3193,12 @@ checks_v8:
         - procedures
         - obligations
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
       position_bias:
         preferred_range: [0.50, 0.95]
-        boost: 0.15
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -3237,6 +3244,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 4 полей + evidence (всего 5 ключей):
+        
         Заполни строго следующие 4 поля + evidence (всего 5 ключей):
 
         1. termination_mechanism_status — порядок и основания прекращения:
@@ -3294,7 +3303,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Порядок и основания прекращения договора комиссии (ст. 1002–1004 ГК РФ)."
-          required: false
+          required: true
 
         - name: "unsold_goods_return_status"
           type: "string"
@@ -3305,7 +3314,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Судьба нереализованного товара и право комиссионера на продажу невостребованного имущества (ст. 1003 п. 2 ГК РФ)."
-          required: false
+          required: true
 
         - name: "termination_compensation_status"
           type: "string"
@@ -3318,7 +3327,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Порядок расчетов и компенсаций при досрочном прекращении комиссии (ст. 1003 п. 1 ГК РФ)."
-          required: false
+          required: true
 
         - name: "termination_summary"
           type: "string"
@@ -3513,7 +3522,6 @@ checks_v8:
         - obligations
         - procedures
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
@@ -3521,7 +3529,7 @@ checks_v8:
         - "возврат товара"
       position_bias:
         preferred_range: [0.50, 1.0]
-        boost: 0.12
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -3567,6 +3575,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 4 полей + evidence (всего 5 ключей):
+        
         Заполни строго следующие 4 поля + evidence (всего 5 ключей):
 
         1. tax_clause_status — налоговый статус и режим НДС с вознаграждения:
@@ -3627,7 +3637,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Налоговый режим и условие об НДС с комиссионного вознаграждения (ст. 156 НК РФ)."
-          required: false
+          required: true
 
         - name: "documentation_status"
           type: "string"
@@ -3640,7 +3650,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Порядок оформления счетов-фактур и статус отчета как первичного учетного документа (ст. 169 НК РФ, Закон № 402-ФЗ)."
-          required: false
+          required: true
 
         - name: "revenue_qualification_status"
           type: "string"
@@ -3651,7 +3661,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Подтверждение того, что доходом комиссионера является исключительно вознаграждение (ст. 251 п. 1 пп. 9 НК РФ)."
-          required: false
+          required: true
 
         - name: "tax_and_docs_summary"
           type: "string"
@@ -3849,14 +3859,13 @@ checks_v8:
         - limitations
         - remedies
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
         - "прекращение"
       position_bias:
         preferred_range: [0.20, 0.70]
-        boost: 0.15
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -3908,6 +3917,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 5 полей + evidence (всего 6 ключей):
+        
         Заполни строго следующие 5 полей + evidence (всего 6 ключей):
 
         1. goods_risk_allocation — распределение риска утраты/повреждения:
@@ -3976,7 +3987,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Распределение риска утраты, недостачи и повреждения товара комитента (ст. 998 ГК РФ)."
-          required: false
+          required: true
 
         - name: "insurance_obligation"
           type: "string"
@@ -3988,7 +3999,7 @@ checks_v8:
             - "not_required"
             - "not_defined"
           description: "Обязанность страхования товара и распределение расходов на страхование."
-          required: false
+          required: true
 
         - name: "goods_acceptance_procedure"
           type: "string"
@@ -3998,7 +4009,7 @@ checks_v8:
             - "partial"
             - "not_defined"
           description: "Порядок приёмки товара комиссионером (осмотр, акт, скрытые дефекты)."
-          required: false
+          required: true
 
         - name: "liability_cap_for_goods"
           type: "string"
@@ -4009,7 +4020,7 @@ checks_v8:
             - "excluded"
             - "not_defined"
           description: "Ограничение ответственности комиссионера за утрату/повреждение товара (excluded — красный флаг)."
-          required: false
+          required: true
 
         - name: "goods_liability_summary"
           type: "string"
@@ -4205,14 +4216,13 @@ checks_v8:
         - remedies
         - procedures
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
         - "прекращение"
       position_bias:
         preferred_range: [0.30, 0.80]
-        boost: 0.12
+        boost: 0.30
         scope: segment
       context_k: 6
       max_chunks: 10
@@ -4260,6 +4270,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 4 полей + evidence (всего 5 ключей):
+        
         Заполни строго следующие 4 поля + evidence (всего 5 ключей):
 
         1. claims_handling_model — порядок рассмотрения претензий:
@@ -4322,7 +4334,7 @@ checks_v8:
             - "joint"
             - "not_defined"
           description: "Порядок рассмотрения претензий третьих лиц (покупателей) по ст. 990 п. 1 ГК РФ."
-          required: false
+          required: true
 
         - name: "notification_deadline"
           type: "string"
@@ -4333,7 +4345,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Срок уведомления комитента о претензии третьего лица (ст. 998 п. 2 ГК РФ — немедленно)."
-          required: false
+          required: true
 
         - name: "recourse_right_status"
           type: "string"
@@ -4345,7 +4357,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Регрессное право комиссионера к комитенту по расходам на удовлетворение претензий (excluded — красный флаг)."
-          required: false
+          required: true
 
         - name: "claims_summary"
           type: "string"
@@ -4522,7 +4534,6 @@ checks_v8:
         - obligations
         - procedures
       negative_keywords:
-        - "означает"
         - "в целях настоящего"
         - "субкомиссия"
         - "делькредере"
@@ -4530,7 +4541,7 @@ checks_v8:
         - "возврат товара"
       position_bias:
         preferred_range: [0.20, 0.65]
-        boost: 0.10
+        boost: 0.30
         scope: segment
       context_k: 5
       max_chunks: 8
@@ -4580,6 +4591,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 3 полей + evidence (всего 4 ключей):
+        
         Заполни строго следующие 3 поля + evidence (всего 4 ключа):
 
         1. advance_provision_status — авансирование расходов:
@@ -4629,7 +4642,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Порядок авансирования расходов комитентом (ст. 1000 ГК РФ)."
-          required: false
+          required: true
 
         - name: "unused_advance_return"
           type: "string"
@@ -4640,7 +4653,7 @@ checks_v8:
             - "by_law"
             - "not_defined"
           description: "Порядок и сроки возврата неизрасходованного аванса комитенту."
-          required: false
+          required: true
 
         - name: "advance_summary"
           type: "string"

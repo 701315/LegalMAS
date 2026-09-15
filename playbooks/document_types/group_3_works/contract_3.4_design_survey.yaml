@@ -82,10 +82,12 @@ metadata:
     - "land survey agreement"
     - "environmental assessment agreement"
     - "environmental survey agreement"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
+
 classification_runtime_v1:
   scoring:
     accept_threshold: 0.80
@@ -583,10 +585,12 @@ classification_runtime_v1:
         severity: soft
         weight: -0.40
         description: "Веб-дизайн относится к digital-услугам"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
 # ════════════════════════════════════════════════════════════════════════════
+
 trigger_definitions:
   capital_construction_object:
     any_keywords:
@@ -764,10 +768,12 @@ trigger_definitions:
       - "(?i)особо\\s+охраняем[а-яё]+\\s+природн[а-яё]+\\s+территори[яи]"
       - "(?i)\\bООПТ\\b"
       - "(?i)санитарно-?защитн[а-яё]+\\s+зон[аа]"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
 # ════════════════════════════════════════════════════════════════════════════
+
 shared_patterns:
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
@@ -777,10 +783,12 @@ shared_patterns:
   working_days: "(?i)\\b\\d+\\s*(рабочих|календарных)\\s+дн"
   design_stage: "(?i)(стади[яи]\\s*[«\"']?[ПР][»\"']?|проектная\\s+документация|рабочая\\s+документация)"
   compliance_rules: []
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
+
 checks_v8:
 
   - id: parties_identification
@@ -11488,6 +11496,7 @@ checks_v8:
 #  БЛОК 5: DD_REQUEST_TEMPLATES
 #  Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
+
 dd_request_templates:
   parties_identification:
     text: >

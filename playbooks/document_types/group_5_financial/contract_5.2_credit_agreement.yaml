@@ -564,6 +564,7 @@ compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
+
   - id: credit_subject_extraction
     name: "Базовое извлечение параметров кредитного договора"
     description: >
@@ -936,6 +937,7 @@ checks_v8:
           description: "ПСК: present / not_applicable (для корпоративных) / not_defined. Детально — в interest_psk_fees_check."
           required: true
           display_in_grid: false
+
   - id: lender_license_check
     name: "Статус и лицензия кредитора"
     description: >
@@ -1206,6 +1208,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 1
+
   - id: interest_psk_fees_check
     name: "Проценты, ПСК и дополнительные платежи"
     description: >
@@ -1541,6 +1544,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
+
   - id: repayment_schedule_and_early_repayment_check
     name: "График погашения и досрочное погашение"
     description: >
@@ -1956,6 +1960,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: forced_services_and_insurance_check
     name: "Навязанные услуги и страховые продукты"
     description: >
@@ -2397,6 +2402,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: acceleration_events_check
     name: "Основания для досрочного истребования кредита"
     description: >
@@ -2883,6 +2889,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: variable_rate_check
     name: "Плавающая ставка: механизм пересмотра и уведомления"
     description: >
@@ -3383,6 +3390,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: payment_allocation_priority_check
     name: "Очередность списания поступающих платежей"
     description: >
@@ -3846,6 +3854,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
+
   - id: financial_covenants_check
     name: "Финансовые ковенанты и последствия их нарушения"
     description: >
@@ -4381,6 +4390,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: cross_default_check
     name: "Кросс-дефолт: условия и пороги существенности"
     description: >
@@ -4919,6 +4929,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: purpose_and_control_check
     name: "Целевое использование кредита и механизм контроля"
     description: >
@@ -5284,6 +5295,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: negative_pledge_check
     name: "Негативный залог и ограничения на обременение активов"
     description: >
@@ -5659,6 +5671,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: collateral_and_security_check
     name: "Обеспечение по кредиту: виды, оценка, страхование, обращение взыскания"
     description: >
@@ -6120,6 +6133,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: conditions_precedent_check
     name: "Условия предоставления кредита (conditions precedent)"
     description: >
@@ -6492,6 +6506,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: non_financial_covenants_check
     name: "Нефинансовые ковенанты (negative и affirmative)"
     description: >
@@ -6892,6 +6907,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: currency_and_fx_clause_check
     name: "Валютная оговорка, валютный риск и мультивалютность"
     description: >
@@ -7272,6 +7288,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: tax_gross_up_check
     name: "Налоговая оговорка: gross-up, withholding tax, НДС на комиссии"
     description: >
@@ -7663,6 +7680,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: default_interest_and_penalties_check
     name: "Неустойка и повышенные проценты при просрочке"
     description: >
@@ -8106,6 +8124,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: tranche_and_drawdown_mechanics_check
     name: "Механика траншей, выборки и лимитов"
     description: >
@@ -8553,6 +8572,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: amendment_and_waiver_check
     name: "Порядок изменения договора и waiver"
     description: >
@@ -8957,6 +8977,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: notices_and_communications_check
     name: "Порядок уведомлений и коммуникации сторон"
     description: >
@@ -9372,6 +9393,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader
@@ -9610,5 +9632,4 @@ dd_request_templates:
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
-
 

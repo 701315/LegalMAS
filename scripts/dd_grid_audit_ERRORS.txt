@@ -1,6 +1,6 @@
 ══════════════════════════════════════════════════════════════════════════════════
   🔴 ОТЧЁТ: КРИТИЧЕСКИЕ ОШИБКИ (ERRORS)
-  Дата: 2026-09-14 17:46:02 UTC
+  Дата: 2026-09-15 13:30:00 UTC
 ══════════════════════════════════════════════════════════════════════════════════
 
 ЧТО ЭТО:
@@ -40,16 +40,58 @@
 ══════════════════════════════════════════════════════════════════════════════════
 
 ОБЩАЯ СТАТИСТИКА:
-  Файлов просканировано   : 88
-  Чеков просканировано    : 720
+  Файлов просканировано   : 5
+  Чеков просканировано    : 90
   Ошибок парсинга YAML    : 0
-  Всего замечаний         : 87
-    🔴 ERRORS             : 0
+  Всего замечаний         : 2
+    🔴 ERRORS             : 2
     🟡 WARNINGS           : 0
-    🔵 INFO               : 87
+    🔵 INFO               : 0
 
-  В этом файле (ERRORS): 0 замечаний
-  Затронуто файлов        : 0
-  Затронуто чеков         : 0
+  В этом файле (ERRORS): 2 замечаний
+  Затронуто файлов        : 1
+  Затронуто чеков         : 2
+  По категориям:
+    NAMING_CONTRACT: 2
 
-  Нет замечаний в этой категории.
+──────────────────────────────────────────────────────────────────────────────────────────
+ФАЙЛ: group_9_special/contract_9.4_alimony_agreement.yaml
+
+  ЧЕК: adjustment_mechanism_check │ Изменение соглашения при существенном изменении обстоятельств (ст. 101 СК РФ)
+
+    [1] NAMING_CONTRACT │ поле "adjustment_procedure"
+        Singleton "adjustment_procedure" конфликтует с paired ['adjustment_procedure_details'].
+        ИСПРАВЛЕНИЕ: "adjustment_procedure" → "adjustment_procedure_code"
+        ПРИМЕРЫ:
+          • extraction.fields:       - name: "adjustment_procedure"  →  - name: "adjustment_procedure_code"
+          • JSON-ключи в промптах:   "adjustment_procedure": ...     →  "adjustment_procedure_code": ...
+          • Нумерованные списки:     adjustment_procedure — ...      →  adjustment_procedure_code — ...
+        МЕСТА В ФАЙЛЕ:
+          стр. 2171 [llm.prompt_template]            "adjustment_procedure": "both",
+          стр. 2189 [llm.prompt_template]            "adjustment_procedure": "statutory_default",
+          стр. 2211 [llm.prompt_template]            "adjustment_procedure": "<negotiation / court / both / statutory_default / not_defined>",
+          стр. 2292 [extraction.llm_prompt_extraction]          4. adjustment_procedure — negotiation / court / both / statutory_default / not_defined.
+          стр. 2307 [extraction.llm_prompt_extraction]          - adjustment_procedure:
+          стр. 2348 [extraction.fields]          - name: "adjustment_procedure"
+        paired_fields: ['adjustment_procedure_details']
+        suggested_name: adjustment_procedure_code
+
+  ЧЕК: other_family_members_scope_check │ Иные члены семьи: братья/сёстры, бабушки/дедушки, внуки, воспитанники, отчим/мачеха (ст. 93–97 СК РФ)
+
+    [2] NAMING_CONTRACT │ поле "family_category"
+        Singleton "family_category" конфликтует с paired ['family_category_details'].
+        ИСПРАВЛЕНИЕ: "family_category" → "family_category_code"
+        ПРИМЕРЫ:
+          • extraction.fields:       - name: "family_category"  →  - name: "family_category_code"
+          • JSON-ключи в промптах:   "family_category": ...     →  "family_category_code": ...
+          • Нумерованные списки:     family_category — ...      →  family_category_code — ...
+        МЕСТА В ФАЙЛЕ:
+          стр. 6068 [llm.prompt_template]          3. family_category:
+          стр. 6096 [llm.prompt_template]            "family_category": "grandparent",
+          стр. 6111 [llm.prompt_template]            "family_category": "not_applicable",
+          стр. 6130 [llm.prompt_template]            "family_category": "<sibling / grandparent / grandchild / foster_child / step_parent / other_family_member / not_applicable / not_defined>",
+          стр. 6211 [extraction.llm_prompt_extraction]          1. family_category — sibling / grandparent / grandchild / foster_child / step_parent / other_family_member / not_applicable / not_defined.
+          стр. 6229 [extraction.llm_prompt_extraction]          - family_category = "not_applicable", если алименты установлены
+          стр. 6239 [extraction.fields]          - name: "family_category"
+        paired_fields: ['family_category_details']
+        suggested_name: family_category_code

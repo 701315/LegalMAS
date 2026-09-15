@@ -41,10 +41,12 @@ metadata:
     - "customs clearance agreement"
     - "NVOCC agreement"
     - "freight brokerage agreement"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
+
 classification_runtime_v1:
   scoring:
     accept_threshold: 0.80
@@ -374,10 +376,12 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "Исполнение перевозки собственным транспортом"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
 # ════════════════════════════════════════════════════════════════════════════
+
 trigger_definitions:
   road_forwarding:
     any_keywords:
@@ -567,10 +571,12 @@ trigger_definitions:
       - "(?i)\\blast\\s+mile\\b"
       - "(?i)доставк[аа]\\s+до\\s+двер[ии]"
       - "(?i)курьерск[а-яё]+\\s+доставк[аа]"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
 # ════════════════════════════════════════════════════════════════════════════
+
 shared_patterns:
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|USD|EUR|долл)"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
@@ -578,11 +584,14 @@ shared_patterns:
   weight_pattern: "(?i)\\b\\d[\\d\\s,.]*(?:кг|тонн|т\\b|kg|ton)"
   time_days: "(?i)\\b\\d+\\s*(?:дней|дня|день|days)"
   compliance_rules: []
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
+
 checks_v8:
+
   - id: parties_identification
     name: "Стороны договора: идентификация экспедитора и клиента"
     description: >
@@ -8868,6 +8877,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Претензионный порядок"
+
   - id: limitation_period
     name: "Срок исковой давности — 1 год (ст. 797 ГК РФ)"
     description: >
@@ -8947,6 +8957,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Срок исковой давности"
+
   - id: service_period
     name: "Срок оказания услуг"
     description: >
@@ -9028,6 +9039,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Срок оказания услуг"
+
   - id: client_documents_provision
     name: "Обязанности клиента по предоставлению документов (ст. 804 ГК РФ)"
     description: >
@@ -9109,6 +9121,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Документы клиента"
+
   - id: dispute_resolution
     name: "Подсудность и разрешение споров"
     description: >
@@ -9187,6 +9200,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Подсудность"
+
   - id: forwarder_license_sro
     name: "Статус экспедитора: реестр / свидетельство (ст. 2 ФЗ-87)"
     description: >
@@ -9268,6 +9282,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Статус экспедитора"
+
   - id: cmr_incoterms_reference
     name: "Международные перевозки: CMR/КДПГ, Инкотермс"
     description: >
@@ -9351,6 +9366,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "CMR / Инкотермс"
+
   - id: sla_kpi_terms
     name: "SLA/KPI: показатели качества услуг"
     description: >
@@ -9433,6 +9449,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "SLA / KPI"
+
   - id: acceptance_and_delivery_acts
     name: "Акты приёма-передачи груза"
     description: >
@@ -9515,6 +9532,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Акты приёма-передачи"
+
   - id: vat_and_tax
     name: "НДС и налоговые оговорки"
     description: >
@@ -9593,10 +9611,12 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "НДС"
+
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
+
 dd_request_templates:
   parties_identification:
     text: >

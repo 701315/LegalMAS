@@ -39,10 +39,12 @@ metadata:
     - "cold storage agreement"
     - "self-storage agreement"
     - "warehouse receipt agreement"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
+
 classification_runtime_v1:
   scoring:
     accept_threshold: 0.79
@@ -370,10 +372,12 @@ classification_runtime_v1:
         severity: soft
         weight: -0.30
         description: "Транспортный контекст чаще указывает на логистические договоры"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
 # ════════════════════════════════════════════════════════════════════════════
+
 trigger_definitions:
   warehouse_storage:
     any_keywords:
@@ -546,10 +550,12 @@ trigger_definitions:
       - "(?i)термоконтейнер"
       - "(?i)фармацевтическ[оа]е\\s+хранени[ея]"
       - "(?i)лекарственн[ыо]е\\s+средств[аа]"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
 # ════════════════════════════════════════════════════════════════════════════
+
 shared_patterns:
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
@@ -558,11 +564,14 @@ shared_patterns:
   volume_pattern: "(?i)\\b\\d[\\d\\s,.]*(?:куб\\.?\\s*м|м[³3]|cbm|литр)"
   temperature_pattern: "(?i)(?:от\\s+)?[\\+\\-]?\\d+\\s*(?:°C|градус|до\\s+[\\+\\-]?\\d+)"
   compliance_rules: []
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
+
 checks_v8:
+
   - id: parties_identification
     name: "Стороны договора: идентификация хранителя и поклажедателя"
     description: >
@@ -881,6 +890,7 @@ checks_v8:
           allowed_values: ["charter", "poa", "order", "law", "personal", "other", "not_defined"]
           description: "Основание полномочий подписанта поклажедателя."
           required: true
+
   - id: storage_subject_extraction
     name: "Предмет хранения: описание вещи, количество, стоимость"
     description: >
@@ -1230,6 +1240,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: acceptance_documentation_check
     name: "Документальное подтверждение приёма вещи (ст. 887 ГК РФ, форма МХ-1)"
     description: >
@@ -1503,6 +1514,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: professional_custodian_liability
     name: "Ответственность хранителя: основание, объём, лимит (ст. 901, 902 ГК РФ)"
     description: >
@@ -1817,6 +1829,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: return_on_first_demand_check
     name: "Право на возврат вещи по первому требованию (ст. 904 ГК РФ)"
     description: >
@@ -2111,6 +2124,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
+
   - id: irregular_storage_terms
     name: "Иррегулярное хранение: условия смешения вещей (ст. 890 ГК РФ)"
     description: >
@@ -2433,6 +2447,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: uncollected_goods_disposal
     name: "Реализация невостребованной вещи (ст. 899 ГК РФ)"
     description: >
@@ -2733,6 +2748,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: dangerous_properties_disclosure
     name: "Раскрытие опасных свойств вещи (ст. 893 ГК РФ)"
     description: >
@@ -3028,6 +3044,7 @@ checks_v8:
           allowed_values: ["yes", "no", "not_defined"]
           description: "Упоминание лицензии на хранение опасных веществ."
           required: true
+
   - id: warehouse_certificate_issuance
     name: "Складское свидетельство: порядок выдачи и обращения (ст. 912–917 ГК РФ)"
     description: >
@@ -3324,6 +3341,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: lien_right_on_item
     name: "Право удержания вещи до оплаты (ст. 359 ГК РФ)"
     description: >
@@ -3548,6 +3566,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 1
+
   - id: natural_loss_norms
     name: "Естественная убыль: применение норм и освобождение от ответственности"
     description: >
@@ -3806,6 +3825,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: remuneration_and_expenses
     name: "Вознаграждение хранителя и возмещение расходов (ст. 896, 897 ГК РФ)"
     description: >
@@ -4130,6 +4150,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: storage_term
     name: "Срок хранения или 'до востребования' (ст. 889 ГК РФ)"
     description: >
@@ -4424,6 +4445,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: storage_conditions
     name: "Условия хранения: температура, влажность, режим (ст. 891 ГК РФ)"
     description: >
@@ -4701,6 +4723,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: return_procedure
     name: "Порядок выдачи вещи (ст. 900 ГК РФ)"
     description: >
@@ -5007,6 +5030,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: inspection_upon_return
     name: "Проверка вещи при возврате (ст. 900, 902 ГК РФ)"
     description: >
@@ -5320,6 +5344,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: extraordinary_expenses
     name: "Чрезвычайные расходы на сохранность (ст. 898 ГК РФ)"
     description: >
@@ -5642,6 +5667,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: exclusions_from_liability
     name: "Обстоятельства, освобождающие от ответственности (п. 1 ст. 901 ГК РФ)"
     description: >
@@ -5952,6 +5978,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: third_party_claims
     name: "Требования третьих лиц к вещи (ст. 895 ГК РФ)"
     description: >
@@ -6253,6 +6280,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: insurance
     name: "Страхование хранимой вещи"
     description: >
@@ -6580,6 +6608,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
   - id: pretension_order
     name: "Претензионный порядок урегулирования споров"
     description: >
@@ -6877,6 +6906,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: vat_and_tax
     name: "НДС и налоговые оговорки по вознаграждению хранителя"
     description: >
@@ -7183,6 +7213,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: no_use_without_consent
     name: "Запрет пользования вещью хранителем (ст. 892 ГК РФ)"
     description: >
@@ -7480,6 +7511,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: substorage_and_assignment
     name: "Передача вещи на хранение третьему лицу (ст. 895 ГК РФ)"
     description: >
@@ -7771,6 +7803,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: risk_transfer_moment
     name: "Момент перехода риска случайной гибели / повреждения"
     description: >
@@ -8063,6 +8096,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: depositor_inspection_right
     name: "Право поклажедателя проверять состояние вещи (ст. 891 ГК РФ)"
     description: >
@@ -8337,6 +8371,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: custodian_damages_recovery
     name: "Возмещение убытков, причинённых хранителю вещью (ст. 903 ГК РФ)"
     description: >
@@ -8630,6 +8665,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: perishable_goods_sale
     name: "Продажа портящейся вещи (п. 2 ст. 899 ГК РФ)"
     description: >
@@ -8956,10 +8992,12 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
+
 dd_request_templates:
   parties_identification:
     text: >

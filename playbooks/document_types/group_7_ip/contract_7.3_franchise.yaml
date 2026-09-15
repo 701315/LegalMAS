@@ -523,9 +523,6 @@ compliance_rules: []
 
 checks_v8:
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 1: Стороны, комплекс прав и сфера деятельности
-  # ──────────────────────────────────────────────────────────────────────────
   - id: franchise_subject_extraction
     name: "Стороны, комплекс исключительных прав и сфера деятельности"
     description: >
@@ -570,7 +567,7 @@ checks_v8:
         [КОНТЕКСТ]
         Ты — российский юрист по интеллектуальной собственности.
         Анализируется договор коммерческой концессии (франчайзинга)
-        (Глава 54 ГК РФ, ст. 1027-1028).
+        (Глава 54 ГК РФ, ст. 1027–1028).
         Проверяется только один вопрос: стороны, состав комплекса
         исключительных прав и сфера предпринимательской деятельности.
 
@@ -597,30 +594,30 @@ checks_v8:
         [ПРАВИЛА]
         1. Используй только текст документа.
         2. Не подставляй нормы закона вместо текста договора.
-        3. Если данные не указаны прямо — возвращай "not_defined".
-        4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_defined", "not_defined" или пустые строки.
-        6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        3. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        4. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        5. Не используй "None", "null" или пустые строки.
+        6. В evidence включай только прямые цитаты из текста договора.
+        7. Верни РОВНО один валидный JSON-объект со всеми 12 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
         Пример 1 — комплекс определён:
         Фрагмент:
-        "Франчайзер — ООО «Бренд-Групп», ИНН 7700000001, предоставляет
-        Франчайзи — ИП Иванову А.А., ОГРНИП 304770000000001, комплекс
+        "Франчайзер — ООО «Бренд-Групп», ИНН 7707083893, предоставляет
+        Франчайзи — ИП Иванову А.А., ОГРНИП 304770000123456, комплекс
         исключительных прав, включающий: товарный знак «ВкусноФФ»,
-        свидетельство № 789012, зарегистрированный в Роспатенте 15.03.2020;
+        свидетельство № 876543, зарегистрированный в Роспатенте 15.03.2020;
         ноу-хау (рецептуры, технологические карты); коммерческое обозначение.
         Сфера деятельности — общественное питание (кафе, рестораны)."
 
         Ответ:
         {
-          "franchisor_details": "ООО «Бренд-Групп», ИНН 7700000001",
-          "franchisee_details": "ИП Иванов А.А., ОГРНИП 304770000000001",
+          "franchisor_details": "ООО «Бренд-Групп», ИНН 7707083893",
+          "franchisee_details": "ИП Иванов А.А., ОГРНИП 304770000123456",
           "parties_commercial_status": "defined",
           "trademark_status": "defined",
-          "trademark_registration_number": "789012",
+          "trademark_registration_number": "876543",
           "knowhow_status": "defined",
           "knowhow_details": "рецептуры, технологические карты",
           "other_rights_status": "defined",
@@ -630,7 +627,7 @@ checks_v8:
           "evidence": [
             {
               "clause_ref": "п. 1.1",
-              "quote": "Франчайзер — ООО «Бренд-Групп», ИНН 7700000001, предоставляет Франчайзи — ИП Иванову А.А. комплекс исключительных прав, включающий товарный знак «ВкусноФФ», свидетельство № 789012."
+              "quote": "Франчайзер — ООО «Бренд-Групп», ИНН 7707083893, предоставляет Франчайзи — ИП Иванову А.А. комплекс исключительных прав, включающий товарный знак «ВкусноФФ», свидетельство № 876543."
             }
           ]
         }
@@ -656,11 +653,12 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 12 ключей (11 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату о франчайзере и франчайзи.
         2. Найди прямую цитату о товарном знаке с номером.
         3. Найди прямую цитату о ноу-хау.
         4. Найди прямую цитату о сфере деятельности.
-        5. Если прямой цитаты нет — верни "not_defined".
+        5. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -713,7 +711,6 @@ checks_v8:
         - "расторжение"
         - "субконцессия"
         - "конфиденциальность"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.0, 0.35]
@@ -747,6 +744,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1400
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -761,6 +759,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 12 ключей (11 полей + evidence):
+
         1. franchisor_details — наименование и реквизиты франчайзера.
         2. franchisee_details — наименование и реквизиты франчайзи.
         3. parties_commercial_status — "defined" или "not_defined".
@@ -772,10 +772,16 @@ checks_v8:
         9. other_rights_details — иные объекты в комплексе.
         10. business_sphere_status — "defined" или "not_defined".
         11. business_sphere_details — сфера предпринимательской деятельности.
+        12. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 12 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
@@ -784,8 +790,8 @@ checks_v8:
           идентифицированы как коммерческие организации или ИП.
         - trademark_status = "defined" только если товарный знак прямо указан
           в комплексе прав.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "franchisor_details"
           type: "string"
@@ -842,7 +848,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус иных объектов в комплексе."
-          required: false
+          required: true
         - name: "other_rights_details"
           type: "string"
           presentation: "fact"
@@ -864,11 +870,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 5
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 2: Структура вознаграждения
-  # ──────────────────────────────────────────────────────────────────────────
   - id: remuneration_structure_check
     name: "Структура вознаграждения: паушальный взнос, роялти, рекламные отчисления"
     description: >
@@ -894,13 +896,13 @@ checks_v8:
         - "роялти"
         - "рекламные отчисления"
         - "процент от выручки"
-        - "franchise fee"
+        - "франчайзинговый сбор"
         - "единовременный платёж"
         - "ежемесячные платежи"
         - "база расчёта"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)паушальн\\w+.*?\\d[\\d\\s]*(?:руб|USD|EUR)"
+        - "(?i)паушальн\\w+.*?\\d[\\d\\s]*(?:рубл|руб|USD|EUR)"
         - "(?i)роялти.*?\\d+[.,]?\\d*\\s*%"
 
     llm:
@@ -926,10 +928,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -974,10 +977,11 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 11 ключей (10 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату о паушальном взносе.
         2. Найди прямую цитату о роялти (ставка, база, период).
         3. Найди прямую цитату о рекламных отчислениях.
-        4. Если прямой цитаты нет — верни "not_defined".
+        4. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -1006,7 +1010,7 @@ checks_v8:
         - "legal_unit"
         - "section"
       required_kind: "legal_unit"
-      retrieval_query: "вознаграждение паушальный взнос роялти рекламные отчисления процент от выручки franchise fee единовременный платёж ежемесячные платежи база расчёта порядок уплаты"
+      retrieval_query: "вознаграждение паушальный взнос роялти рекламные отчисления процент от выручки франчайзинговый сбор единовременный платёж ежемесячные платежи база расчёта порядок уплаты"
       retrieval_profile: "royalty_check"
       preferred_unit_types:
         - payment_term
@@ -1029,11 +1033,10 @@ checks_v8:
         - "расторжение"
         - "субконцессия"
         - "конфиденциальность"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.15, 0.60]
-        boost: 0.18
+        boost: 0.25
         scope: segment
       context_k: 8
       max_chunks: 10
@@ -1063,6 +1066,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1200
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -1077,6 +1081,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 11 ключей (10 полей + evidence):
+
         1. lump_sum_status — "defined" или "not_defined".
         2. lump_sum_details — размер и порядок уплаты паушального взноса.
         3. royalty_status — "defined" или "not_defined".
@@ -1087,17 +1093,23 @@ checks_v8:
         8. advertising_fee_details — рекламные отчисления.
         9. other_payments_status — "defined" или "not_defined".
         10. other_payments_details — прочие платежи.
+        11. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
         - Не смешивай паушальный взнос с роялти.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "lump_sum_status"
           type: "string"
@@ -1146,7 +1158,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус рекламных отчислений."
-          required: false
+          required: true
         - name: "advertising_fee_details"
           type: "string"
           presentation: "fact"
@@ -1160,7 +1172,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус прочих платежей."
-          required: false
+          required: true
         - name: "other_payments_details"
           type: "string"
           presentation: "fact"
@@ -1168,11 +1180,7 @@ checks_v8:
           description: "Прочие платежи по договору."
           required: false
           display_in_grid: false
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 3: Территория, срок, эксклюзивность и продление
-  # ──────────────────────────────────────────────────────────────────────────
   - id: territory_term_renewal_check
     name: "Территория, срок, эксклюзивность и преимущественное право на продление"
     description: >
@@ -1232,10 +1240,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1278,11 +1287,12 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 9 ключей (8 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату о территории.
         2. Найди прямую цитату об эксклюзивности / радиусе защиты.
         3. Найди прямую цитату о сроке.
         4. Найди прямую цитату о продлении / преимущественном праве.
-        5. Если прямой цитаты нет — верни "not_defined".
+        5. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -1299,7 +1309,7 @@ checks_v8:
           "renewal_right_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 7
+      context_k: 8
       temperature: 0.0
       max_tokens: 650
 
@@ -1332,14 +1342,13 @@ checks_v8:
         - "расторжение"
         - "субконцессия"
         - "конфиденциальность"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.10, 0.55]
-        boost: 0.15
+        boost: 0.25
         scope: segment
-      context_k: 7
-      max_chunks: 8
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -1366,6 +1375,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1100
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -1379,6 +1389,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 9 ключей (8 полей + evidence):
+
         1. territory_status — "defined" или "not_defined".
         2. territory_details — территория использования.
         3. territory_exclusive_status — "defined" или "not_defined".
@@ -1387,17 +1399,23 @@ checks_v8:
         6. term_details — срок действия договора.
         7. renewal_right_status — "defined" или "not_defined".
         8. renewal_right_details — преимущественное право и условия продления.
+        9. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
         - Не выводи преимущественное право из нормы ст. 1035 ГК РФ.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "territory_status"
           type: "string"
@@ -1418,7 +1436,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус эксклюзивности территории."
-          required: false
+          required: true
         - name: "territory_exclusive_details"
           type: "string"
           presentation: "fact"
@@ -1446,7 +1464,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус преимущественного права на продление."
-          required: false
+          required: true
         - name: "renewal_right_details"
           type: "string"
           presentation: "fact"
@@ -1455,11 +1473,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 4
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 4: Контроль качества и обучение
-  # ──────────────────────────────────────────────────────────────────────────
   - id: quality_control_training_check
     name: "Контроль качества, инспекции, обучение и поддержка (ст. 1031, 1034 ГК РФ)"
     description: >
@@ -1533,10 +1547,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 13 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1586,11 +1601,12 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 13 ключей (12 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату о контроле качества и инспекциях.
         2. Найди прямую цитату об обучении.
         3. Найди прямую цитату о поддержке.
         4. Найди прямую цитату о субсидиарной ответственности.
-        5. Если прямой цитаты нет — верни "not_defined".
+        5. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -1611,7 +1627,7 @@ checks_v8:
           "subsidiary_liability_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 7
+      context_k: 10
       temperature: 0.0
       max_tokens: 700
 
@@ -1647,14 +1663,13 @@ checks_v8:
         - "субконцессия"
         - "конфиденциальность"
         - "ребрендинг"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.25, 0.70]
-        boost: 0.15
+        boost: 0.25
         scope: segment
-      context_k: 7
-      max_chunks: 10
+      context_k: 10
+      max_chunks: 14
       rerank: true
 
     enrichment_hints:
@@ -1682,6 +1697,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1300
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -1696,6 +1712,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 13 ключей (12 полей + evidence):
+
         1. quality_control_status — "defined" или "not_defined".
         2. quality_control_details — право контроля и инспекций.
         3. initial_training_status — "defined" или "not_defined".
@@ -1708,17 +1726,23 @@ checks_v8:
         10. marketing_support_details — маркетинговая поддержка.
         11. subsidiary_liability_status — "defined" или "not_defined".
         12. subsidiary_liability_details — субсидиарная ответственность.
+        13. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 13 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
         - Не выводи обязанность обучения из нормы ст. 1031 ГК РФ.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "quality_control_status"
           type: "string"
@@ -1753,7 +1777,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус постоянной поддержки."
-          required: false
+          required: true
         - name: "ongoing_support_details"
           type: "string"
           presentation: "fact"
@@ -1767,7 +1791,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус помощи в открытии."
-          required: false
+          required: true
         - name: "opening_assistance_details"
           type: "string"
           presentation: "fact"
@@ -1780,7 +1804,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус маркетинговой поддержки."
-          required: false
+          required: true
         - name: "marketing_support_details"
           type: "string"
           presentation: "fact"
@@ -1802,11 +1826,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 4
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 5: Ноу-хау и конфиденциальность
-  # ──────────────────────────────────────────────────────────────────────────
   - id: knowhow_confidentiality_check
     name: "Защита ноу-хау и конфиденциальности (ст. 1032, 1469 ГК РФ)"
     description: >
@@ -1863,10 +1883,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1908,11 +1929,12 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 9 ключей (8 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату о неразглашении.
         2. Найди прямую цитату о сроке конфиденциальности.
         3. Найди прямую цитату о запрете конкурирующего использования.
         4. Найди прямую цитату о санкциях.
-        5. Если прямой цитаты нет — верни "not_defined".
+        5. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -1929,7 +1951,7 @@ checks_v8:
           "disclosure_sanctions_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 8
       temperature: 0.0
       max_tokens: 650
 
@@ -1963,14 +1985,13 @@ checks_v8:
         - "расторжение"
         - "субконцессия"
         - "ребрендинг"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.30, 0.75]
-        boost: 0.12
+        boost: 0.25
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -1997,6 +2018,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1100
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -2011,6 +2033,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 9 ключей (8 полей + evidence):
+
         1. confidentiality_status — "defined" или "not_defined".
         2. confidentiality_details — обязательство неразглашения.
         3. confidentiality_period_status — "defined" или "not_defined".
@@ -2019,16 +2043,22 @@ checks_v8:
         6. competing_use_prohibition_details — запрет конкурирующего использования.
         7. disclosure_sanctions_status — "defined" или "not_defined".
         8. disclosure_sanctions_details — санкции за разглашение.
+        9. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "confidentiality_status"
           type: "string"
@@ -2049,7 +2079,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус срока конфиденциальности."
-          required: false
+          required: true
         - name: "confidentiality_period_details"
           type: "string"
           presentation: "fact"
@@ -2063,7 +2093,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус запрета конкурирующего использования."
-          required: false
+          required: true
         - name: "competing_use_prohibition_details"
           type: "string"
           presentation: "fact"
@@ -2077,7 +2107,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус санкций за разглашение."
-          required: false
+          required: true
         - name: "disclosure_sanctions_details"
           type: "string"
           presentation: "fact"
@@ -2086,11 +2116,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 4
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 6: Расторжение, ребрендинг и пост-контрактные обязательства
-  # ──────────────────────────────────────────────────────────────────────────
   - id: termination_rebranding_check
     name: "Расторжение, ребрендинг и пост-контрактные обязательства"
     description: >
@@ -2120,7 +2146,6 @@ checks_v8:
         - "удаление из интернета"
         - "срок на ребрендинг"
         - "неконкуренция"
-        - "non-compete"
         - "возврат материалов"
         - "запрет конкурирующей деятельности"
       keyword_mode: "any"
@@ -2149,7 +2174,7 @@ checks_v8:
         [ЗАДАЧА]
         Найди в тексте договора:
         1. Основания досрочного расторжения для каждой стороны.
-        2. Cure period (срок на устранение нарушений).
+        2. Срок на устранение нарушений (cure period).
         3. Обязанность ребрендинга и срок.
         4. Демонтаж вывесок и удаление из интернета.
         5. Неконкуренция (срок, территория).
@@ -2157,17 +2182,18 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
         Пример 1:
         Фрагмент:
         "Франчайзер вправе расторгнуть договор при нарушении стандартов качества.
-        Cure period — 30 дней. После прекращения Франчайзи обязан в течение
+        Срок на устранение нарушений — 30 дней. После прекращения Франчайзи обязан в течение
         30 дней демонтировать вывески, удалить упоминания бренда из интернета,
         вернуть все материалы. Запрет конкурирующей деятельности — 2 года
         на территории договора."
@@ -2207,12 +2233,13 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 11 ключей (10 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату об основаниях расторжения.
-        2. Найди прямую цитату о cure period.
+        2. Найди прямую цитату о сроке на устранение нарушений.
         3. Найди прямую цитату о ребрендинге и сроке.
         4. Найди прямую цитату о неконкуренции.
         5. Найди прямую цитату о возврате материалов.
-        6. Если прямой цитаты нет — верни "not_defined".
+        6. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -2231,7 +2258,7 @@ checks_v8:
           "materials_return_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 7
+      context_k: 9
       temperature: 0.0
       max_tokens: 700
 
@@ -2241,7 +2268,7 @@ checks_v8:
         - "legal_unit"
         - "section"
       required_kind: "legal_unit"
-      retrieval_query: "расторжение досрочное прекращение отказ от договора основания расторжения последствия расторжения cure period ребрендинг демонтаж вывесок прекращение использования бренда удаление из интернета срок на ребрендинг неконкуренция non-compete возврат материалов запрет конкурирующей деятельности после прекращения"
+      retrieval_query: "расторжение досрочное прекращение отказ от договора основания расторжения последствия расторжения срок на устранение нарушений ребрендинг демонтаж вывесок прекращение использования бренда удаление из интернета срок на ребрендинг неконкуренция возврат материалов запрет конкурирующей деятельности после прекращения"
       retrieval_profile: "termination_check"
       preferred_unit_types:
         - termination_provision
@@ -2267,14 +2294,13 @@ checks_v8:
         - "обучение"
         - "субконцессия"
         - "конфиденциальность"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.50, 0.95]
-        boost: 0.18
+        boost: 0.25
         scope: segment
-      context_k: 7
-      max_chunks: 10
+      context_k: 9
+      max_chunks: 12
       rerank: true
 
     enrichment_hints:
@@ -2302,6 +2328,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1300
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -2315,6 +2342,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 11 ключей (10 полей + evidence):
+
         1. termination_grounds_status — "defined" или "not_defined".
         2. termination_grounds_details — основания досрочного расторжения.
         3. cure_period_status — "defined" или "not_defined".
@@ -2325,17 +2354,23 @@ checks_v8:
         8. non_compete_details — неконкуренция (срок, территория).
         9. materials_return_status — "defined" или "not_defined".
         10. materials_return_details — возврат материалов.
+        11. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
         - Не выводи последствия расторжения из норм ст. 1037, 1040 ГК РФ.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "termination_grounds_status"
           type: "string"
@@ -2355,13 +2390,13 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус cure period."
-          required: false
+          description: "Статус срока на устранение нарушений."
+          required: true
         - name: "cure_period_details"
           type: "string"
           presentation: "fact"
-          label: "Cure period"
-          description: "Срок на устранение нарушений."
+          label: "Срок на устранение нарушений"
+          description: "Срок на устранение нарушений перед расторжением."
           required: false
           display_in_grid: true
           display_priority: 2
@@ -2384,7 +2419,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус неконкуренции."
-          required: false
+          required: true
         - name: "non_compete_details"
           type: "string"
           presentation: "fact"
@@ -2398,7 +2433,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус возврата материалов."
-          required: false
+          required: true
         - name: "materials_return_details"
           type: "string"
           presentation: "fact"
@@ -2406,11 +2441,7 @@ checks_v8:
           description: "Обязанность возврата материалов франчайзера."
           required: false
           display_in_grid: false
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 7: Субконцессия
-  # ──────────────────────────────────────────────────────────────────────────
   - id: subfranchising_check
     name: "Субконцессия (субфранчайзинг): допустимость, согласие, контроль (ст. 1029 ГК РФ)"
     description: >
@@ -2464,10 +2495,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -2507,10 +2539,11 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 9 ключей (8 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату о субконцессии.
         2. Найди прямую цитату о согласии.
         3. Найди прямую цитату об ответственности.
-        4. Если прямой цитаты нет — верни "not_defined".
+        4. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -2527,7 +2560,7 @@ checks_v8:
           "liability_for_subfranchisee_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 8
       temperature: 0.0
       max_tokens: 650
 
@@ -2562,14 +2595,13 @@ checks_v8:
         - "расторжение"
         - "конфиденциальность"
         - "ребрендинг"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.30, 0.75]
-        boost: 0.12
+        boost: 0.25
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -2596,6 +2628,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1100
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -2609,6 +2642,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 9 ключей (8 полей + evidence):
+
         1. subfranchising_status — "defined" или "not_defined".
         2. subfranchising_regime — allowed / prohibited / allowed_with_consent / not_defined.
         3. consent_required_status — "defined" или "not_defined".
@@ -2617,17 +2652,23 @@ checks_v8:
         6. approval_criteria_details — критерии одобрения.
         7. liability_for_subfranchisee_status — "defined" или "not_defined".
         8. liability_for_subfranchisee_details — ответственность за субфранчайзи.
+        9. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
         - Не выводи режим субконцессии из нормы ст. 1029 ГК РФ.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "subfranchising_status"
           type: "string"
@@ -2640,13 +2681,13 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["allowed", "prohibited", "allowed_with_consent", "not_defined"]
           description: "Режим субконцессии."
-          required: false
+          required: true
         - name: "consent_required_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус требования согласия."
-          required: false
+          required: true
         - name: "consent_required_details"
           type: "string"
           presentation: "fact"
@@ -2660,7 +2701,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус критериев одобрения."
-          required: false
+          required: true
         - name: "approval_criteria_details"
           type: "string"
           presentation: "fact"
@@ -2673,7 +2714,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус ответственности за субфранчайзи."
-          required: false
+          required: true
         - name: "liability_for_subfranchisee_details"
           type: "string"
           presentation: "fact"
@@ -2682,11 +2723,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 8: Изменение стандартов
-  # ──────────────────────────────────────────────────────────────────────────
   - id: standards_change_check
     name: "Ограничение на односторонние изменения стандартов"
     description: >
@@ -2736,10 +2773,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -2784,10 +2822,13 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 11 ключей (10 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату о праве изменения стандартов.
         2. Найди прямую цитату о сроке уведомления.
-        3. Найди прямую цитату о компенсации.
-        4. Если прямой цитаты нет — верни "not_defined".
+        3. Найди прямую цитату о сроке на внедрение.
+        4. Найди прямую цитату о компенсации затрат.
+        5. Найди прямую цитату о праве расторжения при существенных изменениях.
+        6. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -2806,7 +2847,7 @@ checks_v8:
           "termination_on_major_changes_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 9
       temperature: 0.0
       max_tokens: 650
 
@@ -2842,14 +2883,13 @@ checks_v8:
         - "субконцессия"
         - "конфиденциальность"
         - "ребрендинг"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.25, 0.70]
-        boost: 0.12
+        boost: 0.25
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 9
+      max_chunks: 12
       rerank: true
 
     enrichment_hints:
@@ -2876,6 +2916,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1100
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -2890,6 +2931,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 11 ключей (10 полей + evidence):
+
         1. standards_change_status — "defined" или "not_defined".
         2. standards_change_details — право изменения стандартов.
         3. notice_period_status — "defined" или "not_defined".
@@ -2900,16 +2943,22 @@ checks_v8:
         8. cost_compensation_details — компенсация затрат.
         9. termination_on_major_changes_status — "defined" или "not_defined".
         10. termination_on_major_changes_details — право расторжения при изменениях.
+        11. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "standards_change_status"
           type: "string"
@@ -2930,7 +2979,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус срока уведомления."
-          required: false
+          required: true
         - name: "notice_period_details"
           type: "string"
           presentation: "fact"
@@ -2944,7 +2993,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус срока на внедрение."
-          required: false
+          required: true
         - name: "implementation_period_details"
           type: "string"
           presentation: "fact"
@@ -2958,7 +3007,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус компенсации затрат."
-          required: false
+          required: true
         - name: "cost_compensation_details"
           type: "string"
           presentation: "fact"
@@ -2972,7 +3021,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права расторжения при существенных изменениях."
-          required: false
+          required: true
         - name: "termination_on_major_changes_details"
           type: "string"
           presentation: "fact"
@@ -2980,11 +3029,7 @@ checks_v8:
           description: "Право франчайзи расторгнуть договор при существенных изменениях."
           required: false
           display_in_grid: false
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 9: Преддоговорное раскрытие (FDD)
-  # ──────────────────────────────────────────────────────────────────────────
   - id: disclosure_check
     name: "Преддоговорное раскрытие информации (Disclosure Document / FDD)"
     description: >
@@ -3037,10 +3082,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3081,10 +3127,13 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 9 ключей (8 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату о Disclosure Document.
         2. Найди прямую цитату о перечне информации.
-        3. Найди прямую цитату о количестве точек.
-        4. Если прямой цитаты нет — верни "not_defined".
+        3. Найди прямую цитату о финансовых показателях.
+        4. Найди прямую цитату о судебных спорах.
+        5. Найди прямую цитату о количестве точек.
+        6. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -3101,7 +3150,7 @@ checks_v8:
           "franchisee_count_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 8
       temperature: 0.0
       max_tokens: 650
 
@@ -3137,14 +3186,13 @@ checks_v8:
         - "субконцессия"
         - "конфиденциальность"
         - "ребрендинг"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.0, 0.40]
-        boost: 0.15
+        boost: 0.25
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -3171,6 +3219,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1100
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -3184,6 +3233,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 9 ключей (8 полей + evidence):
+
         1. disclosure_status — "defined" или "not_defined".
         2. disclosure_details — упоминание Disclosure Document.
         3. disclosed_info_types_status — "defined" или "not_defined".
@@ -3192,16 +3243,22 @@ checks_v8:
         6. litigation_history_status — "defined" или "not_defined".
         7. franchisee_count_status — "defined" или "not_defined".
         8. franchisee_count_details — количество действующих и закрытых точек.
+        9. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "disclosure_status"
           type: "string"
@@ -3212,7 +3269,7 @@ checks_v8:
         - name: "disclosure_details"
           type: "string"
           presentation: "fact"
-          label: "Disclosure Document"
+          label: "Преддоговорное раскрытие"
           description: "Упоминание преддоговорного раскрытия."
           required: false
           display_in_grid: true
@@ -3222,7 +3279,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус перечня раскрытой информации."
-          required: false
+          required: true
         - name: "disclosed_info_types_details"
           type: "string"
           presentation: "fact"
@@ -3236,19 +3293,19 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус финансовых показателей."
-          required: false
+          required: true
         - name: "litigation_history_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус истории судебных споров."
-          required: false
+          required: true
         - name: "franchisee_count_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус количества точек."
-          required: false
+          required: true
         - name: "franchisee_count_details"
           type: "string"
           presentation: "fact"
@@ -3257,11 +3314,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 3
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 10: Обязательные закупки и рекламный фонд
-  # ──────────────────────────────────────────────────────────────────────────
   - id: purchasing_advertising_check
     name: "Обязательные закупки и прозрачность рекламного фонда"
     description: >
@@ -3325,10 +3378,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 13 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3378,11 +3432,14 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 13 ключей (12 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату об обязательных закупках.
         2. Найди прямую цитату о минимальном объёме.
-        3. Найди прямую цитату о рекламном фонде.
-        4. Найди прямую цитату об отчётности.
-        5. Если прямой цитаты нет — верни "not_defined".
+        3. Найди прямую цитату об альтернативных поставщиках.
+        4. Найди прямую цитату о рекламном фонде.
+        5. Найди прямую цитату об отчётности.
+        6. Найди прямую цитату о праве аудита.
+        7. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -3403,7 +3460,7 @@ checks_v8:
           "fund_audit_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 7
+      context_k: 10
       temperature: 0.0
       max_tokens: 700
 
@@ -3438,14 +3495,13 @@ checks_v8:
         - "субконцессия"
         - "конфиденциальность"
         - "ребрендинг"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.30, 0.75]
-        boost: 0.12
+        boost: 0.25
         scope: segment
-      context_k: 7
-      max_chunks: 10
+      context_k: 10
+      max_chunks: 14
       rerank: true
 
     enrichment_hints:
@@ -3472,6 +3528,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1300
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -3485,6 +3542,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 13 ключей (12 полей + evidence):
+
         1. mandatory_purchases_status — "defined" или "not_defined".
         2. mandatory_purchases_details — обязательные закупки.
         3. minimum_purchase_volume_status — "defined" или "not_defined".
@@ -3497,16 +3556,22 @@ checks_v8:
         10. fund_reporting_details — отчётность о расходовании фонда.
         11. fund_audit_status — "defined" или "not_defined".
         12. fund_audit_details — право аудита рекламного фонда.
+        13. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 13 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "mandatory_purchases_status"
           type: "string"
@@ -3527,7 +3592,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус минимального объёма закупок."
-          required: false
+          required: true
         - name: "minimum_purchase_volume_details"
           type: "string"
           presentation: "fact"
@@ -3541,7 +3606,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права предлагать альтернативных поставщиков."
-          required: false
+          required: true
         - name: "alternative_suppliers_details"
           type: "string"
           presentation: "fact"
@@ -3554,7 +3619,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус рекламного фонда."
-          required: false
+          required: true
         - name: "advertising_fund_details"
           type: "string"
           presentation: "fact"
@@ -3568,7 +3633,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус отчётности о расходовании фонда."
-          required: false
+          required: true
         - name: "fund_reporting_details"
           type: "string"
           presentation: "fact"
@@ -3582,7 +3647,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права аудита фонда."
-          required: false
+          required: true
         - name: "fund_audit_details"
           type: "string"
           presentation: "fact"
@@ -3590,11 +3655,7 @@ checks_v8:
           description: "Право аудита рекламного фонда."
           required: false
           display_in_grid: false
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 11: Действительность ТЗ и регистрация договора
-  # ──────────────────────────────────────────────────────────────────────────
   - id: ip_validity_registration_check
     name: "Действительность ТЗ, обязанность продления и регистрация договора в Роспатенте"
     description: >
@@ -3657,10 +3718,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3706,10 +3768,13 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 11 ключей (10 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату о дате действия ТЗ.
-        2. Найди прямую цитату о продлении.
-        3. Найди прямую цитату о регистрации договора.
-        4. Если прямой цитаты нет — верни "not_defined".
+        2. Найди прямую цитату о продлении регистрации.
+        3. Найди прямую цитату об уведомлении при оспаривании ТЗ.
+        4. Найди прямую цитату о последствиях утраты ТЗ.
+        5. Найди прямую цитату о регистрации договора в Роспатенте.
+        6. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -3728,7 +3793,7 @@ checks_v8:
           "contract_registration_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 9
       temperature: 0.0
       max_tokens: 650
 
@@ -3762,14 +3827,13 @@ checks_v8:
         - "субконцессия"
         - "конфиденциальность"
         - "ребрендинг"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.10, 0.60]
-        boost: 0.15
+        boost: 0.25
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 9
+      max_chunks: 12
       rerank: true
 
     enrichment_hints:
@@ -3796,6 +3860,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1200
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -3810,6 +3875,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 11 ключей (10 полей + evidence):
+
         1. tm_validity_date_status — "defined" или "not_defined".
         2. tm_validity_date_details — дата окончания действия регистрации ТЗ.
         3. renewal_obligation_status — "defined" или "not_defined".
@@ -3820,17 +3887,23 @@ checks_v8:
         8. tm_loss_consequences_details — последствия утраты ТЗ.
         9. contract_registration_status — "defined" или "not_defined".
         10. contract_registration_details — регистрация договора в Роспатенте.
+        11. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
         - Не выводи обязанность регистрации из нормы ст. 1028 ГК РФ.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "tm_validity_date_status"
           type: "string"
@@ -3865,7 +3938,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус уведомления при оспаривании ТЗ."
-          required: false
+          required: true
         - name: "challenge_notification_details"
           type: "string"
           presentation: "fact"
@@ -3878,7 +3951,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус последствий утраты ТЗ."
-          required: false
+          required: true
         - name: "tm_loss_consequences_details"
           type: "string"
           presentation: "fact"
@@ -3901,11 +3974,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 4
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 12: IT-системы и цифровые активы
-  # ──────────────────────────────────────────────────────────────────────────
   - id: digital_assets_check
     name: "IT-системы и цифровые активы (CRM, POS, сайт, приложение, база клиентов)"
     description: >
@@ -3960,10 +4029,11 @@ checks_v8:
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -4005,11 +4075,12 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 9 ключей (8 полей + evidence) присутствуют в JSON:
         1. Найди прямую цитату об IT-системах.
         2. Найди прямую цитату о базе клиентов.
-        3. Найди прямую цитату о домене.
+        3. Найди прямую цитату о домене и соцсетях.
         4. Найди прямую цитату о доступе после расторжения.
-        5. Если прямой цитаты нет — верни "not_defined".
+        5. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -4026,7 +4097,7 @@ checks_v8:
           "data_access_termination_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 8
       temperature: 0.0
       max_tokens: 650
 
@@ -4061,14 +4132,13 @@ checks_v8:
         - "субконцессия"
         - "конфиденциальность"
         - "ребрендинг"
-        - "означает"
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.35, 0.80]
-        boost: 0.12
+        boost: 0.25
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -4095,6 +4165,7 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1100
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
@@ -4108,6 +4179,8 @@ checks_v8:
         </context>
 
         <task>
+        Заполни строго следующие 9 ключей (8 полей + evidence):
+
         1. it_systems_status — "defined" или "not_defined".
         2. it_systems_details — перечень IT-систем.
         3. customer_db_ownership_status — "defined" или "not_defined".
@@ -4116,16 +4189,22 @@ checks_v8:
         6. domain_ownership_details — принадлежность домена и соцсетей.
         7. data_access_termination_status — "defined" или "not_defined".
         8. data_access_termination_details — порядок доступа после расторжения.
+        9. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
-        - Верни только JSON.
         </rules>
+
       fields:
         - name: "it_systems_status"
           type: "string"
@@ -4160,7 +4239,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус принадлежности домена."
-          required: false
+          required: true
         - name: "domain_ownership_details"
           type: "string"
           presentation: "fact"
@@ -4174,7 +4253,7 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус порядка доступа после расторжения."
-          required: false
+          required: true
         - name: "data_access_termination_details"
           type: "string"
           presentation: "fact"
@@ -4183,137 +4262,145 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 4
-      store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 13: Споры, применимое право и страхование
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: dispute_insurance_check
-    name: "Порядок разрешения споров, применимое право и страхование"
+  - id: antitrust_pricing_check
+    name: "Антимонопольные ограничения: ценообразование (ст. 1033 ГК РФ)"
     description: >
-      Фактографическая проверка порядка разрешения споров (арбитраж, медиация,
-      претензионный порядок), применимого права и требований к страхованию
-      ответственности франчайзи.
+      Фактографическая проверка условий о ценах на товары и услуги франчайзи.
+      Выявление ничтожных условий о фиксации цен или запрете на их снижение
+      (риск штрафов ФАС). Допускаются только рекомендованные цены.
     triggers: {}
     ui_mode: "field_extraction"
-    severity: "medium"
+    severity: "high"
     severity_if_pass: "pass"
-    severity_if_fail: "medium"
-    severity_if_unclear: "medium"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
 
     rules:
       keywords:
-        - "разрешение споров"
-        - "арбитражный суд"
-        - "третейский суд"
-        - "медиация"
-        - "претензионный порядок"
-        - "досудебное урегулирование"
-        - "подсудность"
-        - "применимое право"
-        - "страхование ответственности"
-        - "страховой полис"
-        - "страховая сумма"
+        - "рекомендованные цены"
+        - "фиксированная цена"
+        - "обязательная цена"
+        - "минимальная цена"
+        - "максимальная цена"
+        - "розничная цена"
+        - "прайс-лист"
+        - "запрет на снижение цен"
+        - "обязан устанавливать цену"
+        - "ценовая политика"
+        - "единые цены сети"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)спор(ы|ов).*рассматривают"
-        - "(?i)претензионн\\w+\\s+порядок"
-        - "(?i)франчайзи\\s+обязан\\s+застрахов"
+        - "(?i)франчайзи\\s+обязан\\s+(устанавливать|соблюдать).*цен"
+        - "(?i)запрещ(ается|ено)\\s+(снижать|уменьшать).*цен"
+        - "(?i)рекомендованн\\w+\\s+цен"
 
     llm:
       prompt_template: |
         [КОНТЕКСТ]
-        Ты — российский юрист по интеллектуальной собственности.
+        Ты — российский юрист по интеллектуальной собственности и антимонопольному праву.
         Анализируется договор коммерческой концессии.
-        Проверяется только один вопрос: разрешение споров, применимое право
-        и страхование.
+        Проверяется только один вопрос: условия ценообразования (ст. 1033 ГК РФ).
+
+        Нормативный ориентир:
+        - п. 2 ст. 1033 ГК РФ — ничтожность условий о фиксации цен
 
         Важно:
         - Твоя задача — только установить, что прямо есть в тексте договора.
         - Не оценивай серьёзность риска.
+        - Различай "рекомендованные цены" (законно) и "обязательные/фиксированные
+          цены" (ничтожно).
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Способ разрешения споров.
-        2. Наименование суда или арбитражного органа.
-        3. Претензионный порядок и срок.
-        4. Применимое право.
-        5. Обязательность страхования ответственности франчайзи.
-        6. Минимальная страховая сумма.
+        1. Режим ценообразования (рекомендованный / обязательный / отсутствует).
+        2. Формулировки о ценах (точные цитаты).
+        3. Наличие риска ничтожности (фиксация цен).
+        4. Условие о прайс-листах и их обновлении.
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Если данные не указаны прямо — возвращай "not_defined".
-        3. Если текстового значения нет — возвращай строго "Данные не определены".
-        4. В evidence включай только текст договора.
-        5. Верни только один JSON-объект.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
-        Пример 1:
+        Пример 1 — законная формулировка:
         Фрагмент:
-        "Споры рассматриваются в Арбитражном суде г. Москвы после соблюдения
-        претензионного порядка (30 дней). Применимое право — РФ.
-        Франчайзи обязан застраховать ответственность на сумму не менее
-        10 000 000 рублей."
+        "Франчайзер направляет Франчайзи рекомендованные розничные цены.
+        Франчайзи вправе устанавливать собственные цены с учётом региональных
+        особенностей. Прайс-лист обновляется ежемесячно."
 
         Ответ:
         {
-          "dispute_method": "court",
-          "dispute_details": "Арбитражный суд г. Москвы",
-          "pretrial_status": "defined",
-          "pretrial_details": "претензионный порядок, 30 дней",
-          "governing_law_status": "defined",
-          "governing_law_details": "РФ",
-          "insurance_status": "defined",
-          "insurance_details": "обязан застраховать ответственность на сумму не менее 10 000 000 рублей",
-          "evidence": [{"clause_ref": "п. 9.1", "quote": "Споры рассматриваются в Арбитражном суде г. Москвы."}]
+          "pricing_regime_status": "defined",
+          "pricing_regime_details": "рекомендованные розничные цены",
+          "price_fixing_risk_status": "low_risk",
+          "price_fixing_risk_details": "формулировка 'рекомендованные цены', право устанавливать собственные цены",
+          "recommended_prices_status": "defined",
+          "recommended_prices_details": "прайс-лист обновляется ежемесячно",
+          "evidence": [{"clause_ref": "п. 3.2", "quote": "Франчайзер направляет Франчайзи рекомендованные розничные цены."}]
         }
 
-        Пример 2:
+        Пример 2 — ничтожная формулировка:
         Фрагмент:
-        "Стороны разрешают споры в соответствии с законодательством."
+        "Франчайзи обязан устанавливать цены согласно единому прайс-листу
+        Франчайзера. Снижение цен ниже установленного уровня запрещено."
 
         Ответ:
         {
-          "dispute_method": "not_defined",
-          "dispute_details": "Данные не определены",
-          "pretrial_status": "not_defined",
-          "pretrial_details": "Данные не определены",
-          "governing_law_status": "not_defined",
-          "governing_law_details": "Данные не определены",
-          "insurance_status": "not_defined",
-          "insurance_details": "Данные не определены",
+          "pricing_regime_status": "defined",
+          "pricing_regime_details": "обязательные цены согласно единому прайс-листу",
+          "price_fixing_risk_status": "high_risk",
+          "price_fixing_risk_details": "обязан устанавливать цены, запрещено снижение — ничтожно по п. 2 ст. 1033 ГК РФ",
+          "recommended_prices_status": "not_defined",
+          "recommended_prices_details": "Данные не определены",
+          "evidence": [{"clause_ref": "п. 3.2", "quote": "Франчайзи обязан устанавливать цены согласно единому прайс-листу Франчайзера."}]
+        }
+
+        Пример 3 — данные отсутствуют:
+        Фрагмент:
+        "Франчайзи самостоятельно определяет ассортимент."
+
+        Ответ:
+        {
+          "pricing_regime_status": "not_defined",
+          "pricing_regime_details": "Данные не определены",
+          "price_fixing_risk_status": "not_defined",
+          "price_fixing_risk_details": "Данные не определены",
+          "recommended_prices_status": "not_defined",
+          "recommended_prices_details": "Данные не определены",
           "evidence": []
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Найди прямую цитату о способе разрешения споров.
-        2. Найди прямую цитату о претензионном порядке.
-        3. Найди прямую цитату о применимом праве.
-        4. Найди прямую цитату о страховании.
-        5. Если прямой цитаты нет — верни "not_defined".
+        Проверь, что все 7 ключей (6 полей + evidence) присутствуют в JSON:
+        1. Найди прямую цитату о режиме ценообразования.
+        2. Найди прямую цитату о фиксации или рекомендации цен.
+        3. Найди прямую цитату о прайс-листах.
+        4. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
 
         Не выводи шаги проверки. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
         Ответь строго в JSON:
         {
-          "dispute_method": "<court / arbitration / mediation / mixed / not_defined>",
-          "dispute_details": "<текст или 'Данные не определены'>",
-          "pretrial_status": "<defined / not_defined>",
-          "pretrial_details": "<текст или 'Данные не определены'>",
-          "governing_law_status": "<defined / not_defined>",
-          "governing_law_details": "<текст или 'Данные не определены'>",
-          "insurance_status": "<defined / not_defined>",
-          "insurance_details": "<текст или 'Данные не определены'>",
+          "pricing_regime_status": "<defined / not_defined>",
+          "pricing_regime_details": "<текст или 'Данные не определены'>",
+          "price_fixing_risk_status": "<high_risk / low_risk / not_defined>",
+          "price_fixing_risk_details": "<текст или 'Данные не определены'>",
+          "recommended_prices_status": "<defined / not_defined>",
+          "recommended_prices_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 5
+      context_k: 8
       temperature: 0.0
-      max_tokens: 600
+      max_tokens: 650
 
     retrieval:
       corpus_scope: "primary_segment"
@@ -4321,18 +4408,18 @@ checks_v8:
         - "legal_unit"
         - "section"
       required_kind: "legal_unit"
-      retrieval_query: "разрешение споров арбитражный суд третейский суд медиация претензионный порядок досудебное урегулирование подсудность применимое право страхование ответственности страховой полис страховая сумма обязан застраховать"
-      retrieval_profile: "dispute_resolution_check"
+      retrieval_query: "рекомендованные цены фиксированная цена обязательная цена минимальная цена максимальная цена розничная цена прайс-лист запрет на снижение цен обязан устанавливать цену ценовая политика единые цены сети"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
-        - general_provision
         - obligation
+        - general_provision
       excluded_unit_types:
         - definition
         - structural_anchor
         - technical_fragment
       preferred_clause_functions:
-        - boilerplate
-        - procedures
+        - obligations
+        - limitations
       negative_keywords:
         - "комплекс прав"
         - "товарный знак"
@@ -4340,20 +4427,20 @@ checks_v8:
         - "роялти"
         - "паушальный"
         - "территория"
+        - "срок действия"
         - "контроль качества"
         - "обучение"
         - "расторжение"
         - "субконцессия"
         - "конфиденциальность"
         - "ребрендинг"
-        - "означает"
         - "в целях настоящего"
       position_bias:
-        preferred_range: [0.65, 1.0]
-        boost: 0.20
+        preferred_range: [0.30, 0.75]
+        boost: 0.25
         scope: segment
-      context_k: 5
-      max_chunks: 6
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -4365,27 +4452,29 @@ checks_v8:
         - "price_list"
         - "invoice"
       preferred_clause_functions:
-        - "boilerplate"
-        - "procedures"
-      confidence_bonus_on_match: 0.06
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
 
     evidence:
       required: true
-      min_snippet_length: 30
-      max_snippet_length: 600
+      min_snippet_length: 40
+      max_snippet_length: 650
 
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-      llm_max_tokens: 900
+      llm_max_tokens: 1100
+      store_payload: true
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из договора коммерческой концессии
-        условия разрешения споров, применимого права и страхования.
-        Не анализируй комплекс прав, вознаграждение, территорию или расторжение.
+        Ты — российский юрист по антимонопольному праву. Извлеки из договора
+        коммерческой концессии условия о ценообразовании: режим цен, риск
+        ничтожности по ст. 1033 ГК РФ, прайс-листы.
+        Не анализируй вознаграждение, территорию или расторжение.
         </role>
 
         <context>
@@ -4393,82 +4482,401 @@ checks_v8:
         </context>
 
         <task>
-        1. dispute_method — court / arbitration / mediation / mixed / not_defined.
-        2. dispute_details — наименование суда или арбитражного органа.
-        3. pretrial_status — "defined" или "not_defined".
-        4. pretrial_details — претензионный порядок и срок.
-        5. governing_law_status — "defined" или "not_defined".
-        6. governing_law_details — применимое право.
-        7. insurance_status — "defined" или "not_defined".
-        8. insurance_details — страхование ответственности франчайзи.
+        Заполни строго следующие 7 ключей (6 полей + evidence):
+
+        1. pricing_regime_status — "defined" или "not_defined".
+        2. pricing_regime_details — режим ценообразования (рекомендованный / обязательный / фиксированный).
+        3. price_fixing_risk_status — "high_risk" / "low_risk" / "not_defined".
+        4. price_fixing_risk_details — обоснование риска (точная формулировка из договора).
+        5. recommended_prices_status — "defined" или "not_defined".
+        6. recommended_prices_details — условие о прайс-листах и их обновлении.
+        7. evidence — массив цитат из договора.
 
         Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
+
+        Различай:
+        - "рекомендованные цены" → low_risk (законно).
+        - "обязан устанавливать / запрещается снижать" → high_risk (ничтожно по п. 2 ст. 1033 ГК РФ).
+
+        Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
         </task>
 
         <rules>
         - Используй только текст договора.
-        - Верни только JSON.
+        - Не подставляй нормы закона вместо текста договора.
         </rules>
+
       fields:
-        - name: "dispute_method"
+        - name: "pricing_regime_status"
           type: "string"
           presentation: "signal"
-          allowed_values: ["court", "arbitration", "mediation", "mixed", "not_defined"]
-          description: "Способ разрешения споров."
-          required: false
-        - name: "dispute_details"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус режима ценообразования."
+          required: true
+        - name: "pricing_regime_details"
           type: "string"
           presentation: "fact"
-          label: "Разрешение споров"
-          description: "Наименование суда или арбитражного органа."
+          label: "Режим ценообразования"
+          description: "Режим ценообразования (рекомендованный / обязательный)."
           required: false
           display_in_grid: true
           display_priority: 1
-        - name: "pretrial_status"
+        - name: "price_fixing_risk_status"
           type: "string"
           presentation: "signal"
-          allowed_values: ["defined", "not_defined"]
-          description: "Статус претензионного порядка."
-          required: false
-        - name: "pretrial_details"
+          allowed_values: ["high_risk", "low_risk", "not_defined"]
+          description: "Статус риска ничтожности условия о фиксации цен."
+          required: true
+        - name: "price_fixing_risk_details"
           type: "string"
           presentation: "fact"
-          label: "Претензионный порядок"
-          description: "Претензионный порядок и срок."
+          label: "Риск фиксации цен"
+          description: "Обоснование риска ничтожности (точная формулировка)."
           required: false
           display_in_grid: true
           display_priority: 2
-        - name: "governing_law_status"
+        - name: "recommended_prices_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус применимого права."
-          required: false
-        - name: "governing_law_details"
+          description: "Статус условия о рекомендованных ценах."
+          required: true
+        - name: "recommended_prices_details"
           type: "string"
           presentation: "fact"
-          label: "Применимое право"
-          description: "Применимое право."
+          label: "Прайс-листы"
+          description: "Условие о прайс-листах и их обновлении."
           required: false
           display_in_grid: true
           display_priority: 3
-        - name: "insurance_status"
+
+  - id: revenue_audit_succession_check
+    name: "Аудит выручки и правопреемство при ликвидации / смерти франчайзи"
+    description: >
+      Фактографическая проверка права франчайзера на аудит финансовой
+      отчётности франчайзи (для контроля роялти) и условий перехода прав
+      в случае ликвидации или смерти франчайзи (наличие льготного периода
+      для правопреемников).
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "аудит выручки"
+        - "аудиторская проверка"
+        - "проверка кассовой дисциплины"
+        - "отчётность о выручке"
+        - "доступ к POS"
+        - "доступ к CRM"
+        - "правопреемник"
+        - "ликвидация франчайзи"
+        - "смерть франчайзи"
+        - "наследник"
+        - "льготный период"
+        - "переход прав"
+        - "реорганизация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзер\\s+вправе\\s+проводить\\s+аудит"
+        - "(?i)проверк\\w+\\s+(финансов|кассов|отчётн)"
+        - "(?i)в\\s+случае\\s+(ликвидаци|смерт).*франчайзи"
+        - "(?i)правопреемник.*льготн"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по интеллектуальной собственности.
+        Анализируется договор коммерческой концессии.
+        Проверяются только два вопроса:
+        1) право франчайзера на аудит финансовой отчётности франчайзи;
+        2) условия перехода прав при ликвидации или смерти франчайзи.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Право франчайзера на аудит выручки и финансовой отчётности.
+        2. Периодичность и порядок аудита.
+        3. Доступ к POS / CRM для целей аудита.
+        4. Условия перехода прав при ликвидации или смерти франчайзи.
+        5. Льготный период для правопреемников.
+        6. Условия прекращения договора при отсутствии правопреемника.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Для статусных полей (enum): если данные не указаны прямо — возвращай "not_defined".
+        3. Для текстовых полей: если значения нет — возвращай строго "Данные не определены".
+        4. Не используй "None", "null" или пустые строки.
+        5. В evidence включай только прямые цитаты из текста договора.
+        6. Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для парсинга через json.loads без предварительной обработки. Без markdown, без комментариев, без текста до или после. Начни ответ сразу с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — полный набор условий:
+        Фрагмент:
+        "Франчайзер вправе проводить аудит финансовой отчётности Франчайзи
+        не реже 1 раза в квартал с доступом к POS-терминалам. В случае
+        ликвидации или смерти Франчайзи договор может быть переоформлен
+        на правопреемника в течение 6 месяцев при соблюдении стандартов сети."
+
+        Ответ:
+        {
+          "revenue_audit_right_status": "defined",
+          "revenue_audit_right_details": "аудит финансовой отчётности не реже 1 раза в квартал с доступом к POS-терминалам",
+          "audit_frequency_status": "defined",
+          "audit_frequency_details": "не реже 1 раза в квартал",
+          "pos_crm_access_status": "defined",
+          "pos_crm_access_details": "доступ к POS-терминалам",
+          "succession_terms_status": "defined",
+          "succession_terms_details": "переоформление на правопреемника в течение 6 месяцев при соблюдении стандартов",
+          "grace_period_status": "defined",
+          "grace_period_details": "6 месяцев",
+          "evidence": [{"clause_ref": "п. 6.1", "quote": "Франчайзер вправе проводить аудит финансовой отчётности Франчайзи не реже 1 раза в квартал."}]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Франчайзи ведёт финансовую отчётность в соответствии с законодательством."
+
+        Ответ:
+        {
+          "revenue_audit_right_status": "not_defined",
+          "revenue_audit_right_details": "Данные не определены",
+          "audit_frequency_status": "not_defined",
+          "audit_frequency_details": "Данные не определены",
+          "pos_crm_access_status": "not_defined",
+          "pos_crm_access_details": "Данные не определены",
+          "succession_terms_status": "not_defined",
+          "succession_terms_details": "Данные не определены",
+          "grace_period_status": "not_defined",
+          "grace_period_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 11 ключей (10 полей + evidence) присутствуют в JSON:
+        1. Найди прямую цитату о праве на аудит выручки.
+        2. Найди прямую цитату о периодичности аудита.
+        3. Найди прямую цитату о доступе к POS / CRM.
+        4. Найди прямую цитату о правопреемниках или ликвидации.
+        5. Найди прямую цитату о льготном периоде.
+        6. Если прямой цитаты нет — верни "not_defined" для статусных полей и "Данные не определены" для текстовых.
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "revenue_audit_right_status": "<defined / not_defined>",
+          "revenue_audit_right_details": "<текст или 'Данные не определены'>",
+          "audit_frequency_status": "<defined / not_defined>",
+          "audit_frequency_details": "<текст или 'Данные не определены'>",
+          "pos_crm_access_status": "<defined / not_defined>",
+          "pos_crm_access_details": "<текст или 'Данные не определены'>",
+          "succession_terms_status": "<defined / not_defined>",
+          "succession_terms_details": "<текст или 'Данные не определены'>",
+          "grace_period_status": "<defined / not_defined>",
+          "grace_period_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 9
+      temperature: 0.0
+      max_tokens: 700
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "аудит выручки аудиторская проверка проверка кассовой дисциплины отчётность о выручке доступ к POS доступ к CRM правопреемник ликвидация франчайзи смерть франчайзи наследник льготный период переход прав реорганизация"
+      retrieval_profile: "termination_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - termination_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "комплекс прав"
+        - "товарный знак"
+        - "ноу-хау"
+        - "роялти"
+        - "паушальный"
+        - "территория"
+        - "срок действия"
+        - "контроль качества"
+        - "обучение"
+        - "субконцессия"
+        - "конфиденциальность"
+        - "ребрендинг"
+        - "рекламный фонд"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.90]
+        boost: 0.25
+        scope: segment
+      context_k: 9
+      max_chunks: 12
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+      llm_max_tokens: 1200
+      store_payload: true
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора коммерческой концессии
+        условия об аудите выручки (для контроля роялти) и правопреемстве
+        при ликвидации или смерти франчайзи.
+        Не анализируй комплекс прав, территорию или контроль качества.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие 7 ключей (6 полей + evidence):
+
+        1. revenue_audit_right_status — "defined" или "not_defined".
+        2. revenue_audit_right_details — право на аудит финансовой отчётности.
+        3. audit_frequency_status — "defined" или "not_defined".
+        4. audit_frequency_details — периодичность аудита.
+        5. pos_crm_access_status — "defined" или "not_defined".
+        6. pos_crm_access_details — доступ к POS / CRM для целей аудита.
+        7. succession_terms_status — "defined" или "not_defined".
+        8. succession_terms_details — условия перехода прав при ликвидации / смерти.
+        9. grace_period_status — "defined" или "not_defined".
+        10. grace_period_details — льготный период для правопреемников.
+        11. evidence — массив цитат из договора.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+
+        Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный для
+        парсинга через json.loads без предварительной обработки. Без markdown,
+        без комментариев, без текста до или после. Начни ответ сразу с { и
+        закончи }.
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не выводи условия аудита или правопреемства из норм закона.
+        </rules>
+
+      fields:
+        - name: "revenue_audit_right_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус страхования ответственности."
-          required: false
-        - name: "insurance_details"
+          description: "Статус права на аудит выручки."
+          required: true
+        - name: "revenue_audit_right_details"
           type: "string"
           presentation: "fact"
-          label: "Страхование"
-          description: "Требования к страхованию ответственности франчайзи."
+          label: "Аудит выручки"
+          description: "Право франчайзера на аудит финансовой отчётности."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "audit_frequency_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус периодичности аудита."
+          required: true
+        - name: "audit_frequency_details"
+          type: "string"
+          presentation: "fact"
+          label: "Периодичность аудита"
+          description: "Периодичность проведения аудита."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "pos_crm_access_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус доступа к POS / CRM."
+          required: true
+        - name: "pos_crm_access_details"
+          type: "string"
+          presentation: "fact"
+          label: "Доступ к POS / CRM"
+          description: "Доступ к POS / CRM для целей аудита."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "succession_terms_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условий правопреемства."
+          required: true
+        - name: "succession_terms_details"
+          type: "string"
+          presentation: "fact"
+          label: "Правопреемство"
+          description: "Условия перехода прав при ликвидации или смерти франчайзи."
           required: false
           display_in_grid: true
           display_priority: 4
-      store_payload: true
+        - name: "grace_period_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус льготного периода для правопреемников."
+          required: true
+        - name: "grace_period_details"
+          type: "string"
+          presentation: "fact"
+          label: "Льготный период"
+          description: "Льготный период для переоформления договора на правопреемника."
+          required: false
+          display_in_grid: true
+          display_priority: 5
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
@@ -4607,5 +5015,3 @@ dd_request_templates:
       применительно к {doc_names}.
     addressee: "Юридический советник"
 
-
-    

@@ -45,10 +45,12 @@ metadata:
     - "IOU"
     - "note purchase agreement"
     - "facility agreement"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
 #  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
 # ════════════════════════════════════════════════════════════════════════════
+
 classification_runtime_v1:
   scoring:
     accept_threshold: 0.80
@@ -380,10 +382,12 @@ classification_runtime_v1:
         severity: soft
         weight: -0.30
         description: "Овердрафт — особый банковский кредитный режим"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers
 # ════════════════════════════════════════════════════════════════════════════
+
 trigger_definitions:
   interest_bearing_loan:
     any_keywords:
@@ -519,10 +523,12 @@ trigger_definitions:
       - "(?i)до\\s+востребовани[яя]"
       - "(?i)в\\s+течени[еи]\\s+30\\s+дней"
       - "(?i)после\\s+предъявлени[яя]\\s+требовани[яя]"
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 3: SHARED PATTERNS
 #  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
 # ════════════════════════════════════════════════════════════════════════════
+
 shared_patterns:
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
@@ -538,6 +544,7 @@ compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
+
   - id: loan_parties_identification
     name: "Стороны договора: идентификация займодавца и заёмщика"
     description: >
@@ -1113,6 +1120,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 6
+
   - id: loan_subject_and_amount
     name: "Предмет и сумма займа"
     description: >
@@ -1526,6 +1534,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: loan_interest_terms
     name: "Проценты по займу: процентность, ставка, база начисления, периодичность"
     description: >
@@ -2098,6 +2107,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: loan_repayment_and_transfer
     name: "Срок возврата и способ передачи займа"
     description: >
@@ -2559,6 +2569,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: transfer_evidence_check
     name: "Подтверждение фактической передачи суммы займа (ст. 808, 812 ГК РФ)"
     description: >
@@ -3127,6 +3138,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: repayment_and_acceleration_check
     name: "Возврат займа: порядок погашения, досрочный возврат, акцелерация и неустойка (ст. 810, 811 ГК РФ)"
     description: >
@@ -3687,6 +3699,7 @@ checks_v8:
           description: "Способ подтверждения погашения займа (расписка, выписка, акт)."
           required: true
           display_in_grid: false
+
   - id: target_loan_control_check
     name: "Целевой заём: цель, контроль и последствия нарушения (ст. 814 ГК РФ)"
     description: >
@@ -4187,6 +4200,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: foreign_currency_terms_check
     name: "Валютная оговорка: курс, дата пересчёта, распределение рисков (ст. 140, 317 ГК РФ, 173-ФЗ)"
     description: >
@@ -4790,6 +4804,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: related_party_loan_check
     name: "Заём между аффилированными лицами: раскрытие и рыночность (Обзор ВС РФ 29.01.2020, ст. 61.2 127-ФЗ)"
     description: >
@@ -5317,6 +5332,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: bankruptcy_claw_back_risk_check
     name: "Риск оспаривания займа в банкротстве (ст. 61.2, 61.3 ФЗ-127)"
     description: >
@@ -5709,6 +5725,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
+
   - id: convertible_loan_check
     name: "Конвертируемый заём: условия конвертации в долю/акции (ст. 429.3 ГК РФ)"
     description: >
@@ -6197,6 +6214,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: multiple_tranches_check
     name: "Траншевый заём: лимит, порядок выдачи, револьверность (кредитная линия)"
     description: >
@@ -6691,6 +6709,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: secured_loan_terms
     name: "Обеспечение займа: залог, поручительство, задаток, обеспечительный платёж (ст. 334, 361, 380, 381.1 ГК РФ)"
     description: >
@@ -7244,6 +7263,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
   - id: tax_consequences_disclosure
     name: "Налоговые последствия займа: материальная выгода, НДФЛ, налоговый агент (ст. 212, 226 НК РФ)"
     description: >
@@ -7647,6 +7667,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: novation_set_off_terms
     name: "Новация / зачёт: порядок прекращения обязательства по займу (ст. 410, 414 ГК РФ)"
     description: >
@@ -8054,6 +8075,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: loan_forgiveness_terms
     name: "Прощение долга: условия и последствия (ст. 415, 575 ГК РФ)"
     description: >
@@ -8450,6 +8472,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: fungible_goods_specification
     name: "Заём вещей: спецификация качества и количества (ст. 807 ГК РФ)"
     description: >
@@ -8843,6 +8866,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: on_demand_notice_period
     name: "Заём до востребования: срок возврата после требования (ст. 810 ГК РФ)"
     description: >
@@ -9210,6 +9234,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
   - id: loan_amendment_and_termination_check
     name: "Изменение и расторжение договора займа: реструктуризация, односторонний отказ (ст. 450–453, 811 ГК РФ)"
     description: >
@@ -9645,10 +9670,12 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
+
 dd_request_templates:
   loan_parties_identification:
     text: >
@@ -9764,5 +9791,4 @@ dd_request_templates:
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
-
 
