@@ -444,7 +444,6 @@ compliance_rules: []
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 checks_v8:
-
   - id: factoring_parties_identification
     name: "Стороны договора: идентификация фактора и клиента"
     description: >
@@ -623,6 +622,8 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -811,8 +812,6 @@ checks_v8:
       required: true
       min_snippet_length: 40
       max_snippet_length: 600
-    store_payload: true
-
   - id: factoring_subject_extraction
     name: "Базовое извлечение структуры факторинга"
     description: >
@@ -1009,9 +1008,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 900
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1396,9 +1395,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1747,9 +1746,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2122,9 +2121,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2518,9 +2517,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 750
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2915,9 +2914,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 650
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3305,9 +3304,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3689,9 +3688,9 @@ checks_v8:
       context_k: 6
       temperature: 0.0
       max_tokens: 650
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4060,9 +4059,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 800
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4475,9 +4474,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 900
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4891,9 +4890,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: false
-
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5278,9 +5277,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: false
-
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5656,9 +5655,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: false
-
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6037,9 +6036,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 750
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6399,9 +6398,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6759,9 +6758,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 800
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7144,9 +7143,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 750
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7507,9 +7506,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 800
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7876,9 +7875,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8223,9 +8222,9 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 750
-    store_payload: true
-
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8554,13 +8553,13 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    store_payload: true
-
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false

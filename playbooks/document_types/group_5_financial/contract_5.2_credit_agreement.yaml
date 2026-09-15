@@ -564,7 +564,6 @@ compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
-
   - id: credit_subject_extraction
     name: "Базовое извлечение параметров кредитного договора"
     description: >
@@ -808,6 +807,8 @@ checks_v8:
       max_snippet_length: 700
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1200
@@ -935,8 +936,6 @@ checks_v8:
           description: "ПСК: present / not_applicable (для корпоративных) / not_defined. Детально — в interest_psk_fees_check."
           required: true
           display_in_grid: false
-    store_payload: true
-
   - id: lender_license_check
     name: "Статус и лицензия кредитора"
     description: >
@@ -1133,6 +1132,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 600
@@ -1205,8 +1206,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 1
-    store_payload: true
-
   - id: interest_psk_fees_check
     name: "Проценты, ПСК и дополнительные платежи"
     description: >
@@ -1445,6 +1444,8 @@ checks_v8:
       max_snippet_length: 650
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 850
@@ -1540,8 +1541,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
-    store_payload: true
-
   - id: repayment_schedule_and_early_repayment_check
     name: "График погашения и досрочное погашение"
     description: >
@@ -1816,6 +1815,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1000
@@ -1955,8 +1956,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: forced_services_and_insurance_check
     name: "Навязанные услуги и страховые продукты"
     description: >
@@ -2256,6 +2255,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1000
@@ -2396,8 +2397,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: acceleration_events_check
     name: "Основания для досрочного истребования кредита"
     description: >
@@ -2726,6 +2725,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1300
@@ -2830,6 +2831,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "acceleration_triggers"
+          label: "Основания досрочного истребования кредита"
           type: "array"
           presentation: "fact"
           description: "Полный перечень оснований для досрочного возврата (для drawer / payload)."
@@ -2881,8 +2883,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: variable_rate_check
     name: "Плавающая ставка: механизм пересмотра и уведомления"
     description: >
@@ -3219,6 +3219,8 @@ checks_v8:
       max_snippet_length: 520
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1200
@@ -3381,8 +3383,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: payment_allocation_priority_check
     name: "Очередность списания поступающих платежей"
     description: >
@@ -3720,6 +3720,8 @@ checks_v8:
       max_snippet_length: 450
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1100
@@ -3822,6 +3824,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "allocation_order_details"
+          label: "Очередность погашения требований"
           type: "array"
           presentation: "fact"
           description: "Полный упорядоченный перечень категорий погашения (для drawer / payload)."
@@ -3843,8 +3846,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
-    store_payload: true
-
   - id: financial_covenants_check
     name: "Финансовые ковенанты и последствия их нарушения"
     description: >
@@ -4197,6 +4198,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1400
@@ -4319,6 +4322,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "covenant_types"
+          label: "Перечень финансовых ковенантов"
           type: "array"
           presentation: "fact"
           description: "Полный перечень ковенантов с формулами и порогами (для drawer / payload)."
@@ -4377,8 +4381,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: cross_default_check
     name: "Кросс-дефолт: условия и пороги существенности"
     description: >
@@ -4736,6 +4738,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1400
@@ -4915,8 +4919,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: purpose_and_control_check
     name: "Целевое использование кредита и механизм контроля"
     description: >
@@ -5171,6 +5173,8 @@ checks_v8:
       max_snippet_length: 450
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 900
@@ -5280,8 +5284,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: negative_pledge_check
     name: "Негативный залог и ограничения на обременение активов"
     description: >
@@ -5547,6 +5549,8 @@ checks_v8:
       max_snippet_length: 450
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 900
@@ -5655,8 +5659,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: collateral_and_security_check
     name: "Обеспечение по кредиту: виды, оценка, страхование, обращение взыскания"
     description: >
@@ -5959,6 +5961,8 @@ checks_v8:
       max_snippet_length: 700
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1500
@@ -6042,6 +6046,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "collateral_types"
+          label: "Виды обеспечения кредита"
           type: "array"
           presentation: "fact"
           description: "Полный перечень видов обеспечения (для drawer / payload)."
@@ -6115,8 +6120,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: conditions_precedent_check
     name: "Условия предоставления кредита (conditions precedent)"
     description: >
@@ -6379,6 +6382,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1200
@@ -6443,6 +6448,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "cp_documents_required"
+          label: "Документы отлагательных условий (CP)"
           type: "array"
           presentation: "fact"
           description: "Полный перечень условий предоставления (для drawer / payload)."
@@ -6486,8 +6492,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: non_financial_covenants_check
     name: "Нефинансовые ковенанты (negative и affirmative)"
     description: >
@@ -6778,6 +6782,8 @@ checks_v8:
       max_snippet_length: 650
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1400
@@ -6849,12 +6855,14 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "negative_covenants_types"
+          label: "Виды негативных ковенантов"
           type: "array"
           presentation: "fact"
           description: "Полный перечень негативных ковенантов (для drawer / payload)."
           required: true
           display_in_grid: false
         - name: "affirmative_covenants_types"
+          label: "Виды позитивных ковенантов"
           type: "array"
           presentation: "fact"
           description: "Полный перечень позитивных ковенантов (для drawer / payload)."
@@ -6884,8 +6892,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: currency_and_fx_clause_check
     name: "Валютная оговорка, валютный риск и мультивалютность"
     description: >
@@ -7144,6 +7150,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1200
@@ -7264,8 +7272,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: tax_gross_up_check
     name: "Налоговая оговорка: gross-up, withholding tax, НДС на комиссии"
     description: >
@@ -7532,6 +7538,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1200
@@ -7655,8 +7663,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: default_interest_and_penalties_check
     name: "Неустойка и повышенные проценты при просрочке"
     description: >
@@ -7955,6 +7961,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1300
@@ -8098,8 +8106,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: tranche_and_drawdown_mechanics_check
     name: "Механика траншей, выборки и лимитов"
     description: >
@@ -8393,6 +8399,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1400
@@ -8545,8 +8553,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: amendment_and_waiver_check
     name: "Порядок изменения договора и waiver"
     description: >
@@ -8828,6 +8834,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1100
@@ -8949,8 +8957,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: notices_and_communications_check
     name: "Порядок уведомлений и коммуникации сторон"
     description: >
@@ -9229,6 +9235,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1200
@@ -9305,6 +9313,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "notice_methods_value"
+          label: "Способы отправки юридически значимых уведомлений"
           type: "array"
           presentation: "fact"
           description: "Полный перечень способов направления уведомлений."
@@ -9363,8 +9372,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

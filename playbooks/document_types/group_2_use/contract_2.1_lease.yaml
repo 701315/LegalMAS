@@ -1638,6 +1638,7 @@ checks_v8:
           required: true
 
         - name: "reference_document_value"
+          label: "Реквизиты документа-основания"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -2691,6 +2692,7 @@ checks_v8:
           required: true
 
         - name: "defect_disclosure_details"
+          label: "Сведения о выявленных дефектах"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -3146,6 +3148,7 @@ checks_v8:
           required: true
 
         - name: "capital_repairs_allocation_display"
+          label: "Расходы на капитальный ремонт"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -3185,6 +3188,7 @@ checks_v8:
           required: true
 
         - name: "current_repairs_allocation_display"
+          label: "Расходы на текущий ремонт"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -3224,6 +3228,7 @@ checks_v8:
           required: true
 
         - name: "operational_costs_allocation_display"
+          label: "Распределение эксплуатационных расходов"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -3234,6 +3239,7 @@ checks_v8:
           required: false
 
         - name: "operational_costs_details"
+          label: "Сведения об эксплуатационных расходах"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -3703,6 +3709,7 @@ checks_v8:
           required: true
 
         - name: "improvements_compensation_details"
+          label: "Сведения о компенсации за улучшения"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -3741,6 +3748,7 @@ checks_v8:
           required: false
 
         - name: "sublease_details"
+          label: "Условия субаренды"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -3759,6 +3767,7 @@ checks_v8:
           required: true
 
         - name: "assignment_details"
+          label: "Условия переуступки прав аренды"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -5429,6 +5438,7 @@ checks_v8:
           required: true
 
         - name: "landlord_type_display"
+          label: "Статус арендодателя"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -5467,6 +5477,7 @@ checks_v8:
           required: true
 
         - name: "landlord_signatory_basis_display"
+          label: "Основание полномочий подписанта арендодателя"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -5506,6 +5517,7 @@ checks_v8:
           required: true
 
         - name: "tenant_type_display"
+          label: "Статус арендатора"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -5543,6 +5555,7 @@ checks_v8:
           required: true
 
         - name: "tenant_signatory_basis_display"
+          label: "Основание полномочий подписанта арендатора"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -5981,6 +5994,7 @@ checks_v8:
           required: true
 
         - name: "title_documents_details"
+          label: "Сведения о правоустанавливающих документах"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -5999,6 +6013,7 @@ checks_v8:
           required: true
 
         - name: "egrn_reference_details"
+          label: "Реквизиты выписки из ЕГРН"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -6863,6 +6878,7 @@ checks_v8:
           required: true
 
         - name: "late_payment_penalty_details"
+          label: "Штраф за просрочку платежа"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -6903,6 +6919,7 @@ checks_v8:
           required: true
 
         - name: "landlord_breach_penalty_details"
+          label: "Штраф за нарушения арендодателя"
           type: "string"
           presentation: "fact"
           display_in_grid: false

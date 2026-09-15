@@ -531,7 +531,6 @@ compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
-
   - id: bank_deposit_parties_identification
     name: "Стороны договора: банк и клиент / вкладчик"
     description: >
@@ -812,6 +811,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -992,6 +993,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
         - name: "client_signatory"
+          label: "Подписант клиента"
           type: "string"
           presentation: "fact"
           description: "Подписант от клиента / вкладчика."
@@ -1005,6 +1007,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "bank_signatory"
+          label: "Подписант банка"
           type: "string"
           presentation: "fact"
           description: "Подписант от банка."
@@ -1017,8 +1020,6 @@ checks_v8:
           description: "Основание полномочий подписанта банка."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: bank_deposit_account_subject_extraction
     name: "Предмет вклада / счета: сумма, валюта, срок, тип договора"
@@ -1303,6 +1304,8 @@ checks_v8:
       max_snippet_length: 650
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1511,8 +1514,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-
-    store_payload: true
 
   - id: deposit_interest_and_fixation_check
     name: "Вклад: проценты, капитализация и изменение ставки (ст. 838 ГК РФ)"
@@ -1778,6 +1779,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1937,6 +1940,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "rate_change_right_details"
+          label: "Право банка на одностороннее изменение ставки"
           type: "string"
           presentation: "fact"
           description: "Формулировка о режиме изменения ставки (внутреннее поле для формирования _display)."
@@ -1956,8 +1960,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-
-    store_payload: true
 
   - id: deposit_early_withdrawal_check
     name: "Вклад: досрочный возврат и пересчет процентов (ст. 837 ГК РФ)"
@@ -2237,6 +2239,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2354,6 +2358,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "early_withdrawal_details"
+          label: "Условия досрочного истребования вклада"
           type: "string"
           presentation: "fact"
           description: "Формулировка о праве досрочного возврата (внутреннее поле для формирования _display)."
@@ -2418,8 +2423,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-
-    store_payload: true
 
   - id: account_tariffs_and_commissions_check
     name: "Счёт: тарифы, комиссии и изменение стоимости услуг"
@@ -2691,6 +2694,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2838,6 +2843,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "tariff_change_right_details"
+          label: "Право банка на изменение тарифов"
           type: "string"
           presentation: "fact"
           description: "Формулировка о режиме изменения тарифов (внутреннее поле для формирования _display)."
@@ -2872,8 +2878,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-
-    store_payload: true
 
   - id: aml_blocking_check
     name: "ПОД/ФТ: идентификация клиента и приостановление операций (115-ФЗ)"
@@ -3148,6 +3152,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3263,6 +3269,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "aml_terms_details"
+          label: "Условия ограничений по 115-ФЗ"
           type: "string"
           presentation: "fact"
           description: "Формулировка об AML/CFT-условиях (внутреннее поле; в grid не выводится — общая тема покрыта global aml_kyc)."
@@ -3326,8 +3333,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-
-    store_payload: true
 
   - id: unauthorized_debit_check
     name: "Безакцептное списание и несанкционированные операции (ст. 854 ГК РФ)"
@@ -3603,6 +3608,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3721,6 +3728,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "debit_grounds_details"
+          label: "Случаи безакцептного списания средств"
           type: "string"
           presentation: "fact"
           description: "Краткая формулировка оснований (внутреннее поле; в grid не выводится — дублирует debit_cases_details)."
@@ -3784,8 +3792,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-
-    store_payload: true
 
   - id: dbs_security_check
     name: "ДБО: безопасность и распределение ответственности (161-ФЗ)"
@@ -4062,6 +4068,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4208,6 +4216,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "liability_allocation_details"
+          label: "Распределение ответственности при компрометации ДБО"
           type: "string"
           presentation: "fact"
           description: "Формулировка о распределении ответственности (внутреннее поле для формирования _display)."
@@ -4242,8 +4251,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-
-    store_payload: true
 
   - id: overdraft_terms_check
     name: "Овердрафт: лимит, проценты, срок погашения (ст. 850 ГК РФ)"
@@ -4503,6 +4510,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4677,8 +4686,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 1
-
-    store_payload: true
 
   - id: deposit_insurance_coverage_check
     name: "Страхование вклада: покрытие АСВ и размер возмещения (177-ФЗ)"
@@ -4946,6 +4953,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5071,6 +5080,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "insurance_terms_details"
+          label: "Упоминание системы страхования вкладов (АСВ)"
           type: "string"
           presentation: "fact"
           description: "Формулировка о страховании вклада (внутреннее поле)."
@@ -5136,8 +5146,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 1
-
-    store_payload: true
 
   - id: account_closure_and_termination_check
     name: "Закрытие счёта и расторжение договора банковского счёта (ст. 859 ГК РФ)"
@@ -5403,6 +5411,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5598,8 +5608,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-
-    store_payload: true
 
   - id: payment_allocation_priority_check
     name: "Очерёдность списания при недостаточности средств (ст. 855 ГК РФ)"
@@ -5860,6 +5868,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6050,10 +6060,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-
-    store_payload: true
-
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES

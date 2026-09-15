@@ -862,7 +862,6 @@ compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
-
   - id: transport_document_check
     name: "Транспортный документ: накладная / коносамент (ст. 785 ГК РФ)"
     description: >
@@ -1112,7 +1111,7 @@ checks_v8:
           display_in_grid: false
         - name: "document_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           description: "Цитата условия о транспортном документе"
           required: true
           display_in_grid: false
@@ -1423,7 +1422,7 @@ checks_v8:
           required: true
         - name: "liability_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата условия об ответственности"
           required: true
@@ -1777,7 +1776,7 @@ checks_v8:
           required: true
         - name: "special_cargo_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о специальных условиях"
           required: true
@@ -2087,7 +2086,7 @@ checks_v8:
           required: true
         - name: "international_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о международной перевозке"
           required: true
@@ -2366,7 +2365,7 @@ checks_v8:
           required: true
         - name: "lien_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о праве удержания"
           required: true
@@ -2663,7 +2662,7 @@ checks_v8:
           required: true
         - name: "demurrage_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о нормативном времени/простое"
           required: true
@@ -2955,7 +2954,7 @@ checks_v8:
           required: true
         - name: "vehicle_supply_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о подаче ТС"
           required: true
@@ -3304,7 +3303,7 @@ checks_v8:
           display_in_grid: false
         - name: "shipper_obligations_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об обязанностях грузоотправителя"
           required: true
@@ -3628,7 +3627,7 @@ checks_v8:
           display_in_grid: false
         - name: "freight_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об условиях оплаты"
           required: true
@@ -3919,7 +3918,7 @@ checks_v8:
           display_in_grid: false
         - name: "parties_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об идентификации сторон"
           required: true
@@ -4134,6 +4133,8 @@ checks_v8:
       min_snippet_length: 25
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -4234,7 +4235,7 @@ checks_v8:
           display_in_grid: false
         - name: "cargo_route_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о грузе и маршруте"
           required: true
@@ -4262,8 +4263,6 @@ checks_v8:
           label: "Тип договора"
           description: "User-friendly отображение типа договора (разовый/рамочный)"
           required: true
-    store_payload: true
-
   - id: delivery_deadline
     name: "Срок доставки груза (ст. 792 ГК РФ)"
     description: >
@@ -4513,7 +4512,7 @@ checks_v8:
           display_in_grid: false
         - name: "delivery_deadline_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о сроке доставки"
           required: true
@@ -4727,6 +4726,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 450
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -4812,7 +4813,7 @@ checks_v8:
           display_in_grid: false
         - name: "loading_unloading_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о погрузке/выгрузке/креплении"
           required: true
@@ -4856,8 +4857,6 @@ checks_v8:
           label: "Распределение расходов"
           description: "User-friendly отображение: определено ли распределение расходов"
           required: true
-    store_payload: true
-
   - id: delivery_delay_penalty
     name: "Штрафы за просрочку доставки (ст. 793 ГК РФ, УАТ ст. 34)"
     description: >
@@ -5034,6 +5033,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 450
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -5107,7 +5108,7 @@ checks_v8:
           display_in_grid: false
         - name: "delay_penalty_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о неустойке за просрочку доставки"
           required: true
@@ -5127,8 +5128,6 @@ checks_v8:
           label: "Тип санкции"
           description: "User-friendly отображение типа санкции (договорная/законная)"
           required: true
-    store_payload: true
-
   - id: vehicle_supply_penalty
     name: "Штраф за непредъявление груза / неподачу ТС (ст. 794 ГК РФ)"
     description: >
@@ -5298,6 +5297,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 400
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 750
@@ -5370,7 +5371,7 @@ checks_v8:
           required: true
         - name: "vehicle_supply_penalty_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о штрафах за неподачу ТС / непредъявление груза"
           required: true
@@ -5390,8 +5391,6 @@ checks_v8:
           label: "Штраф за непредъявление груза"
           description: "User-friendly отображение: предусмотрен ли штраф за непредъявление груза"
           required: true
-    store_payload: true
-
   - id: cargo_acceptance_procedure
     name: "Порядок приёмки груза в пункте назначения"
     description: >
@@ -5589,6 +5588,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -5674,7 +5675,7 @@ checks_v8:
           display_in_grid: false
         - name: "cargo_acceptance_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о порядке приёмки груза"
           required: true
@@ -5718,8 +5719,6 @@ checks_v8:
           label: "Осмотр при получении"
           description: "User-friendly отображение: предусмотрен ли осмотр груза при получении"
           required: true
-    store_payload: true
-
   - id: application_procedure_framework
     name: "Порядок подачи заявок (для рамочного договора)"
     description: >
@@ -5907,6 +5906,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 450
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -5990,7 +5991,7 @@ checks_v8:
           display_in_grid: false
         - name: "application_procedure_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о процедуре подачи заявок"
           required: true
@@ -6026,8 +6027,6 @@ checks_v8:
           label: "Изменение/отмена заявки"
           description: "User-friendly отображение: установлены ли правила изменения/отмены заявки"
           required: true
-    store_payload: true
-
   - id: liability_limitation_explicit
     name: "Лимит ответственности перевозчика (ст. 796 ГК РФ, уставы)"
     description: >
@@ -6231,6 +6230,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 850
@@ -6306,7 +6307,7 @@ checks_v8:
           display_in_grid: false
         - name: "liability_limitation_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об ограничении ответственности перевозчика"
           required: true
@@ -6334,8 +6335,6 @@ checks_v8:
           label: "Ссылка на устав"
           description: "User-friendly отображение ссылки на транспортный устав/режим"
           required: true
-    store_payload: true
-
   - id: exclusions_from_liability
     name: "Транспортные основания освобождения от ответственности (ст. 796 ГК РФ)"
     description: >
@@ -6532,6 +6531,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 450
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -6611,7 +6612,7 @@ checks_v8:
           display_in_grid: false
         - name: "exclusions_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об основаниях освобождения от ответственности"
           required: true
@@ -6647,8 +6648,6 @@ checks_v8:
           label: "Характер перечня"
           description: "User-friendly отображение: закрытый или открытый перечень оснований освобождения"
           required: true
-    store_payload: true
-
   - id: pretension_order
     name: "Транспортный претензионный порядок: сроки при утрате, просрочке (ст. 797 ГК РФ)"
     description: >
@@ -6857,6 +6856,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 850
@@ -6961,7 +6962,7 @@ checks_v8:
           required: true
         - name: "pretension_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о претензионном порядке"
           required: true
@@ -6989,8 +6990,6 @@ checks_v8:
           label: "Обязательность до суда"
           description: "User-friendly отображение: обязательна ли претензия до обращения в суд"
           required: true
-    store_payload: true
-
   - id: limitation_period_notice
     name: "Срок исковой давности — транспортная специфика (ст. 797 ГК РФ)"
     description: >
@@ -7173,6 +7172,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 650
@@ -7237,7 +7238,7 @@ checks_v8:
           display_in_grid: false
         - name: "limitation_period_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о сроке исковой давности"
           required: true
@@ -7257,8 +7258,6 @@ checks_v8:
           label: "Правовой источник"
           description: "User-friendly отображение ссылки на правовой источник срока исковой давности"
           required: true
-    store_payload: true
-
   - id: cargo_insurance_clause
     name: "Страхование груза"
     description: >
@@ -7459,6 +7458,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 450
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -7561,7 +7562,7 @@ checks_v8:
           required: true
         - name: "cargo_insurance_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об условиях страхования груза"
           required: true
@@ -7605,8 +7606,6 @@ checks_v8:
           label: "Выгодоприобретатель"
           description: "User-friendly отображение: определён ли выгодоприобретатель"
           required: true
-    store_payload: true
-
   - id: vat_and_tax
     name: "НДС и налоговые оговорки"
     description: >
@@ -7791,6 +7790,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 700
@@ -7865,7 +7866,7 @@ checks_v8:
           display_in_grid: false
         - name: "vat_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о налоговых условиях (НДС)"
           required: true
@@ -7885,8 +7886,6 @@ checks_v8:
           label: "Международный режим"
           description: "User-friendly отображение: есть ли ссылка на международный налоговый режим"
           required: true
-    store_payload: true
-
   - id: auto_renewal
     name: "Автопролонгация рамочного договора перевозки"
     description: >
@@ -8067,6 +8066,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 650
@@ -8139,7 +8140,7 @@ checks_v8:
           required: true
         - name: "auto_renewal_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об автопролонгации"
           required: true
@@ -8159,8 +8160,6 @@ checks_v8:
           label: "Уведомление об отказе"
           description: "User-friendly отображение: требуется ли уведомление для отказа от продления"
           required: true
-    store_payload: true
-
   - id: carrier_license_check
     name: "Лицензия / разрешение перевозчика"
     description: >
@@ -8377,6 +8376,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 750
@@ -8451,7 +8452,7 @@ checks_v8:
           display_in_grid: false
         - name: "carrier_license_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о регуляторном титуле перевозчика"
           required: true
@@ -8479,8 +8480,6 @@ checks_v8:
           label: "Обязанность поддерживать"
           description: "User-friendly отображение: обязана ли сторона поддерживать документ в силе"
           required: true
-    store_payload: true
-
   - id: packaging_and_marking
     name: "Тара, упаковка и маркировка груза"
     description: >
@@ -8669,6 +8668,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 650
@@ -8743,7 +8744,7 @@ checks_v8:
           display_in_grid: false
         - name: "packaging_marking_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о требованиях к упаковке/маркировке/пломбированию"
           required: true
@@ -8779,8 +8780,6 @@ checks_v8:
           label: "Ответственная сторона"
           description: "User-friendly отображение стороны, ответственной за соблюдение требований"
           required: true
-    store_payload: true
-
   - id: gps_tracking
     name: "GPS/ГЛОНАСС-мониторинг и отслеживание груза"
     description: >
@@ -8977,6 +8976,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 600
@@ -9042,7 +9043,7 @@ checks_v8:
           display_in_grid: false
         - name: "gps_tracking_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об условиях GPS/ГЛОНАСС-мониторинга"
           required: true
@@ -9070,8 +9071,6 @@ checks_v8:
           label: "Доступ грузоотправителя"
           description: "User-friendly отображение: есть ли у грузоотправителя доступ к данным мониторинга"
           required: true
-    store_payload: true
-
   - id: shipper_data_accuracy
     name: "Достоверность сведений о грузе: ответственность грузоотправителя"
     description: >
@@ -9276,6 +9275,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 400
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -9354,7 +9355,7 @@ checks_v8:
           display_in_grid: false
         - name: "shipper_data_accuracy_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата о достоверности сведений и ответственности за недостоверные данные"
           required: true
@@ -9390,8 +9391,6 @@ checks_v8:
           label: "Охват сведений"
           description: "User-friendly отображение охвата сведений, к которым применяются заверения и ответственность"
           required: true
-    store_payload: true
-
   - id: subcontracting_terms
     name: "Привлечение субперевозчика: условия и ответственность"
     description: >
@@ -9606,6 +9605,8 @@ checks_v8:
       min_snippet_length: 20
       max_snippet_length: 400
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -9703,7 +9704,7 @@ checks_v8:
           display_in_grid: false
         - name: "subcontracting_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об условиях субперевозки и замены транспорта/водителя"
           required: true
@@ -9755,8 +9756,6 @@ checks_v8:
           label: "Замена водителя"
           description: "User-friendly отображение: предусмотрено ли условие о замене водителя"
           required: true
-    store_payload: true
-
   - id: redirection_clause
     name: "Переадресовка груза в пути"
     description: >
@@ -9958,6 +9957,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 650
@@ -10043,7 +10044,7 @@ checks_v8:
           display_in_grid: false
         - name: "redirection_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об условиях переадресовки груза"
           required: true
@@ -10087,8 +10088,6 @@ checks_v8:
           label: "Срок для требования"
           description: "User-friendly отображение: установлен ли срок для требования о переадресовке"
           required: true
-    store_payload: true
-
   - id: electronic_waybill_terms
     name: "Электронная транспортная накладная (ЭТрН)"
     description: >
@@ -10271,6 +10270,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 650
@@ -10344,7 +10345,7 @@ checks_v8:
           display_in_grid: false
         - name: "ewaybill_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об условиях использования ЭТрН"
           required: true
@@ -10380,8 +10381,6 @@ checks_v8:
           label: "Ссылка на ЭДО"
           description: "User-friendly отображение: есть ли ссылка на электронный документооборот"
           required: true
-    store_payload: true
-
   - id: cargo_escort_terms
     name: "Сопровождение и охрана груза"
     description: >
@@ -10571,6 +10570,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 650
@@ -10645,7 +10646,7 @@ checks_v8:
           display_in_grid: false
         - name: "escort_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об условиях сопровождения и охраны груза"
           required: true
@@ -10681,8 +10682,6 @@ checks_v8:
           label: "Специальные случаи"
           description: "User-friendly отображение: есть ли специальные случаи обязательного сопровождения"
           required: true
-    store_payload: true
-
   - id: seasonal_road_restrictions
     name: "Сезонные дорожные ограничения"
     description: >
@@ -10873,6 +10872,8 @@ checks_v8:
       min_snippet_length: 15
       max_snippet_length: 300
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 650
@@ -10949,7 +10950,7 @@ checks_v8:
           display_in_grid: false
         - name: "seasonal_restrictions_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           display_in_grid: false
           description: "Цитата об условиях сезонных дорожных ограничений"
           required: true
@@ -10985,8 +10986,6 @@ checks_v8:
           label: "Распределение расходов"
           description: "User-friendly отображение: определено ли распределение расходов из-за ограничений"
           required: true
-    store_payload: true
-
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

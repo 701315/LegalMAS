@@ -563,7 +563,6 @@ shared_patterns:
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 checks_v8:
-
   - id: parties_identification
     name: "Стороны договора: идентификация хранителя и поклажедателя"
     description: >
@@ -757,6 +756,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -829,6 +830,7 @@ checks_v8:
           description: "Тип хранителя."
           required: true
         - name: "custodian_signatory"
+          label: "Подписант хранителя"
           type: "string"
           presentation: "fact"
           description: "Подписант хранителя."
@@ -867,6 +869,7 @@ checks_v8:
           description: "Тип поклажедателя."
           required: true
         - name: "depositor_signatory"
+          label: "Подписант поклажедателя"
           type: "string"
           presentation: "fact"
           description: "Подписант поклажедателя."
@@ -878,8 +881,6 @@ checks_v8:
           allowed_values: ["charter", "poa", "order", "law", "personal", "other", "not_defined"]
           description: "Основание полномочий подписанта поклажедателя."
           required: true
-    store_payload: true
-
   - id: storage_subject_extraction
     name: "Предмет хранения: описание вещи, количество, стоимость"
     description: >
@@ -1108,6 +1109,8 @@ checks_v8:
       min_snippet_length: 50
       max_snippet_length: 800
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1227,8 +1230,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: acceptance_documentation_check
     name: "Документальное подтверждение приёма вещи (ст. 887 ГК РФ, форма МХ-1)"
     description: >
@@ -1421,6 +1422,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1500,8 +1503,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: professional_custodian_liability
     name: "Ответственность хранителя: основание, объём, лимит (ст. 901, 902 ГК РФ)"
     description: >
@@ -1723,6 +1724,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1814,8 +1817,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: return_on_first_demand_check
     name: "Право на возврат вещи по первому требованию (ст. 904 ГК РФ)"
     description: >
@@ -2025,6 +2026,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2108,8 +2111,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
-    store_payload: true
-
   - id: irregular_storage_terms
     name: "Иррегулярное хранение: условия смешения вещей (ст. 890 ГК РФ)"
     description: >
@@ -2329,6 +2330,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2430,8 +2433,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: uncollected_goods_disposal
     name: "Реализация невостребованной вещи (ст. 899 ГК РФ)"
     description: >
@@ -2640,6 +2641,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2730,8 +2733,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: dangerous_properties_disclosure
     name: "Раскрытие опасных свойств вещи (ст. 893 ГК РФ)"
     description: >
@@ -2943,6 +2944,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3025,8 +3028,6 @@ checks_v8:
           allowed_values: ["yes", "no", "not_defined"]
           description: "Упоминание лицензии на хранение опасных веществ."
           required: true
-    store_payload: true
-
   - id: warehouse_certificate_issuance
     name: "Складское свидетельство: порядок выдачи и обращения (ст. 912–917 ГК РФ)"
     description: >
@@ -3239,6 +3240,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3321,8 +3324,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: lien_right_on_item
     name: "Право удержания вещи до оплаты (ст. 359 ГК РФ)"
     description: >
@@ -3497,6 +3498,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 400
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3545,8 +3548,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 1
-    store_payload: true
-
   - id: natural_loss_norms
     name: "Естественная убыль: применение норм и освобождение от ответственности"
     description: >
@@ -3739,6 +3740,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 400
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3803,8 +3806,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: remuneration_and_expenses
     name: "Вознаграждение хранителя и возмещение расходов (ст. 896, 897 ГК РФ)"
     description: >
@@ -4045,6 +4046,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4127,8 +4130,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: storage_term
     name: "Срок хранения или 'до востребования' (ст. 889 ГК РФ)"
     description: >
@@ -4345,6 +4346,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 400
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4421,8 +4424,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: storage_conditions
     name: "Условия хранения: температура, влажность, режим (ст. 891 ГК РФ)"
     description: >
@@ -4636,6 +4637,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4698,8 +4701,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: return_procedure
     name: "Порядок выдачи вещи (ст. 900 ГК РФ)"
     description: >
@@ -4927,6 +4928,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5004,8 +5007,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: inspection_upon_return
     name: "Проверка вещи при возврате (ст. 900, 902 ГК РФ)"
     description: >
@@ -5239,6 +5240,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5317,8 +5320,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: extraordinary_expenses
     name: "Чрезвычайные расходы на сохранность (ст. 898 ГК РФ)"
     description: >
@@ -5558,6 +5559,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5639,8 +5642,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: exclusions_from_liability
     name: "Обстоятельства, освобождающие от ответственности (п. 1 ст. 901 ГК РФ)"
     description: >
@@ -5872,6 +5873,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5949,8 +5952,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: third_party_claims
     name: "Требования третьих лиц к вещи (ст. 895 ГК РФ)"
     description: >
@@ -6174,6 +6175,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6250,8 +6253,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: insurance
     name: "Страхование хранимой вещи"
     description: >
@@ -6486,6 +6487,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6577,8 +6580,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: pretension_order
     name: "Претензионный порядок урегулирования споров"
     description: >
@@ -6802,6 +6803,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6874,8 +6877,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: vat_and_tax
     name: "НДС и налоговые оговорки по вознаграждению хранителя"
     description: >
@@ -7104,6 +7105,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7180,8 +7183,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: no_use_without_consent
     name: "Запрет пользования вещью хранителем (ст. 892 ГК РФ)"
     description: >
@@ -7404,6 +7405,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7477,8 +7480,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: substorage_and_assignment
     name: "Передача вещи на хранение третьему лицу (ст. 895 ГК РФ)"
     description: >
@@ -7696,6 +7697,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7768,8 +7771,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: risk_transfer_moment
     name: "Момент перехода риска случайной гибели / повреждения"
     description: >
@@ -7989,6 +7990,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8060,8 +8063,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: depositor_inspection_right
     name: "Право поклажедателя проверять состояние вещи (ст. 891 ГК РФ)"
     description: >
@@ -8271,6 +8272,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8334,8 +8337,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: custodian_damages_recovery
     name: "Возмещение убытков, причинённых хранителю вещью (ст. 903 ГК РФ)"
     description: >
@@ -8556,6 +8557,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8627,8 +8630,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: perishable_goods_sale
     name: "Продажа портящейся вещи (п. 2 ст. 899 ГК РФ)"
     description: >
@@ -8863,6 +8864,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8953,8 +8956,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

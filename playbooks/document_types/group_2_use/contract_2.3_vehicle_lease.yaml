@@ -1077,6 +1077,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "landlord_signatory_value"
+          label: "Подписант арендодателя"
           type: "string"
           presentation: "fact"
           description: "Подписант от Арендодателя (внутреннее поле, для DD Grid используется landlord_signatory_display)."
@@ -1127,6 +1128,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "tenant_signatory_value"
+          label: "Подписант арендатора"
           type: "string"
           presentation: "fact"
           description: "Подписант от Арендатора (внутреннее поле, для DD Grid используется tenant_signatory_display)."
@@ -2261,6 +2263,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "handover_act_details"
+          label: "Сведения об акте приема-передачи"
           type: "string"
           presentation: "fact"
           description: "Формулировка об акте приёма-передачи (внутреннее поле)."
@@ -2274,6 +2277,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "condition_recorded_details"
+          label: "Фиксация состояния автомобиля"
           type: "string"
           presentation: "fact"
           description: "Формулировка о фиксации технического состояния (внутреннее поле)."
@@ -2287,6 +2291,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "mileage_recorded_details"
+          label: "Фиксация пробега"
           type: "string"
           presentation: "fact"
           description: "Формулировка о фиксации пробега и топлива (внутреннее поле)."
@@ -2300,6 +2305,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "photo_fixation_details"
+          label: "Фотофиксация состояния"
           type: "string"
           presentation: "fact"
           description: "Формулировка о фотофиксации (внутреннее поле)."
@@ -2313,6 +2319,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "existing_damage_details"
+          label: "Описание имеющихся повреждений"
           type: "string"
           presentation: "fact"
           description: "Формулировка о фиксации повреждений (внутреннее поле)."
@@ -2326,6 +2333,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "document_pack_details"
+          label: "Комплект документов на автомобиль"
           type: "string"
           presentation: "fact"
           description: "Перечень документов и ключей (внутреннее поле)."
@@ -2682,6 +2690,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "fitness_warranty_details"
+          label: "Гарантия пригодности к эксплуатации"
           type: "string"
           presentation: "fact"
           description: "Формулировка об исправности ТС (внутреннее поле)."
@@ -2695,6 +2704,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "no_pledge_details"
+          label: "Отсутствие залога"
           type: "string"
           presentation: "fact"
           description: "Формулировка об отсутствии залога (внутреннее поле)."
@@ -2708,6 +2718,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "no_arrest_details"
+          label: "Отсутствие ареста"
           type: "string"
           presentation: "fact"
           description: "Формулировка об отсутствии ареста (внутреннее поле)."
@@ -2721,6 +2732,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "tech_inspection_details"
+          label: "Сведения о техосмотре"
           type: "string"
           presentation: "fact"
           description: "Формулировка о техосмотре / диагностической карте (внутреннее поле)."
@@ -3066,6 +3078,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "insurance_cost_allocation_details"
+          label: "Распределение расходов на страховку"
           type: "string"
           presentation: "fact"
           description: "Формулировка о распределении расходов на страхование (внутреннее поле)."
@@ -3079,6 +3092,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "beneficiary_details"
+          label: "Выгодоприобретатель по страхованию"
           type: "string"
           presentation: "fact"
           description: "Выгодоприобретатель по полису (внутреннее поле)."
@@ -3401,6 +3415,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "landlord_notification_details"
+          label: "Landlord notification details"
           type: "string"
           presentation: "fact"
           description: "Срок и порядок уведомления арендодателя о ДТП (внутреннее поле)."
@@ -3414,6 +3429,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "police_europrotocol_details"
+          label: "Оформление ДТП (ГИБДД/европротокол)"
           type: "string"
           presentation: "fact"
           description: "Формулировка о вызове ГИБДД или европротоколе (внутреннее поле)."
@@ -3773,6 +3789,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "hazardous_source_reference_details"
+          label: "Упоминание источника повышенной опасности"
           type: "string"
           presentation: "fact"
           description: "Формулировка об источнике повышенной опасности (внутреннее поле)."
@@ -3786,6 +3803,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "crew_liability_details"
+          label: "Ответственность экипажа"
           type: "string"
           presentation: "fact"
           description: "Формулировка об ответственности за действия экипажа (внутреннее поле)."
@@ -4153,6 +4171,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "return_procedure_details"
+          label: "Порядок возврата имущества"
           type: "string"
           presentation: "fact"
           description: "Формулировка о порядке и месте возврата ТС (внутреннее поле)."
@@ -4181,6 +4200,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "fuel_level_details"
+          label: "Фиксация уровня топлива"
           type: "string"
           presentation: "fact"
           description: "Формулировка об уровне топлива при возврате ТС (внутреннее поле)."
@@ -4209,6 +4229,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "termination_grounds_details"
+          label: "Основания расторжения"
           type: "string"
           presentation: "fact"
           description: "Основания досрочного расторжения договора (внутреннее поле, дублирует global layer)."
@@ -4222,6 +4243,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "termination_notice_details"
+          label: "Срок уведомления о расторжении"
           type: "string"
           presentation: "fact"
           description: "Срок предупреждения о расторжении (внутреннее поле, дублирует global layer)."
@@ -4557,6 +4579,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "fines_reimbursement_details"
+          label: "Возмещение штрафов ПДД"
           type: "string"
           presentation: "fact"
           description: "Формулировка об обязанности компенсировать административные штрафы (внутреннее поле)."
@@ -4570,6 +4593,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "notification_procedure_details"
+          label: "Порядок уведомления арендодателя"
           type: "string"
           presentation: "fact"
           description: "Формулировка о порядке извещения Арендатора о штрафах (внутреннее поле)."
@@ -4598,6 +4622,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "regress_mechanism_details"
+          label: "Механизм регрессного требования"
           type: "string"
           presentation: "fact"
           description: "Формулировка о регрессном механизме и расходах на обжалование (внутреннее поле)."
@@ -4974,6 +4999,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "allowed_drivers_list_details"
+          label: "Список разрешенных водителей"
           type: "string"
           presentation: "fact"
           description: "Круг или поименный список допущенных к управлению водителей (внутреннее поле)."
@@ -4987,6 +5013,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "transfer_prohibition_details"
+          label: "Запрет передачи третьим лицам"
           type: "string"
           presentation: "fact"
           description: "Запрет передачи управления транспортным средством третьим лицам (внутреннее поле)."
@@ -5015,6 +5042,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "cross_border_restriction_details"
+          label: "Ограничение на выезд за границу"
           type: "string"
           presentation: "fact"
           description: "Запрет выезда на ТС за пределы Российской Федерации (внутреннее поле)."
@@ -5028,6 +5056,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "sublease_prohibition_details"
+          label: "Запрет субаренды"
           type: "string"
           presentation: "fact"
           description: "Запрет сдачи в субаренду, использования в такси, для буксировки и гонок (внутреннее поле)."
@@ -5357,6 +5386,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "deposit_details"
+          label: "Сведения об обеспечительном платеже"
           type: "string"
           presentation: "fact"
           description: "Размер и условия депозита (внутреннее поле)."
@@ -5370,6 +5400,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "deposit_refund_details"
+          label: "Порядок возврата депозита"
           type: "string"
           presentation: "fact"
           description: "Формулировка о порядке и сроках возврата депозита (внутреннее поле)."
@@ -5383,6 +5414,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "retention_criteria_details"
+          label: "Критерии удержания депозита"
           type: "string"
           presentation: "fact"
           description: "Формулировка об основаниях удержания из депозита (внутреннее поле)."
@@ -5706,6 +5738,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "payment_suspension_details"
+          label: "Приостановка арендной платы при простое"
           type: "string"
           presentation: "fact"
           description: "Условия приостановки или пересчёта оплаты аренды (внутреннее поле)."
@@ -6006,6 +6039,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "rent_suspension_on_theft_details"
+          label: "Приостановка аренды при угоне"
           type: "string"
           presentation: "fact"
           description: "Условия освобождения от оплаты аренды с момента угона (внутреннее поле)."
@@ -6019,6 +6053,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "negligence_liability_details"
+          label: "Ответственность при грубой неосторожности"
           type: "string"
           presentation: "fact"
           description: "Ответственность Арендатора при халатности (внутреннее поле)."
@@ -6303,6 +6338,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "defect_notification_details"
+          label: "Порядок уведомления о дефектах"
           type: "string"
           presentation: "fact"
           description: "Срок и порядок заявления о скрытых недостатках (внутреннее поле)."
@@ -6331,6 +6367,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "remediation_consequences_details"
+          label: "Последствия неустранения дефектов"
           type: "string"
           presentation: "fact"
           description: "Последствия неустранения недостатков (внутреннее поле)."
@@ -6585,6 +6622,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "impound_return_details"
+          label: "Порядок возврата со спецстоянки"
           type: "string"
           presentation: "fact"
           description: "Сроки и порядок возврата ТС со штрафстоянки (внутреннее поле)."

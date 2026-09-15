@@ -2577,6 +2577,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "advance_rate"
+          label: "Размер аванса"
           type: "string"
           presentation: "fact"
           description: "Размер аванса в процентах или сумме."
@@ -2590,6 +2591,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "price_indexation_details"
+          label: "Условия индексации цены"
           type: "string"
           presentation: "fact"
           description: "Формулировка об индексации или корректировке цены."
@@ -3018,6 +3020,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "customer_obligations_details"
+          label: "Обязанности заказчика по предоставлению площадки"
           type: "string"
           presentation: "fact"
           description: "Формулировка обязанностей Заказчика и связанных условий."
@@ -3396,6 +3399,7 @@ checks_v8:
           required: true
           display_in_grid: false
         - name: "supervision_details"
+          label: "Сведения о строительном контроле и технадзоре"
           type: "string"
           presentation: "fact"
           description: "Формулировка об объёме прав технического надзора."
@@ -3670,6 +3674,7 @@ checks_v8:
           display_in_grid: false
           required: true
         - name: "warranty_period_general_value"
+          label: "Общий гарантийный срок"
           type: "string"
           presentation: "fact"
           description: "Гарантийный срок на объект в целом."
@@ -3681,6 +3686,7 @@ checks_v8:
           display_in_grid: false
           required: true
         - name: "warranty_period_engineering_value"
+          label: "Гарантийный срок на инженерные системы"
           type: "string"
           presentation: "fact"
           description: "Гарантийный срок на инженерные сети."
@@ -3702,6 +3708,7 @@ checks_v8:
           display_in_grid: false
           required: true
         - name: "defect_remedy_deadline_value"
+          label: "Срок устранения дефектов"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -3712,6 +3719,7 @@ checks_v8:
           display_in_grid: false
           required: true
         - name: "retention_amount"
+          label: "Размер гарантийного удержания"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -4010,6 +4018,7 @@ checks_v8:
           display_priority: 2
           required: true
         - name: "insurance_and_risk_details"
+          label: "Условия страхования строительных рисков"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -4287,6 +4296,7 @@ checks_v8:
           display_priority: 1
           required: true
         - name: "acceptance_docs_details"
+          label: "Перечень приемочных документов (КС-2, КС-3)"
           type: "string"
           presentation: "fact"
           display_in_grid: false
@@ -4609,6 +4619,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
         - name: "materials_supply_details"
+          label: "Обязанности по поставке материалов и оборудования"
           type: "string"
           presentation: "fact"
           description: "Формулировка о предоставлении материалов и оборудования."
@@ -5203,6 +5214,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "commissioning_details"
+          label: "Сведения о вводе объекта в эксплуатацию"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка о вводе объекта в эксплуатацию."
@@ -5556,6 +5568,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "hidden_works_procedure_details"
+          label: "Порядок освидетельствования скрытых работ"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка о порядке освидетельствования скрытых работ."
@@ -5869,6 +5882,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "environmental_details"
+          label: "Экологические требования и обращение с отходами"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка об экологических обязательствах сторон."
@@ -6209,6 +6223,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "ip_docs_details"
+          label: "Права на проектно-сметную документацию"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка о документации, BIM и правах на них."
@@ -6507,6 +6522,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "sro_details"
+          label: "Требования к членству в СРО"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка о членстве в СРО и допуске."
@@ -6824,6 +6840,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "dispute_resolution_details"
+          label: "Досудебная техническая экспертиза споров"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка о претензионном порядке и экспертизе."
@@ -7166,6 +7183,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "site_safety_details"
+          label: "Охрана труда и безопасность на стройплощадке"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка об охране труда и безопасности работ."
@@ -7400,6 +7418,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "site_security_details"
+          label: "Охрана объекта и стройплощадки"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка об охране и рисках утраты."
@@ -7660,6 +7679,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "site_prep_details"
+          label: "Подготовка стройплощадки и временные сооружения"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка о ВТиС и подготовке площадки."
@@ -7905,6 +7925,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "termination_specifics_details"
+          label: "Последствия расторжения договора и консервации"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка о приостановке и одностороннем отказе."
@@ -8151,6 +8172,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "surveys_and_connections_details"
+          label: "Инженерные изыскания и точки подключения"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка об изысканиях и подключениях."
@@ -8399,6 +8421,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
         - name: "financial_security_details"
+          label: "Сведения о банковской гарантии и обеспечении"
           type: "string"
           presentation: "fact"
           description: "Подробная формулировка о финансовом обеспечении и банковских гарантиях."

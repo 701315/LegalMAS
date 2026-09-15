@@ -585,8 +585,6 @@ compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
-
-
   - id: insurance_subject_extraction
     name: "Базовое извлечение предмета и конструкции страхования"
     description: >
@@ -867,6 +865,8 @@ checks_v8:
       max_snippet_length: 700
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1600
@@ -1049,19 +1049,19 @@ checks_v8:
           display_in_grid: true
           display_priority: 10
         - name: "insured_person"
+          label: "Застрахованное лицо"
           type: "string"
           presentation: "fact"
           description: "Застрахованное лицо (если отличается от страхователя, совпадает с ним или неприменимо)."
           required: true
           display_in_grid: false
         - name: "beneficiary"
+          label: "Выгодоприобретатель"
           type: "string"
           presentation: "fact"
           description: "Выгодоприобретатель по договору страхования."
           required: true
           display_in_grid: false
-    store_payload: true
-
   - id: insured_event_and_exclusions_check
     name: "Страховой случай и исключения из покрытия"
     description: >
@@ -1284,6 +1284,8 @@ checks_v8:
       max_snippet_length: 700
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -1406,8 +1408,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: rules_of_insurance_attachment_check
     name: "Правила страхования: включение в договор и подтверждение вручения"
     description: >
@@ -1625,6 +1625,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -1722,14 +1724,12 @@ checks_v8:
           display_priority: 3
         - name: "rules_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           label: "Цитата о Правилах"
           description: "Краткая цитата из договора о Правилах страхования или отсылка."
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: claim_notification_check
     name: "Уведомление о страховом случае: срок, способ, последствия"
     description: >
@@ -1960,6 +1960,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -2085,8 +2087,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: claims_payment_procedure_check
     name: "Страховая выплата: документы, сроки, основание для отказа"
     description: >
@@ -2324,6 +2324,8 @@ checks_v8:
       max_snippet_length: 650
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -2458,8 +2460,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: insured_person_consent_check
     name: "Личное страхование: согласие застрахованного лица и статус выгодоприобретателя"
     description: >
@@ -2686,6 +2686,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 700
@@ -2794,14 +2796,12 @@ checks_v8:
           display_priority: 3
         - name: "consent_snippet"
           type: "string"
-          presentation: "fact"
+          presentation: "diagnostic"
           label: "Цитата о согласии и выгодоприобретателе"
           description: "Краткая цитата из договора о согласии застрахованного лица и/или назначении выгодоприобретателя."
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: early_termination_and_premium_refund_check
     name: "Досрочное прекращение и возврат страховой премии"
     description: >
@@ -3006,6 +3006,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 650
@@ -3097,8 +3099,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: risk_increase_and_policyholder_duties_check
     name: "Обязанности страхователя в период действия договора (ст. 959, 961 ГК РФ)"
     description: >
@@ -3314,6 +3314,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -3435,8 +3437,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: policyholder_actions_on_event_check
     name: "Действия страхователя при наступлении страхового случая"
     description: >
@@ -3658,6 +3658,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -3791,8 +3793,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 6
-    store_payload: true
-
   - id: territory_and_jurisdiction_check
     name: "Территория страхового покрытия"
     description: >
@@ -3980,6 +3980,8 @@ checks_v8:
       max_snippet_length: 400
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 600
@@ -4067,8 +4069,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: claims_made_vs_occurrence_check
     name: "Базис покрытия: claims-made vs. occurrence"
     description: >
@@ -4293,6 +4293,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 750
@@ -4406,8 +4408,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: insurer_identification_and_license
     name: "Страховщик: идентификация и лицензия"
     description: >
@@ -4604,6 +4604,8 @@ checks_v8:
       max_snippet_length: 400
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 600
@@ -4702,8 +4704,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: premium_and_payment_order
     name: "Страховая премия: размер и порядок уплаты"
     description: >
@@ -4910,6 +4910,8 @@ checks_v8:
       max_snippet_length: 400
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -5017,8 +5019,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: deductible_check
     name: "Франшиза: тип, размер и порядок применения"
     description: >
@@ -5233,6 +5233,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 750
@@ -5343,8 +5345,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: subrogation_check
     name: "Суброгация: право требования и отказ от суброгации (ст. 965 ГК РФ)"
     description: >
@@ -5565,6 +5565,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
@@ -5682,8 +5684,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
   - id: aggregate_limit_check
     name: "Агрегатный лимит ответственности страховщика"
     description: >
@@ -5903,6 +5903,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 750
@@ -6020,10 +6022,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
-    store_payload: true
-
-
-
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

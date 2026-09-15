@@ -10068,6 +10068,8 @@ checks_v8:
       max_snippet_length: 650
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -10158,7 +10160,6 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 3
-    store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES

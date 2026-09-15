@@ -583,7 +583,6 @@ shared_patterns:
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 checks_v8:
-
   - id: parties_identification
     name: "Стороны договора: идентификация экспедитора и клиента"
     description: >
@@ -837,6 +836,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1017,8 +1018,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: forwarding_subject_extraction
     name: "Предмет экспедиции: перечень услуг, характеристики груза, маршрут"
@@ -1308,6 +1307,8 @@ checks_v8:
       max_snippet_length: 800
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1484,8 +1485,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: forwarding_receipt_check
     name: "Экспедиторская расписка: выдача и форма (ст. 2 ФЗ-87)"
@@ -1721,6 +1720,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1846,8 +1847,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: forwarder_instructions_check
     name: "Поручение экспедитору: форма и порядок (Приказ № 23)"
@@ -2080,6 +2079,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2210,8 +2211,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: liability_for_third_parties
     name: "Ответственность экспедитора за третьих лиц (ст. 803, 805 ГК РФ)"
@@ -2504,6 +2503,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2652,8 +2653,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: remuneration_and_expenses_check
     name: "Вознаграждение экспедитора и возмещение расходов (ст. 804 ГК РФ)"
@@ -2936,6 +2935,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3107,8 +3108,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: forwarder_report
     name: "Отчёт экспедитора: форма, сроки, приложения (ст. 804 ГК РФ)"
@@ -3364,6 +3363,8 @@ checks_v8:
       max_snippet_length: 400
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3505,8 +3506,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: report_approval_mechanism
     name: "Утверждение отчёта: молчаливое согласие (ст. 438 ГК РФ)"
@@ -3758,6 +3757,8 @@ checks_v8:
       max_snippet_length: 400
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3885,8 +3886,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: expenses_approval_mechanism
     name: "Предварительное согласование расходов (ст. 804 ГК РФ)"
@@ -4150,6 +4149,8 @@ checks_v8:
       max_snippet_length: 400
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4292,8 +4293,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: expenses_limit
     name: "Лимит расходов экспедитора: последствия превышения"
@@ -4542,6 +4541,8 @@ checks_v8:
       max_snippet_length: 400
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4655,8 +4656,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: cargo_insurance_obligation
     name: "Страхование груза: обязательность и покрытие (ст. 4 ФЗ-87)"
@@ -4910,6 +4909,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5072,8 +5073,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: carrier_selection_approval
     name: "Механизм согласования выбора перевозчика"
@@ -5308,6 +5307,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5448,8 +5449,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: customs_liability_allocation
     name: "Таможенное оформление: распределение ответственности (ТК ЕАЭС)"
@@ -5697,6 +5696,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5853,8 +5854,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: lien_right_on_cargo
     name: "Право удержания груза и порядок реализации (ст. 3 ФЗ-87)"
@@ -6090,6 +6089,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6230,8 +6231,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: unilateral_refusal_penalty
     name: "Односторонний отказ клиента: штраф 10% (ст. 806 ГК РФ, ст. 6 ФЗ-87)"
@@ -6480,6 +6479,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6624,8 +6625,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: liability_limits_and_cargo_value_check
     name: "Лимиты ответственности и объявленная ценность груза (ст. 7 ФЗ-87)"
@@ -6890,6 +6889,8 @@ checks_v8:
       max_snippet_length: 600
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7052,8 +7053,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: delivery_deadline_and_delay_penalty_check
     name: "Срок доставки и ответственность за просрочку (ст. 9 ФЗ-87)"
@@ -7319,6 +7318,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7493,8 +7494,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: forwarder_information_duties_check
     name: "Информационные обязанности экспедитора перед клиентом"
@@ -7741,6 +7740,8 @@ checks_v8:
       max_snippet_length: 500
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7906,8 +7907,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: dangerous_cargo_duties_check
     name: "Опасный груз: обязанности клиента и экспедитора (ДОПОГ/ADR)"
@@ -8179,6 +8178,8 @@ checks_v8:
       max_snippet_length: 550
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8369,8 +8370,6 @@ checks_v8:
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
           display_in_grid: false
-
-    store_payload: true
 
   - id: exclusions_from_liability
     name: "Обстоятельства, освобождающие от ответственности (ст. 803, 401 ГК РФ)"
@@ -8630,6 +8629,8 @@ checks_v8:
       max_snippet_length: 400
 
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8786,14 +8787,6 @@ checks_v8:
           required: true
           display_in_grid: false
 
-    store_payload: true
-
-
-
-
-
-
-
   - id: pretension_order
     name: "Претензионный порядок: сроки и процедура"
     description: >
@@ -8861,6 +8854,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -8873,12 +8868,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Претензионный порядок"
-    store_payload: false
-
-
-
-
-
   - id: limitation_period
     name: "Срок исковой давности — 1 год (ст. 797 ГК РФ)"
     description: >
@@ -8944,6 +8933,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -8956,8 +8947,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Срок исковой давности"
-    store_payload: false
-
   - id: service_period
     name: "Срок оказания услуг"
     description: >
@@ -9025,6 +9014,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -9037,8 +9028,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Срок оказания услуг"
-    store_payload: false
-
   - id: client_documents_provision
     name: "Обязанности клиента по предоставлению документов (ст. 804 ГК РФ)"
     description: >
@@ -9106,6 +9095,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -9118,8 +9109,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Документы клиента"
-    store_payload: false
-
   - id: dispute_resolution
     name: "Подсудность и разрешение споров"
     description: >
@@ -9184,6 +9173,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -9196,8 +9187,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Подсудность"
-    store_payload: false
-
   - id: forwarder_license_sro
     name: "Статус экспедитора: реестр / свидетельство (ст. 2 ФЗ-87)"
     description: >
@@ -9265,6 +9254,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -9277,8 +9268,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Статус экспедитора"
-    store_payload: false
-
   - id: cmr_incoterms_reference
     name: "Международные перевозки: CMR/КДПГ, Инкотермс"
     description: >
@@ -9348,6 +9337,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -9360,8 +9351,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "CMR / Инкотермс"
-    store_payload: false
-
   - id: sla_kpi_terms
     name: "SLA/KPI: показатели качества услуг"
     description: >
@@ -9430,6 +9419,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -9442,8 +9433,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "SLA / KPI"
-    store_payload: false
-
   - id: acceptance_and_delivery_acts
     name: "Акты приёма-передачи груза"
     description: >
@@ -9512,6 +9501,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -9524,8 +9515,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Акты приёма-передачи"
-    store_payload: false
-
   - id: vat_and_tax
     name: "НДС и налоговые оговорки"
     description: >
@@ -9590,6 +9579,8 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
+      store_payload: false
+
       enabled: true
       mode: "rules"
       fields:
@@ -9602,8 +9593,6 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "НДС"
-    store_payload: false
-
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

@@ -538,7 +538,6 @@ compliance_rules: []
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
-
   - id: loan_parties_identification
     name: "Стороны договора: идентификация займодавца и заёмщика"
     description: >
@@ -889,6 +888,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1112,8 +1113,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 6
-    store_payload: true
-
   - id: loan_subject_and_amount
     name: "Предмет и сумма займа"
     description: >
@@ -1395,6 +1394,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1525,8 +1526,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: loan_interest_terms
     name: "Проценты по займу: процентность, ставка, база начисления, периодичность"
     description: >
@@ -1893,6 +1892,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2097,8 +2098,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: loan_repayment_and_transfer
     name: "Срок возврата и способ передачи займа"
     description: >
@@ -2404,6 +2403,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2558,8 +2559,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: transfer_evidence_check
     name: "Подтверждение фактической передачи суммы займа (ст. 808, 812 ГК РФ)"
     description: >
@@ -2942,6 +2941,8 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3126,8 +3127,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: repayment_and_acceleration_check
     name: "Возврат займа: порядок погашения, досрочный возврат, акцелерация и неустойка (ст. 810, 811 ГК РФ)"
     description: >
@@ -3485,6 +3484,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3686,8 +3687,6 @@ checks_v8:
           description: "Способ подтверждения погашения займа (расписка, выписка, акт)."
           required: true
           display_in_grid: false
-    store_payload: true
-
   - id: target_loan_control_check
     name: "Целевой заём: цель, контроль и последствия нарушения (ст. 814 ГК РФ)"
     description: >
@@ -4017,6 +4016,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4186,8 +4187,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: foreign_currency_terms_check
     name: "Валютная оговорка: курс, дата пересчёта, распределение рисков (ст. 140, 317 ГК РФ, 173-ФЗ)"
     description: >
@@ -4574,6 +4573,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -4789,8 +4790,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: related_party_loan_check
     name: "Заём между аффилированными лицами: раскрытие и рыночность (Обзор ВС РФ 29.01.2020, ст. 61.2 127-ФЗ)"
     description: >
@@ -5128,6 +5127,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5316,8 +5317,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: bankruptcy_claw_back_risk_check
     name: "Риск оспаривания займа в банкротстве (ст. 61.2, 61.3 ФЗ-127)"
     description: >
@@ -5599,6 +5598,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -5708,8 +5709,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
-    store_payload: true
-
   - id: convertible_loan_check
     name: "Конвертируемый заём: условия конвертации в долю/акции (ст. 429.3 ГК РФ)"
     description: >
@@ -6043,6 +6042,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6196,8 +6197,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: multiple_tranches_check
     name: "Траншевый заём: лимит, порядок выдачи, револьверность (кредитная линия)"
     description: >
@@ -6522,6 +6521,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -6690,8 +6691,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: secured_loan_terms
     name: "Обеспечение займа: залог, поручительство, задаток, обеспечительный платёж (ст. 334, 361, 380, 381.1 ГК РФ)"
     description: >
@@ -7059,6 +7058,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7243,8 +7244,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
   - id: tax_consequences_disclosure
     name: "Налоговые последствия займа: материальная выгода, НДФЛ, налоговый агент (ст. 212, 226 НК РФ)"
     description: >
@@ -7514,6 +7513,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -7646,8 +7647,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: novation_set_off_terms
     name: "Новация / зачёт: порядок прекращения обязательства по займу (ст. 410, 414 ГК РФ)"
     description: >
@@ -7925,6 +7924,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8053,8 +8054,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: loan_forgiveness_terms
     name: "Прощение долга: условия и последствия (ст. 415, 575 ГК РФ)"
     description: >
@@ -8313,6 +8312,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8449,8 +8450,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: fungible_goods_specification
     name: "Заём вещей: спецификация качества и количества (ст. 807 ГК РФ)"
     description: >
@@ -8712,6 +8711,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -8842,8 +8843,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: on_demand_notice_period
     name: "Заём до востребования: срок возврата после требования (ст. 810 ГК РФ)"
     description: >
@@ -9086,6 +9085,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -9209,8 +9210,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
-    store_payload: true
-
   - id: loan_amendment_and_termination_check
     name: "Изменение и расторжение договора займа: реструктуризация, односторонний отказ (ст. 450–453, 811 ГК РФ)"
     description: >
@@ -9498,6 +9497,8 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
+      store_payload: true
+
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -9644,9 +9645,6 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
-    store_payload: true
-
-
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader
