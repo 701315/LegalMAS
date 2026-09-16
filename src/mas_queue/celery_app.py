@@ -173,6 +173,7 @@ celery_app.conf.update(
         "workers.convert_document_for_language_discovery",
         "workers.outbox_dispatcher",
         "workers.stale_execution_reaper",
+        "workers.stale_run_reaper",
         "workers.pii_sanitizer",
         "workers.relations_worker",
         "workers.run_orchestrator",
@@ -280,6 +281,10 @@ celery_app.conf.update(
             "queue": QUEUE_SYSTEM,
             "routing_key": QUEUE_SYSTEM,
         },
+        "workers.reap_stale_runs": {
+            "queue": QUEUE_SYSTEM,
+            "routing_key": QUEUE_SYSTEM,
+        },
         "workers.run_deal_checks": {
             "queue": QUEUE_DEFAULT,
             "routing_key": QUEUE_DEFAULT,
@@ -325,6 +330,14 @@ celery_app.conf.update(
         "reap-stale-stage-executions-every-10-minutes": {
             "task": "workers.reap_stale_stage_executions",
             "schedule": 600.0,
+            "options": {
+                "queue": QUEUE_SYSTEM,
+                "routing_key": QUEUE_SYSTEM,
+            },
+        },
+        "reap-stale-runs-every-30-minutes": {
+            "task": "workers.reap_stale_runs",
+            "schedule": 1800.0,
             "options": {
                 "queue": QUEUE_SYSTEM,
                 "routing_key": QUEUE_SYSTEM,
