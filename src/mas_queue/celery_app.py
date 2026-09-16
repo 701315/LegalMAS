@@ -32,8 +32,8 @@ visibility_timeout               — должен быть больше макс
 
 from __future__ import annotations
 
-from urllib.parse import urlparse, urlunparse
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 from celery import Celery
 from celery.signals import (
