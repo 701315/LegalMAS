@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Sequence, Union
 import uuid
 from services.llm_usage_recorder import LLMUsageRecorder
+from mas_queue.async_helpers import log_task_exception
 
 from core.config import settings
 from core.logging import get_logger
@@ -635,7 +636,7 @@ class LLMClauseDetector:
                 try:
                     import asyncio  # local import — избегаем циклов на импорте
 
-                    asyncio.create_task(
+                    task = asyncio.create_task(
                         LLMUsageRecorder.record_event_isolated(
                             tenant_id=tenant_id,
                             deal_id=deal_id,
@@ -653,6 +654,7 @@ class LLMClauseDetector:
                             error_type=None,
                         )
                     )
+                    task.add_done_callback(log_task_exception)
                 except Exception as exc:
                     logger.warning(
                         "ClauseDetector: failed to schedule LLM usage record",
