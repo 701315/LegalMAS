@@ -146,9 +146,9 @@ classification_runtime_v1:
         kind: context
         weight: 0.28
 
-      - pattern: "(?i)\\bproperty\\b"
-        kind: context
-        weight: 0.30
+      - pattern: "(?i)\\breal[\\s_.-]*property\\b"
+        kind: specific_subject
+        weight: 0.90
 
       - pattern: "(?i)execution[\\s_-]*version"
         kind: context

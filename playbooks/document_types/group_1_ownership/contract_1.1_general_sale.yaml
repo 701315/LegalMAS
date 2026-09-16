@@ -331,7 +331,11 @@ classification_runtime_v1:
       - pattern: "(?i)\\bнедвижимост[ьи]\\b|\\bнедвижим(?:ое|ого|ому|ым|ом|ая|ой|ую)\\s+имуществ(?:о|а|у|ом|е)\\b"
         severity: hard
         weight: -1.0
-        description: "Недвижимость / недвижимое имущество — специальный класс 1.6"
+        description: "Недвижимость — специальный класс 1.6"
+      - pattern: "(?i)\\breal[\\s_.-]*estate\\b|\\breal[\\s_.-]*property\\b"
+        severity: hard
+        weight: -1.0
+        description: "Real estate / real property — специальный класс 1.6"
       - pattern: "(?i)\\bквартир[аеиу]\\b"
         severity: hard
         weight: -1.0

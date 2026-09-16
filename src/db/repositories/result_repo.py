@@ -83,6 +83,33 @@ def is_permanent_db_error(err: DBAPIError) -> bool:
     return False
 
 
+def _safe_truncate(value: str | None, max_len: int, field_name: str, check_id: str) -> str | None:
+    """
+    Безопасно усечь строку до max_len символов для защиты от
+    StringDataRightTruncationError (VARCHAR overflow).
+
+    Hot-fix до выполнения миграции БД, расширяющей колонки до VARCHAR(50).
+    Логирует предупреждение при каждом усечении для отслеживания.
+    """
+    if value is None:
+        return None
+    if len(value) <= max_len:
+        return value
+    truncated = value[:max_len]
+    logger.warning(
+        "ResultRepository: truncating field to fit DB column",
+        extra={
+            "field": field_name,
+            "original_len": len(value),
+            "max_len": max_len,
+            "original": value,
+            "truncated": truncated,
+            "check_id": check_id,
+        },
+    )
+    return truncated
+
+
 # ── Canonical display semantics block для dict output ────────────────────────
 # Вынесен как helper чтобы не дублировать в трёх местах.
 
@@ -173,6 +200,10 @@ class ResultRepository:
         # Получаем язык анализа из запущенного рана
         run_stmt = select(Run.analysis_language).where(Run.id == run_id)
         run_lang = (await self.session.execute(run_stmt)).scalar_one_or_none()
+
+        # ── APPLICATION-LEVEL SAFEGUARD (Hot-Fix for VARCHAR(20) overflow) ──
+        result = _safe_truncate(result, 20, "result", check_id) or result
+        severity = _safe_truncate(severity, 20, "severity", check_id) or severity
 
         cr = CheckResult(
             run_id=run_id,
@@ -690,6 +721,12 @@ class ResultRepository:
         run_stmt = select(Run.analysis_language).where(Run.id == run_id)
         run_lang = (await self.session.execute(run_stmt)).scalar_one_or_none()
 
+        # ── APPLICATION-LEVEL SAFEGUARD (Hot-Fix for VARCHAR(20) overflow) ──
+        # Усекаем result и severity до 20 символов для совместимости с текущей
+        # схемой БД. После миграции ALTER COLUMN → VARCHAR(50) эта защита станет
+        # no-op (значения уже будут влезать), и её можно будет убрать.
+        result = _safe_truncate(result, 20, "result", check_id) or result
+        severity = _safe_truncate(severity, 20, "severity", check_id) or severity
 
         now = datetime.now(UTC)
 

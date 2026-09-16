@@ -1,7 +1,5 @@
 # src/classifiers/stage8/_priority_rules.py
 
-# src/classifiers/stage8/_priority_rules.py
-
 """
 Специальные правила приоритета ДО голосования.
 
@@ -163,6 +161,30 @@ class PriorityRulesEvaluator:
                 scoring.get("ambiguity_margin", global_l2_ambiguity_margin)
             )
 
+        # ── Фиксация противоречия L2 vs L3 до возможных досрочных выходов ──
+        # Universal Invariant: противоречие фиксируется только при значимом сигнале L3.
+        # L3 с confidence < 0.20 и raw_similarity < 0.65 — статистический шум,
+        # а не реальное семантическое противоречие с L2.
+        l3_min_conflict_conf = 0.20
+        l3_min_conflict_raw_sim = 0.65
+        l3_has_meaningful_signal = (
+            l3_conf >= l3_min_conflict_conf
+            or l3_raw_sim >= l3_min_conflict_raw_sim
+        )
+        l3_conflict = bool(
+            top_l3 and l3_type != l2_type and l3_has_meaningful_signal
+        )
+        if l3_conflict:
+            details["contradiction_detected"] = True
+            details["contradiction_summary"] = {
+                "l2_type": l2_type,
+                "l2_conf": l2_conf,
+                "l3_type": l3_type,
+                "l3_conf": l3_conf,
+                "l3_raw_similarity": l3_raw_sim,
+                "mode": "l2_vs_l3_conflict",
+            }
+
         if l2_conf < strong_l2:
             return None
 
@@ -258,21 +280,16 @@ class PriorityRulesEvaluator:
             return None
 
         # 1B: сильный семантический конфликт L3 при слабом lexical L2
-        l3_conflict = bool(top_l3 and l3_type != l2_type)
+        # ВАЖНО: используем l3_conflict, уже вычисленную выше с фильтром
+        # l3_has_meaningful_signal. НЕ пересчитываем, чтобы не отменить
+        # защиту от ложных противоречий на шуме L3.
         l3_semantic_strong = l3_conflict and (l3_raw_sim >= l3_strong_conflict_raw)
 
         if l3_conflict:
-            details["contradiction_detected"] = True
-            details["contradiction_summary"] = {
-                "l2_type": l2_type,
-                "l2_conf": l2_conf,
-                "l3_type": l3_type,
-                "l3_conf": l3_conf,
-                "l3_raw_similarity": l3_raw_sim,
-                "mode": "l2_vs_l3_conflict",
-            }
+            # contradiction_detected и contradiction_summary уже записаны
+            # в начале метода (блок фиксации L2 vs L3). Здесь только логируем.
             logger.info(
-                "L2_STRONG_WINS: conflict detected with L3",
+                "L2_STRONG_WINS: meaningful conflict detected with L3",
                 extra={
                     "doc_id": doc_id,
                     "l2_type": l2_type,

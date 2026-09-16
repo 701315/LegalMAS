@@ -55,13 +55,13 @@ class CheckResult(Base):
     )
 
     result: Mapped[str] = mapped_column(
-        String(20),
+        String(50),
         nullable=False,
-        comment="fail, pass, unclear",
+        comment="fail, pass, unclear, missing_required_clause, etc.",
     )
 
     severity: Mapped[str] = mapped_column(
-        String(20),
+        String(50),
         nullable=False,
         comment="critical, high, medium, pass, unclear",
     )

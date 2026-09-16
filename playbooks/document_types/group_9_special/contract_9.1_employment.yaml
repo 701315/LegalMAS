@@ -177,26 +177,41 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "Трудовой контракт как форма трудового договора"
-        - pattern: "(?i)работник[ауы]"
-          weight: 0.85
+        - pattern: "(?i)именуем[а-я]+\\s+в\\s+дальнейшем\\s+[«\"']?\\s*работник"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Работник как сторона в преамбуле"
+        - pattern: "(?i)именуем[а-я]+\\s+в\\s+дальнейшем\\s+[«\"']?\\s*работодатель"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Работодатель как сторона в преамбуле"
+        - pattern: "(?i)именуем[а-я]+\\s+в\\s+дальнейшем\\s+[«\"']?\\s*работник"
+          weight: 0.70
           distinctiveness: high
           context: any
-          description: "Работник как сторона трудового договора"
-        - pattern: "(?i)работодател[ьяеи]"
-          weight: 0.85
+          description: "Работник как сторона (fallback в теле)"
+        - pattern: "(?i)именуем[а-я]+\\s+в\\s+дальнейшем\\s+[«\"']?\\s*работодатель"
+          weight: 0.70
           distinctiveness: high
           context: any
-          description: "Работодатель как сторона трудового договора"
+          description: "Работодатель как сторона (fallback в теле)"
+        - pattern: "(?i)работник\\s+(?:обязуется\\s+лично|принимается\\s+на\\s+работу)"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Личное обязательство выполнения функции работником"
+        - pattern: "(?i)принят[а-я]*\\s+на\\s+должност[ьью]"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Приём на должность в штат"
         - pattern: "(?i)трудов[аяое]\\s+функц[ияи]"
           weight: 0.9
           distinctiveness: high
           context: any
           description: "Трудовая функция — признак трудовых отношений"
-        - pattern: "(?i)должност[ьью]"
-          weight: 0.85
-          distinctiveness: high
-          context: any
-          description: "Должность в штатной структуре работодателя"
         - pattern: "(?i)заработн[аяое]\\s+плат[ауы]"
           weight: 0.9
           distinctiveness: high
@@ -212,11 +227,11 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Подчинение правилам внутреннего трудового распорядка"
-        - pattern: "(?i)подчинен[иеия]"
-          weight: 0.85
+        - pattern: "(?i)подчинен[иеия]\\s+правил[аам]\\s+внутренн[егоей]"
+          weight: 0.90
           distinctiveness: high
           context: any
-          description: "Подчинение работника работодателю по процессу труда"
+          description: "Подчинение ПВТР — специфично для трудовых отношений"
         - pattern: "(?i)личн[оеая]\\s+выполнен[иеия]\\s+трудов[ойой\\s]*функц[иии]"
           weight: 0.95
           distinctiveness: high
@@ -234,6 +249,16 @@ classification_runtime_v1:
           description: "Статья ТК РФ о содержании трудового договора"
 
       medium:
+        - pattern: "(?i)\\bработник[ауы]\\b"
+          weight: 0.40
+          distinctiveness: medium
+          context: any
+          description: "Одиночное упоминание работника в теле B2B-договора"
+        - pattern: "(?i)\\bработодател[ьяеи]\\b"
+          weight: 0.45
+          distinctiveness: medium
+          context: any
+          description: "Одиночное упоминание работодателя"
         - pattern: "(?i)должностн[а-яё]+\\s+инструкци[яяи]"
           weight: 0.65
           distinctiveness: medium
@@ -291,6 +316,16 @@ classification_runtime_v1:
           description: "Специальная оценка условий труда (СОУТ)"
 
       low:
+        - pattern: "(?i)\\bдолжност[ьью]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Слово 'должность' без контекста (реквизиты, подписанты)"
+        - pattern: "(?i)\\bподчинен[иеия]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Слово 'подчинение' в теле документа"
         - pattern: "(?i)коллективн[ыо]й\\s+договор"
           weight: 0.35
           distinctiveness: low
@@ -344,6 +379,22 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "Агентский договор — посреднический ГПХ, а не трудовой"
+      - pattern: "(?i)перевозчик[а-я]*"
+        severity: soft
+        weight: -0.35
+        description: "Перевозчик как сторона договора указывает на логистический договор"
+      - pattern: "(?i)экспедитор[а-я]*"
+        severity: soft
+        weight: -0.35
+        description: "Экспедитор указывает на договор транспортной экспедиции"
+      - pattern: "(?i)заказчик[а-я]*"
+        severity: soft
+        weight: -0.20
+        description: "Заказчик указывает на гражданско-правовой договор услуг/подряда"
+      - pattern: "(?i)подрядчик[а-я]*"
+        severity: soft
+        weight: -0.25
+        description: "Подрядчик указывает на договор подряда"
       - pattern: "(?i)договор\\s+о\\s+прохождени[ии]\\s+практик[ии]"
         severity: soft
         weight: -0.35

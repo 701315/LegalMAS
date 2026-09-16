@@ -223,6 +223,40 @@ class CascadeSteps:
                     }
                 )
 
+                l2_runner_up = l2_extra.get("runner_up")
+                if (
+                    isinstance(l2_runner_up, dict)
+                    and l2_runner_up.get("type_code")
+                    and l2_runner_up.get("type_code") != "UNKNOWN"
+                    and l2_runner_up.get("type_code") != l2_result.doctype
+                ):
+                    runner_conf = float(l2_runner_up.get("confidence", 0.0))
+                    if runner_conf > 0.35:
+                        candidates.append(
+                            {
+                                "type_code": l2_runner_up["type_code"],
+                                "confidence": runner_conf,
+                                "level": "L2",
+                                "method": "header_pattern",
+                                "signal_quality": float(l2_extra.get("signal_quality", 1.0)),
+                                "signal_quality_in_confidence": True,
+                                "negative_hits": 0,
+                                "soft_negative_hits": 0,
+                                "hard_negative_hits": 0,
+                                "ambiguity_penalty": 0.0,
+                                "input_quality": float(l2_extra.get("input_quality", 1.0)),
+                                "is_runner_up_hypothesis": True,
+                            }
+                        )
+                        logger.debug(
+                            "Hybrid L2 runner-up added to candidates",
+                            extra={
+                                "doc_id": doc_id,
+                                "runner_up_type": l2_runner_up["type_code"],
+                                "runner_up_conf": runner_conf,
+                            },
+                        )
+
                 details["L2_top"] = {
                     "type": l2_result.doctype,
                     "confidence": float(l2_result.confidence),
@@ -342,7 +376,18 @@ class CascadeSteps:
             l3_min_margin = float(
                 getattr(settings, "CLASSIFICATION_L3_MIN_MARGIN", 0.05)
             )
-            l3_noise_suppressed = l3_margin < l3_min_margin
+            l3_pos_sim = float(l3_extra.get("positive_similarity", 0.0))
+            l3_strong_pos = float(
+                getattr(settings, "CLASSIFICATION_L3_STRONG_POS_SIM", 0.65)
+            )
+
+            # ── Адаптивный порог шума (Universal Invariant) ─────────────
+            # Если абсолютное сходство с прототипом высокое (>= 0.65), документ
+            # семантически близок к теме. Конкуренция с близким runner-up подлежит
+            # разрешению в L4 Gate, а не полному выбрасыванию сигнала из voting.
+            l3_noise_suppressed = (
+                l3_margin < l3_min_margin and l3_pos_sim < l3_strong_pos
+            )
 
             if l3_noise_suppressed:
                 logger.info(

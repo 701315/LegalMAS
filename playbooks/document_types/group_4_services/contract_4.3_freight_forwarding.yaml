@@ -269,6 +269,16 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Каноническая формулировка ст. 801 ГК РФ, определяющая договор транспортной экспедиции"
+        - pattern: "(?i)договор(?:[\\s\\n\\r]+оказания[\\s\\n\\r]+услуг)?[\\s\\n\\r]+по[\\s\\n\\r]+организац[ияи][\\s\\n\\r]+перевоз[ока-я]*"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Договор оказания услуг по организации перевозок (экспедиция по ст. 801 ГК РФ)"
+        - pattern: "(?i)организац[ияи][\\s\\n\\r]+международн[а-я]*[\\s\\n\\r]+перевоз[ока-я]*"
+          weight: 0.90
+          distinctiveness: high
+          context: any
+          description: "Организация международных перевозок"
 
       medium:
         - pattern: "(?i)транспортно-?экспедиционн[ыо]е\\s+услуг[ии]"
@@ -349,12 +359,12 @@ classification_runtime_v1:
           description: "Консолидация грузов"
     exclusions:
       - pattern: "(?i)договор\\s+перевозк[иы]\\s+груз[аов]"
-        severity: hard
-        weight: -1.0
+        severity: soft
+        weight: -0.25
         description: "Прямой договор перевозки груза (глава 40 ГК РФ)"
       - pattern: "(?i)транспортн[а-яё]+\\s+накладн[аяые]"
-        severity: hard
-        weight: -1.0
+        severity: soft
+        weight: -0.25
         description: "Транспортная накладная — документ перевозки"
       - pattern: "(?i)коносамент[а-я]*"
         severity: hard
