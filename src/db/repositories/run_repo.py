@@ -403,6 +403,26 @@ class RunRepository:
         )
 
 
+    async def list_stale_running_runs(
+        self,
+        cutoff: datetime,
+    ) -> list[Run]:
+        """
+        Вернуть runs в статусе 'running', начатые раньше cutoff.
+
+        Используется reap_stale_runs для обнаружения зависших runs.
+        """
+        stmt = (
+            select(Run)
+            .where(
+                Run.status == RunStatus.RUNNING.value,
+                Run.started_at < cutoff,
+            )
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+
     async def mark_run_failed(
         self,
         run_id: uuid.UUID,
