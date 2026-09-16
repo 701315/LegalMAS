@@ -639,14 +639,21 @@ def _classify_unit_type_with_llm(
             },
         )
         
-        # Записать в LLM usage ledger (best-effort, без блокировки)
+        # Записать в LLM usage ledger (best-effort, без блокировки).
+        #
+        # ВАЖНО: _classify_unit_type_with_llm — sync-функция, но вызывается
+        # внутри running event loop (structure_builder.py: run_async(_wrapper())).
+        # Поэтому используем asyncio.create_task(), который сам вызывает
+        # get_running_loop() и планирует корутину в текущем loop.
+        #
+        # asyncio.get_event_loop() здесь НЕ подходит: он deprecated с Python 3.10
+        # и в 3.12 может бросить RuntimeError при отсутствии running loop.
         if session and tenant_id and deal_id and run_id:
             try:
+                import asyncio  # local import — избегаем циклов на импорте
+
                 recorder = LLMUsageRecorder(session)
-                # Создаём task для асинхронной записи (не блокируем основной поток)
-                import asyncio
-                loop = asyncio.get_event_loop()
-                loop.create_task(
+                asyncio.create_task(
                     recorder.record_event(
                         tenant_id=uuid.UUID(tenant_id) if isinstance(tenant_id, str) else tenant_id,
                         deal_id=uuid.UUID(deal_id) if isinstance(deal_id, str) else deal_id,
