@@ -56,6 +56,7 @@ from engine.content.clause_tree_builder import ClauseTreeBuilder
 # LLM fallback imports (lazy — после основных импортов)
 from engine.llm.client import LLMClient
 from engine.prompts.loader import load_prompt as _load_prompt
+from mas_queue.async_helpers import log_task_exception
 from services.llm_usage_recorder import (
     LLMUsageRecorder,
     STAGE_STRUCTURE_LEGAL_UNIT_CLASSIFICATION,
@@ -535,7 +536,6 @@ def _classify_unit_type_with_llm(
     tenant_id: str | None = None,
     deal_id: str | None = None,
     run_id: str | None = None,
-    session: Any = None,
 ) -> tuple[LegalUnitType, float, str, dict | None]:
     """
     LLM fallback для классификации LegalUnit когда rule-based не сработал.
@@ -641,20 +641,20 @@ def _classify_unit_type_with_llm(
         
         # Записать в LLM usage ledger (best-effort, без блокировки).
         #
-        # ВАЖНО: _classify_unit_type_with_llm — sync-функция, но вызывается
-        # внутри running event loop (structure_builder.py: run_async(_wrapper())).
-        # Поэтому используем asyncio.create_task(), который сам вызывает
-        # get_running_loop() и планирует корутину в текущем loop.
+        # Используем record_event_isolated (classmethod), который сам создаёт
+        # изолированную транзакцию через transactional_session(). Это НЕ требует
+        # внешней session — только tenant_id/deal_id/run_id.
         #
-        # asyncio.get_event_loop() здесь НЕ подходит: он deprecated с Python 3.10
-        # и в 3.12 может бросить RuntimeError при отсутствии running loop.
-        if session and tenant_id and deal_id and run_id:
+        # _classify_unit_type_with_llm — sync-функция, но вызывается внутри
+        # running event loop (structure_builder.py: run_async(_wrapper())).
+        # Поэтому используем asyncio.create_task() для планирования корутины
+        # в текущем loop. add_done_callback логирует ошибки фоновой задачи.
+        if tenant_id and deal_id and run_id:
             try:
                 import asyncio  # local import — избегаем циклов на импорте
 
-                recorder = LLMUsageRecorder(session)
-                asyncio.create_task(
-                    recorder.record_event(
+                task = asyncio.create_task(
+                    LLMUsageRecorder.record_event_isolated(
                         tenant_id=uuid.UUID(tenant_id) if isinstance(tenant_id, str) else tenant_id,
                         deal_id=uuid.UUID(deal_id) if isinstance(deal_id, str) else deal_id,
                         document_id=uuid.UUID(document_id) if isinstance(document_id, str) else uuid.UUID(document_id),
@@ -670,6 +670,7 @@ def _classify_unit_type_with_llm(
                         request_uid=f"legal_unit_class:{run_id}:{document_id}:{title[:30]}",
                     )
                 )
+                task.add_done_callback(log_task_exception)
             except Exception as exc:
                 logger.warning(
                     "LegalUnit LLM usage recording failed",
@@ -761,7 +762,6 @@ def _classify_unit_type(
     run_id: str | None = None,
     level: int = 1,
     ancestor_titles: list[str] | None = None,
-    session: Any = None,
 ) -> tuple[LegalUnitType, dict | None]:
 
     if is_technical_fallback:
@@ -834,7 +834,6 @@ def _classify_unit_type(
             tenant_id=tenant_id,
             deal_id=deal_id,
             run_id=run_id,
-            session=session,
         )
         
         if unit_type_llm != LegalUnitType.UNKNOWN and confidence >= 0.6:
@@ -1565,7 +1564,6 @@ class LegalUnitBuilder:
                 run_id=run_id,
                 level=level,
                 ancestor_titles=current_ancestor_titles,
-                session=None,  # Session передаётся из build_from_clause_tree если нужно
             )
             clause_function = _classify_clause_function(
                 title=semantic_title or title,
