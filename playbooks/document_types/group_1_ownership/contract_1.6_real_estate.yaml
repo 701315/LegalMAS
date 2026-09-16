@@ -433,6 +433,26 @@ classification_runtime_v1:
           description: "Помещение — встречается в аренде, подряде, услугах"
 
     exclusions:
+      - pattern: "(?i)\\bдвижим(?:ое|ого|ому|ым|ом|ая|ой|ую)\\s+имуществ(?:о|а|у|ом|е)\\b"
+        severity: hard
+        weight: -1.0
+        description: "Прямое указание на движимое имущество исключает недвижимость"
+
+      - pattern: "(?i)\\b(?:personal|movable|tangible)\\s+property\\b"
+        severity: hard
+        weight: -1.0
+        description: "Personal/movable/tangible property — движимое имущество (англ.)"
+
+      - pattern: "(?i)\\bchattels?\\b"
+        severity: hard
+        weight: -1.0
+        description: "Chattel — движимое имущество в common law"
+
+      - pattern: "(?i)(?:Имущество|имущество|Предмет|предмет)[\\s\\S]{0,200}означает[\\s\\S]{0,200}\\bдвижим"
+        severity: hard
+        weight: -1.0
+        description: "Определение предмета договора как движимого имущества"
+
       - pattern: "(?i)договор[\\s\\n\\r]+аренд[ыа]\\s+недвижимост[иьи]"
         severity: hard
         weight: -1.0
