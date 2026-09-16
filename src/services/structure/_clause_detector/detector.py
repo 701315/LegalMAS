@@ -17,26 +17,27 @@ LLMClauseDetector — определение пунктов в главах до
 from __future__ import annotations
 
 import re
+import uuid
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Sequence, Union
-import uuid
-from services.llm_usage_recorder import LLMUsageRecorder
-from mas_queue.async_helpers import log_task_exception
+from typing import Any
 
 from core.config import settings
 from core.logging import get_logger
 from engine.llm.client import LLMClient
-from ops.metrics import METRICS
+from mas_queue.async_helpers import log_task_exception
+from services.llm_usage_recorder import LLMUsageRecorder
+from services.structure._clause_detector.routing import global_routing_pass
 from services.structure._models._nodes import (
     FrozenHierarchyNode,
     MutableHierarchyNode,
     refreeze_forest,
     unfreeze_forest,
 )
+
 from .parser import DetectedClause, extract_clauses_fallback, parse_llm_response
-from services.structure._clause_detector.routing import global_routing_pass
 
 logger = get_logger(__name__)
 
@@ -49,7 +50,7 @@ _MAX_TEXT_LEN: int = int(
     or int(getattr(settings, "LLM_CONTEXT_LIMIT", 16384) * 0.4)
 )
 
-NodeType = Union[MutableHierarchyNode, FrozenHierarchyNode]
+NodeType = MutableHierarchyNode | FrozenHierarchyNode
 
 # ---------------------------------------------------------------------------
 # Граница приложений (Appendix Boundary Detection)
@@ -194,7 +195,7 @@ def _find_best_parent_layout_aware(
         b_uid = (best_parent.raw_uid or "").strip()
         b_parts = _split_uid_to_parts(b_uid)
         b_title = (best_parent.title or "").strip()
-        
+
         if len(b_parts) >= 3 and not b_title.endswith(":"):
             p_uid = _compute_parent_uid_str(b_uid)
             if p_uid:
@@ -210,7 +211,7 @@ def _recompute_page_ranges(
     elem_map: dict[str, dict[str, Any]],
 ) -> tuple[int, int]:
     pages: list[int] = []
-    
+
     for eid in node.own_element_ids or []:
         el = elem_map.get(str(eid))
         if el and el.get("page") is not None:
@@ -218,15 +219,15 @@ def _recompute_page_ranges(
                 pages.append(int(el["page"]))
             except Exception:
                 pass
-                
+
     for child in node.children or []:
         c_start, c_end = _recompute_page_ranges(child, elem_map)
         pages.extend([c_start, c_end])
-        
+
     if pages:
         node.start_page = min(pages)
         node.end_page = max(pages)
-        
+
     return node.start_page, node.end_page
 
 
@@ -527,10 +528,10 @@ class LLMClauseDetector:
         elements: list[dict[str, Any]],
         elem_map: dict[str, dict[str, Any]] | None = None,
         owned_element_ids: set[str] | None = None,
-        tenant_id: Optional[uuid.UUID] = None,
-        deal_id: Optional[uuid.UUID] = None,
-        document_id: Optional[uuid.UUID] = None,
-        run_id: Optional[uuid.UUID] = None,
+        tenant_id: uuid.UUID | None = None,
+        deal_id: uuid.UUID | None = None,
+        document_id: uuid.UUID | None = None,
+        run_id: uuid.UUID | None = None,
     ) -> tuple[list[DetectedClause], str]:
         text = _extract_chapter_text(
             chapter_node, all_roots, elements, elem_map, owned_element_ids
@@ -588,11 +589,11 @@ class LLMClauseDetector:
     def _call_llm(
         self,
         prompt: str,
-        tenant_id: Optional[uuid.UUID] = None,
-        deal_id: Optional[uuid.UUID] = None,
-        document_id: Optional[uuid.UUID] = None,
-        run_id: Optional[uuid.UUID] = None,
-    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        tenant_id: uuid.UUID | None = None,
+        deal_id: uuid.UUID | None = None,
+        document_id: uuid.UUID | None = None,
+        run_id: uuid.UUID | None = None,
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """
         Вызывает LLM и возвращает (text, telemetry_dict).
 
@@ -674,10 +675,10 @@ class LLMClauseDetector:
         self,
         root_nodes: Sequence[NodeType],
         elements: list[dict[str, Any]],
-        tenant_id: Optional[uuid.UUID] = None,
-        deal_id: Optional[uuid.UUID] = None,
-        document_id: Optional[uuid.UUID] = None,
-        run_id: Optional[uuid.UUID] = None,
+        tenant_id: uuid.UUID | None = None,
+        deal_id: uuid.UUID | None = None,
+        document_id: uuid.UUID | None = None,
+        run_id: uuid.UUID | None = None,
     ) -> ClauseRefineResult:
         import time as _time
 
@@ -735,7 +736,7 @@ class LLMClauseDetector:
 
             existing_descendants = _flatten_subtree(node)
             existing_uids_in_subtree = {d.effective_uid for d in existing_descendants}
-            
+
             new_candidates: list[MutableHierarchyNode] = []
 
             for clause, elem_ids in matched:
@@ -786,7 +787,7 @@ class LLMClauseDetector:
                     global_existing_uids.add(child_uid)
                     owned_element_ids.update(elem_ids)
                     total_added += 1
-                except Exception as e:
+                except Exception:
                     total_construction_failed += 1
 
             if not new_candidates and not existing_descendants:
@@ -815,7 +816,7 @@ class LLMClauseDetector:
             all_descendants = _flatten_subtree(node)
             if not all_descendants:
                 continue
-                
+
             parent_map: dict[str, list[MutableHierarchyNode]] = defaultdict(list)
             for cand in all_descendants:
                 parent = _find_best_parent_layout_aware(

@@ -1,7 +1,5 @@
 # src/services/structure/legal_unit_builder.py
 
-# src/services/structure/legal_unit_builder.py
-
 """
 LegalUnitBuilder — построение semantic layer LegalUnit поверх clause tree.
 
@@ -41,16 +39,7 @@ import re
 import uuid
 from typing import Any
 
-from services.structure.legal_unit_extractor import LegalUnitExtractor
 from core.logging import get_logger
-from services.structure.legal_unit_models import (
-    CitabilityMetrics,
-    ClauseFunction,
-    CrossRefStub,
-    LegalUnit,
-    LegalUnitsSnapshot,
-    LegalUnitType,
-)
 from engine.content.clause_tree_builder import ClauseTreeBuilder
 
 # LLM fallback imports (lazy — после основных импортов)
@@ -58,8 +47,17 @@ from engine.llm.client import LLMClient
 from engine.prompts.loader import load_prompt as _load_prompt
 from mas_queue.async_helpers import log_task_exception
 from services.llm_usage_recorder import (
-    LLMUsageRecorder,
     STAGE_STRUCTURE_LEGAL_UNIT_CLASSIFICATION,
+    LLMUsageRecorder,
+)
+from services.structure.legal_unit_extractor import LegalUnitExtractor
+from services.structure.legal_unit_models import (
+    CitabilityMetrics,
+    ClauseFunction,
+    CrossRefStub,
+    LegalUnit,
+    LegalUnitsSnapshot,
+    LegalUnitType,
 )
 
 logger = get_logger(__name__)
@@ -75,7 +73,7 @@ _LLM_AVAILABLE = LLMClient().is_available()
 def _pat(ru: str, en: str) -> re.Pattern:
     """
     Собирает единый скомпилированный паттерн из RU- и EN-альтернатив.
-    
+
     Преимущества:
     - Явное разделение языковых групп (легче поддерживать)
     - Единый флаг re.IGNORECASE | re.UNICODE для всех паттернов
@@ -539,20 +537,20 @@ def _classify_unit_type_with_llm(
 ) -> tuple[LegalUnitType, float, str, dict | None]:
     """
     LLM fallback для классификации LegalUnit когда rule-based не сработал.
-    
+
     Использует промт из prompts/classification/legal_unit_type_classification_v1.txt
-    
+
     Returns:
         (unit_type, confidence, model_used, tokens_info)
         tokens_info: dict с prompt_tokens, completion_tokens, total_tokens или None
     """
     if not _LLM_AVAILABLE:
         return LegalUnitType.UNKNOWN, 0.0, "none", None
-    
+
     try:
         # Формируем контекст предков
         ancestor_titles_str = "\n".join(ancestor_titles[:3]) if ancestor_titles else "без контекста"
-        
+
         # Загружаем промт из файла
         # load_prompt принимает dict variables вторым аргументом
         prompt_template = _load_prompt(
@@ -564,9 +562,9 @@ def _classify_unit_type_with_llm(
                 "ancestor_titles": ancestor_titles_str,
             }
         )
-        
+
         llm = LLMClient()
-        
+
         # Вызов LLM с retry
         response, error_details = llm.call_with_retries(
             prompt=prompt_template,
@@ -574,7 +572,7 @@ def _classify_unit_type_with_llm(
             max_tokens=250,
             response_format="json_object",  # Требовать JSON
         )
-        
+
         if response is None or not response.text:
             logger.warning(
                 "LegalUnit LLM classification returned empty response",
@@ -584,13 +582,12 @@ def _classify_unit_type_with_llm(
                 },
             )
             return LegalUnitType.UNKNOWN, 0.0, "empty_response", None
-        
+
         # Парсим JSON ответ
-        import json
         from engine.llm.client import _extract_json
-        
+
         json_data = _extract_json(response.text)
-        
+
         if not json_data:
             logger.warning(
                 "LegalUnit LLM classification failed to parse JSON",
@@ -600,15 +597,15 @@ def _classify_unit_type_with_llm(
                 },
             )
             return LegalUnitType.UNKNOWN, 0.0, "parse_error", None
-        
+
         unit_type_str = json_data.get("unit_type", "unknown").upper().strip()
         confidence = float(json_data.get("confidence", 0.5))
         reason = json_data.get("reason", "")
-        
+
         # Валидация confidence
         if not (0.0 <= confidence <= 1.0):
             confidence = 0.5
-        
+
         # Маппинг строки в enum
         try:
             unit_type = LegalUnitType[unit_type_str]
@@ -621,7 +618,7 @@ def _classify_unit_type_with_llm(
                 },
             )
             unit_type = LegalUnitType.UNKNOWN
-        
+
         # Логирование успеха
         logger.info(
             "LegalUnit LLM classification succeeded",
@@ -638,7 +635,7 @@ def _classify_unit_type_with_llm(
                 "total_tokens": response.tokens_used,
             },
         )
-        
+
         # Записать в LLM usage ledger (best-effort, без блокировки).
         #
         # Используем record_event_isolated (classmethod), который сам создаёт
@@ -680,13 +677,13 @@ def _classify_unit_type_with_llm(
                         "error_type": type(exc).__name__,
                     },
                 )
-        
+
         return unit_type, confidence, response.model, {
             "prompt_tokens": response.prompt_tokens,
             "completion_tokens": response.completion_tokens,
             "total_tokens": response.tokens_used,
         }
-        
+
     except Exception as e:
         logger.warning(
             "LegalUnit LLM classification failed, falling back to UNKNOWN",
@@ -835,7 +832,7 @@ def _classify_unit_type(
             deal_id=deal_id,
             run_id=run_id,
         )
-        
+
         if unit_type_llm != LegalUnitType.UNKNOWN and confidence >= 0.6:
             logger.info(
                 "LegalUnit classified by LLM fallback",

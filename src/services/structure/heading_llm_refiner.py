@@ -46,14 +46,15 @@ LLM-рефайнер для спорных кандидатов заголовк
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple, Literal
-import uuid
 import time
-from services.llm_usage_recorder import LLMUsageRecorder
-from mas_queue.async_helpers import log_task_exception
+import uuid
+from dataclasses import dataclass
+from typing import Any, Literal
+
 from core.config import settings
 from core.logging import get_logger
+from mas_queue.async_helpers import log_task_exception
+from services.llm_usage_recorder import LLMUsageRecorder
 
 logger = get_logger(__name__)
 
@@ -190,11 +191,11 @@ def _resolve_llm_endpoint_and_model() -> tuple[str | None, str | None]:
 
 def _call_local_llm(
     prompt: str,
-    tenant_id: Optional[uuid.UUID] = None,
-    deal_id: Optional[uuid.UUID] = None,
-    document_id: Optional[uuid.UUID] = None,
-    run_id: Optional[uuid.UUID] = None,
-) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    tenant_id: uuid.UUID | None = None,
+    deal_id: uuid.UUID | None = None,
+    document_id: uuid.UUID | None = None,
+    run_id: uuid.UUID | None = None,
+) -> tuple[str | None, dict[str, Any] | None]:
     """
     Вызов локальной LLM через единый LLMClient.
     Возвращает: (text, telemetry_dict)
@@ -317,9 +318,9 @@ def refine_ambiguous_candidates(
     document_id: str,
     min_confidence: float = 0.75,
     max_candidates: int = 12,
-    tenant_id: Optional[uuid.UUID] = None,
-    deal_id: Optional[uuid.UUID] = None,
-    run_id: Optional[uuid.UUID] = None,
+    tenant_id: uuid.UUID | None = None,
+    deal_id: uuid.UUID | None = None,
+    run_id: uuid.UUID | None = None,
 ) -> list[ScoredHeadingCandidate]:
     """
     Прогнать ambiguous-кандидатов через локальную LLM и вернуть обновлённый список.
@@ -474,4 +475,3 @@ def refine_ambiguous_candidates(
     return refined
 
 
-    
