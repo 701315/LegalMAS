@@ -197,23 +197,16 @@ def _search_pattern_with_distinctiveness_override(
     body_text: str,
 ) -> tuple[bool, str | None]:
     """
-    Ищет паттерн с учётом distinctiveness.
+    Ищет паттерн с обязательным соблюдением контекста (context) из YAML.
 
     Universal invariant:
-    - HIGH-distinctiveness patterns ищутся ВЕЗДЕ (header + body),
-      независимо от context флага. Это критично для документов где
-      определения вынесены в преамбулу вместо главы "Определения".
-    - Для medium/low distinctiveness соблюдается context флаг.
+    Границы поиска (header/body/any) определяются схемой YAML.
+    Код классификатора не имеет права расширять context: header до any,
+    так как это приводит к ложным срабатываниям в теле B2B-документов.
     """
-    # HIGH patterns: игнорируем context, ищем везде
-    if distinctiveness == "high":
-        search_context = "any"
-    else:
-        search_context = context
-
     return _search_pattern_in_context(
         pattern=pattern,
-        context=search_context,
+        context=context,
         header_text=header_text,
         body_text=body_text,
     )
@@ -421,6 +414,14 @@ class L2HeaderClassifier(BaseClassifier):
             },
         )
 
+        if len(scored_candidates) >= 2 and best_type != "UNKNOWN":
+            runner_up = scored_candidates[1]
+            best_extra["runner_up"] = {
+                "type_code": str(runner_up.get("type_code", "UNKNOWN")),
+                "confidence": float(runner_up.get("confidence", 0.0)),
+                "method": "header_pattern",
+            }
+
         return ClassificationResult(
             doctype=best_type,
             confidence=best_conf,
@@ -585,12 +586,18 @@ class L2HeaderClassifier(BaseClassifier):
 
         total_distinctive = signal_counts["high_distinctive"] + signal_counts["medium_distinctive"]
         total_generic = signal_counts["high_generic"] + signal_counts["medium_generic"]
-        total_signals = total_distinctive + total_generic
 
-        if total_signals > 0:
-            signal_quality = total_distinctive / total_signals
+        # Universal Invariant: Вспомогательный контекст (generic) подтверждает юридическую
+        # форму документа и не должен агрессивно штрафовать специфичный маркер.
+        if total_distinctive > 0:
+            generic_coef = 0.15
+            signal_quality = total_distinctive / (total_distinctive + generic_coef * total_generic)
+        elif total_generic > 0:
+            signal_quality = 0.35
         else:
             signal_quality = 0.5
+
+        signal_quality = _clamp(signal_quality, 0.1, 1.0)
 
         soft_excl_penalty = 0.0
         if soft_exclusion_hits > 0:
@@ -619,7 +626,19 @@ class L2HeaderClassifier(BaseClassifier):
                     )
                     soft_excl_penalty += penalty_weight
 
-        raw_confidence = positive_score * signal_quality - soft_excl_penalty
+        import math
+
+        # ── Логарифмическая нормализация (Universal Invariant) ──────────────
+        # Предотвращает ложное завышение уверенности при малом количестве случайных хитов.
+        # Для насыщения шкалы до 1.0 требуется плотность в 5-6 уверенных совпадений.
+        max_expected = float(scoring.get("max_expected_positive_score", 5.0))
+        if positive_score > 0.0 and max_expected > 0.0:
+            normalized_score = math.log(1.0 + positive_score) / math.log(1.0 + max_expected)
+            normalized_score = min(normalized_score, 1.0)
+        else:
+            normalized_score = 0.0
+
+        raw_confidence = normalized_score * signal_quality - soft_excl_penalty
         raw_confidence = raw_confidence * (input_quality**input_quality_weight)
         conf = _clamp(raw_confidence, 0.0, 1.0)
 
@@ -834,10 +853,17 @@ class L2HeaderClassifier(BaseClassifier):
         total_distinctive = distinctive_high_hits + distinctive_medium_hits
         total_generic = generic_high_hits + generic_medium_hits
 
-        if (total_distinctive + total_generic) > 0:
-            signal_quality = total_distinctive / (total_distinctive + total_generic)
+        # Universal Invariant: Вспомогательный контекст (generic) подтверждает юридическую
+        # форму документа и не должен агрессивно штрафовать специфичный маркер.
+        if total_distinctive > 0:
+            generic_coef = 0.15
+            signal_quality = total_distinctive / (total_distinctive + generic_coef * total_generic)
+        elif total_generic > 0:
+            signal_quality = 0.35
         else:
             signal_quality = 0.5
+
+        signal_quality = _clamp(signal_quality, 0.1, 1.0)
 
         current_extra: dict[str, Any] = {
             "header_pattern_hits": header_pattern_hits,
