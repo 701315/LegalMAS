@@ -547,7 +547,7 @@ def _classify_unit_type_with_llm(
         tokens_info: dict с prompt_tokens, completion_tokens, total_tokens или None
     """
     if not _LLM_AVAILABLE:
-        return LegalUnitType.UNKNOWN, 0.0, "none"
+        return LegalUnitType.UNKNOWN, 0.0, "none", None
     
     try:
         # Формируем контекст предков
@@ -583,7 +583,7 @@ def _classify_unit_type_with_llm(
                     "llm_error": error_details,
                 },
             )
-            return LegalUnitType.UNKNOWN, 0.0, "empty_response"
+            return LegalUnitType.UNKNOWN, 0.0, "empty_response", None
         
         # Парсим JSON ответ
         import json
@@ -599,7 +599,7 @@ def _classify_unit_type_with_llm(
                     "raw_response": response.text[:200],
                 },
             )
-            return LegalUnitType.UNKNOWN, 0.0, "parse_error"
+            return LegalUnitType.UNKNOWN, 0.0, "parse_error", None
         
         unit_type_str = json_data.get("unit_type", "unknown").upper().strip()
         confidence = float(json_data.get("confidence", 0.5))
@@ -695,7 +695,7 @@ def _classify_unit_type_with_llm(
                 "error_type": type(e).__name__,
             },
         )
-        return LegalUnitType.UNKNOWN, 0.0, "error"
+        return LegalUnitType.UNKNOWN, 0.0, "error", None
 
 
 # ---------------------------------------------------------------------------
