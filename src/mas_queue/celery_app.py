@@ -130,6 +130,15 @@ CLASSIFY_DOCUMENT_SEGMENTS_TIME_LIMIT_SEC = 3900
 RUN_PIPELINE_ORCHESTRATOR_SOFT_TIME_LIMIT_SEC = 180
 RUN_PIPELINE_ORCHESTRATOR_TIME_LIMIT_SEC = 240
 
+# build_structure использует LLM (ClauseDetector, HeadingRefiner).
+# Глобального лимита (1260с) недостаточно: при недоступной Ollama задача
+# висит до hard kill, не успев записать FAILED в document_stage_executions.
+# Soft (45 мин) даёт Celery шанс выбросить SoftTimeLimitExceeded внутри
+# задачи → base_task.py → PermanentError → on_failure → mark_failed.
+# Hard (50 мин) — жёсткий потолок; остаётся << visibility_timeout (16800с).
+BUILD_STRUCTURE_SOFT_TIME_LIMIT_SEC = 2700
+BUILD_STRUCTURE_TIME_LIMIT_SEC = 3000
+
 # Visibility timeout ОБЯЗАН быть больше самой долгой задачи.
 # Используем settings.CELERY_BROKER_VISIBILITY_TIMEOUT — property,
 # которая берёт SEMANTIC_ENRICHMENT_WORKER_TIME_LIMIT_SECONDS + 300.
@@ -369,6 +378,10 @@ celery_app.conf.update(
             "soft_time_limit": 600,
             "time_limit": 660,
         },
+        "workers.build_structure": {
+            "soft_time_limit": BUILD_STRUCTURE_SOFT_TIME_LIMIT_SEC,
+            "time_limit": BUILD_STRUCTURE_TIME_LIMIT_SEC,
+        },
     },
 )
 
@@ -377,6 +390,7 @@ logger.info(
     broker_visibility_timeout_sec=BROKER_VISIBILITY_TIMEOUT_SEC,
     semantic_enrichment_time_limit_sec=settings.SEMANTIC_ENRICHMENT_WORKER_TIME_LIMIT_SECONDS,
     run_single_check_time_limit_sec=RUN_SINGLE_CHECK_TIME_LIMIT_SEC,
+    build_structure_time_limit_sec=BUILD_STRUCTURE_TIME_LIMIT_SEC,
     global_task_time_limit_sec=GLOBAL_TASK_TIME_LIMIT_SEC,
 )
 
