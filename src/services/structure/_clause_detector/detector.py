@@ -622,28 +622,40 @@ class LLMClauseDetector:
             telemetry["error_type"] = error_details.get("error_type")
             telemetry["parse_success"] = True
 
-            # Запись в ledger (best-effort, не роняет пайплайн)
+            # Запись в ledger (best-effort, не роняет пайплайн).
+            #
+            # ВАЖНО: _call_llm — sync-функция, но вызывается внутри running
+            # event loop (structure_builder.py:run_async(_wrapper())). Поэтому
+            # используем asyncio.create_task() для планирования корутины
+            # в текущем loop.
+            #
+            # run_async() здесь НЕ подходит: он специально падает с RuntimeError
+            # при вызове из running loop (см. mas_queue/async_helpers.py).
             if all([tenant_id, deal_id, document_id]):
                 try:
-                    LLMUsageRecorder.record_event_isolated(
-                        tenant_id=tenant_id,
-                        deal_id=deal_id,
-                        stage="structure_clause_detection",
-                        provider=telemetry.get("provider", "unknown"),
-                        model=telemetry.get("model", "unknown"),
-                        run_id=run_id,
-                        document_id=document_id,
-                        check_id=None,
-                        prompt_tokens=telemetry.get("prompt_tokens"),
-                        completion_tokens=telemetry.get("completion_tokens"),
-                        duration_ms=telemetry.get("duration_ms"),
-                        llm_attempts=telemetry.get("llm_attempts"),
-                        parse_success=True,
-                        error_type=None,
+                    import asyncio  # local import — избегаем циклов на импорте
+
+                    asyncio.create_task(
+                        LLMUsageRecorder.record_event_isolated(
+                            tenant_id=tenant_id,
+                            deal_id=deal_id,
+                            stage="structure_clause_detection",
+                            provider=telemetry.get("provider", "unknown"),
+                            model=telemetry.get("model", "unknown"),
+                            run_id=run_id,
+                            document_id=document_id,
+                            check_id=None,
+                            prompt_tokens=telemetry.get("prompt_tokens"),
+                            completion_tokens=telemetry.get("completion_tokens"),
+                            duration_ms=telemetry.get("duration_ms"),
+                            llm_attempts=telemetry.get("llm_attempts"),
+                            parse_success=True,
+                            error_type=None,
+                        )
                     )
                 except Exception as exc:
                     logger.warning(
-                        "ClauseDetector: failed to record LLM usage",
+                        "ClauseDetector: failed to schedule LLM usage record",
                         extra={"document_id": str(document_id), "error": str(exc)},
                     )
 
