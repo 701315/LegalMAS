@@ -1489,6 +1489,30 @@ def finalize_run_if_ready(
 
             run_snap: RunSnapshot = snapshot_run(run_obj)
 
+            # ── SHORT-CIRCUIT: Защита идемпотентности финализации ─────────
+            # Если Run УЖЕ находится в терминальном статусе (COMPLETED / FAILED),
+            # мы мгновенно выходим без повторного выполнения сайд-эффектов
+            # (генерации резюме, авто-перевода и спама в audit_logs).
+            if run_snap.status in (
+                RunStatus.COMPLETED.value,
+                RunStatus.COMPLETED_WITH_ERRORS.value,
+                RunStatus.FAILED.value,
+            ):
+                logger.info(
+                    "finalize_run_if_ready: run is already terminal, skipping side-effects",
+                    run_id=run_id,
+                    status=run_snap.status,
+                )
+                return {
+                    "status": run_snap.status,
+                    "total_checks": run_snap.total_checks,
+                    "completed_checks": run_snap.completed_checks,
+                    "has_errors": run_snap.has_errors,
+                    "already_terminal": True,
+                }
+
+            initial_status = run_snap.status
+
             progress_stats = await plan_item_repo.get_run_progress_stats(run_uuid)
             terminal_items = int(progress_stats["terminal_items"] or 0)
             total_items = int(progress_stats["total_items"] or 0)
@@ -1534,10 +1558,16 @@ def finalize_run_if_ready(
                 has_errors=updated_snap.has_errors,
             )
 
-            if updated_snap.status in (
-                RunStatus.COMPLETED.value,
-                RunStatus.COMPLETED_WITH_ERRORS.value,
-                RunStatus.FAILED.value,
+            # ── STATE TRANSITION SIDE-EFFECTS ──────────────────────────────
+            # Сайд-эффекты (Summary, Auto-Translation, Audit Log) выполняются
+            # СТРОГО ЕДИНОЖДЫ — в момент перехода из нетерминального статуса (RUNNING).
+            if (
+                initial_status != updated_snap.status
+                and updated_snap.status in (
+                    RunStatus.COMPLETED.value,
+                    RunStatus.COMPLETED_WITH_ERRORS.value,
+                    RunStatus.FAILED.value,
+                )
             ):
                 if updated_snap.status == RunStatus.COMPLETED.value:
                     action = "ANALYSIS_COMPLETED"
