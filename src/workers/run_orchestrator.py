@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.constants import DocumentStatus, RunStatus
+from core.constants import DocumentStageExecutionStatus, DocumentStatus, RunStatus
 from core.exceptions import TransientError
 from core.logging import get_logger
 from core.pipeline_snapshots import (
@@ -521,6 +521,8 @@ async def _start_run_pipeline_async(
 
     # ─── Инкрементальный запуск проверок ─────────────────────────────────────
     from services.run_checks_auto_starter import start_checks_for_document
+    from db.models.document import DocumentStageExecution
+    from sqlalchemy import func
 
     documents_triggered = 0
     for doc_snap in doc_snaps:
@@ -534,6 +536,33 @@ async def _start_run_pipeline_async(
             continue
 
         if not getattr(doc_snap, "doc_type", None):
+            continue
+
+        # ── Защита от повторных запусков оркестратора (Гонка быстрых стадий) ──
+        # Проверяем в БД, нет ли уже активных (planned, dispatched, started) стадий
+        # для этого документа в рамках текущего run. Это защищает от ситуации,
+        # когда быстрый документ триггерит оркестратор заново, а медленный
+        # документ всё ещё выполняет свои стадии (и в БД его статус по-прежнему
+        # "enriched", но задачи для него уже запущены).
+        active_exec_stmt = select(func.count()).select_from(DocumentStageExecution).where(
+            DocumentStageExecution.run_id == run_uuid,
+            DocumentStageExecution.document_id == doc_snap.document_id,
+            DocumentStageExecution.status.in_([
+                DocumentStageExecutionStatus.PLANNED.value,
+                DocumentStageExecutionStatus.DISPATCHED.value,
+                DocumentStageExecutionStatus.STARTED.value,
+            ])
+        )
+        active_exec_res = await db.execute(active_exec_stmt)
+        active_exec_count = int(active_exec_res.scalar_one() or 0)
+        if active_exec_count > 0:
+            logger.info(
+                "Run checks: skipping direct orchestrator dispatch — "
+                "document has active stage executions in current run",
+                run_id=run_id,
+                document_id=doc_snap.document_id_str,
+                active_stages_count=active_exec_count,
+            )
             continue
 
         triggered = await start_checks_for_document(
