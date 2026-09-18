@@ -127,67 +127,13 @@ async def _is_segment_classification_complete(
     return unclassified == 0
 
 
-async def _can_start_checks_for_run(
-    run_snap: RunSnapshot,
-    doc_snaps: list[DocumentSnapshot],
-    ver_repo: DocumentVersionRepository,
-    seg_repo: DocumentSegmentRepository,
-    res_repo: DocumentRunLanguageResolutionRepository,
-    v2_enabled: bool,
-) -> bool:
-    ready_statuses = {
-        DocumentStatus.ENRICHED.value,
-        DocumentStatus.COMPLETED.value,
-    }
-
-    non_participating_statuses = {
-        DocumentStatus.FAILED.value,
-        DocumentStatus.QUARANTINE.value,
-        DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
-    }
-
-    has_ready_docs = False
-
-    for doc_snap in doc_snaps:
-        if doc_snap.status in non_participating_statuses:
-            continue
-
-        # ── FIX #4: Пропускаем ВСЕ неготовые документы (не блокируя весь Run) ──
-        is_doc_ready = (
-            doc_snap.status in ready_statuses
-            and getattr(doc_snap, "doc_type", None) is not None
-            and not getattr(doc_snap, "classification_requires_review", False)
-        )
-
-        if not is_doc_ready:
-            logger.debug(
-                "Run checks: ignoring unready document from checks quorum",
-                run_id=run_snap.run_id_str,
-                document_id=doc_snap.document_id_str,
-                status=doc_snap.status,
-            )
-            continue
-        # ── КОНЕЦ FIX #4 ──────────────────────────────────────────────────────
-
-        version = await ver_repo.get_latest(doc_snap.document_id)
-        if version is None:
-            continue
-
-        snap = snapshot_version(version)
-
-        if v2_enabled:
-            res_record = await res_repo.get_by_run_and_version(run_snap.id, snap.version_id)
-            if not res_record or res_record.resolution_status != "LANGUAGE_READY":
-                continue
-
-        if _is_multi_document_snapshot(snap):
-            all_segments_classified = await _is_segment_classification_complete(seg_repo, snap)
-            if not all_segments_classified:
-                continue
-
-        has_ready_docs = True
-
-    return has_ready_docs
+# NOTE: Функция _can_start_checks_for_run удалена в рамках race-condition фикса.
+# Ранее вычислялась, но результат нигде не использовался (dead code).
+# Решение "готов ли документ к проверкам" теперь принимается точечно
+# в двух авторитетных местах:
+#   1) build_legal_units_enrichment — после commit enrichment для документа.
+#   2) run_orchestrator — для документов, для которых НЕ запланирована
+#      ни одна новая стадия в текущем run.
 
 
 # ─── Celery task entrypoint ───────────────────────────────────────────────────
@@ -433,6 +379,8 @@ async def _start_run_pipeline_async(
     v2_enabled = getattr(settings, "DOCUMENT_LAYOUT_V2_ENABLED", False) or layout_config.document_layout_v2_enabled
     policy = run_snap.missing_target_language_policy or "BLOCK_DOCUMENT_CONTINUE_RUN"
 
+    scheduled_document_ids: set[uuid.UUID] = set()
+
     for doc_snap in doc_snaps:
         doc_id: uuid.UUID = doc_snap.document_id
         doc_id_str = doc_snap.document_id_str
@@ -567,46 +515,49 @@ async def _start_run_pipeline_async(
         await db.flush()
         await db.commit()
 
+        scheduled_document_ids.add(doc_id)
         tasks_scheduled += 1
         documents_with_plan += 1
 
-    seg_repo_for_checks = DocumentSegmentRepository(db)
-    can_start_checks = await _can_start_checks_for_run(
-        run_snap=run_snap,
-        doc_snaps=doc_snaps,
-        ver_repo=ver_repo,
-        seg_repo=seg_repo_for_checks,
-        res_repo=res_repo,
-        v2_enabled=v2_enabled,
-    )
-    # Инкрементальный запуск проверок для каждого готового документа
-    # Fault isolation: один проблемный документ не блокирует остальные
+    # ─── Инкрементальный запуск проверок ─────────────────────────────────────
     from services.run_checks_auto_starter import start_checks_for_document
-    
+
     documents_triggered = 0
     for doc_snap in doc_snaps:
-        if doc_snap.status in {DocumentStatus.ENRICHED.value, DocumentStatus.COMPLETED.value}:
-            if getattr(doc_snap, "doc_type", None):
-                triggered = await start_checks_for_document(
-                    db=db,
-                    run_id=run_snap.run_id,
-                    document_id=doc_snap.document_id,  # Уже UUID, не конвертируем
-                )
-                if triggered:
-                    documents_triggered += 1
-    
+        if doc_snap.document_id in scheduled_document_ids:
+            continue
+
+        if doc_snap.status not in {
+            DocumentStatus.ENRICHED.value,
+            DocumentStatus.COMPLETED.value,
+        }:
+            continue
+
+        if not getattr(doc_snap, "doc_type", None):
+            continue
+
+        triggered = await start_checks_for_document(
+            db=db,
+            run_id=run_snap.run_id,
+            document_id=doc_snap.document_id,
+        )
+        if triggered:
+            documents_triggered += 1
+
     if documents_triggered > 0:
         logger.info(
-            "Run checks: incremental dispatch completed",
+            "Run checks: orchestrator dispatched checks for documents without new stages",
             run_id=run_id,
             documents_triggered=documents_triggered,
+            documents_with_new_stages=len(scheduled_document_ids),
         )
     else:
         logger.debug(
-            "Run checks: no documents ready for incremental dispatch",
+            "Run checks: no documents ready for direct orchestrator dispatch",
             run_id=run_id,
+            documents_with_new_stages=len(scheduled_document_ids),
         )
-
+        
     return {
         "run_id": run_id,
         "deal_id": deal_id_str,
