@@ -528,25 +528,22 @@ class RunRepository:
             run_id:   Идентификатор Run.
             versions: {doc_type: version_id_str} — обратная совместимость
                       с существующим полем instruction_versions.
-            manifest: {doc_type: {...}} —
-                      provenance frozen snapshot:
-                      version_id, content_hash, effective_hash,
-                      tenant/deal override ids, resolution_strategy.
-            payload:  {doc_type: effective_compiled_payload_dict} —
-                      frozen effective payload для DatabaseInstructionProvider.
-            snapshot_schema_version: если передан, выставляется атомарно
-                      вместе со snapshot. None = не менять.
+            manifest: {doc_type: {...}} — provenance frozen snapshot.
+            payload:  {doc_type: effective_compiled_payload_dict} — frozen
+                      effective payload для DatabaseInstructionProvider.
+            snapshot_schema_version: если передан, выставляется атомарно.
+                      None = не менять.
 
         Returns:
             Обновлённый Run если запись успешна, иначе None.
 
-        Behaviour:
-        - Атомарная запись всех полей одним UPDATE ... RETURNING.
-        - snapshot_schema_version пишется в тот же UPDATE — нет
-          промежуточного состояния.
-        - Пустые словари валидны (zero typed-document run).
-        - None для dict-аргументов не валиден.
-        - Идемпотентен.
+        Concurrency contract:
+        - Строка Run блокируется через SELECT ... FOR UPDATE перед merge.
+        - Параллельные вызовы (разные doc_type одного рана, разные worker'ы)
+          сериализуются; каждый видит записи предыдущего и merge'ит свои.
+        - Merge, а не overwrite: уже зафиксированные doc_types сохраняются.
+        - Этот метод — единственное место, где происходит merge. Вызывающий
+          не должен предварительно merge'ить самостоятельно.
         """
         for name, value in (
             ("versions", versions),
@@ -570,20 +567,38 @@ class RunRepository:
                 )
                 return None
 
-        # --- Build minimal execution manifest V1 ---
-
-        current_run = await self.get_by_id(run_id)
-        if not current_run:
+        # ── Row-level lock + merge ──────────────────────────────────────────
+        # SELECT ... FOR UPDATE сериализует параллельные freeze-вызовы на
+        # одной строке Run. Без этого возможна потеря payload'а:
+        #   worker A читает {}, worker B читает {} (до коммита A),
+        #   A пишет {doc_type_A}, B пишет {doc_type_B} — payload A потерян.
+        stmt_lock = select(Run).where(Run.id == run_id).with_for_update()
+        result_lock = await self.session.execute(stmt_lock)
+        current_run = result_lock.scalar_one_or_none()
+        if current_run is None:
+            logger.warning(
+                "run_repo.update_instruction_snapshot: Run not found",
+                run_id=str(run_id),
+            )
             return None
 
+        existing_versions = dict(current_run.instruction_versions or {})
+        existing_manifest = dict(current_run.instruction_snapshot_manifest or {})
+        existing_payload = dict(current_run.instruction_snapshot_payload or {})
+
+        existing_versions.update(versions)
+        existing_manifest.update(manifest)
+        existing_payload.update(payload)
+
+        # --- Build minimal execution manifest V1 (based on merged versions) ---
         from db.repositories.playbook_repo import PlaybookRepository
 
         playbook_repo = PlaybookRepository(self.session)
         pb_version = await playbook_repo.get_by_id(current_run.playbook_version_id)
 
         doc_type_execution_manifest = {}
-        for doc_type, version_id in versions.items():
-            doc_manifest = manifest.get(doc_type) or {}
+        for doc_type, version_id in existing_versions.items():
+            doc_manifest = existing_manifest.get(doc_type) or {}
             doc_type_execution_manifest[doc_type] = {
                 "version_id": version_id,
                 "override_id": doc_manifest.get("override_id"),
@@ -594,13 +609,17 @@ class RunRepository:
                 "resolution_strategy": doc_manifest.get("resolution_strategy"),
             }
 
-        playbook_meta = ((getattr(pb_version, "compiled_checks", None) or {}).get("meta") or {})
+        playbook_meta = (
+            (getattr(pb_version, "compiled_checks", None) or {}).get("meta") or {}
+        )
 
         execution_manifest = {
             "schema_version": 1,
             "playbook": {
                 "version_id": str(current_run.playbook_version_id),
-                "immutable_content_hash": getattr(pb_version, "immutable_content_hash", None),
+                "immutable_content_hash": getattr(
+                    pb_version, "immutable_content_hash", None
+                ),
                 "model_config_id": (
                     str(current_run.model_config_id)
                     if current_run.model_config_id
@@ -612,9 +631,9 @@ class RunRepository:
         }
 
         update_values: dict = {
-            "instruction_versions": versions,
-            "instruction_snapshot_manifest": manifest,
-            "instruction_snapshot_payload": payload,
+            "instruction_versions": existing_versions,
+            "instruction_snapshot_manifest": existing_manifest,
+            "instruction_snapshot_payload": existing_payload,
             "execution_manifest": execution_manifest,
         }
 
@@ -633,10 +652,10 @@ class RunRepository:
         if run:
             await self.session.flush()
             logger.info(
-                "run_repo.update_instruction_snapshot: successfully updated",
+                "run_repo.update_instruction_snapshot: merged and updated",
                 run_id=str(run_id),
-                doc_types_count=len(versions),
-                doc_types=sorted(versions.keys())[:10],
+                doc_types_count=len(existing_versions),
+                doc_types=sorted(existing_versions.keys())[:10],
                 snapshot_schema_version=snapshot_schema_version,
             )
         else:

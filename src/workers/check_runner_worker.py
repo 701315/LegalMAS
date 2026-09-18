@@ -655,6 +655,49 @@ def run_document_checks(
             
             doc_snap = snapshot_document(doc)
             
+            # 5.1) Freeze effective instruction payload для doc_type этого документа.
+            #
+            # Точка фиксации выбрана здесь, потому что:
+            # - тип документа уже известен (классификация прошла);
+            # - это последний момент перед планированием checks;
+            # - для каждого doc_type в одном ране будет свой frozen payload
+            #   (multi-doc_type в одном ране — основной кейс).
+            #
+            # extend_existing=True сохраняет уже зафиксированные другими
+            # документами рана doc_types (idempotent merge под row lock в
+            # RunRepository.update_instruction_snapshot).
+            doc_type_for_freeze = getattr(doc_snap, "doc_type", None)
+            if doc_type_for_freeze:
+                try:
+                    await freeze_instruction_snapshot(
+                        run_uuid=run_uuid,
+                        doc_types={doc_type_for_freeze},
+                        run_repo=run_repo,
+                        session=uow.session,
+                        tenant_id=run_snap.tenant_id,
+                        deal_id=run_snap.deal_id or deal_uuid,
+                        extend_existing=True,
+                    )
+                except Exception as exc:
+                    logger.exception(
+                        "run_document_checks: failed to freeze instruction snapshot; aborting",
+                        run_id=run_id,
+                        document_id=document_id,
+                        doc_type=doc_type_for_freeze,
+                        error=str(exc),
+                    )
+                    raise
+
+                # Перечитываем Run, чтобы run_snap содержал только что
+                # зафиксированный instruction_snapshot_payload.
+                # Без этого build_doc_type_loader уйдёт в filesystem fallback.
+                refreshed_run = await run_repo.get(run_uuid)
+                if refreshed_run is None:
+                    raise ValueError(
+                        f"Run {run_uuid} disappeared after instruction snapshot freeze"
+                    )
+                run_snap = snapshot_run(refreshed_run)
+            
             # 6) Планируем checks для ОДНОГО документа
             runner = CheckRunner(
                 llm_client=_shared_llm_client,
