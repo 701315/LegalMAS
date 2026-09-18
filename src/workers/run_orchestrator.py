@@ -126,67 +126,13 @@ async def _is_segment_classification_complete(
     return unclassified == 0
 
 
-async def _can_start_checks_for_run(
-    run_snap: RunSnapshot,
-    doc_snaps: list[DocumentSnapshot],
-    ver_repo: DocumentVersionRepository,
-    seg_repo: DocumentSegmentRepository,
-    res_repo: DocumentRunLanguageResolutionRepository,
-    v2_enabled: bool,
-) -> bool:
-    ready_statuses = {
-        DocumentStatus.ENRICHED.value,
-        DocumentStatus.COMPLETED.value,
-    }
-
-    non_participating_statuses = {
-        DocumentStatus.FAILED.value,
-        DocumentStatus.QUARANTINE.value,
-        DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
-    }
-
-    has_ready_docs = False
-
-    for doc_snap in doc_snaps:
-        if doc_snap.status in non_participating_statuses:
-            continue
-
-        # ── FIX #4: Пропускаем ВСЕ неготовые документы (не блокируя весь Run) ──
-        is_doc_ready = (
-            doc_snap.status in ready_statuses
-            and getattr(doc_snap, "doc_type", None) is not None
-            and not getattr(doc_snap, "classification_requires_review", False)
-        )
-
-        if not is_doc_ready:
-            logger.debug(
-                "Run checks: ignoring unready document from checks quorum",
-                run_id=run_snap.run_id_str,
-                document_id=doc_snap.document_id_str,
-                status=doc_snap.status,
-            )
-            continue
-        # ── КОНЕЦ FIX #4 ──────────────────────────────────────────────────────
-
-        version = await ver_repo.get_latest(doc_snap.document_id)
-        if version is None:
-            continue
-
-        snap = snapshot_version(version)
-
-        if v2_enabled:
-            res_record = await res_repo.get_by_run_and_version(run_snap.id, snap.version_id)
-            if not res_record or res_record.resolution_status != "LANGUAGE_READY":
-                continue
-
-        if _is_multi_document_snapshot(snap):
-            all_segments_classified = await _is_segment_classification_complete(seg_repo, snap)
-            if not all_segments_classified:
-                continue
-
-        has_ready_docs = True
-
-    return has_ready_docs
+# NOTE: Функция _can_start_checks_for_run удалена в рамках race-condition фикса.
+# Ранее вычислялась, но результат нигде не использовался (dead code).
+# Решение "готов ли документ к проверкам" теперь принимается точечно
+# в двух авторитетных местах:
+#   1) build_legal_units_enrichment — после commit enrichment для документа.
+#   2) run_orchestrator — для документов, для которых НЕ запланирована
+#      ни одна новая стадия в текущем run.
 
 
 # ─── Celery task entrypoint ───────────────────────────────────────────────────
@@ -432,6 +378,8 @@ async def _start_run_pipeline_async(
     v2_enabled = getattr(settings, "DOCUMENT_LAYOUT_V2_ENABLED", False) or layout_config.document_layout_v2_enabled
     policy = run_snap.missing_target_language_policy or "BLOCK_DOCUMENT_CONTINUE_RUN"
 
+    scheduled_document_ids: set[uuid.UUID] = set()
+
     for doc_snap in doc_snaps:
         doc_id: uuid.UUID = doc_snap.document_id
         doc_id_str = doc_snap.document_id_str
@@ -566,130 +514,111 @@ async def _start_run_pipeline_async(
         await db.flush()
         await db.commit()
 
+        scheduled_document_ids.add(doc_id)
         tasks_scheduled += 1
         documents_with_plan += 1
 
-    seg_repo_for_checks = DocumentSegmentRepository(db)
-    can_start_checks = await _can_start_checks_for_run(
-        run_snap=run_snap,
-        doc_snaps=doc_snaps,
-        ver_repo=ver_repo,
-        seg_repo=seg_repo_for_checks,
-        res_repo=res_repo,
-        v2_enabled=v2_enabled,
-    )
-
-    # ── Инкрементальный запуск проверок ───────────────────────────────────
-    # Fault isolation: один проблемный документ не блокирует остальные.
+    # ─── Инкрементальный запуск проверок ─────────────────────────────────────
     from services.run_checks_auto_starter import start_checks_for_document
 
-    if not can_start_checks:
-        logger.info(
-            "Run checks: no documents passed readiness gating, "
-            "skipping checks dispatch",
+    # ── Eager freeze instruction snapshot ─────────────────────────────
+    # Фиксируем snapshot ОДНИМ вызовом ДО dispatch'а воркеров.
+    #
+    # Архитектурное обоснование:
+    # 1. Оркестратор = один поток на Run → нет race condition.
+    # 2. freeze_instruction_snapshot использует read-modify-write
+    #    без SELECT FOR UPDATE — параллельные вызовы из воркеров
+    #    run_document_checks приведут к lost update.
+    # 3. Все downstream воркеры читают уже зафиксированный snapshot.
+    # 4. extend_existing=True делает вызов идемпотентным.
+    # ──────────────────────────────────────────────────────────────────
+    from engine.checks.instruction_snapshot import (
+        freeze_instruction_snapshot,
+    )
+
+    ready_doc_types: set[str] = set()
+    for _ds in doc_snaps:
+        if _ds.status in {
+            DocumentStatus.ENRICHED.value,
+            DocumentStatus.COMPLETED.value,
+        }:
+            _dt = getattr(_ds, "doc_type", None)
+            if _dt:
+                ready_doc_types.add(_dt)
+
+    if ready_doc_types:
+        try:
+            frozen = await freeze_instruction_snapshot(
+                run_uuid=run_uuid,
+                doc_types=ready_doc_types,
+                run_repo=run_repo,
+                session=db,
+                tenant_id=run_snap.tenant_id,
+                deal_id=run_snap.deal_id or deal_uuid,
+                extend_existing=True,
+            )
+            # Коммитим freeze ДО dispatch'а Celery-задач.
+            await db.commit()
+            logger.info(
+                "Run checks: instruction snapshot frozen",
+                run_id=run_id,
+                frozen_doc_types=sorted(frozen.keys()),
+            )
+        except Exception as freeze_exc:
+            logger.exception(
+                "Run checks: freeze instruction snapshot failed, "
+                "aborting checks dispatch",
+                run_id=run_id,
+                error=str(freeze_exc),
+                error_type=type(freeze_exc).__name__,
+            )
+            raise RuntimeError(
+                "Strict instruction snapshot freeze failed; "
+                "checks dispatch aborted"
+            ) from freeze_exc
+    else:
+        logger.debug(
+            "Run checks: no typed documents to freeze "
+            "(global-only checks expected)",
             run_id=run_id,
         )
-    else:
-        # ── Eager freeze instruction snapshot ─────────────────────────
-        # Фиксируем snapshot ОДИМ вызовом ДО dispatch'а воркеров.
-        #
-        # Архитектурное обоснование:
-        # 1. Оркестратор = один поток на Run → нет race condition.
-        # 2. freeze_instruction_snapshot использует read-modify-write
-        #    без SELECT FOR UPDATE — параллельные вызовы из воркеров
-        #    run_document_checks приведут к lost update (потеря
-        #    doc_type в snapshot).
-        # 3. Все downstream воркеры (run_document_checks,
-        #    run_single_check) читают уже зафиксированный snapshot
-        #    через build_doc_type_loader(run_snap).
-        # 4. extend_existing=True делает вызов идемпотентным:
-        #    при повторном запуске оркестратора существующие
-        #    doc_types не перезаписываются.
-        # ──────────────────────────────────────────────────────────────
-        from engine.checks.instruction_snapshot import (
-            freeze_instruction_snapshot,
+    # ── КОНЕЦ freeze ──────────────────────────────────────────────────
+
+    documents_triggered = 0
+    for doc_snap in doc_snaps:
+        if doc_snap.document_id in scheduled_document_ids:
+            continue
+
+        if doc_snap.status not in {
+            DocumentStatus.ENRICHED.value,
+            DocumentStatus.COMPLETED.value,
+        }:
+            continue
+
+        if not getattr(doc_snap, "doc_type", None):
+            continue
+
+        triggered = await start_checks_for_document(
+            db=db,
+            run_id=run_snap.run_id,
+            document_id=doc_snap.document_id,
         )
+        if triggered:
+            documents_triggered += 1
 
-        ready_doc_types: set[str] = set()
-        for _ds in doc_snaps:
-            if _ds.status in {
-                DocumentStatus.ENRICHED.value,
-                DocumentStatus.COMPLETED.value,
-            }:
-                _dt = getattr(_ds, "doc_type", None)
-                if _dt:
-                    ready_doc_types.add(_dt)
-
-        if ready_doc_types:
-            try:
-                frozen = await freeze_instruction_snapshot(
-                    run_uuid=run_uuid,
-                    doc_types=ready_doc_types,
-                    run_repo=run_repo,
-                    session=db,
-                    tenant_id=run_snap.tenant_id,
-                    deal_id=run_snap.deal_id or deal_uuid,
-                    extend_existing=True,
-                )
-                # Коммитим freeze ДО dispatch'а Celery-задач.
-                # start_checks_for_document использует
-                # send_task_with_context (не Outbox), поэтому
-                # воркер может стартовать до выхода из db_uow().
-                # Явный commit гарантирует, что run_document_checks
-                # увидит frozen snapshot в БД.
-                await db.commit()
-                logger.info(
-                    "Run checks: instruction snapshot frozen",
-                    run_id=run_id,
-                    frozen_doc_types=sorted(frozen.keys()),
-                )
-            except Exception as freeze_exc:
-                logger.exception(
-                    "Run checks: freeze instruction snapshot failed, "
-                    "aborting checks dispatch",
-                    run_id=run_id,
-                    error=str(freeze_exc),
-                    error_type=type(freeze_exc).__name__,
-                )
-                raise RuntimeError(
-                    "Strict instruction snapshot freeze failed; "
-                    "checks dispatch aborted"
-                ) from freeze_exc
-        else:
-            logger.debug(
-                "Run checks: no typed documents to freeze "
-                "(global-only checks expected)",
-                run_id=run_id,
-            )
-        # ── КОНЕЦ freeze ──────────────────────────────────────────────
-
-        documents_triggered = 0
-        for doc_snap in doc_snaps:
-            if doc_snap.status in {
-                DocumentStatus.ENRICHED.value,
-                DocumentStatus.COMPLETED.value,
-            }:
-                if getattr(doc_snap, "doc_type", None):
-                    triggered = await start_checks_for_document(
-                        db=db,
-                        run_id=run_snap.run_id,
-                        document_id=doc_snap.document_id,
-                    )
-                    if triggered:
-                        documents_triggered += 1
-
-        if documents_triggered > 0:
-            logger.info(
-                "Run checks: incremental dispatch completed",
-                run_id=run_id,
-                documents_triggered=documents_triggered,
-            )
-        else:
-            logger.debug(
-                "Run checks: no documents triggered "
-                "(plans may already exist)",
-                run_id=run_id,
-            )
+    if documents_triggered > 0:
+        logger.info(
+            "Run checks: orchestrator dispatched checks for documents without new stages",
+            run_id=run_id,
+            documents_triggered=documents_triggered,
+            documents_with_new_stages=len(scheduled_document_ids),
+        )
+    else:
+        logger.debug(
+            "Run checks: no documents ready for direct orchestrator dispatch",
+            run_id=run_id,
+            documents_with_new_stages=len(scheduled_document_ids),
+        )
 
     return {
         "run_id": run_id,

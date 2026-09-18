@@ -77,6 +77,7 @@ from engine.checks.instruction_snapshot import (
     build_doc_type_loader,
     freeze_instruction_snapshot,
 )
+from engine.checks.result_saver import save_not_applicable_result
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.repositories.run_repo import RunRepository
@@ -1079,6 +1080,29 @@ def run_single_check(
                             check_id=check_id,
                             duration_sec=round(duration, 2),
                         )
+
+                        # ── Persist canonical not-applicable result ─────────
+                        try:
+                            await save_not_applicable_result(
+                                repo=result_repo,
+                                run_id=run_uuid,
+                                doc=doc,
+                                check_id=check_id,
+                                playbook_version_id=effective_pb_version_id,
+                                plan_item_id=plan_item_uuid,
+                            )
+                        except CheckResultPersistError:
+                            raise
+                        except Exception:
+                            logger.exception(
+                                "run_single_check: failed to persist "
+                                "not-applicable result (falling back to skipped mark)",
+                                run_id=run_id,
+                                deal_id=deal_id,
+                                doc_id=doc_id,
+                                check_id=check_id,
+                            )
+
                         await plan_item_repo.mark_terminal(plan_item_uuid, "skipped")
                         await _enqueue_finalize_via_outbox(
                             session=uow.session,

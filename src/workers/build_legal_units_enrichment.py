@@ -194,6 +194,12 @@ def build_legal_units_enrichment(
     result = run_async(_finalize())
 
     if run_id and result.get("committed"):
+        # ── Authoritative dispatch checks для документа ──────────────────
+        _dispatch_checks_after_enrichment(
+            run_id=run_id,
+            document_id=document_id,
+        )
+
         retrigger_run_pipeline(
             run_id=run_id,
             deal_id=deal_id,
@@ -201,6 +207,72 @@ def build_legal_units_enrichment(
         )
 
     return result
+
+
+def _dispatch_checks_after_enrichment(
+    *,
+    run_id: str,
+    document_id: str,
+) -> None:
+    """
+    Best-effort authoritative dispatch checks для документа
+    после commit'а стадии enrichment.
+    """
+    async def _do_dispatch() -> None:
+        try:
+            run_uuid = uuid.UUID(run_id)
+            doc_uuid = uuid.UUID(document_id)
+        except (ValueError, AttributeError, TypeError) as exc:
+            logger.warning(
+                "Semantic enrichment: dispatch checks skipped — invalid UUIDs",
+                run_id=str(run_id)[:64],
+                document_id=str(document_id)[:64],
+                error=str(exc),
+            )
+            return
+
+        try:
+            async with db_uow() as uow:
+                from services.run_checks_auto_starter import (  # noqa: PLC0415
+                    start_checks_for_document,
+                )
+
+                triggered = await start_checks_for_document(
+                    db=uow.session,
+                    run_id=run_uuid,
+                    document_id=doc_uuid,
+                )
+
+                if triggered:
+                    logger.info(
+                        "Semantic enrichment: checks dispatched for document",
+                        run_id=run_id,
+                        document_id=document_id,
+                    )
+                else:
+                    logger.debug(
+                        "Semantic enrichment: checks dispatch skipped "
+                        "(document not ready or plan already exists)",
+                        run_id=run_id,
+                        document_id=document_id,
+                    )
+        except Exception:
+            logger.exception(
+                "Semantic enrichment: failed to dispatch checks for document "
+                "(non-fatal, orchestrator retrigger and stale reaper will recover)",
+                run_id=run_id,
+                document_id=document_id,
+            )
+
+    try:
+        run_async(_do_dispatch())
+    except Exception:
+        logger.exception(
+            "Semantic enrichment: run_async wrapper failed during checks dispatch "
+            "(non-fatal, orchestrator retrigger and stale reaper will recover)",
+            run_id=run_id,
+            document_id=document_id,
+        )
 
 
 def _build_stale_replay_result(

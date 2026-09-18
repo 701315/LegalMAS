@@ -323,6 +323,9 @@ class MASBaseTask(Task):
                         error=str(job_exc),
                         task_name=self.name,
                     )
+
+            # ── Post-stage finalize trigger ──────────────────────────────
+            self._enqueue_finalize_if_needed(kwargs, reason="stage_success")
         finally:
             clear_log_context()
 
@@ -447,6 +450,9 @@ class MASBaseTask(Task):
                         error=str(job_exc),
                         task_name=self.name,
                     )
+
+            # ── Post-stage finalize trigger (failure branch) ─────────────
+            self._enqueue_finalize_if_needed(kwargs, reason="stage_failure")
         finally:
             clear_log_context()
 
@@ -1067,6 +1073,81 @@ class MASBaseTask(Task):
 
             stmt = sa_update(Job).where(Job.id == uuid.UUID(job_id)).values(**values)
             await db.execute(stmt)
+
+    # ── Finalize trigger helper ──────────────────────────────────────────
+
+    _FINALIZE_EXCLUDED_TASK_NAMES: frozenset[str] = frozenset(
+        {
+            "workers.finalize_run_if_ready",
+            "workers.start_run_pipeline",
+            "workers.run_deal_checks",
+            "workers.run_document_checks",
+            "workers.run_single_check",
+            "workers.outbox_dispatcher",
+            "workers.reap_stale_stage_executions",
+            "workers.reap_stale_runs",
+            "workers.debug_dlq_task",
+        }
+    )
+
+    def _enqueue_finalize_if_needed(
+        self,
+        kwargs: dict[str, Any],
+        *,
+        reason: str,
+    ) -> None:
+        """
+        Best-effort постановка workers.finalize_run_if_ready после stage lifecycle.
+        """
+        if self.name in self._FINALIZE_EXCLUDED_TASK_NAMES:
+            return
+
+        raw_run_id = kwargs.get("run_id")
+        if not raw_run_id or not isinstance(raw_run_id, str):
+            return
+
+        run_id = raw_run_id.strip()
+        if not run_id:
+            return
+
+        try:
+            uuid.UUID(run_id)
+        except (ValueError, AttributeError, TypeError):
+            logger.debug(
+                "Finalize trigger skipped: invalid run_id format",
+                task_name=self.name,
+                run_id=str(raw_run_id)[:64],
+                reason=reason,
+            )
+            return
+
+        tenant_id = kwargs.get("tenant_id")
+
+        try:
+            from mas_queue.task_dispatcher import send_task_with_context  # noqa: PLC0415
+
+            send_task_with_context(
+                "workers.finalize_run_if_ready",
+                kwargs={
+                    "run_id": run_id,
+                    "tenant_id": tenant_id,
+                },
+            )
+            logger.debug(
+                "Finalize trigger enqueued after stage lifecycle",
+                task_name=self.name,
+                run_id=run_id,
+                reason=reason,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to enqueue finalize_run_if_ready after stage lifecycle "
+                "(non-fatal, stale reaper will recover)",
+                task_name=self.name,
+                run_id=run_id,
+                reason=reason,
+                error=str(exc),
+            )
 
 
 # ── Module-level helpers ──────────────────────────────────────────────────────
