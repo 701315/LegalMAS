@@ -649,6 +649,41 @@ async def _start_run_pipeline_async(
             documents_with_new_stages=len(scheduled_document_ids),
         )
 
+    # ── FINALIZE TRIGGER ──────────────────────────────────────────────
+    # Orchestrator завершил планирование. Если он не запланировал ни одной
+    # новой стадии и не запустил проверок — это единственный момент, когда
+    # он ТОЧНО знает, что больше работы по этому run у него нет.
+    # Триггерим finalize, чтобы он перепроверил готовность с новым guard'ом
+    # (по Document.status) и закрыл run, если pipeline действительно завершён.
+    #
+    # Это второй, независимый механизм финализации. Первый —
+    # base_task._enqueue_finalize_if_needed — остаётся как safety net.
+    # Здесь мы даём точный сигнал из правильного места.
+    if tasks_scheduled == 0 and documents_triggered == 0:
+        try:
+            from mas_queue.task_dispatcher import send_task_with_context  # noqa: PLC0415
+            send_task_with_context(
+                "workers.finalize_run_if_ready",
+                kwargs={
+                    "run_id": run_id,
+                    "tenant_id": tenant_id_str,
+                },
+            )
+            logger.info(
+                "Orchestrator: no more work planned, triggered finalize",
+                run_id=run_id,
+                documents_total=documents_total,
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Non-fatal: если Celery недоступен — stale_reaper восстановит.
+            logger.warning(
+                "Orchestrator: failed to trigger finalize (non-fatal)",
+                run_id=run_id,
+                error=str(exc),
+            )
+    # ── КОНЕЦ FINALIZE TRIGGER ────────────────────────────────────────
+
+
     return {
         "run_id": run_id,
         "deal_id": deal_id_str,

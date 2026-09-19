@@ -1540,6 +1540,74 @@ def finalize_run_if_ready(
                     "run_status": run_snap.status,
                 }
 
+
+            # ── PIPELINE COMPLETION GUARD ─────────────────────────────────
+            # Защита от race между orchestrator и finalize.
+            #
+            # Проблема: orchestrator создаёт DSE следующей стадии в отдельной
+            # транзакции (session.begin_nested + commit). До момента commit
+            # строка DSE не видна другим сессиям, поэтому count_active_for_run
+            # в этой транзакции может вернуть 0, даже если orchestrator уже
+            # планирует следующую стадию.
+            #
+            # Решение: проверяем Document.status — он обновляется worker'ом
+            # стадии в его собственной транзакции и коммитится ДО того, как
+            # orchestrator планирует следующую стадию. Это делает его
+            # надёжным «уже-закоммиченным» сигналом прогресса pipeline.
+            #
+            # Промежуточные статусы = документ ещё не достиг финальной стадии.
+            # Пока хотя бы один документ сделки в таком статусе — orchestrator
+            # продолжит планировать стадии, finalize сейчас не имеет права
+            # закрывать run.
+            if run_snap.deal_id is not None:
+                from db.models.document import Document as _DocModel  # noqa: PLC0415
+                from core.constants import DocumentStatus as _DocStatus  # noqa: PLC0415
+                from sqlalchemy import func as _sa_func, select as _sa_select  # noqa: PLC0415
+
+                _INTERMEDIATE_DOC_STATUSES: tuple[str, ...] = (
+                    _DocStatus.PENDING.value,
+                    _DocStatus.PRIMARY_READY.value,
+                    _DocStatus.EXTRACTED.value,
+                    _DocStatus.SANITIZED.value,
+                    _DocStatus.STRUCTURED.value,
+                    _DocStatus.CHUNKED.value,
+                    _DocStatus.CLASSIFIED.value,
+                    _DocStatus.ENRICHED.value,
+                )
+
+                _docs_stmt = (
+                    _sa_select(_sa_func.count())
+                    .select_from(_DocModel)
+                    .where(
+                        _DocModel.deal_id == run_snap.deal_id,
+                        _DocModel.status.in_(_INTERMEDIATE_DOC_STATUSES),
+                    )
+                )
+                _docs_res = await uow.session.execute(_docs_stmt)
+                intermediate_docs = int(_docs_res.scalar_one() or 0)
+
+                if intermediate_docs > 0:
+                    logger.info(
+                        "finalize_run_if_ready: documents still in intermediate pipeline statuses, postponing",
+                        run_id=run_id,
+                        deal_id=str(run_snap.deal_id),
+                        intermediate_documents=intermediate_docs,
+                        active_stage_executions=active_stage_executions,
+                        terminal_items=terminal_items,
+                        total_items=total_items,
+                        run_status=run_snap.status,
+                    )
+                    return {
+                        "status": "WAITING_FOR_PIPELINE",
+                        "intermediate_documents": intermediate_docs,
+                        "active_stage_executions": active_stage_executions,
+                        "terminal_items": terminal_items,
+                        "total_items": total_items,
+                        "run_status": run_snap.status,
+                    }
+            # ── КОНЕЦ PIPELINE COMPLETION GUARD ──────────────────────────
+
+
             updated_run = await run_repo.finalize_run_if_finished(run_uuid)
             if updated_run is None:
                 raise ValueError(f"Run not found during finalize: {run_uuid}")
