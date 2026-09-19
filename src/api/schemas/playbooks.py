@@ -18,6 +18,7 @@ Purpose of these models:
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 from pydantic import BaseModel, Field
@@ -314,3 +315,46 @@ class PlaybookVersionDiffResponse(BaseModel):
     compare_version_id: UUID
     has_changes: bool
     diff: list[PlaybookVersionDiffField]
+
+
+
+
+# ─────────────────────────────────────────────────────────────
+# Staleness / refresh
+# ─────────────────────────────────────────────────────────────
+
+class OutdatedRefItem(BaseModel):
+    """Одно расхождение global-инструкции между playbook snapshot и текущей."""
+    instruction_code: str
+    playbook_ref: str
+    current_ref: str
+
+
+class StalePlaybookItem(BaseModel):
+    """Одна устаревшая playbook-версия."""
+    playbook_version_id: UUID
+    playbook_id: UUID | None = None
+    name: str
+    semver: str
+    status: str
+    owner_scope: str
+    created_at: datetime | None = None
+    outdated_count: int
+    total_refs: int
+    outdated_refs: list[OutdatedRefItem]
+
+
+class StalePlaybooksResponse(BaseModel):
+    """Ответ GET /api/v1/playbooks/stale."""
+    total_visible: int
+    stale_count: int
+    stale: list[StalePlaybookItem]
+
+
+class RefreshPlaybookAsNewResponse(BaseModel):
+    """Ответ POST /api/v1/playbooks/{version_id}/refresh-as-new."""
+    new_version_id: UUID
+    parent_version_id: UUID
+    semver: str
+    name: str
+    playbook_id: UUID | None = None

@@ -44,6 +44,8 @@ from api.schemas.playbooks import (
     PlaybookVersionShort,
     PlaybookDraftUpdateRequest,
     PlaybookVersionDiffResponse,
+    StalePlaybooksResponse,
+    RefreshPlaybookAsNewResponse,
 )
 from services.playbooks.publishing import (
     PlaybookPublishingService,
@@ -58,11 +60,13 @@ from services.global_checks_db_loader import (
     load_global_checks_from_db,
     load_global_checks_with_refs_from_db,
 )
+from services.playbook_staleness import compute_stale_playbooks
 from db.repositories.playbook_repo import PlaybookRepository
 from db.session import get_db
 from services.playbooks.catalog import load_global_checks_catalog_from_db
 
 from core.constants import PlaybookStatus
+from core.utils.semver import bump_semver
 from services.playbooks.diff import (
     PlaybookVersionDiffService,
     PlaybookDiffError,
@@ -198,6 +202,142 @@ def _check_can_read_playbook(user: CurrentUser, playbook_tenant_id: uuid.UUID | 
             "PLAYBOOK_TENANT_MISMATCH",
             "Playbook belongs to another tenant.",
         )
+
+
+@router.get(
+    "/stale",
+    response_model=StalePlaybooksResponse,
+    summary="Playbook versions using outdated global instructions",
+)
+async def list_stale_playbooks_endpoint(
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Возвращает playbook-версии, у которых snapshot global_instruction_refs
+    указывает на неактуальные (устаревшие) версии global-инструкций.
+
+    Visibility:
+    - superadmin: все версии
+    - иначе: platform + только свой tenant
+
+    Doc-type инструкции не участвуют: они не снапшотятся в playbook.
+    """
+    is_superadmin = user.global_role == "superadmin"
+    user_tenant_id = (
+        uuid.UUID(str(user.tenant_id)) if user.tenant_id else None
+    )
+    return await compute_stale_playbooks(
+        db,
+        user_tenant_id=user_tenant_id,
+        is_superadmin=is_superadmin,
+    )
+
+
+@router.post(
+    "/{version_id}/refresh-as-new",
+    response_model=RefreshPlaybookAsNewResponse,
+    summary="Create a new published version with current global instructions",
+)
+async def refresh_playbook_as_new(
+    version_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    """
+    Создаёт новую published-версию на основе существующей, но с
+    compiled_checks, собранным из текущих published global instructions.
+
+    Правила:
+    - Исходная версия должна быть published.
+    - Старая версия НЕ архивируется — остаётся для аудита.
+    - Deals НЕ переключаются автоматически.
+    - semver: major bump (0.1.0 -> 1.0.0).
+    - В compiled_checks.meta добавляются: rebuilt_at, rebuilt_from_version_id,
+      rebuilt_reason = "outdated_global_instructions".
+    """
+    from datetime import datetime, timezone
+
+    repo = PlaybookRepository(db)
+    pv = await repo.get_by_id(version_id)
+    if not pv:
+        raise _playbook_version_not_found(version_id)
+
+    _check_can_modify_playbook(user, pv.tenant_id)
+
+    if pv.status != PlaybookStatus.PUBLISHED.value:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "PLAYBOOK_VERSION_NOT_PUBLISHED",
+            "Only published versions can be refreshed.",
+        )
+
+    source = dict(pv.source_payload or {})
+
+    all_checks, global_refs = await load_global_checks_with_refs_from_db(db)
+    if not all_checks:
+        raise api_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "PLAYBOOK_GLOBAL_CHECKS_UNAVAILABLE",
+            "No global checks loaded; check server configuration.",
+        )
+
+    try:
+        compiled = build_compiled_checks(
+            all_checks=all_checks,
+            bundles=source.get("bundles") or [],
+            include_ids=source.get("include_ids") or [],
+            exclude_ids=source.get("exclude_ids") or [],
+            profile=source.get("profile"),
+            primary_bundle_id=(
+                (source.get("bundles") or [None])[0]
+            ),
+            global_instruction_refs=global_refs,
+        )
+    except (KeyError, ValueError) as e:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_BUILD_FAILED",
+            str(e),
+        ) from e
+    except Exception:
+        raise api_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "PLAYBOOK_BUILD_FAILED",
+            "Failed to build compiled_checks for refresh.",
+        )
+
+    meta = compiled.setdefault("meta", {})
+    meta["rebuilt_at"] = datetime.now(timezone.utc).isoformat()
+    meta["rebuilt_from_version_id"] = str(pv.id)
+    meta["rebuilt_reason"] = "outdated_global_instructions"
+
+    new_semver = bump_semver(pv.semver, part="major")
+
+    new_pv = await repo.create_version(
+        name=pv.name,
+        semver=new_semver,
+        model_config_id=pv.model_config_id,
+        git_commit=pv.git_commit,
+        yaml_sha256=pv.yaml_sha256,
+        compiled_checks=compiled,
+        status=PlaybookStatus.PUBLISHED.value,
+        playbook_id=pv.playbook_id,
+        source_payload=source,
+        tenant_id=pv.tenant_id,
+    )
+
+    await db.commit()
+    await db.refresh(new_pv)
+
+    return RefreshPlaybookAsNewResponse(
+        new_version_id=new_pv.id,
+        parent_version_id=pv.id,
+        semver=new_pv.semver,
+        name=new_pv.name,
+        playbook_id=new_pv.playbook_id,
+    )
+
 
 
 @router.get(
