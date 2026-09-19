@@ -16,8 +16,11 @@ import EmptyState from "../ui/EmptyState";
 import LoadingBlock from "../ui/LoadingBlock";
 import InlineAlert from "../InlineAlert";
 import ConfirmDialog from "../ConfirmDialog";
+import OutdatedBadge from "./OutdatedBadge";
+import RefreshPlaybookButton from "./RefreshPlaybookButton";
 
 import { getApiErrorMessage, isApiErrorStatus } from "../../utils/apiErrors";
+import { useStalePlaybooks } from "../../hooks/useStalePlaybooks";
 
 import type {
   Deal,
@@ -109,6 +112,8 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   const navigate = useNavigate();
   const { canManageRequests } = useDealPermissions(dealId);
   const { globalRole } = useAuth();
+  const stale = useStalePlaybooks();
+  const [versionsReloadKey, setVersionsReloadKey] = useState(0);
 
   const canEditPlaybook =
     (globalRole === "superadmin" || globalRole === "tenant_admin") &&
@@ -462,7 +467,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [effectiveDeal?.playbook_version_id, t]);
+  }, [effectiveDeal?.playbook_version_id, t, versionsReloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -809,7 +814,12 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                             </span>
                           </span>
 
-                          <VersionStatusBadge status={version.status} />
+                          <div className="flex shrink-0 items-center gap-1">
+                            {stale.byId.has(versionId) ? (
+                              <OutdatedBadge item={stale.byId.get(versionId)!} />
+                            ) : null}
+                            <VersionStatusBadge status={version.status} />
+                          </div>
                         </div>
                       </button>
                     </li>
@@ -850,14 +860,31 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             title={t("selectorPanel.details.title")}
             rightSlot={
               selectedLineId ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleEditSelectedLine}
-                  disabled={isUiLocked}
-                >
-                  {t("selectorPanel.details.editTemplate")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {selectedVersionId &&
+                  stale.byId.has(selectedVersionId) &&
+                  canEditPlaybook ? (
+                    <RefreshPlaybookButton
+                      versionId={selectedVersionId}
+                      versionName={versionDetail?.name}
+                      variant="secondary"
+                      size="sm"
+                      onSuccess={() => {
+                        setVersionsReloadKey((k) => k + 1);
+                        void loadHistory();
+                        stale.refetch();
+                      }}
+                    />
+                  ) : null}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleEditSelectedLine}
+                    disabled={isUiLocked}
+                  >
+                    {t("selectorPanel.details.editTemplate")}
+                  </Button>
+                </div>
               ) : null
             }
           >

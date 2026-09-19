@@ -16,6 +16,9 @@ import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
 import InlineAlert from "../components/InlineAlert";
 import LoadingBlock from "../components/ui/LoadingBlock";
+import OutdatedBadge from "../components/playbook/OutdatedBadge";
+import RefreshPlaybookButton from "../components/playbook/RefreshPlaybookButton";
+import { useStalePlaybooks } from "../hooks/useStalePlaybooks";
 import type { ApiError, PlaybookVersionShort, ModelConfig } from "../types";
 
 // ─────────────────────────────────────────────────────────────
@@ -78,6 +81,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const modelConfigIdFromQuery = searchParams.get("modelConfigId");
+  const stale = useStalePlaybooks();
 
   const [state, setState] = useState<PageState>({
     versions: [],
@@ -274,7 +278,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                         ].join(" ")}
                       >
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="truncate font-semibold text-[var(--text-primary)]">
                               {version.name}
                             </span>
@@ -283,6 +287,9 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                                 v{version.semver}
                               </span>
                             )}
+                            {stale.byId.has(version.id) ? (
+                              <OutdatedBadge item={stale.byId.get(version.id)!} />
+                            ) : null}
                           </div>
                           <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
                             <span>{version.status}</span>
@@ -331,7 +338,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                   <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
                     {t("versions.selectedVersion")}
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-[var(--text-primary)]">
                       {selectedVersion?.name}
                     </span>
@@ -340,12 +347,33 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                         v{selectedVersion.semver}
                       </span>
                     )}
+                    {selectedVersion && stale.byId.has(selectedVersion.id) ? (
+                      <OutdatedBadge
+                        item={stale.byId.get(selectedVersion.id)!}
+                        size="md"
+                      />
+                    ) : null}
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
                     <span>{selectedVersion?.status}</span>
                     <span>·</span>
                     <span className="font-mono">{selectedVersion?.id}</span>
                   </div>
+
+                  {selectedVersion && stale.byId.has(selectedVersion.id) ? (
+                    <div className="mt-3">
+                      <RefreshPlaybookButton
+                        versionId={selectedVersion.id}
+                        versionName={selectedVersion.name}
+                        variant="secondary"
+                        size="sm"
+                        onSuccess={() => {
+                          void handleRefresh();
+                          stale.refetch();
+                        }}
+                      />
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* ModelConfig select */}

@@ -20,9 +20,11 @@ import { useTranslation, Trans } from "react-i18next";
 import client from "../../api/client";
 import type { PlaybookLineShort, PlaybookVersionShort } from "../../types";
 import { getApiErrorMessage } from "../../utils/apiErrors";
+import { useStalePlaybooks } from "../../hooks/useStalePlaybooks";
 
 import Button from "../ui/Button";
 import InlineAlert from "../InlineAlert";
+import OutdatedBadge from "../playbook/OutdatedBadge";
 
 interface Block3PlaybookProps {
   dealId: string;
@@ -51,6 +53,7 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
   onApplied,
 }) => {
   const { t } = useTranslation("projects");
+  const stale = useStalePlaybooks();
 
   // ── Data state ────────────────────────────────────────────
   const [lines, setLines] = React.useState<PlaybookLineShort[]>([]);
@@ -378,7 +381,7 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
                           .filter(Boolean)
                           .join(" ")}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-semibold">
                             {version.name}
                           </span>
@@ -389,6 +392,9 @@ const Block3Playbook: React.FC<Block3PlaybookProps> = ({
                             <span className="rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-success-text)]">
                               {t("newProject.block3.currentBadge")}
                             </span>
+                          ) : null}
+                          {stale.byId.has(versionId) ? (
+                            <OutdatedBadge item={stale.byId.get(versionId)!} />
                           ) : null}
                         </div>
                       </button>
