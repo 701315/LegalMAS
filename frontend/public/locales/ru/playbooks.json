@@ -87,6 +87,22 @@
       "createVersionFailed": "Не удалось создать версию playbook."
     }
   },
+  "staleness": {
+    "badge": {
+      "label": "{{outdated}}/{{total}} global-инструкций устарели",
+      "tooltip": "Global-инструкции были изменены после формирования этого playbook ({{createdAt}}). Для предстоящей проверки рекомендуется создать новую версию на свежих инструкциях — нажмите «Обновить»."
+    },
+    "refresh": {
+      "button": "Обновить на свежих инструкциях",
+      "confirmTitle": "Создать новую версию на свежих global-инструкциях?",
+      "confirmDescription": "Будет создана новая published-версия playbook «{{name}}» на основе текущей, но с актуальными global-инструкциями. Старая версия сохранится для аудита. Проекты, привязанные к старой версии, не переключатся автоматически.",
+      "confirmLabel": "Да, создать",
+      "confirmingLabel": "Создаём…",
+      "cancelLabel": "Отмена",
+      "success": "Создана новая версия {{semver}}",
+      "error": "Не удалось создать версию. Попробуйте позже."
+    }
+  },
   "globalPlaybookDetail": {
     "backToList": "Global Playbooks",
     "fallbackTitle": "Playbook",

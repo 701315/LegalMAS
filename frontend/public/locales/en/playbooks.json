@@ -87,6 +87,22 @@
       "createVersionFailed": "Failed to create playbook version."
     }
   },
+  "staleness": {
+    "badge": {
+      "label": "{{outdated}}/{{total}} global instructions outdated",
+      "tooltip": "Global instructions were changed after this playbook was created ({{createdAt}}). To use the freshest instructions in upcoming runs, create a new version — click \"Refresh\"."
+    },
+    "refresh": {
+      "button": "Refresh on fresh instructions",
+      "confirmTitle": "Create a new version on fresh global instructions?",
+      "confirmDescription": "A new published version of playbook \"{{name}}\" will be created, based on the current one but with up-to-date global instructions. The old version is preserved for audit. Projects bound to the old version are not switched automatically.",
+      "confirmLabel": "Yes, create",
+      "confirmingLabel": "Creating…",
+      "cancelLabel": "Cancel",
+      "success": "Created new version {{semver}}",
+      "error": "Failed to create version. Please try again later."
+    }
+  },
   "globalPlaybookDetail": {
     "backToList": "Global Playbooks",
     "fallbackTitle": "Playbook",

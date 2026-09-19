@@ -11,6 +11,10 @@ interface ConfirmDialogProps {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Вариант confirm-кнопки. Default: "danger" (для backward-compat). */
+  confirmVariant?: "primary" | "secondary" | "danger" | "ghost" | "outline";
+  /** Текст confirm-кнопки в состоянии загрузки. Default: t("actions.deleting"). */
+  confirmingLabel?: string;
   isConfirming?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -25,6 +29,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   description,
   confirmLabel,
   cancelLabel,
+  confirmVariant = "danger",
+  confirmingLabel,
   isConfirming = false,
   onConfirm,
   onCancel,
@@ -156,12 +162,14 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
           <Button
             type="button"
-            variant="danger"
+            variant={confirmVariant}
             size="sm"
             onClick={onConfirm}
             disabled={isConfirming}
           >
-            {isConfirming ? t("actions.deleting") : resolvedConfirmLabel}
+            {isConfirming
+              ? (confirmingLabel ?? t("actions.deleting"))
+              : resolvedConfirmLabel}
           </Button>
         </div>
       </div>

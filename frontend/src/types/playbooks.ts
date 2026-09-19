@@ -161,3 +161,44 @@ export interface PlaybookLineDetail extends PlaybookLineShort {
 }
 
 
+
+// ─────────────────────────────────────────────────────────────
+// Staleness / refresh
+// ─────────────────────────────────────────────────────────────
+
+/** Одно расхождение global-инструкции между playbook snapshot и текущей published. */
+export interface OutdatedRefItem {
+  instruction_code: string;
+  playbook_ref: string;
+  current_ref: string;
+}
+
+/** Одна устаревшая playbook-версия. */
+export interface StalePlaybookItem {
+  playbook_version_id: string;
+  playbook_id: string | null;
+  name: string;
+  semver: string;
+  status: string;
+  owner_scope: string;
+  created_at: string | null;
+  outdated_count: number;
+  total_refs: number;
+  outdated_refs: OutdatedRefItem[];
+}
+
+/** Ответ GET /api/v1/playbooks/stale */
+export interface StalePlaybooksResponse {
+  total_visible: number;
+  stale_count: number;
+  stale: StalePlaybookItem[];
+}
+
+/** Ответ POST /api/v1/playbooks/{version_id}/refresh-as-new */
+export interface RefreshPlaybookAsNewResponse {
+  new_version_id: string;
+  parent_version_id: string;
+  semver: string;
+  name: string;
+  playbook_id: string | null;
+}
