@@ -274,6 +274,23 @@ async def refresh_playbook_as_new(
 
     source = dict(pv.source_payload or {})
 
+    # Восстанавливаем СОСТАВ проверок из предыдущей версии.
+    # meta.check_ids — это финальный список после bundle/include/exclude/profile,
+    # зафиксированный в момент создания той версии.
+    old_meta = (pv.compiled_checks or {}).get("meta") or {}
+    old_check_ids = list(old_meta.get("check_ids") or [])
+
+    # Fallback для legacy playbook'ов без meta.check_ids.
+    if not old_check_ids:
+        old_check_ids = list(source.get("include_ids") or [])
+
+    if not old_check_ids:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_SOURCE_REQUIRED",
+            "Cannot determine check composition of the source version.",
+        )
+
     all_checks, global_refs = await load_global_checks_with_refs_from_db(db)
     if not all_checks:
         raise api_error(
@@ -282,16 +299,26 @@ async def refresh_playbook_as_new(
             "No global checks loaded; check server configuration.",
         )
 
+    # Убираем check_ids, для которых больше нет published global-инструкции
+    # (например, инструкция была архивирована). build_compiled_checks падает
+    # с KeyError, если передать unknown_id, поэтому фильтруем явно.
+    include_ids = [cid for cid in old_check_ids if cid in all_checks]
+
+    if not include_ids:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_BUILD_FAILED",
+            "All checks from the source version are no longer available.",
+        )
+
     try:
         compiled = build_compiled_checks(
             all_checks=all_checks,
-            bundles=source.get("bundles") or [],
-            include_ids=source.get("include_ids") or [],
-            exclude_ids=source.get("exclude_ids") or [],
-            profile=source.get("profile"),
-            primary_bundle_id=(
-                (source.get("bundles") or [None])[0]
-            ),
+            bundles=[],
+            include_ids=include_ids,
+            exclude_ids=[],
+            profile=None,
+            primary_bundle_id=None,
             global_instruction_refs=global_refs,
         )
     except (KeyError, ValueError) as e:
