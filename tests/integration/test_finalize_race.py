@@ -37,47 +37,118 @@ _INTERMEDIATE_DOC_STATUSES: tuple[str, ...] = (
 )
 
 
-class TestFinalizeRaceGuard(unittest.TestCase):
-    """Логика guard'а в finalize_run_if_ready."""
+class TestFinalizeRaceGuardMultiDoc(unittest.TestCase):
+    """Guard корректно работает для multi-doc run."""
 
-    def _should_postpone(self, *, has_deal: bool, intermediate_docs: int) -> bool:
-        if not has_deal:
-            return False
-        return intermediate_docs > 0
+    _TERMINAL = frozenset({"completed", "failed", "quarantine", "duplicate", "deleted"})
 
-    def test_postpones_when_document_chunked(self):
-        self.assertTrue(
-            self._should_postpone(has_deal=True, intermediate_docs=1)
-        )
+    def _should_postpone(self, *, docs: list[tuple[str, int]]) -> bool:
+        """
+        docs: список (status, plan_count) — по одному на документ deal.
+        Повторяет логику guard'а из finalize_run_if_ready.
+        """
+        for status, plan_count in docs:
+            if status in self._TERMINAL:
+                continue
+            if plan_count == 0:
+                return True
+        return False
 
-    def test_postpones_when_document_enriched(self):
-        self.assertTrue(
-            self._should_postpone(has_deal=True, intermediate_docs=1)
-        )
+    def test_one_doc_processing_blocks_finalize(self):
+        """doc1 ENRICHED с plans, doc2 CHUNKED без plans → postpone."""
+        self.assertTrue(self._should_postpone(docs=[
+            ("enriched", 37),
+            ("chunked", 0),
+        ]))
 
-    def test_proceeds_when_all_terminal(self):
-        self.assertFalse(
-            self._should_postpone(has_deal=True, intermediate_docs=0)
-        )
+    def test_all_docs_have_plans_releases_guard(self):
+        """Все ENRICHED с plans → finalize."""
+        self.assertFalse(self._should_postpone(docs=[
+            ("enriched", 37),
+            ("enriched", 25),
+        ]))
 
-    def test_skips_when_run_has_no_deal(self):
-        self.assertFalse(
-            self._should_postpone(has_deal=False, intermediate_docs=99)
-        )
+    def test_failed_doc_does_not_block(self):
+        """FAILED — терминальный, не блокирует."""
+        self.assertFalse(self._should_postpone(docs=[
+            ("failed", 0),
+            ("enriched", 37),
+        ]))
 
-    def test_intermediate_statuses_cover_v2_pipeline(self):
-        expected = {
-            DocumentStatus.PENDING.value,
-            DocumentStatus.PRIMARY_READY.value,
-            DocumentStatus.EXTRACTED.value,
-            DocumentStatus.SANITIZED.value,
-            DocumentStatus.STRUCTURED.value,
-            DocumentStatus.CHUNKED.value,
-            DocumentStatus.CLASSIFIED.value,
-            DocumentStatus.ENRICHED.value,
-        }
-        self.assertEqual(expected, set(_INTERMEDIATE_DOC_STATUSES))
+    def test_quarantine_doc_does_not_block(self):
+        """QUARANTINE — терминальный, не блокирует."""
+        self.assertFalse(self._should_postpone(docs=[
+            ("quarantine", 0),
+            ("enriched", 37),
+        ]))
 
+    def test_duplicate_doc_does_not_block(self):
+        """DUPLICATE — терминальный, не блокирует."""
+        self.assertFalse(self._should_postpone(docs=[
+            ("duplicate", 0),
+            ("enriched", 37),
+        ]))
+
+    def test_deleted_doc_does_not_block(self):
+        """DELETED — терминальный (audit only), не блокирует."""
+        self.assertFalse(self._should_postpone(docs=[
+            ("deleted", 0),
+            ("enriched", 37),
+        ]))
+
+    def test_mixed_three_docs(self):
+        """COMPLETED + ENRICHED с plans + SANITIZED без plans → postpone."""
+        self.assertTrue(self._should_postpone(docs=[
+            ("completed", 50),
+            ("enriched", 37),
+            ("sanitized", 0),
+        ]))
+
+    def test_many_docs_all_ready(self):
+        """10 ENRICHED с plans → finalize."""
+        self.assertFalse(self._should_postpone(docs=[
+            ("enriched", 30) for _ in range(10)
+        ]))
+
+    def test_one_late_doc_blocks(self):
+        """9 готовых + 1 PENDING → postpone."""
+        docs = [("enriched", 30) for _ in range(9)]
+        docs.append(("pending", 0))
+        self.assertTrue(self._should_postpone(docs=docs))
+
+    def test_fifty_docs_all_ready(self):
+        """50 ENRICHED с plans → finalize. Проверка O(N)."""
+        self.assertFalse(self._should_postpone(docs=[
+            ("enriched", 20) for _ in range(50)
+        ]))
+
+    def test_fifty_docs_one_late(self):
+        """50-1 готовых + 1 CHUNKED → postpone."""
+        docs = [("enriched", 20) for _ in range(49)]
+        docs.append(("chunked", 0))
+        self.assertTrue(self._should_postpone(docs=docs))
+
+    def test_language_selection_required_blocks(self):
+        """LANGUAGE_SELECTION_REQUIRED без plans → postpone (ждём выбора)."""
+        self.assertTrue(self._should_postpone(docs=[
+            ("enriched", 37),
+            ("language_selection_required", 0),
+        ]))
+
+    def test_extracting_blocks(self):
+        """EXTRACTING без plans → postpone."""
+        self.assertTrue(self._should_postpone(docs=[
+            ("enriched", 37),
+            ("extracting", 0),
+        ]))
+
+    def test_analyzing_with_plans_does_not_block(self):
+        """ANALYZING с plans → пропускает (checks идут)."""
+        self.assertFalse(self._should_postpone(docs=[
+            ("analyzing", 15),
+            ("enriched", 37),
+        ]))
+        
 
 class TestOrchestratorFinalizeTrigger(unittest.TestCase):
     """Условие orchestrator-trigger'а."""

@@ -1541,57 +1541,79 @@ def finalize_run_if_ready(
                 }
 
 
-            # ── PIPELINE COMPLETION GUARD ─────────────────────────────────
+            # ── PIPELINE COMPLETION GUARD (multi-doc, production) ────────
             # Защита от race между orchestrator и finalize.
             #
             # Проблема: orchestrator создаёт DSE следующей стадии в отдельной
-            # транзакции (session.begin_nested + commit). До момента commit
-            # строка DSE не видна другим сессиям, поэтому count_active_for_run
-            # в этой транзакции может вернуть 0, даже если orchestrator уже
-            # планирует следующую стадию.
+            # транзакции. count_active_for_run может вернуть 0, пока commit
+            # ещё не произошёл. Проверять Document.status недостаточно —
+            # ENRICHED остаётся навсегда после завершения stage-pipeline.
             #
-            # Решение: проверяем Document.status — он обновляется worker'ом
-            # стадии в его собственной транзакции и коммитится ДО того, как
-            # orchestrator планирует следующую стадию. Это делает его
-            # надёжным «уже-закоммиченным» сигналом прогресса pipeline.
+            # Правильная проверка (multi-doc aware):
+            # для КАЖДОГО документа сделки в этом run проверяем:
+            #   - либо статус терминальный (COMPLETED / FAILED / QUARANTINE /
+            #     DUPLICATE / DELETED) — дальше pipeline не работает;
+            #   - либо у документа уже есть plan items в этом run —
+            #     checks запланированы и/или выполняются.
+            # Если хоть один не терминальный документ не имеет ни одного
+            # plan item — postpone.
             #
-            # Промежуточные статусы = документ ещё не достиг финальной стадии.
-            # Пока хотя бы один документ сделки в таком статусе — orchestrator
-            # продолжит планировать стадии, finalize сейчас не имеет права
-            # закрывать run.
+            # Это гарантирует:
+            #   • run закроется только после того, как все документы либо
+            #     прошли через checks, либо терминально упали;
+            #   • параллельная обработка не блокируется — пока doc1 идёт
+            #     по checks, doc2 может строить структуру; guard ждёт doc2;
+            #   • производительность O(N) на любое N документов (один SQL
+            #     с outer join + group by).
             if run_snap.deal_id is not None:
+                from sqlalchemy import and_, func, select  # noqa: PLC0415
                 from db.models.document import Document as _DocModel  # noqa: PLC0415
-                from core.constants import DocumentStatus as _DocStatus  # noqa: PLC0415
-                from sqlalchemy import func as _sa_func, select as _sa_select  # noqa: PLC0415
-
-                _INTERMEDIATE_DOC_STATUSES: tuple[str, ...] = (
-                    _DocStatus.PENDING.value,
-                    _DocStatus.PRIMARY_READY.value,
-                    _DocStatus.EXTRACTED.value,
-                    _DocStatus.SANITIZED.value,
-                    _DocStatus.STRUCTURED.value,
-                    _DocStatus.CHUNKED.value,
-                    _DocStatus.CLASSIFIED.value,
-                    _DocStatus.ENRICHED.value,
+                from db.models.run_check_plan_item import (  # noqa: PLC0415
+                    RunCheckPlanItem as _PlanItemModel,
                 )
+                from core.constants import DocumentStatus as _DocStatus  # noqa: PLC0415
+
+                _TERMINAL_DOC_STATUSES: frozenset[str] = frozenset({
+                    _DocStatus.COMPLETED.value,
+                    _DocStatus.FAILED.value,
+                    _DocStatus.QUARANTINE.value,
+                    _DocStatus.DUPLICATE.value,
+                    _DocStatus.DELETED.value,
+                })
 
                 _docs_stmt = (
-                    _sa_select(_sa_func.count())
-                    .select_from(_DocModel)
-                    .where(
-                        _DocModel.deal_id == run_snap.deal_id,
-                        _DocModel.status.in_(_INTERMEDIATE_DOC_STATUSES),
+                    select(
+                        _DocModel.id,
+                        _DocModel.status,
+                        func.count(_PlanItemModel.id).label("plan_count"),
                     )
+                    .select_from(_DocModel)
+                    .outerjoin(
+                        _PlanItemModel,
+                        and_(
+                            _PlanItemModel.document_id == _DocModel.id,
+                            _PlanItemModel.run_id == run_uuid,
+                        ),
+                    )
+                    .where(_DocModel.deal_id == run_snap.deal_id)
+                    .group_by(_DocModel.id, _DocModel.status)
                 )
                 _docs_res = await uow.session.execute(_docs_stmt)
-                intermediate_docs = int(_docs_res.scalar_one() or 0)
 
-                if intermediate_docs > 0:
+                docs_without_plans: list[str] = []
+                for _doc_id, _doc_status, _plan_count in _docs_res:
+                    if _doc_status in _TERMINAL_DOC_STATUSES:
+                        continue
+                    if int(_plan_count or 0) == 0:
+                        docs_without_plans.append(str(_doc_id))
+
+                if docs_without_plans:
                     logger.info(
-                        "finalize_run_if_ready: documents still in intermediate pipeline statuses, postponing",
+                        "finalize_run_if_ready: documents still without plan items, postponing",
                         run_id=run_id,
                         deal_id=str(run_snap.deal_id),
-                        intermediate_documents=intermediate_docs,
+                        docs_without_plans_count=len(docs_without_plans),
+                        docs_without_plans_sample=docs_without_plans[:5],
                         active_stage_executions=active_stage_executions,
                         terminal_items=terminal_items,
                         total_items=total_items,
@@ -1599,14 +1621,13 @@ def finalize_run_if_ready(
                     )
                     return {
                         "status": "WAITING_FOR_PIPELINE",
-                        "intermediate_documents": intermediate_docs,
+                        "docs_without_plans_count": len(docs_without_plans),
                         "active_stage_executions": active_stage_executions,
                         "terminal_items": terminal_items,
                         "total_items": total_items,
                         "run_status": run_snap.status,
                     }
             # ── КОНЕЦ PIPELINE COMPLETION GUARD ──────────────────────────
-
 
             updated_run = await run_repo.finalize_run_if_finished(run_uuid)
             if updated_run is None:
