@@ -149,8 +149,8 @@ def _make_minimal_data(
         global_groups=[global_group],
         doc_type_classes=[],
         column_registry={"consent_check__flag": col},
-        cell_values={doc_id: {"consent_check__flag": cell}},
-        drawer_contents={doc_id: {"consent_check": drawer}},
+        cell_values={doc_id: {"_default": {"consent_check__flag": cell}}},
+        drawer_contents={doc_id: {"_default": {"consent_check": drawer}}},
         documents_meta=[
             DocumentMetaDTO(
                 document_id=doc_id,
@@ -253,7 +253,7 @@ def test_response_cell_values_mapped_correctly() -> None:
 
     doc_id = "doc-abc"
     assert doc_id in response.cell_values
-    cell_dto = response.cell_values[doc_id]["consent_check__flag"]
+    cell_dto = response.cell_values[doc_id]["_default"]["consent_check__flag"]
     assert cell_dto.cell_state == "defined"
     assert cell_dto.display_value == "Да"
     assert cell_dto.raw_value == "yes"
@@ -277,14 +277,14 @@ def test_response_cell_values_location_propagated() -> None:
         global_groups=[GlobalGroupDTO("g", "G", 0, [subgroup])],
         doc_type_classes=[],
         column_registry={"chk__val": col},
-        cell_values={doc_id: {"chk__val": cell}},
-        drawer_contents={doc_id: {"chk": drawer}},
+        cell_values={doc_id: {"_default": {"chk__val": cell}}},
+        drawer_contents={doc_id: {"_default": {"chk": drawer}}},
         documents_meta=[DocumentMetaDTO(doc_id, "f.pdf", "nda", "completed")],
     )
 
     response = _map_dd_grid_v1_to_response(data, "d", "r")
 
-    cell_dto = response.cell_values[doc_id]["chk__val"]
+    cell_dto = response.cell_values[doc_id]["_default"]["chk__val"]
     assert cell_dto.location_clause_ref == "п. 1.2"
     assert cell_dto.location_page == 5
     assert cell_dto.location_confidence == "high"
@@ -311,14 +311,14 @@ def test_response_cell_values_location_fallback_propagated() -> None:
         global_groups=[GlobalGroupDTO("g", "G", 0, [subgroup])],
         doc_type_classes=[],
         column_registry={"chk__val": col},
-        cell_values={doc_id: {"chk__val": cell}},
-        drawer_contents={doc_id: {"chk": drawer}},
+        cell_values={doc_id: {"_default": {"chk__val": cell}}},
+        drawer_contents={doc_id: {"_default": {"chk": drawer}}},
         documents_meta=[DocumentMetaDTO(doc_id, "f.pdf", "nda", "completed")],
     )
 
     response = _map_dd_grid_v1_to_response(data, "d", "r")
 
-    cell_dto = response.cell_values[doc_id]["chk__val"]
+    cell_dto = response.cell_values[doc_id]["_default"]["chk__val"]
     assert cell_dto.has_location_fallback is True
     assert cell_dto.location_fallback_reason == "LLM не указал точную ссылку"
     assert cell_dto.location_page == 9
@@ -330,7 +330,7 @@ def test_response_drawer_contents_mapped_correctly() -> None:
 
     doc_id = "doc-abc"
     assert doc_id in response.drawer_contents
-    drawer_dto = response.drawer_contents[doc_id]["consent_check"]
+    drawer_dto = response.drawer_contents[doc_id]["_default"]["consent_check"]
     assert drawer_dto.check_id == "consent_check"
     assert drawer_dto.document_id == doc_id
     assert drawer_dto.reason == "Согласие найдено"
@@ -363,14 +363,14 @@ def test_response_drawer_fields_propagated() -> None:
         global_groups=[GlobalGroupDTO("g", "G", 0, [subgroup])],
         doc_type_classes=[],
         column_registry={"chk__val": col},
-        cell_values={doc_id: {"chk__val": cell}},
-        drawer_contents={doc_id: {"chk": drawer}},
+        cell_values={doc_id: {"_default": {"chk__val": cell}}},
+        drawer_contents={doc_id: {"_default": {"chk": drawer}}},
         documents_meta=[DocumentMetaDTO(doc_id, "f.pdf", "nda", "completed")],
     )
 
     response = _map_dd_grid_v1_to_response(data, "d", "r")
 
-    field_dto = response.drawer_contents[doc_id]["chk"].fields[0]
+    field_dto = response.drawer_contents[doc_id]["_default"]["chk"].fields[0]
     assert field_dto.column_id == "chk__val"
     assert field_dto.label == "Значение"
     assert field_dto.location_clause_ref == "п. 3.1"
@@ -389,14 +389,14 @@ def test_response_drawer_evidence_items_propagated() -> None:
         global_groups=[GlobalGroupDTO("g", "G", 0, [subgroup])],
         doc_type_classes=[],
         column_registry={"chk__val": col},
-        cell_values={doc_id: {"chk__val": cell}},
-        drawer_contents={doc_id: {"chk": drawer}},
+        cell_values={doc_id: {"_default": {"chk__val": cell}}},
+        drawer_contents={doc_id: {"_default": {"chk": drawer}}},
         documents_meta=[DocumentMetaDTO(doc_id, "f.pdf", "nda", "completed")],
     )
 
     response = _map_dd_grid_v1_to_response(data, "d", "r")
 
-    assert response.drawer_contents[doc_id]["chk"].evidence_items == ["п. 1.1", "п. 2.3"]
+    assert response.drawer_contents[doc_id]["_default"]["chk"].evidence_items == ["п. 1.1", "п. 2.3"]
 
 
 def test_response_documents_meta_mapped_correctly() -> None:

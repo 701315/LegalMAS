@@ -47,6 +47,21 @@ class Run(Base):
         ),
     )
 
+    analysis_language: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+        comment=(
+            "Frozen copy of Deal.primary_language at run creation time. "
+            "This is the TARGET language chosen by the user for analysis, "
+            "NOT the original document language. For example, if a bilingual "
+            "RU+EN contract was uploaded and the user selected RU, this field "
+            "will be 'RU'. The canonical CheckResult content is generated in "
+            "this language. Never changes after creation. Used by locale "
+            "resolution chain when user selects 'original_analysis_language' "
+            "as output locale."
+        ),
+    )
+
     bundle_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("bundles.id", ondelete="SET NULL"),

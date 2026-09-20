@@ -83,6 +83,7 @@ from .endpoints.provenance import router as provenance_router
 from .endpoints.tenant_admin import router as tenant_admin_router
 from .middleware.audit import AuditMiddleware
 from api.endpoints.global_instruction_versions import router as global_instruction_router
+from api.endpoints.localization_review import router as localization_review_router
 
 
 setup_logging()
@@ -230,6 +231,7 @@ app.include_router(run_summary.router, prefix="/api/v1")
 
 # QC actions for review mode.
 app.include_router(qc.router, prefix="/api/v1")
+app.include_router(localization_review_router, prefix="/api/v1")
 
 # Результаты проверок.
 app.include_router(results.router, prefix="/api/v1")

@@ -1,6 +1,5 @@
 // src/marketing/context/ContactModalContext.tsx
 
-// src/marketing/context/ContactModalContext.tsx
 import React, { createContext, useContext, useState } from "react";
 import type { ReactNode } from "react";
 import ContactModal from "../components/home/ContactModal";

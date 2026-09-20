@@ -1,0 +1,1361 @@
+============================================================
+АУДИТ ПРОЕКТА STELOOM
+Дата: $(date)
+============================================================
+
+============================================================
+1. СТРУКТУРА ПАПКИ src/marketing
+============================================================
+src/marketing/components/about/AboutCTASection.tsx
+src/marketing/components/about/AboutHeroSection.tsx
+src/marketing/components/about/AboutPhilosophySection.tsx
+src/marketing/components/about/AboutPrinciplesSection.tsx
+src/marketing/components/about/AboutProcessSection.tsx
+src/marketing/components/about/AboutTeamSection.tsx
+src/marketing/components/assets/photos/vladimir1.jpg
+src/marketing/components/assets/photos/vladimir.jpg
+src/marketing/components/demo/DemoAudienceSection.tsx
+src/marketing/components/demo/DemoFaqSection.tsx
+src/marketing/components/demo/DemoFormSection.tsx
+src/marketing/components/demo/DemoHeroSection.tsx
+src/marketing/components/demo/DemoWhatYouSeeSection.tsx
+src/marketing/components/home/ApplicationSection/ApplicationSection.module.css
+src/marketing/components/home/ApplicationSection/ApplicationSection.tsx
+src/marketing/components/home/ApplicationSection/index.ts
+src/marketing/components/home/ApplicationSection/roles/roles-data.ts
+src/marketing/components/home/ApplicationSection/types.ts
+src/marketing/components/home/ConceptTagsSection.tsx
+src/marketing/components/home/ContactModal.tsx
+src/marketing/components/home/FaqSection.tsx
+src/marketing/components/home/FounderSection.tsx
+src/marketing/components/home/KnowledgeGrowthSection/contract-texts.ts
+src/marketing/components/home/KnowledgeGrowthSection/index.tsx
+src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx
+src/marketing/components/home/KnowledgeGrowthSection/types.ts
+src/marketing/components/home/KnowledgeGrowthSection/useTreeEngine.ts
+src/marketing/components/home/PremiumFinalCtaSection.tsx
+src/marketing/components/home/PremiumHeroSection.tsx
+src/marketing/components/home/SecurityFoundationSection/index.tsx
+src/marketing/components/home/SecurityFoundationSection/types.ts
+src/marketing/components/platform/content/platformContent.ts
+src/marketing/components/platform/diagrams/FindingsDiagram.tsx
+src/marketing/components/platform/diagrams/FlowSchema.tsx
+src/marketing/components/platform/diagrams/HeroFlowVisual.tsx
+src/marketing/components/platform/diagrams/StandardsDiagram.tsx
+src/marketing/components/platform/diagrams/VerticalNodeChain.tsx
+src/marketing/components/platform/PlatformCTASection.tsx
+src/marketing/components/platform/PlatformDocumentStructureSection.tsx
+src/marketing/components/platform/PlatformFindingsSection.tsx
+src/marketing/components/platform/PlatformHeroSection.tsx
+src/marketing/components/platform/PlatformMethodologySection.tsx
+src/marketing/components/platform/PlatformStandardsSection.tsx
+src/marketing/components/platform/PlatformTechnicalSection.tsx
+src/marketing/components/platform/PlatformWorkflowSection.tsx
+src/marketing/components/platform/primitives/EditorialArrow.tsx
+src/marketing/components/platform/primitives/PathCrumb.tsx
+src/marketing/components/security/content/securityContent.ts
+src/marketing/components/security/SecurityCapabilitiesSection.tsx
+src/marketing/components/security/SecurityCTASection.tsx
+src/marketing/components/security/SecurityDeploymentSection.tsx
+src/marketing/components/security/SecurityFAQSection.tsx
+src/marketing/components/security/SecurityHeroSection.tsx
+src/marketing/components/shared/MarketingEditorialShell.tsx
+src/marketing/components/shared/MarketingPageFooter.tsx
+src/marketing/components/shared/MarketingPageHeader.tsx
+src/marketing/components/shared/MobileMenu.tsx
+src/marketing/components/shared/primitives/SteloomWordmark.tsx
+src/marketing/components/shared/SiteFooter.tsx
+src/marketing/components/shared/SiteHeader.tsx
+src/marketing/content/demoContent.ts
+src/marketing/content/landingContent.ts
+src/marketing/content/siteNav.ts
+src/marketing/context/ContactModalContext.tsx
+src/marketing/hooks/useMediaQuery.ts
+src/marketing/hooks/useScrollDirection.ts
+src/marketing/motion/Reveal.tsx
+src/marketing/pages/AboutPage.tsx
+src/marketing/pages/CapabilitiesPage.tsx
+src/marketing/pages/DemoPage.tsx
+src/marketing/pages/HomePage.tsx
+src/marketing/pages/SecurityPage.tsx
+src/marketing/pages/solutions/AuditCompliancePage.tsx
+src/marketing/pages/solutions/CompliancePage.tsx
+src/marketing/pages/solutions/content/solutionsContent.ts
+src/marketing/pages/solutions/ContractReviewPage.tsx
+src/marketing/pages/solutions/CorporateLegalPage.tsx
+src/marketing/pages/solutions/CounterpartiesPage.tsx
+src/marketing/pages/solutions/InternalAuditPage.tsx
+src/marketing/pages/solutions/LawFirmsPage.tsx
+src/marketing/pages/solutions/MaDueDiligencePage.tsx
+src/marketing/pages/solutions/RealEstatePage.tsx
+
+============================================================
+2. PACKAGE.JSON
+============================================================
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && node scripts/prerender.mjs",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@headlessui/react": "^2.2.10",
+    "@tanstack/react-query": "^5.90.21",
+    "ag-grid-community": "^35.1.0",
+    "ag-grid-react": "^35.1.0",
+    "axios": "^1.13.6",
+    "docx": "^9.7.1",
+    "file-saver": "^2.0.5",
+    "framer-motion": "^11.18.2",
+    "i18next": "^26.4.1",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "i18next-http-backend": "^4.0.1",
+    "js-yaml": "^4.3.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^0.576.0",
+    "pdfjs-dist": "5.4.296",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-fast-marquee": "^1.6.5",
+    "react-i18next": "^17.0.13",
+    "react-pdf": "10.4.1",
+    "react-router-dom": "^7.13.1",
+    "tailwind-merge": "^3.5.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@tailwindcss/vite": "^4.3.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/file-saver": "^2.0.7",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.11.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.4.27",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "jsdom": "^30.0.1",
+    "postcss": "^8.5.8",
+    "puppeteer": "^25.3.0",
+    "serve-handler": "^6.1.7",
+    "tailwindcss": "^4.2.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vite": "^7.3.1",
+    "vitest": "^5.0.0"
+  }
+}
+
+============================================================
+3. КОНФИГИ СБОРЩИКОВ
+============================================================
+--- vite.config.ts ---
+// =============================================================
+// vite.config.ts
+// Конфигурация Vite + React + Tailwind v4
+// =============================================================
+
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [
+    react(),
+    tailwindcss(),
+  ],
+
+  optimizeDeps: {
+    include: [
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+      "react-dom/client",
+      "framer-motion",
+    ],
+  },
+
+  server: {
+    proxy: {
+      "/api/v1": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
+  },
+
+  build: {
+    // Warning limit — по умолчанию 500 KB.
+    // Основной bundle с ag-grid + всеми страницами всё равно > 1 MB.
+    chunkSizeWarningLimit: 1500,
+
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // ---------- Core React ----------
+          "react-vendor": [
+            "react",
+            "react-dom",
+            "react-router-dom",
+          ],
+
+          // ---------- Query / data layer ----------
+          "query-vendor": [
+            "@tanstack/react-query",
+          ],
+
+          // ---------- AG Grid (тяжёлая таблица) ----------
+          "ag-grid-vendor": [
+            "ag-grid-community",
+            "ag-grid-react",
+          ],
+
+          // ---------- UI / icons ----------
+          "ui-vendor": [
+            "lucide-react",
+            "framer-motion",
+            "tailwind-merge",
+          ],
+        },
+      },
+    },
+  },
+});
+--- tsconfig.json ---
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+
+
+============================================================
+4. ФАЙЛЫ РОУТИНГА
+============================================================
+--- src/App.tsx ---
+import React from "react";
+import { Routes, Route, Navigate, Outlet, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+
+// ── Marketing pages ───────────────────────────────────────────
+import HomePage from "./marketing/pages/HomePage";
+import SecurityPage from "./marketing/pages/SecurityPage";
+import CapabilitiesPage from "./marketing/pages/CapabilitiesPage";
+import DemoPage from "./marketing/pages/DemoPage";
+import AboutPage from "./marketing/pages/AboutPage";
+
+// ── Solution pages ────────────────────────────────────────────
+import MaDueDiligencePage from "./marketing/pages/solutions/MaDueDiligencePage";
+import ContractReviewPage from "./marketing/pages/solutions/ContractReviewPage";
+import CompliancePage from "./marketing/pages/solutions/CompliancePage";
+import InternalAuditPage from "./marketing/pages/solutions/InternalAuditPage";
+import LawFirmsPage from "./marketing/pages/solutions/LawFirmsPage";
+import CorporateLegalPage from "./marketing/pages/solutions/CorporateLegalPage";
+import AuditCompliancePage from "./marketing/pages/solutions/AuditCompliancePage";
+import CounterpartiesPage from "./marketing/pages/solutions/CounterpartiesPage";
+import RealEstatePage from "./marketing/pages/solutions/RealEstatePage";
+
+// ── App pages ──────────────────────────────────
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import DealPage from "./pages/DealPage";
+import DealListPage from "./pages/DealListPage";
+import NewProjectPage from "./pages/NewProjectPage";
+import ProjectUploadPage from "./pages/ProjectUploadPage";
+import ProjectMembersPage from "./pages/ProjectMembersPage";
+import DealPlaybookSelectorPage from "./pages/DealPlaybookSelectorPage";
+import RelaunchPage from "./pages/RelaunchPage";
+import AdminPlaybookLinesPage from "./pages/AdminPlaybookLinesPage";
+import ModelConfigsAdminPage from "./pages/ModelConfigsAdminPage";
+import PlaybooksRegistryPage from "./pages/PlaybooksRegistryPage";
+import AdminPage from "./pages/AdminPage";
+import TenantAdminPage from "./pages/TenantAdminPage";
+import AdminTenantNewPage from "./pages/AdminTenantNewPage";
+import AdminTenantDetailPage from "./pages/AdminTenantDetailPage";
+import AdminMonitoringPage from "./pages/AdminMonitoringPage";
+import AdminTenantProjectsPage from "./pages/AdminTenantProjectsPage";
+
+// ── Instructions — global playbooks (superadmin) ──────────────
+import InstructionsIndexPage from "./pages/instructions/InstructionsIndexPage";
+import GlobalPlaybooksPage from "./pages/instructions/GlobalPlaybooksPage";
+import GlobalPlaybookDetailPage from "./pages/instructions/GlobalPlaybookDetailPage";
+import PlaybookVersionDetailPage from "./pages/instructions/PlaybookVersionDetailPage";
+
+// ── Instructions — global checks lifecycle (superadmin) ───────
+import GlobalInstructionsPage from "./pages/instructions/GlobalInstructionsPage";
+import GlobalInstructionDetailPage from "./pages/instructions/GlobalInstructionDetailPage";
+import GlobalInstructionVersionDetailPage from "./pages/instructions/GlobalInstructionVersionDetailPage";
+
+// ── Instructions — doc-type (superadmin) ──────────────────────
+import DocTypeInstructionsPage from "./pages/instructions/DocTypeInstructionsPage";
+import DocTypeDetailPage from "./pages/instructions/DocTypeDetailPage";
+
+// ── Instructions — tenant-level (tenant_admin) ────────────────
+import TenantInstructionsPage from "./pages/tenant-instructions/TenantInstructionsPage";
+import TenantOverridesPage from "./pages/tenant-instructions/TenantOverridesPage";
+import TenantOverrideCreatePage from "./pages/tenant-instructions/TenantOverrideCreatePage";
+import TenantOverrideDetailPage from "./pages/tenant-instructions/TenantOverrideDetailPage";
+import TenantBasePlaybooksPage from "./pages/tenant-instructions/TenantBasePlaybooksPage";
+import TenantBaseGlobalChecksPage from "./pages/tenant-instructions/TenantBaseGlobalChecksPage";
+import TenantBaseGlobalCheckDetailPage from "./pages/tenant-instructions/TenantBaseGlobalCheckDetailPage";
+import TenantBaseDocTypesPage from "./pages/tenant-instructions/TenantBaseDocTypesPage";
+import TenantBaseDocTypeDetailPage from "./pages/tenant-instructions/TenantBaseDocTypeDetailPage";
+import TenantOwnedPlaybooksPage from "./pages/tenant-instructions/TenantOwnedPlaybooksPage";
+
+// ── Instructions — deal-level (project member) ────────────────
+import DealInstructionsPage from "./pages/deal-instructions/DealInstructionsPage";
+import DealOverridesPage from "./pages/deal-instructions/DealOverridesPage";
+import DealOverrideDetailPage from "./pages/deal-instructions/DealOverrideDetailPage";
+
+// ── Utilities ─────────────────────────────────────────────────
+import { shouldPollDealLanguageDiscovery } from "./utils/languageDiscovery";
+import { useDeal } from "./api/deals";
+import { useAuth } from "./hooks/useAuth";
+import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
+import ScrollToAnchor from "./components/routing/ScrollToAnchor";
+import AppShell from "./components/layout/AppShell";
+import { ContactModalProvider } from "./marketing/context/ContactModalContext";
+
+const POLL_INTERVAL = 4000;
+
+// ─────────────────────────────────────────────────────────────
+// Deal wrapper
+// ─────────────────────────────────────────────────────────────
+
+function DealRouteWrapper() {
+  const { dealId } = useParams<{ dealId: string }>();
+  const { t } = useTranslation("common");
+  const {
+    data: deal,
+    isLoading,
+    isError,
+    error,
+  } = useDeal(dealId ?? null, {
+    refetchInterval: (query) =>
+      shouldPollDealLanguageDiscovery(
+        query.state.data?.language_discovery_status,
+      )
+        ? POLL_INTERVAL
+        : false,
+  });
+
+  if (isLoading) return <div>{t("loading")}</div>;
+
+  if (isError || !deal) {
+    return (
+      <div>
+        {error instanceof Error ? error.message : t("projectLoadError")}
+      </div>
+    );
+  }
+
+  return <DealPage deal={deal} />;
+}
+
+function DocTypeVersionLegacyRedirect() {
+  const { docType, versionId } = useParams<{
+    docType: string;
+    versionId: string;
+  }>();
+
+  if (!docType) {
+    return <Navigate to="/admin/instructions/doc-types" replace />;
+  }
+
+  // Старый /versions/new больше не используется как отдельная страница.
+  // Безопасно отправляем пользователя на объединённый detail screen.
+  if (!versionId || versionId === "new") {
+    return <Navigate to={`/admin/instructions/doc-types/${docType}`} replace />;
+  }
+
+  return (
+    <Navigate
+      to={`/admin/instructions/doc-types/${docType}?version=${encodeURIComponent(versionId)}`}
+      replace
+    />
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Route Guards
+// ─────────────────────────────────────────────────────────────
+
+function RequireAuth({ children }: { children: React.ReactElement }) {
+  const { userId } = useAuth();
+  if (!userId) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RequireSuperadmin({ children }: { children: React.ReactElement }) {
+  const { userId, globalRole } = useAuth();
+  if (!userId) return <Navigate to="/login" replace />;
+  if (globalRole !== "superadmin") return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+function RequireAdminOrSuperadmin({
+  children,
+}: {
+  children: React.ReactElement;
+}) {
+  const { userId, globalRole } = useAuth();
+  if (!userId) return <Navigate to="/login" replace />;
+  if (globalRole !== "superadmin" && globalRole !== "tenant_admin") {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Shared authenticated AppShell layout
+// ─────────────────────────────────────────────────────────────
+
+function AuthenticatedAppShellLayout() {
+  return (
+    <RequireAuth>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </RequireAuth>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// App
+// ─────────────────────────────────────────────────────────────
+
+function App() {
+  return (
+    <ContactModalProvider>
+      {/* Wrapper is height-agnostic here — actual height contract is
+          managed via CSS in index.css based on html.app-shell-mode class.
+          
+          - Marketing mode: wrapper grows to content (min-h-screen from CSS)
+          - App-shell mode: wrapper = height 100% (from CSS), completing
+            the viewport-locked chain html → body → #root → wrapper → AppShell
+          
+          This class-based approach is the industry standard for SPAs that
+          host both marketing pages and app-shell UI in one bundle. */}
+      <div className="w-full bg-[var(--bg-base)]" data-app-root>
+        <ScrollToAnchor />
+
+        <Routes>
+          {/* ── Marketing ──────────────────────────────────── */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/capabilities" element={<CapabilitiesPage />} />
+          <Route path="/security" element={<SecurityPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/demo" element={<DemoPage />} />
+          <Route
+            path="/solutions/ma-due-diligence"
+            element={<MaDueDiligencePage />}
+          />
+          <Route
+            path="/solutions/contract-review"
+            element={<ContractReviewPage />}
+          />
+          <Route
+            path="/solutions/compliance"
+            element={<CompliancePage />}
+          />
+          <Route
+            path="/solutions/internal-audit"
+            element={<InternalAuditPage />}
+          />
+          <Route path="/solutions/law-firms" element={<LawFirmsPage />} />
+          <Route
+            path="/solutions/corporate-legal"
+            element={<CorporateLegalPage />}
+          />
+          <Route
+            path="/solutions/audit-compliance"
+            element={<AuditCompliancePage />}
+          />
+          <Route
+            path="/solutions/counterparties"
+            element={<CounterpartiesPage />}
+          />
+          <Route
+            path="/solutions/real-estate"
+            element={<RealEstatePage />}
+          />
+
+          {/* ── Auth ───────────────────────────────────────── */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* ── Legacy redirects — сохраняем вне общего shell ─ */}
+          <Route
+            path="/admin/playbook-versions"
+            element={
+              <Navigate
+                to="/admin/instructions/playbooks-registry"
+                replace
+              />
+            }
+          />
+          <Route
+            path="/admin/instructions/playbook-versions"
+            element={
+              <Navigate
+                to="/admin/instructions/playbooks-registry"
+                replace
+              />
+            }
+          />
+          <Route
+            path="/tenant-admin/instructions/playbook-versions"
+            element={
+              <Navigate
+                to="/admin/instructions/playbooks-registry"
+                replace
+              />
+            }
+          />
+
+          {/* ── Shared authenticated app shell ─────────────── */}
+          <Route element={<AuthenticatedAppShellLayout />}>
+            {/* ── Dashboard & base project routes ─────────── */}
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/deals" element={<DealListPage />} />
+            <Route path="/projects/:dealId" element={<DealRouteWrapper />} />
+
+            <Route
+              path="/projects/:dealId/upload"
+              element={
+                <ProjectRouteGuard requiredCapability="canUploadDocuments">
+                  <ProjectUploadPage />
+                </ProjectRouteGuard>
+              }
+            />
+
+            <Route
+              path="/projects/:dealId/members"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <ProjectMembersPage />
+                </ProjectRouteGuard>
+              }
+            />
+
+            <Route
+              path="/projects/:dealId/playbooks/admin"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <AdminPlaybookLinesPage />
+                </ProjectRouteGuard>
+              }
+            />
+
+            {/* ── Deal-level Instructions ─────────────────── */}
+            <Route
+              path="/projects/:dealId/instructions"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <DealInstructionsPage />
+                </ProjectRouteGuard>
+              }
+            />
+
+            <Route
+              path="/projects/:dealId/instructions/overrides"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <DealOverridesPage />
+                </ProjectRouteGuard>
+              }
+            />
+
+            <Route
+              path="/projects/:dealId/instructions/overrides/:docType"
+              element={
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <DealOverrideDetailPage />
+                </ProjectRouteGuard>
+              }
+            />
+
+            {/* ── Admin or Superadmin routes ──────────────── */}
+            <Route
+              element={
+                <RequireAdminOrSuperadmin>
+                  <Outlet />
+                </RequireAdminOrSuperadmin>
+              }
+            >
+              <Route path="/projects/new" element={<NewProjectPage />} />
+
+              <Route
+                path="/projects/:dealId/playbook"
+                element={
+                  <ProjectRouteGuard requiredCapability="canManageRequests">
+                    <DealPlaybookSelectorPage />
+                  </ProjectRouteGuard>
+                }
+              />
+
+              <Route
+                path="/projects/:dealId/relaunch"
+                element={
+                  <ProjectRouteGuard requiredCapability="canStartRun">
+                    <RelaunchPage />
+                  </ProjectRouteGuard>
+                }
+              />
+
+              <Route
+                path="/admin/model-configs"
+                element={<ModelConfigsAdminPage />}
+              />
+
+              {/* ── Tenant Admin ─────────────────────────── */}
+              <Route path="/tenant-admin" element={<TenantAdminPage />} />
+
+              {/* ── Tenant-level Instructions ────────────── */}
+              <Route
+                path="/tenant-admin/instructions"
+                element={<TenantInstructionsPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/playbook-studio"
+                element={<TenantBasePlaybooksPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-playbooks"
+                element={<TenantBasePlaybooksPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-global-checks"
+                element={<TenantBaseGlobalChecksPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-global-checks/:instructionCode"
+                element={<TenantBaseGlobalCheckDetailPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-doc-types"
+                element={<TenantBaseDocTypesPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/base-doc-types/:docType"
+                element={<TenantBaseDocTypeDetailPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/my-playbooks"
+                element={<TenantOwnedPlaybooksPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/overrides"
+                element={<TenantOverridesPage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/overrides/new"
+                element={<TenantOverrideCreatePage />}
+              />
+
+              <Route
+                path="/tenant-admin/instructions/overrides/:overrideId"
+                element={<TenantOverrideDetailPage />}
+              />
+            </Route>
+
+            {/* ── Superadmin routes ───────────────────────── */}
+            <Route
+              element={
+                <RequireSuperadmin>
+                  <Outlet />
+                </RequireSuperadmin>
+              }
+            >
+              {/* Реестр стандартных playbook — read-only + экспорт */}
+              <Route
+                path="/admin/instructions/playbooks-registry"
+                element={<PlaybooksRegistryPage />}
+              />
+
+              {/* ── Admin — Instructions index ───────────── */}
+              <Route
+                path="/admin/instructions"
+                element={<InstructionsIndexPage />}
+              />
+
+              {/* ── Admin — Global Playbooks ─────────────── */}
+              <Route
+                path="/admin/instructions/global-playbooks"
+                element={<GlobalPlaybooksPage />}
+              />
+
+              <Route
+                path="/admin/instructions/playbook-studio"
+                element={<GlobalPlaybooksPage />}
+              />
+
+              <Route
+                path="/admin/instructions/global-playbooks/:playbookId"
+                element={<GlobalPlaybookDetailPage />}
+              />
+
+              <Route
+                path="/admin/instructions/global-playbooks/:playbookId/versions/:versionId"
+                element={<PlaybookVersionDetailPage />}
+              />
+
+              {/* ── Admin — Global Instructions lifecycle ─ */}
+              <Route
+                path="/admin/instructions/global-checks"
+                element={<GlobalInstructionsPage />}
+              />
+
+              <Route
+                path="/admin/instructions/global-checks/:instructionCode"
+                element={<GlobalInstructionDetailPage />}
+              />
+
+              {/* ── Admin — Doc-Type Instructions ────────── */}
+              <Route
+                path="/admin/instructions/doc-types"
+                element={<DocTypeInstructionsPage />}
+              />
+
+              <Route
+                path="/admin/instructions/doc-types/:docType"
+                element={<DocTypeDetailPage />}
+              />
+
+              {/* ── Admin — Tenants ─────────────────────── */}
+              <Route path="/admin" element={<AdminPage />} />
+
+              <Route
+                path="/admin/tenants/new"
+                element={<AdminTenantNewPage />}
+              />
+
+              <Route
+                path="/admin/tenants/:tenantId"
+                element={<AdminTenantDetailPage />}
+              />
+
+              <Route
+                path="/admin/tenants/:tenantId/projects"
+                element={<AdminTenantProjectsPage />}
+              />
+
+              <Route
+                path="/admin/monitoring"
+                element={<AdminMonitoringPage />}
+              />
+            </Route>
+          </Route>
+
+          {/*
+            LEGACY маршрут.
+            Оставлен вне общего shell для сохранения текущего поведения —
+            без аудита самого экрана не меняем его layout-contract.
+          */}
+          <Route
+            path="/admin/instructions/global-checks/:instructionCode/versions/:versionId"
+            element={
+              <RequireSuperadmin>
+                <GlobalInstructionVersionDetailPage />
+              </RequireSuperadmin>
+            }
+          />
+
+          {/*
+            Legacy redirect.
+            Оставлен вне общего shell для сохранения текущего поведения.
+          */}
+          <Route
+            path="/admin/instructions/doc-types/:docType/versions/:versionId"
+            element={
+              <RequireSuperadmin>
+                <DocTypeVersionLegacyRedirect />
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </ContactModalProvider>
+  );
+}
+
+export default App;
+
+
+
+--- src/main.tsx ---
+// =============================================================
+// src/main.tsx
+// Точка входа: Router + QueryClientProvider + AppRoutes.
+//
+// queryClient вынесен в отдельный модуль (./queryClient), чтобы его
+// мог импортировать не только React, но и Zustand-store (для clear()
+// на logout).
+// =============================================================
+
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
+import "./i18n/config"; // Инициализация i18n перед загрузкой App
+import App from "./App";
+import "./index.css";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+import {
+  ModuleRegistry,
+  AllCommunityModule,
+  provideGlobalGridOptions,
+} from "ag-grid-community";
+
+import { queryClient } from "./queryClient";
+
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+provideGlobalGridOptions({
+  theme: "legacy",
+});
+
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </BrowserRouter>
+  </React.StrictMode>,
+);
+
+
+
+
+============================================================
+5. ПЕРВЫЕ 5 КОМПОНЕНТОВ ИЗ src/marketing
+============================================================
+--- src/marketing/components/platform/PlatformWorkflowSection.tsx ---
+// src/marketing/components/platform/PlatformWorkflowSection.tsx
+
+import React from "react";
+import Reveal from "../../motion/Reveal";
+import { WORKFLOW_CONTENT } from "./content/platformContent";
+import FlowSchema from "./diagrams/FlowSchema";
+
+/**
+ * PlatformWorkflowSection — Section 1 (упрощённая версия).
+ *
+ * Изменения:
+ *   • Сжато с 3 до 2 абзацев
+ *   • Bullets перенесены из белой карточки в editorial-выноску
+ *     с левым бордером — единый стиль со Structure-секцией
+ *
+ * Композиция:
+ *   • Заголовок + eyebrow сверху
+ *   • Full-width горизонтальная схема с 7 шагами
+ *   • Split ниже: слева editorial-текст (7/12), справа bullets
+ *     в выноске с левым бордером (5/12)
+ *
+ * Фон off-white (#F3F0EB) — ритмичное чередование с hero (белым).
+ */
+
+const PlatformWorkflowSection: React.FC = () => {
+  return (
+    <section
+      className="relative"
+      style={{ background: "#F3F0EB" }}
+      data-header-theme="light"
+    >
+      <div
+        className="mx-auto w-full px-6 py-24 lg:px-8 lg:py-32"
+        style={{ maxWidth: "var(--container-max-width)" }}
+      >
+        {/* ── Header ─────────────────────────────────────────────────── */}
+        <Reveal>
+          <div className="max-w-3xl">
+            <div className="eyebrow">{WORKFLOW_CONTENT.eyebrow}</div>
+            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {WORKFLOW_CONTENT.title}
+            </h2>
+          </div>
+        </Reveal>
+
+        {/* ── Flow schema ─────────────────────────────────────────────── */}
+        <div className="mt-14 lg:mt-16">
+          <FlowSchema steps={WORKFLOW_CONTENT.steps} />
+        </div>
+
+        {/* ── Split: текст + editorial-выноска bullets ────────────────── */}
+        <div className="mt-16 grid gap-10 lg:mt-20 lg:grid-cols-12 lg:gap-12 lg:items-center">
+          {/* Левая колонка: текст */}
+          <Reveal className="lg:col-span-7">
+            <div className="space-y-5" style={{ maxWidth: 640 }}>
+              {WORKFLOW_CONTENT.paragraphs.map((p, i) => (
+                <p
+                  key={i}
+                  className="text-[1rem] leading-[1.75] text-[#78756F]"
+                >
+                  {p}
+                </p>
+              ))}
+            </div>
+          </Reveal>
+
+          {/* Правая колонка: editorial-выноска с bullets */}
+          <Reveal delay={0.1} className="lg:col-span-5">
+            <div className="border-l border-[#E8E4DD] pl-6">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A8A29E]">
+                {WORKFLOW_CONTENT.bulletsLabel}
+              </div>
+              <ul className="mt-4 space-y-3">
+                {WORKFLOW_CONTENT.bullets.map((bullet) => (
+                  <li
+                    key={bullet}
+                    className="flex items-start gap-3 text-[#78756F]"
+                  >
+                    <span
+                      className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[#C86B52]"
+                      aria-hidden="true"
+                    />
+                    <span className="text-[0.9375rem] leading-[1.65]">
+                      {bullet}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default PlatformWorkflowSection;
+
+
+
+--- src/marketing/components/platform/PlatformStandardsSection.tsx ---
+import React from "react";
+import Reveal from "../../motion/Reveal";
+import { METHODOLOGY_CONTENT } from "./content/platformContent";
+
+/**
+ * PlatformMethodologySection — Иммерсивная темная версия.
+ * 
+ * Параметры:
+ *   • Фон секции: Глубокий черный (#1A1917).
+ *   • Картинка: /platform-1-1.png на ВСЮ площадь (fullscreen background).
+ *   • Оверлей: Градиентный переход от черного слева к прозрачному справа.
+ */
+
+const PlatformMethodologySection: React.FC = () => {
+  return (
+    <section
+      className="relative overflow-hidden bg-[#1A1917]"
+      data-header-theme="dark"
+    >
+      
+      {/* ── Background Layer: Картинка на всю площадь секции ────────── */}
+      <div className="absolute inset-0 z-0">
+        <img 
+          src="/platform-1-1.png" 
+          alt="" 
+          className="h-full w-full object-cover object-center opacity-40 lg:opacity-50"
+          aria-hidden="true"
+        />
+        {/* Радиально-линейный градиент для фокуса на тексте слева */}
+        <div 
+          className="absolute inset-0" 
+          style={{
+            background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)'
+          }} 
+        />
+      </div>
+
+      {/* ── Content Layer: Текст поверх изображения ─────────────────── */}
+      <div
+        className="relative z-10 mx-auto w-full px-6 py-32 lg:px-8 lg:py-48"
+        style={{ maxWidth: "var(--container-max-width)" }}
+      >
+        <div className="grid gap-16 lg:grid-cols-12 lg:gap-20">
+          <Reveal className="lg:col-span-7">
+            <div className="max-w-2xl">
+              
+              {/* Eyebrow */}
+              <div className="eyebrow !text-[var(--color-accent)] brightness-110">
+                {METHODOLOGY_CONTENT.eyebrow}
+              </div>
+
+              {/* Заголовок — Off-white */}
+              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]">
+                {METHODOLOGY_CONTENT.title}
+              </h2>
+
+              {/* Lead-in — Serif Italic */}
+              <p
+                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#FAF8F5]/90"
+                style={{ maxWidth: 560 }}
+              >
+                {METHODOLOGY_CONTENT.leadIn}
+              </p>
+
+              {/* Основной текст — Muted Grey для темной темы */}
+              <div className="mt-8 space-y-6" style={{ maxWidth: 620 }}>
+                {METHODOLOGY_CONTENT.paragraphs.map((p, i) => (
+                  <p
+                    key={i}
+                    className="text-[1.0625rem] leading-[1.75] text-[#A8A29E]"
+                  >
+                    {p}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Правая колонка остается свободной для визуального баланса */}
+          <div className="hidden lg:block lg:col-span-5" />
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default PlatformMethodologySection;
+
+
+
+--- src/marketing/components/platform/PlatformDocumentStructureSection.tsx ---
+// src/marketing/components/platform/PlatformDocumentStructureSection.tsx
+
+import React from "react";
+import Reveal from "../../motion/Reveal";
+import { STRUCTURE_CONTENT } from "./content/platformContent";
+import VerticalNodeChain from "./diagrams/VerticalNodeChain";
+
+/**
+ * PlatformDocumentStructureSection — Section 2.
+ *
+ * Композиция (split 50/50 на десктопе):
+ *   • Слева: eyebrow → h2 → 2 абзаца → bullets «Что это даёт юристу»
+ *   • Справа: VerticalNodeChain с 5 узлами структуры документа
+ */
+
+const PlatformDocumentStructureSection: React.FC = () => {
+  return (
+    <section
+      className="relative"
+      style={{ background: "#FAF8F5" }}
+      data-header-theme="light"
+    >
+      <div
+        className="mx-auto w-full px-6 py-24 lg:px-8 lg:py-32"
+        style={{ maxWidth: "var(--container-max-width)" }}
+      >
+        <div className="grid gap-14 lg:grid-cols-12 lg:gap-16 lg:items-center">
+          {/* ── Left: текст ─────────────────────────────────────────────── */}
+          <Reveal className="lg:col-span-7">
+            <div className="max-w-2xl">
+              <div className="eyebrow">{STRUCTURE_CONTENT.eyebrow}</div>
+
+              {/* ✅ Унифицированный размер h2 */}
+              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+                {STRUCTURE_CONTENT.title}
+              </h2>
+
+              <div className="mt-7 space-y-5">
+                {STRUCTURE_CONTENT.paragraphs.map((p, i) => (
+                  <p
+                    key={i}
+                    className="text-[1rem] leading-[1.75] text-[#78756F]"
+                  >
+                    {p}
+                  </p>
+                ))}
+              </div>
+
+              <div className="mt-10 border-l border-[#E8E4DD] pl-6">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A8A29E]">
+                  {STRUCTURE_CONTENT.bulletsLabel}
+                </div>
+                <ul className="mt-4 space-y-3">
+                  {STRUCTURE_CONTENT.bullets.map((bullet) => (
+                    <li
+                      key={bullet}
+                      className="flex items-start gap-3 text-[#78756F]"
+                    >
+                      <span
+                        className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[#C86B52]"
+                        aria-hidden="true"
+                      />
+                      <span className="text-[0.9375rem] leading-[1.65]">
+                        {bullet}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </Reveal>
+
+          {/* ── Right: вертикальная схема структуры ─────────────────────── */}
+          <div className="lg:col-span-5">
+            <Reveal delay={0.15}>
+              <div className="mx-auto" style={{ maxWidth: 380 }}>
+                <VerticalNodeChain
+                  nodes={STRUCTURE_CONTENT.chain}
+                  size="sm"
+                />
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default PlatformDocumentStructureSection;
+
+
+
+--- src/marketing/components/platform/primitives/EditorialArrow.tsx ---
+// src/marketing/components/platform/primitives/EditorialArrow.tsx
+
+import React from "react";
+
+/**
+ * EditorialArrow — editorial-style «loop-arrow» ↳ для текстовых ссылок.
+ *
+ * Использование:
+ *   • На текстовых ссылках «Подробнее / Learn More» — вместо стандартной →
+ *   • НЕ используется на CTA-кнопках — там остаётся lucide ArrowRight
+ *
+ * Композиция как inline-SVG для полного контроля стиля.
+ * Наследует currentColor от родителя (сам меняет цвет от контекста).
+ *
+ * Пример:
+ *   <a className="cta-link">
+ *     Подробнее <EditorialArrow />
+ *   </a>
+ */
+
+interface EditorialArrowProps {
+  size?: number;
+  className?: string;
+}
+
+const EditorialArrow: React.FC<EditorialArrowProps> = ({
+  size = 12,
+  className,
+}) => {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 12 12"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+      style={{ display: "inline-block", verticalAlign: "baseline" }}
+    >
+      {/* Вертикальная часть — идёт сверху вниз */}
+      <path
+        d="M 3 1 L 3 7"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      {/* Горизонтальная часть с загибом внизу */}
+      <path
+        d="M 3 7 L 10 7"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      {/* Стрелка на конце */}
+      <path
+        d="M 8 5 L 10 7 L 8 9"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
+};
+
+export default EditorialArrow;
+
+
+
+--- src/marketing/components/platform/primitives/PathCrumb.tsx ---
+// src/marketing/components/platform/primitives/PathCrumb.tsx
+
+import React from "react";
+
+/**
+ * PathCrumb — editorial-style path-крошка в стиле Legora (PRODUCT / Tabular Review).
+ *
+ * Композиция:
+ *   • root часть (например, «ПЛАТФОРМА») — приглушённая
+ *   • слэш — ещё более приглушённый
+ *   • leaf часть (например, «Анализ документов») — основной цвет
+ *
+ * Типографика — uppercase, tracking-широкий, малый размер (11px).
+ * Используется как замена простому eyebrow на product-страницах.
+ *
+ * Пример:
+ *   <PathCrumb root="ПЛАТФОРМА" leaf="Анализ документов" />
+ */
+
+interface PathCrumbProps {
+  root: string;
+  leaf: string;
+  /**
+   * Вариант цвета для тёмных секций (белый текст).
+   * По умолчанию — светлая тема.
+   */
+  variant?: "light" | "dark";
+}
+
+const PathCrumb: React.FC<PathCrumbProps> = ({ root, leaf, variant = "light" }) => {
+  const rootColor = variant === "dark" ? "rgba(250, 248, 245, 0.45)" : "#A8A29E";
+  const slashColor = variant === "dark" ? "rgba(250, 248, 245, 0.28)" : "#D6D0C7";
+  const leafColor = variant === "dark" ? "#FAF8F5" : "#1A1917";
+
+  return (
+    <div
+      className="inline-flex items-baseline gap-2 text-[11px] font-medium uppercase tracking-[0.22em]"
+      aria-label={`${root} / ${leaf}`}
+    >
+      <span style={{ color: rootColor }}>{root}</span>
+      <span style={{ color: slashColor }} aria-hidden="true">
+        /
+      </span>
+      <span style={{ color: leafColor }}>{leaf}</span>
+    </div>
+  );
+};
+
+export default PathCrumb;
+
+
+
+
+
+============================================================
+6. ВСЕ ФАЙЛЫ В src/marketing (список)
+============================================================
+src/marketing/components/about/AboutCTASection.tsx
+src/marketing/components/about/AboutHeroSection.tsx
+src/marketing/components/about/AboutPhilosophySection.tsx
+src/marketing/components/about/AboutPrinciplesSection.tsx
+src/marketing/components/about/AboutProcessSection.tsx
+src/marketing/components/about/AboutTeamSection.tsx
+src/marketing/components/assets/photos/vladimir1.jpg
+src/marketing/components/assets/photos/vladimir.jpg
+src/marketing/components/demo/DemoAudienceSection.tsx
+src/marketing/components/demo/DemoFaqSection.tsx
+src/marketing/components/demo/DemoFormSection.tsx
+src/marketing/components/demo/DemoHeroSection.tsx
+src/marketing/components/demo/DemoWhatYouSeeSection.tsx
+src/marketing/components/home/ApplicationSection/ApplicationSection.module.css
+src/marketing/components/home/ApplicationSection/ApplicationSection.tsx
+src/marketing/components/home/ApplicationSection/index.ts
+src/marketing/components/home/ApplicationSection/roles/roles-data.ts
+src/marketing/components/home/ApplicationSection/types.ts
+src/marketing/components/home/ConceptTagsSection.tsx
+src/marketing/components/home/ContactModal.tsx
+src/marketing/components/home/FaqSection.tsx
+src/marketing/components/home/FounderSection.tsx
+src/marketing/components/home/KnowledgeGrowthSection/contract-texts.ts
+src/marketing/components/home/KnowledgeGrowthSection/index.tsx
+src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx
+src/marketing/components/home/KnowledgeGrowthSection/types.ts
+src/marketing/components/home/KnowledgeGrowthSection/useTreeEngine.ts
+src/marketing/components/home/PremiumFinalCtaSection.tsx
+src/marketing/components/home/PremiumHeroSection.tsx
+src/marketing/components/home/SecurityFoundationSection/index.tsx
+src/marketing/components/home/SecurityFoundationSection/types.ts
+src/marketing/components/platform/content/platformContent.ts
+src/marketing/components/platform/diagrams/FindingsDiagram.tsx
+src/marketing/components/platform/diagrams/FlowSchema.tsx
+src/marketing/components/platform/diagrams/HeroFlowVisual.tsx
+src/marketing/components/platform/diagrams/StandardsDiagram.tsx
+src/marketing/components/platform/diagrams/VerticalNodeChain.tsx
+src/marketing/components/platform/PlatformCTASection.tsx
+src/marketing/components/platform/PlatformDocumentStructureSection.tsx
+src/marketing/components/platform/PlatformFindingsSection.tsx
+src/marketing/components/platform/PlatformHeroSection.tsx
+src/marketing/components/platform/PlatformMethodologySection.tsx
+src/marketing/components/platform/PlatformStandardsSection.tsx
+src/marketing/components/platform/PlatformTechnicalSection.tsx
+src/marketing/components/platform/PlatformWorkflowSection.tsx
+src/marketing/components/platform/primitives/EditorialArrow.tsx
+src/marketing/components/platform/primitives/PathCrumb.tsx
+src/marketing/components/security/content/securityContent.ts
+src/marketing/components/security/SecurityCapabilitiesSection.tsx
+src/marketing/components/security/SecurityCTASection.tsx
+src/marketing/components/security/SecurityDeploymentSection.tsx
+src/marketing/components/security/SecurityFAQSection.tsx
+src/marketing/components/security/SecurityHeroSection.tsx
+src/marketing/components/shared/MarketingEditorialShell.tsx
+src/marketing/components/shared/MarketingPageFooter.tsx
+src/marketing/components/shared/MarketingPageHeader.tsx
+src/marketing/components/shared/MobileMenu.tsx
+src/marketing/components/shared/primitives/SteloomWordmark.tsx
+src/marketing/components/shared/SiteFooter.tsx
+src/marketing/components/shared/SiteHeader.tsx
+src/marketing/content/demoContent.ts
+src/marketing/content/landingContent.ts
+src/marketing/content/siteNav.ts
+src/marketing/context/ContactModalContext.tsx
+src/marketing/hooks/useMediaQuery.ts
+src/marketing/hooks/useScrollDirection.ts
+src/marketing/motion/Reveal.tsx
+src/marketing/pages/AboutPage.tsx
+src/marketing/pages/CapabilitiesPage.tsx
+src/marketing/pages/DemoPage.tsx
+src/marketing/pages/HomePage.tsx
+src/marketing/pages/SecurityPage.tsx
+src/marketing/pages/solutions/AuditCompliancePage.tsx
+src/marketing/pages/solutions/CompliancePage.tsx
+src/marketing/pages/solutions/content/solutionsContent.ts
+src/marketing/pages/solutions/ContractReviewPage.tsx
+src/marketing/pages/solutions/CorporateLegalPage.tsx
+src/marketing/pages/solutions/CounterpartiesPage.tsx
+src/marketing/pages/solutions/InternalAuditPage.tsx
+src/marketing/pages/solutions/LawFirmsPage.tsx
+src/marketing/pages/solutions/MaDueDiligencePage.tsx
+src/marketing/pages/solutions/RealEstatePage.tsx

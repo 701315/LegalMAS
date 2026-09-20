@@ -139,7 +139,7 @@ export function useUpdateReviewQc() {
     onSuccess: async (data) => {
       // V1 Grid — основной source of truth
       await qc.invalidateQueries({
-        queryKey: dealReviewKeys.ddGridV1(data.deal_id, data.run_id),
+        queryKey: dealReviewKeys.ddGridV1Base(data.deal_id, data.run_id),
       });
     },
   });
@@ -156,7 +156,7 @@ export function useBulkUpdateReviewQc() {
     onSuccess: async (data) => {
       // V1 Grid — основной source of truth
       await qc.invalidateQueries({
-        queryKey: dealReviewKeys.ddGridV1(data.deal_id, data.run_id),
+        queryKey: dealReviewKeys.ddGridV1Base(data.deal_id, data.run_id),
       });
     },
   });

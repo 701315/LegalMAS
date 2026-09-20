@@ -12,7 +12,7 @@
  * Main tabs in the admin dashboard.
  * Order corresponds to UI: projects → users → monitoring → logs → alerts
  */
-export type AdminTab = "projects" | "users" | "monitoring" | "logs" | "alerts";
+export type AdminTab = "projects" | "users" | "monitoring" | "logs" | "alerts" | "localePolicy";
 
 /**
  * Sub-tabs inside ProjectDrillDown (project detail view).

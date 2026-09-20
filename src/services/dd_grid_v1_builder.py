@@ -153,6 +153,15 @@ class DrawerContentDTO:
     review_status: str | None
     review_message: str | None = None
     display_text: str | None = None
+    output_locale: str | None = None
+    presentation_locale: str | None = None
+    presentation_content_version: str | None = None
+    presentation_source_locale: str | None = None
+    presentation_status: str | None = None
+    presentation_is_fallback: bool = True
+    canonical_check_name: str | None = None
+    canonical_display_text: str | None = None
+    canonical_review_message: str | None = None
     execution_status: str | None = None
     detection_level: str | None = None
     confidence: float | None = None
@@ -310,6 +319,7 @@ def _normalize_location_bundle(
     location_confidence: str | None,
     has_location_fallback: bool,
     location_fallback_reason: str | None,
+    localization_map: dict[str, str] | None = None,
 ) -> tuple[str | None, int | None, str | None, bool, str | None]:
     """
     Нормализовать location-данные до стабильного API контракта.
@@ -320,6 +330,11 @@ def _normalize_location_bundle(
     - если has_location_fallback=False, fallback reason всегда None.
     """
     normalized_clause_ref = _safe_str_or_none(location_clause_ref)
+    is_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
+    if is_en and normalized_clause_ref and normalized_clause_ref.lower().startswith(("п.", "п ")):
+        normalized_clause_ref = re.sub(r"^[Пп]\.\s*", "cl. ", normalized_clause_ref)
+        normalized_clause_ref = re.sub(r"^[Пп]\s+", "cl. ", normalized_clause_ref)
+
     normalized_page = (
         location_page
         if location_page is not None
@@ -332,7 +347,12 @@ def _normalize_location_bundle(
         if not normalized_confidence:
             normalized_confidence = "low"
         if not normalized_reason:
-            normalized_reason = _DEFAULT_LOCATION_FALLBACK_REASON
+            fallback_reason = (
+                localization_map.get("dd_grid.system.location_fallback")
+                if localization_map
+                else None
+            )
+            normalized_reason = fallback_reason or _DEFAULT_LOCATION_FALLBACK_REASON
     else:
         normalized_reason = None
 
@@ -497,6 +517,62 @@ def _normalize_qc_at_for_api(raw_qc_at: Any) -> str | None:
     text = _safe_str_or_none(str(raw_qc_at))
     return text
 
+
+def _merge_localized_structured_data(
+    check_id: str,
+    original_payload: Any,
+    localized_values: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """
+    Merge locale-specific free-text values into canonical structured_data.
+
+    Rules:
+    - keep original field metadata (location, qc, confidence, found, source);
+    - replace only field["value"] when localized translation exists;
+    - never invent fields that were absent in canonical structured_data.
+    """
+    base = _normalize_structured_data(check_id, original_payload)
+
+    if not isinstance(localized_values, dict) or not localized_values:
+        return base
+
+    merged: dict[str, Any] = {}
+    for field_name, field_payload in base.items():
+        if not isinstance(field_payload, dict):
+            merged[field_name] = field_payload
+            continue
+
+        if field_name not in localized_values:
+            merged[field_name] = field_payload
+            continue
+
+        translated = localized_values.get(field_name)
+        if translated is None:
+            merged[field_name] = field_payload
+            continue
+
+        # Accept plain translated string or {"value": "..."}.
+        if isinstance(translated, dict):
+            translated_value = translated.get("value")
+        else:
+            translated_value = translated
+
+        if not isinstance(translated_value, str):
+            merged[field_name] = field_payload
+            continue
+
+        normalized_value = translated_value.strip()
+        if not normalized_value:
+            merged[field_name] = field_payload
+            continue
+
+        merged[field_name] = {
+            **field_payload,
+            "value": normalized_value,
+        }
+
+    return merged
+    
 
 def _normalize_structured_data(check_id: str, payload: Any) -> dict[str, Any]:
     """
@@ -905,19 +981,42 @@ def _format_display_value(
     cell_state: str,
     raw_value: Any,
     column: DDGridColumnRuntime,
+    localization_map: dict[str, str] | None = None,
 ) -> str:
     """Форматировать текст ячейки по runtime column format."""
     if cell_state == "error":
-        return _DISPLAY_ERROR
+        err_label = (
+            localization_map.get("dd_grid.system.display_error")
+            if localization_map
+            else None
+        )
+        return err_label or _DISPLAY_ERROR
+
     if cell_state in {"not_defined", "not_executed"}:
         return column.fallback_display
 
     if column.format == "presence_only":
-        return _DISPLAY_PRESENT
+        present_label = (
+            localization_map.get("dd_grid.system.display_present")
+            if localization_map
+            else None
+        )
+        return present_label or _DISPLAY_PRESENT
 
     if column.format == "yes_no":
         normalized = _normalize_string_comparable(raw_value)
-        return "Yes" if normalized in {"yes", "да", "true", "1"} else "No"
+        is_yes = normalized in {"yes", "да", "true", "1"}
+        if is_yes:
+            return (
+                localization_map.get("dd_grid.field.generic.enum.yes")
+                if localization_map
+                else "Yes"
+            )
+        return (
+            localization_map.get("dd_grid.field.generic.enum.no")
+            if localization_map
+            else "No"
+        )
 
     if column.format == "enum":
         key = str(raw_value)
@@ -947,6 +1046,7 @@ def _build_cell_value(
     check_result: dict[str, Any] | None,
     column: DDGridColumnRuntime,
     plan_status: str,
+    localization_map: dict[str, str] | None = None,
 ) -> CellValueDTO:
     """
     Построить CellValueDTO для одной runtime-колонки.
@@ -969,10 +1069,13 @@ def _build_cell_value(
             location_fallback_reason=None,
         )
 
-    # Есть результат — единый путь через resolve + format
-    structured_data = _normalize_structured_data(
+    # Есть результат — единый путь через resolve + format.
+    # If read-side presentation overlay provided localized_structured_data,
+    # replace only free-text values and keep location/qc metadata intact.
+    structured_data = _merge_localized_structured_data(
         check.id,
         check_result.get("structured_data"),
+        check_result.get("localized_structured_data"),
     )
 
     value_payload = _extract_field_payload(structured_data, column.value_field)
@@ -995,7 +1098,9 @@ def _build_cell_value(
         cell_state=cell_state,
         raw_value=raw_value,
         column=column,
+        localization_map=localization_map,
     )
+
 
     location_payload = value_payload if value_payload is not None else status_payload
     (
@@ -1015,10 +1120,12 @@ def _build_cell_value(
                 if match:
                     location_page = _safe_int_or_none(match.group(1))
                     break
+            is_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
+            clause_prefix = "cl." if is_en else "п."
             for pattern in _CLAUSE_PATTERNS:
                 match = pattern.search(display_text)
                 if match:
-                    location_clause_ref = f"п. {match.group(1)}"
+                    location_clause_ref = f"{clause_prefix} {match.group(1)}"
                     break
             if location_page is not None or location_clause_ref:
                 has_location_fallback = True
@@ -1037,6 +1144,7 @@ def _build_cell_value(
         location_confidence=location_confidence,
         has_location_fallback=has_location_fallback,
         location_fallback_reason=location_fallback_reason,
+        localization_map=localization_map,
     )
 
     return CellValueDTO(
@@ -1211,6 +1319,7 @@ def _build_drawer_content(
     subgroup: CheckSubgroupDTO,
     column_cells: list[tuple[DDGridColumnRuntime, CellValueDTO]],
     plan_status: str,
+    localization_map: dict[str, str] | None = None,
 ) -> DrawerContentDTO:
     """
     Построить drawer content для одного (document, check).
@@ -1238,19 +1347,45 @@ def _build_drawer_content(
 
     cell_state = _combine_column_states([cell.cell_state for _, cell in column_cells])
 
+    # Check localization DB overlays for title
+    check_name_key = f"playbook.check.{check.id.strip().lower()}.name"
+    localized_name = localization_map.get(check_name_key) if localization_map else None
+
+    resolved_check_name = (
+        localized_name
+        or (check_result.get("check_name") if check_result else None)
+        or check.name
+    )
+
     # Нет результата — возвращаем drawer с данными из plan_status
     if check_result is None:
         plan_status_lower = plan_status.lower()
+
         return DrawerContentDTO(
             check_id=check.id,
-            check_name=check.name,
+            check_name=resolved_check_name,
             document_id=doc_id,
             cell_state=cell_state,
-            reason=_PLAN_STATUS_TO_REASON.get(plan_status_lower, "Unknown check status."),
+            reason=_PLAN_STATUS_TO_REASON.get(
+                plan_status_lower,
+                "Unknown check status.",
+            ),
             review_status=None,
             review_message=None,
             display_text=None,
-            execution_status=_PLAN_STATUS_TO_EXECUTION_STATUS.get(plan_status_lower, "SKIPPED"),
+            output_locale=None,
+            presentation_locale=None,
+            presentation_content_version=None,
+            presentation_source_locale=None,
+            presentation_status="missing",
+            presentation_is_fallback=True,
+            canonical_check_name=None,
+            canonical_display_text=None,
+            canonical_review_message=None,
+            execution_status=_PLAN_STATUS_TO_EXECUTION_STATUS.get(
+                plan_status_lower,
+                "SKIPPED",
+            ),
             detection_level=None,
             confidence=None,
             quality_flags=None,
@@ -1332,13 +1467,33 @@ def _build_drawer_content(
 
     return DrawerContentDTO(
         check_id=check.id,
-        check_name=check.name,
+        check_name=resolved_check_name,
         document_id=doc_id,
         cell_state=cell_state,
         reason=metadata_reason or review_message or display_text,
         review_status=review_status,
         review_message=review_message,
         display_text=display_text,
+        output_locale=check_result.get("output_locale") or check_result.get("presentation_locale"),
+        presentation_locale=check_result.get("presentation_locale"),
+        presentation_content_version=check_result.get(
+            "presentation_content_version"
+        ),
+        presentation_source_locale=check_result.get(
+            "presentation_source_locale"
+        ),
+        presentation_status=check_result.get("presentation_status"),
+        presentation_is_fallback=check_result.get(
+            "presentation_is_fallback",
+            True,
+        ),
+        canonical_check_name=check_result.get("canonical_check_name"),
+        canonical_display_text=check_result.get(
+            "canonical_display_text"
+        ),
+        canonical_review_message=check_result.get(
+            "canonical_review_message"
+        ),
         execution_status=execution_status,
         detection_level=detection_level,
         confidence=confidence,
@@ -1360,6 +1515,7 @@ def _build_drawer_content(
 
 def _build_column_registry(
     checks: list[CheckDefinition],
+    localization_map: dict[str, str] | None = None,
 ) -> tuple[dict[str, DDGridColumnRuntime], dict[str, CheckSubgroupDTO]]:
     """
     Построить union registry всех runtime columns.
@@ -1372,7 +1528,9 @@ def _build_column_registry(
     check_subgroups: dict[str, CheckSubgroupDTO] = {}
 
     for check in checks:
-        columns, metadata_fields, display_summary_field = builder.build_columns(check)
+        columns, metadata_fields, display_summary_field = builder.build_columns(
+            check, localization_map=localization_map
+        )
         if not columns:
             logger.debug(
                 "DD Grid V1: check skipped because it has no runtime columns",
@@ -1380,7 +1538,9 @@ def _build_column_registry(
             )
             continue
 
-        sorted_columns = sorted(columns, key=lambda c: (c.display_order, c.label.lower(), c.column_id))
+        sorted_columns = sorted(
+            columns, key=lambda c: (c.display_order, c.label.lower(), c.column_id)
+        )
 
         for column in sorted_columns:
             if column.column_id in column_registry:
@@ -1404,9 +1564,15 @@ def _build_column_registry(
                 continue
             column_registry[column.column_id] = column
 
+        # Check localized overrides for subgroup headers
+        check_name_key = f"playbook.check.{check.id.strip().lower()}.name"
+        localized_name = (
+            localization_map.get(check_name_key) if localization_map else None
+        )
+
         check_subgroups[check.id] = CheckSubgroupDTO(
             check_id=check.id,
-            check_name=check.name,
+            check_name=localized_name or check.name,
             display_order=check.display_order,
             columns=sorted_columns,
             display_summary_field=display_summary_field,
@@ -1544,6 +1710,7 @@ def _build_result_index(
 def _build_global_groups(
     checks: list[CheckDefinition],
     check_subgroups: dict[str, CheckSubgroupDTO],
+    localization_map: dict[str, str] | None = None,
 ) -> list[GlobalGroupDTO]:
     """Построить hierarchy для global checks."""
     grouped: dict[str, list[CheckDefinition]] = {}
@@ -1557,11 +1724,18 @@ def _build_global_groups(
         group_id = _safe_str_or_none(check.group) or _DEFAULT_UNGROUPED_GROUP_ID
         grouped.setdefault(group_id, []).append(check)
 
+    # Dynamic fallback-safe ungrouped label resolution
+    ungrouped_fallback = (
+        localization_map.get("dd_grid.system.ungrouped")
+        if localization_map
+        else None
+    ) or _DEFAULT_UNGROUPED_LABEL
+
     groups: list[GlobalGroupDTO] = []
     for group_id, group_checks in grouped.items():
         sorted_checks = sorted(group_checks, key=lambda c: (c.display_order, c.name.lower(), c.id))
         label = (
-            _DEFAULT_UNGROUPED_LABEL
+            ungrouped_fallback
             if group_id == _DEFAULT_UNGROUPED_GROUP_ID
             else (_humanize_identifier(group_id) or group_id)
         )
@@ -1584,6 +1758,7 @@ def _build_doc_type_classes(
     check_subgroups: dict[str, CheckSubgroupDTO],
     registry: YAMLRegistry,
     present_doc_types: set[str],
+    localization_map: dict[str, str] | None = None,
 ) -> list[DocTypeClassDTO]:
     """
     Построить hierarchy:
@@ -1612,12 +1787,25 @@ def _build_doc_type_classes(
 
             type_checks_by_group.setdefault(group_id, {}).setdefault(type_code, []).append(check)
 
+    ungrouped_fallback = (
+        localization_map.get("dd_grid.system.ungrouped")
+        if localization_map
+        else None
+    ) or _DEFAULT_UNGROUPED_LABEL
+
+    is_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
+
     classes: list[DocTypeClassDTO] = []
     for group_id, type_map in type_checks_by_group.items():
         group_config = registry_groups.get(group_id)
+        group_label_localized = (
+            getattr(group_config, "label_en", None) if is_en else None
+        )
+
         group_label = (
-            getattr(group_config, "label", None)
-            or (_DEFAULT_UNGROUPED_LABEL if group_id == _DEFAULT_UNGROUPED_GROUP_ID else None)
+            _safe_str_or_none(group_label_localized)
+            or getattr(group_config, "label", None)
+            or (ungrouped_fallback if group_id == _DEFAULT_UNGROUPED_GROUP_ID else None)
             or _humanize_identifier(group_id)
             or group_id
         )
@@ -1626,8 +1814,13 @@ def _build_doc_type_classes(
         type_nodes: list[DocTypeNodeDTO] = []
         for type_code, type_checks in type_map.items():
             type_config = registry.get_config(type_code)
+            type_name_localized = (
+                getattr(type_config, "name_en", None) if is_en else None
+            )
+
             type_name = (
-                _safe_str_or_none(getattr(type_config, "name", None))
+                _safe_str_or_none(type_name_localized)
+                or _safe_str_or_none(getattr(type_config, "name", None))
                 or _humanize_identifier(type_code)
                 or type_code
             )
@@ -1698,6 +1891,7 @@ def build_dd_grid_v1(
     registry: YAMLRegistry,
     plan_items: list[Any],
     checks_mode: str = "all",
+    localization_map: dict[str, str] | None = None,
 ) -> DDGridV1Data:
     """
     Построить полную структуру DD Grid V1.
@@ -1709,6 +1903,7 @@ def build_dd_grid_v1(
         registry:     YAMLRegistry для doc-type grouping.
         plan_items:   list[RunCheckPlanItem] — источник истины о запланированных проверках.
         checks_mode:  "all" | "global_only" | "doc_type_only" — гейтинг групп.
+        localization_map: Опциональный плоский словарь локализаций {key: label} из БД.
 
     Returns:
         DDGridV1Data с cell_values: {doc_id: {segment_id: {column_id: CellValueDTO}}}
@@ -1720,10 +1915,23 @@ def build_dd_grid_v1(
         documents_count=len(documents),
         plan_items_count=len(plan_items),
         checks_mode=checks_mode,
+        has_localization_map=localization_map is not None,
     )
 
-    column_registry, check_subgroups = _build_column_registry(checks)
+    column_registry, check_subgroups = _build_column_registry(
+        checks, localization_map=localization_map
+    )
     result_index = _build_result_index(check_results)
+
+    # Update check_subgroups check_name if localized in check_results
+    for check in checks:
+        if check.id in check_subgroups:
+            for (d_id, s_id, c_id), cr_row in result_index.items():
+                if c_id == check.id and isinstance(cr_row, dict):
+                    loc_name = cr_row.get("check_name")
+                    if loc_name and not cr_row.get("presentation_is_fallback", True):
+                        check_subgroups[check.id].check_name = loc_name
+                        break
     plan_index = _build_plan_index(plan_items)
     documents_meta = _build_documents_meta(documents)
 
@@ -1736,7 +1944,7 @@ def build_dd_grid_v1(
 
     # checks_mode гейтинг: не строим пустые группы для нерелевантных режимов
     global_groups = (
-        _build_global_groups(checks, check_subgroups)
+        _build_global_groups(checks, check_subgroups, localization_map=localization_map)
         if checks_mode in ("all", "global_only")
         else []
     )
@@ -1746,6 +1954,7 @@ def build_dd_grid_v1(
             check_subgroups=check_subgroups,
             registry=registry,
             present_doc_types=present_doc_types,
+            localization_map=localization_map,
         )
         if checks_mode in ("all", "doc_type_only")
         else []
@@ -1797,6 +2006,7 @@ def build_dd_grid_v1(
                         check_result=check_result,
                         column=column,
                         plan_status=plan_status,
+                        localization_map=localization_map,
                     )
                     cell_values[doc_id_str][segment_id][column.column_id] = cell
                     column_cells.append((column, cell))
@@ -1808,6 +2018,7 @@ def build_dd_grid_v1(
                     subgroup=subgroup,
                     column_cells=column_cells,
                     plan_status=plan_status,
+                    localization_map=localization_map,
                 )
 
     logger.info(
@@ -1828,3 +2039,5 @@ def build_dd_grid_v1(
         drawer_contents=drawer_contents,
         documents_meta=documents_meta,
     )
+
+    

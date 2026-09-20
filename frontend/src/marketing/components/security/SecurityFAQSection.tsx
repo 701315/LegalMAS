@@ -1,74 +1,55 @@
 // src/marketing/components/security/SecurityFAQSection.tsx
-
 import React, { useState } from 'react';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import Reveal from '../../motion/Reveal';
-import { faqContent, faqItems } from './content/securityContent';
-import type { FAQItem } from './content/securityContent';
+import { useTranslation } from 'react-i18next';
 
-/**
- * SecurityFAQSection — editorial FAQ по безопасности.
- *
- * Композиция:
- *   • Editorial-заголовок (serif) + intro-описание
- *   • Disclaimer в компактной панели
- *   • Вертикальный список из 12 раскрывающихся групп
- *   • Каждая группа: номер + вопрос + иконка +/− + внутри ответ и tags
- *   • Все аккордеоны закрыты по умолчанию
- *   • Плавное раскрытие через AnimatePresence
- *
- * Визуальный стиль (идентичен PlatformTechnicalSection):
- *   • Off-white фон (#F3F0EB)
- *   • Тонкие горизонтальные разделители между группами (не карточки)
- *   • Editorial-подача, plus/minus SVG
- *   • max-width 960px для списка
- */
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AccordionItem
-// ─────────────────────────────────────────────────────────────────────────────
+interface FAQItem {
+  number: string;
+  question: string;
+  answer: string;
+  tags?: string[];
+}
 
 interface AccordionItemProps {
   item: FAQItem;
   index: number;
+  reviewAreasLabel: string;
 }
 
-const AccordionItem: React.FC<AccordionItemProps> = ({ item, index }) => {
+const AccordionItem: React.FC<AccordionItemProps> = ({ item, index, reviewAreasLabel }) => {
   const [open, setOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-
   const contentId = `security-faq-${index}`;
 
   return (
-    <div className="border-b border-[#E8E4DD] last:border-b-0">
+    <div className="border-b border-[var(--border-color)] last:border-b-0">
       {/* ── Trigger ─────────────────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={contentId}
-        className="group flex w-full items-baseline justify-between gap-6 py-6 text-left transition-colors lg:py-7"
+        // RTL FIX: text-left заменен на text-start
+        className="group flex w-full items-baseline justify-between gap-6 py-6 text-start transition-colors lg:py-7"
         style={{ cursor: 'pointer' }}
       >
         <div className="flex min-w-0 flex-1 items-baseline gap-5">
-          {/* Порядковый номер */}
           <span
-            className="shrink-0 text-[10px] font-medium uppercase tracking-[0.22em]"
+            className="shrink-0 text-meta font-medium uppercase"
             style={{ color: '#A8A29E' }}
           >
-            {String(index + 1).padStart(2, '0')}
+            {item.number}
           </span>
 
-          {/* Вопрос */}
           <span
-            className="text-[1.0625rem] font-medium leading-tight tracking-[-0.005em] transition-colors lg:text-[1.125rem]"
+            className="text-body font-medium leading-tight transition-colors lg:text-lg"
             style={{ color: '#1A1917' }}
           >
             {item.question}
           </span>
         </div>
 
-        {/* Иконка +/− */}
         <span
           className="relative shrink-0 transition-transform duration-300"
           style={{
@@ -79,29 +60,13 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ item, index }) => {
           aria-hidden="true"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <line
-              x1="7"
-              y1="1"
-              x2="7"
-              y2="13"
-              stroke="#78756F"
-              strokeWidth="1.25"
-              strokeLinecap="round"
-            />
-            <line
-              x1="1"
-              y1="7"
-              x2="13"
-              y2="7"
-              stroke="#78756F"
-              strokeWidth="1.25"
-              strokeLinecap="round"
-            />
+            <line x1="7" y1="1" x2="7" y2="13" stroke="#78756F" strokeWidth="1.25" strokeLinecap="round" />
+            <line x1="1" y1="7" x2="13" y2="7" stroke="#78756F" strokeWidth="1.25" strokeLinecap="round" />
           </svg>
         </span>
       </button>
 
-      {/* ── Content — раскрывающийся блок ───────────────────────────── */}
+      {/* ── Content ───────────────────────────────────────────────────── */}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -110,29 +75,25 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ item, index }) => {
             initial={shouldReduceMotion ? undefined : { height: 0, opacity: 0 }}
             animate={shouldReduceMotion ? undefined : { height: 'auto', opacity: 1 }}
             exit={shouldReduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={{
-              duration: 0.35,
-              ease: [0.22, 1, 0.36, 1],
-            }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             style={{ overflow: 'hidden' }}
           >
-            <div className="ml-[calc(10px+1.25rem)] pb-7 pr-8 lg:ml-[calc(12px+1.25rem)]">
-              {/* Ответ */}
-              <p className="text-[0.9375rem] leading-[1.75] text-[#78756F]">
+            {/* RTL FIX: ml заменен на ms (margin-start), pr на pe (padding-end) */}
+            <div className="ms-[calc(10px+1.25rem)] pb-7 pe-8 lg:ms-[calc(12px+1.25rem)]">
+              <p className="text-body leading-relaxed text-[var(--text-secondary)] text-start">
                 {item.answer}
               </p>
 
-              {/* Tags — review areas */}
               {item.tags && item.tags.length > 0 && (
                 <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-2">
-                  <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#A8A29E]">
-                    Review areas
+                  <span className="text-meta font-medium uppercase text-[var(--text-muted)]">
+                    {reviewAreasLabel}
                   </span>
-                  <span className="text-[#D6D0C7]">·</span>
+                  <span className="text-[var(--text-faint)]">·</span>
                   {item.tags.map((tag, i) => (
                     <React.Fragment key={tag}>
-                      {i > 0 && <span className="text-[#D6D0C7]">·</span>}
-                      <span className="text-[0.8125rem] font-medium text-[#78756F]">
+                      {i > 0 && <span className="text-[var(--text-faint)]">·</span>}
+                      <span className="eyebrow text-start">
                         {tag}
                       </span>
                     </React.Fragment>
@@ -152,6 +113,20 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ item, index }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SecurityFAQSection: React.FC = () => {
+  const { t } = useTranslation('security');
+
+  const faqContent = {
+    eyebrow: t('faq.eyebrow'),
+    title: t('faq.title'),
+    description: t('faq.description'),
+    disclaimer: t('faq.disclaimer'),
+    reviewAreasLabel: t('faq.reviewAreasLabel'),
+  };
+
+  // Защитная проверка массива
+  const faqItemsRaw = t('faq.items', { returnObjects: true });
+  const faqItems = Array.isArray(faqItemsRaw) ? faqItemsRaw : [];
+
   return (
     <section
       className="relative"
@@ -167,17 +142,12 @@ const SecurityFAQSection: React.FC = () => {
           <div className="mb-10 max-w-3xl lg:mb-14">
             <div className="eyebrow">{faqContent.eyebrow}</div>
 
-            {/* ✅ Заголовок — унифицированная шкала */}
-            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
-              {faqContent.title.split('\n').map((line, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <br />}
-                  {line}
-                </React.Fragment>
-              ))}
+            {/* ✅ Заголовок — используем whitespace-pre-line */}
+            <h2 className="mt-4 text-h1 text-[var(--text-primary)] text-start">
+              {faqContent.title}
             </h2>
 
-            <p className="mt-5 text-[1rem] leading-[1.75] text-[#78756F]">
+            <p className="mt-5 text-body">
               {faqContent.description}
             </p>
           </div>
@@ -185,12 +155,10 @@ const SecurityFAQSection: React.FC = () => {
 
         {/* ── Disclaimer ─────────────────────────────────────────────── */}
         <Reveal delay={0.05}>
-          <div
-            className="mx-auto mb-14 lg:mb-20"
-            style={{ maxWidth: 960 }}
-          >
-            <div className="border-l-2 border-[#D6D0C7] pl-5 py-2">
-              <p className="text-[0.8125rem] leading-[1.7] text-[#A8A29E]">
+          <div className="mx-auto mb-14 lg:mb-20" style={{ maxWidth: 960 }}>
+            {/* RTL FIX: border-l-2, pl-5 заменены на border-s-2, ps-5 */}
+            <div className="border-s-2 border-[#D6D0C7] ps-5 py-2">
+              <p className="text-eyebrow leading-relaxed text-[var(--text-muted)]">
                 {faqContent.disclaimer}
               </p>
             </div>
@@ -200,13 +168,16 @@ const SecurityFAQSection: React.FC = () => {
         {/* ── Accordion list ─────────────────────────────────────────── */}
         <Reveal delay={0.1}>
           <div className="mx-auto" style={{ maxWidth: 960 }}>
-            {/* Верхний editorial-разделитель */}
             <div className="h-px w-full bg-[#E8E4DD]" aria-hidden="true" />
 
-            {/* Список групп */}
             <div>
               {faqItems.map((item, i) => (
-                <AccordionItem key={item.number} item={item} index={i} />
+                <AccordionItem 
+                  key={item.number} 
+                  item={item} 
+                  index={i} 
+                  reviewAreasLabel={faqContent.reviewAreasLabel}
+                />
               ))}
             </div>
           </div>
@@ -217,5 +188,3 @@ const SecurityFAQSection: React.FC = () => {
 };
 
 export default SecurityFAQSection;
-
-

@@ -17,6 +17,22 @@
       "status": "supported",
       "is_default": false,
       "direction": "ltr"
+    },
+    {
+      "code": "tr",
+      "native_name": "Türkçe",
+      "english_name": "Turkish",
+      "status": "supported",
+      "is_default": false,
+      "direction": "ltr"
+    },
+    {
+      "code": "ar",
+      "native_name": "العربية",
+      "english_name": "Arabic",
+      "status": "supported",
+      "is_default": false,
+      "direction": "rtl"
     }
   ]
 }

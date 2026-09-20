@@ -1,24 +1,29 @@
 // frontend/src/components/marketing/demo/DemoHeroSection.tsx
 import React from "react";
-import { demoContent } from "../../content/demoContent";
+import { useTranslation } from "react-i18next";
 
 const DemoHeroSection: React.FC = () => {
-  const { hero } = demoContent;
+  const { t } = useTranslation("marketing");
+
   return (
-    <section className="border-b border-[#E8E4DD] pb-14 pt-12 lg:pb-20 lg:pt-16">
-      <div className="badge">
-        {hero.eyebrow}
+    <section className="border-b border-[var(--border-color)] pb-14 pt-12 lg:pb-20 lg:pt-16">
+      {/* RTL FIX: Добавлен text-start для корректного выравнивания бейджа */}
+      <div className="badge text-start">
+        {t("demo.hero.eyebrow")}
       </div>
-      <h1 className="mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[#1A1917] sm:text-6xl lg:text-[4.5rem]">
-        {hero.title}
+      
+      {/* RTL FIX: Добавлен text-start для корректного выравнивания заголовка в RTL */}
+      <h1 className="mt-8 max-w-4xl text-display text-[var(--text-primary)] sm:text-6xl text-display text-start whitespace-pre-line">
+        {t("demo.hero.title")}
       </h1>
-      <p className="mt-6 max-w-2xl text-base leading-8 text-[#78756F]">
-        {hero.description}
+      
+      {/* RTL FIX: Добавлен text-start для корректного выравнивания описания в RTL */}
+      <p className="mt-6 max-w-2xl text-base leading-8 text-[var(--text-secondary)] text-start">
+        {t("demo.hero.description")}
       </p>
     </section>
   );
 };
 
 export default DemoHeroSection;
-
 

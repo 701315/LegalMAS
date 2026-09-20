@@ -154,7 +154,8 @@ async def export_core(
     deal_id: str,
     tenant_id: str,
     db: AsyncSession,
-    presentation_locale: str = "en",
+    output_locale: str | None = None,
+    presentation_locale: str = "en",  # Deprecated
 ) -> dict[str, Any]:
     """
     Main export process core.
@@ -171,7 +172,7 @@ async def export_core(
       - Does NOT mutate Run execution statuses;
       - Does NOT depend on Celery or FastAPI dependencies.
     """
-    locale = normalize_export_locale(presentation_locale)
+    locale = normalize_export_locale(output_locale or presentation_locale)
 
     logger.info(
         "Export core starting",

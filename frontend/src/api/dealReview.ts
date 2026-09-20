@@ -6,7 +6,9 @@
 // =============================================================
 
 import {
+  useMutation,
   useQuery,
+  useQueryClient,
   type UseQueryOptions,
   type UseQueryResult,
 } from "@tanstack/react-query";
@@ -23,6 +25,8 @@ import type {
   DocumentStructuredDataDTO,
   DocumentSummaryDTO,
   ExtractedValueDTO,
+  ResultPresentationProgressDTO,
+  ResultPresentationRequestDTO,
 } from "../types/dealReview";
 
 // -------------------------------------------------------------
@@ -40,6 +44,13 @@ function requireParam(value: string | null | undefined, name: string): string {
   return value;
 }
 
+function toPresentationLocale(
+  value: string | null | undefined,
+): string | undefined {
+  const normalized = value?.trim();
+  return normalized || undefined;
+}
+
 // -------------------------------------------------------------
 // React Query keys
 // -------------------------------------------------------------
@@ -54,8 +65,16 @@ export const dealReviewKeys = {
     dealId: string | null,
     runId: string | null,
     documentId: string | null,
+    presentationLocale: string | null | undefined,
   ) =>
-    [...dealReviewKeys.all, "document-detail", dealId, runId, documentId] as const,
+    [
+      ...dealReviewKeys.all,
+      "document-detail",
+      dealId,
+      runId,
+      documentId,
+      toPresentationLocale(presentationLocale) ?? null,
+    ] as const,
 
   documentStructuredData: (
     dealId: string | null,
@@ -79,11 +98,52 @@ export const dealReviewKeys = {
   extractedValues: (dealId: string | null, runId: string | null) =>
     [...dealReviewKeys.all, "extracted-values", dealId, runId] as const,
 
-  ddMatrix: (dealId: string | null, runId: string | null) =>
-    [...dealReviewKeys.all, "dd-matrix", dealId, runId] as const,
+  ddMatrix: (
+    dealId: string | null,
+    runId: string | null,
+    presentationLocale: string | null | undefined,
+  ) =>
+    [
+      ...dealReviewKeys.all,
+      "dd-matrix",
+      dealId,
+      runId,
+      toPresentationLocale(presentationLocale) ?? null,
+    ] as const,
 
-  ddGridV1: (dealId: string | null, runId: string | null) =>
-    [...dealReviewKeys.all, "dd-grid-v1", dealId, runId] as const,
+  ddGridV1Base: (
+    dealId: string | null,
+    runId: string | null,
+  ) =>
+    [
+      ...dealReviewKeys.all,
+      "dd-grid-v1",
+      dealId,
+      runId,
+    ] as const,
+
+  ddGridV1: (
+    dealId: string | null,
+    runId: string | null,
+    presentationLocale?: string | null,
+  ) =>
+    [
+      ...dealReviewKeys.ddGridV1Base(dealId, runId),
+      toPresentationLocale(presentationLocale) ?? null,
+    ] as const,
+
+  resultPresentationProgress: (
+    dealId: string | null,
+    runId: string | null,
+    locale: string | null | undefined,
+  ) =>
+    [
+      ...dealReviewKeys.all,
+      "result-presentation-progress",
+      dealId,
+      runId,
+      toPresentationLocale(locale) ?? null,
+    ] as const,
 };
 
 // -------------------------------------------------------------
@@ -105,9 +165,15 @@ export const dealReviewApi = {
     dealId: string,
     runId: string,
     documentId: string,
+    presentationLocale?: string | null,
   ): Promise<DocumentDetailDTO> {
     const { data } = await client.get<DocumentDetailDTO>(
       `${buildDealReviewBasePath(dealId, runId)}/documents/${documentId}`,
+      {
+        params: {
+          output_locale: toPresentationLocale(presentationLocale),
+        },
+      },
     );
     return data;
   },
@@ -156,9 +222,15 @@ export const dealReviewApi = {
   async getDdMatrixForRun(
     dealId: string,
     runId: string,
+    presentationLocale?: string | null,
   ): Promise<DDMatrixResponseDTO> {
     const { data } = await client.get<DDMatrixResponseDTO>(
       `${buildDealReviewBasePath(dealId, runId)}/dd-matrix`,
+      {
+        params: {
+          output_locale: toPresentationLocale(presentationLocale),
+        },
+      },
     );
     return data;
   },
@@ -170,20 +242,71 @@ export const dealReviewApi = {
   async getDdGridV1ForRun(
     dealId: string,
     runId: string,
+    presentationLocale?: string | null,
   ): Promise<DDGridV1ResponseDTO> {
     const { data } = await client.get<DDGridV1ResponseDTO>(
       `${buildDealReviewBasePath(dealId, runId)}/dd-grid-v1`,
+      {
+        params: {
+          output_locale: toPresentationLocale(presentationLocale),
+        },
+      },
     );
     return data;
   },
 
-  // Short aliases for cleaner usage in new review UI layer
-  getDdMatrix(dealId: string, runId: string): Promise<DDMatrixResponseDTO> {
-    return dealReviewApi.getDdMatrixForRun(dealId, runId);
+  async requestResultPresentationsForRun(
+    dealId: string,
+    runId: string,
+    payload: ResultPresentationRequestDTO,
+  ): Promise<ResultPresentationProgressDTO> {
+    const { data } = await client.post<ResultPresentationProgressDTO>(
+      `${buildDealReviewBasePath(dealId, runId)}/result-presentations/requests`,
+      payload,
+    );
+    return data;
   },
 
-  getDdGridV1(dealId: string, runId: string): Promise<DDGridV1ResponseDTO> {
-    return dealReviewApi.getDdGridV1ForRun(dealId, runId);
+  async getResultPresentationProgressForRun(
+    dealId: string,
+    runId: string,
+    locale: string,
+  ): Promise<ResultPresentationProgressDTO> {
+    const { data } = await client.get<ResultPresentationProgressDTO>(
+      `${buildDealReviewBasePath(dealId, runId)}/result-presentations/progress`,
+      {
+        params: {
+          locale,
+        },
+      },
+    );
+    return data;
+  },
+
+
+  // Short aliases for cleaner usage in new review UI layer
+  getDdMatrix(
+    dealId: string,
+    runId: string,
+    presentationLocale?: string | null,
+  ): Promise<DDMatrixResponseDTO> {
+    return dealReviewApi.getDdMatrixForRun(
+      dealId,
+      runId,
+      presentationLocale,
+    );
+  },
+
+  getDdGridV1(
+    dealId: string,
+    runId: string,
+    presentationLocale?: string | null,
+  ): Promise<DDGridV1ResponseDTO> {
+    return dealReviewApi.getDdGridV1ForRun(
+      dealId,
+      runId,
+      presentationLocale,
+    );
   },
 
   getDdRequests(dealId: string, runId: string): Promise<DDRequestDTO[]> {
@@ -284,15 +407,22 @@ export function useDealReviewDocumentDetail(
   dealId: string | null,
   runId: string | null,
   documentId: string | null,
+  presentationLocale?: string | null,
   options?: QueryOptions<DocumentDetailDTO>,
 ): UseQueryResult<DocumentDetailDTO, Error> {
   return useQuery<DocumentDetailDTO, Error>({
-    queryKey: dealReviewKeys.documentDetail(dealId, runId, documentId),
+    queryKey: dealReviewKeys.documentDetail(
+      dealId,
+      runId,
+      documentId,
+      presentationLocale,
+    ),
     queryFn: () =>
       dealReviewApi.getDocumentDetailForRun(
         requireParam(dealId, "dealId"),
         requireParam(runId, "runId"),
         requireParam(documentId, "documentId"),
+        presentationLocale,
       ),
     enabled: !!dealId && !!runId && !!documentId,
     staleTime: 30_000,
@@ -382,14 +512,20 @@ export function useDealReviewExtractedValues(
 export function useDealReviewDdMatrix(
   dealId: string | null,
   runId: string | null,
+  presentationLocale?: string | null,
   options?: QueryOptions<DDMatrixResponseDTO>,
 ): UseQueryResult<DDMatrixResponseDTO, Error> {
   return useQuery<DDMatrixResponseDTO, Error>({
-    queryKey: dealReviewKeys.ddMatrix(dealId, runId),
+    queryKey: dealReviewKeys.ddMatrix(
+      dealId,
+      runId,
+      presentationLocale,
+    ),
     queryFn: () =>
       dealReviewApi.getDdMatrixForRun(
         requireParam(dealId, "dealId"),
         requireParam(runId, "runId"),
+        presentationLocale,
       ),
     enabled: !!dealId && !!runId,
     staleTime: 30_000,
@@ -409,19 +545,91 @@ export function useDealReviewDdMatrix(
 export function useDealReviewDdGridV1(
   dealId: string | null,
   runId: string | null,
+  presentationLocale?: string | null,
   options?: QueryOptions<DDGridV1ResponseDTO>,
 ): UseQueryResult<DDGridV1ResponseDTO, Error> {
   return useQuery<DDGridV1ResponseDTO, Error>({
-    queryKey: dealReviewKeys.ddGridV1(dealId, runId),
+    queryKey: dealReviewKeys.ddGridV1(
+      dealId,
+      runId,
+      presentationLocale,
+    ),
     queryFn: () =>
       dealReviewApi.getDdGridV1ForRun(
         requireParam(dealId, "dealId"),
         requireParam(runId, "runId"),
+        presentationLocale,
       ),
     enabled: !!dealId && !!runId,
     staleTime: 30_000,
     refetchOnWindowFocus: true,
     ...options,
+  });
+}
+
+const RESULT_PRESENTATION_PROGRESS_POLL_INTERVAL_MS = 2_000;
+
+export function useResultPresentationProgress(
+  dealId: string | null,
+  runId: string | null,
+  presentationLocale: string | null | undefined,
+): UseQueryResult<ResultPresentationProgressDTO, Error> {
+  const locale = toPresentationLocale(presentationLocale);
+
+  return useQuery<ResultPresentationProgressDTO, Error>({
+    queryKey: dealReviewKeys.resultPresentationProgress(
+      dealId,
+      runId,
+      locale,
+    ),
+    queryFn: () =>
+      dealReviewApi.getResultPresentationProgressForRun(
+        requireParam(dealId, "dealId"),
+        requireParam(runId, "runId"),
+        requireParam(locale, "presentationLocale"),
+      ),
+    enabled: !!dealId && !!runId && !!locale,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => {
+      const progress = query.state.data;
+
+      if (!progress) {
+        return false;
+      }
+
+      return progress.pending > 0 || progress.processing > 0
+        ? RESULT_PRESENTATION_PROGRESS_POLL_INTERVAL_MS
+        : false;
+    },
+  });
+}
+
+export function useRequestResultPresentations(
+  dealId: string | null,
+  runId: string | null,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (locale: string) =>
+      dealReviewApi.requestResultPresentationsForRun(
+        requireParam(dealId, "dealId"),
+        requireParam(runId, "runId"),
+        {
+          locale,
+        },
+      ),
+    onSuccess: (progress, locale) => {
+      queryClient.setQueryData(
+        dealReviewKeys.resultPresentationProgress(
+          dealId,
+          runId,
+          locale,
+        ),
+        progress,
+      );
+    },
   });
 }
 
@@ -437,9 +645,15 @@ export const getConditionalChecks = dealReviewApi.getConditionalChecks;
 export function useDdMatrix(
   dealId: string | null,
   runId: string | null,
+  presentationLocale?: string | null,
   options?: QueryOptions<DDMatrixResponseDTO>,
 ): UseQueryResult<DDMatrixResponseDTO, Error> {
-  return useDealReviewDdMatrix(dealId, runId, options);
+  return useDealReviewDdMatrix(
+    dealId,
+    runId,
+    presentationLocale,
+    options,
+  );
 }
 
 /**
@@ -449,9 +663,15 @@ export function useDdMatrix(
 export function useDdGridV1(
   dealId: string | null,
   runId: string | null,
+  presentationLocale?: string | null,
   options?: QueryOptions<DDGridV1ResponseDTO>,
 ): UseQueryResult<DDGridV1ResponseDTO, Error> {
-  return useDealReviewDdGridV1(dealId, runId, options);
+  return useDealReviewDdGridV1(
+    dealId,
+    runId,
+    presentationLocale,
+    options,
+  );
 }
 
 export function useDdRequests(

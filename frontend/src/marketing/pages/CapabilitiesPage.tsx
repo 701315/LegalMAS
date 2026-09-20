@@ -37,7 +37,7 @@ import PlatformTechnicalSection from "../components/platform/PlatformTechnicalSe
  */
 const CapabilitiesPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
       <SiteHeader />
 
       <main style={{ paddingTop: 68 }}>

@@ -26,6 +26,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
+from core.i18n.result_locales import (
+    get_supported_result_locales,
+    is_valid_result_locale,
+    is_translation_pair_supported,
+)
 from db.models.run import Run
 from db.repositories.run_summary_repo import (
     RunSummaryRepository,
@@ -36,7 +41,8 @@ from engine.prompts.loader import load_prompt
 from services.run_summary_evidence import RunSummaryEvidenceBuilder
 from services.run_summary_fallback import build_fallback
 from services.run_summary_validator import validate_claims
-from services.llm_usage_recorder import LLMUsageRecorder  # ← 1. НОВОЕ: импорт рекордера
+from services.llm_usage_recorder import LLMUsageRecorder
+from mas_queue.celery_app import celery_app
 
 logger = get_logger(__name__)
 
@@ -128,11 +134,116 @@ class RunSummaryService:
 
         return await self.get_response(run_id)
 
-    async def get_response(self, run_id: uuid.UUID) -> Optional[dict[str, Any]]:
+
+    async def translate(
+        self, run_id: uuid.UUID, target_locale: str
+    ) -> Optional[dict[str, Any]]:
+        """
+        Оркестратор асинхронного перевода резюме (симметричный аналог generate()).
+
+        Пайплайн (anti-hallucination / error recovery):
+        1. Проверка существования записи резюме.
+        2. Быстрый возврат при попадании в кэш (status='ready').
+        3. Вызов RunSummaryTranslationService для перевода.
+        4. Сохранение результата (status='ready') или запись status='failed' при сбое.
+
+        LLM-сбои не выбрасывают исключение наружу воркера, а записываются в БД
+        в поле translation_status[locale] = 'failed', сохраняя консистентность.
+        """
+        target = target_locale.strip().lower()
         summary = await self.repo.get_by_run_id(run_id)
         if summary is None:
             return None
-        return {
+
+        # 1. Быстрая проверка кэша (no-op)
+        statuses = dict(summary.translation_status or {})
+        translations = dict(summary.translations or {})
+        if statuses.get(target) == "ready" and target in translations:
+            return {
+                "status": "ready",
+                "locale": target,
+            }
+
+        # Импортируем локально, чтобы гарантированно избежать циклических импортов
+        from services.run_summary_translation import RunSummaryTranslationService
+
+        translation_service = RunSummaryTranslationService(self.session)
+
+        try:
+            # 2. Выполняем перевод структуры
+            translated_payload = await translation_service.translate(run_id, target)
+
+            # 3. Успех: сохраняем перевод в кэш и ставим ready
+            translations[target] = translated_payload
+            statuses[target] = "ready"
+
+            await self.repo.update_status(
+                run_id,
+                summary.status,  # сохраняем статус основного резюме
+                translations=translations,
+                translation_status=statuses,
+            )
+            await self.session.commit()
+
+            return {
+                "status": "ready",
+                "locale": target,
+            }
+
+        except Exception as exc:
+            # 4. Сбой: пишем failed в БД, не роняя Celery-инфраструктуру
+            logger.error(
+                "Run summary translation attempt failed",
+                run_id=str(run_id),
+                target_locale=target,
+                error=str(exc),
+                exc_info=True,
+            )
+
+            statuses[target] = "failed"
+            await self.repo.update_status(
+                run_id,
+                summary.status,
+                translation_status=statuses,
+            )
+            await self.session.commit()
+
+            return {
+                "status": "failed",
+                "locale": target,
+                "error": str(exc),
+            }
+
+
+    async def get_response(
+        self, run_id: uuid.UUID, locale: Optional[str] = None
+    ) -> Optional[dict[str, Any]]:
+        """
+        Вернуть состояние summary для run с поддержкой мультиязычности.
+        
+        Если запрошена локаль, отличная от языка анализа:
+        - Возвращает кэшированный перевод (если готов)
+        - Возвращает исходный текст + translation_status (если переводится/упал)
+        """
+        summary = await self.repo.get_by_run_id(run_id)
+        if summary is None:
+            return None
+
+        # Определяем язык анализа (дефолт = "ru")
+        run = await self.session.get(Run, run_id)
+        analysis_lang = (
+            (run.analysis_language or "ru").strip().lower()
+            if run
+            else "ru"
+        )
+
+        # Динамический список поддерживаемых в системе result-локалей
+        supported = sorted(get_supported_result_locales())
+        if analysis_lang not in supported:
+            supported = sorted([analysis_lang] + supported)
+
+        # Базовый ответ — всегда на исходном языке анализа
+        base = {
             "run_id": str(summary.run_id),
             "status": summary.status,
             "text": summary.text,
@@ -144,22 +255,139 @@ class RunSummaryService:
             "generated_at": (
                 summary.updated_at.isoformat() if summary.updated_at else None
             ),
+            "supported_locales": supported,
+            "locale": analysis_lang,
+            "translation_status": None,
         }
+
+        requested = (locale or analysis_lang).strip().lower()
+
+        # Если запрошена исходная локаль — отдаем оригинал напрямую
+        if requested == analysis_lang:
+            return base
+
+        # Валидация запрошенной локали через реестр
+        if not is_valid_result_locale(requested):
+            return base
+
+        # Проверка, поддерживается ли направление перевода
+        if not is_translation_pair_supported(analysis_lang, requested):
+            logger.warning(
+                "Translation direction is not supported by result_locales.json",
+                run_id=str(run_id),
+                source=analysis_lang,
+                target=requested,
+            )
+            return base
+
+        translations = summary.translations or {}
+        statuses = summary.translation_status or {}
+        t_status = statuses.get(requested)
+
+        base["translation_status"] = t_status
+
+        # Если перевод готов — отдаем переведенную версию
+        if t_status == "ready" and requested in translations:
+            translated = translations[requested]
+            base["locale"] = requested
+            base["text"] = translated.get("text", summary.text)
+            base["claims"] = translated.get("claims", summary.claims)
+            base["fallback"] = translated.get("fallback", summary.fallback)
+            return base
+
+        # В остальных случаях (pending/failed) отдаем оригинал с актуальным статусом
+        return base
+
+    async def request_translation(
+        self, run_id: uuid.UUID, target_locale: str
+    ) -> str:
+        """
+        Запросить перевод резюме на target_locale.
+
+        Использует реестр result_locales для валидации.
+        Idempotent: повторный вызов при "pending"/"ready" — no-op.
+        """
+        target = target_locale.strip().lower()
+
+        if not is_valid_result_locale(target):
+            raise ValueError(f"Unsupported result locale: {target}")
+
+        summary = await self.repo.get_by_run_id(run_id)
+        if summary is None:
+            raise ValueError(f"Summary not found for run {run_id}")
+
+        # Определяем язык анализа
+        run = await self.session.get(Run, run_id)
+        analysis_lang = (
+            (run.analysis_language or "ru").strip().lower()
+            if run
+            else "ru"
+        )
+
+        # Перевод на самого себя не требуется
+        if target == analysis_lang:
+            return "ready"
+
+        # Проверяем, поддерживает ли перевод наша матрица в json
+        if not is_translation_pair_supported(analysis_lang, target):
+            raise ValueError(
+                f"Translation pair {analysis_lang} → {target} is not configured/supported"
+            )
+
+        statuses = dict(summary.translation_status or {})
+        current = statuses.get(target)
+
+        # Предотвращаем избыточные вызовы LLM и гонки условий
+        if current == "ready":
+            return "ready"
+        if current == "pending":
+            return "pending"
+
+        # Переводим в pending и сохраняем
+        statuses[target] = "pending"
+        await self.repo.update_status(
+            run_id,
+            summary.status,
+            translation_status=statuses,
+        )
+        await self.session.commit()
+
+        # Отправляем задачу в асинхронную очередь Celery
+        celery_app.send_task(
+            "workers.translate_run_summary",
+            args=[str(run_id), target],
+            queue="heavy_llm_checks",
+        )
+
+        logger.info(
+            "Translation requested asynchronously",
+            run_id=str(run_id),
+            source=analysis_lang,
+            target=target,
+        )
+        return "pending"
 
     # ── Inner pipeline ────────────────────────────────────────────────
 
     async def _generate_inner(self, run_id: uuid.UUID) -> None:
-        # ← 2. НОВОЕ: Получаем объект Run для передачи в телеметрию
         run = await self.session.get(Run, run_id)
         if not run:
             raise SummaryGenerationError("Run not found for summary generation")
 
         evidence = await self.evidence_builder.build(run_id)
         fallback = build_fallback(evidence)
-        await self.repo.update_status(run_id, "generating", fallback=fallback)
+        
+        # При генерации нового мастер-резюме сбрасываем все старые переводы
+        await self.repo.update_status(
+            run_id,
+            "generating",
+            fallback=fallback,
+            translations=None,
+            translation_status=None,
+        )
         await self.session.commit()
 
-        # Pass A: claims plan (теперь передаем run)
+        # Pass A: claims plan
         claims, model_a = await self._pass_a(run, evidence)
 
         # Deterministic validation
@@ -169,7 +397,7 @@ class RunSummaryService:
                 "claims validation failed: " + "; ".join(errors[:10])
             )
 
-        # Pass B: controlled prose (теперь передаем run)
+        # Pass B: controlled prose
         text, model_b = await self._pass_b(run, claims, evidence)
 
         await self.repo.update_status(
@@ -189,12 +417,11 @@ class RunSummaryService:
             prompt_version=SUMMARY_PROMPT_VERSION,
         )
 
-    # ← 3. НОВОЕ: Вспомогательный метод для безопасной записи телеметрии
     async def _record_usage(
         self, 
         run: Run, 
         stage: str, 
-        response: Any,  # LLMResponse
+        response: Any,
         error_details: dict
     ) -> None:
         """Best-effort запись использования LLM. Не роняет пайплайн при сбое."""
@@ -239,7 +466,7 @@ class RunSummaryService:
             prompt,
             temperature=_PASS_A_TEMPERATURE,
             max_tokens=_PASS_A_MAX_TOKENS,
-            response_format="json_object",  # ← Принудительный JSON режим
+            response_format="json_object",
         )
 
         await self._record_usage(
@@ -275,7 +502,7 @@ class RunSummaryService:
         return claims, response.model or None
 
     async def _pass_b(
-        self, run: Run, claims: dict[str, Any], evidence: dict[str, Any]  # ← НОВОЕ: добавлен run
+        self, run: Run, claims: dict[str, Any], evidence: dict[str, Any]
     ) -> tuple[str, Optional[str]]:
         """Pass B: controlled prose по валидированным claims."""
         context = {

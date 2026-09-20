@@ -372,7 +372,7 @@ def test_cell_state_error_when_execution_status_failed() -> None:
     cell, drawer = _get_cell(data, "doc-1", "nda_check", "flag")
 
     assert cell.cell_state == "error"
-    assert cell.display_value == "⚠ Ошибка"
+    assert cell.display_value == "⚠ Error"
     assert drawer.cell_state == "error"
     assert drawer.execution_status == "TIMEOUT"
 
@@ -443,7 +443,7 @@ def test_formats_yes_no_values() -> None:
     cell, _ = _get_cell(data, "doc-1", "consent_check", "consent")
 
     assert cell.cell_state == "defined"
-    assert cell.display_value == "Нет"
+    assert cell.display_value == "No"
 
 
 def test_formats_enum_values_using_runtime_labels() -> None:
@@ -500,7 +500,7 @@ def test_formats_presence_only_values() -> None:
     assert col_id in data.column_registry
     assert data.column_registry[col_id].format == "presence_only"
     assert cell.cell_state == "defined"
-    assert cell.display_value == "Присутствует"
+    assert cell.display_value == "Present"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -973,7 +973,7 @@ def test_column_registry_keeps_first_column_on_duplicate_id() -> None:
         unit=None,
     )
 
-    def fake_build(self, check):
+    def fake_build(self, check, *args, **kwargs):
         if check.id == "chk_a":
             return [collision_col_a], [], None
         return [collision_col_b], [], None

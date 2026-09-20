@@ -31,12 +31,13 @@ Routes:
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.models.run import Run
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from db.repositories.playbook_repo import PlaybookRepository
+from db.repositories.audit_repo import AuditRepository
 from db.repositories.run_repo import RunRepository
 from db.session import get_db
 from services.deal_review_service import (
@@ -46,7 +47,16 @@ from services.deal_review_service import (
     build_dd_requests,
     build_extracted_values,
 )
-
+from services.result_presentation_read_service import (
+    apply_presentations_for_read,
+    resolve_output_locale,
+    resolve_presentation_locale,  # Deprecated alias, kept for transition
+)
+from services.result_presentation_request_service import (
+    ResultPresentationProgress,
+    ResultPresentationRequestService,
+)
+from services.outbox_service import OutboxService
 from ..schemas.deal_review import (
     CheckItemDTO,
     ConditionalCheckDTO,
@@ -57,12 +67,76 @@ from ..schemas.deal_review import (
     DocumentStructuredDataDTO,
     DocumentSummaryDTO,
     ExtractedValueDTO,
+    ResultPresentationProgressDTO,
+    ResultPresentationRequestDTO,
 )
 
 from db.models.deal import Deal
+from ops.metrics import get_metrics
 
 router = APIRouter(prefix="/deals", tags=["deal_review"])
 
+async def _resolve_output_locale_or_422(
+    db: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    explicit_locale: str | None = None,
+    user_default_output_locale: str | None = None,
+    user_ui_locale: str | None = None,
+    deal_primary_language: str | None = None,
+    run_analysis_language: str | None = None,
+) -> str:
+    """
+    Resolve effective output locale using 6-level chain.
+
+    Invalid explicit query values are client errors (422). Invalid persisted
+    fallback values are safely skipped by resolve_output_locale().
+    """
+    try:
+        return await resolve_output_locale(
+            db,
+            tenant_id=tenant_id,
+            explicit_locale=explicit_locale,
+            user_default_output_locale=user_default_output_locale,
+            user_ui_locale=user_ui_locale,
+            deal_primary_language=deal_primary_language,
+            run_analysis_language=run_analysis_language,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+
+# Backward-compatible alias for callers still using the old name.
+_resolve_presentation_locale_or_422 = _resolve_output_locale_or_422
+
+
+def _to_result_presentation_progress_dto(
+    progress: ResultPresentationProgress,
+    *,
+    dispatch_status: str = "not_dispatched",
+) -> ResultPresentationProgressDTO:
+    """Convert D3 service progress dataclass to the public API DTO."""
+    return ResultPresentationProgressDTO(
+        run_id=progress.run_id,
+        locale=progress.locale,
+        content_version=progress.content_version,
+        total=progress.total,
+        missing=progress.missing,
+        pending=progress.pending,
+        processing=progress.processing,
+        ready=progress.ready,
+        reviewed=progress.reviewed,
+        approved=progress.approved,
+        failed=progress.failed,
+        stale=progress.stale,
+        created_pending=progress.created_pending,
+        existing=progress.existing,
+        is_complete=progress.is_complete,
+        dispatch_status=dispatch_status,
+    )
 
 # ---------------------------------------------------------------------------
 # Helper function: access validation and run loading
@@ -75,6 +149,7 @@ async def _get_run_with_access_check(
     run_id: str,
     db: AsyncSession,
     user: CurrentUser,
+    allowed_roles: tuple[str, ...] = ("admin", "editor", "viewer"),
 ) -> object:
     """
     Load Run from database and validate that:
@@ -105,7 +180,7 @@ async def _get_run_with_access_check(
         db=db,
         user=user,
         deal_id=run.deal_id,
-        allowed_roles=("admin", "editor", "viewer"),
+        allowed_roles=allowed_roles,
     )
     return run
 
@@ -113,6 +188,177 @@ async def _get_run_with_access_check(
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+@router.post(
+    "/{deal_id}/runs/{run_id}/result-presentations/requests",
+    response_model=ResultPresentationProgressDTO,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create pending locale-specific result presentations",
+)
+async def request_result_presentations(
+    deal_id: str,
+    run_id: str,
+    payload: ResultPresentationRequestDTO,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> ResultPresentationProgressDTO:
+    """
+    Create missing pending CheckResultPresentation rows for one Run and locale.
+
+    This operation is idempotent:
+    - existing presentation rows are never overwritten;
+    - duplicate logical identities are protected by the database;
+    - D3 intentionally does not dispatch an LLM worker yet.
+
+    Access: project admin / editor only.
+    """
+    run = await _get_run_with_access_check(
+        deal_id=deal_id,
+        run_id=run_id,
+        db=db,
+        user=user,
+        allowed_roles=("admin", "editor"),
+    )
+
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    if deal is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            headers={"X-Error-Code": "DEAL_NOT_FOUND"},
+            detail="Deal not found",
+        )
+
+    target_locale = await _resolve_presentation_locale_or_422(
+        db,
+        tenant_id=run.tenant_id,
+        explicit_locale=payload.locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language,
+        run_analysis_language=run.analysis_language,
+    )
+
+    service = ResultPresentationRequestService(db)
+    progress = await service.request_pending_presentations(
+        run_id=uuid.UUID(run_id),
+        locale=target_locale,
+        source_locale=deal.primary_language,
+    )
+
+    # Sprint 6.5: Emit Prometheus translation requested metrics
+    try:
+        get_metrics().translation_requested_total.labels(locale=target_locale).inc(progress.created_pending)
+    except Exception:
+        pass
+
+    from services.translation_audit import ACTION_REQUESTED
+    audit_repo = AuditRepository(db)
+    await audit_repo.log(
+        tenant_id=run.tenant_id,
+        deal_id=run.deal_id,
+        action=ACTION_REQUESTED,
+        actor=user.email or user.id,
+        actor_role=user.global_role,
+        details={
+            "run_id": run_id,
+            "requested_locale": target_locale,
+            "content_version": progress.content_version,
+            "total_results": progress.total,
+            "created_pending": progress.created_pending,
+            "existing_presentations": progress.existing,
+            "missing": progress.missing,
+            "pending": progress.pending,
+            "processing": progress.processing,
+            "ready": progress.ready,
+            "reviewed": progress.reviewed,
+            "approved": progress.approved,
+            "failed": progress.failed,
+            "stale": progress.stale,
+            "translation_execution_policy": "active_application_provider",
+            "cloud_fallback_enabled": False,
+            "dispatch_status": "not_dispatched",
+        },
+    )
+
+    outbox_service = OutboxService(db)
+    await outbox_service.enqueue_task(
+        task_name="workers.process_pending_result_presentations",
+        payload={
+            "run_id": run_id,
+            "deal_id": deal_id,
+            "tenant_id": str(run.tenant_id),
+            "locale": target_locale,
+            "content_version": progress.content_version,
+            "batch_limit": 25,
+        },
+        aggregate_type="run",
+        aggregate_id=run_id,
+        dedup_key=(
+            "result-presentation-batch:"
+            f"{run_id}:{target_locale}:{progress.content_version}"
+        ),
+        headers={
+            "queue": "heavy_llm_checks",
+        },
+    )
+
+    await db.commit()
+
+    return _to_result_presentation_progress_dto(
+        progress,
+        dispatch_status="queued",
+    )
+
+
+@router.get(
+    "/{deal_id}/runs/{run_id}/result-presentations/progress",
+    response_model=ResultPresentationProgressDTO,
+    summary="Get locale-specific result presentation progress",
+)
+async def get_result_presentation_progress(
+    deal_id: str,
+    run_id: str,
+    locale: str = Query(
+        ...,
+        min_length=2,
+        max_length=35,
+        description=(
+            "Target presentation locale. "
+            "Must be enabled in the shared UI locale configuration."
+        ),
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> ResultPresentationProgressDTO:
+    """
+    Return progress for locale-specific result presentations without creating,
+    updating, dispatching, or translating records.
+
+    Access: project admin / editor / viewer.
+    """
+    run = await _get_run_with_access_check(
+        deal_id=deal_id,
+        run_id=run_id,
+        db=db,
+        user=user,
+    )
+
+    target_locale = await _resolve_presentation_locale_or_422(
+        db,
+        tenant_id=run.tenant_id,
+        explicit_locale=locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=None,
+        run_analysis_language=run.analysis_language,
+    )
+
+    service = ResultPresentationRequestService(db)
+    progress = await service.get_progress(
+        run_id=uuid.UUID(run_id),
+        locale=target_locale,
+    )
+
+    return _to_result_presentation_progress_dto(progress)
 
 
 @router.get(
@@ -205,6 +451,22 @@ async def get_document_detail_for_run(
     deal_id: str,
     run_id: str,
     document_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description=(
+            "Requested output locale for result presentation. "
+            "Falls back to user default, UI locale, deal language, then system default."
+        ),
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -222,12 +484,31 @@ async def get_document_detail_for_run(
     )
 
     run_uuid = uuid.UUID(run_id)
+
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, uuid.UUID(run_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_output_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
     from db.repositories.runner_repo import RunnerRepository
     from db.uow import db_uow
 
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_output_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
     if document_id not in documents:
@@ -274,6 +555,26 @@ async def get_document_detail_for_run(
                 review_message=cr.get("review_message"),
                 needs_manual_review=cr.get("needs_manual_review", False),
                 ui_mode=cr.get("ui_mode"),
+                output_locale=cr.get("output_locale"),
+                presentation_locale=cr.get("presentation_locale"),
+                presentation_content_version=cr.get(
+                    "presentation_content_version"
+                ),
+                presentation_source_locale=cr.get(
+                    "presentation_source_locale"
+                ),
+                presentation_status=cr.get("presentation_status"),
+                presentation_is_fallback=cr.get(
+                    "presentation_is_fallback",
+                    True,
+                ),
+                canonical_check_name=cr.get("canonical_check_name"),
+                canonical_display_text=cr.get(
+                    "canonical_display_text"
+                ),
+                canonical_review_message=cr.get(
+                    "canonical_review_message"
+                ),
             )
         )
 
@@ -286,6 +587,8 @@ async def get_document_detail_for_run(
         classification_confidence=float(doc_meta.get("classification_confidence", 0.0)),
         applicable_triggers=doc_meta.get("applicable_triggers", []),
         checks=checks,
+        output_locale=resolved_output_locale,
+        presentation_locale=resolved_output_locale,
     )
 
 
@@ -298,6 +601,19 @@ async def get_document_structured_data_for_run(
     deal_id: str,
     run_id: str,
     document_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description="Requested output locale for result presentation.",
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -310,12 +626,29 @@ async def get_document_structured_data_for_run(
     run_uuid = uuid.UUID(run_id)
     run = await _get_run_with_access_check(deal_id, run_id, db, user)
 
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run.tenant_id,
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run.analysis_language,
+    )
+
     from db.repositories.runner_repo import RunnerRepository
     from db.uow import db_uow
 
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
     doc_meta = documents.get(document_id)
@@ -410,6 +743,19 @@ async def get_document_structured_data_for_run(
 async def get_dd_requests(
     deal_id: str,
     run_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description="Requested output locale for result presentation.",
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -434,11 +780,29 @@ async def get_dd_requests(
     from db.models.run import Run
     from engine.playbook.loader import load_playbook_from_version
 
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, uuid.UUID(run_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         pb_repo = PlaybookRepository(uow.session)
 
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
         # Load PlaybookVersion to retrieve CheckDefinition
@@ -474,6 +838,19 @@ async def get_dd_requests(
 async def get_conditional_checks(
     deal_id: str,
     run_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description="Requested output locale for result presentation.",
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -490,11 +867,30 @@ async def get_conditional_checks(
         allowed_roles=("admin", "editor", "viewer"),
     )
     run_uuid = uuid.UUID(run_id)
+
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, uuid.UUID(run_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
     from db.repositories.runner_repo import RunnerRepository
     from db.uow import db_uow
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
     return build_conditional_checks(check_results, documents)
 
@@ -507,6 +903,19 @@ async def get_conditional_checks(
 async def get_extracted_values(
     deal_id: str,
     run_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description="Requested output locale for result presentation.",
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -523,11 +932,30 @@ async def get_extracted_values(
         allowed_roles=("admin", "editor", "viewer"),
     )
     run_uuid = uuid.UUID(run_id)
+
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, uuid.UUID(run_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
     from db.repositories.runner_repo import RunnerRepository
     from db.uow import db_uow
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
     return build_extracted_values(check_results, documents)
 
@@ -540,6 +968,22 @@ async def get_extracted_values(
 async def get_dd_matrix(
     deal_id: str,
     run_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description=(
+            "Requested output locale for result presentation. "
+            "Falls back to user default, UI locale, deal language, then system default."
+        ),
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -557,6 +1001,19 @@ async def get_dd_matrix(
 
     run_uuid = uuid.UUID(run_id)
 
+    deal_for_locale = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, uuid.UUID(run_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_output_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal_for_locale.primary_language if deal_for_locale else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
     from db.repositories.runner_repo import RunnerRepository
     from db.repositories.playbook_repo import PlaybookRepository
     from db.repositories.run_repo import RunRepository
@@ -569,6 +1026,11 @@ async def get_dd_matrix(
         run_repo = RunRepository(uow.session)
 
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_output_locale,
+        )
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
         # Load PlaybookVersion for CheckDefinition
@@ -612,6 +1074,22 @@ async def get_dd_matrix(
 async def get_dd_grid_v1(
     deal_id: str,
     run_id: str,
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description=(
+            "Requested output locale for result presentation. "
+            "Falls back to user default, UI locale, deal language, then system default."
+        ),
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -658,8 +1136,26 @@ async def get_dd_grid_v1(
         deal_id=uuid.UUID(deal_id),
         allowed_roles=("admin", "editor", "viewer"),
     )
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, uuid.UUID(run_id))
+    effective_locale = output_locale or presentation_locale
+    resolved_output_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
     try:
-        return await build_dd_grid_v1_response(deal_id=deal_id, run_id=run_id)
+        return await build_dd_grid_v1_response(
+            deal_id=deal_id,
+            run_id=run_id,
+            output_locale=resolved_output_locale,
+            presentation_locale=resolved_output_locale,
+        )
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -7,7 +7,15 @@
 
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, MapPin, X } from "lucide-react";
+import { 
+  ExternalLink, 
+  MapPin, 
+  X, 
+  Check, 
+  AlertOctagon, 
+  Edit, 
+  RefreshCw 
+} from "lucide-react";
 
 import type { OpenViewerAtPayload } from "../../../types";
 import type {
@@ -18,6 +26,14 @@ import type {
 import Button from "../../../components/ui/Button";
 import { useUpdateReviewQc } from "../../../api/qc";
 
+// Sprint 6.6: Translation review mutation hooks
+import {
+  useApproveTranslation,
+  useRejectTranslation,
+  useEditTranslation,
+  useResetTranslation,
+} from "../../../api/localizationReview";
+
 import {
   buildDDGridV1DrawerFieldViews,
   normalizeDDGridV1EvidenceItems,
@@ -25,6 +41,7 @@ import {
   resolveDDGridV1Confidence,
   resolveDDGridV1QualityFlags,
   resolveDDGridV1QcAuditInfo,
+  resolveDDGridV1PresentationInfo,
   type DDGridV1DrawerFieldView,
   type DDGridV1ReasonSource,
 } from "./ddGridV1.drawer";
@@ -279,7 +296,7 @@ const FieldRow: React.FC<{
   documentId: string;
   onOpenInViewer?: (payload: OpenViewerAtPayload) => void;
 }> = ({ field, documentId, onOpenInViewer }) => {
-  const { t } = useTranslation("ddGrid"); // 🌟 Убрали неиспользуемый i18n
+  const { t } = useTranslation("ddGrid");
 
   const locationText = getLocationText(field, t);
   const availability = field.locationAvailability;
@@ -394,19 +411,43 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
   currentQcComment,
   onOpenInViewer,
 }) => {
-  const { t, i18n } = useTranslation("ddGrid"); // 🌟 Добавили i18n
+  const { t, i18n } = useTranslation("ddGrid");
   const updateQc = useUpdateReviewQc();
+
+  // Sprint 6.6: Translation review mutations
+  const approveMutation = useApproveTranslation(documentId ? String(documentId) : null, runId);
+  const rejectMutation = useRejectTranslation(documentId ? String(documentId) : null, runId);
+  const editMutation = useEditTranslation(documentId ? String(documentId) : null, runId);
+  const resetMutation = useResetTranslation(documentId ? String(documentId) : null, runId);
 
   const [localQcStatus, setLocalQcStatus] = React.useState<ReviewQcStatus>(
     "pending",
   );
   const [localQcComment, setLocalQcComment] = React.useState<string>("");
 
+  // Sprint 6.6: Local translation review state
+  const [isEditingTranslation, setIsEditingTranslation] = React.useState(false);
+  const [editCheckName, setEditCheckName] = React.useState("");
+  const [editDisplayText, setEditDisplayText] = React.useState("");
+  const [editReviewMessage, setEditReviewMessage] = React.useState("");
+  const [rejectComment, setRejectComment] = React.useState("");
+  const [showRejectForm, setShowRejectForm] = React.useState(false);
+
   React.useEffect(() => {
     const qcFromDrawer = drawerContent?.qc_status ?? null;
     const commentFromDrawer = drawerContent?.qc_comment ?? null;
     setLocalQcStatus(qcFromDrawer ?? currentQcStatus ?? "pending");
     setLocalQcComment(commentFromDrawer ?? currentQcComment ?? "");
+
+    // Reset local edit values when drawer content loads
+    if (drawerContent) {
+      setEditCheckName((drawerContent as any).localized_check_name || drawerContent.check_name || "");
+      setEditDisplayText(drawerContent.display_text || "");
+      setEditReviewMessage(drawerContent.review_message || "");
+      setIsEditingTranslation(false);
+      setShowRejectForm(false);
+      setRejectComment("");
+    }
   }, [drawerContent, currentQcStatus, currentQcComment]);
 
   React.useEffect(() => {
@@ -453,6 +494,11 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
   const resolvedReason = React.useMemo(
     () => resolveDDGridV1DrawerReason(drawerContent, t),
     [drawerContent, t],
+  );
+
+  const presentationInfo = React.useMemo(
+    () => resolveDDGridV1PresentationInfo(drawerContent),
+    [drawerContent],
   );
 
   if (!open || !drawerContent || !documentId) {
@@ -510,6 +556,64 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
     setLocalQcComment(savedQcComment);
   };
 
+  // ── Sprint 6.6: Translation QC actions handlers ─────────────────────
+
+  const presentationId = (drawerContent as any).presentation_id ?? "";
+  const presentationStatus = (drawerContent as any).presentation_status ?? "missing";
+
+  const handleApproveTranslation = async () => {
+    if (!presentationId) return;
+    try {
+      await approveMutation.mutateAsync({
+        presentationId,
+        comment: "Approved via UI",
+      });
+    } catch (err) {
+      console.error("Approve failed:", err);
+    }
+  };
+
+  const handleRejectTranslation = async () => {
+    if (!presentationId || !rejectComment.trim()) return;
+    try {
+      await rejectMutation.mutateAsync({
+        presentationId,
+        comment: rejectComment.trim(),
+      });
+      setShowRejectForm(false);
+      setRejectComment("");
+    } catch (err) {
+      console.error("Reject failed:", err);
+    }
+  };
+
+  const handleSaveOverride = async () => {
+    if (!presentationId) return;
+    try {
+      await editMutation.mutateAsync({
+        presentationId,
+        payload: {
+          localized_check_name: editCheckName.trim() || null,
+          display_text: editDisplayText.trim() || null,
+          review_message: editReviewMessage.trim() || null,
+          comment: "Human edited via UI override",
+        },
+      });
+      setIsEditingTranslation(false);
+    } catch (err) {
+      console.error("Edit override failed:", err);
+    }
+  };
+
+  const handleResetTranslation = async () => {
+    if (!presentationId) return;
+    try {
+      await resetMutation.mutateAsync({ presentationId });
+    } catch (err) {
+      console.error("Reset failed:", err);
+    }
+  };
+
   return (
     <aside
       role="complementary"
@@ -525,6 +629,17 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
           <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
             {drawerDescription}
           </p>
+
+          {presentationInfo ? (
+            <div className="mt-2">
+              <Pill tone={presentationInfo.tone}>
+                {t(
+                  presentationInfo.labelKey,
+                  presentationInfo.interpolation,
+                )}
+              </Pill>
+            </div>
+          ) : null}
         </div>
 
         <Button
@@ -565,6 +680,169 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                 </Pill>
               ))}
             </div>
+          )}
+
+          {/* ── Sprint 6.6: Translation QC Review Panel ───────── */}
+          {presentationId && (
+            <Section title={t("v1Tab.presentations.reviewSectionTitle", "QC Translation Review")}>
+              <InfoCard tone="subtle">
+                <div className="space-y-4">
+                  {/* Current Status Header */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[var(--text-muted)]">
+                      {t("v1Tab.presentations.reviewStatus", "Translation Status")}:
+                    </span>
+                    <Pill
+                      tone={
+                        presentationStatus === "approved"
+                          ? "success"
+                          : presentationStatus === "rejected"
+                            ? "error"
+                            : presentationStatus === "reviewed"
+                              ? "warning"
+                              : "neutral"
+                      }
+                    >
+                      {presentationStatus.toUpperCase()}
+                    </Pill>
+                  </div>
+
+                  {/* Reject comment displaying if rejected */}
+                  {presentationStatus === "rejected" && drawerContent.qc_comment && (
+                    <div className="rounded-lg bg-[var(--color-error-bg)] border border-[var(--color-error-border)] p-2.5 text-xs text-[var(--color-error-text)]">
+                      <strong>Rejection reason:</strong> {drawerContent.qc_comment}
+                    </div>
+                  )}
+
+                  {/* Edit inputs when in edit mode */}
+                  {isEditingTranslation ? (
+                    <div className="space-y-3 border-t border-[var(--border-subtle)] pt-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold">{t("drawer.fields.check_name", "Check Name")}</label>
+                        <input
+                          type="text"
+                          value={editCheckName}
+                          onChange={(e) => setEditCheckName(e.target.value)}
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold">{t("drawer.fields.display_text", "Display Text")}</label>
+                        <textarea
+                          value={editDisplayText}
+                          onChange={(e) => setEditDisplayText(e.target.value)}
+                          rows={3}
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold">{t("drawer.fields.review_message", "Review Message")}</label>
+                        <textarea
+                          value={editReviewMessage}
+                          onChange={(e) => setEditReviewMessage(e.target.value)}
+                          rows={3}
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="primary" size="sm" onClick={handleSaveOverride} isLoading={editMutation.isPending}>
+                          {t("drawer.qcReviewForm.save", "Save Changes")}
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => setIsEditingTranslation(false)}>
+                          {t("drawer.qcReviewForm.cancel", "Cancel")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Reject comments form when rejecting */}
+                  {showRejectForm ? (
+                    <div className="space-y-3 border-t border-[var(--border-subtle)] pt-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[var(--color-error-text)]">
+                          {t("v1Tab.presentations.rejectionReason", "Rejection Comment (Required)")}
+                        </label>
+                        <textarea
+                          value={rejectComment}
+                          onChange={(e) => setRejectComment(e.target.value)}
+                          rows={2}
+                          placeholder={t("v1Tab.presentations.rejectionPlaceholder", "Explain why the translation is incorrect...")}
+                          className="w-full rounded-lg border border-[var(--color-error-border)] bg-[var(--bg-card)] px-3 py-1.5 text-sm"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleRejectTranslation}
+                          disabled={!rejectComment.trim() || rejectMutation.isPending}
+                        >
+                          {t("v1Tab.presentations.submitReject", "Confirm Rejection")}
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => setShowRejectForm(false)}>
+                          {t("drawer.qcReviewForm.cancel", "Cancel")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Interactive QC actions toolbar */}
+                  {!isEditingTranslation && !showRejectForm && (
+                    <div className="flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-3">
+                      {/* Ready for verification actions */}
+                      {(presentationStatus === "ready" || presentationStatus === "reviewed") && (
+                        <>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleApproveTranslation}
+                            isLoading={approveMutation.isPending}
+                            leftIcon={<Check className="h-3.5 w-3.5" />}
+                            className="bg-[var(--color-success-bg)] text-[var(--color-success-text)] hover:bg-[var(--color-success-border)]"
+                          >
+                            {t("qc.approve", "Approve")}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setShowRejectForm(true)}
+                            leftIcon={<AlertOctagon className="h-3.5 w-3.5" />}
+                            className="bg-[var(--color-error-bg)] text-[var(--color-error-text)] hover:bg-[var(--color-error-border)]"
+                          >
+                            {t("qc.reject", "Reject")}
+                          </Button>
+                        </>
+                      )}
+
+                      {/* Editing is allowed for any valid presentation */}
+                      {presentationStatus !== "rejected" && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setIsEditingTranslation(true)}
+                          leftIcon={<Edit className="h-3.5 w-3.5" />}
+                        >
+                          {t("qc.edit", "Edit translation")}
+                        </Button>
+                      )}
+
+                      {/* Rejected presentations can be reset to queue */}
+                      {presentationStatus === "rejected" && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleResetTranslation}
+                          isLoading={resetMutation.isPending}
+                          leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+                        >
+                          {t("v1Tab.presentations.resetButton", "Translate again")}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </InfoCard>
+            </Section>
           )}
 
           {/* ── 1. Результат анализа + обоснование ─ */}

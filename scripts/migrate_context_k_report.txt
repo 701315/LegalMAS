@@ -1,0 +1,308 @@
+=== contract_5.1_loan.yaml ===
+  loan_parties_identification (fields=16)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  loan_subject_and_amount (fields=6)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 6 -> 10
+  loan_interest_terms (fields=8)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  loan_repayment_and_transfer (fields=8)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  transfer_evidence_check (fields=7)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  convertible_loan_check (fields=8)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  multiple_tranches_check (fields=9)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  secured_loan_terms (fields=8)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  tax_consequences_disclosure (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  novation_set_off_terms (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  loan_forgiveness_terms (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  fungible_goods_specification (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  on_demand_notice_period (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  representations_and_warranties (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+
+=== contract_5.2_credit_agreement.yaml ===
+  interest_psk_fees_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+  repayment_schedule_and_early_repayment_check (fields=8)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  forced_services_and_insurance_check (fields=8)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  acceleration_events_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+  variable_rate_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  payment_allocation_priority_check (fields=5)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  cross_default_check (fields=10)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  purpose_and_control_check (fields=6)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  negative_pledge_check (fields=6)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  collateral_and_security_check (fields=11)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+  conditions_precedent_check (fields=7)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  non_financial_covenants_check (fields=7)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+  currency_and_fx_clause_check (fields=8)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  tax_gross_up_check (fields=8)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  default_interest_and_penalties_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  tranche_and_drawdown_mechanics_check (fields=11)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+  amendment_and_waiver_check (fields=8)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+  notices_and_communications_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 8 -> 10
+
+=== contract_5.3_factoring.yaml ===
+  factoring_parties_identification (fields=10)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  assigned_claim_identification_check (fields=7)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  financing_and_fee_structure_check (fields=5)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  recourse_allocation_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  debtor_notification_check (fields=8)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  setoff_and_double_assignment_risk_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 7 -> 10
+  document_transfer_and_bankruptcy_check (fields=8)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  hidden_factoring_protection_check (fields=8)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  claim_validity_warranties_check (fields=10)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  excess_collection_return (fields=8)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  tax_risk_allocation (fields=7)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  assignment_prohibition_disclosure (fields=7)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  underlying_contract_change_restriction_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  factor_liability_and_penalties_check (fields=5)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  financing_limits_and_concentration_check (fields=7)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  framework_assignment_mechanics_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  factor_suspension_right_check (fields=7)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  factor_reassignment_right_check (fields=5)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  collection_costs_allocation_check (fields=5)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  hidden_factoring_penalties_check (fields=5)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+
+=== contract_5.4_bank_deposit_account.yaml ===
+  bank_deposit_parties_identification (fields=13)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  bank_deposit_account_subject_extraction (fields=11)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  deposit_interest_and_fixation_check (fields=9)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  deposit_early_withdrawal_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  account_tariffs_and_commissions_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  aml_blocking_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  unauthorized_debit_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  dbs_security_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  overdraft_terms_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  deposit_insurance_coverage_check (fields=8)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  account_closure_and_termination_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+  payment_allocation_priority_check (fields=9)
+    llm.context_k: 5 -> 8
+    retrieval.context_k: 5 -> 8
+    retrieval.max_chunks: 7 -> 10
+
+=== contract_5.5_guaranty_and_pledge.yaml ===
+  guaranty_liability_scope_check (fields=7)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+  guaranty_change_and_termination_check (fields=7)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+  pledge_subject_and_valuation_check (fields=8)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+  pledge_enforcement_check (fields=7)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+  mortgage_registration_check (fields=8)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  guarantor_default_notice_and_subrogation_check (fields=7)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  pledge_insurance_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  pledge_subsequent_and_priority_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  pledge_disposal_restrictions_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  pledge_movable_registration_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  mortgage_spousal_consent_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  mortgage_zakladnaya_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10
+  guarantor_defenses_and_objections_check (fields=6)
+    llm.context_k: 6 -> 8
+    retrieval.context_k: 6 -> 8
+    retrieval.max_chunks: 8 -> 10

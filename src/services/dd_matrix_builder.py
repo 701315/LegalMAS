@@ -1,3 +1,5 @@
+# src/services/dd_matrix_builder.py
+
 """
 DD Matrix Builder.
 
@@ -326,6 +328,26 @@ def build_dd_matrix(
                 review_message=best.get("review_message"),
                 needs_manual_review=best.get("needs_manual_review", False),
                 ui_mode=best.get("ui_mode"),
+                output_locale=best.get("output_locale") or best.get("presentation_locale"),
+                presentation_locale=best.get("presentation_locale"),
+                presentation_content_version=best.get(
+                    "presentation_content_version"
+                ),
+                presentation_source_locale=best.get(
+                    "presentation_source_locale"
+                ),
+                presentation_status=best.get("presentation_status"),
+                presentation_is_fallback=best.get(
+                    "presentation_is_fallback",
+                    True,
+                ),
+                canonical_check_name=best.get("canonical_check_name"),
+                canonical_display_text=best.get(
+                    "canonical_display_text"
+                ),
+                canonical_review_message=best.get(
+                    "canonical_review_message"
+                ),
             )
 
         segment_rows.append(
@@ -390,6 +412,26 @@ def build_dd_matrix(
                 review_message=best.get("review_message"),
                 needs_manual_review=best.get("needs_manual_review", False),
                 ui_mode=best.get("ui_mode"),
+                output_locale=best.get("output_locale") or best.get("presentation_locale"),
+                presentation_locale=best.get("presentation_locale"),
+                presentation_content_version=best.get(
+                    "presentation_content_version"
+                ),
+                presentation_source_locale=best.get(
+                    "presentation_source_locale"
+                ),
+                presentation_status=best.get("presentation_status"),
+                presentation_is_fallback=best.get(
+                    "presentation_is_fallback",
+                    True,
+                ),
+                canonical_check_name=best.get("canonical_check_name"),
+                canonical_display_text=best.get(
+                    "canonical_display_text"
+                ),
+                canonical_review_message=best.get(
+                    "canonical_review_message"
+                ),
             )
 
         file_rows.append(
@@ -422,6 +464,17 @@ def build_dd_matrix(
         deal_id=deal_id,
         run_id=run_id,
         deal_name=deal_name,
+        output_locale=(
+            check_results[0].get("output_locale")
+            or check_results[0].get("presentation_locale")
+            if check_results
+            else None
+        ),
+        presentation_locale=(
+            check_results[0].get("presentation_locale")
+            if check_results
+            else None
+        ),
         checks=checks_list,
         global_check_ids=global_check_ids,
         doc_type_check_ids=dict(doc_type_check_ids),

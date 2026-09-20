@@ -14,8 +14,10 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Integer,  # <-- ДОБАВИТЬ СЮДА
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -53,13 +55,13 @@ class CheckResult(Base):
     )
 
     result: Mapped[str] = mapped_column(
-        String(20),
+        String(50),
         nullable=False,
-        comment="fail, pass, unclear",
+        comment="fail, pass, unclear, missing_required_clause, etc.",
     )
 
     severity: Mapped[str] = mapped_column(
-        String(20),
+        String(50),
         nullable=False,
         comment="critical, high, medium, pass, unclear",
     )
@@ -323,6 +325,38 @@ class CheckResult(Base):
         comment="Explicit boolean flag for review workflow filtering.",
     )
 
+    # --- Canonical multilingual and lifecycle fields (Sprint 1) ---
+
+    canonical_locale: Mapped[str | None] = mapped_column(
+        String(35),
+        nullable=True,
+        comment=(
+            "Target language in which the canonical legal analysis was conducted. "
+            "Frozen snapshot of Run.analysis_language. Used as source_locale "
+            "for translation and as fallback."
+        ),
+    )
+
+    content_revision: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+        comment=(
+            "Monotonic revision counter of display-facing canonical content. "
+            "Increments whenever canonical_content_hash changes."
+        ),
+    )
+
+    canonical_content_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment=(
+            "Deterministic SHA-256 fingerprint of human-facing canonical fields "
+            "(check_name, display_text, review_message) used to detect content drift."
+        ),
+    )
+
 
     __table_args__ = (
         Index("idx_results_run", "run_id"),
@@ -369,3 +403,197 @@ class CheckResult(Base):
     )
 
 
+
+
+
+
+class CheckResultPresentation(Base):
+    """
+    Locale-specific presentation of a canonical CheckResult.
+
+    The canonical CheckResult owns execution, evidence, provenance, QC, and
+    factual result identity. This child model stores only user-facing content
+    for one presentation locale and one source-content version.
+    """
+
+    __tablename__ = "check_result_presentations"
+
+    check_result_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("check_results.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="Canonical CheckResult to which this presentation belongs.",
+    )
+
+    locale: Mapped[str] = mapped_column(
+        String(35),
+        nullable=False,
+        comment="BCP 47 presentation locale, for example en, ru, de, fr.",
+    )
+
+    content_version: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        comment=(
+            "Immutable source-content version identifier for this presentation. "
+            "A new source version must not overwrite an approved older version."
+        ),
+    )
+
+    source_content_hash: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        comment=(
+            "SHA-256 hash of canonical source fields used to produce "
+            "this locale-specific presentation."
+        ),
+    )
+
+    source_locale: Mapped[str | None] = mapped_column(
+        String(35),
+        nullable=True,
+        comment="Language of canonical source content when known.",
+    )
+
+    localized_check_name: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+        comment=(
+            "Locale-specific check name when it is not supplied "
+            "by a stable playbook translation dictionary."
+        ),
+    )
+
+    display_text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Locale-specific primary factual result text.",
+    )
+
+    localized_structured_data: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Locale-specific translated structured_data field values. "
+            "Maps field_name -> translated free-text value for Matrix cells."
+        ),
+    )
+
+    review_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Locale-specific review explanation for the result drawer.",
+    )
+
+    dd_request_text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Locale-specific DD request text when applicable.",
+    )
+
+    translation_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+        comment=(
+            "Presentation lifecycle: pending, processing, ready, failed, "
+            "reviewed, approved, stale."
+        ),
+    )
+
+    translation_provider: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Translation provider identifier, if generated externally.",
+    )
+
+    translation_model: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Translation model identifier or version.",
+    )
+
+    translation_metadata: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Translation provenance, diagnostics, usage, source fields, "
+            "and batch metadata."
+        ),
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Last presentation-generation failure message, if any.",
+    )
+
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="User who reviewed this locale-specific presentation.",
+    )
+
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when this presentation was reviewed.",
+    )
+
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="User who approved this presentation for controlled output.",
+    )
+
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when this presentation was approved.",
+    )
+
+    # --- Sprint 6.1: Translation review fields ---
+
+    review_comment: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Reviewer comment for approval, rejection or edit.",
+    )
+
+    human_override_text: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Human-edited override of localized presentation fields.",
+    )
+
+    original_translation_snapshot: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Snapshot of original LLM translation before first human edit.",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "check_result_id",
+            "locale",
+            "content_version",
+            name="uq_check_result_presentations_identity",
+        ),
+        Index(
+            "idx_check_result_presentations_result_locale",
+            "check_result_id",
+            "locale",
+        ),
+        Index(
+            "idx_check_result_presentations_locale_status",
+            "locale",
+            "translation_status",
+        ),
+        Index(
+            "idx_check_result_presentations_source_hash",
+            "source_content_hash",
+        ),
+    )

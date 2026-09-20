@@ -150,6 +150,14 @@
       "noChanges": "No changes to save.",
       "noRunIdWarning": "QC saving is temporarily unavailable: runId is missing.",
       "saveError": "Failed to save. Please try again."
+    },
+    "presentation": {
+      "localized": "Localized result: {{locale}}",
+      "fallbackProcessing": "Original result shown; localization is in progress",
+      "fallbackFailed": "Original result shown; localization was not generated",
+      "fallbackStale": "Original result shown; localization is outdated",
+      "fallbackMissing": "Original result shown; localization has not been requested",
+      "fallbackCanonical": "Original result shown"
     }
   },
   "instructionDrawer": {
@@ -413,6 +421,17 @@
       "line": "Verification matrix: <bold>{{documents}}</bold>. <bold>{{checks}}</bold> conducted. <bold>{{findings}}</bold> identified. Verification mode: <bold>{{mode}}</bold>.",
       "tooltipRuntime": "Runtime parameters: {{count}}",
       "tooltipCells": "Cells: defined {{defined}} · not found {{notFound}} · errors {{errors}}"
+    },
+    "presentations": {
+      "checking": "Checking localized results…",
+      "queued": "Localization queued: {{pending}} of {{total}} results",
+      "processing": "Localizing results: {{completed}} of {{total}} ready",
+      "ready": "Localized results are ready: {{completed}} of {{total}}",
+      "failed": "{{count}} localized result(s) could not be generated",
+      "stale": "{{count}} localized result(s) require a newer content version",
+      "requestButton": "Localize results",
+      "requestTitle": "Create localized result presentations for {{locale}}",
+      "requestError": "Could not request localized result presentations."
     }
   },
   "displayValues": {

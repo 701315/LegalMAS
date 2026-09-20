@@ -1,0 +1,2495 @@
+{
+  "nav": {
+    "platform": "Platform",
+    "security": "Security",
+    "solutions": "Use Cases",
+    "about": "About"
+  },
+  "cta": {
+    "demo": "Request Demo",
+    "login": "Log In"
+  },
+  "megaMenu": {
+    "byDirection": {
+      "title": "By Direction",
+      "maDueDiligence": {
+        "label": "M&A and Due Diligence",
+        "description": "Comprehensive data room analysis under unified rules"
+      },
+      "contractReview": {
+        "label": "Contract Review",
+        "description": "Contract verification against a single standard"
+      },
+      "compliance": {
+        "label": "Compliance & Controls",
+        "description": "Verification of adherence to internal policies"
+      },
+      "internalAudit": {
+        "label": "Internal Audit",
+        "description": "Contract portfolio verification"
+      }
+    },
+    "byTeam": {
+      "title": "By Team Type",
+      "lawFirms": {
+        "label": "Law Firms",
+        "description": "Scaling expertise"
+      },
+      "corporateLegal": {
+        "label": "Corporate Legal",
+        "description": "Unified verification standard"
+      },
+      "auditCompliance": {
+        "label": "Internal Audit",
+        "description": "Reproducible process"
+      }
+    },
+    "enrichment": {
+      "title": "Advanced Analysis",
+      "counterparties": {
+        "label": "Counterparty Analysis",
+        "description": "Data enrichment and UBO verification"
+      },
+      "realEstate": {
+        "label": "Asset Analysis",
+        "description": "Rights and encumbrances verification"
+      }
+    }
+  },
+  "home": {
+    "brand": {
+      "name": "Steloom",
+      "tagline": "Intelligence layer for legal work"
+    },
+    "hero": {
+      "title": "Transform documents\ninto structure and knowledge",
+      "description": [
+        "Steloom translates arrays of legal documents into a connected, verifiable, and actionable intelligence system.",
+        "Your team spends less time searching and cross-checking — and more time on conclusions and decisions."
+      ],
+      "primaryCta": "Request Demo",
+      "secondaryCta": "Explore Use Cases",
+      "chips": [
+        "Playbook-driven review",
+        "Source-linked findings",
+        "Local-first LLM",
+        "Auditable workflow"
+      ],
+      "panelTitle": "This is not a document viewer, repository, or chat",
+      "panelItems": [
+        "A new infrastructure layer for legal work — built on architecture, not prompts.",
+        "Checks are built around your playbook, not a single query.",
+        "Every finding is linked to its source and ready for review and audit.",
+        "Local-first mode is designed for the most sensitive documents."
+      ]
+    },
+    "trustStrip": [
+      "Built for DD and M&A",
+      "Source-linked findings",
+      "Privacy-first by default",
+      "Hybrid search + rule-based checks",
+      "Auditable workflow",
+      "Playbook-driven review",
+      "Enterprise-grade security"
+    ],
+    "conceptTags": {
+      "eyebrow": "What the platform covers",
+      "title": "Document work,\nbuilt as a system.",
+      "description": "Due Diligence, automated extraction of key provisions, legal risk mapping, obligation and deadline tracking, source-linked findings, and document structure analysis — Steloom unifies disparate tasks into a single, manageable process.",
+      "row1": [
+        "Due Diligence",
+        "Provision Extraction",
+        "Risk Mapping",
+        "M&A",
+        "Data Room Analysis",
+        "Playbook Review",
+        "Obligation Tracking",
+        "Deal Structuring"
+      ],
+      "row2": [
+        "Knowledge Graph",
+        "Document Intelligence",
+        "Structure Analysis",
+        "Contract Review",
+        "Audit Trail",
+        "Source-linked Findings",
+        "Legal Ops",
+        "Cross-referencing"
+      ]
+    },
+    "audience": {
+      "eyebrow": "Who it's for",
+      "title": "One platform for\nkey legal workflows",
+      "description": "Steloom is relevant to several key roles within the legal function — not just a single niche user.",
+      "roles": [
+        {
+          "id": "ma",
+          "title": "M&A Teams",
+          "headline": "Speed and control in the data room.",
+          "body": "Structured review against playbooks, automated extraction of provisions and risks, and a transparent path from document to finding. Deals move faster — without compromising quality.",
+          "tags": [
+            "Due Diligence",
+            "Data Room",
+            "Risk Extraction",
+            "Playbook Review"
+          ]
+        },
+        {
+          "id": "legal_ops",
+          "title": "Legal Ops",
+          "headline": "Repeatability, transparency, and scale.",
+          "body": "A standardized review process that doesn't depend on a specific lawyer. Steloom codifies your team's methodology into a playbook and reproduces it across every new document set.",
+          "tags": [
+            "Process Standardization",
+            "Audit Trail",
+            "Workflow Automation"
+          ]
+        },
+        {
+          "id": "gc",
+          "title": "General Counsel",
+          "headline": "Managed risk and defensible findings.",
+          "body": "Every finding is tied to its source. Decisions are made based on verifiable data, not summaries. Steloom provides clarity for executive decisions and lowers the cost of missed risks.",
+          "tags": [
+            "Risk Management",
+            "Decision Support",
+            "Explainable Findings"
+          ]
+        }
+      ]
+    },
+    "stats": {
+      "eyebrow": "Measurable impact",
+      "title": "Impact visible in\ntimelines, hours, and the cost of error.",
+      "description": "Accelerated review, reduced manual analysis, and lowered cost of missed risk — as a measurable outcome, not an abstract tech promise.",
+      "items": [
+        {
+          "value": 10,
+          "suffix": "×",
+          "label": "Faster due diligence",
+          "sub": "vs. manual document review"
+        },
+        {
+          "value": 40,
+          "suffix": "h",
+          "label": "Savings per deal",
+          "sub": "average across M&A processes"
+        },
+        {
+          "value": 2,
+          "suffix": "M",
+          "prefix": "$",
+          "label": "Cost of a missed clause",
+          "sub": "industry benchmark for large deals"
+        }
+      ],
+      "quote": "These are not estimates. These are results logged by legal teams that replaced manual review with structured analytics."
+    },
+    "capabilities": {
+      "eyebrow": "Capabilities",
+      "title": "Key operations on top of\na document — in one logic.",
+      "description": "Provision extraction, risk navigation, source-linked findings, playbook review, obligation structuring, and verifiable reporting — working as a unified system.",
+      "featured": [
+        {
+          "id": "playbook",
+          "title": "Playbook-driven analysis",
+          "description": "The platform applies legal checks against configurable playbooks — giving your team a unified, repeatable, and controlled approach to review."
+        },
+        {
+          "id": "packages",
+          "title": "Working with document packages and links",
+          "description": "Steloom analyzes not just a single document, but an entire deal package: duplicates, versions, cross-references, and context across files."
+        }
+      ],
+      "support": [
+        {
+          "id": "privacy",
+          "title": "Privacy-first architecture",
+          "description": "Local-first processing and a PII-gateway before external models. Documents do not leave the perimeter without explicit admin approval."
+        },
+        {
+          "id": "source",
+          "title": "Source-linked findings",
+          "description": "Every finding is tied to a specific text fragment — clause, page, or document. Verify in one click."
+        },
+        {
+          "id": "reporting",
+          "title": "Structured reporting",
+          "description": "Results are ready for export to spreadsheets, DD reports, and further team workflows."
+        }
+      ]
+    },
+    "architecturePreview": {
+      "eyebrow": "Architecture",
+      "title": "Behind the finding is not model magic,\nbut a reproducible system.",
+      "description": "At the core of Steloom are structural processing layers, entity relationships, and a clear path from the source document to the final conclusion.",
+      "steps": [
+        {
+          "id": "upload",
+          "title": "Ingestion",
+          "text": "Uploading PDF, DOCX, XLSX, and scans into a unified processing stream."
+        },
+        {
+          "id": "normalize",
+          "title": "Normalization",
+          "text": "OCR, language detection, structure parsing, and semantic chunking."
+        },
+        {
+          "id": "evaluate",
+          "title": "Evaluation",
+          "text": "Hybrid search, playbook checks, LLM + rules logic, and risk detection."
+        },
+        {
+          "id": "report",
+          "title": "Reporting",
+          "text": "Structured results with source links, statuses, and export-ready formats."
+        }
+      ],
+      "bullets": [
+        "OCR and text extraction",
+        "Language detection",
+        "PII sanitization",
+        "Document structure parsing",
+        "Hybrid search + checks",
+        "Event-driven pipeline"
+      ],
+      "linkLabel": "Explore architecture and pipeline"
+    },
+    "useCases": {
+      "eyebrow": "Use Cases",
+      "title": "Intelligent processing\nat every deal stage.",
+      "description": "From due diligence to drafting, review, and pre-closing — Steloom is embedded in the team's real workflow.",
+      "tabs": [
+        {
+          "id": "diligence",
+          "label": "Due Diligence",
+          "headline": "Extract every obligation before the first red flag.",
+          "body": "Steloom processes the data room against your playbook — every provision, risk, and cross-reference is structured and accessible in hours, not weeks.",
+          "tags": [
+            "Provision Extraction",
+            "Risk Mapping",
+            "Playbook Review"
+          ]
+        },
+        {
+          "id": "drafting",
+          "label": "Drafting",
+          "headline": "Build contract structure based on proven templates.",
+          "body": "The intelligence base retains vetted formulations linked to their source. When drafting a new document, the team relies on institutional memory, not personal notes.",
+          "tags": [
+            "Template Intelligence",
+            "Clause Library",
+            "Source Linking"
+          ]
+        },
+        {
+          "id": "review",
+          "label": "Review",
+          "headline": "See differences, risks, and deviations — quickly and without gaps.",
+          "body": "Steloom highlights deviations from standard positions, automatically links similar provisions across documents, and shows the context of every finding via a direct source link.",
+          "tags": [
+            "Redline Analysis",
+            "Cross-referencing",
+            "Deviation Flags"
+          ]
+        },
+        {
+          "id": "closing",
+          "label": "Pre-closing",
+          "headline": "Verify condition fulfillment and close the deal with confidence.",
+          "body": "The obligation tracker shows the real-time status of every deal condition. The team sees what is completed, what is open, and what requires escalation — before signing.",
+          "tags": [
+            "Obligation Tracking",
+            "Closing Checklist",
+            "Audit Trail"
+          ]
+        }
+      ]
+    },
+    "security": {
+      "eyebrow": "Security",
+      "title": "Access control, data boundaries,\nand defensibility — by default.",
+      "description": "Flexible role and access management, built-in sensitive data protection mechanisms, full traceability of every finding, and a complete user action log.",
+      "badges": [
+        "Local-first processing",
+        "PII sanitization gateway",
+        "Access segregation",
+        "Audit trail"
+      ],
+      "cards": [
+        {
+          "id": "local",
+          "title": "Local-first by default",
+          "text": "Documents do not leave the perimeter without explicit admin approval."
+        },
+        {
+          "id": "cloud",
+          "title": "Controlled cloud mode",
+          "text": "External LLMs are connected in a managed mode with prior data sanitization."
+        },
+        {
+          "id": "audit",
+          "title": "Source-linked and auditable",
+          "text": "Results are suitable for review, internal control, and explainable analysis."
+        }
+      ],
+      "linkLabel": "Learn more about platform security"
+    },
+    "testimonial": {
+      "eyebrow": "Teams already using it",
+      "title": "A team must trust\nnot just the finding, but the path to it.",
+      "quote": "For the first time in years of working with data rooms, we have a tool that doesn't just search text, but understands the deal structure. Steloom is exactly what we needed for our DD process.",
+      "author": "Partner, M&A Practice",
+      "company": "Major International Law Firm"
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "title": "Questions asked\nbefore going into a pilot.",
+      "description": "We don't avoid tough questions. Here are honest answers to what enterprise teams ask most frequently.",
+      "contactLabel": "Ask your own question",
+      "contactHref": "mailto:hello@steloom.com",
+      "items": [
+        {
+          "q": "How is Steloom different from a corporate knowledge base?",
+          "a": "A knowledge base stores what you put into it. Steloom extracts structured knowledge directly from documents — automatically, source-linked, and in the context of your playbook."
+        },
+        {
+          "q": "Can we work with NDA-sensitive documents without sending them to external models?",
+          "a": "Yes. Steloom supports a local-first processing mode with a PII-gateway before reaching out to external models."
+        },
+        {
+          "q": "What if the model makes a mistake — how will we see it?",
+          "a": "Every system finding is tied to a specific source — clause, page, and document. Steloom was designed as an auditable system, not a black box."
+        },
+        {
+          "q": "How does the system handle non-standard contract structures?",
+          "a": "Steloom does not rely on rigid document structure templates. Extraction works at the semantic level, not the formatting level."
+        },
+        {
+          "q": "Integration with our DMS / iManage / SharePoint — how long will it take?",
+          "a": "Basic API integration takes 3 to 7 business days. Deeper bidirectional sync depends on your infrastructure. We discuss your specific stack during the demo."
+        },
+        {
+          "q": "Do we need a separate IT team for implementation?",
+          "a": "No. Standard implementation is led by our team without drawing on your IT resources. Typical time from contract to first working review is 2 weeks."
+        },
+        {
+          "q": "How well does the system adapt to our playbook?",
+          "a": "Playbook configuration is the core of the product, not an option. Steloom works with your review priorities, critical provisions, and risk-flagging logic."
+        }
+      ]
+    },
+    "finalCta": {
+      "title": "Transform documents\ninto structure and knowledge",
+      "description": "Steloom gives your team structured, verifiable, and actionable knowledge from any set of documents — quickly, calmly, and without loss of control.",
+      "primary": "Request Demo",
+      "secondary": "Explore Use Cases"
+    },
+    "founder": {
+      "name": "Vladimir",
+      "role": "Founder, Steloom",
+      "eyebrow": "From the founder",
+      "quote": "Every legal conclusion must be grounded in documents, verifiable, and withstand professional scrutiny. That is why we built Steloom — a platform that does not replace legal thinking, but helps make decisions based on transparent, source-linked analysis.",
+      "ctaLabel": "Meet the team"
+    },
+    "knowledgeGrowth": {
+      "eyebrow": "Capabilities",
+      "title": "Growing\nknowledge.",
+      "paragraphs": [
+        "Steloom gathers thousands of disparate contract provisions into a single living structure — not for search, but to build your understanding through connections and context.",
+        "One document or a package of hundreds — the system works identically: it recognizes the type (SPA, SHA, NDA, employment agreement), builds the structure, and applies the risk set predefined by you for this specific deal or document.",
+        "Every finding is linked to its source — a specific clause in a specific document. No hallucinations, no detached generalizations."
+      ],
+      "ctaLabel": "Explore all platform capabilities"
+    },
+    "application": {
+      "title": "One platform\nfor key legal workflows",
+      "eyebrow": "Use case",
+      "moreButton": "Explore all use cases",
+      "roles": {
+        "ma": {
+          "title": "M&A and Due Diligence",
+          "description": "Automated data room analysis: building a DD grid and identifying risks with every finding directly linked to its source."
+        },
+        "contract": {
+          "title": "Contract Review",
+          "description": "Checking contracts against standards. Finding deviations from playbook, missing clauses, and risks in a unified format."
+        },
+        "compliance": {
+          "title": "Compliance & Controls",
+          "description": "Monitoring contract portfolio compliance with internal policies. Automatic detection of deviations for fast business approval."
+        },
+        "audit": {
+          "title": "Internal Audit",
+          "description": "Reviewing large portfolios of active and historical contracts. Building reproducible findings history with full traceability for control."
+        },
+        "enrichment": {
+          "title": "Advanced Analysis (counterparties and assets)",
+          "description": "Deep verification of counterparties and assets (UBO, sanctions, real estate encumbrances) through external registries with results integrated into the deal's DD grid."
+        }
+      }
+    },
+    "securityFoundation": {
+      "teasers": [
+        {
+          "title": "Local-First",
+          "desc": "Data processing within your perimeter"
+        },
+        {
+          "title": "PII Gateway",
+          "desc": "Automatic anonymization before LLM"
+        },
+        {
+          "title": "RBAC",
+          "desc": "Project-level access control"
+        },
+        {
+          "title": "Audit Trail",
+          "desc": "Complete logging of all actions"
+        },
+        {
+          "title": "Observability",
+          "desc": "Transparent system health monitoring"
+        },
+        {
+          "title": "AI Governance",
+          "desc": "Organization determines LLM access"
+        }
+      ],
+      "paragraphs": [
+        "Steloom security is built on a zero-trust principle and complete control over data within your organization.",
+        "Every system node is designed to prevent confidential information leaks when working with AI. The platform operates within your perimeter, guaranteeing the inviolability of legal privilege."
+      ],
+      "ctaLabel": "Learn more about security architecture",
+      "eyebrow": "Security",
+      "title": "Access control,\ndata boundaries and provability - by default."
+    },
+    "contactModal": {
+      "steps": [
+        "Submit a demo request",
+        "We will contact you to clarify the details",
+        "We will conduct a personalized platform demonstration"
+      ],
+      "closeAria": "Close modal",
+      "eyebrow": "Contact Us",
+      "title": "Request a Personalized Demo",
+      "description": "Fill out the form, and we will prepare a platform demonstration tailored to your specific business processes.",
+      "stepsTitle": "How it works",
+      "emailInfo": "Contact us: demo@steloom.com",
+      "emailLabel": "Work Email",
+      "emailPlaceholder": "name@company.com",
+      "scenarioLabel": "Describe your scenario or task",
+      "scenarioPlaceholder": "For example: reviewing lease agreements for hidden risks...",
+      "securityNote": "🔒 Your data is protected. We do not share information with third parties and use it only to prepare the demonstration.",
+      "submit": "Request Demo",
+      "cancel": "Cancel"
+    }
+  },
+  "footer": {
+    "description": "Playbook-driven review, source-linked findings, and managed document workflows for M&A and corporate legal teams.",
+    "copyright": "© 2026 Steloom. All rights reserved.",
+    "homeLabel": "Steloom — home",
+    "website": "Steloom.com"
+  },
+  "application": {
+    "title": "One platform for key legal workflows",
+    "eyebrow": "Use case",
+    "moreButton": "Explore all use cases",
+    "roles": {
+      "ma": {
+        "title": "M&A and Due Diligence",
+        "description": "Automated data room analysis: building a DD grid and identifying risks with every finding directly linked to its source."
+      },
+      "contract": {
+        "title": "Contract Review",
+        "description": "Checking contracts against standards. Finding deviations from playbook, missing clauses, and risks in a unified format."
+      },
+      "compliance": {
+        "title": "Compliance & Controls",
+        "description": "Monitoring contract portfolio compliance with internal policies. Automatic detection of deviations for fast business approval."
+      },
+      "audit": {
+        "title": "Internal Audit",
+        "description": "Reviewing large portfolios of active and historical contracts. Building reproducible findings history with full traceability for control."
+      },
+      "enrichment": {
+        "title": "Advanced Analysis (counterparties and assets)",
+        "description": "Deep verification of counterparties and assets (UBO, sanctions, real estate encumbrances) through external registries with results integrated into the deal's DD grid."
+      }
+    }
+  },
+  "roles": {
+    "ma": {
+      "title": "Mergers & Acquisitions",
+      "description": "Complete control over legal due diligence. Automated analysis of hundreds of contracts, identification of non-standard conditions and hidden risks in deals without the routine."
+    },
+    "operations": {
+      "title": "Legal Operations",
+      "description": "Optimization of internal processes. Instant contract routing, extraction of key data, and deadline control for seamless business operations."
+    },
+    "gc": {
+      "title": "General Counsel",
+      "description": "Strategic risk management. A unified dashboard for controlling all corporate legal documentation, ensuring compliance, and protecting interests."
+    },
+    "audit": {
+      "title": "Internal Audit",
+      "description": "Automation of compliance checks. Instant detection of deviations from standards, verification of mandatory clauses, and creation of a transparent trail for every document."
+    }
+  },
+  "about": {
+    "cta": {
+      "title": "Let's show you Steloom\non your documents",
+      "paragraphs": [
+        "We are ready to conduct a personalized platform demo using examples of your working documents, so you can evaluate the accuracy and speed of information preparation.",
+        "Book a meeting with our team to discuss your current tasks and see Steloom in action."
+      ],
+      "buttonLabel": "Request a demo",
+      "meta": ""
+    },
+    "hero": {
+      "pathRoot": "About Us",
+      "pathLeaf": "What We Do",
+      "title": "We automate information preparation,\nnot legal thinking",
+      "description1": "Steloom takes over the mechanics of data collection and structuring, so you can focus on strategy, risks, and decision-making.",
+      "description2": "We build tools for legal teams who value precision and want to scale their expertise, not their routine."
+    },
+    "philosophy": {
+      "card1": {
+        "eyebrow": "Positioning",
+        "title": "Part of the daily process",
+        "description": "Steloom does not replace the lawyer, but becomes the infrastructure for their work. The platform classifies documents and prepares the foundation for professional review.",
+        "tags": [
+          "Workflow Integration",
+          "Scale Intelligence"
+        ]
+      },
+      "card2": {
+        "eyebrow": "Approach",
+        "title": "Structured foundation",
+        "description": "Instead of fragmented answers, you get a system: DD grids by document type, findings with sources, and risk prioritization.",
+        "badges": [
+          "Verified Output",
+          "Evidence-Based"
+        ]
+      }
+    },
+    "principles": {
+      "title": "Design principles",
+      "items": [
+        {
+          "title": "Process first",
+          "desc": "We automate not the document, but the real workflow of the legal team."
+        },
+        {
+          "title": "Verifiability",
+          "desc": "Every system statement is backed by a direct link to the source."
+        },
+        {
+          "title": "Hidden complexity",
+          "desc": "A clean interface orchestrating powerful specialized models."
+        },
+        {
+          "title": "Predictability",
+          "desc": "Unified and transparent data analysis logic across the entire organization."
+        }
+      ]
+    },
+    "team": {
+      "title": "Team",
+      "intro": "We are a group of experts from finance, law, industry, and technology, combining our accumulated knowledge and experience into a product that solves real user problems.",
+      "blocks": [
+        {
+          "id": "experience",
+          "image": "/photo 1.jpg",
+          "title": "Our Experience",
+          "description": "Our journey began across various industries, from M&A and investment banking to high-load system development. We combined this knowledge to create a product that eliminates systemic pain points in information processing."
+        },
+        {
+          "id": "policy",
+          "image": "/photo 2.jpg",
+          "title": "Our Policy",
+          "description": "We design Steloom for people, not algorithms. Our priority is an intuitive interface and usability that is clear to every expert. This is a tool for a professional, not a 'digital geek'."
+        },
+        {
+          "id": "product",
+          "image": "/photo 3.jpg",
+          "title": "Our Product",
+          "description": "The platform is built on transparency and provable results. We ensure the predictability of every step, openness of processes, and exceptional convenience in daily operation."
+        },
+        {
+          "id": "operations",
+          "image": "/photo 4.jpg",
+          "title": "Our Operations",
+          "description": "We continuously develop the platform, adapting to market challenges and user requests. We believe in the value of our product and drive it forward, changing the standards of data work."
+        }
+      ]
+    },
+    "process": {
+      "steps": [
+        {
+          "label": "Raw Data",
+          "title": "Document Array",
+          "desc": "Raw data, archives, and disparate sources."
+        },
+        {
+          "label": "Logic",
+          "title": "Instructions",
+          "desc": "Application of your internal standards and verification logic."
+        },
+        {
+          "label": "Review",
+          "title": "Verification",
+          "desc": "Identification of deviations and critical risks for analysis."
+        },
+        {
+          "label": "Findings",
+          "title": "Result",
+          "desc": "Final report with direct linkage to sources."
+        }
+      ]
+    }
+  },
+  "demo": {
+    "audience": {
+      "title": "Who this demo is for",
+      "items": [
+        {
+          "id": "legal_leaders",
+          "title": "Legal Function Leaders",
+          "description": "If you want to understand which tasks are truly automatable and where the product delivers measurable value."
+        },
+        {
+          "id": "ma_dd_teams",
+          "title": "M&A and Due Diligence Teams",
+          "description": "If you have a Data Room, playbooks, and a need to accelerate contract package analysis."
+        },
+        {
+          "id": "it_security",
+          "title": "IT / Security / Architecture",
+          "description": "If you need to evaluate the data processing perimeter, PII sanitization, deployment model, and integration constraints."
+        }
+      ]
+    },
+    "form": {
+      "title": "Submit a request",
+      "subtitle": "Describe your team, document types, and task — this way the demo can be specific rather than generic.",
+      "fields": {
+        "name": "Name",
+        "company": "Company",
+        "email": "Work email",
+        "useCase": "Scenario and document types"
+      },
+      "placeholders": {
+        "name": "Your name",
+        "company": "Company name",
+        "email": "name@company.com",
+        "useCase": "For example: Due Diligence, NDA / SPA / SHA, 500+ documents, need Excel report"
+      },
+      "note": "Currently the form can send requests to email or a backend endpoint — choose the method that already exists in your project.",
+      "submit": "Submit request",
+      "emailBody": {
+        "name": "Name",
+        "company": "Company",
+        "email": "Email",
+        "useCase": "Use Case"
+      }
+    },
+    "aside": {
+      "title": "What will speed up a specific demo",
+      "items": [
+        "Which document types you analyze most frequently.",
+        "Whether you have playbooks or internal checklists.",
+        "Whether you need a local perimeter without external LLMs.",
+        "What result format your team needs: UI, Excel, DD report."
+      ],
+      "time": "Usually a response within 1 business day."
+    },
+    "hero": {
+      "eyebrow": "Demo",
+      "title": "Request a Steloom Demo",
+      "description": "We'll show how Steloom works with typical legal documents and playbooks: from package upload to a structured report with source references."
+    },
+    "whatYouSee": {
+      "eyebrow": "What you will see",
+      "title": "What you'll see in the demo",
+      "items": [
+        {
+          "id": "document_pipeline",
+          "title": "Document pipeline walkthrough",
+          "description": "We'll show how the system receives a document, extracts text, builds structure, chunks data, and prepares it for analysis."
+        },
+        {
+          "id": "playbook_checks",
+          "title": "Playbook checks on a real case",
+          "description": "We'll demonstrate how checks are applied, how conclusions are formed, and how lawyers see the basis for each result."
+        },
+        {
+          "id": "export_results",
+          "title": "Result export",
+          "description": "We'll show the final result format: structured report, source links, and Excel export readiness."
+        },
+        {
+          "id": "privacy_model",
+          "title": "Privacy-first model",
+          "description": "We'll discuss where local processing is used, where PII sanitization is applied, and how sensitive data handling is controlled."
+        }
+      ]
+    },
+    "faq": {
+      "title": "Frequently asked questions before the demo",
+      "items": [
+        {
+          "id": "custom_documents",
+          "question": "Can you show a demo on our documents?",
+          "answer": "Yes, if permitted by your internal policies. For sensitive cases, it's better to agree on the format and scope in advance."
+        },
+        {
+          "id": "playbook_needed",
+          "question": "Do I need a ready playbook?",
+          "answer": "Not necessarily. We can show a demo on a typical scenario and then discuss adapting checks to your team."
+        },
+        {
+          "id": "duration",
+          "question": "How long does the demo last?",
+          "answer": "Usually 30–45 minutes: brief overview, document flow walkthrough, Q&A on security and architecture."
+        }
+      ]
+    }
+  },
+  "platform": {
+    "hero": {
+      "eyebrow": {
+        "root": "PLATFORM",
+        "leaf": "Document Analysis"
+      },
+      "title": "Generating Structured Results and Data",
+      "paragraphs": [
+        "Steloom helps lawyers organize their work with documents (from one to hundreds of documents of various types) by systematizing them, checking for established risks/patterns, and generating structured results and/or data for further analysis.",
+        "The output is not a long text response, but a result suitable for further legal work: a DD grid by document types, a list of risks and comments with source references, and an understanding of what to look at first."
+      ],
+      "cta": {
+        "primaryLabel": "Request a Demo",
+        "secondaryLabel": "Contact the Team"
+      },
+      "flowNodes": {
+        "inputs": [
+          "Agreement",
+          "Appendices",
+          "Corporate Documents"
+        ],
+        "processing": "Steloom",
+        "outputs": [
+          "DD Grid",
+          "Findings",
+          "Review Materials"
+        ]
+      }
+    },
+    "workflow": {
+      "eyebrow": "Process",
+      "title": "One verification pattern - from one document to hundreds - without losing result quality",
+      "steps": [
+        "Document",
+        "Classification",
+        "Analysis",
+        "Findings",
+        "DD Grid",
+        "Review",
+        "Decision"
+      ],
+      "paragraphs": [
+        "For each document type (e.g., SPA, NDA, employment contract, corporate document, etc.), a specific analysis scenario and corresponding set of checks are applied.",
+        "One document or five hundred - each file goes through the same verification process, ensuring a uniform analysis standard regardless of project volume."
+      ],
+      "bullets": [
+        "Automatic systematization of different document types",
+        "Custom analysis scenario or preset set of checks",
+        "DD grid based on key verification results",
+        "Uniform analysis standard regardless of project volume"
+      ],
+      "bulletsLabel": "What this gives the lawyer"
+    },
+    "structure": {
+      "eyebrow": "Document Structure",
+      "title": "Analyzes the agreement and appendices considering their role in the document",
+      "paragraphs": [
+        "Steloom automatically extracts the document structure, separates the main agreement from appendices, and maintains the connection between them.",
+        "The lawyer immediately sees where the relevant condition is located - in the main agreement or an appendix - and can evaluate it in the correct context."
+      ],
+      "bullets": [
+        "Main agreement and appendices are analyzed separately",
+        "Each finding is linked to the relevant part of the document",
+        "Conditions in annexes and schedules are not lost during verification",
+        "Analysis considers document structure, not just continuous text"
+      ],
+      "bulletsLabel": "What this gives the lawyer",
+      "chain": [
+        {
+          "label": "Document",
+          "meta": "Uploaded file"
+        },
+        {
+          "label": "Main Agreement",
+          "meta": "Main text"
+        },
+        {
+          "label": "Schedules",
+          "meta": "Material conditions"
+        },
+        {
+          "label": "Annexes",
+          "meta": "Additional provisions"
+        },
+        {
+          "label": "Findings",
+          "meta": "Linked to section"
+        }
+      ]
+    },
+    "standards": {
+      "eyebrow": "Rules and Standards",
+      "title": "Customizes document analysis to internal standards and team needs",
+      "paragraphs": [
+        "Steloom verifies documents according to your organization's rules, not a universal template. This allows accounting for the team's internal practice, compliance policies, industry requirements, and approved corporate approaches to analysis.",
+        "The team can add checks for specific document types or set global rules applicable to the entire document package at once.",
+        "As legislation changes or practice evolves, rules can be updated without changing the overall workflow. As a result, documents are evaluated against uniform standards regardless of the executor or project volume."
+      ],
+      "diagram": {
+        "sources": [
+          "Playbooks",
+          "Policies",
+          "Instructions"
+        ],
+        "core": "Analysis Rules",
+        "targets": [
+          "Document A",
+          "Document B",
+          "Document C"
+        ]
+      }
+    },
+    "findings": {
+      "eyebrow": "Results",
+      "title": "Structured results that can be verified",
+      "paragraphs": [
+        "The analysis result is not a text response, but a set of findings, risks, and comments on documents. Each finding contains a link to the document, section, provision, or appendix on which the conclusion was based.",
+        "This allows quick navigation to the primary source, checking the context, and continuing work with the document.",
+        "Findings are grouped by document types and risk categories, forming a DD grid suitable for reports, internal review, and subsequent team verification."
+      ],
+      "chain": [
+        {
+          "label": "Document",
+          "meta": "File"
+        },
+        {
+          "label": "Clause",
+          "meta": "Section / provision"
+        },
+        {
+          "label": "Risk",
+          "meta": "Category"
+        },
+        {
+          "label": "Severity",
+          "meta": "Level"
+        },
+        {
+          "label": "Source Link",
+          "meta": "Verifiable link",
+          "accent": true
+        }
+      ]
+    },
+    "methodology": {
+      "eyebrow": "Methodology",
+      "title": "Does not change the team's work methodology",
+      "leadIn": "Steloom integrates into the existing process, it does not replace it.",
+      "paragraphs": [
+        "The platform does not require restructuring the Due Diligence, internal review, or contract analysis process. Documents are loaded from familiar sources, and results are used in current reporting formats and the team's internal work.",
+        "The team can start with one scenario and gradually expand platform usage, preserving existing processes and familiar work formats."
+      ],
+      "chain": [
+        {
+          "label": "Current Workflow",
+          "meta": "Team's familiar processes"
+        },
+        {
+          "label": "Steloom",
+          "meta": "Information preparation",
+          "accent": true
+        },
+        {
+          "label": "Same Workflow",
+          "meta": "No changes in methodology"
+        },
+        {
+          "label": "Better Prepared Information",
+          "meta": "Findings, DD grid, review materials"
+        }
+      ]
+    },
+    "cta": {
+      "title": "See how Steloom works with your documents",
+      "paragraphs": [
+        "During the demonstration, we will show the full analysis path: document upload, type identification, application of checks, generation of findings, and a DD grid with source references.",
+        "If you have your own contracts or deal materials, they can be used as an example. This will allow you to evaluate the platform's performance in conditions as close to your tasks and internal processes as possible."
+      ],
+      "meta": "Average demonstration time: 30–45 minutes",
+      "ctaButton": {
+        "primaryLabel": "Request a Demo"
+      }
+    },
+    "technical": {
+      "title": "How Steloom Works",
+      "intro": "Platform technical capabilities - from document processing to security and scaling.",
+      "groups": [
+        {
+          "title": "Document Processing",
+          "items": [
+            "PDF, DOCX, XLSX, scans, and mixed formats",
+            "OCR when necessary",
+            "Document language detection",
+            "Structure and metadata normalization"
+          ]
+        },
+        {
+          "title": "Document Structural Analysis",
+          "items": [
+            "Sections and subsections",
+            "Tables, lists, and appendices",
+            "Annexes, schedules, and appendices",
+            "Separation of main agreement and appendices",
+            "Linking findings to specific file parts"
+          ]
+        },
+        {
+          "title": "Document Type Identification",
+          "items": [
+            "Automatic classification by types",
+            "Support for different document categories within one project",
+            "Preparing documents for type-specific analysis"
+          ]
+        },
+        {
+          "title": "Extraction of Legally Significant Information",
+          "items": [
+            "Contract parties",
+            "Amounts and payment obligations",
+            "Dates and deadlines",
+            "Key contract provisions",
+            "Other legally significant information required for analysis"
+          ]
+        },
+        {
+          "title": "Analysis by Document Type",
+          "items": [
+            "Custom analysis scenario for each document type",
+            "Risk sets characteristic of a specific category",
+            "Document verification in the logic of its type",
+            "Generating results for DD grid"
+          ]
+        },
+        {
+          "title": "Customizable Verification Rules",
+          "items": [
+            "Custom checks for specific document types",
+            "Global checks for all documents",
+            "Customization to team's internal practice",
+            "Accounting for compliance policies and approved rules",
+            "Updating rules as practice evolves"
+          ]
+        },
+        {
+          "title": "Working with Document Packages",
+          "items": [
+            "One document or a full deal package",
+            "Uniform document classification by types",
+            "Generating a general DD grid for the entire package",
+            "Sequential expansion of the document package while maintaining a uniform analysis process",
+            "Uniform analysis process regardless of project volume"
+          ]
+        },
+        {
+          "title": "Result Generation",
+          "items": [
+            "Findings with source indication",
+            "Linking to document, section, provision, or appendix",
+            "Structuring by document types and risk categories",
+            "DD grid for the entire document package",
+            "Ability to re-verify each conclusion"
+          ]
+        },
+        {
+          "title": "Export and Process Integration",
+          "items": [
+            "Exporting results to reports and spreadsheets",
+            "Use in current internal processes",
+            "Connection to corporate document sources",
+            "Working as part of the existing legal workflow"
+          ]
+        },
+        {
+          "title": "Architecture and Scaling",
+          "items": [
+            "Uniform processing regardless of document volume",
+            "Parallel file processing",
+            "Scaling to project volume",
+            "Support for corporate usage scenarios"
+          ]
+        },
+        {
+          "title": "Security and Access Control",
+          "items": [
+            "Role-based access model",
+            "User action audit",
+            "Data protection in corporate environment",
+            "Compliance with internal organizational requirements"
+          ]
+        }
+      ]
+    },
+    "findingsDiagram": {
+      "ariaLabel": "Finding structure",
+      "levelPrefix": "Level",
+      "footerNote": "Every finding is traceable from the primary source to the conclusion"
+    },
+    "flowSchema": {
+      "ariaLabel": "Document analysis process"
+    },
+    "heroFlowVisual": {
+      "inputLabel": "Input",
+      "analysisLabel": "Analysis",
+      "outputLabel": "Output"
+    },
+    "standardsDiagram": {
+      "inputLabel": "Input",
+      "engineLabel": "Engine",
+      "appliedToLabel": "Applied to"
+    }
+  },
+  "landing": {
+    "brand": {
+      "name": "Steloom",
+      "tagline": "Intelligent layer for legal work"
+    },
+    "hero": {
+      "title": "Transform documents\ninto structure and knowledge",
+      "description": [
+        "Steloom translates arrays of legal documents into a connected, verifiable, and actionable intelligence system.",
+        "The team spends less time searching and cross-checking - more on insights and decisions."
+      ],
+      "primaryCta": "Request a demo",
+      "secondaryCta": "View scenarios",
+      "chips": [
+        "Playbook-based checks",
+        "Source-linked findings",
+        "Local-first LLM",
+        "Auditable workflow"
+      ],
+      "panelTitle": "This is not a document viewer, repository, or chat",
+      "panelItems": [
+        "A new infrastructure layer for legal work - with architecture, not just prompts.",
+        "Checks are built around your playbook, not a single query.",
+        "Every finding is linked to a source and ready for review and audit.",
+        "Local-first mode is suitable for the most sensitive documents."
+      ]
+    },
+    "trustStrip": [
+      "Built for DD and M&A",
+      "Source-linked findings",
+      "Privacy-first by default",
+      "Hybrid search + rule-based checks",
+      "Auditable workflow",
+      "Playbook-based checks",
+      "Enterprise-grade security"
+    ],
+    "conceptTags": {
+      "eyebrow": "What the platform covers",
+      "title": "Document work,\nbuilt as a system.",
+      "description": "Due Diligence, automatic extraction of key provisions, legal risk mapping, obligation and deadline tracking, source-linked findings, document structure analysis - Steloom brings disparate tasks into a single, manageable process.",
+      "row1": [
+        "Due Diligence",
+        "Provision extraction",
+        "Risk mapping",
+        "M&A",
+        "Data Room analysis",
+        "Playbook checks",
+        "Obligation tracking",
+        "Deal structuring"
+      ],
+      "row2": [
+        "Knowledge graph",
+        "Document Intelligence",
+        "Structure analysis",
+        "Contract analysis",
+        "Audit Trail",
+        "Source-linked findings",
+        "Legal Ops",
+        "Cross-references"
+      ]
+    },
+    "audience": {
+      "eyebrow": "For whom",
+      "title": "One platform for \nkey legal work contours",
+      "description": "Steloom is relevant to several key roles in the legal function — not just one narrow user.",
+      "roles": [
+        {
+          "id": "ma_teams",
+          "icon": "Handshake",
+          "title": "M&A Teams",
+          "headline": "Speed and control in the data room.",
+          "body": "Structured review against playbooks, automatic extraction of provisions and risks, transparent path from document to finding. The deal moves faster - without losing quality.",
+          "tags": [
+            "Due Diligence",
+            "Data Room",
+            "Risk extraction",
+            "Playbook checks"
+          ]
+        },
+        {
+          "id": "legal_ops",
+          "icon": "Building2",
+          "title": "Legal Ops",
+          "headline": "Repeatability, transparency, and scalability.",
+          "body": "A standardized review process that doesn't depend on a specific lawyer. Steloom captures the team's methodology in a playbook and reproduces it on every new document array.",
+          "tags": [
+            "Process standardization",
+            "Audit Trail",
+            "Workflow automation"
+          ]
+        },
+        {
+          "id": "general_counsel",
+          "icon": "Scale",
+          "title": "General Counsel",
+          "headline": "Managed risk and provable findings.",
+          "body": "Every finding is linked to a source. Decisions are made based on verifiable data, not retelling. Steloom provides clarity for management decisions and reduces the cost of missed risks.",
+          "tags": [
+            "Risk management",
+            "Decision support",
+            "Explainable findings"
+          ]
+        }
+      ]
+    },
+    "stats": {
+      "eyebrow": "Measurable results",
+      "title": "Impact visible\nin timelines, hours, and error costs.",
+      "description": "Accelerated review, reduced manual analytics, and lowered cost of missed risk — as a measurable result, not an abstract tech promise.",
+      "items": [
+        {
+          "value": 10,
+          "suffix": "×",
+          "label": "Faster due diligence",
+          "sub": "vs. manual document review"
+        },
+        {
+          "value": 40,
+          "suffix": "h",
+          "label": "Savings per deal",
+          "sub": "average across M&A processes"
+        },
+        {
+          "value": 2,
+          "suffix": "M",
+          "prefix": "$",
+          "label": "Cost of a missed clause",
+          "sub": "industry benchmark for large deals"
+        }
+      ],
+      "quote": "These are not estimates. These are results recorded by legal teams that replaced manual review with structured analytics."
+    },
+    "capabilities": {
+      "eyebrow": "Capabilities",
+      "title": "Key operations on top of\na document — in one logic.",
+      "description": "Provision extraction, risk navigation, source-linked findings, playbook review, obligation structuring, and verifiable result generation - all working as a unified system.",
+      "featured": [
+        {
+          "id": "playbook_analysis",
+          "icon": "FileSearch",
+          "title": "Playbook-based analysis",
+          "description": "The platform applies legal checks based on customizable playbooks - the team gets a unified, repeatable, and controlled approach to review. The template is just a starting point, the core is your logic."
+        },
+        {
+          "id": "document_packages",
+          "icon": "GitBranch",
+          "title": "Working with document packages and links",
+          "description": "Steloom analyzes not a single document, but an entire deal package: duplicates, versions, cross-references, and context between files. Nothing gets lost on page 47."
+        }
+      ],
+      "support": [
+        {
+          "id": "privacy_arch",
+          "icon": "Lock",
+          "title": "Privacy-first architecture",
+          "description": "Local-first processing and PII-gateway before external models. Documents do not leave the perimeter without explicit admin approval."
+        },
+        {
+          "id": "source_linked",
+          "icon": "CheckCircle2",
+          "title": "Source-linked findings",
+          "description": "Every finding is linked to a specific text fragment - clause, page, document. Verify in one click."
+        },
+        {
+          "id": "structured_reporting",
+          "icon": "FileSpreadsheet",
+          "title": "Structured reporting",
+          "description": "Results are ready for export to spreadsheets, DD reports, and further team work."
+        }
+      ]
+    },
+    "architecturePreview": {
+      "eyebrow": "Architecture",
+      "title": "Behind the finding is not model\nmagic, but a reproducible system.",
+      "description": "At the core of Steloom are structural processing layers, entity relationships, and a clear path from the source document to the final finding. This makes the result not only fast, but explainable.",
+      "steps": [
+        {
+          "id": "upload",
+          "icon": "ScanSearch",
+          "title": "Upload",
+          "text": "Uploading PDF, DOCX, XLSX, and scans into a unified processing stream."
+        },
+        {
+          "id": "normalization",
+          "icon": "Workflow",
+          "title": "Normalization",
+          "text": "OCR, language detection, structure parsing, and semantic chunking."
+        },
+        {
+          "id": "evaluation",
+          "icon": "Layers3",
+          "title": "Evaluation",
+          "text": "Hybrid search, playbook checks, LLM + rules logic, and risk detection."
+        },
+        {
+          "id": "report",
+          "icon": "ArrowUpRight",
+          "title": "Report",
+          "text": "Structured result with source links, statuses, and export-ready format."
+        }
+      ],
+      "bullets": [
+        "OCR and text extraction",
+        "Language detection",
+        "PII sanitization",
+        "Document structure parsing",
+        "Hybrid search + checks",
+        "Event-driven pipeline"
+      ],
+      "linkLabel": "Explore architecture and pipeline"
+    },
+    "useCases": {
+      "eyebrow": "Scenarios",
+      "title": "Intelligent processing\nat every deal stage.",
+      "description": "From due diligence to drafting, review, and pre-closing - Steloom is embedded in the team's real workflow.",
+      "tabs": [
+        {
+          "id": "diligence",
+          "label": "Due Diligence",
+          "headline": "Extract every obligation before the first red flag.",
+          "body": "Steloom processes the data room against your playbook - every provision, risk, and cross-reference is structured and accessible in hours, not weeks. No condition gets lost on page 47.",
+          "tags": [
+            "Provision extraction",
+            "Risk mapping",
+            "Playbook checks"
+          ],
+          "video": "/video/workflow-process.mp4"
+        },
+        {
+          "id": "drafting",
+          "label": "Document Drafting",
+          "headline": "Build contract structure based on proven templates.",
+          "body": "The intelligent base preserves verified, source-linked formulations. When developing a new document, the team relies on institutional memory, not personal notes.",
+          "tags": [
+            "Template intelligence",
+            "Provision library",
+            "Source linkage"
+          ],
+          "video": "/video/workflow-process.mp4"
+        },
+        {
+          "id": "review",
+          "label": "Review",
+          "headline": "See differences, risks, and deviations - quickly and without omissions.",
+          "body": "Steloom highlights deviations from standard positions, automatically links similar provisions across documents, and shows the context of each finding via a direct source link.",
+          "tags": [
+            "Redline analysis",
+            "Cross-references",
+            "Deviation flags"
+          ],
+          "video": "/video/workflow-process.mp4"
+        },
+        {
+          "id": "closing",
+          "label": "Pre-closing",
+          "headline": "Verify condition fulfillment and close the deal confidently.",
+          "body": "The obligation tracker shows the status of each deal condition in real time. The team sees what is done, what is open, and what requires escalation - before signing.",
+          "tags": [
+            "Obligation tracking",
+            "Closing checklist",
+            "Audit trail"
+          ],
+          "video": "/video/workflow-process.mp4"
+        }
+      ]
+    },
+    "security": {
+      "eyebrow": "Security",
+      "title": "Access control, data boundaries,\nand provability - by default.",
+      "description": "Flexible role and access management, built-in sensitive data protection mechanisms, full traceability of every finding, and a log of all user actions make Steloom clear and convenient not only for legal teams, but also for information security and IT specialists. The platform architecture meets corporate security assessment requirements.",
+      "badges": [
+        "Local-first processing",
+        "PII sanitization gateway",
+        "Access segregation",
+        "Audit trail"
+      ],
+      "cards": [
+        {
+          "id": "local_first",
+          "icon": "Lock",
+          "title": "Local-first by default",
+          "text": "Documents do not leave the perimeter without explicit admin approval."
+        },
+        {
+          "id": "cloud_mode",
+          "icon": "Layers3",
+          "title": "Controlled cloud mode",
+          "text": "External LLMs are connected in a managed mode with prior data sanitization."
+        },
+        {
+          "id": "source_linked",
+          "icon": "CheckCircle2",
+          "title": "Source-linked and auditable",
+          "text": "Results are suitable for review, internal control, and explainable analysis."
+        }
+      ],
+      "linkLabel": "Learn more about platform security"
+    },
+    "testimonial": {
+      "eyebrow": "Teams already using it",
+      "title": "A team must trust\nnot only the finding, but the path to it.",
+      "quote": "For the first time in years of working with data rooms, we have a tool that doesn't just search text, but understands the deal structure. Steloom is exactly what we were looking for in our DD process.",
+      "author": "Partner, M&A Practice",
+      "company": "Major international law firm",
+      "placeholder": true
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "title": "Questions asked\nbefore going into a pilot.",
+      "description": "We don't avoid tough questions. Here are honest answers to what enterprise teams ask most often.",
+      "contactLabel": "Ask your own question",
+      "contactHref": "mailto:hello@steloom.com",
+      "items": [
+        {
+          "id": "knowledge_base",
+          "q": "How is Steloom different from a corporate knowledge base?",
+          "a": "A knowledge base stores what you put into it. Steloom extracts structured knowledge directly from documents - automatically, source-linked, and in the context of your playbook. It's an active intelligence layer, not a passive repository."
+        },
+        {
+          "id": "nda_sensitive",
+          "q": "Can we work with NDA-sensitive documents without sending them to external models?",
+          "a": "Yes. Steloom supports a local-first processing mode with a PII-gateway before reaching out to external models. For sensitive scenarios, documents never leave your infrastructure perimeter."
+        },
+        {
+          "id": "model_error",
+          "q": "What if the model makes a mistake - how will we see it?",
+          "a": "Every system finding is linked to a specific source - clause, page, and document. You always see what the result is based on and can verify it. Steloom was designed as an auditable system, not a black box."
+        },
+        {
+          "id": "non_standard",
+          "q": "How does the system handle non-standard contract structures?",
+          "a": "Steloom does not rely on rigid document structure templates. Extraction works at the meaning level, not formatting. Non-standard contracts, atypical numbering, and mixed structures are processed correctly."
+        },
+        {
+          "id": "dms_integration",
+          "q": "Integration with our DMS / iManage / SharePoint - how long will it take?",
+          "a": "Basic API integration takes 3 to 7 business days. Deeper two-way synchronization depends on your infrastructure. During the demo, we review your specific stack and provide realistic timelines."
+        },
+        {
+          "id": "it_team",
+          "q": "Do we need a separate IT team for implementation?",
+          "a": "No. Standard implementation is led by our team without drawing on your IT resources. Typical time from contract to first working review is 2 weeks."
+        },
+        {
+          "id": "playbook_adapt",
+          "q": "How well does the system adapt to our playbook?",
+          "a": "Playbook configuration is the core of the product, not an option. Steloom works with your check priorities, your critical provisions, and your risk flagging logic. Template mode is just a starting point for a quick start."
+        }
+      ]
+    },
+    "finalCta": {
+      "title": "Transform documents\ninto structure and knowledge",
+      "description": "Steloom gives the team structured, verifiable, and actionable knowledge from any set of documents - quickly, calmly, and without loss of control.",
+      "primary": "Request a demo",
+      "secondary": "Explore scenarios"
+    },
+    "footer": {
+      "description": "Playbook-based checks, source-linked findings, and managed document workflows for M&A and corporate legal teams.",
+      "legal": "© 2026 Steloom. All rights reserved.",
+      "built": "Built for working with sensitive legal documents."
+    }
+  },
+  "solutions": {
+    "hero": {
+      "eyebrow": "Use Cases",
+      "title": "From a single contract to a full data room — unified analysis process, unified rules, verifiable results",
+      "paragraphs": [
+        "Whether you are reviewing a single contract, preparing a legal opinion, or conducting due diligence on a large deal, Steloom unifies all document review stages into a single, reproducible analysis process.",
+        "The platform automatically determines the document type, applies the corresponding verification rules, and generates structured findings linked to sources — maintaining a unified work standard regardless of document volume."
+      ]
+    },
+    "byDirection": [
+      {
+        "id": "ma-due-diligence",
+        "eyebrow": "Due Diligence",
+        "title": "M&A and Due Diligence",
+        "intro": "The larger the data room, the harder it is to maintain a unified review standard. Different lawyers notice different risks, findings end up in different spreadsheets, and tracing a final remark back to a specific contract clause takes time.",
+        "body": "Steloom treats the entire data room as a single document array. The platform automatically classifies documents by type, applies the corresponding analysis scenario to each, and generates a structured DD grid for the entire project.",
+        "bullets": [
+          "Analyze the data room under unified rules regardless of volume",
+          "Automatically apply different review scenarios to different document types",
+          "Receive a DD grid with findings linked to sources",
+          "Jump directly from a final remark to the specific document clause"
+        ],
+        "outcome": "As a result, the team gets a unified review standard across the project and faster transition from the general report to verified findings."
+      },
+      {
+        "id": "contract-review",
+        "eyebrow": "Contract Review",
+        "title": "Contract Review",
+        "intro": "When reviewing a single contract or a package of agreements, it is crucial to quickly identify deviations from standard positions and missing clauses.",
+        "body": "Steloom highlights deviations from standard positions, missing clauses, and risky wording. Every finding remains linked to the original contract clause.",
+        "bullets": [
+          "Accelerate initial document review",
+          "Search for deviations from the corporate playbook",
+          "Unified findings format across all project documents",
+          "Quick transition from summary to a specific contract fragment"
+        ],
+        "outcome": "As a result, lawyers spend less time on repetitive checks and more on legal assessment."
+      },
+      {
+        "id": "compliance",
+        "eyebrow": "Compliance and Control",
+        "title": "Internal Standards Verification",
+        "intro": "Corporate legal departments simultaneously handle procurement, sales, HR, and commercial projects. As the number of contracts grows, ensuring a unified review standard becomes harder.",
+        "body": "Steloom allows you to automatically apply organizational internal standards, identify deviations from the corporate playbook, and generate verifiable results for approval.",
+        "bullets": [
+          "Review contracts against the corporate playbook",
+          "Quickly find deviations from accepted positions",
+          "Receive findings for business alignment",
+          "Ensure a unified review standard across the department"
+        ],
+        "outcome": "As a result, the department gets a more consistent review process and a transparent foundation for risk management."
+      },
+      {
+        "id": "internal-audit",
+        "eyebrow": "Internal Audit",
+        "title": "Internal Audit and Archive Review",
+        "intro": "Internal audit regularly reviews large arrays of active and historical contracts. Manual review becomes labor-intensive, and results are hard to reproduce.",
+        "body": "Steloom ensures consistent document review under unified rules and generates structured findings with full traceability of every conclusion.",
+        "bullets": [
+          "Review contract arrays for compliance with internal requirements",
+          "Identify missing or atypical clauses",
+          "Generate a reproducible history of findings",
+          "Use results for internal and external control"
+        ],
+        "outcome": "As a result, the team gets a manageable review process with a transparent foundation for further control."
+      }
+    ],
+    "byTeam": [
+      {
+        "id": "law-firms",
+        "eyebrow": "Law Firms",
+        "title": "Law Firms",
+        "intro": "When multiple projects run simultaneously, scaling team expertise becomes challenging. Internal standards exist, but applying them takes time.",
+        "body": "Steloom automates the initial analysis stage, allows applying the corporate playbook to all projects, and generates findings for client recommendations.",
+        "bullets": [
+          "Accelerate initial review while maintaining a unified standard",
+          "Apply the corporate playbook to all projects",
+          "Receive structured findings for client reports",
+          "Spend less time on repetitive checks"
+        ],
+        "outcome": "As a result, the firm gets a scalable process where analysis quality is less dependent on the individual executor."
+      },
+      {
+        "id": "corporate-legal",
+        "eyebrow": "Corporate Lawyers",
+        "title": "Corporate Legal Departments",
+        "intro": "Corporate legal departments handle procurement, sales, HR, and commercial projects. As contract volume grows, identifying deviations becomes harder.",
+        "body": "Steloom allows you to automatically apply internal standards, identify playbook deviations, and generate results for approval.",
+        "bullets": [
+          "Review contracts against the corporate playbook",
+          "Find deviations from standard wording",
+          "Receive findings for management approval",
+          "Ensure a unified standard across the department"
+        ],
+        "outcome": "As a result, the department gets a consistent review process and a transparent foundation for risk management."
+      },
+      {
+        "id": "audit-compliance",
+        "eyebrow": "Internal Audit",
+        "title": "Internal Audit and Compliance",
+        "intro": "Internal audit reviews large contract arrays. Manual review is labor-intensive, and results are hard to reproduce upon re-verification.",
+        "body": "Steloom ensures consistent review under unified rules and generates findings with full traceability.",
+        "bullets": [
+          "Review arrays for compliance with requirements",
+          "Identify missing clauses",
+          "Generate a reproducible history for compliance",
+          "Use results for external control"
+        ],
+        "outcome": "As a result, the team gets a manageable process with a transparent foundation for control."
+      }
+    ],
+    "enrichment": [
+      {
+        "id": "counterparties",
+        "title": "Counterparty Analysis",
+        "body": "Steloom automatically identifies counterparties in the text, tables, and appendices of deal documents, forms a unified project registry, and enriches the profile via external and internal sources.",
+        "capabilities": [
+          "Automatic counterparty identification across the entire package",
+          "Unified registry indicating role and contracts",
+          "Risk aggregation: sanctions, bankruptcy, litigation, ownership",
+          "Counterparty card with financial context",
+          "Prioritization of critical counterparties",
+          "DD grid for counterparties linked to documents"
+        ],
+        "sources": [
+          "Global providers: Orbis, D&B, OpenCorporates",
+          "Local registries: DED, MERSIS, commercial registries",
+          "Internal sources: ERP, vendor master, compliance DB"
+        ]
+      },
+      {
+        "id": "real-estate",
+        "title": "Real Estate Asset Analysis",
+        "body": "Steloom identifies real estate objects in documents — addresses, cadastral numbers, areas — and forms an asset registry. Each object is matched with external registry data.",
+        "capabilities": [
+          "Automatic identification of objects in documents",
+          "Registry verification: EGRN, DLD, national registries",
+          "Encumbrance checks: mortgage, arrest, easement",
+          "Legal checks: title chain, registry match, zoning",
+          "Object card with registry snapshot",
+          "Unified asset registry with risk prioritization"
+        ],
+        "sources": [
+          "Russia: EGRN, public cadastral map",
+          "UAE: Dubai Land Department, emirate registries",
+          "Europe: national land registries",
+          "Internal databases: asset register, lease register"
+        ]
+      }
+    ],
+    "stories": [
+      {
+        "id": "story-1",
+        "title": "Due diligence on 2,000 documents in 5 days",
+        "role": "Partner, M&A Practice",
+        "company": "International Law Firm",
+        "duration": "4:30"
+      },
+      {
+        "id": "story-2",
+        "title": "Unified review standard for 12 jurisdictions",
+        "role": "Head of Legal Operations",
+        "company": "Global Industrial Group",
+        "duration": "6:15"
+      },
+      {
+        "id": "story-3",
+        "title": "Contract array audit: 800 contracts in 2 weeks",
+        "role": "Chief Compliance Officer",
+        "company": "Financial Services Company",
+        "duration": "5:45"
+      }
+    ],
+    "cta": {
+      "title": "See how Steloom solves your team's challenges",
+      "paragraphs": [
+        "During the demonstration, we will show how the platform works with documents in a scenario closest to your tasks: due diligence, contract review, playbook verification, or internal audit.",
+        "If you have your own contracts or deal materials, they can be used as an example."
+      ],
+      "buttonLabel": "Request a demonstration",
+      "meta": "Average demonstration time: 30–45 minutes · Format: online or in-person"
+    },
+    "internalAudit": {
+      "hero": {
+        "eyebrowCategory": "Use Case",
+        "eyebrowScenario": "Internal Audit",
+        "titlePart1": "An audit trail you don't have to compile manually -",
+        "titlePart2": "from system findings to a paragraph in the primary source",
+        "description": "Steloom helps internal audit apply unified rules to the entire contract array, document the basis of findings, and prepare an evidence base for re-verification and reporting.",
+        "buttonLabel": "Request a demonstration"
+      },
+      "intro": {
+        "eyebrow": "What takes up an auditor's time",
+        "titlePart1": "Routine audit procedures -",
+        "titlePart2": "in a unified analysis flow",
+        "paragraphs": [
+          "Array structuring, checklist verification, evidence base formation, and period-to-period comparison are routine procedures that consume auditor time and overload the team with manual work.",
+          "Steloom automates these stages: applies unified rules to the entire array, highlights documents and deviations requiring professional judgment, and forms a traceable audit trail — from system findings to a specific paragraph in the primary source."
+        ]
+      },
+      "visualCards": [
+        {
+          "id": "checklist",
+          "title": "Unified Checklist",
+          "text": "Unified verification rules are applied to the entire array — no document falls through the cracks. Reduces reliance on sampling and human error when analyzing thousands of contracts simultaneously.",
+          "image": "/ia-1-1.png",
+          "alt": "Unified checklist for contract array verification"
+        },
+        {
+          "id": "audit_trail",
+          "title": "Audit Trail",
+          "text": "Every remark is linked to a specific document clause. The conclusion is drafted with studied issues, identified deviations, and grounds — as a ready evidence base for internal and external control.",
+          "image": "/ia-1-2.png",
+          "alt": "Audit trail and linking findings to the document"
+        },
+        {
+          "id": "period_comparison",
+          "title": "Period Comparison",
+          "text": "Results of past audits remain available for comparison. You can compare arrays between periods, see dynamics, and faster identify new risk zones requiring team attention.",
+          "image": "/ia-1-3.png",
+          "alt": "Comparing results between audit periods"
+        }
+      ],
+      "capabilities": {
+        "eyebrow": "What Steloom automates",
+        "titlePart1": "Routine audit procedures -",
+        "titlePart2": "in a unified analysis flow",
+        "items": [
+          {
+            "id": "structuring",
+            "icon": "FolderSearch",
+            "title": "Array Structuring",
+            "bullets": [
+              "Automatic classification by types, dates, counterparties, and risk categories",
+              "Elimination of manual sorting and preliminary document filtering",
+              "Unified representation of heterogeneous formats — scans, PDFs, and Word — in a structured view"
+            ]
+          },
+          {
+            "id": "checklists",
+            "icon": "ListChecks",
+            "title": "Checklist Verification",
+            "bullets": [
+              "Application of unified rules to all documents — 100% coverage instead of sampling",
+              "Identification of missing mandatory conditions, deviations from standard forms and internal policies",
+              "Flagging documents requiring the auditor's professional judgment"
+            ]
+          },
+          {
+            "id": "evidence",
+            "icon": "ClipboardCheck",
+            "title": "Audit Trail and Provability",
+            "bullets": [
+              "Every conclusion is accompanied by a link to a specific paragraph in the primary source",
+              "Complete history: what was uploaded, what rules were applied, and what deviations were found",
+              "Exportable reports for internal audit and external inspections"
+            ]
+          },
+          {
+            "id": "unified_logic",
+            "icon": "Scale",
+            "title": "Unified Verification Logic",
+            "bullets": [
+              "Comparison of all documents against a unified set of control criteria",
+              "Reduced dependence on manual variability and differences in approach between auditors",
+              "More reproducible methodology for subsequent control and defense of results"
+            ]
+          },
+          {
+            "id": "risks",
+            "icon": "AlertTriangle",
+            "title": "Identification of Exceptions and Risk Zones",
+            "bullets": [
+              "Highlighting documents with deviations that require separate analysis",
+              "Identifying exceptions for escalation, follow-up, and additional verification",
+              "More convenient prioritization of team work by risk and significance of deviations"
+            ]
+          },
+          {
+            "id": "reporting",
+            "icon": "BarChart3",
+            "title": "Management Reporting",
+            "bullets": [
+              "Consolidated view of typical deviations, risk zones, and documents requiring attention",
+              "Foundation for discussion with management, the audit committee, and the second line of defense",
+              "Clearer communication of internal audit results at the function and period levels"
+            ]
+          }
+        ]
+      },
+      "signals": {
+        "eyebrow": "What signals the system detects",
+        "title": "What exactly falls into the focus of verification",
+        "description": "This block is for quick orientation: what exactly Steloom can highlight in the contract array so that the internal audit team transitions from manual review to more targeted analysis.",
+        "items": [
+          {
+            "id": "sig_1",
+            "icon": "FileWarning",
+            "text": "Missing mandatory conditions and clauses that should be present according to internal policies."
+          },
+          {
+            "id": "sig_2",
+            "icon": "ScanSearch",
+            "text": "Deviations from standard forms, templates, and approved contractual structures."
+          },
+          {
+            "id": "sig_3",
+            "icon": "FileWarning",
+            "text": "Non-standard or risky wording in key contract provisions."
+          },
+          {
+            "id": "sig_4",
+            "icon": "ScanSearch",
+            "text": "Documents lacking necessary approvals, confirmations, or mandatory control elements."
+          },
+          {
+            "id": "sig_5",
+            "icon": "FileWarning",
+            "text": "Changes in the contract array between periods requiring re-verification."
+          },
+          {
+            "id": "sig_6",
+            "icon": "ScanSearch",
+            "text": "Recurring types of deviations indicating a systemic process issue."
+          },
+          {
+            "id": "sig_7",
+            "icon": "FileWarning",
+            "text": "Documents requiring escalation to the auditor due to risk level or wording ambiguity."
+          },
+          {
+            "id": "sig_8",
+            "icon": "ScanSearch",
+            "text": "Grounds for follow-up verification and control of corrective actions."
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Steloom helps internal audit work based on evidence",
+        "titlePart2": "not on manual material compilation and selective analysis",
+        "paragraphs": [
+          "The platform structures the contract array, verifies documents against unified rules, links findings to sources, and helps prepare materials for internal and external control.",
+          "Upload documents — Steloom will highlight deviations, form a traceable evidence base, and reduce the volume of routine work for internal audit department employees."
+        ],
+        "buttonLabel": "Request a demonstration",
+        "meta": ""
+      }
+    },
+    "compliance": {
+      "hero": {
+        "eyebrowRoot": "Use Cases",
+        "eyebrowLeaf": "Compliance and Control",
+        "description": "Ensure continuous compliance of the contract array with internal policies and regulatory requirements. Automate the identification of critical deviations, minimizing the impact of human error on review quality.",
+        "titlePart1": "A unified review standard -",
+        "titlePart2": "regardless of jurisdiction and data volume.",
+        "buttonLabel": "Request a demonstration"
+      },
+      "briefBlocks": [
+        {
+          "id": "policy_control",
+          "icon": "ShieldCheck",
+          "title": "Policy Control",
+          "text": "Automatically apply internal standards, eliminating interpretation variability and missed conditions."
+        },
+        {
+          "id": "realtime_insights",
+          "icon": "Zap",
+          "title": "Real-time Insights",
+          "text": "Instantly identify anomalies, atypical risks, and deviations at the preparation stage."
+        },
+        {
+          "id": "audit_readiness",
+          "icon": "History",
+          "title": "Audit Readiness",
+          "text": "Build a transparent history of compliance reviews with full traceability of findings."
+        }
+      ],
+      "capabilities": {
+        "eyebrow": "What Steloom automates",
+        "titlePart1": "Routine compliance tasks -",
+        "titlePart2": "in a unified analysis flow",
+        "items": [
+          {
+            "id": "counterparties",
+            "icon": "Building2",
+            "title": "Counterparty Verification",
+            "bullets": [
+              "Ownership structure analysis and identification of government affiliation",
+              "Flagging offshore jurisdictions and atypical payment details",
+              "Verification of anti-corruption clauses and conflict of interest conditions"
+            ]
+          },
+          {
+            "id": "corruption_risks",
+            "icon": "AlertTriangle",
+            "title": "Corruption Risk Analysis",
+            "bullets": [
+              "Identifying atypical payment terms: calculations through third parties, non-standard accounts",
+              "Flagging imposed subcontractors and unjustified consulting agreements",
+              "Monitoring deal conditions against internal thresholds and policies"
+            ]
+          },
+          {
+            "id": "policies",
+            "icon": "Scale",
+            "title": "Policy Application",
+            "bullets": [
+              "Matching each contract against internal playbooks and standard forms",
+              "Identifying missed mandatory conditions, clauses, and provisions",
+              "Classifying documents by types, risk categories, and jurisdictions"
+            ]
+          },
+          {
+            "id": "audit_traceability",
+            "icon": "ClipboardCheck",
+            "title": "Audit and Traceability",
+            "bullets": [
+              "Every conclusion is accompanied by a link to a specific paragraph in the primary source",
+              "Complete review history: what was uploaded, what rules were applied",
+              "Exportable reports for internal audit and regulatory inspections"
+            ]
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Steloom does not replace legal expertise",
+        "titlePart2": "and does not produce opaque answers",
+        "paragraphs": [
+          "The system reduces manual document work, helping not to miss essential facts and data.",
+          "Upload the contract array - Steloom will apply your compliance playbooks and highlight deviations requiring specialist attention."
+        ],
+        "buttonLabel": "Request a demonstration",
+        "meta": ""
+      }
+    },
+    "contractReview": {
+      "hero": {
+        "eyebrowRoot": "Use Cases",
+        "eyebrowLeaf": "Contract Review",
+        "description": "Optimize the contract array review process by ensuring automatic identification of deviations from corporate standards and minimizing the risks of manual analysis under tight deadlines and large data volumes.",
+        "buttonLabel": "Request a demo",
+        "titlePart1": "Every contract provision —",
+        "titlePart2": "under full control of your methodology and playbook."
+      },
+      "briefBlocks": [
+        {
+          "id": "unified_standard",
+          "icon": "Library",
+          "title": "Unified Standard",
+          "text": "Automatically match provisions of any contracts against your internal playbook, ensuring an identical level of review regardless of the executor."
+        },
+        {
+          "id": "anomaly_detection",
+          "icon": "AlertTriangle",
+          "title": "Anomaly Detection",
+          "text": "The system instantly highlights missing conditions, atypical wording, and hidden risks requiring immediate expert attention."
+        },
+        {
+          "id": "data_linkage",
+          "icon": "Link",
+          "title": "Data Linkage",
+          "text": "Receive structured findings with a direct link to the source text. Build registries and reports ready for integration into your workflows."
+        }
+      ],
+      "cta": {
+        "titlePart1": "Steloom does not replace legal expertise",
+        "titlePart2": "and does not produce opaque answers",
+        "paragraphs": [
+          "The system reduces manual document work, helps not to miss essential facts and data, freeing up time for deep legal assessment.",
+          "Upload the contract array - Steloom will highlight essential conditions and help your team focus on risks that truly impact business results and deal terms."
+        ],
+        "buttonLabel": "Request a demonstration",
+        "meta": ""
+      }
+    },
+    "corporateLegal": {
+      "hero": {
+        "eyebrowRoot": "Use Case",
+        "eyebrowLeaf": "Corporate Lawyers",
+        "paragraphs": [
+          "The corporate legal department must keep pace with the business: respond faster to internal stakeholders, maintain a unified review standard, and not lose control over risk as the contract array grows.",
+          "Steloom takes over the initial document processing: applies corporate playbooks, identifies deviations, structures findings, and links every conclusion to a specific source fragment."
+        ]
+      },
+      "pressure": {
+        "eyebrow": "Where overload occurs",
+        "items": [
+          {
+            "id": "speed",
+            "title": "Business waits faster than the team grows",
+            "text": "Sales, procurement, HR, and product teams expect quick approvals. Request volume grows faster than the legal department can scale."
+          },
+          {
+            "id": "consistency",
+            "title": "Varying levels of analysis",
+            "text": "Even a strong team evaluates identical contract provisions differently. Without a unified playbook, quality depends on the specific executor."
+          },
+          {
+            "id": "control",
+            "title": "Hard to maintain full control",
+            "text": "When there are many contracts, selective review becomes the norm. This creates the risk of missed deviations, obligations, and non-standard clauses."
+          }
+        ]
+      },
+      "outcomes": {
+        "eyebrow": "What the legal department gets",
+        "items": [
+          {
+            "id": "speed_biz",
+            "image": "/lf-1-1.png",
+            "title": "Speed for internal stakeholders",
+            "text": "The legal department responds to the business faster because routine initial screening and playbook matching are automated."
+          },
+          {
+            "id": "unified_std",
+            "image": "/lf-1-2.png",
+            "title": "Unified standard across all contracts",
+            "text": "The same rules are applied to all documents - regardless of the executor, team workload, or counterparty type."
+          },
+          {
+            "id": "traceable",
+            "image": "/lf-1-3.png",
+            "title": "Traceable findings",
+            "text": "Every conclusion is linked to a specific source paragraph. This simplifies alignment with business, management, auditors, and compliance."
+          },
+          {
+            "id": "full_coverage",
+            "image": "/lf-1-4.png",
+            "title": "100% array coverage",
+            "text": "Steloom checks the entire document array, not a sample. The team gets a more complete picture of deviations and risks."
+          },
+          {
+            "id": "strategy_time",
+            "image": "/lf-1-5.png",
+            "title": "More time for strategy",
+            "text": "Lawyers spend less time on mechanical proofreading and more on negotiations, risk assessment, and the business's legal position."
+          },
+          {
+            "id": "less_manual",
+            "image": "/lf-1-6.png",
+            "title": "Less dependence on manual processes",
+            "text": "Review becomes reproducible and manageable: easier to delegate, scale, and maintain quality as workload increases."
+          }
+        ]
+      },
+      "scenarios": {
+        "eyebrow": "Application scenarios",
+        "title": "Where Steloom accelerates department work",
+        "items": [
+          {
+            "id": "inbound",
+            "title": "Inbound contract flow",
+            "text": "Sales, procurement, and partner teams send documents to the department, and Steloom helps quickly highlight deviations from corporate standards, leaving only disputed items for manual review."
+          },
+          {
+            "id": "compliance_update",
+            "title": "Compliance and policy updates",
+            "text": "When internal requirements and regulations change, the platform helps check where deviations already exist in the contract portfolio and which documents need attention."
+          },
+          {
+            "id": "portfolio_audit",
+            "title": "Contract portfolio audit",
+            "text": "If you need to quickly understand what obligations, restrictions, and risks are distributed across the document array, Steloom structures the data and surfaces problem areas in a single flow."
+          },
+          {
+            "id": "mgmt_prep",
+            "title": "Preparation for management and control",
+            "text": "Structured findings linked to the primary source provide a clear and provable basis for discussion with the CFO, procurement, internal audit, and compliance."
+          }
+        ]
+      },
+      "capabilities": {
+        "eyebrow": "What Steloom automates",
+        "title": "Key department tasks - in a unified analysis flow",
+        "items": [
+          {
+            "id": "structuring",
+            "icon": "Layers",
+            "title": "Array structuring",
+            "bullets": [
+              "Automatic classification of contracts and related documents",
+              "Unified representation of the array for the legal department",
+              "Reducing chaos as request volume grows"
+            ]
+          },
+          {
+            "id": "playbooks",
+            "icon": "ShieldCheck",
+            "title": "Playbook application",
+            "bullets": [
+              "Matching documents against company internal standards",
+              "Identifying deviations and non-standard wording",
+              "Unified review logic across the entire team"
+            ]
+          },
+          {
+            "id": "traceability",
+            "icon": "FileSearch",
+            "title": "Conclusion traceability",
+            "bullets": [
+              "Every finding is linked to a specific source paragraph",
+              "Clear basis for alignment with business and control",
+              "Provability of conclusions for internal discussions"
+            ]
+          },
+          {
+            "id": "economics",
+            "icon": "TrendingUp",
+            "title": "Department economics",
+            "bullets": [
+              "Less manual routine - more time for strategic issues",
+              "Scaling without equivalent headcount growth",
+              "A more predictable and manageable legal function"
+            ]
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Less manual routine -",
+        "titlePart2": "more time for the business's legal position",
+        "paragraphs": [
+          "Steloom helps the corporate legal department respond faster to internal stakeholders, maintain a unified review standard, and not lose control as document volume grows.",
+          "Upload the document array - the platform will apply your playbooks, highlight deviations, and form traceable findings for decision-making."
+        ],
+        "buttonLabel": "Request a demonstration",
+        "meta": "",
+        "eyebrow": "Corporate Legal Automation"
+      }
+    },
+    "counterparties": {
+      "hero": {
+        "eyebrow": "Advanced Analysis",
+        "title": "Counterparty and Related Party Verification",
+        "paragraphs": [
+          "Steloom automatically identifies counterparties in the text, tables, and appendices of deal documents, forms a unified registry, and enriches company profiles via external and internal sources.",
+          "The team sees in which contracts and in what role the counterparty appears, and can assess the aggregate exposure in the context of the entire deal."
+        ],
+        "buttonLabel": "Request a demonstration",
+        "p1": "In complex M&A, cross-border restructuring, and corporate financing, undisclosed affiliations create severe legal and financial liabilities. Steloom automatically extracts, reconciles, and maps every corporate entity, officer, and related party buried across your deal room.",
+        "p2": "Legal and deal teams immediately see where each party appears, their exact contractual role, nominee involvement, and cumulative risk exposure across the entire transaction portfolio."
+      },
+      "risks": {
+        "title": "Party Identification Risks",
+        "items": [
+          {
+            "id": "affiliation",
+            "title": "Hidden Affiliation",
+            "text": "The difficulty of manually identifying ownership chains and ultimate beneficial owners (UBO) in large Data Rooms."
+          },
+          {
+            "id": "sanctions",
+            "title": "Sanctions Risks",
+            "text": "The need to check hundreds of individuals against international lists that are constantly updated."
+          },
+          {
+            "id": "fragmentation",
+            "title": "Data Fragmentation",
+            "text": "Information about counterparties' financial indicators and litigation is often detached from the texts of the contracts themselves."
+          }
+        ],
+        "eyebrow": "Operational Risks & Blind Spots",
+        "i1": {
+          "title": "Hidden Affiliation & UBO Chains",
+          "text": "Complex holding structures, nominee shareholders, and off-balance-sheet vehicles hidden inside schedules and side letters remain invisible during standard manual sampling."
+        },
+        "i2": {
+          "title": "Dynamic Sanctions & PEP Exposure",
+          "text": "Manually cross-referencing hundreds of counterparties, directors, and signers against shifting international sanction lists and PEP databases creates critical compliance bottlenecks."
+        },
+        "i3": {
+          "title": "Unmapped Portfolio Exposure",
+          "text": "Cross-guarantees, parent indemnity clauses, and pending litigation liabilities are fragmented across hundreds of agreements without a centralized exposure ledger."
+        }
+      },
+      "howItHelps": {
+        "title": "How Steloom Solves These Tasks",
+        "intro": "The platform forms a connected analysis layer: each identified counterparty receives a Registry Snapshot with data from global and local registries.",
+        "benefits": [
+          {
+            "id": "ben_1",
+            "text": "Automatic identification of entities across the entire document package"
+          },
+          {
+            "id": "ben_2",
+            "text": "Risk aggregation: sanctions, bankruptcy, litigation, ownership"
+          },
+          {
+            "id": "ben_3",
+            "text": "Counterparty card with financial and legal context"
+          },
+          {
+            "id": "ben_4",
+            "text": "Prioritization of critical counterparties for escalation"
+          }
+        ]
+      },
+      "cta": {
+        "title": "Automate KYC and Party Verification",
+        "buttonLabel": "Request a demonstration",
+        "eyebrow": "Institutional Risk & Compliance Infrastructure",
+        "description": "Legacy manual sampling leaves M&A deal teams and compliance officers exposed to hidden liabilities, circular affiliations, and unmapped portfolio exposure. Steloom replaces guesswork with a unified entity intelligence layer—extracting beneficial ownership networks, automating sanctions screening, and quantifying cross-contract risk directly from primary source documentation."
+      },
+      "helps": {
+        "eyebrow": "Connected Asset Intelligence",
+        "title": "How Steloom Uncovers Related Party Networks",
+        "intro": "The platform establishes a unified relational layer across your agreement repository. Every entity is mapped into a dynamic registry dossier with verifiable evidence from primary sources.",
+        "cap1": {
+          "title": "Full-Spectrum Entity & UBO Extraction",
+          "text": "Automatic recognition of legal names, tax IDs, beneficial owners, and key officers across foreign-language contracts, corporate charters, and court filings."
+        },
+        "cap2": {
+          "title": "Cross-Deal Exposure Heatmap",
+          "text": "Aggregating cumulative financial liabilities, parent company guarantees, and cross-default caps for every party across the entire Data Room."
+        },
+        "cap3": {
+          "title": "Continuous Screening & Registry Snapshots",
+          "text": "Enriching company profiles with real-time sanctions screening, insolvency status, litigation history, and corporate registry verification."
+        },
+        "cap4": {
+          "title": "Direct Source Provenance & Audit Dossiers",
+          "text": "Every extracted relationship, liability, or affiliation flag is linked directly to the primary clause in the original contract for instant legal verification."
+        }
+      }
+    },
+    "internalAuditPage": {
+      "hero": {
+        "eyebrowRoot": "Use Cases",
+        "eyebrowLeaf": "Internal Audit",
+        "intro": "Array structuring, checklist verification, evidence base formation, and period-to-period comparison are routine procedures that consume auditor time. Steloom automates them: applies unified rules to the entire array and forms a traceable audit trail - from system findings to a specific paragraph in the primary source.",
+        "titlePart1": "An audit trail you don't have to compile manually -",
+        "titlePart2": "from system findings to a paragraph in the primary source."
+      },
+      "pillars": [
+        {
+          "id": "checklist",
+          "icon": "ClipboardCheck",
+          "title": "Unified Checklist",
+          "text": "Unified verification rules are applied to the entire array - no document falls through the cracks. Eliminates sampling and human error when analyzing thousands of contracts simultaneously."
+        },
+        {
+          "id": "audit_trail",
+          "icon": "FileSearch",
+          "title": "Audit Trail",
+          "text": "Every remark is linked to a specific document clause. The conclusion is drafted with studied issues, identified deviations, and grounds - a ready evidence base for external control."
+        },
+        {
+          "id": "period_comparison",
+          "icon": "History",
+          "title": "Period Comparison",
+          "text": "Results of past audits remain available for comparison. Compare arrays between periods, identify dynamics and new risk zones requiring attention."
+        }
+      ],
+      "capabilities": {
+        "eyebrow": "What Steloom automates",
+        "titlePart1": "Routine audit procedures -",
+        "titlePart2": "in a unified analysis flow",
+        "items": [
+          {
+            "id": "structuring",
+            "icon": "Layers",
+            "title": "Array Structuring",
+            "bullets": [
+              "Automatic classification by types, dates, counterparties, risk categories",
+              "Elimination of manual sorting and preliminary filtering",
+              "Unified representation of heterogeneous formats (scans, PDF, Word) in a structured view"
+            ]
+          },
+          {
+            "id": "checklists",
+            "icon": "ClipboardCheck",
+            "title": "Checklist Verification",
+            "bullets": [
+              "Application of unified rules to all documents - 100% coverage instead of sampling",
+              "Identification of missing mandatory conditions, deviations from standard forms and internal policies",
+              "Flagging documents requiring the auditor's professional judgment"
+            ]
+          },
+          {
+            "id": "evidence",
+            "icon": "ShieldCheck",
+            "title": "Audit Trail and Provability",
+            "bullets": [
+              "Every conclusion is accompanied by a link to a specific paragraph in the primary source",
+              "Complete history: what was uploaded, what rules were applied, what deviations were found",
+              "Exportable reports for internal audit and external inspections"
+            ]
+          },
+          {
+            "id": "monitoring",
+            "icon": "GitCompare",
+            "title": "Period Comparison and Monitoring",
+            "bullets": [
+              "Comparison of audit results from different periods - identifying dynamics and new risks",
+              "Tracking statuses of corrective actions (CAPA) and follow-up audits",
+              "Monitoring changes in the contract array between audit periods"
+            ]
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Steloom does not replace professional judgment -",
+        "titlePart2": "it gives it a foundation of facts",
+        "paragraphs": [
+          "The system takes over array structuring, initial checklist verification, and audit trail formation - so the auditor can focus on assessing real risks, not manually gathering evidence.",
+          "Upload documents for audit - Steloom will structure the array, highlight deviations, and form a traceable evidence base. Every finding - with a link to the primary source."
+        ],
+        "buttonLabel": "Request a demonstration",
+        "meta": ""
+      }
+    },
+    "lawFirms": {
+      "hero": {
+        "eyebrowRoot": "Use Cases",
+        "eyebrowLeaf": "Law Firms",
+        "intro": "Up to 63% of a lawyer's working time is spent on routine document processing - proofreading, searching for deviations, and sorting arrays. Steloom takes over this routine: structures the array, applies the firm's playbooks to all documents, and generates traceable findings.",
+        "titlePart1": "The platform takes over the routine -",
+        "titlePart2": "the decision remains with the lawyer.",
+        "buttonLabel": "Request a demonstration"
+      },
+      "results": {
+        "eyebrow": "What the law firm gets",
+        "items": [
+          {
+            "id": "speed",
+            "image": "/lf-1-1.png",
+            "title": "Speed and Coverage",
+            "text": "Reducing contract review time from 2-4 hours to 20-40 minutes. 100% array coverage - every document is checked, none falls through the cracks."
+          },
+          {
+            "id": "quality",
+            "image": "/lf-1-2.png",
+            "title": "Quality and Reduced Misses",
+            "text": "Unified rules are applied to all documents. The system identifies problematic clauses and deviations without dependence on lawyer fatigue."
+          },
+          {
+            "id": "traceability",
+            "image": "/lf-1-3.png",
+            "title": "Traceability and Provability",
+            "text": "Every conclusion is accompanied by a link to a specific source paragraph. A ready evidence base for the client or regulator."
+          }
+        ]
+      },
+      "scenarios": {
+        "eyebrow": "Application Scenarios",
+        "title": "Where Steloom accelerates firm work",
+        "items": [
+          {
+            "id": "dd_ma",
+            "title": "Due Diligence in M&A",
+            "text": "Hundreds of corporate documents, contracts, and court cases in a single run. A summary report with risks and classification."
+          },
+          {
+            "id": "counterparties",
+            "title": "Counterparty Verification",
+            "text": "Ownership structure analysis, affiliation identification, flagging of offshore jurisdictions. A unified standard for each case."
+          },
+          {
+            "id": "compliance",
+            "title": "Contract Compliance Control",
+            "text": "Application of internal playbooks to the entire array. Identification of missed mandatory conditions and deviations from standard forms."
+          },
+          {
+            "id": "audit",
+            "title": "Contract Portfolio Audit",
+            "text": "Array structuring, checklist verification, formation of an audit trail with traceability to the primary source."
+          }
+        ]
+      },
+      "capabilities": {
+        "eyebrow": "What Steloom automates",
+        "title": "Key firm tasks - in a unified analysis flow",
+        "items": [
+          {
+            "id": "structuring",
+            "icon": "Layers",
+            "title": "Array Structuring",
+            "bullets": [
+              "Automatic classification by types, dates, counterparties",
+              "Unified representation of heterogeneous formats (scans, PDF, Word)",
+              "Elimination of manual sorting"
+            ]
+          },
+          {
+            "id": "playbooks",
+            "icon": "ShieldCheck",
+            "title": "Playbook Application",
+            "bullets": [
+              "Matching each contract against the firm's internal forms",
+              "Identifying missed mandatory conditions and clauses",
+              "Flagging documents for lawyer's judgment"
+            ]
+          },
+          {
+            "id": "audit_trail",
+            "icon": "FileSearch",
+            "title": "Audit Trail",
+            "bullets": [
+              "Every conclusion is linked to a specific source paragraph",
+              "Complete history: what was uploaded, what rules were applied",
+              "Exportable reports for client opinions"
+            ]
+          },
+          {
+            "id": "economics",
+            "icon": "TrendingUp",
+            "title": "Firm Economics",
+            "bullets": [
+              "Fewer non-billable hours - more time for the client",
+              "Unified quality standard across all projects and teams",
+              "Reduced dependence on the specific executor"
+            ]
+          }
+        ]
+      },
+      "cta": {
+        "titlePart1": "Fewer non-billable hours -",
+        "titlePart2": "more time for the client",
+        "paragraphs": [
+          "Steloom takes over array scanning, initial analysis, and matching against playbooks - freeing up lawyers' billable hours for strategy and client work.",
+          "Upload the document array - Steloom will apply your playbooks, highlight deviations, and form a traceable evidence base."
+        ],
+        "buttonLabel": "Request a demonstration",
+        "meta": "",
+        "eyebrow": "Law Firm Practice Automation"
+      }
+    },
+    "maDueDiligence": {
+      "hero": {
+        "eyebrowRoot": "Use Cases",
+        "eyebrowLeaf": "M&A and Due Diligence",
+        "intro": "Minimize the volume of labor-intensive work by optimizing legal document analysis, automating the extraction of critical legal information, and identifying key risks in arrays of thousands of documents.",
+        "titlePart1": "Regardless of the original language or applicable jurisdiction —",
+        "titlePart2": "Steloom ensures a unified quality standard of review."
+      },
+      "threeBlocks": [
+        {
+          "id": "volume",
+          "icon": "Database",
+          "title": "Volume and Format",
+          "text": "Define the volume of analyzed information yourself. The quality and completeness of the analysis does not depend on the number and format of uploaded documents."
+        },
+        {
+          "id": "focus",
+          "icon": "Target",
+          "title": "Focus and Directions",
+          "text": "Configure the subject of document analysis yourself through instructions. Identify both risks/provisions common to all documents and those specific to particular types."
+        },
+        {
+          "id": "systematization",
+          "icon": "FileCheck",
+          "title": "Data Systematization",
+          "text": "Receive results in a convenient format (DD grid, registries) and maintain a verifiable link between each finding and the source document."
+        }
+      ],
+      "cta": {
+        "titlePart1": "Steloom does not replace legal expertise",
+        "titlePart2": "and does not produce opaque answers",
+        "paragraphs": [
+          "The system reduces manual document work, helps not to miss essential facts and data, freeing up time for strategy.",
+          "Upload deal documents — Steloom will structure the data room and help your team focus on risks that truly impact closing, price, and deal terms."
+        ],
+        "buttonLabel": "Request a demonstration"
+      }
+    },
+    "realEstate": {
+      "hero": {
+        "eyebrow": "Advanced Analysis",
+        "title": "Real Estate and Rights Analysis",
+        "paragraphs": [
+          "Steloom identifies real estate objects in deal documents — addresses, cadastral numbers, and areas — and forms a project asset registry.",
+          "Each object is matched with external registry data (EGRN, DLD) for instant verification of rights and encumbrances."
+        ],
+        "buttonLabel": "Request a demonstration",
+        "p1": "In large-scale commercial real estate transactions and asset-heavy M&A deals, undetected title defects and unrecorded encumbrances can critically jeopardize deal value. Steloom automatically extracts addresses, cadastral IDs, land plot specs, and lease terms buried in unstructured Data Rooms.",
+        "p2": "Every identified property asset is instantly reconciled with primary state registry records (EGRN, DLD, Land Registries) to verify title continuity, identify active mortgages, and surface hidden liabilities before the deal closes."
+      },
+      "risks": {
+        "title": "Asset Verification Risks",
+        "items": [
+          {
+            "id": "encumbrances",
+            "title": "Hidden Encumbrances",
+            "text": "The risk of missing a mortgage, arrest, or easement recorded in appendices or historical documents."
+          },
+          {
+            "id": "outdated_data",
+            "title": "Outdated Data",
+            "text": "Discrepancies between the contract text and the current object status in the state registry."
+          },
+          {
+            "id": "verification_complexity",
+            "title": "Verification Complexity",
+            "text": "The labor intensity of manually matching hundreds of cadastral numbers with current extracts."
+          }
+        ],
+        "eyebrow": "Property Risk Exposure",
+        "i1": {
+          "title": "Hidden Encumbrances & Easements",
+          "text": "Pledges, third-party rights, and historical easements buried in annexes or historical title deeds routinely escape manual sampling, exposing the buyer to post-transaction litigation."
+        },
+        "i2": {
+          "title": "Title & Registry Discrepancies",
+          "text": "Contractual descriptions frequently contradict current state registry data due to unrecorded zoning changes, illegal subdivisions, or outdated cadastral IDs."
+        },
+        "i3": {
+          "title": "Manual Verification Bottlenecks",
+          "text": "Cross-referencing hundreds of contractual assets against fresh state registry extracts consumes hundreds of billable hours and delays deal closing."
+        }
+      },
+      "howItHelps": {
+        "title": "Unified Asset Registry",
+        "intro": "The team gets a working interface for verifying rights and registry status with direct linkage to source documents from the Data Room.",
+        "benefits": [
+          {
+            "id": "ben_1",
+            "text": "Automatic identification of real estate objects in documents"
+          },
+          {
+            "id": "ben_2",
+            "text": "Real-time registry verification"
+          },
+          {
+            "id": "ben_3",
+            "text": "Title chain and zoning verification"
+          },
+          {
+            "id": "ben_4",
+            "text": "Object card with registry snapshot and links"
+          }
+        ]
+      },
+      "cta": {
+        "title": "Inventory Assets Faster",
+        "buttonLabel": "Request a demonstration",
+        "eyebrow": "Institutional Property Intelligence",
+        "description": "Transform sprawling real estate documentation into a structured asset ledger. Empower your investment and legal teams to verify title continuity, identify undisclosed encumbrances, and accelerate closing cycles with absolute confidence."
+      },
+      "helps": {
+        "eyebrow": "Unified Property Registry",
+        "title": "Automate Commercial Real Estate Due Diligence",
+        "intro": "The platform equips investment and legal teams with an interactive property analysis ledger—matching contractual commitments against live registry data with verifiable source citations.",
+        "cap1": {
+          "title": "Automated Cadastral & Asset Extraction",
+          "text": "Instant extraction of property boundaries, cadastral registration IDs, square footage, and usage designations across foreign or multi-jurisdictional agreements."
+        },
+        "cap2": {
+          "title": "Real-Time Registry Reconciliation",
+          "text": "Direct cross-matching of extracted property assets against official registries (EGRN, DLD, Land Registries) to flag active encumbrances, litigation, or arrests."
+        },
+        "cap3": {
+          "title": "Title Chain & Zoning Continuity Analysis",
+          "text": "Tracing historical ownership transfers and legal permitted use compliance to safeguard acquisition integrity and post-close development rights."
+        },
+        "cap4": {
+          "title": "Unified Property Dossier & Source Links",
+          "text": "Generating an interactive property ledger with direct deep-links to original contract paragraphs and official registry snapshots for seamless legal review."
+        }
+      }
+    }
+  },
+  "mobileMenu": {
+    "language": "Language"
+  }
+}

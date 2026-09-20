@@ -46,6 +46,7 @@ from core.constants import DocumentStatus, JobStatus, RunStatus
 from core.logging import get_logger
 from db.models.run import Job, Run
 from db.repositories.document_repo import DocumentRepository
+from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
 from mas_queue.task_dispatcher import send_task_with_context
 
 logger = get_logger(__name__)
@@ -237,6 +238,110 @@ async def maybe_start_run_checks(
         job_id=job_id_str,
     )
 
+
+
+
+async def start_checks_for_document(
+    db: AsyncSession,
+    run_id: uuid.UUID,
+    document_id: uuid.UUID,
+) -> bool:
+    """
+    Инкрементально запустить проверки для ОДНОГО готового документа.
+    
+    В отличие от maybe_start_run_checks():
+    - Не ждёт готовности всех документов
+    - Создаёт plan items только для одного документа
+    - Вызывает finalize_run_if_finished() для пересчёта total_checks
+    
+    Возвращает:
+    - True, если задача была dispatched
+    - False, если документ не готов или план уже создан
+    """
+    run_id_str = str(run_id)
+    doc_id_str = str(document_id)
+    
+    logger.info(
+        "start_checks_for_document: starting",
+        run_id=run_id_str,
+        document_id=doc_id_str,
+    )
+    
+    # 1) Загружаем Run
+    result = await db.execute(select(Run).where(Run.id == run_id))
+    run_obj: Run | None = result.scalar_one_or_none()
+    if not run_obj:
+        logger.warning("start_checks_for_document: run not found", run_id=run_id_str)
+        return False
+    
+    if run_obj.status not in (RunStatus.RUNNING.value, RunStatus.PENDING.value):
+        logger.debug(
+            "start_checks_for_document: run not in RUNNING/PENDING, skip",
+            run_id=run_id_str,
+            status=run_obj.status,
+        )
+        return False
+    
+    # 2) Проверяем, нет ли уже plan items для этого документа (idempotency)
+    plan_item_repo = RunCheckPlanItemRepository(db)
+    if await plan_item_repo.exists_for_document(run_id, document_id):
+        logger.debug(
+            "start_checks_for_document: plan already exists for this document, skip",
+            run_id=run_id_str,
+            document_id=doc_id_str,
+        )
+        return False
+    
+    # 3) Проверяем готовность документа
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(document_id)
+    if not doc:
+        logger.warning("start_checks_for_document: document not found", document_id=doc_id_str)
+        return False
+    
+    ready_statuses = {
+        DocumentStatus.ENRICHED.value,
+        DocumentStatus.COMPLETED.value,
+    }
+    
+    doc_status = str(doc.status or "")
+    if doc_status not in ready_statuses:
+        logger.debug(
+            "start_checks_for_document: document not ready",
+            run_id=run_id_str,
+            document_id=doc_id_str,
+            status=doc_status,
+        )
+        return False
+    
+    if not getattr(doc, "doc_type", None):
+        logger.debug(
+            "start_checks_for_document: document has no doc_type",
+            run_id=run_id_str,
+            document_id=doc_id_str,
+        )
+        return False
+    
+    # 4) Dispatch задачи для одного документа
+    run_tenant_id_str = str(run_obj.tenant_id) if getattr(run_obj, "tenant_id", None) else None
+    
+    send_task_with_context(
+        "workers.run_document_checks",
+        kwargs={
+            "run_id": run_id_str,
+            "document_id": doc_id_str,
+            "deal_id": str(run_obj.deal_id),
+            "tenant_id": run_tenant_id_str,
+        },
+    )
+    
+    logger.info(
+        "start_checks_for_document: task dispatched",
+        run_id=run_id_str,
+        document_id=doc_id_str,
+    )
+    
+    return True
 
 async def _has_run_deal_checks_job(db: AsyncSession, run_id: uuid.UUID) -> bool:
     """

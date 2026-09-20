@@ -1,6 +1,6 @@
 // frontend/src/api/tenantAdmin.ts
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
 
 // ─── Dashboard types ──────────────────────────────────────────────────────
@@ -362,3 +362,38 @@ export function useProjectInsights(
   });
 }
 
+
+
+// ─── Tenant Locale Policy types & hooks (Sprint 6.7) ───────────────────────
+
+export interface TenantLocalePolicyDTO {
+  allowed_locales: string[];
+  is_translation_enabled: boolean;
+  restrict_to_allowed: boolean;
+}
+
+export function useTenantLocalePolicy(tenantId?: string) {
+  return useQuery<TenantLocalePolicyDTO, Error>({
+    queryKey: ["tenantLocalePolicy", tenantId],
+    queryFn: async () => {
+      const params = tenantId ? { tenant_id: tenantId } : {};
+      const res = await client.get<TenantLocalePolicyDTO>("/api/v1/tenant/locale-policy", { params });
+      return res.data;
+    },
+  });
+}
+
+export function useUpdateTenantLocalePolicy(tenantId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<TenantLocalePolicyDTO, Error, TenantLocalePolicyDTO>({
+    mutationFn: async (payload) => {
+      const params = tenantId ? { tenant_id: tenantId } : {};
+      const res = await client.put<TenantLocalePolicyDTO>("/api/v1/tenant/locale-policy", payload, { params });
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["tenantLocalePolicy"] });
+    },
+  });
+}

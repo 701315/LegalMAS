@@ -1,0 +1,402 @@
+
+════════════════════════════════════════════════════════════════════════════════
+
+  🎨 АУДИТ ДИЗАЙН-СИСТЕМЫ ЛЕНДИНГА (Steloom)
+  Дата: 2026-09-09
+  ⚠️  Дашборд (приложение) ИСКЛЮЧЁН из анализа
+
+════════════════════════════════════════════════════════════════════════════════
+
+
+
+📝 1. КОНФИГУРАЦИЯ ШРИФТОВ
+
+   ⚠️  tailwind.config не найден в корне проекта
+
+   🔗 Подключение внешних шрифтов:
+      📄 src/index.css
+         🌐 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=sw...
+      📄 src/styles/ag-theme-legalmas.css
+
+   📄 HTML/Document файлы:
+
+
+🎨 2. ЦВЕТОВАЯ СИСТЕМА (CSS-переменные)
+
+   Всего CSS-переменных: 179
+
+   📌 --colors-* (57):
+      • --color-error                  = #be123c was a different hue — caused two (src/index.css)
+      • --color-success                = #059669                   (src/index.css)
+      • --color-success-text           = #065F46                   (src/index.css)
+      • --color-success-bg             = #ECFDF5                   (src/index.css)
+      • --color-success-border         = rgba(5, 150, 105, 0.20)   (src/index.css)
+      • --color-success-subtle         = #ECFDF5                   (src/index.css)
+      • --color-success-highlight      = #ECFDF5                   (src/index.css)
+      • --color-warning                = #D97706                   (src/index.css)
+      • --color-warning-text           = #92400E                   (src/index.css)
+      • --color-warning-bg             = #FFFBEB                   (src/index.css)
+      • --color-warning-border         = rgba(217, 119, 6, 0.25)   (src/index.css)
+      • --color-warning-subtle         = #FFFBEB                   (src/index.css)
+      • --color-warning-highlight      = #FFFBEB                   (src/index.css)
+      • --color-error-text             = #991B1B                   (src/index.css)
+      • --color-error-bg               = #FEF2F2                   (src/index.css)
+      • --color-error-border           = rgba(220, 38, 38, 0.20)   (src/index.css)
+      • --color-error-subtle           = #FEF2F2                   (src/index.css)
+      • --color-error-highlight        = #FEF2F2                   (src/index.css)
+      • --color-error-soft-bg          = #FEF2F2                   (src/index.css)
+      • --color-error-soft-border      = rgba(220, 38, 38, 0.20)   (src/index.css)
+      • --color-error-strong           = #991B1B                   (src/index.css)
+      • --color-error-hover            = #991B1B                   (src/index.css)
+      • --color-danger                 = #DC2626                   (src/index.css)
+      • --color-orange                 = #C2410C                   (src/index.css)
+      • --color-orange-highlight       = #FFF7ED                   (src/index.css)
+      • --color-gold                   = #CA8A04                   (src/index.css)
+      • --color-gold-hover             = #A16207                   (src/index.css)
+      • --color-gold-highlight         = #FEFCE8                   (src/index.css)
+      • --color-gold-soft-bg           = #FEFCE8                   (src/index.css)
+      • --color-gold-soft-border       = rgba(202, 138, 4, 0.20)   (src/index.css)
+      • --color-gold-strong            = #A16207                   (src/index.css)
+      • --color-gold-text              = #A16207                   (src/index.css)
+      • --color-blue                   = #2563EB                   (src/index.css)
+      • --color-blue-highlight         = #EFF6FF                   (src/index.css)
+      • --color-blue-strong            = #1E40AF                   (src/index.css)
+      • --color-blue-soft-bg           = #EFF6FF                   (src/index.css)
+      • --color-blue-soft-border       = rgba(37, 99, 235, 0.20)   (src/index.css)
+      • --color-blue-hover             = #1D4ED8                   (src/index.css)
+      • --color-purple                 = #7C3AED                   (src/index.css)
+      • --color-purple-highlight       = #F5F3FF                   (src/index.css)
+      • --color-background             = var(--bg-base)            (src/index.css)
+      • --color-surface                = var(--bg-surface)         (src/index.css)
+      • --color-card                   = var(--bg-card)            (src/index.css)
+      • --color-dark                   = var(--text-primary)       (src/index.css)
+      • --color-primary                = var(--text-primary)       (src/index.css)
+      • --color-secondary              = var(--text-secondary)     (src/index.css)
+      • --color-muted                  = var(--text-muted)         (src/index.css)
+      • --color-faint                  = var(--text-faint)         (src/index.css)
+      • --color-inverse                = var(--text-inverse)       (src/index.css)
+      • --color-accent                 = var(--accent-primary)     (src/index.css)
+      • --color-accent-hover           = var(--accent-hover)       (src/index.css)
+      • --color-accent-muted           = var(--accent-muted)       (src/index.css)
+      • --color-accent-subtle          = var(--accent-subtle)      (src/index.css)
+      • --color-border                 = var(--border-color)       (src/index.css)
+      • --color-border-strong          = #D6D0C7                   (src/index.css)
+      • --color-border-subtle          = #F0ECE6                   (src/index.css)
+      • --color-success-text-legacy    = var(--success)            (src/index.css)
+
+   📌 --bg-* (11):
+      • --bg-base                      = #FAF8F5                   (src/index.css)
+      • --bg-surface                   = #F3F0EB                   (src/index.css)
+      • --bg-secondary                 = #F3F0EB                   (src/index.css)
+      • --bg-card                      = #FFFFFF                   (src/index.css)
+      • --bg-card-hover                = #FDFCFA                   (src/index.css)
+      • --bg-elevated-soft             = #F3F0EB                   (src/index.css)
+      • --bg-subtle                    = #EDEAE4                   (src/index.css)
+      • --bg-inverse                   = #111827                   (src/index.css)
+      • --bg-input                     = #FFFFFF                   (src/index.css)
+      • --bg-warning-soft              = var(--color-gold-highlight) (src/styles/ag-theme-legalmas.css)
+      • --bg-conditional-soft          = var(--color-orange-highlight) (src/styles/ag-theme-legalmas.css)
+
+   📌 --text-* (8):
+      • --text-primary                 = #1A1917                   (src/index.css)
+      • --text-secondary               = #78756F                   (src/index.css)
+      • --text-muted                   = #A8A29E                   (src/index.css)
+      • --text-faint                   = #D6D0C7                   (src/index.css)
+      • --text-inverse                 = #FAF8F5                   (src/index.css)
+      • --text-tertiary                = #C4BFB8                   (src/index.css)
+      • --text-warning-strong          = var(--color-gold-hover)   (src/styles/ag-theme-legalmas.css)
+      • --text-conditional-strong      = var(--color-orange)       (src/styles/ag-theme-legalmas.css)
+
+   📌 --border-* (7):
+      • --border-soft                  = rgba(26, 25, 23, 0.05)    (src/index.css)
+      • --border-subtle                = rgba(26, 25, 23, 0.06)    (src/index.css)
+      • --border-strong                = rgba(26, 25, 23, 0.14)    (src/index.css)
+      • --border-color                 = #E8E4DD                   (src/index.css)
+      • --border-accent-soft           = color-mix(in srgb, var(--accent-primary) 20%, transparent) (src/styles/ag-theme-legalmas.css)
+      • --border-warning-soft          = color-mix(in srgb, var(--color-gold) 22%, transparent) (src/styles/ag-theme-legalmas.css)
+      • --border-conditional-soft      = color-mix(in srgb, var(--color-orange) 22%, transparent) (src/styles/ag-theme-legalmas.css)
+
+   📌 --font-* (13):
+      • --font-body                    = "Inter", system-ui, sans-serif (src/index.css)
+      • --font-display                 = "Instrument Serif", Georgia, serif (src/index.css)
+      • --font-sans                    = var(--font-body)          (src/index.css)
+      • --font-serif                   = var(--font-display)       (src/index.css)
+      • --font-size-ui-xs              = 0.6875rem                 (src/index.css)
+      • --font-size-ui-sm              = 0.8125rem                 (src/index.css)
+      • --font-size-body-sm            = 0.875rem                  (src/index.css)
+      • --font-size-body-md            = 1rem                      (src/index.css)
+      • --font-size-title-sm           = 1rem                      (src/index.css)
+      • --font-size-title-md           = 1.125rem                  (src/index.css)
+      • --font-weight-regular          = 400                       (src/index.css)
+      • --font-weight-medium           = 500                       (src/index.css)
+      • --font-weight-semibold         = 600                       (src/index.css)
+
+   📌 --other-* (83):
+      • --line-height-ui-xs            = 1rem                      (src/index.css)
+      • --line-height-ui-sm            = 1.125rem                  (src/index.css)
+      • --line-height-body-sm          = 1.25rem                   (src/index.css)
+      • --line-height-body-md          = 1.5rem                    (src/index.css)
+      • --line-height-title-sm         = 1.25rem                   (src/index.css)
+      • --line-height-title-md         = 1.5rem                    (src/index.css)
+      • --container-max-width          = 1400px                    (src/index.css)
+      • --app-safe-bottom              = max(                      (src/index.css)
+      • --border                       = rgba(26, 25, 23, 0.08)    (src/index.css)
+      • --accent                       = #C86B52                   (src/index.css)
+      • --accent-primary               = #C86B52                   (src/index.css)
+      • --accent-hover                 = #B55D46                   (src/index.css)
+      • --accent-muted                 = rgba(200, 107, 82, 0.12)  (src/index.css)
+      • --accent-subtle                = #F5EBE7                   (src/index.css)
+      • --radius-sm                    = 6px                       (src/index.css)
+      • --radius-md                    = 12px                      (src/index.css)
+      • --radius-lg                    = 16px                      (src/index.css)
+      • --radius-xl                    = 24px                      (src/index.css)
+      • --radius-pill                  = 9999px                    (src/index.css)
+      • --shadow-sm                    = 0 1px 2px rgba(26, 25, 23, 0.04) (src/index.css)
+      • --shadow-md                    = 0 10px 30px rgba(26, 25, 23, 0.06) (src/index.css)
+      • --shadow-lg                    = 0 18px 40px rgba(26, 25, 23, 0.08) (src/index.css)
+      • --cta-bg                       = #C86B52                   (src/index.css)
+      • --cta-bg-hover                 = #B55D46                   (src/index.css)
+      • --cta-text                     = #ffffff                   (src/index.css)
+      • --cta-ring                     = rgba(200, 107, 82, 0.25)  (src/index.css)
+      • --success                      = #059669                   (src/index.css)
+      • --warning                      = #D97706                   (src/index.css)
+      • --danger                       = #DC2626                   (src/index.css)
+      • --badge-error-bg               = var(--color-error-bg)     (src/index.css)
+      • --badge-error-fg               = var(--color-error-text)   (src/index.css)
+      • --badge-warning-bg             = var(--color-warning-bg)   (src/index.css)
+      • --badge-warning-fg             = var(--color-warning-text) (src/index.css)
+      • --badge-info-bg                = var(--color-blue-highlight) (src/index.css)
+      • --badge-info-fg                = var(--color-blue-strong)  (src/index.css)
+      • --badge-neutral-bg             = var(--bg-elevated-soft)   (src/index.css)
+      • --app-active-bg                = rgba(200, 107, 82, 0.08)  (src/index.css)
+      • --app-active-bg-hover          = rgba(200, 107, 82, 0.12)  (src/index.css)
+      • --app-active-border            = #C86B52                   (src/index.css)
+      • --app-active-text              = #B55D46                   (src/index.css)
+      • --app-active-indicator         = #C86B52                   (src/index.css)
+      • --grid-shell-radius            = 1rem                      (src/styles/ag-theme-legalmas.css)
+      • --grid-header-radius           = calc(var(--grid-shell-radius) - 1px) (src/styles/ag-theme-legalmas.css)
+      • --ag-foreground-color          = var(--text-primary)       (src/styles/ag-theme-legalmas.css)
+      • --ag-secondary-foreground-color = var(--text-secondary)     (src/styles/ag-theme-legalmas.css)
+      • --ag-data-color                = var(--text-primary)       (src/styles/ag-theme-legalmas.css)
+      • --ag-muted-foreground-color    = var(--text-muted)         (src/styles/ag-theme-legalmas.css)
+      • --ag-background-color          = var(--bg-card)            (src/styles/ag-theme-legalmas.css)
+      • --ag-header-background-color   = var(--bg-elevated-soft)   (src/styles/ag-theme-legalmas.css)
+      • --ag-odd-row-background-color  = var(--bg-card)            (src/styles/ag-theme-legalmas.css)
+      • --ag-row-hover-color           = color-mix(in oklab, var(--accent-muted) 45%, transparent) (src/styles/ag-theme-legalmas.css)
+      • --ag-selected-row-background-color = color-mix(                (src/styles/ag-theme-legalmas.css)
+      • --ag-header-cell-hover-background-color = color-mix(                (src/styles/ag-theme-legalmas.css)
+      • --ag-header-cell-moving-background-color = color-mix(                (src/styles/ag-theme-legalmas.css)
+      • --ag-border-color              = var(--border)             (src/styles/ag-theme-legalmas.css)
+      • --ag-header-column-separator-color = var(--border-subtle)      (src/styles/ag-theme-legalmas.css)
+      • --ag-row-border-color          = var(--border-subtle)      (src/styles/ag-theme-legalmas.css)
+      • --ag-font-family               = var(--font-body)          (src/styles/ag-theme-legalmas.css)
+      • --ag-font-size                 = 12px                      (src/styles/ag-theme-legalmas.css)
+      • --ag-header-font-size          = 11px                      (src/styles/ag-theme-legalmas.css)
+      • --ag-grid-size                 = 4px                       (src/styles/ag-theme-legalmas.css)
+      • --ag-row-height                = 40px                      (src/styles/ag-theme-legalmas.css)
+      • --ag-header-height             = 40px                      (src/styles/ag-theme-legalmas.css)
+      • --ag-cell-horizontal-padding   = 12px                      (src/styles/ag-theme-legalmas.css)
+      • --ag-header-foreground-color   = var(--text-muted)         (src/styles/ag-theme-legalmas.css)
+      • --ag-header-icon-color         = var(--text-muted)         (src/styles/ag-theme-legalmas.css)
+      • --ag-header-column-separator-display = block                     (src/styles/ag-theme-legalmas.css)
+      • --ag-header-column-separator-height = 50%                       (src/styles/ag-theme-legalmas.css)
+      • --ag-header-column-separator-width = 1px                       (src/styles/ag-theme-legalmas.css)
+      • --ag-header-column-resize-handle-display = block                     (src/styles/ag-theme-legalmas.css)
+      • --ag-header-column-resize-handle-height = 40%                       (src/styles/ag-theme-legalmas.css)
+      • --ag-header-column-resize-handle-width = 2px                       (src/styles/ag-theme-legalmas.css)
+      • --ag-header-column-resize-handle-color = var(--border-subtle)      (src/styles/ag-theme-legalmas.css)
+      • --ag-checkbox-unchecked-color  = var(--border-subtle)      (src/styles/ag-theme-legalmas.css)
+      • --ag-checkbox-checked-color    = var(--accent-primary)     (src/styles/ag-theme-legalmas.css)
+      • --ag-input-border-color        = var(--border-subtle)      (src/styles/ag-theme-legalmas.css)
+      • --ag-input-focus-border-color  = var(--accent-primary)     (src/styles/ag-theme-legalmas.css)
+      • --ag-focus-border-color        = var(--accent-primary)     (src/styles/ag-theme-legalmas.css)
+      • --ag-range-selection-border-color = var(--accent-primary)     (src/styles/ag-theme-legalmas.css)
+      • --ag-range-selection-background-color = color-mix(                (src/styles/ag-theme-legalmas.css)
+      • --ag-pinned-column-background-color = var(--bg-card)            (src/styles/ag-theme-legalmas.css)
+      • --ag-disabled-foreground-color = var(--text-muted)         (src/styles/ag-theme-legalmas.css)
+      • --ag-subheader-background-color = var(--bg-elevated-soft)   (src/styles/ag-theme-legalmas.css)
+
+
+📁 3. СТРУКТУРА МАРКЕТИНГОВЫХ КОМПОНЕНТОВ
+
+   📂 src/marketing/
+      📂 components/
+         📂 about/
+            📄 AboutCTASection.tsx
+            📄 AboutHeroSection.tsx
+            📄 AboutPhilosophySection.tsx
+            📄 AboutPrinciplesSection.tsx
+            📄 AboutProcessSection.tsx
+            📄 AboutTeamSection.tsx
+         📂 assets/
+            📂 photos/
+               📄 vladimir.jpg
+         📂 demo/
+            📄 DemoAudienceSection.tsx
+            📄 DemoFaqSection.tsx
+            📄 DemoFormSection.tsx
+            📄 DemoHeroSection.tsx
+            📄 DemoWhatYouSeeSection.tsx
+         📂 home/
+            📂 ApplicationSection/
+               📄 ApplicationSection.module.css
+               📄 ApplicationSection.tsx
+               📄 index.ts
+               📂 roles/
+                  📄 roles-data.ts
+               📄 types.ts
+            📄 ConceptTagsSection.tsx
+            📄 ContactModal.tsx
+            📄 FaqSection.tsx
+            📄 FounderSection.tsx
+            📂 KnowledgeGrowthSection/
+               📄 KnowledgeTree.tsx
+               📄 contract-texts.ts
+               📄 index.tsx
+               📄 types.ts
+               📄 useTreeEngine.ts
+            📄 PremiumFinalCtaSection.tsx
+            📄 PremiumHeroSection.tsx
+            📂 SecurityFoundationSection/
+               📄 index.tsx
+               📄 types.ts
+         📂 platform/
+            📄 PlatformCTASection.tsx
+            📄 PlatformDocumentStructureSection.tsx
+            📄 PlatformFindingsSection.tsx
+            📄 PlatformHeroSection.tsx
+            📄 PlatformMethodologySection.tsx
+            📄 PlatformStandardsSection.tsx
+            📄 PlatformTechnicalSection.tsx
+            📄 PlatformWorkflowSection.tsx
+            📂 content/
+               📄 platformContent.ts
+            📂 diagrams/
+               📄 FindingsDiagram.tsx
+               📄 FlowSchema.tsx
+               📄 HeroFlowVisual.tsx
+               📄 StandardsDiagram.tsx
+               📄 VerticalNodeChain.tsx
+            📂 primitives/
+               📄 EditorialArrow.tsx
+               📄 PathCrumb.tsx
+         📂 security/
+            📄 SecurityCTASection.tsx
+            📄 SecurityCapabilitiesSection.tsx
+            📄 SecurityDeploymentSection.tsx
+            📄 SecurityFAQSection.tsx
+            📄 SecurityHeroSection.tsx
+         📂 shared/
+            📄 MarketingEditorialShell.tsx
+            📄 MarketingPageFooter.tsx
+            📄 MarketingPageHeader.tsx
+            📄 MobileMenu.tsx
+            📄 SiteFooter.tsx
+            📄 SiteHeader.tsx
+            📂 primitives/
+               📄 SteloomWordmark.tsx
+      📂 content/
+         📄 demoContent.ts
+         📄 landingContent.ts
+      📂 context/
+         📄 ContactModalContext.tsx
+      📂 hooks/
+         📄 useMediaQuery.ts
+         📄 useScrollDirection.ts
+      📂 motion/
+         📄 Reveal.tsx
+      📂 pages/
+         📄 AboutPage.tsx
+         📄 CapabilitiesPage.tsx
+         📄 DemoPage.tsx
+         📄 HomePage.tsx
+         📄 SecurityPage.tsx
+         📂 solutions/
+            📄 AuditCompliancePage.tsx
+            📄 CompliancePage.tsx
+            📄 ContractReviewPage.tsx
+            📄 CorporateLegalPage.tsx
+            📄 CounterpartiesPage.tsx
+            📄 InternalAuditPage.tsx
+            📄 LawFirmsPage.tsx
+            📄 MaDueDiligencePage.tsx
+            📄 RealEstatePage.tsx
+            📂 content/
+               📄 solutionsContent.ts
+
+
+🔧 4. ПЕРЕИСПОЛЬЗУЕМЫЕ КОМПОНЕНТЫ (shared/)
+
+   🧩 MarketingEditorialShell
+      Используется в: 0 файлах маркетинга
+      Пропсы: eyebrow?, title, description, children
+   🧩 MarketingPageFooter
+      Используется в: 14 файлах маркетинга
+   🧩 MarketingPageHeader
+      Используется в: 0 файлах маркетинга
+      Пропсы: ctaHref?, ctaLabel?, hideLeftHomeLink?
+   🧩 MobileMenu
+      Используется в: 1 файлах маркетинга
+      Пропсы: open, onClose
+   🧩 SiteFooter
+      Используется в: 1 файлах маркетинга
+   🧩 SiteHeader
+      Используется в: 15 файлах маркетинга
+      Пропсы: variant?, hideLogin?
+
+
+🔁 5. АНАЛИЗ ПОВТОРЕНИЙ (паттерны секций)
+
+   Частота паттернов на страницах лендинга:
+      • HeroSection                                   — 33 раз
+      • CTASection                                    — 27 раз
+      • CapabilitiesSection                           — 13 раз
+      • BriefBlocksSection|ThreeBlocksSection|ThreePillarsSection — 8 раз
+      • PathCrumb                                     — 20 раз
+      • cta-primary                                   — 15 раз
+      • section-title                                 — 6 раз
+      • data-header-theme="dark"                      — 4 раз
+      • data-header-theme="light"                     — 23 раз
+
+
+🧭 6. РАЗДЕЛЕНИЕ ЛЕНДИНГ / ДАШБОРД
+
+   📊 Файлов маркетинга (лендинг): 77
+   📊 Файлов приложения (дашборд): 308
+
+   🎯 Маркетинг использует:
+      • /src/marketing/components/ — UI-компоненты лендинга
+      • /src/marketing/pages/ — страницы лендинга
+      • /src/marketing/hooks/ — хуки (useMediaQuery, useScrollDirection)
+      • /src/marketing/motion/ — анимации (Reveal, RevealItem)
+      • /src/marketing/content/ — контент (устаревший, переносится в i18n)
+
+   🎯 Дашборд использует:
+      • /src/components/ — общие компоненты приложения
+      • /src/pages/ — страницы приложения
+      • /src/hooks/ — хуки приложения
+      • /src/lib/ — утилиты и API
+
+
+💡 7. РЕКОМЕНДАЦИИ
+
+   🔤 ШРИФТЫ:
+      ✅ CSS-переменные для шрифтов уже заданы
+
+   🎨 ЦВЕТА:
+      • Найдено 210 случаев хардкод-цветов (text-[#...])
+      ⚠️  Рекомендуется массовая замена на CSS-переменные
+
+   📏 РАЗМЕРЫ:
+      • Рекомендуется ввести семантические классы:
+        - text-display (H1 лендинга)
+        - text-h1, text-h2, text-h3
+        - text-body, text-body-sm
+        - text-eyebrow, text-meta
+
+   🧩 КОМПОНЕНТЫ:
+      • Многие секции (Hero, CTA, Capabilities) дублируются
+      • Рекомендуется вынести общие паттерны в /components/shared/
+
+
+════════════════════════════════════════════════════════════════════════════════

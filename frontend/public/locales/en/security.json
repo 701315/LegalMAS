@@ -1,0 +1,290 @@
+{
+  "hero": {
+    "pathRoot": "SECURITY",
+    "pathLeaf": "Protection Architecture",
+    "title": "Security built\ninto the architecture",
+    "subtitle": "Legal documents require not only data protection, but also complete control over where they are processed, who has access to them, and how external services are used.",
+    "description": "In Steloom, decisions about document storage, data processing, AI model usage, and access control are made at the platform architecture level. The organization retains control over its documents at every stage of work.",
+    "layersTitle": "Six layers of protection",
+    "layers": [
+      "Infrastructure",
+      "Data",
+      "Access",
+      "Processing",
+      "Audit & Logging",
+      "External AI Control"
+    ]
+  },
+  "capabilities": {
+    "eyebrow": "Security Mechanisms",
+    "title": "Enterprise Security",
+    "description": "Every mechanism is implemented at the platform architecture level and works automatically, without the need for additional configuration.",
+    "keyPrinciples": "Key Principles",
+    "items": [
+      {
+        "id": "dataProcessing",
+        "label": "Data Processing",
+        "title": "Documents remain within your infrastructure",
+        "subtitle": "Local-First Processing",
+        "paragraphs": [
+          "By default, all stages of document processing are performed within the organization's controlled perimeter.",
+          "The platform can be deployed in local infrastructure or a private cloud."
+        ],
+        "bullets": [
+          "Document processing within the corporate perimeter by default",
+          "The organization determines the deployment model",
+          "Data is not transmitted to external services without explicit consent"
+        ],
+        "layout": "left"
+      },
+      {
+        "id": "dataProtection",
+        "label": "Data Protection",
+        "title": "Data protection when using external models",
+        "subtitle": "PII Sanitization Gateway",
+        "paragraphs": [
+          "If the organization decides to use external language models, Steloom automatically anonymizes the document.",
+          "The PII Sanitization Gateway detects personal data and replaces them with neutral identifiers."
+        ],
+        "bullets": [
+          "Confidential data is anonymized before leaving the perimeter",
+          "Document structure and analysis context are preserved",
+          "Original data restoration occurs only within the organization's infrastructure"
+        ],
+        "layout": "right"
+      },
+      {
+        "id": "accessManagement",
+        "label": "Access Management",
+        "title": "Each user sees only what they are allowed to",
+        "subtitle": "RBAC",
+        "paragraphs": [
+          "Steloom uses a role-based access model where rights are determined by the user's function in the project."
+        ],
+        "bullets": [
+          "Access is determined by the user's role in the project",
+          "Segregation applies to documents, findings, and settings",
+          "The access model aligns with legal practice principles"
+        ],
+        "layout": "left"
+      },
+      {
+        "id": "auditTrail",
+        "label": "Audit Trail",
+        "title": "Complete history of document processing",
+        "subtitle": "Audit Trail",
+        "paragraphs": [
+          "Steloom records key events: file uploads, analysis initiation, application of verification rules, changes to finding statuses, and result exports."
+        ],
+        "bullets": [
+          "Recording of key processing events for each document",
+          "Ability to reconstruct the sequence of actions in a project",
+          "Process transparency for internal control and compliance"
+        ],
+        "layout": "right"
+      },
+      {
+        "id": "observability",
+        "label": "Observability",
+        "title": "Monitoring, logging, and tracing",
+        "subtitle": "Observability",
+        "paragraphs": [
+          "The platform provides tools for monitoring system health, collecting performance metrics, and centralized logging."
+        ],
+        "bullets": [
+          "Centralized event logging",
+          "Performance and system health metrics",
+          "Distributed tracing for end-to-end traceability"
+        ],
+        "layout": "left"
+      },
+      {
+        "id": "aiGovernance",
+        "label": "AI Governance",
+        "title": "External models are connected only by organization's decision",
+        "subtitle": "Controlled AI Access",
+        "paragraphs": [
+          "The connection of external language models is always determined by the organization's policy. Every request passes through a controlled gateway."
+        ],
+        "bullets": [
+          "External models connected only by organization's decision",
+          "Controlled gateway for every request",
+          "Full traceability of interactions with external services"
+        ],
+        "layout": "right"
+      }
+    ]
+  },
+  "deployment": {
+    "eyebrow": "Deployment",
+    "title": "Deployment Models",
+    "description": "Steloom supports various deployment options, from on-premise infrastructure to private cloud. The organization chooses the model that meets its security requirements.",
+    "models": [
+      {
+        "id": "onPremise",
+        "title": "On-Premise",
+        "description": "Full deployment within the organization's infrastructure.",
+        "features": [
+          "Complete data control",
+          "Isolation from external services",
+          "Integration with corporate systems"
+        ]
+      },
+      {
+        "id": "privateCloud",
+        "title": "Private Cloud",
+        "description": "Deployment in a dedicated organizational cloud perimeter.",
+        "features": [
+          "Managed infrastructure",
+          "Tenant isolation",
+          "On-demand scaling"
+        ]
+      },
+      {
+        "id": "hybrid",
+        "title": "Hybrid",
+        "description": "Combined model with flexible processing distribution.",
+        "features": [
+          "Flexible load distribution",
+          "Local processing of sensitive data",
+          "Cloud resources for scaling"
+        ]
+      }
+    ]
+  },
+  "cta": {
+    "title": "See how Steloom works\nwithin your security perimeter",
+    "paragraphs": [
+      "During the demo, we will show how the platform deploys within corporate infrastructure, how access is segregated, how data is protected during processing, and how user actions are logged.",
+      "If your organization has internal security requirements or is conducting an architectural assessment, we are ready to discuss them using specific scenarios and provide the necessary technical documentation."
+    ],
+    "ctaPrimary": "Request Security Review",
+    "meta": "Average demo time: 30–45 minutes"
+  },
+  "faq": {
+    "eyebrow": "Security Review & Compliance",
+    "title": "Answers to questions\nabout platform security",
+    "description": "Below are the main topics typically covered in an enterprise security review. This information helps you understand the solution's architecture and prepare for technical discussions.",
+    "disclaimer": "This information reflects the current state of architectural and technical measures and does not constitute certification or an external auditor's conclusion.",
+    "reviewAreasLabel": "Review areas",
+    "items": [
+      {
+        "number": "01",
+        "question": "How is access management (RBAC) implemented?",
+        "answer": "Steloom uses a role-based access model. Rights are determined by the user's function in the project. Segregation applies to documents, analysis results, verification settings, and administrative functions.",
+        "tags": [
+          "Authentication",
+          "Authorization",
+          "Least Privilege"
+        ]
+      },
+      {
+        "number": "02",
+        "question": "How is the audit trail maintained?",
+        "answer": "The platform records key document processing events: file uploads, analysis initiation, application of verification rules, changes to finding statuses, and result exports.",
+        "tags": [
+          "Evidence",
+          "Logging",
+          "Traceability"
+        ]
+      },
+      {
+        "number": "03",
+        "question": "How is personal data protected (PII Sanitization)?",
+        "answer": "The PII Sanitization Gateway automatically detects personal data, company names, and details, replacing them with neutral identifiers before transmission to external services.",
+        "tags": [
+          "Privacy",
+          "Data Protection",
+          "Sensitive Data"
+        ]
+      },
+      {
+        "number": "04",
+        "question": "How is data isolation (Tenant Isolation) ensured?",
+        "answer": "Each organization's data is isolated at the platform level. Segregation is implemented in storage, access, and processing architecture. Cross-tenant data transfer is impossible.",
+        "tags": [
+          "Data Segregation",
+          "Access Control",
+          "Multi-tenancy"
+        ]
+      },
+      {
+        "number": "05",
+        "question": "How is data encryption implemented?",
+        "answer": "Data is protected at rest and in transit. TLS is used for network traffic, storage encryption, and managed key lifecycle.",
+        "tags": [
+          "Data at Rest",
+          "Data in Transit",
+          "Key Management"
+        ]
+      },
+      {
+        "number": "06",
+        "question": "How are monitoring and incident detection structured (Observability)?",
+        "answer": "The platform provides centralized logging, performance metric collection, and distributed tracing, ensuring system state observability.",
+        "tags": [
+          "Monitoring",
+          "Incident Detection",
+          "Metrics"
+        ]
+      },
+      {
+        "number": "07",
+        "question": "How is the use of external AI models controlled?",
+        "answer": "The connection of external language models is determined by the organization's policy. Every request passes through a controlled gateway. Data is not sent externally without explicit permission.",
+        "tags": [
+          "Third-party Risk",
+          "Data Egress",
+          "Policy Enforcement"
+        ]
+      },
+      {
+        "number": "08",
+        "question": "Where are documents physically processed (Local Processing)?",
+        "answer": "By default, processing occurs within the organization's infrastructure. The organization determines the deployment model. Data does not leave the perimeter without an explicit decision.",
+        "tags": [
+          "Data Residency",
+          "Processing Control",
+          "Infrastructure"
+        ]
+      },
+      {
+        "number": "09",
+        "question": "What deployment architecture is supported?",
+        "answer": "Steloom supports on-premise, private cloud, and hybrid deployment models. The architecture integrates with corporate storage and access management systems.",
+        "tags": [
+          "Deployment",
+          "Infrastructure"
+        ]
+      },
+      {
+        "number": "10",
+        "question": "How does data flow within the platform?",
+        "answer": "A document passes through a controlled pipeline: upload → classification → analysis → findings → review → export. Security mechanisms operate at every stage.",
+        "tags": [
+          "Data Flow",
+          "Processing"
+        ]
+      },
+      {
+        "number": "11",
+        "question": "How are users authenticated?",
+        "answer": "A unified authentication model with support for corporate SSO providers is used. Session lifecycle is managed, and integration with existing identity systems is possible.",
+        "tags": [
+          "Authentication",
+          "SSO",
+          "Session Management"
+        ]
+      },
+      {
+        "number": "12",
+        "question": "What materials are available for security review?",
+        "answer": "The Steloom team provides: Architecture Overview, Data Flow Documentation, Security Controls Matrix, Deployment Guide, and Enterprise Security Briefing.",
+        "tags": [
+          "Documentation",
+          "Security Package"
+        ]
+      }
+    ]
+  }
+}

@@ -1,23 +1,17 @@
 // src/marketing/components/security/SecurityHeroSection.tsx
-
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
-import { heroContent } from './content/securityContent';
+import { useTranslation } from 'react-i18next';
 import PathCrumb from '../platform/primitives/PathCrumb';
-
-/**
- * SecurityHeroSection — светлый editorial hero.
- *
- * Правая колонка:
- *   • Видео (hero-security.mp4) играет в цикле как живой фон
- *   • После первого полного проигрывания — появляется полупрозрачное
- *     затемнение + список слоёв поверх
- */
 
 const ease: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const SecurityHeroSection: React.FC = () => {
+  const { t, i18n } = useTranslation('security');
+  const isRTL = i18n.language === 'ar';
   const prefersReduced = useReducedMotion();
+
+  const layers = t('hero.layers', { returnObjects: true }) as string[];
 
   return (
     <section
@@ -26,7 +20,8 @@ const SecurityHeroSection: React.FC = () => {
     >
       {/* ── Ambient glows ────────────────────────────────────────────── */}
       <div
-        className="pointer-events-none absolute -left-1/4 top-1/4 h-[800px] w-[800px] rounded-full"
+        // RTL FIX: -left-1/4 заменен на -start-1/4
+        className="pointer-events-none absolute -start-1/4 top-1/4 h-[800px] w-[800px] rounded-full"
         style={{
           background:
             'radial-gradient(circle, rgba(200,107,82,0.06) 0%, rgba(200,107,82,0.02) 40%, transparent 70%)',
@@ -35,7 +30,7 @@ const SecurityHeroSection: React.FC = () => {
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute -bottom-1/4 -right-1/4 h-[700px] w-[700px] rounded-full"
+        className="pointer-events-none absolute -bottom-1/4 -end-1/4 h-[700px] w-[700px] rounded-full"
         style={{
           background:
             'radial-gradient(circle, rgba(120,117,111,0.06) 0%, rgba(120,117,111,0.02) 40%, transparent 70%)',
@@ -77,23 +72,18 @@ const SecurityHeroSection: React.FC = () => {
               transition={{ duration: 0.55, delay: 0.05, ease }}
             >
               <PathCrumb
-                root={heroContent.pathRoot}
-                leaf={heroContent.pathLeaf}
+                root={t('hero.pathRoot')}
+                leaf={t('hero.pathLeaf')}
               />
             </motion.div>
 
             <motion.h1
-              className="mt-5 font-serif text-[clamp(2.5rem,5vw,4rem)] leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)]"
+              className="mt-5 font-serif text-display text-[var(--text-primary)] whitespace-pre-line"
               initial={prefersReduced ? undefined : { opacity: 0, y: 14 }}
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.12, ease }}
             >
-              {heroContent.title.split('\n').map((line: string, i: number) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <br />}
-                  {line}
-                </React.Fragment>
-              ))}
+              {t('hero.title')}
             </motion.h1>
 
             <motion.div
@@ -103,11 +93,11 @@ const SecurityHeroSection: React.FC = () => {
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.22, ease }}
             >
-              <p className="text-[1.0625rem] leading-[1.7] text-[var(--text-secondary)]">
-                {heroContent.subtitle}
+              <p className="text-body leading-relaxed text-[var(--text-secondary)]">
+                {t('hero.subtitle')}
               </p>
-              <p className="text-[1.0625rem] leading-[1.7] text-[var(--text-muted)]">
-                {heroContent.description}
+              <p className="text-body leading-relaxed text-[var(--text-muted)]">
+                {t('hero.description')}
               </p>
             </motion.div>
           </div>
@@ -120,7 +110,7 @@ const SecurityHeroSection: React.FC = () => {
               animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.4, ease }}
             >
-              <VideoWithLayersOverlay />
+              <VideoWithLayersOverlay layers={layers} isRTL={isRTL} t={t} />
             </motion.div>
           </div>
         </div>
@@ -130,10 +120,16 @@ const SecurityHeroSection: React.FC = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoWithLayersOverlay — видео loops + список после первого проигрывания
+// VideoWithLayersOverlay
 // ─────────────────────────────────────────────────────────────────────────────
 
-const VideoWithLayersOverlay: React.FC = () => {
+interface VideoWithLayersOverlayProps {
+  layers: string[];
+  isRTL: boolean;
+  t: any;
+}
+
+const VideoWithLayersOverlay: React.FC<VideoWithLayersOverlayProps> = ({ layers, isRTL, t }) => {
   const prefersReduced = useReducedMotion();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [firstPlayComplete, setFirstPlayComplete] = useState(false);
@@ -168,7 +164,7 @@ const VideoWithLayersOverlay: React.FC = () => {
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-dark)]"
+      className="relative w-full overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--color-dark)]"
       style={{
         maxWidth: 560,
         aspectRatio: '4 / 5',
@@ -176,7 +172,6 @@ const VideoWithLayersOverlay: React.FC = () => {
           '0 20px 60px -20px rgba(26,25,23,0.25), 0 8px 20px -12px rgba(26,25,23,0.15)',
       }}
     >
-      {/* ── Видео (loop) ─────────────────────────────────────────────── */}
       {!prefersReduced && (
         <video
           ref={videoRef}
@@ -192,7 +187,6 @@ const VideoWithLayersOverlay: React.FC = () => {
         </video>
       )}
 
-      {/* ── Плотное затемнение (ПЛОТНЕЕ для читаемости) ─────────────── */}
       <AnimatePresence>
         {firstPlayComplete && (
           <motion.div
@@ -210,7 +204,6 @@ const VideoWithLayersOverlay: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* ── Список слоёв ─────────────────────────────────────────────── */}
       <AnimatePresence>
         {firstPlayComplete && (
           <motion.div
@@ -220,7 +213,7 @@ const VideoWithLayersOverlay: React.FC = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, delay: 0.4, ease }}
           >
-            <SecurityLayersStackDark />
+            <SecurityLayersStackDark layers={layers} isRTL={isRTL} t={t} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -229,17 +222,21 @@ const VideoWithLayersOverlay: React.FC = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Security Layers Stack — тёмная версия, увеличенный текст
+// Security Layers Stack
 // ─────────────────────────────────────────────────────────────────────────────
 
-const LAYERS = ['Инфраструктура', 'Данные', 'Доступ', 'Обработка', 'Аудит и логирование', 'Контроль внешнего AI'];
+interface SecurityLayersStackDarkProps {
+  layers: string[];
+  isRTL: boolean;
+  t: any;
+}
 
-const SecurityLayersStackDark: React.FC = () => {
+const SecurityLayersStackDark: React.FC<SecurityLayersStackDarkProps> = ({ layers, isRTL, t }) => {
   return (
     <div className="relative w-full max-w-[420px]">
-      {/* Vertical accent line — толще, ярче */}
+      {/* RTL FIX: left-0 заменен на start-0 */}
       <div
-        className="absolute left-0 top-0 h-full w-[2px]"
+        className="absolute start-0 top-0 h-full w-[2px]"
         style={{
           background:
             'linear-gradient(180deg, transparent 0%, rgba(200,107,82,0.8) 20%, rgba(200,107,82,0.8) 80%, transparent 100%)',
@@ -247,7 +244,8 @@ const SecurityLayersStackDark: React.FC = () => {
       />
 
       <motion.p
-        className="mb-8 pl-7 text-[0.8125rem] uppercase tracking-[0.24em] text-[rgba(250,248,245,0.75)]"
+        // RTL FIX: pl-7 заменен на ps-7
+        className="mb-8 ps-7 text-eyebrow uppercase text-[rgba(250,248,245,0.75)]"
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.5 }}
@@ -255,15 +253,15 @@ const SecurityLayersStackDark: React.FC = () => {
           textShadow: '0 2px 12px rgba(0,0,0,0.5)',
         }}
       >
-        Шесть слоёв защиты
+        {t('hero.layersTitle')}
       </motion.p>
 
-      <ol className="space-y-5 pl-7">
-        {LAYERS.map((label, i) => (
+      <ol className="space-y-5 ps-7">
+        {layers.map((label, i) => (
           <motion.li
             key={label}
             className="flex items-baseline gap-5"
-            initial={{ opacity: 0, x: 8 }}
+            initial={{ opacity: 0, x: isRTL ? -8 : 8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{
               duration: 0.45,
@@ -272,7 +270,7 @@ const SecurityLayersStackDark: React.FC = () => {
             }}
           >
             <span
-              className="w-8 text-[0.9375rem] font-medium tabular-nums text-[rgba(200,107,82,1)]"
+              className="w-8 text-body-sm font-medium tabular-nums text-[rgba(200,107,82,1)]"
               style={{
                 textShadow: '0 2px 8px rgba(0,0,0,0.6)',
               }}
@@ -280,7 +278,7 @@ const SecurityLayersStackDark: React.FC = () => {
               0{i + 1}
             </span>
             <span
-              className="font-serif text-[2rem] italic leading-[1.15] text-[rgba(250,248,245,1)] lg:text-[2.25rem]"
+              className="font-serif text-h2 italic text-[rgba(250,248,245,1)] text-h1"
               style={{
                 textShadow: '0 2px 16px rgba(0,0,0,0.7)',
               }}
@@ -295,5 +293,3 @@ const SecurityLayersStackDark: React.FC = () => {
 };
 
 export default SecurityHeroSection;
-
-

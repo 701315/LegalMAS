@@ -142,12 +142,15 @@ def build_dd_requests(
                             "doc": doc["document_id"],
                         })
 
+        # Use localized check_name from check_results if available, fallback to playbook
+        localized_check_name = cr_list[0].get("check_name", check_def.name) if cr_list else check_def.name
+
         dd_requests.append(
             DDRequestDTO(
                 request_id="",  # UUID генерируется на фронте или в API
                 priority=check_def.severity,
                 check_id=check_id,
-                check_name=check_def.name,
+                check_name=localized_check_name,
                 addressee=addressee,
                 text=text,
                 document_ids=[d["document_id"] for d in triggered_docs],

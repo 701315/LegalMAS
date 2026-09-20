@@ -2,6 +2,7 @@
 // src/pages/tabs/dd-grid-v1/ddGridV1.collapseStore.ts
 // Zustand store для persistent состояния DD Grid V1 UI:
 // - настройки отображения матрицы (три независимых параметра)
+// - язык выдачи результатов (outputLocale) с персистентностью
 // - фильтр показа pass-результатов в list mode
 // - collapsed checks / groups с persistence через localStorage
 //
@@ -13,6 +14,8 @@
 // =============================================================
 
 import { create } from "zustand";
+import { resolveOutputLocale } from "../../../i18n/localeResolver";
+import { setPersistedOutputLocale } from "../../../i18n/localePersistence";
 
 // -------------------------------------------------------------
 // View settings — независимые параметры
@@ -114,7 +117,7 @@ function persistKeyedRecord(
 }
 
 // -------------------------------------------------------------
-// Store
+// Store interface
 // -------------------------------------------------------------
 
 interface DDGridV1UIState {
@@ -130,6 +133,10 @@ interface DDGridV1UIState {
 
   showPassInList: boolean;
   setShowPassInList: (value: boolean) => void;
+
+  // Axis 5: Output (Results) Locale Axis
+  outputLocale: string;
+  setOutputLocale: (locale: string) => void;
 
   // Collapsed checks
   collapsedCheckIds: Record<string, true>;
@@ -238,6 +245,13 @@ export const useDDGridV1UIStore = create<DDGridV1UIState>((set, get) => ({
   setShowPassInList: (value) => {
     safeSetItem(SHOW_PASS_IN_LIST_STORAGE_KEY, value ? "true" : "false");
     set({ showPassInList: value });
+  },
+
+  // Axis 5: Output locale axis
+  outputLocale: resolveOutputLocale(),
+  setOutputLocale: (locale) => {
+    setPersistedOutputLocale(locale);
+    set({ outputLocale: locale });
   },
 
   // -----------------------------------------------------------

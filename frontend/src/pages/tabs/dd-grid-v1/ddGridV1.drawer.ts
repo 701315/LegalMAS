@@ -80,6 +80,72 @@ export function localizeLocationFallbackReason(
 // Reason precedence
 // -------------------------------------------------------------
 
+export type DDGridV1PresentationTone =
+  | "success"
+  | "warning"
+  | "error"
+  | "muted";
+
+export interface DDGridV1PresentationInfo {
+  labelKey: string;
+  tone: DDGridV1PresentationTone;
+  interpolation?: Record<string, string>;
+}
+
+/**
+ * Builds drawer-only presentation provenance UI.
+ *
+ * This function never decides which result text to render. Backend
+ * read-side selection already validates locale, content version,
+ * source hash, and lifecycle status before returning drawer content.
+ */
+export function resolveDDGridV1PresentationInfo(
+  drawer: DDGridV1DrawerContentDTO | null,
+): DDGridV1PresentationInfo | null {
+  if (!drawer || !drawer.presentation_status) {
+    return null;
+  }
+
+  const locale = (drawer.output_locale || drawer.presentation_locale)?.trim();
+
+  if (drawer.presentation_is_fallback === false) {
+    return {
+      labelKey: "drawer.presentation.localized",
+      tone: "success",
+      interpolation: locale ? { locale } : undefined,
+    };
+  }
+
+  switch (drawer.presentation_status.trim().toLowerCase()) {
+    case "pending":
+    case "processing":
+      return {
+        labelKey: "drawer.presentation.fallbackProcessing",
+        tone: "warning",
+      };
+    case "failed":
+      return {
+        labelKey: "drawer.presentation.fallbackFailed",
+        tone: "error",
+      };
+    case "stale":
+      return {
+        labelKey: "drawer.presentation.fallbackStale",
+        tone: "warning",
+      };
+    case "missing":
+      return {
+        labelKey: "drawer.presentation.fallbackMissing",
+        tone: "muted",
+      };
+    default:
+      return {
+        labelKey: "drawer.presentation.fallbackCanonical",
+        tone: "muted",
+      };
+  }
+}
+
 export type DDGridV1ReasonSource =
   | "reason"
   | "review_message"

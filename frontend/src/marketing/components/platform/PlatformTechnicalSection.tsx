@@ -1,33 +1,7 @@
-// src/marketing/components/platform/PlatformTechnicalSection.tsx
-
 import React, { useState } from "react";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import Reveal from "../../motion/Reveal";
-import { TECHNICAL_CONTENT } from "./content/platformContent";
-
-/**
- * PlatformTechnicalSection — финальная секция страницы Platform.
- *
- * Композиция:
- *   • Editorial-заголовок (serif, крупный) + сдержанное intro-описание
- *   • Ниже — вертикальный список из 11 раскрывающихся групп
- *   • Каждая группа: заголовок + иконка +/− + внутри bullets
- *   • Все аккордеоны закрыты по умолчанию
- *   • Плавное раскрытие через AnimatePresence (opacity + height)
- *
- * Позиция: ПОСЛЕДНЯЯ секция страницы перед footer.
- *
- * Визуальный стиль:
- *   • Off-white фон (#F3F0EB) — контраст с CTA (белый) сверху
- *   • Тонкие горизонтальные разделители между группами (не карточки)
- *   • Editorial-подача: без иконок в bullets, только тонкие точки
- *   • Плюс/минус — простой SVG, не lucide (полный контроль стиля)
- *
- * Смысловая роль:
- *   Технический deep-dive для читателя, который прошёл всю страницу
- *   и хочет узнать детали. НЕ в верхних секциях — там смысловая
- *   архитектура, здесь — техническая полнота.
- */
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AccordionItem — одна раскрывающаяся группа
@@ -42,26 +16,24 @@ interface AccordionItemProps {
 const AccordionItem: React.FC<AccordionItemProps> = ({ title, items, index }) => {
   const [open, setOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-
   const contentId = `technical-accordion-${index}`;
 
   return (
-    <div className="border-b border-[#E8E4DD] last:border-b-0">
+    <div className="border-b border-[var(--border-color)] last:border-b-0">
       {/* ── Trigger ─────────────────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={contentId}
-        className="group flex w-full items-baseline justify-between gap-6 py-6 text-left transition-colors lg:py-7"
-        style={{
-          cursor: "pointer",
-        }}
+        // RTL FIX: text-left заменен на text-start
+        className="group flex w-full items-baseline justify-between gap-6 py-6 text-start transition-colors lg:py-7"
+        style={{ cursor: "pointer" }}
       >
         <div className="flex items-baseline gap-5 min-w-0 flex-1">
           {/* Порядковый номер */}
           <span
-            className="text-[10px] font-medium uppercase tracking-[0.22em] shrink-0"
+            className="text-meta font-medium uppercase shrink-0"
             style={{ color: "#A8A29E" }}
           >
             {String(index + 1).padStart(2, "0")}
@@ -69,14 +41,14 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, items, index }) =>
 
           {/* Заголовок */}
           <span
-            className="text-[1.0625rem] font-medium leading-tight tracking-[-0.005em] transition-colors lg:text-[1.125rem]"
+            className="text-body font-medium leading-tight transition-colors lg:text-lg"
             style={{ color: open ? "#1A1917" : "#1A1917" }}
           >
             {title}
           </span>
         </div>
 
-        {/* Иконка +/− */}
+        {/* Иконка +/− (симметрична, rotate(45deg) работает одинаково хорошо в LTR и RTL) */}
         <span
           className="relative shrink-0 transition-transform duration-300"
           style={{
@@ -87,24 +59,8 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, items, index }) =>
           aria-hidden="true"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <line
-              x1="7"
-              y1="1"
-              x2="7"
-              y2="13"
-              stroke="#78756F"
-              strokeWidth="1.25"
-              strokeLinecap="round"
-            />
-            <line
-              x1="1"
-              y1="7"
-              x2="13"
-              y2="7"
-              stroke="#78756F"
-              strokeWidth="1.25"
-              strokeLinecap="round"
-            />
+            <line x1="7" y1="1" x2="7" y2="13" stroke="#78756F" strokeWidth="1.25" strokeLinecap="round" />
+            <line x1="1" y1="7" x2="13" y2="7" stroke="#78756F" strokeWidth="1.25" strokeLinecap="round" />
           </svg>
         </span>
       </button>
@@ -118,23 +74,21 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, items, index }) =>
             initial={shouldReduceMotion ? undefined : { height: 0, opacity: 0 }}
             animate={shouldReduceMotion ? undefined : { height: "auto", opacity: 1 }}
             exit={shouldReduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={{
-              duration: 0.35,
-              ease: [0.22, 1, 0.36, 1],
-            }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             style={{ overflow: "hidden" }}
           >
-            <ul className="ml-[calc(10px+1.25rem)] space-y-3 pb-7 pr-8 lg:ml-[calc(12px+1.25rem)]">
-              {items.map((item) => (
+            {/* RTL FIX: ml заменен на ms (margin-start), pr заменен на pe (padding-end) */}
+            <ul className="ms-[calc(10px+1.25rem)] space-y-3 pb-7 pe-8 lg:ms-[calc(12px+1.25rem)]">
+              {items.map((item, itemIndex) => (
                 <li
-                  key={item}
-                  className="flex items-start gap-3 text-[#78756F]"
+                  key={itemIndex} // RTL FIX: Используем индекс как стабильный ключ для строк
+                  className="flex items-start gap-3 text-[var(--text-secondary)] text-start"
                 >
                   <span
-                    className="mt-2 flex h-1 w-1 shrink-0 rounded-full bg-[#C86B52]"
+                    className="mt-2 flex h-1 w-1 shrink-0 rounded-full bg-[var(--accent-primary)]"
                     aria-hidden="true"
                   />
-                  <span className="text-[0.9375rem] leading-[1.65]">
+                  <span className="text-body-sm leading-normal">
                     {item}
                   </span>
                 </li>
@@ -152,6 +106,12 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, items, index }) =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PlatformTechnicalSection: React.FC = () => {
+  const { t } = useTranslation("marketing");
+
+  // RTL FIX: Защита от сбоев при получении массива из i18n
+  const groupsRaw = t("platform.technical.groups", { returnObjects: true });
+  const groups = Array.isArray(groupsRaw) ? groupsRaw : [];
+
   return (
     <section
       className="relative"
@@ -165,31 +125,29 @@ const PlatformTechnicalSection: React.FC = () => {
         {/* ── Header ─────────────────────────────────────────────────── */}
         <Reveal>
           <div className="mb-14 max-w-3xl lg:mb-20">
-            <div className="eyebrow">Технические возможности</div>
+            <div className="eyebrow text-start">{t("platform.technical.eyebrow", "Технические возможности")}</div>
 
-            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {TECHNICAL_CONTENT.title}
+            <h2 className="mt-4 text-h1 text-start">
+              {t("platform.technical.title")}
             </h2>
 
-            <p className="mt-5 text-[1rem] leading-[1.75] text-[#78756F]">
-              {TECHNICAL_CONTENT.intro}
+            <p className="mt-5 text-body text-start">
+              {t("platform.technical.intro")}
             </p>
           </div>
         </Reveal>
 
         {/* ── Accordion list ─────────────────────────────────────────── */}
         <Reveal delay={0.1}>
-          <div
-            className="mx-auto"
-            style={{ maxWidth: 960 }}
-          >
+          <div className="mx-auto" style={{ maxWidth: 960 }}>
             {/* Верхний editorial-разделитель */}
             <div className="h-px w-full bg-[#E8E4DD]" aria-hidden="true" />
 
             {/* Список групп */}
             <div>
-              {TECHNICAL_CONTENT.groups.map((group, i) => (
+              {groups.map((group, i) => (
                 <AccordionItem
-                  key={group.title}
+                  key={i} // RTL FIX: Используем индекс, так как в JSON нет уникальных ID для групп
                   title={group.title}
                   items={group.items}
                   index={i}
@@ -204,6 +162,4 @@ const PlatformTechnicalSection: React.FC = () => {
 };
 
 export default PlatformTechnicalSection;
-
-
 

@@ -420,7 +420,11 @@ class Settings(BaseSettings):
     # Ниже этого порога L3 результат считается статистическим шумом
     # и исключается из candidates, чтобы не искажать weighted voting.
     CLASSIFICATION_L3_MIN_MARGIN: float = 0.05
-
+    # Адаптивный порог для L3 noise suppression.
+    # Если positive_similarity >= этого порога, L3 сигнал не подавляется
+    # даже при узком margin (конкуренция между близкими типами разрешается в L4).
+    CLASSIFICATION_L3_STRONG_POS_SIM: float = 0.65
+    
     # ---------------------------------------------------------------------------
     # --- LLM Provider ---
     # ---------------------------------------------------------------------------
@@ -590,7 +594,7 @@ class Settings(BaseSettings):
     # Exact-match cache для raw LLM responses.
     # Scope: document_version-scoped. Process-local, in-memory.
     # Включён по умолчанию — критично для CPU inference где retry дорог.
-    SEMANTIC_ENRICHMENT_CACHE_ENABLED: bool = True   # было: False
+    SEMANTIC_ENRICHMENT_CACHE_ENABLED: bool = False   # сейчас кэш отключен, чтобы его включить надо поменять на True
     SEMANTIC_ENRICHMENT_CACHE_TTL_SECONDS: int = 86400
     SEMANTIC_ENRICHMENT_CACHE_MAX_ITEMS: int = 10000
 

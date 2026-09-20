@@ -107,6 +107,21 @@ class CheckItemDTO(BaseModel):
     needs_manual_review: bool = False
     ui_mode: str | None = None
 
+    # Locale-specific presentation metadata.
+    # Existing fields above remain the effective fields to render.
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
+    presentation_content_version: str | None = None
+    presentation_source_locale: str | None = None
+    presentation_status: str | None = None
+    presentation_is_fallback: bool = True
+
+    # Present only when a ready/reviewed/approved presentation safely replaced
+    # canonical content. They support a future "show original" UI action.
+    canonical_check_name: str | None = None
+    canonical_display_text: str | None = None
+    canonical_review_message: str | None = None
+
 
 class CheckMetaDTO(BaseModel):
     """
@@ -202,6 +217,20 @@ class MatrixCellDTO(BaseModel):
     needs_manual_review: bool = False
     ui_mode: str | None = None
 
+    # Locale-specific presentation metadata.
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
+    presentation_content_version: str | None = None
+    presentation_source_locale: str | None = None
+    presentation_status: str | None = None
+    presentation_is_fallback: bool = True
+
+    # Original canonical content, populated only when a safe localized
+    # presentation is selected.
+    canonical_check_name: str | None = None
+    canonical_display_text: str | None = None
+    canonical_review_message: str | None = None
+
 
 class DocumentMatrixRowDTO(BaseModel):
     """
@@ -271,6 +300,10 @@ class DDMatrixResponseDTO(BaseModel):
     run_id: str
     deal_name: str
 
+    # Effective locale resolved for this response.
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
+
     checks: list["CheckMetaDTO"]
     global_check_ids: list[str]
     doc_type_check_ids: dict[str, list[str]]
@@ -307,6 +340,10 @@ class DocumentDetailDTO(BaseModel):
     classification_confidence: float
     applicable_triggers: list[str]
     checks: list[CheckItemDTO]
+
+    # Effective locale resolved for this response.
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
 
 
 class DDRequestDTO(BaseModel):
@@ -539,6 +576,20 @@ class DDGridDrawerDTO(BaseModel):
     review_status: str | None = None
     review_message: str | None = None
     display_text: str | None = None
+
+    # Locale-specific presentation metadata for the check-level drawer text.
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
+    presentation_content_version: str | None = None
+    presentation_source_locale: str | None = None
+    presentation_status: str | None = None
+    presentation_is_fallback: bool = True
+
+    # Original canonical drawer content when a safe localized presentation
+    # has been selected.
+    canonical_check_name: str | None = None
+    canonical_display_text: str | None = None
+    canonical_review_message: str | None = None
 
     execution_status: str | None = None
     """
@@ -837,9 +888,63 @@ class DDGridV1ResponseDTO(BaseModel):
     deal_id: str
     run_id: str
 
+    # Effective locale resolved for this response.
+    output_locale: str | None = None
+    presentation_locale: str | None = None  # Deprecated: use output_locale
+
     global_groups: list[DDGridGlobalGroupDTO]
     doc_type_classes: list[DDGridDocTypeClassDTO]
     column_registry: dict[str, DDGridColumnDTO]
     cell_values: dict[str, dict[str, dict[str, DDGridCellValueDTO]]]
     drawer_contents: dict[str, dict[str, dict[str, DDGridDrawerDTO]]]
     documents_meta: list[DDGridDocumentMetaDTO]
+
+
+class ResultPresentationRequestDTO(BaseModel):
+    """
+    Request creation of locale-specific presentations for all CheckResult rows
+    belonging to one Run.
+
+    D3 only creates idempotent pending records. It does not invoke an LLM.
+    """
+
+    locale: str = Field(
+        min_length=2,
+        max_length=35,
+        description=(
+            "Target BCP 47 locale for generated result presentations. "
+            "Must be enabled in the shared UI locale configuration."
+        ),
+    )
+
+
+class ResultPresentationProgressDTO(BaseModel):
+    """
+    Progress of locale-specific result presentations for one Run.
+
+    Progress is derived from existing CheckResultPresentation rows for the
+    requested locale and content version. D3 does not dispatch LLM work yet.
+    """
+
+    run_id: str
+    locale: str
+    content_version: str
+
+    total: int
+    missing: int
+    pending: int
+    processing: int
+    ready: int
+    reviewed: int
+    approved: int
+    failed: int
+    stale: int
+
+    created_pending: int = 0
+    existing: int = 0
+
+    is_complete: bool
+
+    # D3 intentionally creates no worker/outbox dispatch.
+    # D4 will replace this with actual dispatch lifecycle metadata.
+    dispatch_status: str = "not_dispatched"

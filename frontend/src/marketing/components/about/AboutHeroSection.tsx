@@ -1,15 +1,17 @@
+// src/marketing/components/about/AboutHeroSection.tsx
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import PathCrumb from '../platform/primitives/PathCrumb';
 
 /**
  * AboutHeroSection — центрированный манифест.
  * Типографика и стили текста полностью соответствуют стандарту SecurityHeroSection.
  */
-
 const ease: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const AboutHeroSection: React.FC = () => {
+  const { t } = useTranslation('marketing');
   const prefersReduced = useReducedMotion();
 
   return (
@@ -17,7 +19,8 @@ const AboutHeroSection: React.FC = () => {
       data-header-theme="light"
       className="relative flex min-h-[80dvh] items-center overflow-hidden bg-[var(--bg-base)]"
     >
-      {/* ── Ambient glows (из Security Hero) ─────────────────────────── */}
+      {/* ── Ambient glows ─────────────────────────── */}
+      {/* Примечание: left-1/2 + -translate-x-1/2 корректно центрируют элемент в любом направлении (LTR/RTL) */}
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[800px] w-[800px] rounded-full"
         style={{
@@ -54,26 +57,20 @@ const AboutHeroSection: React.FC = () => {
             animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.05, ease }}
           >
-            <PathCrumb root="О нас" leaf="Что мы делаем" />
+            <PathCrumb root={t('about.hero.pathRoot')} leaf={t('about.hero.pathLeaf')} />
           </motion.div>
 
-          {/* Заголовок — размер в точности как в Security Hero */}
+          {/* Заголовок — используем whitespace-pre-line вместо <br /> */}
           <motion.h1
-            className="mt-8 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)] max-w-5xl"
+            className="mt-8 text-display max-w-5xl whitespace-pre-line"
             initial={prefersReduced ? undefined : { opacity: 0, y: 14 }}
             animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.12, ease }}
           >
-            Мы автоматизируем подготовку информации,<br />
-            <span 
-              className="italic font-light"
-              style={{ color: 'var(--color-accent)' }}
-            >
-              а не юридическое мышление
-            </span>
+            {t('about.hero.title')}
           </motion.h1>
 
-          {/* Описание — размер 1.0625rem / leading 1.7 как в Security Hero */}
+          {/* Описание */}
           <motion.div
             className="mt-10 space-y-6"
             style={{ maxWidth: 680 }}
@@ -81,13 +78,11 @@ const AboutHeroSection: React.FC = () => {
             animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.22, ease }}
           >
-            <p className="text-[1.0625rem] leading-[1.7] text-[var(--text-secondary)]">
-              Steloom берет на себя механику сбора и структурирования данных, 
-              чтобы вы могли сосредоточиться на стратегии, рисках и принятии решений.
+            <p className="text-body leading-relaxed text-[var(--text-secondary)]">
+              {t('about.hero.description1')}
             </p>
-            <p className="text-[1.0625rem] leading-[1.7] text-[var(--text-muted)]">
-              Мы создаем инструменты для юридических команд, которые ценят точность 
-              и хотят масштабировать свою экспертизу, а не рутину.
+            <p className="text-body leading-relaxed text-[var(--text-muted)]">
+              {t('about.hero.description2')}
             </p>
           </motion.div>
 
@@ -105,5 +100,3 @@ const AboutHeroSection: React.FC = () => {
 };
 
 export default AboutHeroSection;
-
-

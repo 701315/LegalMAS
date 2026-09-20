@@ -590,6 +590,23 @@ export interface DDGridV1DrawerContentDTO {
   review_status: string | null;
   review_message: string | null;
   display_text: string | null;
+
+  // Locale-specific presentation metadata. The backend remains the
+  // source of truth for selecting localized versus canonical content.
+  output_locale?: string | null;
+  presentation_locale?: string | null; // Deprecated: use output_locale
+  presentation_content_version?: string | null;
+  presentation_source_locale?: string | null;
+  presentation_status?: string | null;
+  presentation_is_fallback?: boolean;
+
+  // Canonical source content is supplied only when a safe localized
+  // presentation has been selected. It is retained for audit/debug
+  // context and must not be rendered alongside the selected content.
+  canonical_check_name?: string | null;
+  canonical_display_text?: string | null;
+  canonical_review_message?: string | null;
+
   execution_status: string;
 
   // B3 P0 — Transparency
@@ -673,4 +690,33 @@ export interface DDGridV1ResponseDTO {
   documents_meta: DDGridV1DocumentMetaDTO[];
 }
 
+// =============================================================
+// Локализованные presentation-версии результатов проверки.
+// =============================================================
+
+export interface ResultPresentationRequestDTO {
+  locale: string;
+}
+
+export interface ResultPresentationProgressDTO {
+  run_id: string;
+  locale: string;
+  content_version: string;
+
+  total: number;
+  missing: number;
+  pending: number;
+  processing: number;
+  ready: number;
+  reviewed: number;
+  approved: number;
+  failed: number;
+  stale: number;
+
+  created_pending: number;
+  existing: number;
+
+  is_complete: boolean;
+  dispatch_status: string;
+}
 

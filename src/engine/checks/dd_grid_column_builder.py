@@ -81,10 +81,8 @@ _RESERVED_METADATA_FIELD_NAMES: frozenset[str] = frozenset({
 # Универсальные ru-локализованные labels для типовых enum values.
 # Применяются только когда AllowedValueSpec.label не задан в YAML.
 _GENERIC_ENUM_LABELS: dict[str, str] = {
-    # yes/no
     "yes": "Да",
     "no": "Нет",
-    # presence-family
     "present": "Указано",
     "missing": "Не указано",
     "unclear": "Не удалось определить",
@@ -94,6 +92,20 @@ _GENERIC_ENUM_LABELS: dict[str, str] = {
     "not_defined": "Не определено",
     "not_found": "Не найдено",
     "absent": "Отсутствует",
+}
+
+_GENERIC_ENUM_LABELS_EN: dict[str, str] = {
+    "yes": "Yes",
+    "no": "No",
+    "present": "Present",
+    "missing": "Missing",
+    "unclear": "Unclear",
+    "not_specified": "Not specified",
+    "not_addressed": "Not addressed",
+    "defined": "Defined",
+    "not_defined": "Not defined",
+    "not_found": "Not found",
+    "absent": "Absent",
 }
 
 # Yes/No detection markers — используются в правиле D для определения yes_no колонки.
@@ -215,23 +227,37 @@ def _normalize_allowed_values(
 
 
 def _build_enum_labels(
+    field_name: str,
     canonical_values: list[str],
     explicit_labels: dict[str, str],
+    localization_map: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """
     Построить canonical value → human label mapping.
 
     Приоритет:
-    1. AllowedValueSpec.label (explicit из YAML)
-    2. _GENERIC_ENUM_LABELS (универсальные ru fallback)
-    3. _humanize(value) (fallback)
+    1. Specific override in DB:  "dd_grid.field.{field_name}.enum.{value}"
+    2. Generic override in DB:   "dd_grid.field.generic.enum.{value}"
+    3. AllowedValueSpec.label (explicit из YAML)
+    4. _GENERIC_ENUM_LABELS (универсальные ru fallback)
+    5. _humanize(value) (fallback)
     """
     labels: dict[str, str] = {}
     for value in canonical_values:
-        if value in explicit_labels:
+        val_clean = value.strip().lower()
+        specific_key = f"dd_grid.field.{field_name.strip().lower()}.enum.{val_clean}"
+        generic_key = f"dd_grid.field.generic.enum.{val_clean}"
+
+        if localization_map and specific_key in localization_map:
+            labels[value] = localization_map[specific_key]
+        elif localization_map and generic_key in localization_map:
+            labels[value] = localization_map[generic_key]
+        elif value in explicit_labels:
             labels[value] = explicit_labels[value]
         elif value in _GENERIC_ENUM_LABELS:
-            labels[value] = _GENERIC_ENUM_LABELS[value]
+            use_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
+            generic_dict = _GENERIC_ENUM_LABELS_EN if use_en else _GENERIC_ENUM_LABELS
+            labels[value] = generic_dict.get(value, _GENERIC_ENUM_LABELS[value])
         else:
             labels[value] = _humanize(value)
     return labels
@@ -326,18 +352,34 @@ def _is_human_display_field(cfg: ExtractionFieldConfig) -> bool:
     return True
 
 
-def _get_label(cfg: ExtractionFieldConfig, fallback_name: str | None = None) -> str:
+def _get_label(
+    cfg: ExtractionFieldConfig,
+    fallback_name: str | None = None,
+    localization_map: dict[str, str] | None = None,
+) -> str:
     """
     Получить human-readable label для колонки.
 
     Приоритет:
-    1. cfg.label (explicit из YAML)
-    2. humanize(cfg.name)
-    3. humanize(fallback_name) если задан
-
-    fallback_name используется для paired-колонок, где имя может быть
-    prefix без _status/_details/_value.
+    1. DB localization override: "dd_grid.column.{col_id}.label"
+    2. cfg.label_en (если Results Language = en и поле задано)
+    3. cfg.label (explicit из YAML)
+    4. humanize(cfg.name)
+    5. humanize(fallback_name) если задан
     """
+    col_id = cfg.name or fallback_name or ""
+    db_key = f"dd_grid.column.{col_id.strip().lower()}.label"
+
+    if localization_map and db_key in localization_map:
+        return localization_map[db_key]
+
+    is_en = bool(
+        localization_map and localization_map.get("dd_grid.system.lang") == "en"
+    )
+    label_en = getattr(cfg, "label_en", None)
+    if is_en and isinstance(label_en, str) and label_en.strip():
+        return label_en.strip()
+
     if cfg.label and cfg.label.strip():
         return cfg.label.strip()
 
@@ -370,6 +412,7 @@ class DDGridColumnBuilder:
     def build_columns(
         self,
         check: CheckDefinition,
+        localization_map: dict[str, str] | None = None,
     ) -> tuple[list[DDGridColumnRuntime], list[str], str | None]:
         """
         Построить колонки, metadata fields и display summary field для check.
@@ -394,6 +437,7 @@ class DDGridColumnBuilder:
                 check_id=check.id,
                 specs=extraction.dd_grid_columns,
                 fields=fields,
+                localization_map=localization_map,
             )
             metadata_fields, display_summary_field = \
                 self._classify_non_column_fields(fields)
@@ -401,10 +445,10 @@ class DDGridColumnBuilder:
 
         # Приоритет 2: playbook-driven mode через display_in_grid
         if _has_explicit_display_grid_fields(fields):
-            return self._build_from_display_flags(check.id, fields)
+            return self._build_from_display_flags(check.id, fields, localization_map)
 
         # Приоритет 3: legacy auto-mapping
-        return self._auto_map_columns(check.id, fields)
+        return self._auto_map_columns(check.id, fields, localization_map)
 
     # ─── Explicit spec path ───────────────────────────────────────────
 
@@ -413,6 +457,7 @@ class DDGridColumnBuilder:
         check_id: str,
         specs: list[DDGridColumnSpec],
         fields: list[ExtractionFieldConfig],
+        localization_map: dict[str, str] | None = None,
     ) -> list[DDGridColumnRuntime]:
         """
         Построить колонки из явно заданного DDGridColumnSpec list.
@@ -435,17 +480,54 @@ class DDGridColumnBuilder:
                     canonical_values, explicit_labels = _normalize_allowed_values(
                         field_cfg.allowed_values
                     )
-                    enum_labels = _build_enum_labels(canonical_values, explicit_labels)
+                    enum_labels = _build_enum_labels(
+                        field_name=field_cfg.name,
+                        canonical_values=canonical_values,
+                        explicit_labels=explicit_labels,
+                        localization_map=localization_map,
+                    )
+
+            # Resolve localized fallback display
+            fallback_key = f"dd_grid.column.{spec.column_id.strip().lower()}.fallback"
+            system_fallback = (
+                localization_map.get("dd_grid.system.fallback_display")
+                if localization_map
+                else None
+            )
+            fallback_display = (
+                (localization_map.get(fallback_key) if localization_map else None)
+                or system_fallback
+                or spec.fallback_display
+                or _DEFAULT_FALLBACK_DISPLAY
+            )
+
+            # Resolve localized label
+            is_en = bool(
+                localization_map and localization_map.get("dd_grid.system.lang") == "en"
+            )
+            spec_label_en = getattr(spec, "label_en", None)
+            spec_label = (
+                spec_label_en.strip()
+                if is_en and isinstance(spec_label_en, str) and spec_label_en.strip()
+                else spec.label
+            )
+
+            label_key = f"dd_grid.column.{spec.column_id.strip().lower()}.label"
+            label = (
+                (localization_map.get(label_key) if localization_map else None)
+                or spec_label
+                or _humanize(spec.column_id)
+            )
 
             columns.append(
                 DDGridColumnRuntime(
                     column_id=f"{check_id}__{spec.column_id}",
-                    label=spec.label,
+                    label=label,
                     value_field=spec.value_field,
                     status_field=spec.status_field,
                     status_present_value=spec.status_present_value,
                     format=spec.format or "text",
-                    fallback_display=spec.fallback_display or _DEFAULT_FALLBACK_DISPLAY,
+                    fallback_display=fallback_display,
                     display_order=spec.display_order,
                     enum_labels=enum_labels,
                     unit=unit,
@@ -483,6 +565,7 @@ class DDGridColumnBuilder:
         self,
         check_id: str,
         fields: list[ExtractionFieldConfig],
+        localization_map: dict[str, str] | None = None,
     ) -> tuple[list[DDGridColumnRuntime], list[str], str | None]:
         """
         Build columns from explicit playbook display_in_grid flags.
@@ -549,7 +632,11 @@ class DDGridColumnBuilder:
 
         columns: list[DDGridColumnRuntime] = []
         for idx, cfg in visible_fields:
-            column = self._build_singleton_column(check_id=check_id, cfg=cfg)
+            column = self._build_singleton_column(
+                check_id=check_id,
+                cfg=cfg,
+                localization_map=localization_map,
+            )
 
             priority = getattr(cfg, "display_priority", None)
             display_order = (
@@ -566,6 +653,7 @@ class DDGridColumnBuilder:
         self,
         check_id: str,
         fields: list[ExtractionFieldConfig],
+        localization_map: dict[str, str] | None = None,
     ) -> tuple[list[DDGridColumnRuntime], list[str], str | None]:
         """
         Универсальный автомаппинг fields → columns.
@@ -627,6 +715,7 @@ class DDGridColumnBuilder:
                     prefix=prefix,
                     status_cfg=candidates_by_name[status_name],
                     value_cfg=candidates_by_name[details_name],
+                    localization_map=localization_map,
                 )
                 columns.append(column)
                 used_names.add(status_name)
@@ -636,7 +725,6 @@ class DDGridColumnBuilder:
                     candidate_positions[details_name],
                 )
                 emitted_positions.add(first_pos)
-                # Для стабильной сортировки — присваиваем display_order по first_pos
                 columns[-1] = self._with_display_order(
                     columns[-1], first_pos * _DISPLAY_ORDER_STEP
                 )
@@ -649,6 +737,7 @@ class DDGridColumnBuilder:
                     prefix=prefix,
                     status_cfg=candidates_by_name[status_name],
                     value_cfg=candidates_by_name[value_name],
+                    localization_map=localization_map,
                 )
                 columns.append(column)
                 used_names.add(status_name)
@@ -667,6 +756,7 @@ class DDGridColumnBuilder:
             column = self._build_standalone_status_column(
                 check_id=check_id,
                 status_cfg=candidates_by_name[status_name],
+                localization_map=localization_map,
             )
             columns.append(column)
             used_names.add(status_name)
@@ -681,7 +771,11 @@ class DDGridColumnBuilder:
             if cfg.name in used_names:
                 continue
 
-            column = self._build_singleton_column(check_id=check_id, cfg=cfg)
+            column = self._build_singleton_column(
+                check_id=check_id,
+                cfg=cfg,
+                localization_map=localization_map,
+            )
             columns.append(column)
             pos = candidate_positions[cfg.name]
             columns[-1] = self._with_display_order(
@@ -701,6 +795,7 @@ class DDGridColumnBuilder:
         prefix: str,
         status_cfg: ExtractionFieldConfig,
         value_cfg: ExtractionFieldConfig,
+        localization_map: dict[str, str] | None = None,
     ) -> DDGridColumnRuntime:
         """
         Правило A/B: paired status + details/value → одна text колонка.
@@ -713,7 +808,19 @@ class DDGridColumnBuilder:
         )
         status_present_value = _resolve_status_present_value(canonical_values)
 
-        label = _get_label(value_cfg, fallback_name=prefix)
+        label = _get_label(value_cfg, fallback_name=prefix, localization_map=localization_map)
+
+        system_fallback = (
+            localization_map.get("dd_grid.system.fallback_display")
+            if localization_map
+            else None
+        )
+        fallback_key = f"dd_grid.column.{prefix.strip().lower()}.fallback"
+        fallback_display = (
+            (localization_map.get(fallback_key) if localization_map else None)
+            or system_fallback
+            or _DEFAULT_FALLBACK_DISPLAY
+        )
 
         return DDGridColumnRuntime(
             column_id=f"{check_id}__{prefix}",
@@ -722,7 +829,7 @@ class DDGridColumnBuilder:
             status_field=status_cfg.name,
             status_present_value=status_present_value,
             format="text",
-            fallback_display=_DEFAULT_FALLBACK_DISPLAY,
+            fallback_display=fallback_display,
             display_order=0,  # будет перезаписан в auto_map_columns
             enum_labels={},
             unit=value_cfg.unit,
@@ -732,6 +839,7 @@ class DDGridColumnBuilder:
         self,
         check_id: str,
         status_cfg: ExtractionFieldConfig,
+        localization_map: dict[str, str] | None = None,
     ) -> DDGridColumnRuntime:
         """
         Правило C: одиночный <prefix>_status → presence_only колонка.
@@ -740,16 +848,33 @@ class DDGridColumnBuilder:
             status_cfg.allowed_values
         )
         status_present_value = _resolve_status_present_value(canonical_values)
-        enum_labels = _build_enum_labels(canonical_values, explicit_labels)
+        enum_labels = _build_enum_labels(
+            field_name=status_cfg.name,
+            canonical_values=canonical_values,
+            explicit_labels=explicit_labels,
+            localization_map=localization_map,
+        )
+
+        system_fallback = (
+            localization_map.get("dd_grid.system.fallback_display")
+            if localization_map
+            else None
+        )
+        fallback_key = f"dd_grid.column.{status_cfg.name.strip().lower()}.fallback"
+        fallback_display = (
+            (localization_map.get(fallback_key) if localization_map else None)
+            or system_fallback
+            or _DEFAULT_FALLBACK_DISPLAY
+        )
 
         return DDGridColumnRuntime(
             column_id=f"{check_id}__{status_cfg.name}",
-            label=_get_label(status_cfg),
+            label=_get_label(status_cfg, localization_map=localization_map),
             value_field=None,
             status_field=status_cfg.name,
             status_present_value=status_present_value,
             format="presence_only",
-            fallback_display=_DEFAULT_FALLBACK_DISPLAY,
+            fallback_display=fallback_display,
             display_order=0,
             enum_labels=enum_labels,
             unit=status_cfg.unit,
@@ -759,6 +884,7 @@ class DDGridColumnBuilder:
         self,
         check_id: str,
         cfg: ExtractionFieldConfig,
+        localization_map: dict[str, str] | None = None,
     ) -> DDGridColumnRuntime:
         """
         Правила D/E/F для одиночного поля.
@@ -772,17 +898,34 @@ class DDGridColumnBuilder:
         )
         canonical_set = set(canonical_values)
 
+        system_fallback = (
+            localization_map.get("dd_grid.system.fallback_display")
+            if localization_map
+            else None
+        )
+        fallback_key = f"dd_grid.column.{cfg.name.strip().lower()}.fallback"
+        fallback_display = (
+            (localization_map.get(fallback_key) if localization_map else None)
+            or system_fallback
+            or _DEFAULT_FALLBACK_DISPLAY
+        )
+
         # Правило D: yes/no
         if canonical_set >= _YES_NO_MARKERS:
-            enum_labels = _build_enum_labels(canonical_values, explicit_labels)
+            enum_labels = _build_enum_labels(
+                field_name=cfg.name,
+                canonical_values=canonical_values,
+                explicit_labels=explicit_labels,
+                localization_map=localization_map,
+            )
             return DDGridColumnRuntime(
                 column_id=f"{check_id}__{cfg.name}",
-                label=_get_label(cfg),
+                label=_get_label(cfg, localization_map=localization_map),
                 value_field=cfg.name,
                 status_field=None,
                 status_present_value=None,
                 format="yes_no",
-                fallback_display=_DEFAULT_FALLBACK_DISPLAY,
+                fallback_display=fallback_display,
                 display_order=0,
                 enum_labels=enum_labels,
                 unit=cfg.unit,
@@ -790,15 +933,20 @@ class DDGridColumnBuilder:
 
         # Правило E: enum
         if canonical_values:
-            enum_labels = _build_enum_labels(canonical_values, explicit_labels)
+            enum_labels = _build_enum_labels(
+                field_name=cfg.name,
+                canonical_values=canonical_values,
+                explicit_labels=explicit_labels,
+                localization_map=localization_map,
+            )
             return DDGridColumnRuntime(
                 column_id=f"{check_id}__{cfg.name}",
-                label=_get_label(cfg),
+                label=_get_label(cfg, localization_map=localization_map),
                 value_field=cfg.name,
                 status_field=None,
                 status_present_value=None,
                 format="enum",
-                fallback_display=_DEFAULT_FALLBACK_DISPLAY,
+                fallback_display=fallback_display,
                 display_order=0,
                 enum_labels=enum_labels,
                 unit=cfg.unit,
@@ -807,12 +955,12 @@ class DDGridColumnBuilder:
         # Правило F: одиночное text/number/date
         return DDGridColumnRuntime(
             column_id=f"{check_id}__{cfg.name}",
-            label=_get_label(cfg),
+            label=_get_label(cfg, localization_map=localization_map),
             value_field=cfg.name,
             status_field=None,
             status_present_value=None,
             format="text",
-            fallback_display=_DEFAULT_FALLBACK_DISPLAY,
+            fallback_display=fallback_display,
             display_order=0,
             enum_labels={},
             unit=cfg.unit,

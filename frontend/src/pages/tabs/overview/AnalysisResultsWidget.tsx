@@ -426,10 +426,16 @@ export const AnalysisResultsWidget: React.FC<
   AnalysisResultsWidgetProps
 > = ({ dealId, runId }) => {
   const { t, i18n } = useTranslation("projects");
+  const presentationLocale =
+    i18n.resolvedLanguage ?? i18n.language;
   const navigate = useNavigate();
   const location = useLocation();
   const { data: run, isLoading, isError } = useRun(runId, false);
-  const { data: ddGridResponse } = useDealReviewDdGridV1(dealId, runId);
+  const { data: ddGridResponse } = useDealReviewDdGridV1(
+    dealId,
+    runId,
+    presentationLocale,
+  );
 
   const ddGridModel = React.useMemo(
     () => selectDDGridV1DerivedModel(ddGridResponse ?? null),

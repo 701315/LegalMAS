@@ -263,8 +263,10 @@ def _family_keys_for_type(registry: Any, type_code: str) -> set[tuple[str, str]]
         result.add((f"parent:{parent}", ""))
     if category and subcategory:
         result.add((f"category:{category}", f"subcategory:{subcategory}"))
-    if category:
-        result.add((f"category:{category}", ""))
+    # Голая category удалена — склеивала 95% типов в реестре.
+    # Fallback на group для типов без явного parent:
+    if group and not parent:
+        result.add((f"group:{group}", ""))
 
     return result
 
@@ -302,8 +304,8 @@ def _family_keys_match(
         candidate_keys.add((f"parent:{parent}", ""))
     if category and subcategory:
         candidate_keys.add((f"category:{category}", f"subcategory:{subcategory}"))
-    if category:
-        candidate_keys.add((f"category:{category}", ""))
+    if group and not parent:
+        candidate_keys.add((f"group:{group}", ""))
 
     return bool(candidate_keys.intersection(family_keys))
 
@@ -584,6 +586,19 @@ def should_run_l4(
 
     # ── strong_single_no_conflict: сильный одиночный сигнал без конфликта ──
     minimal_margin: float = settings.CLASSIFICATION_SINGLE_SOURCE_MARGIN_MIN
+
+    l2_suppressed = bool(details.get("l2_strong_suppressed"))
+    l2_extra_dict = (
+        (details.get("L2") or {}).get("extra", {})
+        if isinstance(details.get("L2"), dict)
+        else {}
+    )
+    l2_has_ambiguity = (
+        l2_suppressed
+        or _safe_float(l2_extra_dict.get("ambiguity_penalty", 0.0), 0.0) > 0.01
+    )
+    l2_is_genuinely_strong = top_l2_conf >= strong_l2 and not l2_has_ambiguity
+
     if is_segment:
         strong_single_no_conflict = (
             top_l3_conf >= strong_l3
@@ -593,7 +608,7 @@ def should_run_l4(
         )
     else:
         strong_single_no_conflict = (
-            (top_l2_conf >= strong_l2 or top_l3_conf >= strong_l3)
+            (l2_is_genuinely_strong or top_l3_conf >= strong_l3)
             and not contradiction
             and not domain_conflict
             and voted_margin >= minimal_margin

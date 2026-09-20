@@ -105,6 +105,8 @@ from db.repositories.document_stage_execution_repo import DocumentStageExecution
 from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.dlq import DLQManager
+from mas_queue.outbox_tracker import mark_outbox_processed, mark_outbox_failed
+
 
 logger = get_logger(__name__)
 
@@ -240,6 +242,7 @@ class MASBaseTask(Task):
                     task_name=self.name,
                 )
 
+
     def on_success(
         self,
         retval: Any,
@@ -259,7 +262,18 @@ class MASBaseTask(Task):
         try:
             logger.info("Task completed", task_name=self.name, task_id=task_id)
 
-            # ── Prometheus pipeline metrics ───────────────────────────────
+            # ── Outbox status update ────────────────────────────────────
+            try:
+                run_async(mark_outbox_processed(self.name, kwargs))
+            except Exception as outbox_exc:
+                logger.warning(
+                    "Failed to update outbox status on success",
+                    error=str(outbox_exc),
+                    task_name=self.name,
+                )
+            # ─────────────────────────────────────────────────────────────
+
+            # ─ Prometheus pipeline metrics ───────────────────────────────
             try:
                 from ops.metrics import get_metrics  # noqa: PLC0415
                 _duration = time.perf_counter() - getattr(self, "_task_started_at", 0.0)
@@ -312,6 +326,8 @@ class MASBaseTask(Task):
         finally:
             clear_log_context()
 
+
+
     def on_failure(
         self,
         exc: BaseException,
@@ -332,6 +348,18 @@ class MASBaseTask(Task):
         _ = args
 
         try:
+            # ── Outbox status update ─────────────────────────────────────
+            try:
+                error_msg = f"{type(exc).__name__}: {str(exc)}"
+                run_async(mark_outbox_failed(self.name, kwargs, error_msg))
+            except Exception as outbox_exc:
+                logger.warning(
+                    "Failed to update outbox status on failure",
+                    error=str(outbox_exc),
+                    task_name=self.name,
+                )
+            # ─────────────────────────────────────────────────────────────
+
             # ── Prometheus pipeline metrics ───────────────────────────────
             try:
                 from ops.metrics import get_metrics  # noqa: PLC0415

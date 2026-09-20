@@ -613,9 +613,6 @@ compliance_rules: []
 
 checks_v8:
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 1: Предмета, срок и базовые условия
-  # ──────────────────────────────────────────────────────────────────────────
   - id: lease_subject_extraction
     name: "Предмет аренды, срок, арендная плата и целевое использование"
     description: >
@@ -623,7 +620,7 @@ checks_v8:
       срока аренды, размера арендной платы, целевого назначения использования
       и механизма передачи объекта. Результат предназначен для табличного
       сравнения нескольких договоров.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
@@ -692,7 +689,7 @@ checks_v8:
         7. Не оценивай серьёзность риска — только фиксируй, что есть в тексте.
         8. Юрист будет использовать результат в сравнительной таблице.
         9. В evidence включай только текст договора.
-        10. Верни только один JSON-объект без markdown.
+        10. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.без markdown.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -790,7 +787,7 @@ checks_v8:
         9. Если прямой цитаты нет — верни "not_defined" и корректный fallback
            по роду. Не додумывай условия.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -812,6 +809,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "rent_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1014,7 +1012,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 11 ключей, перечисленных в task.
@@ -1112,7 +1110,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения целевого назначения. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "use_purpose_value"
           type: "string"
@@ -1132,7 +1130,7 @@ checks_v8:
           allowed_values: ["act", "invoice", "registration", "other", "not_defined"]
           display_in_grid: false
           description: "Механизм передачи объекта. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "handover_mechanism_display"
           type: "string"
@@ -1149,16 +1147,13 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 2: Индивидуализация объекта аренды
-  # ──────────────────────────────────────────────────────────────────────────
   - id: lease_subject_identification_check
     name: "Индивидуализация объекта аренды: кадастр, адрес, площадь, идентификаторы"
     description: >
       Фактографическая проверка достаточности идентификации объекта аренды:
       кадастровый номер, адрес, площадь, этаж, номер помещения (для недвижимости);
       серийный номер, VIN, инвентарный номер (для оборудования/транспорта).
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
@@ -1222,14 +1217,14 @@ checks_v8:
            "Не установлены" (согласуй род и число с существительным поля).
         4. Если поле объективно неприменимо к типу объекта (например, серийный
            номер/VIN для объекта недвижимости, или кадастровый номер для
-           оборудования/транспорта) — возвращай статус "not_applicable" и текст
+           оборудования/транспорта) — возвращай статус "not_defined" и текст
            "Не применимо".
         5. Не путай кадастровый номер с иными номерами (инвентарный номер,
            номер договора, номер лицевого счёта) — они относятся к разным полям
            и не должны заменять друг друга.
         6. Не используй "None", "null" или пустые строки.
         7. В evidence включай только текст договора.
-        8. Верни только один JSON-объект без markdown.
+        8. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.без markdown.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1249,7 +1244,7 @@ checks_v8:
           "area_value": "150,5 кв.м",
           "floor_and_unit_status": "defined",
           "floor_and_unit_value": "2-й этаж, помещение III",
-          "equipment_identifiers_status": "not_applicable",
+          "equipment_identifiers_status": "not_defined",
           "equipment_identifiers_value": "Не применимо",
           "reference_document_status": "defined",
           "reference_document_value": "поэтажный план — Приложение № 1",
@@ -1268,13 +1263,13 @@ checks_v8:
 
         Ответ:
         {
-          "cadastral_number_status": "not_applicable",
+          "cadastral_number_status": "not_defined",
           "cadastral_number_value": "Не применимо",
-          "address_status": "not_applicable",
+          "address_status": "not_defined",
           "address_value": "Не применимо",
-          "area_status": "not_applicable",
+          "area_status": "not_defined",
           "area_value": "Не применимо",
-          "floor_and_unit_status": "not_applicable",
+          "floor_and_unit_status": "not_defined",
           "floor_and_unit_value": "Не применимо",
           "equipment_identifiers_status": "defined",
           "equipment_identifiers_value": "Серийный номер SN-88431, инвентарный номер 0012-ОС",
@@ -1302,7 +1297,7 @@ checks_v8:
           "area_value": "Не установлена",
           "floor_and_unit_status": "not_defined",
           "floor_and_unit_value": "Не установлены",
-          "equipment_identifiers_status": "not_applicable",
+          "equipment_identifiers_status": "not_defined",
           "equipment_identifiers_value": "Не применимо",
           "reference_document_status": "not_defined",
           "reference_document_value": "Не установлен",
@@ -1320,25 +1315,26 @@ checks_v8:
         6. Найди прямую цитату с серийным номером / VIN / инвентарным номером
            (если объект — оборудование, транспорт или тип неясен).
         7. Найди прямую цитату о поэтажном плане / техпаспорте.
-        8. Если поле неприменимо к определённому типу объекта — верни "not_applicable"
-           и "Не применимо". Если применимо, но данных нет — верни "not_defined"
-           и корректный fallback по роду/числу.
+        8. Если поле неприменимо к определённому типу объекта — верни status
+           "not_defined" и value "Не применимо". Если применимо, но данных нет —
+           верни status "not_defined" и корректный fallback по роду/числу
+           ("Не установлен" / "Не установлена" / "Не установлены").
         9. Не путай кадастровый номер, инвентарный номер, номер договора и номер
            лицевого счёта между собой.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
-          "cadastral_number_status": "<defined / not_defined / not_applicable>",
+          "cadastral_number_status": "<defined / not_defined>",
           "cadastral_number_value": "<текст или 'Не установлен' / 'Не применимо'>",
-          "address_status": "<defined / not_defined / not_applicable>",
+          "address_status": "<defined / not_defined>",
           "address_value": "<текст или 'Не установлен' / 'Не применимо'>",
-          "area_status": "<defined / not_defined / not_applicable>",
+          "area_status": "<defined / not_defined>",
           "area_value": "<текст или 'Не установлена' / 'Не применимо'>",
-          "floor_and_unit_status": "<defined / not_defined / not_applicable>",
+          "floor_and_unit_status": "<defined / not_defined>",
           "floor_and_unit_value": "<текст или 'Не установлены' / 'Не применимо'>",
-          "equipment_identifiers_status": "<defined / not_defined / not_applicable>",
+          "equipment_identifiers_status": "<defined / not_defined>",
           "equipment_identifiers_value": "<текст или 'Не установлены' / 'Не применимо'>",
           "reference_document_status": "<defined / not_defined>",
           "reference_document_value": "<текст или 'Не установлен'>",
@@ -1431,58 +1427,60 @@ checks_v8:
 
         1. cadastral_number_status:
            - "defined" — если кадастровый номер прямо указан;
-           - "not_applicable" — если объект явно не является недвижимостью
-             (оборудование, транспорт);
-           - "not_defined" — если объект недвижимость или тип неясен, но номер
-             прямо не указан.
+           - "not_defined" — если объект не является недвижимостью (оборудование,
+             транспорт) либо номер прямо не указан.
 
         2. cadastral_number_value:
            Краткое значение кадастрового номера.
            - если указан — верни номер в формате из текста, например: "77:06:0001001:123";
-           - если not_applicable — "Не применимо";
-           - если not_defined — "Не установлен".
+           - если объект не недвижимость — "Не применимо";
+           - если объект недвижимость, но номер не указан — "Не установлен".
 
-        3. address_status — аналогично cadastral_number_status, но для адреса объекта.
+        3. address_status:
+           - "defined" — если адрес прямо указан;
+           - "not_defined" — если объект не недвижимость либо адрес не указан.
 
         4. address_value:
            Краткий адрес объекта (без длинных сопутствующих формулировок).
            - если указан — например: "г. Москва, ул. Ленина, д. 10";
-           - если not_applicable — "Не применимо";
-           - если not_defined — "Не установлен".
+           - если объект не недвижимость — "Не применимо";
+           - если объект недвижимость, но адрес не указан — "Не установлен".
 
-        5. area_status — аналогично, но для площади объекта.
+        5. area_status:
+           - "defined" — если площадь прямо указана;
+           - "not_defined" — если объект не недвижимость либо площадь не указана.
 
         6. area_value:
            Краткое значение площади, например: "150,5 кв.м".
-           - если not_applicable — "Не применимо";
-           - если not_defined — "Не установлена".
+           - если объект не недвижимость — "Не применимо";
+           - если объект недвижимость, но площадь не указана — "Не установлена".
 
-        7. floor_and_unit_status — аналогично, но для этажа и/или номера помещения.
+        7. floor_and_unit_status:
+           - "defined" — если этаж и/или номер помещения прямо указаны;
+           - "not_defined" — если объект не недвижимость либо данные не указаны.
 
         8. floor_and_unit_value:
            Краткое значение этажа и/или номера помещения, например:
            "2-й этаж, помещение III".
-           - если not_applicable — "Не применимо";
-           - если not_defined — "Не установлены".
+           - если объект не недвижимость — "Не применимо";
+           - если объект недвижимость, но данные не указаны — "Не установлены".
 
         9. equipment_identifiers_status:
            - "defined" — если серийный номер, VIN или инвентарный номер прямо указаны;
-           - "not_applicable" — если объект явно является недвижимостью;
-           - "not_defined" — если объект оборудование/транспорт или тип неясен,
-             но идентификаторы прямо не указаны.
+           - "not_defined" — если объект является недвижимостью либо идентификаторы
+             не указаны.
 
         10. equipment_identifiers_value:
             Краткое перечисление найденных идентификаторов, например:
             "Серийный номер SN-88431, инвентарный номер 0012-ОС".
-            - если not_applicable — "Не применимо";
-            - если not_defined — "Не установлены".
+            - если объект недвижимость — "Не применимо";
+            - если объект оборудование/транспорт, но идентификаторы не указаны —
+              "Не установлены".
 
         11. reference_document_status:
             - "defined" — если есть прямая ссылка на поэтажный план, техпаспорт
               или иной идентифицирующий документ;
             - "not_defined" — если такой ссылки нет.
-            Это поле не имеет значения "not_applicable" — оно применимо к любому
-            типу объекта.
 
         12. reference_document_value:
             Краткая формулировка о таком документе, например:
@@ -1494,11 +1492,13 @@ checks_v8:
         - Используй только релевантные фрагменты контекста.
         - Определи тип объекта аренды до заполнения полей. Если тип объекта
           явно недвижимость — поля про серийный номер/VIN/инвентарный номер
-          получают статус "not_applicable". Если тип объекта явно оборудование
-          или транспорт — поля про кадастровый номер, адрес, площадь, этаж/помещение
-          получают статус "not_applicable".
-        - Если тип объекта неясен из контекста — не присваивай "not_applicable"
-          произвольно; используй "not_defined" для полей без прямого подтверждения.
+          получают статус "not_defined" и значение "Не применимо". Если тип
+          объекта явно оборудование или транспорт — поля про кадастровый номер,
+          адрес, площадь, этаж/помещение получают статус "not_defined" и
+          значение "Не применимо".
+        - Если тип объекта неясен из контекста — не присваивай "Не применимо"
+          произвольно; используй "not_defined" и fallback по роду/числу
+          ("Не установлен" / "Не установлена" / "Не установлены").
         - Не путай кадастровый номер с инвентарным номером, номером договора или
           номером лицевого счёта — это разные идентификаторы, относящиеся
           к разным полям.
@@ -1514,19 +1514,16 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 12 ключей, перечисленных в task.
         - Не добавляй поле evidence.
         - Не используй null, None или пустые строки.
-        - Для cadastral_number_status, address_status, area_status,
-          floor_and_unit_status, equipment_identifiers_status используй только:
-          "defined", "not_defined" или "not_applicable".
-        - Для reference_document_status используй только: "defined" или "not_defined".
-        - Для текстовых полей при статусе "not_applicable" используй только:
+        - Для всех status-полей используй только: "defined" или "not_defined".
+        - Для текстовых полей при неприменимости к типу объекта используй только:
           "Не применимо".
-        - Для текстовых полей при статусе "not_defined" используй только:
+        - Для текстовых полей при отсутствии данных (поле применимо) используй только:
           cadastral_number_value → "Не установлен"
           address_value → "Не установлен"
           area_value → "Не установлена"
@@ -1538,10 +1535,10 @@ checks_v8:
         - name: "cadastral_number_status"
           type: "string"
           presentation: "signal"
-          allowed_values: ["defined", "not_defined", "not_applicable"]
+          allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания кадастрового номера. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "cadastral_number_value"
           type: "string"
@@ -1557,7 +1554,7 @@ checks_v8:
         - name: "address_status"
           type: "string"
           presentation: "signal"
-          allowed_values: ["defined", "not_defined", "not_applicable"]
+          allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания адреса. Внутреннее enum-поле."
           required: true
@@ -1576,10 +1573,10 @@ checks_v8:
         - name: "area_status"
           type: "string"
           presentation: "signal"
-          allowed_values: ["defined", "not_defined", "not_applicable"]
+          allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания площади. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "area_value"
           type: "string"
@@ -1595,10 +1592,10 @@ checks_v8:
         - name: "floor_and_unit_status"
           type: "string"
           presentation: "signal"
-          allowed_values: ["defined", "not_defined", "not_applicable"]
+          allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания этажа и номера помещения. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "floor_and_unit_value"
           type: "string"
@@ -1615,10 +1612,10 @@ checks_v8:
         - name: "equipment_identifiers_status"
           type: "string"
           presentation: "signal"
-          allowed_values: ["defined", "not_defined", "not_applicable"]
+          allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания серийного номера / VIN / инвентарного номера. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "equipment_identifiers_value"
           type: "string"
@@ -1638,13 +1635,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус ссылки на поэтажный план, техпаспорт или иной документ. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "reference_document_value"
+          label: "Реквизиты документа-основания"
           type: "string"
           presentation: "fact"
           display_in_grid: false
-          label: "Идентифицирующий документ"
           description: >
             Ссылка на поэтажный план, техпаспорт или иной идентифицирующий документ,
             например: "поэтажный план — Приложение № 1".
@@ -1653,16 +1650,13 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 3: Арендная плата
-  # ──────────────────────────────────────────────────────────────────────────
   - id: rent_payment_and_indexation_check
     name: "Арендная плата: фиксированная и переменная части, индексация, обеспечительный платёж"
     description: >
       Фактографическая проверка структуры арендной платы: фиксированная часть,
       переменная часть (оплата коммунальных услуг по счетам/показаниям приборов
       учёта), механизм индексации, обеспечительный платёж и последствия просрочки.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -1739,7 +1733,7 @@ checks_v8:
            оплату коммунальных услуг по счётчикам/счетам.
         6. Не используй "None", "null", "not_defined" или пустые строки в текстовых полях.
         7. В evidence включай только текст договора.
-        8. Верни только один JSON-объект.
+        8. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -1865,7 +1859,7 @@ checks_v8:
            "Не удалось определить", а в status используй "not_defined".
         9. Если прямой цитаты нет — верни "not_defined" и корректный fallback.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -1883,7 +1877,7 @@ checks_v8:
           "late_payment_details": "<текст или 'Не установлены' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 10
       temperature: 0.0
       max_tokens: 750
 
@@ -1893,7 +1887,7 @@ checks_v8:
         - "legal_unit"
         - "section"
       required_kind: "legal_unit"
-      retrieval_query: "арендная плата фиксированная постоянная часть переменная часть индексация коммунальные услуги оплата счетчики обеспечительный платёж пени неустойка просрочка оплаты"
+      retrieval_query: "арендная плата фиксированная переменная коммунальные услуги счетчики индексация обеспечительный платёж пени неустойка просрочка"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1925,8 +1919,8 @@ checks_v8:
         boost: 0.18
         scope: segment
       retrieval_profile: "rent_check"
-      context_k: 6
-      max_chunks: 8
+      context_k: 10
+      max_chunks: 12
       rerank: true
 
     enrichment_hints:
@@ -2070,7 +2064,7 @@ checks_v8:
           приборов учёта, тарифам управляющей компании или прайс-листу — считай
           это определённым механизмом расчёта ("defined"), а не отсутствием
           регулирования.
-        - utilities_allocation и utilities_allocation_display относятся только
+        - utilities_allocation and utilities_allocation_display относятся только
           к оплате коммунальных услуг (электричество, вода, отопление) по
           счётчикам/счетам. Не относи к этим полям общие эксплуатационные
           расходы на содержание объекта (охрана, клининг, обслуживание
@@ -2089,7 +2083,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 12 ключей, перечисленных в task.
@@ -2135,7 +2129,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания переменной части арендной платы. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "variable_rent_details"
           type: "string"
@@ -2156,7 +2150,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания механизма индексации. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "indexation_details"
           type: "string"
@@ -2179,7 +2173,7 @@ checks_v8:
             Кто несёт расходы по оплате коммунальных услуг по счётчикам/счетам.
             Внутреннее enum-поле. Не включает общие эксплуатационные расходы
             на содержание объекта.
-          required: false
+          required: true
 
         - name: "utilities_allocation_display"
           type: "string"
@@ -2201,7 +2195,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус наличия обеспечительного платежа. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "security_deposit_details"
           type: "string"
@@ -2221,7 +2215,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания последствий просрочки. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "late_payment_details"
           type: "string"
@@ -2236,16 +2230,13 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 4: Передача объекта аренды
-  # ──────────────────────────────────────────────────────────────────────────
   - id: handover_condition_and_fitness_check
     name: "Передача объекта аренды: акт, состояние, пригодность и недостатки"
     description: >
       Фактографическая проверка наличия в договоре аренды условий о передаче
       объекта: акт приёма-передачи, описание технического состояния, гарантия
       пригодности для согласованного использования, раскрытие недостатков.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -2314,7 +2305,7 @@ checks_v8:
            - "Не удалось определить" — если данные противоречивы или неоднозначны.
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -2409,7 +2400,7 @@ checks_v8:
            "Не удалось определить".
         8. Если прямой цитаты нет — верни "not_defined". Не додумывай условия.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -2425,7 +2416,7 @@ checks_v8:
           "defect_claim_procedure_details": "<текст или 'Не установлен' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 5
+      context_k: 6
       temperature: 0.0
       max_tokens: 700
 
@@ -2463,8 +2454,8 @@ checks_v8:
         preferred_range: [0.10, 0.50]
         boost: 0.18
         scope: segment
-      context_k: 5
-      max_chunks: 7
+      context_k: 6
+      max_chunks: 8
       rerank: true
 
     enrichment_hints:
@@ -2604,7 +2595,7 @@ checks_v8:
         - Не смешивай условия передачи объекта с арендной платой, ремонтом,
           субарендой и расторжением.
         - Если в разных фрагментах указаны противоречащие друг другу условия
-          (например, наличие и отсутствие акта) и конфликт нельзя разрешить
+          (например, наличие и отсутствие акта) и кнфликт нельзя разрешить
           по тексту:
           * status-поля → "not_defined";
           * текстовые поля → "Не удалось определить".
@@ -2615,7 +2606,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 10 ключей, перечисленных в task.
@@ -2658,7 +2649,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус описания состояния при передаче. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "condition_description_details"
           type: "string"
@@ -2678,7 +2669,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус гарантии пригодности для использования. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "fitness_warranty_details"
           type: "string"
@@ -2698,13 +2689,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус раскрытия недостатков арендодателем при передаче. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "defect_disclosure_details"
+          label: "Сведения о выявленных дефектах"
           type: "string"
           presentation: "fact"
           display_in_grid: false
-          label: "Раскрытие недостатков"
           description: >
             Формулировка об обязанности арендодателя заранее раскрыть известные
             недостатки до подписания акта.
@@ -2717,7 +2708,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус порядка фиксации недостатков и претензий арендатором. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "defect_claim_procedure_details"
           type: "string"
@@ -2734,9 +2725,6 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 5: Ремонт, содержание
-  # ──────────────────────────────────────────────────────────────────────────
   - id: repairs_and_operational_costs_check
     name: "Ремонт, содержание имущества и эксплуатационные расходы"
     description: >
@@ -2744,7 +2732,7 @@ checks_v8:
       эксплуатационных расходов на содержание объекта (охрана, клининг,
       обслуживание инженерных систем и т.п.), технического обслуживания
       и обязанностей по содержанию объекта аренды.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -2813,7 +2801,7 @@ checks_v8:
            - "Не удалось определить" — если данные противоречивы или неоднозначны.
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -2913,7 +2901,7 @@ checks_v8:
         5. Найди прямую цитату о техническом обслуживании.
         6. Если прямой цитаты нет — верни "not_defined".
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -3124,7 +3112,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 14 ключей, перечисленных в task.
@@ -3157,14 +3145,13 @@ checks_v8:
           allowed_values: ["landlord", "tenant", "mixed", "not_defined"]
           display_in_grid: false
           description: "Кто несёт обязанность по капитальному ремонту. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "capital_repairs_allocation_display"
+          label: "Расходы на капитальный ремонт"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 1
-          label: "Капитальный ремонт: сторона"
+          display_in_grid: false
           description: >
             Человекочитаемое описание того, кто несёт обязанность по капитальному
             ремонту: "Несёт Арендодатель" / "Несёт Арендатор" /
@@ -3176,7 +3163,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Капитальный ремонт"
           description: >
             Краткое описание условий капитального ремонта, например:
@@ -3190,7 +3177,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус распределения обязанности по текущему ремонту. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "current_repairs_allocation"
           type: "string"
@@ -3198,14 +3185,13 @@ checks_v8:
           allowed_values: ["landlord", "tenant", "mixed", "not_defined"]
           display_in_grid: false
           description: "Кто несёт обязанность по текущему ремонту. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "current_repairs_allocation_display"
+          label: "Расходы на текущий ремонт"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 3
-          label: "Текущий ремонт: сторона"
+          display_in_grid: false
           description: >
             Человекочитаемое описание того, кто несёт обязанность по текущему
             ремонту: "Несёт Арендодатель" / "Несёт Арендатор" /
@@ -3217,7 +3203,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 2
           label: "Текущий ремонт"
           description: >
             Краткое описание условий текущего ремонта, например:
@@ -3231,7 +3217,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус распределения эксплуатационных расходов на содержание объекта. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "operational_costs_allocation"
           type: "string"
@@ -3239,13 +3225,13 @@ checks_v8:
           allowed_values: ["landlord", "tenant", "mixed", "not_defined"]
           display_in_grid: false
           description: "Кто несёт эксплуатационные расходы на содержание объекта. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "operational_costs_allocation_display"
+          label: "Распределение эксплуатационных расходов"
           type: "string"
           presentation: "fact"
           display_in_grid: false
-          label: "Эксплуатационные расходы: сторона"
           description: >
             Человекочитаемое описание того, кто несёт эксплуатационные расходы
             на содержание объекта (охрана, клининг, обслуживание систем).
@@ -3253,10 +3239,10 @@ checks_v8:
           required: false
 
         - name: "operational_costs_details"
+          label: "Сведения об эксплуатационных расходах"
           type: "string"
           presentation: "fact"
           display_in_grid: false
-          label: "Эксплуатационные расходы на содержание"
           description: >
             Описание эксплуатационных расходов на содержание объекта (охрана,
             клининг, обслуживание инженерных систем, вывоз мусора, страхование),
@@ -3270,13 +3256,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус обязанности по техобслуживанию. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "maintenance_details"
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 3
           label: "Техническое обслуживание"
           description: >
             Краткое описание обязанности по техническому обслуживанию объекта,
@@ -3286,15 +3272,12 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 6: Улучшения
-  # ──────────────────────────────────────────────────────────────────────────
   - id: improvements_and_sublease_check
     name: "Улучшения, перепланировка и субаренда"
     description: >
       Фактографическая проверка порядка согласования улучшений и перепланировки,
       судьбы отделимых и неотделимых улучшений, условий субаренды и перенайма.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -3341,10 +3324,10 @@ checks_v8:
         [ЗАДАЧА]
         Найди в тексте договора:
         1. Есть ли режим согласования улучшений и перепланировки.
-        2. Как определена судьба неотделимых улучшений.
-        3. Предусмотрена ли компенсация стоимости улучшений.
-        4. Разрешена, запрещена или ограничена субаренда.
-        5. Есть ли условие о перенайме.
+        2. Как определена судьба неотделимых улучшений и предусмотрена ли
+           компенсация их стоимости.
+        3. Разрешена, запрещена или ограничена субаренда.
+        4. Есть ли условие о перенайме.
 
         [ПРАВИЛА]
         1. Используй только текст документа.
@@ -3356,9 +3339,12 @@ checks_v8:
         4. Не путай отделимые и неотделимые улучшения — относи цитату к
            неотделимым только если вид явно назван или однозначно вытекает
            из текста ("неотделимые", "капитальные вложения в объект" и т.п.).
-        5. Не используй "None", "null", "not_defined" или пустые строки.
-        6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        5. В поле inseparable_improvements_details агрегируй и судьбу улучшений,
+           и порядок компенсации в одну краткую формулировку (например:
+           "Переходят Арендодателю без компенсации").
+        6. Не используй "None", "null", "not_defined" или пустые строки.
+        7. В evidence включай только текст договора.
+        8. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3439,15 +3425,15 @@ checks_v8:
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Найди прямую цитату о согласовании улучшений / перепланировки.
-        2. Найди прямую цитату о судьбе неотделимых улучшений — убедись, что
-           вид улучшений (неотделимые) явно назван или однозначно вытекает
-           из текста, а не додуман.
-        3. Найди прямую цитату о компенсации улучшений.
-        4. Найди прямую цитату о субаренде.
-        5. Найди прямую цитату о перенайме.
-        6. Если прямой цитаты нет — верни "not_defined". Не додумывай условия.
+        2. Найди прямую цитату о судьбе неотделимых улучшений и компенсации —
+           убедись, что вид улучшений (неотделимые) явно назван или однозначно
+           вытекает из текста. В inseparable_improvements_details включи
+           и судьбу, и компенсацию одной фразой.
+        3. Найди прямую цитату о субаренде.
+        4. Найди прямую цитату о перенайме.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай условия.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -3465,7 +3451,7 @@ checks_v8:
           "assignment_details": "<текст или 'Не установлен' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 8
       temperature: 0.0
       max_tokens: 750
 
@@ -3502,8 +3488,8 @@ checks_v8:
         preferred_range: [0.30, 0.75]
         boost: 0.15
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -3567,9 +3553,11 @@ checks_v8:
              улучшения без уточнения вида (отделимые/неотделимые).
 
         4. inseparable_improvements_details:
-           Краткое user-facing описание судьбы неотделимых улучшений.
+           Краткое user-facing описание судьбы неотделимых улучшений
+           И порядка их компенсации в одной фразе.
            - если указана, верни краткое summary, например:
-             "Переходят Арендодателю без компенсации";
+             "Переходят Арендодателю без компенсации",
+             "Переходят Арендодателю, компенсируются в размере остаточной стоимости";
            - если данных нет — "Не установлена";
            - если данные противоречивы или их нельзя надёжно определить —
              "Не удалось определить".
@@ -3630,6 +3618,10 @@ checks_v8:
           Не относи общую формулировку "улучшения" без уточнения вида
           к inseparable_improvements — только если текст явно указывает
           на неотделимый характер улучшений.
+        - В поле inseparable_improvements_details агрегируй и судьбу улучшений,
+          и порядок компенсации одной краткой фразой. Поле
+          improvements_compensation_details заполняй отдельно для полноты
+          данных, но в Grid юрист увидит именно inseparable_improvements_details.
         - Не смешивай режим субаренды (передача объекта третьему лицу во
           временное пользование с сохранением арендатора стороной договора)
           с перенаймом (замена арендатора в договоре).
@@ -3646,7 +3638,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 12 ключей, перечисленных в task.
@@ -3672,7 +3664,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус регулирования согласования улучшений. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "improvements_consent_details"
           type: "string"
@@ -3693,17 +3685,18 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения судьбы неотделимых улучшений. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "inseparable_improvements_details"
           type: "string"
           presentation: "fact"
           display_in_grid: true
           display_priority: 2
-          label: "Неотделимые улучшения"
+          label: "Неотделимые улучшения и компенсация"
           description: >
-            Краткое описание судьбы неотделимых улучшений, например:
-            "Переходят Арендодателю без компенсации".
+            Краткое описание судьбы неотделимых улучшений и порядка компенсации
+            в одной фразе, например: "Переходят Арендодателю без компенсации",
+            "Переходят Арендодателю, компенсируются в размере остаточной стоимости".
             Fallback: "Не установлена" / "Не удалось определить".
           required: false
 
@@ -3713,14 +3706,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус компенсации стоимости улучшений. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "improvements_compensation_details"
+          label: "Сведения о компенсации за улучшения"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 3
-          label: "Компенсация улучшений"
+          display_in_grid: false
           description: >
             Краткое описание условий компенсации стоимости улучшений, например:
             "Без компенсации", "Компенсируется в размере остаточной стоимости".
@@ -3733,7 +3725,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус регулирования субаренды. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "sublease_regime"
           type: "string"
@@ -3741,13 +3733,13 @@ checks_v8:
           allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_defined"]
           display_in_grid: false
           description: "Режим субаренды. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "sublease_regime_display"
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
           label: "Режим субаренды"
           description: >
             Человекочитаемое описание режима субаренды: "Запрещена" /
@@ -3756,11 +3748,10 @@ checks_v8:
           required: false
 
         - name: "sublease_details"
+          label: "Условия субаренды"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 5
-          label: "Субаренда"
+          display_in_grid: false
           description: >
             Краткое описание условий субаренды, например: "Субаренда допускается
             с предварительного согласия Арендодателя".
@@ -3773,13 +3764,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус регулирования перенайма. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "assignment_details"
+          label: "Условия переуступки прав аренды"
           type: "string"
           presentation: "fact"
           display_in_grid: false
-          label: "Перенаём"
           description: >
             Краткое описание условий перенайма.
             Fallback: "Не установлен" / "Не удалось определить".
@@ -3787,9 +3778,6 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 7: Досрочное прекращение аренды
-  # ──────────────────────────────────────────────────────────────────────────
   - id: termination_and_return_check
     name: "Досрочное прекращение аренды, возврат объекта и обеспечительный платёж"
     description: >
@@ -3797,7 +3785,7 @@ checks_v8:
       с разбивкой по ролям (арендатор / арендодатель), срока уведомления,
       порядка возврата объекта аренды и механизма возврата / удержания
       обеспечительного платежа при прекращении договора.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -3869,7 +3857,7 @@ checks_v8:
            - "Не удалось определить" — если данные противоречивы или неоднозначны.
         4. Не используй "None", "null", "not_defined" или пустые строки.
         5. В evidence включай только текст договора.
-        6. Верни только один JSON-объект.
+        6. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3958,7 +3946,7 @@ checks_v8:
            платежа при прекращении — не сумму депозита, а именно механизм.
         7. Если прямой цитаты нет — верни "not_defined".
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -3974,7 +3962,7 @@ checks_v8:
           "deposit_refund_details": "<текст или 'Не установлен' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 8
       temperature: 0.0
       max_tokens: 750
 
@@ -4011,11 +3999,11 @@ checks_v8:
         - "означает"
         - "в целях настоящего"
       position_bias:
-        preferred_range: [0.50, 0.90]
+        preferred_range: [0.25, 0.90]
         boost: 0.18
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -4153,7 +4141,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 10 ключей, перечисленных в task.
@@ -4197,7 +4185,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус права арендодателя на досрочное прекращение. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "landlord_termination_details"
           type: "string"
@@ -4218,7 +4206,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания срока уведомления. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "notice_period_details"
           type: "string"
@@ -4238,7 +4226,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус описания порядка возврата объекта. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "return_procedure_details"
           type: "string"
@@ -4258,7 +4246,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус описания механизма возврата / удержания обеспечительного платежа. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "deposit_refund_details"
           type: "string"
@@ -4275,9 +4263,6 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 8: Преимущественное право
-  # ──────────────────────────────────────────────────────────────────────────
   - id: preemptive_right_and_renewal_check
     name: "Преимущественное право арендатора на заключение договора на новый срок"
     description: >
@@ -4286,7 +4271,7 @@ checks_v8:
       отказа арендатора от этого права. Условия автопродления, пролонгации
       и срок уведомления о продлении покрываются глобальной проверкой срока
       договора и не дублируются здесь.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -4345,7 +4330,7 @@ checks_v8:
            - "Не удалось определить" — если данные противоречивы или неоднозначны.
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -4413,7 +4398,7 @@ checks_v8:
            такой цитаты.
         4. Если прямой цитаты нет — верни "not_defined".
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -4560,7 +4545,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 4 ключа, перечисленных в task.
@@ -4602,7 +4587,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус отказа от преимущественного права. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "waiver_of_preemptive_right_details"
           type: "string"
@@ -4619,16 +4604,13 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 9: Доступ арендодателя
-  # ──────────────────────────────────────────────────────────────────────────
   - id: landlord_access_and_inspection_check
     name: "Доступ арендодателя в помещение и порядок осмотра"
     description: >
       Фактографическая проверка условий доступа арендодателя в арендуемое
       помещение: регламентация доступа, предварительное уведомление,
       присутствие арендатора, экстренный доступ.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "medium"
     severity_if_pass: "pass"
@@ -4693,7 +4675,7 @@ checks_v8:
            - "Не удалось определить" — если данные противоречивы или неоднозначны.
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -4735,7 +4717,7 @@ checks_v8:
           "tenant_presence_status": "not_defined",
           "tenant_presence_details": "Не установлено",
           "emergency_access_status": "not_defined",
-          "emergency_access_details": "Не установлено",
+          "emergency_access_details": "Не установлен",
           "evidence": []
         }
 
@@ -4753,7 +4735,7 @@ checks_v8:
           "tenant_presence_status": "not_defined",
           "tenant_presence_details": "Не установлено",
           "emergency_access_status": "not_defined",
-          "emergency_access_details": "Не установлено",
+          "emergency_access_details": "Не установлен",
           "evidence": []
         }
 
@@ -4769,7 +4751,7 @@ checks_v8:
            зафиксируй каждое в соответствующем поле раздельно.
         6. Если прямой цитаты нет — верни "not_defined".
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -4780,7 +4762,7 @@ checks_v8:
           "tenant_presence_status": "<defined / not_defined>",
           "tenant_presence_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
           "emergency_access_status": "<defined / not_defined>",
-          "emergency_access_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
+          "emergency_access_details": "<текст или 'Не установлен' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
@@ -4913,7 +4895,7 @@ checks_v8:
            Краткое user-facing описание условий экстренного доступа.
            - если указано, верни краткое summary, например:
              "В случае аварии — право на немедленный доступ";
-           - если данных нет — "Не установлено";
+           - если данных нет — "Не установлен";
            - если данные противоречивы или их нельзя надёжно определить —
              "Не удалось определить".
         </task>
@@ -4933,7 +4915,7 @@ checks_v8:
           (плановый / аварийный) без противоречия — фиксируй каждое условие
           в соответствующем поле.
         - Если в разных фрагментах указаны противоречащие друг другу условия
-          одного и того же параметра и конфликт нельзя разрешить по тексту:
+          одного и того же параметра и кнфликт нельзя разрешить по тексту:
           * status-поля → "not_defined";
           * текстовые поля → "Не удалось определить".
         - Не используй пустые строки.
@@ -4943,7 +4925,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 8 ключей, перечисленных в task.
@@ -4954,7 +4936,7 @@ checks_v8:
           access_regulated_details → "Не установлен"
           prior_notice_details → "Не установлено"
           tenant_presence_details → "Не установлено"
-          emergency_access_details → "Не установлено"
+          emergency_access_details → "Не установлен"
         - Для текстовых полей при неоднозначности или конфликте используй только:
           "Не удалось определить".
         </output_expectations>
@@ -4985,7 +4967,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус требования предварительного уведомления. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "prior_notice_details"
           type: "string"
@@ -5005,7 +4987,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус требования присутствия арендатора. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "tenant_presence_details"
           type: "string"
@@ -5025,7 +5007,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус условия об экстренном доступе. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "emergency_access_details"
           type: "string"
@@ -5036,21 +5018,18 @@ checks_v8:
           description: >
             Краткое описание условий экстренного/аварийного доступа, например:
             "В случае аварии — право на немедленный доступ".
-            Fallback: "Не установлено" / "Не удалось определить".
+            Fallback: "Не установлен" / "Не удалось определить".
           required: false
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 10: Стороны договора аренды
-  # ──────────────────────────────────────────────────────────────────────────
   - id: lease_parties_and_authority
     name: "Стороны договора аренды: арендодатель, арендатор, полномочия, корпоративное одобрение"
     description: >
       Фактографическая проверка наличия в договоре аренды идентификации
       арендодателя и арендатора, их реквизитов, подписантов, оснований
       полномочий и указания на корпоративное одобрение.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
@@ -5116,7 +5095,7 @@ checks_v8:
            - "Не удалось определить" — если данные противоречивы или неоднозначны.
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -5191,7 +5170,7 @@ checks_v8:
         4. Найди прямую цитату о корпоративном одобрении.
         5. Если прямой цитаты нет — верни "not_defined".
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -5215,7 +5194,7 @@ checks_v8:
           "corporate_approval_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 8
       temperature: 0.0
       max_tokens: 900
 
@@ -5248,11 +5227,11 @@ checks_v8:
         - "означает"
         - "в целях настоящего"
       position_bias:
-        preferred_range: [0.0, 0.20]
+        preferred_range: [0.0, 0.98]
         boost: 0.25
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -5405,7 +5384,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 18 ключей, перечисленных в task.
@@ -5448,7 +5427,7 @@ checks_v8:
             Наименование/ФИО и реквизиты Арендодателя, например:
             "ООО «Альфа», ИНН 7700000001, ОГРН 1027700000001".
             Fallback: "Не установлен" / "Не удалось определить".
-          required: true
+          required: false
 
         - name: "landlord_type"
           type: "string"
@@ -5456,14 +5435,13 @@ checks_v8:
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
           display_in_grid: false
           description: "Тип Арендодателя. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "landlord_type_display"
+          label: "Статус арендодателя"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 2
-          label: "Арендодатель: тип"
+          display_in_grid: false
           description: >
             Человекочитаемое описание типа Арендодателя: "Юридическое лицо" /
             "Физическое лицо" / "Индивидуальный предприниматель".
@@ -5476,7 +5454,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания подписанта Арендодателя. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "landlord_signatory_value"
           type: "string"
@@ -5496,14 +5474,13 @@ checks_v8:
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           display_in_grid: false
           description: "Основание полномочий подписанта Арендодателя. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "landlord_signatory_basis_display"
+          label: "Основание полномочий подписанта арендодателя"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 4
-          label: "Арендодатель: основание полномочий"
+          display_in_grid: false
           description: >
             Человекочитаемое описание основания полномочий подписанта
             Арендодателя: "На основании Устава" / "На основании доверенности" /
@@ -5523,13 +5500,13 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 2
           label: "Арендатор"
           description: >
             Наименование/ФИО и реквизиты Арендатора, например:
             "ООО «Бета», ИНН 7700000002".
             Fallback: "Не установлен" / "Не удалось определить".
-          required: true
+          required: false
 
         - name: "tenant_type"
           type: "string"
@@ -5537,14 +5514,13 @@ checks_v8:
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
           display_in_grid: false
           description: "Тип Арендатора. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "tenant_type_display"
+          label: "Статус арендатора"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 6
-          label: "Арендатор: тип"
+          display_in_grid: false
           description: >
             Человекочитаемое описание типа Арендатора: "Юридическое лицо" /
             "Физическое лицо" / "Индивидуальный предприниматель".
@@ -5557,13 +5533,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания подписанта Арендатора. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "tenant_signatory_value"
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 7
+          display_priority: 4
           label: "Арендатор: подписант"
           description: >
             Подписант от Арендатора, например: "Директор Петров П.П.".
@@ -5576,14 +5552,13 @@ checks_v8:
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           display_in_grid: false
           description: "Основание полномочий подписанта Арендатора. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "tenant_signatory_basis_display"
+          label: "Основание полномочий подписанта арендатора"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 8
-          label: "Арендатор: основание полномочий"
+          display_in_grid: false
           description: >
             Человекочитаемое описание основания полномочий подписанта
             Арендатора: "На основании Устава" / "На основании доверенности" /
@@ -5597,13 +5572,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания на корпоративное одобрение. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "corporate_approval_details"
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 9
+          display_priority: 5
           label: "Корпоративное одобрение"
           description: >
             Формулировка о корпоративном одобрении или его ненужности,
@@ -5613,16 +5588,13 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 11: Право собственности арендодателя
-  # ──────────────────────────────────────────────────────────────────────────
   - id: landlord_title_check
     name: "Право собственности арендодателя на объект аренды (ст. 608 ГК РФ)"
     description: >
       Фактографическая проверка наличия в договоре подтверждения права
       собственности арендодателя на объект аренды, ссылки на правоустанавливающие
       документы и ЕГРН, а также указания на отсутствие обременений.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
@@ -5694,7 +5666,7 @@ checks_v8:
           только из прямой формулировки.
         6. Не используй "None", "null", "not_defined" или пустые строки.
         7. В evidence включай только текст договора.
-        8. Верни только один JSON-объект.
+        8. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -5784,7 +5756,7 @@ checks_v8:
            договора.
         5. Если прямой цитаты нет — верни "not_defined". Не додумывай заверения.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -5802,7 +5774,7 @@ checks_v8:
           "no_third_party_rights_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 5
+      context_k: 6
       temperature: 0.0
       max_tokens: 750
 
@@ -5841,8 +5813,8 @@ checks_v8:
         preferred_range: [0.0, 0.35]
         boost: 0.20
         scope: segment
-      context_k: 5
-      max_chunks: 7
+      context_k: 6
+      max_chunks: 8
       rerank: true
 
     enrichment_hints:
@@ -5974,7 +5946,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 12 ключей, перечисленных в task.
@@ -6019,13 +5991,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус ссылки на правоустанавливающие документы. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "title_documents_details"
+          label: "Сведения о правоустанавливающих документах"
           type: "string"
           presentation: "fact"
           display_in_grid: false
-          label: "Правоустанавливающие документы"
           description: >
             Ссылка на правоустанавливающие документы, например: "Договор
             купли-продажи от 15.01.2020".
@@ -6038,13 +6010,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус ссылки на ЕГРН. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "egrn_reference_details"
+          label: "Реквизиты выписки из ЕГРН"
           type: "string"
           presentation: "fact"
           display_in_grid: false
-          label: "ЕГРН"
           description: >
             Ссылка на ЕГРН или выписку из ЕГРН, например: "Запись в ЕГРН
             № 77:06:0001001:123-77/001/2020-1".
@@ -6057,7 +6029,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус заверения об отсутствии залога. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "no_pledge_details"
           type: "string"
@@ -6077,7 +6049,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус заверения об отсутствии ареста. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "no_arrest_details"
           type: "string"
@@ -6097,7 +6069,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус заверения об отсутствии прав третьих лиц. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "no_third_party_rights_details"
           type: "string"
@@ -6113,16 +6085,13 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 12: Страхование объекта аренды
-  # ──────────────────────────────────────────────────────────────────────────
   - id: lease_insurance_check
     name: "Страхование объекта аренды"
     description: >
       Фактографическая проверка наличия условий страхования:
       кто страхует, что страхуется, выгодоприобретатель,
       минимальная сумма покрытия, срок представления полиса.
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -6185,7 +6154,7 @@ checks_v8:
            - "Не удалось определить" — если данные противоречивы или неоднозначны.
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -6265,7 +6234,7 @@ checks_v8:
         5. Если прямой цитаты нет — верни "not_defined". Не выводи обязанность
            страхования из общей практики или типа объекта.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -6438,7 +6407,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 9 ключей, перечисленных в task.
@@ -6470,7 +6439,7 @@ checks_v8:
           allowed_values: ["landlord", "tenant", "both", "not_defined"]
           display_in_grid: false
           description: "Кто обязан застраховать. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "insurance_obligor_display"
           type: "string"
@@ -6491,7 +6460,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания объёма страхования. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "insurance_scope_details"
           type: "string"
@@ -6512,7 +6481,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания выгодоприобретателя. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "beneficiary_details"
           type: "string"
@@ -6531,7 +6500,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания минимальной страховой суммы. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "minimum_coverage_details"
           type: "string"
@@ -6547,9 +6516,6 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 13: Ответственность сторон
-  # ──────────────────────────────────────────────────────────────────────────
   - id: lease_liability_and_penalties_check
     name: "Ответственность сторон, неустойки и ограничение ответственности"
     description: >
@@ -6625,7 +6591,7 @@ checks_v8:
            аренды — такие общие штрафы не заполняют эти поля.
         6. Не используй "None", "null", "not_defined" или пустые строки.
         7. В evidence включай только текст договора.
-        8. Верни только один JSON-объект.
+        8. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -6701,7 +6667,7 @@ checks_v8:
            третьим лицам в связи с использованием объекта.
         6. Если прямой цитаты нет — верни "not_defined".
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -6717,7 +6683,7 @@ checks_v8:
           "third_party_liability_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 8
       temperature: 0.0
       max_tokens: 800
 
@@ -6727,7 +6693,7 @@ checks_v8:
         - "legal_unit"
         - "section"
       required_kind: "legal_unit"
-      retrieval_query: "неустойка штраф пени ответственность ограничение ответственности возмещение убытков ущерб третьим лицам нецелевое использование перепланировка порча имущества"
+      retrieval_query: "неустойка штраф пени ответственность ограничение ответственности кап возмещение убытков ущерб третьим лицам залив пожар нецелевое использование перепланировка порча имущества"
       retrieval_profile: "liability_cap_check"
       preferred_unit_types:
         - liability_provision
@@ -6755,8 +6721,8 @@ checks_v8:
         preferred_range: [0.50, 0.90]
         boost: 0.15
         scope: segment
-      context_k: 6
-      max_chunks: 8
+      context_k: 8
+      max_chunks: 10
       rerank: true
 
     enrichment_hints:
@@ -6886,7 +6852,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 10 ключей, перечисленных в task.
@@ -6912,11 +6878,10 @@ checks_v8:
           required: true
 
         - name: "late_payment_penalty_details"
+          label: "Штраф за просрочку платежа"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 1
-          label: "Неустойка за просрочку оплаты"
+          display_in_grid: false
           description: >
             Краткое описание неустойки за просрочку оплаты арендной платы,
             например: "Пени 0,1% в день".
@@ -6929,13 +6894,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус штрафа за lease-specific нарушение арендатора. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "tenant_breach_penalty_details"
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Штрафы арендатора"
           description: >
             Краткое описание штрафа за специфичное для аренды нарушение
@@ -6951,13 +6916,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус штрафа за lease-specific нарушение арендодателя. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "landlord_breach_penalty_details"
+          label: "Штраф за нарушения арендодателя"
           type: "string"
           presentation: "fact"
           display_in_grid: false
-          label: "Штрафы арендодателя"
           description: >
             Краткое описание штрафа за специфичное для аренды нарушение
             арендодателя (например, непредоставление доступа).
@@ -6970,13 +6935,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус ограничения ответственности. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "liability_cap_details"
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
           label: "Ограничение ответственности"
           description: >
             Краткое описание ограничения (капа) ответственности сторон,
@@ -6991,13 +6956,13 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус распределения ответственности за ущерб третьим лицам. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "third_party_liability_details"
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
           label: "Ответственность перед третьими лицами"
           description: >
             Краткое описание распределения ответственности за ущерб третьим
@@ -7007,9 +6972,6 @@ checks_v8:
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 14: Государственная регистрация
-  # ──────────────────────────────────────────────────────────────────────────
   - id: lease_registration_check
     name: "Государственная регистрация договора аренды (ст. 651 ГК РФ)"
     description: >
@@ -7070,12 +7032,13 @@ checks_v8:
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Для текстовых полей используй:
-           - "Не установлена" / "Не установлено" — если условие прямо не указано
-             (согласуй род с существительным поля);
+           - "Не установлена" / "Не установлено" / "Не установлены" — если
+             условие прямо не указано (согласуй род и число с существительным
+             поля);
            - "Не удалось определить" — если данные противоречивы или неоднозначны.
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -7107,7 +7070,7 @@ checks_v8:
           "registration_applicant_status": "not_defined",
           "registration_applicant_details": "Не установлено",
           "registration_costs_status": "not_defined",
-          "registration_costs_details": "Не установлено",
+          "registration_costs_details": "Не установлены",
           "evidence": []
         }
 
@@ -7123,7 +7086,7 @@ checks_v8:
           "registration_applicant_status": "not_defined",
           "registration_applicant_details": "Не установлено",
           "registration_costs_status": "not_defined",
-          "registration_costs_details": "Не установлено",
+          "registration_costs_details": "Не установлены",
           "evidence": []
         }
 
@@ -7135,7 +7098,7 @@ checks_v8:
         3. Найди прямую цитату о расходах на регистрацию.
         4. Если прямой цитаты нет — верни "not_defined".
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -7144,7 +7107,7 @@ checks_v8:
           "registration_applicant_status": "<defined / not_defined>",
           "registration_applicant_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
           "registration_costs_status": "<defined / not_defined>",
-          "registration_costs_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
+          "registration_costs_details": "<текст или 'Не установлено' / 'Не установлены' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
@@ -7265,7 +7228,7 @@ checks_v8:
            Краткое описание распределения расходов на регистрацию.
            - если указано, верни краткое summary, например: "Расходы стороны
              несут поровну";
-           - если данных нет — "Не установлено";
+           - если данных нет — "Не установлены";
            - если данные противоречивы или их нельзя надёжно определить —
              "Не удалось определить".
         </task>
@@ -7293,7 +7256,7 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 6 ключей, перечисленных в task.
@@ -7303,7 +7266,7 @@ checks_v8:
         - Для текстовых полей при отсутствии данных используй только:
           registration_required_details → "Не установлена"
           registration_applicant_details → "Не установлено"
-          registration_costs_details → "Не установлено"
+          registration_costs_details → "Не установлены"
         - Для текстовых полей при неоднозначности или конфликте используй только:
           "Не удалось определить".
         </output_expectations>
@@ -7334,7 +7297,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания подающей стороны. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "registration_applicant_details"
           type: "string"
@@ -7354,7 +7317,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус распределения расходов на регистрацию. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "registration_costs_details"
           type: "string"
@@ -7365,14 +7328,11 @@ checks_v8:
           description: >
             Краткое описание распределения расходов на регистрацию/госпошлину,
             например: "Расходы стороны несут поровну".
-            Fallback: "Не установлено" / "Не удалось определить".
+            Fallback: "Не установлены" / "Не удалось определить".
           required: false
 
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 15: Риск случайной гибели или повреждения объекта аренды
-  # ──────────────────────────────────────────────────────────────────────────
   - id: risk_of_accidental_loss_check
     name: "Риск случайной гибели или повреждения объекта аренды (ст. 211, 669 ГК РФ)"
     description: >
@@ -7381,7 +7341,7 @@ checks_v8:
       момента перехода этого риска между сторонами. Не относится к состоянию
       объекта на момент передачи (см. отдельный check) и не заменяет проверку
       наличия страхования (см. отдельный check).
-    triggers: ~
+    triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -7450,7 +7410,7 @@ checks_v8:
            - "Не удалось определить" — если данные противоречивы или неоднозначны.
         5. Не используй "None", "null", "not_defined" или пустые строки.
         6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -7463,7 +7423,7 @@ checks_v8:
         Ответ:
         {
           "risk_allocation_status": "defined",
-          "risk_allocation": "tenant",
+          "risk_allocation_code": "tenant",
           "risk_allocation_display": "Несёт Арендатор (с момента передачи)",
           "risk_transfer_moment_status": "defined",
           "risk_transfer_moment_details": "С момента подписания акта приёма-передачи объекта",
@@ -7482,7 +7442,7 @@ checks_v8:
         Ответ:
         {
           "risk_allocation_status": "not_defined",
-          "risk_allocation": "not_defined",
+          "risk_allocation_code": "not_defined",
           "risk_allocation_display": "Не установлено",
           "risk_transfer_moment_status": "not_defined",
           "risk_transfer_moment_details": "Не установлено",
@@ -7497,7 +7457,7 @@ checks_v8:
         Ответ:
         {
           "risk_allocation_status": "not_defined",
-          "risk_allocation": "not_defined",
+          "risk_allocation_code": "not_defined",
           "risk_allocation_display": "Не установлено",
           "risk_transfer_moment_status": "not_defined",
           "risk_transfer_moment_details": "Не установлено",
@@ -7512,18 +7472,18 @@ checks_v8:
         3. Если прямой цитаты нет — верни "not_defined". Не выводи из общей
            нормы ГК и не додумывай условия.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
 
         [ФОРМАТ ОТВЕТА]
         {
           "risk_allocation_status": "<defined / not_defined>",
-          "risk_allocation": "<landlord / tenant / not_defined>",
+          "risk_allocation_code": "<landlord / tenant / not_defined>",
           "risk_allocation_display": "<текст или 'Не установлено'>",
           "risk_transfer_moment_status": "<defined / not_defined>",
           "risk_transfer_moment_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k": 5
+      context_k: 5
       temperature: 0.0
       max_tokens: 650
 
@@ -7534,7 +7494,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "риск случайной гибели риск случайного повреждения риск утраты имущества переходит к арендатору несёт риск момент передачи акт приёма-передачи"
-      retrieval_profile: "risk_allocation_check"
+      retrieval_profile: "insurance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -7613,7 +7573,7 @@ checks_v8:
            - "not_defined" — если прямо не распределён. Не выводи из общей
              диспозитивной нормы ГК (по умолчанию риск несёт собственник).
 
-        2. risk_allocation:
+        2. risk_allocation_code:
            - "landlord" — риск несёт арендодатель;
            - "tenant" — риск несёт арендатор;
            - "not_defined" — не определено.
@@ -7665,14 +7625,14 @@ checks_v8:
         </context_rules>
 
         <output_expectations>
-        - Верни ровно один JSON-объект.
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
         - Не используй markdown fences.
         - Не добавляй пояснения до или после JSON.
         - Верни ровно 5 ключей, перечисленных в task.
         - Не добавляй поле evidence.
         - Не используй null, None или пустые строки.
         - Для status-полей используй только: "defined" или "not_defined".
-        - Для risk_allocation используй только: "landlord", "tenant",
+        - Для risk_allocation_code используй только: "landlord", "tenant",
           "not_defined".
         - Для текстовых полей при отсутствии данных используй только:
           risk_allocation_display → "Не установлено"
@@ -7689,13 +7649,13 @@ checks_v8:
           description: "Статус распределения риска случайной гибели/повреждения. Внутреннее enum-поле."
           required: true
 
-        - name: "risk_allocation"
+        - name: "risk_allocation_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["landlord", "tenant", "not_defined"]
           display_in_grid: false
           description: "Кто несёт риск случайной гибели/повреждения объекта. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "risk_allocation_display"
           type: "string"
@@ -7716,7 +7676,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания момента перехода риска. Внутреннее enum-поле."
-          required: false
+          required: true
 
         - name: "risk_transfer_moment_details"
           type: "string"
@@ -7733,7 +7693,751 @@ checks_v8:
 
       store_payload: true
       
-            
+  - id: lease_reinstatement_obligations_check
+    name: "Восстановительные работы при выезде (возврат в исходное состояние)"
+    description: >
+      Фактографическая проверка наличия в договоре обязанности арендатора
+      вернуть помещение в исходное состояние при выезде: демонтаж перегородок,
+      восстановление отделки, заделка отверстий, вывоз мусора.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "восстановительные работы"
+        - "исходное состояние"
+        - "демонтаж перегородок"
+        - "восстановление отделки"
+        - "возврат в первоначальное состояние"
+        - "заделка отверстий"
+        - "вывоз мусора"
+        - "восстановление при выезде"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)восстанов[а-я]*\\s+состояни"
+        - "(?i)демонтаж|восстановлен"
+        - "(?i)первоначальн(ое|ого)\\s+состояни"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды по Главе 34 ГК РФ.
+        Проверяется только один вопрос: обязанность арендатора выполнить
+        восстановительные работы при выезде из помещения.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Не путай это с обычным возвратом объекта по акту (Check 7) —
+          здесь речь о дополнительных работах: демонтаж, восстановление
+          отделки, заделка отверстий после перепланировки.
+        - Молчание договора о восстановлении — это "not_defined", а не
+          автоматическое отсутствие обязанности.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли обязанность вернуть помещение в исходное состояние.
+        2. Какие конкретно работы требуются (демонтаж, восстановление и т.п.).
+        3. Кто несёт расходы на восстановительные работы.
+        4. Есть ли срок выполнения восстановительных работ.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если условие не указано прямо — возвращай "not_defined".
+        4. Для текстовых полей используй:
+           - "Не установлена" / "Не установлено" — если условие прямо не указано;
+           - "Не удалось определить" — если данные противоречивы.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
+        6. В evidence включай только текст договора.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — восстановление урегулировано:
+        Фрагмент:
+        "При прекращении договора Арендатор обязан за свой счёт демонтировать
+        все возведённые перегородки и восстановить отделку помещения в
+        исходное состояние в течение 10 рабочих дней."
+
+        Ответ:
+        {
+          "reinstatement_obligation_status": "defined",
+          "reinstatement_obligation_details": "Обязан вернуть помещение в исходное состояние",
+          "reinstatement_scope_status": "defined",
+          "reinstatement_scope_details": "Демонтаж перегородок, восстановление отделки",
+          "reinstatement_costs_status": "defined",
+          "reinstatement_costs_details": "За счёт Арендатора",
+          "reinstatement_deadline_status": "defined",
+          "reinstatement_deadline_details": "В течение 10 рабочих дней",
+          "evidence": [{"clause_ref": "п. 7.3", "quote": "При прекращении договора Арендатор обязан за свой счёт демонтировать все возведённые перегородки и восстановить отделку помещения в исходное состояние в течение 10 рабочих дней."}]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Арендатор возвращает помещение по акту приёма-передачи."
+
+        Ответ:
+        {
+          "reinstatement_obligation_status": "not_defined",
+          "reinstatement_obligation_details": "Не установлено",
+          "reinstatement_scope_status": "not_defined",
+          "reinstatement_scope_details": "Не установлено",
+          "reinstatement_costs_status": "not_defined",
+          "reinstatement_costs_details": "Не установлено",
+          "reinstatement_deadline_status": "not_defined",
+          "reinstatement_deadline_details": "Не установлено",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об обязанности восстановления.
+        2. Найди прямую цитату о конкретных работах (демонтаж, отделка).
+        3. Найди прямую цитату о распределении расходов.
+        4. Найди прямую цитату о сроке выполнения работ.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "reinstatement_obligation_status": "<defined / not_defined>",
+          "reinstatement_obligation_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
+          "reinstatement_scope_status": "<defined / not_defined>",
+          "reinstatement_scope_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
+          "reinstatement_costs_status": "<defined / not_defined>",
+          "reinstatement_costs_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
+          "reinstatement_deadline_status": "<defined / not_defined>",
+          "reinstatement_deadline_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 750
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "восстановительные работы исходное состояние демонтаж перегородок восстановление отделки возврат в первоначальное состояние заделка отверстий вывоз мусора при выезде"
+      retrieval_profile: "repair_maintenance_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "арендная плата"
+        - "индексация"
+        - "капитальный ремонт"
+        - "текущий ремонт"
+        - "субаренда"
+        - "улучшения"
+        - "расторжение"
+        - "страхование"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.50, 0.95]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+
+      llm_max_tokens: 1100
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды обязанность
+        арендатора выполнить восстановительные работы при выезде: демонтаж,
+        восстановление отделки, расходы и сроки.
+        Не анализируй арендную плату, ремонт или субаренду.
+        Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. reinstatement_obligation_status:
+           - "defined" — если обязанность вернуть помещение в исходное
+             состояние прямо предусмотрена;
+           - "not_defined" — если прямо не предусмотрена.
+
+        2. reinstatement_obligation_details:
+           Краткое user-facing описание обязанности восстановления.
+           - если указано, верни краткое summary, например: "Обязан вернуть
+             помещение в исходное состояние";
+           - если данных нет — "Не установлено";
+           - если данные противоречивы — "Не удалось определить".
+
+        3. reinstatement_scope_status:
+           - "defined" — если конкретные работы (демонтаж, отделка) прямо
+             указаны;
+           - "not_defined" — если прямо не указаны.
+
+        4. reinstatement_scope_details:
+           Краткое описание конкретных восстановительных работ.
+           - если указаны, верни краткое summary, например: "Демонтаж
+             перегородок, восстановление отделки";
+           - если данных нет — "Не установлено";
+           - если данные противоречивы — "Не удалось определить".
+
+        5. reinstatement_costs_status:
+           - "defined" — если распределение расходов на восстановление
+             прямо указано;
+           - "not_defined" — если прямо не указано.
+
+        6. reinstatement_costs_details:
+           Краткое описание распределения расходов.
+           - если указано, верни краткое summary, например: "За счёт
+             Арендатора";
+           - если данных нет — "Не установлено";
+           - если данные противоречивы — "Не удалось определить".
+
+        7. reinstatement_deadline_status:
+           - "defined" — если срок выполнения работ прямо указан;
+           - "not_defined" — если прямо не указан.
+
+        8. reinstatement_deadline_details:
+           Краткое описание срока выполнения восстановительных работ.
+           - если указан, верни краткое summary, например: "В течение
+             10 рабочих дней";
+           - если данных нет — "Не установлено";
+           - если данные противоречивы — "Не удалось определить".
+        </task>
+
+        <context_rules>
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы ГК или предположения вместо текста договора.
+        - Не путай восстановительные работы с обычным возвратом объекта
+          по акту (это тема Check 7) — здесь речь о демонтаже и восстановлении
+          отделки после перепланировки.
+        - Не смешивай тему настоящего check с ремонтом, арендной платой
+          и субарендой.
+        - Если в разных фрагментах указаны противоречащие друг другу данные
+          и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        - Даже для полей, помеченных в схеме как required: false,
+          всегда возвращай ключ с корректным fallback-значением.
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Не используй markdown fences.
+        - Не добавляй пояснения до или после JSON.
+        - Верни ровно 8 ключей, перечисленных в task.
+        - Не добавляй поле evidence.
+        - Не используй null, None или пустые строки.
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для текстовых полей при отсутствии данных используй только:
+          reinstatement_obligation_details → "Не установлено"
+          reinstatement_scope_details → "Не установлено"
+          reinstatement_costs_details → "Не установлено"
+          reinstatement_deadline_details → "Не установлено"
+        - Для текстовых полей при неоднозначности или конфликте используй только:
+          "Не удалось определить".
+        </output_expectations>
+      fields:
+        - name: "reinstatement_obligation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус обязанности восстановления. Внутреннее enum-поле."
+          required: true
+
+        - name: "reinstatement_obligation_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Восстановление при выезде"
+          description: >
+            Краткое описание обязанности вернуть помещение в исходное
+            состояние, например: "Обязан вернуть помещение в исходное
+            состояние".
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: false
+
+        - name: "reinstatement_scope_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус указания конкретных работ. Внутреннее enum-поле."
+          required: true
+
+        - name: "reinstatement_scope_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Объём восстановительных работ"
+          description: >
+            Краткое описание конкретных работ, например: "Демонтаж
+            перегородок, восстановление отделки".
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: false
+
+        - name: "reinstatement_costs_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус распределения расходов. Внутреннее enum-поле."
+          required: true
+
+        - name: "reinstatement_costs_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Расходы на восстановление"
+          description: >
+            Краткое описание распределения расходов, например: "За счёт
+            Арендатора".
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: false
+
+        - name: "reinstatement_deadline_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус указания срока работ. Внутреннее enum-поле."
+          required: true
+
+        - name: "reinstatement_deadline_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Срок восстановления"
+          description: >
+            Краткое описание срока выполнения работ, например: "В течение
+            10 рабочих дней".
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: false
+
+      store_payload: true
+
+  - id: lease_rent_free_period_check
+    name: "Арендные каникулы и льготные периоды (rent-free period)"
+    description: >
+      Фактографическая проверка наличия в договоре арендных каникул:
+      продолжительность льготного периода, условия предоставления,
+      действия при досрочном расторжении в период каникул.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "арендные каникулы"
+        - "льготный период"
+        - "rent-free"
+        - "безвозмездное пользование"
+        - "освобождение от арендной платы"
+        - "период на благоустройство"
+        - "fit-out period"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арендн(ые|ых)\\s+каникул"
+        - "(?i)льготн(ый|ого)\\s+период"
+        - "(?i)освобожд[а-я]*\\s+от\\s+плат"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды по Главе 34 ГК РФ.
+        Проверяется только один вопрос: наличие и условия арендных каникул
+        (льготного периода без арендной платы).
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Арендные каникулы — это период, когда арендатор освобождается
+          от уплаты арендной платы полностью или частично (часто на время
+          fit-out / ремонта помещения перед открытием).
+        - Не путай с обычной отсрочкой платежа — каникулы это системное
+          условие договора, а не разовая уступка.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли условие об арендных каникулах / льготном периоде.
+        2. Продолжительность льготного периода.
+        3. Условия предоставления каникул (например, только на fit-out).
+        4. Последствия досрочного расторжения в период каникул
+           (возврат льгот, перерасчёт).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если условие не указано прямо — возвращай "not_defined".
+        4. Для текстовых полей используй:
+           - "Не установлен" / "Не установлена" — если условие прямо не указано;
+           - "Не удалось определить" — если данные противоречивы.
+        5. Не используй "None", "null", "not_defined" или пустые строки.
+        6. В evidence включай только текст договора.
+        7. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — каникулы урегулированы:
+        Фрагмент:
+        "Арендатору предоставляются арендные каникулы на 3 месяца с даты
+        подписания акта приёма-передачи для проведения отделочных работ.
+        При досрочном расторжении в период каникул Арендатор обязан
+        оплатить арендную плату за весь период каникул."
+
+        Ответ:
+        {
+          "rent_free_period_status": "defined",
+          "rent_free_period_details": "Предоставляются арендные каникулы на 3 месяца",
+          "rent_free_duration_status": "defined",
+          "rent_free_duration_details": "3 месяца с даты подписания акта приёма-передачи",
+          "rent_free_conditions_status": "defined",
+          "rent_free_conditions_details": "Для проведения отделочных работ (fit-out)",
+          "rent_free_clawback_status": "defined",
+          "rent_free_clawback_details": "При досрочном расторжении — оплата за весь период каникул",
+          "evidence": [{"clause_ref": "п. 3.5", "quote": "Арендатору предоставляются арендные каникулы на 3 месяца с даты подписания акта приёма-передачи для проведения отделочных работ."}]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Арендная плата уплачивается ежемесячно до 10 числа."
+
+        Ответ:
+        {
+          "rent_free_period_status": "not_defined",
+          "rent_free_period_details": "Не установлено",
+          "rent_free_duration_status": "not_defined",
+          "rent_free_duration_details": "Не установлен",
+          "rent_free_conditions_status": "not_defined",
+          "rent_free_conditions_details": "Не установлено",
+          "rent_free_clawback_status": "not_defined",
+          "rent_free_clawback_details": "Не установлено",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об арендных каникулах / льготном периоде.
+        2. Найди прямую цитату о продолжительности каникул.
+        3. Найди прямую цитату об условиях предоставления.
+        4. Найди прямую цитату о последствиях досрочного расторжения
+           (clawback).
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "rent_free_period_status": "<defined / not_defined>",
+          "rent_free_period_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
+          "rent_free_duration_status": "<defined / not_defined>",
+          "rent_free_duration_details": "<текст или 'Не установлен' / 'Не удалось определить'>",
+          "rent_free_conditions_status": "<defined / not_defined>",
+          "rent_free_conditions_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
+          "rent_free_clawback_status": "<defined / not_defined>",
+          "rent_free_clawback_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 750
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "арендные каникулы льготный период rent-free освобождение от арендной платы период на благоустройство fit-out период без оплаты"
+      retrieval_profile: "rent_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "неустойка"
+        - "штраф"
+        - "ремонт"
+        - "субаренда"
+        - "улучшения"
+        - "расторжение"
+        - "страхование"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.50]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: false
+
+      llm_max_tokens: 1100
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды условия
+        арендных каникул: наличие, продолжительность, условия предоставления,
+        последствия досрочного расторжения (clawback).
+        Не анализируй арендную плату, ремонт или субаренду.
+        Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. rent_free_period_status:
+           - "defined" — если арендные каникулы / льготный период прямо
+             предусмотрены;
+           - "not_defined" — если прямо не предусмотрены.
+
+        2. rent_free_period_details:
+           Краткое user-facing описание условия о каникулах.
+           - если указано, верни краткое summary, например: "Предоставляются
+             арендные каникулы на 3 месяца";
+           - если данных нет — "Не установлено";
+           - если данные противоречивы — "Не удалось определить".
+
+        3. rent_free_duration_status:
+           - "defined" — если продолжительность каникул прямо указана;
+           - "not_defined" — если прямо не указана.
+
+        4. rent_free_duration_details:
+           Краткое описание продолжительности льготного периода.
+           - если указана, верни краткое summary, например: "3 месяца с даты
+             подписания акта приёма-передачи";
+           - если данных нет — "Не установлен";
+           - если данные противоречивы — "Не удалось определить".
+
+        5. rent_free_conditions_status:
+           - "defined" — если условия предоставления каникул прямо указаны;
+           - "not_defined" — если прямо не указаны.
+
+        6. rent_free_conditions_details:
+           Краткое описание условий предоставления каникул.
+           - если указаны, верни краткое summary, например: "Для проведения
+             отделочных работ (fit-out)";
+           - если данных нет — "Не установлено";
+           - если данные противоречивы — "Не удалось определить".
+
+        7. rent_free_clawback_status:
+           - "defined" — если последствия досрочного расторжения в период
+             каникул прямо указаны (возврат льгот, перерасчёт);
+           - "not_defined" — если прямо не указаны.
+
+        8. rent_free_clawback_details:
+           Краткое описание последствий досрочного расторжения.
+           - если указаны, верни краткое summary, например: "При досрочном
+             расторжении — оплата за весь период каникул";
+           - если данных нет — "Не установлено";
+           - если данные противоречивы — "Не удалось определить".
+        </task>
+
+        <context_rules>
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы ГК или предположения вместо текста договора.
+        - Арендные каникулы — это период освобождения от арендной платы
+          (полностью или частично), а не обычная отсрочка платежа.
+        - Не смешивай тему настоящего check с арендной платой, ремонтом
+          и субарендой.
+        - Если в разных фрагментах указаны противоречащие друг другу данные
+          и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        - Даже для полей, помеченных в схеме как required: false,
+          всегда возвращай ключ с корректным fallback-значением.
+        </context_rules>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Не используй markdown fences.
+        - Не добавляй пояснения до или после JSON.
+        - Верни ровно 8 ключей, перечисленных в task.
+        - Не добавляй поле evidence.
+        - Не используй null, None или пустые строки.
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для текстовых полей при отсутствии данных используй только:
+          rent_free_period_details → "Не установлено"
+          rent_free_duration_details → "Не установлен"
+          rent_free_conditions_details → "Не установлено"
+          rent_free_clawback_details → "Не установлено"
+        - Для текстовых полей при неоднозначности или конфликте используй только:
+          "Не удалось определить".
+        </output_expectations>
+      fields:
+        - name: "rent_free_period_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус условия об арендных каникулах. Внутреннее enum-поле."
+          required: true
+
+        - name: "rent_free_period_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Арендные каникулы"
+          description: >
+            Краткое описание условия о льготном периоде, например:
+            "Предоставляются арендные каникулы на 3 месяца".
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: false
+
+        - name: "rent_free_duration_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус указания продолжительности каникул. Внутреннее enum-поле."
+          required: true
+
+        - name: "rent_free_duration_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Продолжительность каникул"
+          description: >
+            Краткое описание продолжительности льготного периода, например:
+            "3 месяца с даты подписания акта приёма-передачи".
+            Fallback: "Не установлен" / "Не удалось определить".
+          required: false
+
+        - name: "rent_free_conditions_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус указания условий предоставления. Внутреннее enum-поле."
+          required: true
+
+        - name: "rent_free_conditions_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Условия предоставления"
+          description: >
+            Краткое описание условий предоставления каникул, например:
+            "Для проведения отделочных работ (fit-out)".
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: false
+
+        - name: "rent_free_clawback_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус указания последствий досрочного расторжения. Внутреннее enum-поле."
+          required: true
+
+        - name: "rent_free_clawback_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Возврат льгот при расторжении"
+          description: >
+            Краткое описание последствий досрочного расторжения в период
+            каникул, например: "При досрочном расторжении — оплата за весь
+            период каникул".
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: false
+
+      store_payload: true
+
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

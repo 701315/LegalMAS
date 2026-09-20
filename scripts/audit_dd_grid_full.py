@@ -302,14 +302,82 @@ def choose_suggested_name(fm: FieldMeta, existing: set[str]) -> tuple[str, str]:
 # Prompt-fields sync
 # ───────────────────────────────────────────────────────────────────────
 
+# PATCHED: field extraction v2
+_ENUM_NOISE = frozenset({
+    "yes", "no", "not_defined", "unclear", "mixed", "present", "missing",
+    "not_specified", "not_applicable", "not_mentioned", "not_required",
+    "required", "optional", "true", "false", "defined", "partial",
+    "general", "prohibited", "specified", "excluded", "preserved",
+    "restricted", "other", "shared", "none", "unknown", "absent",
+    "applicable", "included", "cash", "gost", "tu", "na", "n_a",
+})
+
+
+def _looks_like_field(name: str) -> bool:
+    """Отсеиваем короткие токены и enum-значения."""
+    if name in _ENUM_NOISE:
+        return False
+    if "_" not in name and len(name) < 6:
+        return False
+    return True
+
+
+# PATCHED: field extraction v6
+_ENUM_NOISE = frozenset({
+    "yes", "no", "not_defined", "unclear", "mixed", "present", "missing",
+    "not_specified", "not_applicable", "not_mentioned", "not_required",
+    "required", "optional", "true", "false", "defined", "partial",
+    "general", "prohibited", "specified", "excluded", "preserved",
+    "restricted", "other", "shared", "none", "unknown", "absent",
+    "applicable", "included", "cash", "gost", "tu", "na", "n_a",
+    "allowed", "allowed_with_consent", "explicitly_none", "consent_present",
+    "consent_required", "not_married_confirmed", "contract_specified",
+    "percent_per_day", "fixed_amount", "third_party", "specific",
+    "limited", "movable", "real_estate", "listed", "perpetual", "notarized",
+    "detailed", "custom", "market", "receiver", "guarantee", "fallback",
+    "restriction_scope", "full_ban",
+})
+
+_METADATA = frozenset({
+    "evidence", "clause_ref", "quote", "page", "reason", "explanation", "notes",
+})
+
+
+def _looks_like_field(name: str) -> bool:
+    if name in _ENUM_NOISE or name in _METADATA:
+        return False
+    if name.endswith("_display"):
+        return False
+    if "_" not in name:
+        return False
+    if name and name[0].isupper():
+        return False
+    return True
+
+
 def extract_field_names_from_prompt(prompt_text: str | None) -> set[str]:
     if not prompt_text:
         return set()
     names: set[str] = set()
-    for match in re.finditer(r'^\s*\d+\.\s+([a-z][a-z0-9_]*)\b', prompt_text, re.MULTILINE):
-        names.add(match.group(1))
-    for match in re.finditer(r'"([a-z][a-z0-9_]*)":\s', prompt_text):
-        names.add(match.group(1))
+    CHARS = r"[a-zA-Z][a-zA-Z0-9_]*"  # PATCHED: field extraction v7
+    # 1. `N. field_name` или `N.field_name` (пробел после точки — опционален)
+    for m in re.finditer(rf"^\s*\d+\.\s*({CHARS})\b", prompt_text, re.MULTILINE):
+        names.add(m.group(1))
+    # 2. `N. field_a / field_b` — второй через /
+    for m in re.finditer(rf"^\s*\d+\.\s*{CHARS}\s*/\s*({CHARS})\b",
+                         prompt_text, re.MULTILINE):
+        names.add(m.group(1))
+    # 3. `- field_name:` / `- field_name —` / `- field_name =`
+    for m in re.finditer(rf"^\s*-\s*({CHARS})\s*[:=—]", prompt_text, re.MULTILINE):
+        names.add(m.group(1))
+    # 4. `"field_name":` (JSON-пример) — с любым регистром внутри
+    for m in re.finditer(rf'"([a-zA-Z][a-zA-Z0-9_]*)"\s*:', prompt_text):
+        names.add(m.group(1))
+    # 5. `field_name — описание` (без номера)
+    for m in re.finditer(rf"^\s*({CHARS})\s+—", prompt_text, re.MULTILINE):
+        names.add(m.group(1))
+
+    names = {n for n in names if _looks_like_field(n)}
     names -= KNOWN_METADATA_FIELD_NAMES
     return names
 
@@ -472,6 +540,21 @@ def audit_missing_attributes(*, file_path: Path, check_node: dict[str, Any]) -> 
     return findings
 
 
+# PATCHED: sync v4
+# Поля, которые backend формирует сам (из *_code), не должны быть в промпте.
+_BACKEND_ONLY_SUFFIXES = ("_display",)
+# Явный мусор, который регулярка может поймать в тексте, но это не поля.
+_PROMPT_NOISE = frozenset({
+    "clause_ref", "quote", "page", "evidence", "evidence_items",
+    "reason", "explanation", "notes", "fallback", "status", "term",
+    "agent", "regime", "charter", "personal",
+})
+
+
+def _is_backend_only(name: str) -> bool:
+    return any(name.endswith(s) for s in _BACKEND_ONLY_SUFFIXES)
+
+
 def audit_prompt_field_sync(*, file_path: Path, check_node: dict[str, Any]) -> list[Finding]:
     extraction = check_node.get("extraction")
     if not isinstance(extraction, dict) or extraction.get("enabled") is False:
@@ -483,8 +566,17 @@ def audit_prompt_field_sync(*, file_path: Path, check_node: dict[str, Any]) -> l
     if not isinstance(prompt_text, str) or not prompt_text.strip():
         return []
     cid, cn = _check_meta(check_node)
-    declared = {f.name for f in fields} - KNOWN_METADATA_FIELD_NAMES
+    # declared: убираем metadata + backend-only (*_display)
+    declared = {
+        f.name for f in fields
+        if not _is_backend_only(f.name)
+    } - KNOWN_METADATA_FIELD_NAMES
+    # in_prompt: убираем backend-only и явный мусор
     in_prompt = extract_field_names_from_prompt(prompt_text)
+    in_prompt = {
+        n for n in in_prompt
+        if not _is_backend_only(n) and n not in _PROMPT_NOISE
+    }
     if not in_prompt:
         return []
     findings: list[Finding] = []

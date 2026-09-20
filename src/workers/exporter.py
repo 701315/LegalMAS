@@ -26,7 +26,7 @@ Exporter Worker — экспорт результатов по сделке.
 ────────────────────────────────────────────────────
 2. export_by_id(export_id)
 ────────────────────────────────────────────────────
-Что делает:
+What it does:
 - Вызывается из POST /api/v1/runs/{run_id}/export сразу после создания
   записи Export в БД.
 - Обрабатывает одну конкретную запись Export по её export_id.
@@ -85,15 +85,25 @@ def export_results(
     tenant_id: str,
     stage_execution_id: str | None = None,
     orchestration_strategy: str | None = None,
+    output_locale: str | None = None,
     presentation_locale: str = "en",
     **kwargs: Any,
 ) -> dict:
+    eff_locale = (
+        output_locale 
+        or presentation_locale 
+        or kwargs.get("output_locale") 
+        or kwargs.get("presentation_locale", "en")
+    )
+
     logger.info(
         "Export results task received",
         run_id=run_id,
         deal_id=deal_id,
         tenant_id=tenant_id,
+        output_locale=output_locale,
         presentation_locale=presentation_locale,
+        effective_locale=eff_locale,
     )
 
     started_at = time.time()
@@ -139,14 +149,13 @@ def export_results(
                         run_tenant_id=str(tenant_uuid),
                     )
 
-            eff_locale = presentation_locale or kwargs.get("presentation_locale", "en")
-
             try:
                 result = await export_core(
                     run_id=run_id,
                     deal_id=deal_id,
                     tenant_id=tenant_id,
                     db=uow.session,
+                    output_locale=eff_locale,
                     presentation_locale=eff_locale,
                 )
 
@@ -273,21 +282,29 @@ def export_by_id(
     export_id: str,
     stage_execution_id: str | None = None,
     orchestration_strategy: str | None = None,
+    output_locale: str | None = None,
     presentation_locale: str = "en",
     **kwargs: Any,
 ) -> dict:
     """
     Синхронная Celery-таска UI-инициированного экспорта.
 
-    Принимает export_id и параметр локали presentation_locale.
+    Принимает export_id и параметры локали.
     """
-    eff_locale = presentation_locale or kwargs.get("presentation_locale", "en")
+    eff_locale = (
+        output_locale 
+        or presentation_locale 
+        or kwargs.get("output_locale") 
+        or kwargs.get("presentation_locale", "en")
+    )
 
     logger.info(
         "Export by id task received",
         export_id=export_id,
         celery_task_id=self.request.id,
-        presentation_locale=eff_locale,
+        output_locale=output_locale,
+        presentation_locale=presentation_locale,
+        effective_locale=eff_locale,
     )
 
     started_at = time.time()
@@ -363,6 +380,7 @@ def export_by_id(
                     deal_id=deal_id,
                     tenant_id=str(tenant_uuid),
                     db=uow.session,
+                    output_locale=eff_locale,
                     presentation_locale=eff_locale,
                 )
 

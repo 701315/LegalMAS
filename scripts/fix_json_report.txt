@@ -1,0 +1,48 @@
+contract_5.1_loan.yaml :: loan_subject_and_amount (N=7)
+  [prompt_template] 8. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: loan_interest_terms (N=9)
+  [prompt_template] 9. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: loan_repayment_and_transfer (N=9)
+  [prompt_template] 8. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: repayment_and_acceleration_check (N=13)
+  [prompt_template] 7. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: foreign_currency_terms_check (N=11)
+  [prompt_template] 8. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: related_party_loan_check (N=10)
+  [prompt_template] 8. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: bankruptcy_claw_back_risk_check (N=5)
+  [prompt_template] 8. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: convertible_loan_check (N=9)
+  [prompt_template] 8. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: multiple_tranches_check (N=10)
+  [prompt_template] 8. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: secured_loan_terms (N=9)
+  [prompt_template] 7. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: tax_consequences_disclosure (N=7)
+  [prompt_template] 7. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: novation_set_off_terms (N=7)
+  [prompt_template] 8. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: loan_forgiveness_terms (N=7)
+  [prompt_template] 6. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: fungible_goods_specification (N=7)
+  [prompt_template] 6. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: on_demand_notice_period (N=7)
+  [prompt_template] 6. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс
+contract_5.1_loan.yaml :: representations_and_warranties (N=7)
+  [prompt_template] 6. Верни только один JSON-объект, без markdown-обёртки, без пояснений.
+  [llm_prompt_extraction] - Верни только валидный JSON-объект без markdown-обёртки или с ней, но парсящийс

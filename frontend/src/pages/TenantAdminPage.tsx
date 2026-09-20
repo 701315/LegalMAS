@@ -42,6 +42,7 @@ import TabButton from "./tenant-admin/components/TabButton";
 
 // Tabs
 import AlertsTab from "./tenant-admin/tabs/AlertsTab";
+import LocalePolicyTab from "./tenant-admin/tabs/LocalePolicyTab";
 import UsersTab from "./tenant-admin/tabs/UsersTab";
 import ProjectsTab from "./tenant-admin/tabs/ProjectsTab";
 import MonitoringTab from "./tenant-admin/tabs/MonitoringTab";
@@ -385,6 +386,7 @@ const TenantAdminPage: React.FC = () => {
 
             {/* Alerts */}
             {activeTab === "alerts" && <AlertsTab />}
+            {activeTab === "localePolicy" && <LocalePolicyTab />}
           </section>
         </div>
       </div>

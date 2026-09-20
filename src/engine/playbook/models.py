@@ -590,6 +590,7 @@ class DDGridColumnSpec(BaseModel):
 
     column_id: str
     label: str
+    label_en: str | None = None
     value_field: str | None = None
     status_field: str | None = None
     status_present_value: str | None = None
@@ -662,6 +663,7 @@ class ExtractionFieldConfig(BaseModel):
     name: str
     type: ExtractionFieldType = ExtractionFieldType.STRING
     label: str | None = None
+    label_en: str | None = None
     presentation: Literal["summary", "fact", "signal", "diagnostic"] = "fact"
 
     # Grid display contract (universal, playbook-driven).

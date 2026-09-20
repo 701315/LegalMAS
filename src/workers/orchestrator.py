@@ -176,6 +176,7 @@ async def _create_run(*, deal_id: str, tenant_id: str) -> str:
             environment_hash=None,
             profile="full",
             checks_mode="global_and_doc_type",
+            analysis_language=deal_obj.primary_language,  # <-- ДОБАВИТЬ
         )
 
         logger.info(

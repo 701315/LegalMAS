@@ -33,7 +33,8 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from core.result_presentation_content import build_presentation_source_hash
+from ..models.run import Run
 from ..models.result import CheckResult
 
 
@@ -81,6 +82,19 @@ class CheckResultRepository:
         Все параметры передаются именованно (как в CheckRunner),
         без обёртки в dict.
         """
+
+        # Вычисляем хэш канонического контента
+        new_hash = build_presentation_source_hash(
+            check_name=check_name,
+            display_text=None,
+            review_message=None,
+            dd_request_text=None,
+        )
+
+        # Получаем язык анализа из запущенного рана
+        run_stmt = select(Run.analysis_language).where(Run.id == run_id)
+        run_lang = (await self.session.execute(run_stmt)).scalar_one_or_none()
+
         obj = CheckResult(
             run_id=run_id,
             document_id=document_id,
@@ -110,6 +124,9 @@ class CheckResultRepository:
             chunk_id=chunk_id,
             chunk_index=chunk_index,
             context_trace=context_trace,
+            canonical_locale=run_lang,         # <-- ДОБАВИТЬ
+            canonical_content_hash=new_hash,   # <-- ДОБАВИТЬ
+            content_revision=1,                # <-- ДОБАВИТЬ
         )
 
         self.session.add(obj)

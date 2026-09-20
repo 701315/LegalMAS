@@ -19,17 +19,23 @@ from .ops import AuditLog, DLQRecord, IdempotencyKey
 from .outbox import OutboxMessage
 from .playbook import ModelConfig, Playbook, PlaybookLineItem, PlaybookVersion
 from .relation import DocumentFamily, DocumentFamilyMember, DocumentRelation
-from .result import CheckResult
+from .result import CheckResult, CheckResultPresentation
 from .run import Job, Run
 from .instruction_override import InstructionOverride
 from .run_check_plan_item import RunCheckPlanItem
 from .llm_usage import LLMUsageEvent
 from .run_summary import RunSummary
+from .global_instruction import GlobalInstructionVersion
+from .tenant_result_locale_policy import TenantResultLocalePolicy
+from .legal_glossary import LegalGlossary  # S3.1
+from .instruction_presentation_localization import InstructionPresentationLocalization  # S4.1
+
 
 __all__ = [
     "AuditLog",
     "Bundle",
     "CheckResult",
+    "CheckResultPresentation",
     "CheckResultPersistError",
     "ClassificationCalibration",
     "DDRequest",
@@ -60,4 +66,9 @@ __all__ = [
     "RunCheckPlanItem",
     "LLMUsageEvent",
     "RunSummary",
+    "GlobalInstructionVersion",
+    "TenantResultLocalePolicy",
+    "LegalGlossary",
+    "InstructionPresentationLocalization",
 ]
+

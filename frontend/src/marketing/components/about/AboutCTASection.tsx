@@ -1,15 +1,24 @@
+// src/marketing/components/about/AboutCTASection.tsx
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import Reveal from '../../motion/Reveal';
 import { useContactModal } from '../../context/ContactModalContext';
+import { useTranslation } from 'react-i18next';
 
 /**
  * AboutCTASection — финальная CTA-секция страницы «О нас».
  * Выполнена в строгом соответствии с паттерном SecurityCTASection.
  */
-
 const AboutCTASection: React.FC = () => {
   const { openContactModal } = useContactModal();
+  const { t, i18n } = useTranslation('marketing');
+  const isRTL = i18n.language === 'ar';
+
+  // Безопасное получение массива абзацев
+  const paragraphsRaw = t('about.cta.paragraphs', { returnObjects: true });
+  const paragraphs = Array.isArray(paragraphsRaw) 
+    ? paragraphsRaw 
+    : [t('about.cta.paragraphs')];
 
   return (
     <section
@@ -26,43 +35,46 @@ const AboutCTASection: React.FC = () => {
             className="mx-auto flex flex-col items-center text-center"
             style={{ maxWidth: 720 }}
           >
-            {/* Верхний тонкий якорь (как в Security) */}
+            {/* Верхний тонкий якорь */}
             <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
 
-            {/* ✅ Заголовок — унифицированная шкала clamp */}
-            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
-              Давайте покажем Steloom <br /> на ваших документах
+            {/* ✅ Заголовок — используем whitespace-pre-line вместо <br /> */}
+            <h2 className="mt-10 text-h1 whitespace-pre-line">
+              {t('about.cta.title')}
             </h2>
 
-            {/* Абзацы — шрифт 1.0625rem / ведущий 1.75 */}
+            {/* Абзацы */}
             <div className="mt-7 space-y-5" style={{ maxWidth: 620 }}>
-              <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
-                Мы готовы провести персональную демонстрацию платформы, 
-                используя примеры ваших рабочих документов, чтобы вы могли 
-                оценить точность и скорость подготовки информации.
-              </p>
-              <p className="text-[1.0625rem] leading-[1.75] text-[#78756F]">
-                Забронируйте встречу с нашей командой, чтобы обсудить ваши 
-                текущие задачи и увидеть Steloom в действии.
-              </p>
+              {paragraphs.map((p: string, i: number) => (
+                <p
+                  key={i}
+                  className="text-body leading-relaxed text-[var(--text-secondary)]"
+                >
+                  {p}
+                </p>
+              ))}
             </div>
 
-            {/* Одна главная CTA-кнопка со стрелкой */}
+            {/* CTA-кнопка */}
             <div className="mt-10 flex items-center justify-center">
               <button
                 type="button"
                 onClick={openContactModal}
-                className="cta-primary"
+                className="cta-primary inline-flex items-center gap-2"
               >
-                Запросить демонстрацию
-                <ArrowRight className="h-3.5 w-3.5" />
+                {t('about.cta.buttonLabel')}
+                {/* RTL FIX: разворот стрелки для арабского языка */}
+                <ArrowRight 
+                  className="h-3.5 w-3.5" 
+                  style={{ 
+                    transform: isRTL ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.2s ease'
+                  }} 
+                />
               </button>
             </div>
 
-            {/* Мета-строка — приглушенный шрифт 0.8125rem */}
-            <p className="mt-8 text-[0.8125rem] leading-[1.6] text-[#A8A29E]">
-              Обычно мы отвечаем и назначаем встречу в течение одного рабочего дня.
-            </p>
+            {/* Мета-строка */}
           </div>
         </Reveal>
       </div>

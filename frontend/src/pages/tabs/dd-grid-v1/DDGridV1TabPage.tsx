@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { useDealReviewDdGridV1 } from "../../../api/dealReview";
+import { useAuth } from "../../../hooks/useAuth";
 import { useRun } from "../../../api/runs";
 import client from "../../../api/client";
 import DDGridV1TypedGroups from "./DDGridV1TypedGroups";
@@ -71,6 +72,7 @@ import {
   getV1QcDisabledNote,
 } from "./ddGridV1.qc";
 import DDGridV1QcBulkActions from "./DDGridV1QcBulkActions";
+import ResultPresentationStatus from "./ResultPresentationStatus";
 
 import { selectDDGridV1DerivedModel } from "./ddGridV1.selectors";
 import { useIsMobile } from "../../../hooks/useIsMobile";
@@ -403,6 +405,18 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
 
 const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const { t } = useTranslation("ddGrid");
+  const { projectRoles } = useAuth();
+
+  // Sprint 6.x: DD Grid uses dedicated Output Locale axis, independent from UI locale.
+  // The lawyer selects Results Language in DDGridV1ViewSettings dropdown; it is
+  // persisted in useDDGridV1UIStore.outputLocale and drives all backend queries.
+  const outputLocale = useDDGridV1UIStore((state) => state.outputLocale);
+  const presentationLocale = outputLocale;
+
+  const projectRole = projectRoles[dealId] ?? null;
+
+  const canRequestResultPresentations =
+    projectRole === "admin" || projectRole === "editor";
 
   const [reviewSelection, setReviewSelection] = React.useState<
     ReviewSelectionItem[]
@@ -454,7 +468,11 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     data: ddGridV1Response,
     isLoading: isV1Loading,
     error: v1Error,
-  } = useDealReviewDdGridV1(dealId, runId);
+  } = useDealReviewDdGridV1(
+    dealId,
+    runId,
+    presentationLocale,
+  );
 
   const { data: run, error: runError } = useRun(runId, false);
 
@@ -745,7 +763,14 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* Кнопки перенесены вниз, к панели настроек */}
+              {runId ? (
+                <ResultPresentationStatus
+                  dealId={dealId}
+                  runId={runId}
+                  presentationLocale={presentationLocale}
+                  canRequest={canRequestResultPresentations}
+                />
+              ) : null}
             </div>
           </div>
 

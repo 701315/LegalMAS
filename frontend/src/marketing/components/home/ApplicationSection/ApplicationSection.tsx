@@ -3,46 +3,97 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SOLUTIONS_MEGA_MENU } from '../../../content/siteNav';
+import { useTranslation } from 'react-i18next';
 import styles from './ApplicationSection.module.css';
 
-const APPLICATION_DATA: any = {
-  ma: {
-    id: "ma",
-    title: "M&A и Due Diligence",
-    description: "Автоматизация анализа data room: формирование DD grid и выявление рисков с прямой привязкой каждого вывода к источнику."
-  },
-  contract: {
-    id: "contract",
-    title: "Анализ договоров",
-    description: "Проверка договоров на соответствие стандартам. Поиск отклонений от playbook, выявление отсутствующих положений и рисков в едином формате."
-  },
-  compliance: {
-    id: "compliance",
-    title: "Комплаенс и контроль",
-    description: "Контроль соответствия договорного массива внутренним политикам организации. Автоматическое выявление отклонений для быстрого согласования с бизнесом."
-  },
-  audit: {
-    id: "audit",
-    title: "Внутренний аудит",
-    description: "Проверка больших массивов действующих и исторических договоров. Формирование воспроизводимой истории findings с полной прослеживаемостью для контроля."
-  },
-  enrichment: {
-    id: "enrichment",
-    title: "Расширенный анализ (контрагенты и активы)",
-    description: "Глубокая проверка контрагентов и активов (UBO, санкции, обременения недвижимости) через внешние реестры со встраиванием результатов в общий DD grid сделки."
-  }
-};
+// ─────────────────────────────────────────────────────────────
+// Типы
+// ─────────────────────────────────────────────────────────────
+interface MegaMenuItem {
+  label: string;
+  href: string;
+  description?: string;
+}
+interface MegaMenuSection {
+  title: string;
+  items: MegaMenuItem[];
+}
+interface ApplicationRole {
+  id: string;
+  title: string;
+  description: string;
+}
 
-const ORDER = ["ma", "contract", "compliance", "audit", "enrichment"];
+const ORDER = ["ma", "contract", "compliance", "audit", "enrichment"] as const;
 
 const ApplicationSection: React.FC = () => {
+  const { t } = useTranslation('marketing');
   const [activeIndex, setActiveIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const isUserInteracting = useRef(false);
 
+  // ── Данные из i18n ─────────────────────────────────────────
+  const APPLICATION_DATA: Record<string, ApplicationRole> = {
+    ma: {
+      id: "ma",
+      title: t('application.roles.ma.title'),
+      description: t('application.roles.ma.description'),
+    },
+    contract: {
+      id: "contract",
+      title: t('application.roles.contract.title'),
+      description: t('application.roles.contract.description'),
+    },
+    compliance: {
+      id: "compliance",
+      title: t('application.roles.compliance.title'),
+      description: t('application.roles.compliance.description'),
+    },
+    audit: {
+      id: "audit",
+      title: t('application.roles.audit.title'),
+      description: t('application.roles.audit.description'),
+    },
+    enrichment: {
+      id: "enrichment",
+      title: t('application.roles.enrichment.title'),
+      description: t('application.roles.enrichment.description'),
+    },
+  };
+
+  // Мега-меню из i18n (для выпадающего списка "Подробнее о сценариях")
+  const SOLUTIONS_MEGA_MENU: { sections: MegaMenuSection[] } = {
+    sections: [
+      {
+        title: t('megaMenu.byDirection.title'),
+        items: [
+          { label: t('megaMenu.byDirection.maDueDiligence.label'), href: '/solutions/ma-due-diligence', description: t('megaMenu.byDirection.maDueDiligence.description') },
+          { label: t('megaMenu.byDirection.contractReview.label'), href: '/solutions/contract-review', description: t('megaMenu.byDirection.contractReview.description') },
+          { label: t('megaMenu.byDirection.compliance.label'), href: '/solutions/compliance', description: t('megaMenu.byDirection.compliance.description') },
+          { label: t('megaMenu.byDirection.internalAudit.label'), href: '/solutions/internal-audit', description: t('megaMenu.byDirection.internalAudit.description') },
+        ],
+      },
+      {
+        title: t('megaMenu.byTeam.title'),
+        items: [
+          { label: t('megaMenu.byTeam.lawFirms.label'), href: '/solutions/law-firms', description: t('megaMenu.byTeam.lawFirms.description') },
+          { label: t('megaMenu.byTeam.corporateLegal.label'), href: '/solutions/corporate-legal', description: t('megaMenu.byTeam.corporateLegal.description') },
+          { label: t('megaMenu.byTeam.auditCompliance.label'), href: '/solutions/audit-compliance', description: t('megaMenu.byTeam.auditCompliance.description') },
+        ],
+      },
+      {
+        title: t('megaMenu.enrichment.title'),
+        items: [
+          { label: t('megaMenu.enrichment.counterparties.label'), href: '/solutions/counterparties', description: t('megaMenu.enrichment.counterparties.description') },
+          { label: t('megaMenu.enrichment.realEstate.label'), href: '/solutions/real-estate', description: t('megaMenu.enrichment.realEstate.description') },
+        ],
+      },
+    ],
+  };
+
+  // ── Click outside to close menu ────────────────────────────
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -53,6 +104,7 @@ const ApplicationSection: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
+  // ── IntersectionObserver для активной карточки ─────────────
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
@@ -84,6 +136,7 @@ const ApplicationSection: React.FC = () => {
     }
   };
 
+  // ── Автоскролл карусели ────────────────────────────────────
   useEffect(() => {
     const timer = setInterval(() => {
       if (isUserInteracting.current || menuOpen) return;
@@ -107,9 +160,8 @@ const ApplicationSection: React.FC = () => {
       >
         
         <div className="mb-16 lg:mb-20">
-          <h2 className="section-title text-white">
-            Одна платформа<br />
-            для ключевых контуров юридической работы
+          <h2 className="text-h1 !text-white max-w-4xl mx-auto mb-4">
+            {t('application.title')}
           </h2>
         </div>
 
@@ -132,7 +184,7 @@ const ApplicationSection: React.FC = () => {
                     onClick={() => { scrollToCard(index); setActiveIndex(index); }}
                   >
                     <div className="flex h-full flex-col justify-end p-8">
-                      <h3 className="text-xl font-serif text-white lg:text-3xl transition-all duration-300 tracking-tight leading-tight">
+                      <h3 className="text-h1 !text-white max-w-4xl mx-auto mb-4">
                         {role.title}
                       </h3>
                     </div>
@@ -154,8 +206,8 @@ const ApplicationSection: React.FC = () => {
 
           <div className={styles.rightCol}>
             <div key={activeRoleId} className="flex flex-col animate-fadein">
-              <span className="eyebrow !text-[#C86B52]">Сценарий использования</span>
-              <p className="mt-4 text-base leading-[1.8] text-stone-300 lg:text-[1.125rem] font-medium">
+              <span className="eyebrow !text-[var(--accent-primary)]">{t('application.eyebrow')}</span>
+              <p className="mt-4 text-body !text-stone-300 font-medium max-w-2xl mx-auto">
                 {activeRoleData.description}
               </p>
             </div>
@@ -168,7 +220,7 @@ const ApplicationSection: React.FC = () => {
             onClick={() => setMenuOpen(!menuOpen)}
             className="cta-link-inverse flex items-center gap-2 group text-base"
           >
-            <span>Подробнее о сценариях</span>
+            <span>{t('application.moreButton')}</span>
             <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${menuOpen ? 'rotate-180' : ''}`} />
           </button>
 
@@ -178,26 +230,26 @@ const ApplicationSection: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="absolute bottom-full left-0 mb-6 w-full max-w-[840px] rounded-2xl bg-white shadow-[0_30px_70px_rgba(0,0,0,0.4)] p-10 lg:p-12 z-50 border border-white/10"
+                className="absolute bottom-full start-0 mb-6 w-full max-w-[840px] max-w-[calc(100vw-2rem)] rounded-2xl bg-white shadow-[0_30px_70px_rgba(0,0,0,0.4)] p-10 lg:p-12 z-50 border border-white/10"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16">
-                  {SOLUTIONS_MEGA_MENU.sections.map((section) => (
+                  {SOLUTIONS_MEGA_MENU.sections.map((section: MegaMenuSection) => (
                     <div key={section.title}>
-                      <h3 className="mb-6 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                      <h3 className="mb-6 text-meta font-bold text-gray-400">
                         {section.title}
                       </h3>
                       <ul className="space-y-5">
-                        {section.items.map((item) => (
+                        {section.items.map((item: MegaMenuItem) => (
                           <li key={item.href}>
                             <Link 
                               to={item.href} 
                               className="group/item block"
                               onClick={() => setMenuOpen(false)}
                             >
-                              <p className="text-[15px] font-semibold text-[#1A1917] group-hover/item:text-[#C86B52] transition-colors">
+                              <p className="text-body-sm !font-bold !text-[#1A1917] group-hover/item:!text-[var(--accent-primary)] transition-colors">
                                 {item.label}
                               </p>
-                              <p className="text-[13px] text-gray-500 font-normal leading-relaxed mt-1">
+                              <p className="text-body-sm text-gray-500 font-normal leading-relaxed mt-1">
                                 {item.description}
                               </p>
                             </Link>
@@ -218,5 +270,3 @@ const ApplicationSection: React.FC = () => {
 };
 
 export default ApplicationSection;
-
-

@@ -17,11 +17,11 @@ const MarketingEditorialShell: React.FC<MarketingEditorialShellProps> = ({
   children,
 }) => {
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
       <SiteHeader variant="default" />
       <main style={{ paddingTop: 68 }}>
         {/* Hero section */}
-        <section className="border-b border-[#E8E4DD]">
+        <section className="border-b border-[var(--border-color)]">
           <div
             className="mx-auto w-full px-6 pb-16 pt-14 lg:px-8 lg:pb-24 lg:pt-20"
             style={{ maxWidth: "var(--container-max-width)" }}
@@ -30,13 +30,16 @@ const MarketingEditorialShell: React.FC<MarketingEditorialShellProps> = ({
               {eyebrow && (
                 <div className="eyebrow">{eyebrow}</div>
               )}
+              
+              {/* Добавлен whitespace-pre-line для поддержки \n из пропсов */}
               <h1
-                className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]"
+                className="font-serif text-display text-[var(--text-primary)] whitespace-pre-line"
                 style={{ marginTop: eyebrow ? "1rem" : "0" }}
               >
                 {title}
               </h1>
-              <p className="mt-6 max-w-3xl text-[1.0625rem] leading-[1.7] text-[#78756F]">
+              
+              <p className="mt-6 max-w-3xl text-body leading-relaxed text-[var(--text-secondary)]">
                 {description}
               </p>
             </div>
@@ -57,5 +60,3 @@ const MarketingEditorialShell: React.FC<MarketingEditorialShellProps> = ({
 };
 
 export default MarketingEditorialShell;
-
-

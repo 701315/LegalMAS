@@ -64,7 +64,9 @@ from core.constants import CheckExecutionStatus, RunStatus
 from core.logging import get_logger
 from core.pipeline_snapshots import (
     RunSnapshot,
+    DocumentSnapshot,
     snapshot_run,
+    snapshot_document,
 )
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.document_repo import DocumentRepository
@@ -569,6 +571,174 @@ def run_deal_checks(
 
 
 # ─── run_single_check ─────────────────────────────────────────────────────────
+
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.run_document_checks",
+    track_job=False,
+    queue="default",
+)
+def run_document_checks(
+    self,
+    run_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str | None = None,
+    **kwargs: Any,
+) -> dict:
+    """
+    Celery-задача для планирования и dispatch checks для ОДНОГО документа.
+    
+    В отличие от run_deal_checks:
+    - Работает с одним документом (не блокируется другими)
+    - Инкрементально увеличивает total_checks через finalize_run_if_finished()
+    - Fault isolation: сбой одного документа не блокирует остальные
+    """
+    logger.info(
+        "run_document_checks: received",
+        run_id=run_id,
+        document_id=document_id,
+        deal_id=deal_id,
+    )
+    
+    async def _run() -> dict:
+        async with db_uow() as uow:
+            run_repo = RunRepository(uow.session)
+            pb_repo = PlaybookRepository(uow.session)
+            plan_item_repo = RunCheckPlanItemRepository(uow.session)
+            outbox_service = OutboxService(uow.session)
+            doc_repo = DocumentRepository(uow.session)
+            
+            run_uuid = uuid.UUID(run_id)
+            doc_uuid = uuid.UUID(document_id)
+            deal_uuid = uuid.UUID(deal_id)
+            
+            # 1) Загружаем Run
+            run_obj = await run_repo.get(run_uuid)
+            if not run_obj:
+                raise ValueError(f"Run not found: {run_uuid}")
+            
+            run_snap = snapshot_run(run_obj)
+            
+            # 2) Проверяем статус Run
+            if run_snap.status not in (RunStatus.RUNNING.value, RunStatus.PENDING.value):
+                logger.info(
+                    "run_document_checks: run not in RUNNING/PENDING, skip",
+                    run_id=run_id,
+                    status=run_snap.status,
+                )
+                return {"status": "SKIPPED", "reason": "run_not_active"}
+            
+            # 3) Проверяем, нет ли уже plan items (idempotency)
+            if await plan_item_repo.exists_for_document(run_uuid, doc_uuid):
+                logger.info(
+                    "run_document_checks: plan already exists, skip",
+                    run_id=run_id,
+                    document_id=document_id,
+                )
+                return {"status": "SKIPPED", "reason": "plan_exists"}
+            
+            # 4) Загружаем Playbook
+            pb_version = await pb_repo.get_by_id(run_snap.playbook_version_id)
+            if not pb_version:
+                raise ValueError(f"PlaybookVersion not found: {run_snap.playbook_version_id}")
+            
+            playbook = load_playbook_from_version(pb_version)
+            
+            # 5) Загружаем документ
+            doc = await doc_repo.get_by_id(doc_uuid)
+            if not doc:
+                raise ValueError(f"Document not found: {doc_uuid}")
+            
+            doc_snap = snapshot_document(doc)
+            
+            # 6) Планируем checks для ОДНОГО документа
+            runner = CheckRunner(
+                llm_client=_shared_llm_client,
+                playbook_version_id=run_snap.playbook_version_id,
+                checks_mode=run_snap.checks_mode or "global_and_doc_type",
+                run_repo=run_repo,
+                checks_scope=run_snap.checks_scope,
+                doc_type_loader=build_doc_type_loader(run_snap),
+            )
+            
+            pairs = []
+            checks, mode, effective_doc_type, triggers, global_checks, doc_type_checks = \
+                runner._planner.select_checks_for_document(doc_snap, playbook)
+            
+            for check in checks:
+                check_id = getattr(check, "id", None)
+                if not check_id:
+                    continue
+                
+                pairs.append({
+                    "doc_id": str(doc_uuid),
+                    "check_id": str(check_id),
+                    "doc_type": effective_doc_type,
+                    "segment_id": None,
+                })
+            
+            # 7) Создаём plan items
+            materialized_items = []
+            for pair in pairs:
+                item = await plan_item_repo.create_planned(
+                    run_id=run_uuid,
+                    deal_id=deal_uuid,
+                    document_id=doc_uuid,
+                    check_id=pair["check_id"],
+                    playbook_version_id=run_snap.playbook_version_id,
+                    segment_id=pair.get("segment_id"),
+                    doc_type=pair.get("doc_type"),
+                    check_name=pair.get("check_name"),
+                    check_origin=pair.get("check_origin"),
+                )
+                materialized_items.append(item)
+            
+            materialized_count = len(materialized_items)
+            
+            # 8) Dispatch через outbox
+            scheduled = 0
+            for item in materialized_items:
+                outbox_message_id = await outbox_service.enqueue_task(
+                    task_name="workers.run_single_check",
+                    payload={
+                        "run_id": run_id,
+                        "check_id": item.check_id,
+                        "doc_id": document_id,
+                        "deal_id": deal_id,
+                        "plan_item_id": str(item.id),
+                        "tenant_id": tenant_id,
+                    },
+                    aggregate_type="run",
+                    aggregate_id=run_id,
+                    dedup_key=f"check:{item.id}",
+                )
+                
+                await plan_item_repo.mark_dispatched(item.id, dispatch_ref=outbox_message_id)
+                scheduled += 1
+            
+            # 9) Пересчитываем total_checks через finalize_run_if_finished()
+            await run_repo.finalize_run_if_finished(run_uuid)
+            
+            logger.info(
+                "run_document_checks: completed",
+                run_id=run_id,
+                document_id=document_id,
+                planned_checks=materialized_count,
+                scheduled_checks=scheduled,
+            )
+            
+            return {
+                "status": "COMPLETED",
+                "planned_checks": materialized_count,
+                "scheduled_checks": scheduled,
+            }
+    
+    from mas_queue.async_helpers import run_async
+    return run_async(_run())
 
 
 @celery_app.task(
@@ -1383,6 +1553,17 @@ def finalize_run_if_ready(
                         aggregate_id=run_id,
                         dedup_key=f"generate_run_summary:{run_id}",
                         headers={"queue": "heavy_llm_checks"},
+                    )
+
+                    # ── Auto-prime English translation post-run ──────────────
+                    from services.auto_translation_dispatcher import (
+                        dispatch_auto_translation_if_needed,
+                    )
+                    await dispatch_auto_translation_if_needed(
+                        uow.session,
+                        run=updated_run,
+                        target_locale="en",
+                        actor="system:post_run_finalize",
                     )
                 # ── конец trigger ───────────────────────────────────────
 

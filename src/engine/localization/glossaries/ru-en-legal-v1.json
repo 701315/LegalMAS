@@ -1,0 +1,402 @@
+[
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "неустойка",
+    "target_term": "contractual penalty",
+    "term_category": "contract_law",
+    "context_note": "General term for breach compensation under RF Civil Code Art. 330. Do not use 'fine' or 'liquidated damages' unless specified."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "упущенная выгода",
+    "target_term": "loss of profit",
+    "term_category": "contract_law",
+    "context_note": "Indirect damages or lost earnings under RF Civil Code Art. 15."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "реальный ущерб",
+    "target_term": "actual damage",
+    "term_category": "contract_law",
+    "context_note": "Direct loss or physical damage to assets under RF Civil Code Art. 15."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "непреодолимая сила",
+    "target_term": "force majeure",
+    "term_category": "contract_law",
+    "context_note": "Unforeseeable and unavoidable circumstances under RF Civil Code Art. 401."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "исковая давность",
+    "target_term": "limitation period",
+    "term_category": "dispute_resolution",
+    "context_note": "Statute of limitations for bringing claims to court under RF Civil Code Art. 195."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "срок исковой давности",
+    "target_term": "limitation period",
+    "term_category": "dispute_resolution",
+    "context_note": "The timeframe of limitations."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "применимое право",
+    "target_term": "governing law",
+    "term_category": "contract_law",
+    "context_note": "The substantive law governing the contract."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "существенное нарушение",
+    "target_term": "material breach",
+    "term_category": "contract_law",
+    "context_note": "A breach that deprives the other party of what they expected to receive (Civil Code Art. 450)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "солидарная ответственность",
+    "target_term": "joint and several liability",
+    "term_category": "contract_law",
+    "context_note": "Co-obligors share full responsibility (Civil Code Art. 322)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "субсидиарная ответственность",
+    "target_term": "subsidiary liability",
+    "term_category": "corporate_law",
+    "context_note": "Secondary liability of a controlling person when the primary debtor fails to pay."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "уставный капитал",
+    "target_term": "charter capital",
+    "term_category": "corporate_law",
+    "context_note": "The registered capital of an LLC or JSC. Do not use 'share capital' for LLCs."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "устав",
+    "target_term": "charter",
+    "term_category": "corporate_law",
+    "context_note": "Constituent document of a Russian company. Do not use 'Articles of Association'."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "общее собрание участников",
+    "target_term": "general meeting of participants",
+    "term_category": "corporate_law",
+    "context_note": "Supreme governing body of an LLC. 'Participants' are shareholders of LLC."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "совет директоров",
+    "target_term": "board of directors",
+    "term_category": "corporate_law",
+    "context_note": "The supervisory board of a company."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "единоличный исполнительный орган",
+    "target_term": "sole executive body",
+    "term_category": "corporate_law",
+    "context_note": "Usually the General Director (CEO) under Russian corporate law."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "доверенность",
+    "target_term": "power of attorney",
+    "term_category": "contract_law",
+    "context_note": "Written authorization to represent a party."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "заверения об обстоятельствах",
+    "target_term": "representations",
+    "term_category": "contract_law",
+    "context_note": "Factual statements relied upon by the other party under RF Civil Code Art. 431.2."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "гарантии и возмещение потерь",
+    "target_term": "representations, warranties and indemnities",
+    "term_category": "contract_law",
+    "context_note": "Common M&A clause structure aligned with Russian law equivalent (Art. 406.1, 431.2)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "конфиденциальность",
+    "target_term": "confidentiality",
+    "term_category": "contract_law",
+    "context_note": "The obligation to protect restricted data."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "коммерческая тайна",
+    "target_term": "trade secret",
+    "term_category": "corporate_law",
+    "context_note": "Specific legal regime under the RF Law on Trade Secrets."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "уступка прав",
+    "target_term": "assignment of rights",
+    "term_category": "contract_law",
+    "context_note": "Transfer of creditor claims (cession) under RF Civil Code Art. 382."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "перевод долга",
+    "target_term": "transfer of debt",
+    "term_category": "contract_law",
+    "context_note": "Transfer of liabilities to another person under RF Civil Code Art. 391."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "расторжение договора",
+    "target_term": "termination of contract",
+    "term_category": "contract_law",
+    "context_note": "Full cancellation of the contract by agreement or court order."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "односторонний отказ от исполнения договора",
+    "target_term": "unilateral refusal to perform contract",
+    "term_category": "contract_law",
+    "context_note": "Out-of-court termination under Civil Code Art. 450.1. Crucial difference from 'termination'."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "соглашение о намерениях",
+    "target_term": "letter of intent",
+    "term_category": "contract_law",
+    "context_note": "Non-binding memorandum of understanding."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "предварительный договор",
+    "target_term": "preliminary contract",
+    "term_category": "contract_law",
+    "context_note": "Binding obligation to sign a main contract in the future (Civil Code Art. 429)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "существенные условия",
+    "target_term": "material terms",
+    "term_category": "contract_law",
+    "context_note": "Terms required for the contract to be deemed concluded (Civil Code Art. 432)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "пеня",
+    "target_term": "late payment penalty",
+    "term_category": "contract_law",
+    "context_note": "Accruing penalty (usually % per day of delay) under RF Civil Code Art. 330."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "штраф",
+    "target_term": "contractual fine",
+    "term_category": "contract_law",
+    "context_note": "One-time fixed penalty for breach."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "задаток",
+    "target_term": "earnest money",
+    "term_category": "contract_law",
+    "context_note": "Security deposit serving as proof of contract and penalty (Civil Code Art. 380)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "залог",
+    "target_term": "pledge",
+    "term_category": "contract_law",
+    "context_note": "Security interest in movable/immovable assets (Civil Code Art. 334)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "поручительство",
+    "target_term": "suretyship",
+    "term_category": "contract_law",
+    "context_note": "Personal guarantee from a third party under RF Civil Code Art. 361."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "банковская гарантия",
+    "target_term": "bank guarantee",
+    "term_category": "contract_law",
+    "context_note": "Independent guarantee issued by a financial institution (Civil Code Art. 368)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "обременение",
+    "target_term": "encumbrance",
+    "term_category": "contract_law",
+    "context_note": "Rights of third parties restricting the asset (e.g. lease, pledge)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "добросовестность",
+    "target_term": "good faith",
+    "term_category": "contract_law",
+    "context_note": "Fundamental standard of civil behavior under RF Civil Code Art. 1 and 10."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "злоупотребление правом",
+    "target_term": "abuse of right",
+    "term_category": "contract_law",
+    "context_note": "Intentional bad faith exercise of rights (Civil Code Art. 10)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "неосновательное обогащение",
+    "target_term": "unjust enrichment",
+    "term_category": "contract_law",
+    "context_note": "Retention of assets without legal grounds under RF Civil Code Art. 1102."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "третейский суд",
+    "target_term": "arbitration tribunal",
+    "term_category": "dispute_resolution",
+    "context_note": "Non-state commercial arbitration (e.g., ICAC at RF CCI)."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "претензионный порядок",
+    "target_term": "pre-action claims procedure",
+    "term_category": "dispute_resolution",
+    "context_note": "Mandatory out-of-court dispute step prior to filing a lawsuit."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "мирное урегулирование",
+    "target_term": "amicable settlement",
+    "term_category": "dispute_resolution",
+    "context_note": "Resolution of a dispute by mutual agreement of the parties."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "форс-мажор",
+    "target_term": "force majeure",
+    "term_category": "contract_law",
+    "context_note": "Standard shorthand for непреодолимая сила."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "зачет встречных однородных требований",
+    "target_term": "set-off of mutual homogeneous claims",
+    "term_category": "contract_law",
+    "context_note": "Unilateral offset of claims under RF Civil Code Art. 410."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "моральный вред",
+    "target_term": "non-pecuniary damage",
+    "term_category": "dispute_resolution",
+    "context_note": "Compensation for physical or mental distress under Civil Code Art. 151."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "деликтная ответственность",
+    "target_term": "tortious liability",
+    "term_category": "dispute_resolution",
+    "context_note": "Non-contractual liability for causing harm under RF Civil Code Art. 1064."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "арест имущества",
+    "target_term": "seizure of assets",
+    "term_category": "dispute_resolution",
+    "context_note": "Injunctive measure preventing asset disposal."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "права третьих лиц",
+    "target_term": "third-party rights",
+    "term_category": "contract_law",
+    "context_note": "Claims or rights of non-parties over the contract subject."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "форс-мажорные обстоятельства",
+    "target_term": "force majeure events",
+    "term_category": "contract_law",
+    "context_note": "Circumstances constituting force majeure."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "подсудность",
+    "target_term": "jurisdiction",
+    "term_category": "dispute_resolution",
+    "context_note": "Rules determining which specific court will hear the dispute."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "преамбула",
+    "target_term": "preamble",
+    "term_category": "contract_law",
+    "context_note": "Introductory statement of a contract defining parties and intent."
+  },
+  {
+    "source_locale": "ru",
+    "target_locale": "en",
+    "source_term": "раскрытие информации",
+    "target_term": "disclosure of information",
+    "term_category": "contract_law",
+    "context_note": "Revealing non-public facts to another party."
+  }
+]

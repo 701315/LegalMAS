@@ -1,0 +1,81 @@
+{
+  "reportTab": {
+    "fileSize": "{{count}} KB",
+    "emptyState": {
+      "title": "The report will be available after the analysis is complete",
+      "description": "Export is only available for the latest run with status completed or completed_with_errors. Please run the analysis and wait for it to complete."
+    },
+    "pageSection": {
+      "title": "Report",
+      "subtitle": "Select a format and start generation. The report will be generated based on the latest completed analysis."
+    },
+    "statusSection": {
+      "title": "Export Status",
+      "subtitle": "Monitor generation and download the completed file once finished.",
+      "updating": "Updating status...",
+      "fetchError": "Failed to get export status",
+      "generating": "Generating file... Usually takes 10–30 seconds.",
+      "ready": "{{title}} is ready for download",
+      "readyFallback": "File is ready for download",
+      "downloading": "Downloading...",
+      "downloadBtn": "Download file",
+      "failed": "Export generation failed",
+      "failedWithTitle": "{{title}}: generation failed",
+      "failedFallback": "Export failed. Please try again or check backend logs.",
+      "failedHint": "After resolving the error, you can re-run generation for this report format.",
+      "unexpectedStatus": "Unexpected export status",
+      "currentStatus": "Current status: "
+    },
+    "cards": {
+      "ddGrid": {
+        "title": "DD Grid",
+        "description": "Complete table of check results with color-coded severity.",
+        "format": "Excel (.xlsx)"
+      },
+      "dealSummary": {
+        "title": "Deal Summary",
+        "description": "KPIs, Top Risks, breakdown by document types, and request list.",
+        "format": "Excel (.xlsx)"
+      },
+      "ddReport": {
+        "title": "DD Report",
+        "description": "Executive Summary, critical findings, analysis quality, requests.",
+        "format": "Word (.docx)"
+      },
+      "generate": "Generate"
+    },
+    "errors": {
+      "analysisNotFinished": "Analysis is not complete. Please start analysis on the \"Overview\" tab.",
+      "exportUnavailable": "Export is only available after analysis completion (completed or completed_with_errors).",
+      "requestFailed": "Export request failed",
+      "downloadFailed": "Failed to download file. Please try again."
+    }
+  },  
+  "types": {
+    "grid_xlsx": "DD Grid (Excel)",
+    "deal_summary_xlsx": "Deal Summary (Excel)",
+    "report_docx": "DD Report (Word)"
+  },
+  "ddGridExport": {
+    "title": "DD Grid V1 — Export",
+    "titleMatrix": "DD Grid V1 — Export (matrix)",
+    "titleSingle": "DD Grid V1 — Export (single table)",
+    "titleSectioned": "DD Grid V1 — Export ({{suffix}})",
+    "meta": {
+      "project": "Project",
+      "runId": "Run ID",
+      "date": "Generated",
+      "rows": "Records",
+      "columns": "Columns"
+    },
+    "pageFooter": "Page {{current}} of {{total}}",
+    "metadataSheet": "Metadata"
+  },
+  "display": {
+    "error": "⚠ Error",
+    "present": "Present",
+    "yes": "Yes",
+    "no": "No"
+  }
+}
+

@@ -182,6 +182,26 @@ class RunCheckPlanItemRepository:
             "has_errors": has_errors,
         }
 
+
+    async def exists_for_document(
+        self,
+        run_id: uuid.UUID,
+        document_id: uuid.UUID,
+    ) -> bool:
+        """
+        Проверить, есть ли уже plan items для этого документа в рамках Run.
+        
+        Используется для idempotency при инкрементальном планировании:
+        если план уже создан — не создаём дубликаты.
+        """
+        stmt = select(func.count()).select_from(RunCheckPlanItem).where(
+            RunCheckPlanItem.run_id == run_id,
+            RunCheckPlanItem.document_id == document_id,
+        )
+        result = await self.session.execute(stmt)
+        count = int(result.scalar() or 0)
+        return count > 0
+
     async def list_by_run_id(
         self,
         run_id: uuid.UUID,

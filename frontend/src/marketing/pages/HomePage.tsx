@@ -16,11 +16,11 @@ const HomePage: React.FC = () => {
     <ContactModalProvider>
       <SiteHeader variant="landing" />
 
-      <main className="text-[#1A1917]"> {/* Фиксируем основной цвет для всего контента */}
+      <main className="text-[var(--text-primary)] overflow-x-hidden"> {/* Фиксируем основной цвет для всего контента */}
         <PremiumHeroSection />
         
         {/* Каждую светлую секцию на всякий случай подтверждаем цветом */}
-        <div className="bg-[#FAF8F5] text-[#1A1917]">
+        <div className="bg-[var(--bg-base)] text-[var(--text-primary)]">
            <ConceptTagsSection />
            <KnowledgeGrowthSection />
            <SecurityFoundationSection />

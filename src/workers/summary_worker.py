@@ -1,30 +1,17 @@
-# src/workers/summary_worker.py
-
 """
-Summary Worker — тонкий Celery adapter для генерации executive summary.
+Summary Worker — Celery adapter для генерации и перевода executive summary.
 
 Назначение:
-- Принимает Celery task вызов после завершения Run (через Outbox).
+- Принимает Celery-вызовы из Outbox/Dispatcher.
 - Открывает db_uow.
-- Вызывает RunSummaryService.generate(run_id).
-- Возвращает результат обратно в Celery.
+- Делегирует выполнение в RunSummaryService.
+- Возвращает результат.
 
 Позиция в пайплайне:
-  run_deal_checks → finalize_run_if_ready → [Outbox] → generate_run_summary
+  - run_deal_checks → finalize_run_if_ready → [Outbox] → generate_run_summary
+  - GET /summary?locale=en → [Outbox] → translate_run_summary
 
-Важно:
-- Этот файл НЕ содержит бизнес-логики генерации.
-- Вся логика живёт в RunSummaryService (services layer).
-- Worker — транспортный адаптер между Celery и application layer.
-
-Архитектура retry (два уровня):
-- Уровень 1 (MASBaseTask): инфраструктурные сбои (DB, Redis) →
-  Celery retry с backoff 10→30→90 сек, макс 3 попытки → DLQ.
-- Уровень 2 (RunSummaryService): LLM-сбои (OOM, timeout, bad output) →
-  запись в БД status='failed' + retry_count + next_retry_at →
-  SummaryDispatcher подхватит через 300 сек.
-  Эти два уровня НЕ конфликтуют: LLM-сбой не бросает исключение
-  из generate(), а записывается в БД и возвращает response.
+Этот файл является тонким транспортным Celery-адаптером и не содержит бизнес-логики.
 """
 
 from __future__ import annotations
@@ -58,20 +45,8 @@ def generate_run_summary(
     orchestration_strategy: str | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """
-    Сгенерировать executive summary для завершённого Run.
-
-    Параметры:
-    - run_id: идентификатор завершённого Run.
-    - deal_id: идентификатор сделки (для correlation context).
-    - tenant_id: идентификатор tenant'а (для DLQ и audit).
-
-    Вызывается:
-    - автоматически через Outbox после finalize_run_if_ready;
-    - через SummaryDispatcher (recovery) для зависших/failed записей.
-    """
+    """Сгенерировать master executive summary для завершённого Run."""
     _ = self
-
     run_uuid = uuid.UUID(run_id)
 
     async def _wrapper() -> dict[str, Any]:
@@ -94,3 +69,40 @@ def generate_run_summary(
     return result
 
 
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.translate_run_summary",
+    track_job=False,
+    queue="heavy_llm_checks",
+)
+def translate_run_summary(
+    self,
+    run_id: str,
+    target_locale: str,
+    deal_id: str | None = None,
+    tenant_id: str | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Перевести существующее резюме на целевой язык (target_locale)."""
+    _ = self
+    run_uuid = uuid.UUID(run_id)
+
+    async def _wrapper() -> dict[str, Any]:
+        async with db_uow() as uow:
+            service = RunSummaryService(session=uow.session)
+            result = await service.translate(run_uuid, target_locale)
+            return result or {}
+
+    result = run_async(_wrapper())
+
+    logger.info(
+        "Translate run summary task finished",
+        run_id=run_id,
+        target_locale=target_locale,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        status=result.get("status"),
+    )
+
+    return result

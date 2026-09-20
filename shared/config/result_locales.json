@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "default_output_locale": "en",
+  "default_output_policy": "match_analysis_language",
+  "locales": [
+    {
+      "code": "en",
+      "native_name": "English",
+      "english_name": "English",
+      "status": "supported",
+      "is_default": true,
+      "direction": "ltr",
+      "translation": {
+        "supported_source_locales": ["ru", "en"],
+        "prompt_version": "v1",
+        "quality_gate": "basic"
+      }
+    },
+    {
+      "code": "ru",
+      "native_name": "Русский",
+      "english_name": "Russian",
+      "status": "supported",
+      "is_default": false,
+      "direction": "ltr",
+      "translation": {
+        "supported_source_locales": ["en", "ru"],
+        "prompt_version": "v1",
+        "quality_gate": "basic"
+      }
+    }
+  ]
+}
+
+

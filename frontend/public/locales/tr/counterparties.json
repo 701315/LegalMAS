@@ -1,0 +1,179 @@
+{
+  "intro": {
+    "title": "Demonstration scenario for this section",
+    "subtitle": "What the identified counterparties analysis will look like",
+    "preview": "Preview",
+    "description": "This section will automatically identify counterparties in deal documents, cross-reference them with external and internal data sources, and build a workspace for legal and due diligence analysis.",
+    "howItWorks": {
+      "title": "How it will work",
+      "subtitle": "Main counterparty processing scenario",
+      "detection": {
+        "title": "Detection in documents",
+        "description": "The system finds counterparties in text, tables, appendices, and other deal materials."
+      },
+      "verification": {
+        "title": "Matching and enrichment",
+        "description": "Found entities are linked to global, local, and internal data sources."
+      },
+      "legal": {
+        "title": "Analysis workspace",
+        "description": "The user receives a consolidated view, counterparty list, and detail panel for the selected entity."
+      }
+    },
+    "dataSources": {
+      "title": "Data Sources",
+      "subtitle": "Global, local, and internal providers",
+      "headers": {
+        "region": "Region",
+        "global": "Global",
+        "local": "Local",
+        "internal": "Internal"
+      }
+    },
+    "cta": "Go to demo page"
+  },
+  "coverageRows": [
+    {
+      "region": "Global / International",
+      "globalProviders": "Refinitiv, Bureau van Dijk (Orbis), Dow Jones",
+      "localSources": "—",
+      "internalSources": "Internal CRM, ERP"
+    },
+    {
+      "region": "Russia / CIS",
+      "globalProviders": "Spark, Contour.Focus",
+      "localSources": "EGRUL, Federal Tax Service, Arbitrazh courts",
+      "internalSources": "1C, Internal blacklists"
+    }
+  ],
+  "table": {
+    "sortTitle": "Sort by column {{label}}",
+    "headers": {
+      "index": "#",
+      "name": "Name",
+      "country": "Country",
+      "contractCount": "Contract count",
+      "contractValue": "Contract value",
+      "risk": "Risk assessment"
+    }
+  },
+  "detail": {
+    "card": {
+      "title": "Counterparty Card",
+      "subtitle": "Detailed information"
+    },
+    "documents": {
+      "title": "Mentions in contracts",
+      "subtitle": "List of documents and contracts where the counterparty was found",
+      "role": "Role:",
+      "value": "Value:"
+    },
+    "financials": {
+      "title": "Financial summary",
+      "subtitle": "Key financial indicators for the counterparty",
+      "revenue": "Revenue",
+      "ebitda": "EBITDA",
+      "assets": "Assets",
+      "employees": "Employees"
+    },
+    "risks": {
+      "title": "Risks",
+      "subtitle": "Bankruptcy status, sanctions, and litigation",
+      "types": {
+        "bankruptcy": "Bankruptcy",
+        "sanctions": "Sanctions",
+        "litigation": "Litigation"
+      },
+      "notes": "Risk notes"
+    },
+    "ownership": {
+      "title": "Owner / UBO",
+      "subtitle": "Ownership context and UBO sanctions check",
+      "owner": "Owner",
+      "ubo": "UBO",
+      "statusMatch": "Sanctions match",
+      "statusReview": "Sanctions review",
+      "statusClear": "No sanctions match",
+      "note": "Ownership note"
+    }
+  },
+  "drawer": {
+    "back": "Back to list"
+  },
+  "drilldown": {
+    "subtitle": "Demonstration drilldown for the selected metric",
+    "close": "Close",
+    "geography": "Geography of identified counterparties",
+    "contractsTop": "Top 5 counterparties by contract count",
+    "valueTop": "Top 5 counterparties by contract value",
+    "critical": "Critical counterparties",
+    "criticalTable": {
+      "counterparty": "Counterparty",
+      "country": "Country",
+      "reasons": "Grounds for criticality",
+      "reasonsList": {
+        "bankruptcy": "Insolvency alert / bankruptcy indicator.",
+        "sanctions": "Sanctions screening signal match.",
+        "revenueRatio": "Total contract value exceeds annual revenue by more than 5 times."
+      }
+    }
+  },
+  "export": {
+    "formatLabel": "Save format",
+    "saveList": "Save counterparty list",
+    "alert": "Save counterparty list: {{format}}"
+  },
+  "demo": {
+    "title": "Identified Counterparties",
+    "subtitle": "Aggregated view based on contract analysis and related sources",
+    "back": "Back to description",
+    "kpi": {
+      "totalCounterparties": "Counterparties identified",
+      "totalContracts": "Contracts with counterparties",
+      "totalValue": "Contract value",
+      "critical": "Critical counterparties",
+      "hintGeography": "Click to open geography",
+      "hintTop": "Click to open top 5",
+      "hintList": "Click to open list"
+    },
+    "workspace": {
+      "title": "Analysis Workspace",
+      "subtitle": "List of counterparties and selected company card",
+      "closeCard": "Close card",
+      "listTitle": "Counterparty list",
+      "selectHint": "Select a company in the table to view the detailed card on the right"
+    },
+    "fallback": {
+      "title": "Counterparty List",
+      "subtitle": "Tabular list of counterparties identified in deal documents",
+      "demoHintDesktop": "Extra companies are added to the demo list so the table has its own internal scroll.",
+      "demoHintMobile": "Extra companies are added to the demo list. Tap a counterparty name to open the detailed card."
+    }
+  },
+  "demoData": {
+    "countries": {
+      "Россия": "Russia",
+      "Кипр": "Cyprus",
+      "ОАЭ": "UAE",
+      "Великобритания": "UK",
+      "Нидерланды": "Netherlands",
+      "Казахстан": "Kazakhstan"
+    }
+  },
+  "labels": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "critical": "Critical",
+    "warning": "Warning",
+    "ok": "OK",
+    "approved": "Approved",
+    "review": "Review",
+    "rejected": "Rejected",
+    "yes": "Yes",
+    "no": "No",
+    "checking": "Checking"
+  }
+}
+
+

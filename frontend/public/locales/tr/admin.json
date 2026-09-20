@@ -1,0 +1,535 @@
+{
+  "dealCard": {
+    "project": "Project",
+    "updated": "Updated",
+    "openProject": "Open project {{name}}",
+    "noRun": "No analysis run",
+    "lastAnalysis": "Last analysis:",
+    "checksMode": "Checks mode:",
+    "pipelineStrategy": "Pipeline strategy:",
+    "notAnalyzed": "Analysis has not been run for this project yet.",
+    "checksModeLabels": {
+      "global_and_doc_type": "Playbook + document types",
+      "global_only": "Playbook only",
+      "doc_type_only": "Document types only"
+    }
+  },
+  "modelConfig": {
+    "currentDealProfile": "Current deal profile: <bold>{{name}}</bold>",
+    "list": {
+      "title": "Profiles",
+      "newBtn": "New",
+      "loading": "Loading profiles…",
+      "empty": "No profiles. Create the first one.",
+      "currentBadge": "Current",
+      "inUse": "In use",
+      "free": "Unused"
+    },
+    "rightPanel": {
+      "newProfile": "New Profile",
+      "editing": "Editing",
+      "profile": "Profile",
+      "details": "Profile Details",
+      "emptyPrompt": "Select a profile on the left to view or click \"New\"."
+    },
+    "form": {
+      "profileName": "Profile Name",
+      "placeholder": "e.g., default-v1, fast-v1",
+      "cancel": "Cancel",
+      "create": "Create",
+      "save": "Save",
+      "edit": "Edit",
+      "deleteProfile": "Delete Profile",
+      "selectForProject": "Select for Project",
+      "embeddings": {
+        "title": "Embedding Models",
+        "subtitle": "Convert document text and queries into vectors for semantic search.",
+        "primary": "primary",
+        "fallback": "fallback",
+        "primaryLabel": "Primary",
+        "fallbackLabel": "Fallback",
+        "primaryDesc": "Microsoft E5 (large). Multilingual, works with RU/EN and mixed texts. Recommended as primary.",
+        "fallbackDesc": "LaBSE. Connects automatically if the primary is unavailable. More compact and faster, but less accurate.",
+        "fallbackPlaceholder": "Empty = disabled"
+      },
+      "searchParams": {
+        "title": "Search Parameters",
+        "subtitle": "Control the volume of data for analysis. Larger values are more accurate but slower.",
+        "candidateNLabel": "candidate_n",
+        "candidateNDesc": "How many fragments to retrieve from the index in the first phase. The best ones are selected for the LLM.",
+        "contextKLabel": "llm_context_k",
+        "contextKDesc": "How many of the best fragments to pass to the LLM as context for each check.",
+        "benchmarks": {
+          "title": "Guidelines:",
+          "fastShort": "20–30 — fast, short documents",
+          "balance": "50 — balance (default)",
+          "complexMulti": "80–100 — complex multi-page",
+          "fastMode": "3 — fast mode",
+          "standard": "5 — standard (default)",
+          "complexChecks": "8–10 — complex checks"
+        }
+      },
+      "hybridWeights": {
+        "title": "Hybrid Search Weights",
+        "subtitle": "Three signal sources: semantics, keywords, metadata. The sum must be greater than zero.",
+        "denseLabel": "dense_weight",
+        "denseTitle": "Semantic Search",
+        "denseDesc": "Embedding similarity. Finds paraphrased formulations and cross-language matches.",
+        "denseIncrease": "Increase for: multilingual documents, search by meaning.",
+        "sparseLabel": "sparse_weight",
+        "sparseTitle": "Keyword Search (BM25)",
+        "sparseDesc": "Classic token-based search. Precisely finds terms, article numbers, specific formulations.",
+        "sparseIncrease": "Increase for: monolingual documents, search for specific clauses.",
+        "metaLabel": "metadata_boost",
+        "metaTitle": "Structural Boost",
+        "metaDesc": "Boost for metadata matches: section headers, fragment position in the document.",
+        "metaIncrease": "Increase for: well-structured documents.",
+        "sumLabel": "Weights Sum",
+        "sumValid": "Valid configuration. Sum is recalculated when weights change.",
+        "sumError": "Sum must be greater than zero.",
+        "sumFormula": "0.6 + 0.3 + 0.1 = 1.0. Valid configuration."
+      },
+      "usage": {
+        "title": "Usage",
+        "loading": "Loading…",
+        "notUsed": "Not used in any playbook version or project.",
+        "playbooks": "Playbook versions:",
+        "projects": "Projects:"
+      }
+    },
+    "validation": {
+      "loadFailed": "Failed to load model profiles.",
+      "nameRequired": "Profile name is required.",
+      "candidateNPositive": "candidate_n must be a positive number.",
+      "contextKPositive": "llm_context_k must be a positive number.",
+      "weightsNumeric": "All weights must be numbers.",
+      "sumPositive": "Weights sum must be greater than zero.",
+      "createSuccess": "Model profile created.",
+      "updateSuccess": "Model profile updated.",
+      "saveFailed": "Failed to save model profile.",
+      "deleteUsed": "Cannot delete a profile that is currently in use. Reassign dependencies first.",
+      "deleteSuccess": "Profile \"{{name}}\" deleted.",
+      "deleteFailed": "Failed to delete profile.",
+      "selectSuccess": "Profile \"{{name}}\" selected for project.",
+      "selectFailed": "Failed to assign profile to project."
+    },
+    "confirm": {
+      "delete": "Delete profile \"{{name}}\"?",
+      "select": "Select profile \"{{name}}\" for this project?"
+    }
+  },
+  "externalTools": {
+    "buttonLabel": "External Metrics & Logging Tools",
+    "buttonLabelShort": "Tools",
+    "grafanaDashboards": "📊 Grafana Dashboards",
+    "services": "🛠 Services",
+    "footer": "Visible to super admin only · opens in a new tab"
+  },
+  "projectMembers": {
+    "title": "Project Members",
+    "subtitleNoAccess": "Manage project team composition and permissions.",
+    "subtitle": "Assign existing tenant users to the project and manage their project roles.",
+    "noAccess": {
+      "heading": "Member management access restricted",
+      "description": "You do not have permission to manage the team of this project."
+    },
+    "addMember": "Add Member",
+    "errors": {
+      "actionFailed": "Failed to perform action",
+      "checkForm": "Please check the form data",
+      "roleChangeFailed": "Failed to change role",
+      "selectUser": "Please select a user.",
+      "alreadyInProject": "This user is already a member of this project.",
+      "saveFailed": "Failed to save member.",
+      "deleteFailed": "Failed to remove member. Please try again later."
+    },
+    "loading": "Loading project members…",
+    "empty": {
+      "heading": "No members yet",
+      "description": "Add the first project member from the tenant's users."
+    },
+    "table": {
+      "user": "User",
+      "systemRole": "System Role",
+      "projectRole": "Project Role",
+      "actions": "Actions",
+      "editRole": "Role",
+      "delete": "Delete"
+    },
+    "createForm": {
+      "label": "New Member",
+      "heading": "Add User to Project",
+      "description": "Select an existing tenant user and assign them a project role.",
+      "loadingUsers": "Loading user list…",
+      "selectUser": "Select a user",
+      "add": "Add"
+    },
+    "editForm": {
+      "label": "Editing",
+      "heading": "Change Member Role",
+      "description": "Change the user's role within the project.",
+      "save": "Save"
+    },
+    "deleteConfirm": {
+      "label": "Confirmation",
+      "heading": "Remove Project Member",
+      "description": "This will remove the user from the current project only. The user will remain in the system.",
+      "confirmQuestion": "Remove member <bold>{{name}}</bold> from the project?",
+      "confirmButton": "Yes, Remove"
+    },
+    "roles": {
+      "admin": "Administrator",
+      "editor": "Editor",
+      "viewer": "View Only",
+      "adminFull": "Project Administrator",
+      "editorFull": "Project Editor",
+      "viewerFull": "View Only"
+    },
+    "systemRoles": {
+      "superadmin": "Super Admin",
+      "tenant_admin": "Tenant Admin",
+      "member": "Member"
+    }
+  },
+  "tenantsTable": {
+    "columns": {
+      "number": "No.",
+      "client": "Client",
+      "created": "Created",
+      "slug": "Slug",
+      "id": "ID",
+      "users": "Users",
+      "projects": "Projects"
+    },
+    "status": {
+      "deactivated": "Deactivated"
+    },
+    "actions": {
+      "manage": "Manage",
+      "deactivate": "Deactivate",
+      "activate": "Activate"
+    },
+    "copyId": {
+      "fullId": "Full ID: {{id}}",
+      "copied": "Copied",
+      "copyId": "Copy ID"
+    }
+  },
+  "instructionsHub": {
+    "title": "Instructions",
+    "subtitle": "Management of platform base instructions, playbook studio and base playbooks versions. Changes are published via flow draft → validate → publish.",
+    "groups": {
+      "platform": "Platform",
+      "platformDesc": "Universal instructions and base settings by document types used as foundation for tenant-override and playbook composition.",
+      "studio": "Studio",
+      "studioDesc": "Unified environment for composition, validation, preview and publishing of playbook versions before their application in projects.",
+      "registry": "Registry",
+      "registryDesc": "Published standard platform playbooks available for use in projects and composition preview."
+    },
+    "cards": {
+      "globalTitle": "Global Instructions",
+      "globalDesc": "Universal checks for any documents: confidentiality, governing law, term, etc.",
+      "docTypeTitle": "Doc-type Instructions",
+      "docTypeDesc": "Instructions by document types. Base settings for extraction, checks, retrieval.",
+      "studioTitle": "Playbook Studio",
+      "studioDesc": "Templates, version builder, compiled preview, publish and further application in projects.",
+      "registryTitle": "Standard playbook registry",
+      "registryDesc": "View composition of published playbooks and export to Excel / Word."
+    }
+  },
+  "modelConfigs": {
+    "back": "Back",
+    "title": "Model configurations",
+    "subtitle": "Management of model profiles for playbook versions and projects."
+  },
+  "membersPage": {
+    "backButton": "Back to project"
+  },
+  "monitoring": {
+    "loading": "Loading monitoring links…",
+    "error": {
+      "loadFailed": "Failed to load monitoring links",
+      "checkBackend": "Check backend config and admin API availability",
+      "retry": "Try again"
+    },
+    "header": {
+      "title": "Monitoring",
+      "subtitle": "Platform observability tools. Links come from the backend configuration and do not depend on browser localhost.",
+      "refresh": "Refresh links"
+    },
+    "empty": "Backend returned no available monitoring links for the current environment.",
+    "groups": {
+      "dashboards": {
+        "title": "Overview dashboards",
+        "description": "Deep links to Grafana. URLs come from the backend configuration for the current environment."
+      },
+      "services": {
+        "title": "Observability services",
+        "description": "Direct links to Grafana, Prometheus, Alertmanager, Loki, Tempo, MinIO, API docs and Ollama."
+      }
+    },
+    "items": {
+      "dashboards": {
+        "operations-overview": {
+          "label": "Operations Overview",
+          "description": "HTTP, LLM, DLQ, active runs"
+        },
+        "legalmas-pipeline": {
+          "label": "Pipeline Overview",
+          "description": "Document processing stages"
+        },
+        "slo-overview": {
+          "label": "SLO Overview",
+          "description": "Quality metrics and SLO"
+        },
+        "logs-explorer": {
+          "label": "Log Explorer",
+          "description": "Loki log search and analysis"
+        }
+      },
+      "services": {
+        "grafana": {
+          "label": "Grafana",
+          "description": "Dashboards, alerts, explore"
+        },
+        "prometheus": {
+          "label": "Prometheus",
+          "description": "Metrics, alert rules, targets"
+        },
+        "alertmanager": {
+          "label": "Alertmanager",
+          "description": "Active alerts, silences"
+        },
+        "tempo": {
+          "label": "Tempo (via Grafana)",
+          "description": "Distributed traces via Grafana Explore"
+        },
+        "loki": {
+          "label": "Loki (via Grafana)",
+          "description": "Structured logs via Grafana Explore"
+        },
+        "minio": {
+          "label": "MinIO Console",
+          "description": "Object storage: artifacts, exports"
+        },
+        "api_docs": {
+          "label": "API Docs",
+          "description": "OpenAPI Swagger for backend"
+        },
+        "ollama": {
+          "label": "Ollama API",
+          "description": "LLM inference status and models"
+        }
+      }
+    }
+  },
+  "clients": {
+    "header": {
+      "title": "Clients",
+      "total": "Total: {{count}}",
+      "active": "Active: {{count}}",
+      "showDeactivated": "Show deactivated",
+      "newClient": "New client"
+    },
+    "search": {
+      "placeholder": "Search by name, slug or ID…"
+    },
+    "export": {
+      "button": "Save client list",
+      "excel": "Excel",
+      "word": "Word",
+      "pdf": "PDF",
+      "errorExcel": "Failed to export to Excel",
+      "errorWord": "Failed to export to Word",
+      "errorPdf": "Failed to export to PDF"
+    },
+    "sort": {
+      "prefix": "Sort: ",
+      "by": "Sort by",
+      "asc": "asc",
+      "desc": "desc",
+      "options": {
+        "name": "By name",
+        "created_at": "By date created",
+        "deals_count": "By projects count",
+        "users_count": "By users count"
+      },
+      "directionsHint": "Clicking an active option again reverses direction"
+    },
+    "views": {
+      "ariaLabel": "Display mode",
+      "cards": "Cards",
+      "table": "Table"
+    },
+    "card": {
+      "deactivated": "Deactivated",
+      "created": "Created: {{date}}",
+      "users": "Users",
+      "projects": "Projects",
+      "manage": "Manage",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "copyId": "Copy ID",
+      "copied": "Copied",
+      "idTooltip": "Click to select, button to copy"
+    },
+    "loading": "Loading client list…",
+    "error": "Failed to load client list.",
+    "empty": {
+      "title": "No clients yet.",
+      "button": "Create first client"
+    },
+    "notFound": {
+      "title": "Nothing found for \"{{query}}\".",
+      "button": "Reset search"
+    },
+    "confirm": {
+      "deactivateTitle": "Deactivate client \"{{name}}\"?",
+      "activateTitle": "Activate client \"{{name}}\"?",
+      "deactivateDesc": "All users of this client will lose access to the system. Data is not deleted.",
+      "activateDesc": "Client users will be able to log in to the system again.",
+      "deactivateButton": "Deactivate",
+      "activateButton": "Activate",
+      "cancelButton": "Cancel"
+    }
+  },
+  "versions": {
+    "back": "Instructions",
+    "title": "Playbook versions & model profiles",
+    "subtitle": "Reassign model profile for a playbook version. Allows freeing old ModelConfigs for deletion.",
+    "contextPrefix": "Opened from model profile: ",
+    "refresh": "Refresh",
+    "listTitle": "Playbook versions",
+    "loading": "Loading versions…",
+    "emptyTitle": "No versions yet",
+    "emptyDesc": "When versions appear, you can select them and reassign the model profile.",
+    "profileTitle": "Model profile for version",
+    "profileSubtitle": "Select a new ModelConfig for this playbook version.",
+    "noVersionTitle": "No version selected",
+    "noVersionDesc": "Select a playbook version on the left to assign a model profile.",
+    "noConfigsTitle": "No model profiles found",
+    "noConfigsDesc": "Create at least one model profile first.",
+    "openConfigs": "Open model profiles",
+    "selectedVersion": "Selected version",
+    "modelConfigLabel": "Model profile (ModelConfig)",
+    "noProfileOption": "— No explicit profile (default settings) —",
+    "selectedProfilePrefix": "Selected profile: ",
+    "explanation": "After saving, the version will no longer reference the old ModelConfig. If it is not used elsewhere, it can be deleted from the model profiles page.",
+    "saveButton": "Save profile",
+    "errors": {
+      "loadVersions": "Failed to load playbook versions list.",
+      "loadConfigs": "Failed to load model profiles.",
+      "saveFailed": "Failed to update model profile for version."
+    },
+    "success": "Model profile for version updated."
+  },
+  "tenantDetail": {
+    "back": "All clients",
+    "deactivated": "Deactivated",
+    "projectsCount": "Projects: {{count}}",
+    "usersCount": "Users: {{active}} of {{total}}",
+    "usersTitle": "Users",
+    "addUser": "Add",
+    "createTitle": "New user",
+    "editTitle": "Edit user",
+    "emailLabel": "Email *",
+    "emailPlaceholder": "user@company.com",
+    "passwordLabel": "Password *",
+    "passwordPlaceholder": "Minimum 6 characters",
+    "fullNameLabel": "Full name",
+    "fullNamePlaceholder": "John Doe",
+    "roleLabel": "System role",
+    "newPasswordLabel": "New password (leave empty to keep current)",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "notFound": "Client not found.",
+    "emptyUsers": "No users yet. Add the first one.",
+    "editAria": "Edit user",
+    "deactivateButton": "Deactivate",
+    "confirmTitle": "Deactivate user?",
+    "confirmDesc": "\"{{name}}\" will lose access to the system. Data is not deleted.",
+    "confirmButton": "Deactivate",
+    "cancelButton": "Cancel",
+    "errors": {
+      "emailRequired": "Please specify email.",
+      "passwordMin": "Password must be at least 6 characters.",
+      "createFailed": "Failed to create user.",
+      "updateFailed": "Failed to update user."
+    },
+    "roles": {
+      "superadmin": "Super administrator",
+      "tenant_admin": "Client administrator",
+      "member": "Member"
+    }
+  },
+  "tenantNew": {
+    "back": "All clients",
+    "title": "New client",
+    "subtitle": "Create a new system client. After creation you can add users.",
+    "nameLabel": "Client name *",
+    "namePlaceholder": "e.g. Romashka Legal",
+    "slugLabel": "Slug *",
+    "slugPlaceholder": "romashka-legal",
+    "slugHint": "Lowercase Latin letters, digits and hyphens only. Auto-generated from name.",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "Arbitrary admin notes…",
+    "creating": "Creating…",
+    "createButton": "Create client",
+    "errors": {
+      "nameRequired": "Please specify client name.",
+      "slugRequired": "Please specify slug.",
+      "createFailed": "Failed to create client. Please try again later."
+    },
+    "slugHelp": {
+      "title": "What is a slug?",
+      "p1": "Slug is a unique technical identifier for the client in URLs and system configurations.",
+      "p2": "Only lowercase Latin letters, digits and hyphens are used. Example: ",
+      "p3": "Slug is auto-generated from the name, but can be set manually."
+    },
+    "afterCreation": {
+      "title": "After creation",
+      "step1Label": "Step 1",
+      "step1Desc": "The client page will open — you can immediately add users.",
+      "step2Label": "Step 2",
+      "step2Desc": "The client's tenant admin will be able to configure the organization: members, playbooks, instructions."
+    }
+  },
+  "tenantProjects": {
+    "back": "All clients",
+    "title": "Client projects",
+    "breadcrumbClients": "Clients",
+    "totalProjects": "Total projects: {{count}}",
+    "notFound": "Client not found.",
+    "error": "Failed to load client projects.",
+    "empty": "This client has no projects yet.",
+    "created": "Created: {{date}}",
+    "documents": "Documents: {{count}}",
+    "members": "Members: {{count}}",
+    "statuses": {
+      "active": "Active",
+      "draft": "Draft",
+      "archived": "Archived",
+      "completed": "Completed"
+    }
+  },
+  "tenantExport": {
+    "columns": {
+      "order": "#",
+      "clientName": "Client name",
+      "created": "Created",
+      "slug": "Slug",
+      "id": "ID",
+      "users": "Users",
+      "projects": "Projects",
+      "status": "Status"
+    },
+    "sheetName": "Clients",
+    "title": "Client list",
+    "subtitle": "Export: {{timestamp}}. Total records: {{count}}.",
+    "active": "Active",
+    "deactivated": "Deactivated",
+    "noData": "No clients to export"
+  }
+}
+
+

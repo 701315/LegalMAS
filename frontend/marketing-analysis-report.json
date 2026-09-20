@@ -1,0 +1,745 @@
+{
+  "pages": [
+    {
+      "file": "src/marketing/pages/AboutPage.tsx",
+      "name": "AboutPage",
+      "route": "/about"
+    },
+    {
+      "file": "src/marketing/pages/CapabilitiesPage.tsx",
+      "name": "CapabilitiesPage",
+      "route": "/capabilities"
+    },
+    {
+      "file": "src/marketing/pages/DemoPage.tsx",
+      "name": "DemoPage",
+      "route": "/demo"
+    },
+    {
+      "file": "src/marketing/pages/HomePage.tsx",
+      "name": "HomePage",
+      "route": "/home"
+    },
+    {
+      "file": "src/marketing/pages/SecurityPage.tsx",
+      "name": "SecurityPage",
+      "route": "/security"
+    },
+    {
+      "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+      "name": "AuditCompliancePage",
+      "route": "/solutions/auditcompliance"
+    },
+    {
+      "file": "src/marketing/pages/solutions/CompliancePage.tsx",
+      "name": "CompliancePage",
+      "route": "/solutions/compliance"
+    },
+    {
+      "file": "src/marketing/pages/solutions/ContractReviewPage.tsx",
+      "name": "ContractReviewPage",
+      "route": "/solutions/contractreview"
+    },
+    {
+      "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+      "name": "CorporateLegalPage",
+      "route": "/solutions/corporatelegal"
+    },
+    {
+      "file": "src/marketing/pages/solutions/CounterpartiesPage.tsx",
+      "name": "CounterpartiesPage",
+      "route": "/solutions/counterparties"
+    },
+    {
+      "file": "src/marketing/pages/solutions/InternalAuditPage.tsx",
+      "name": "InternalAuditPage",
+      "route": "/solutions/internalaudit"
+    },
+    {
+      "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+      "name": "LawFirmsPage",
+      "route": "/solutions/lawfirms"
+    },
+    {
+      "file": "src/marketing/pages/solutions/MaDueDiligencePage.tsx",
+      "name": "MaDueDiligencePage",
+      "route": "/solutions/maduediligence"
+    },
+    {
+      "file": "src/marketing/pages/solutions/RealEstatePage.tsx",
+      "name": "RealEstatePage",
+      "route": "/solutions/realestate"
+    }
+  ],
+  "typography": {
+    "fonts": {
+      "font-serif": 32
+    },
+    "sizes": {
+      "text-[var(--text-secondary)]": 66,
+      "text-[var(--text-muted)]": 28,
+      "text-3xl": 7,
+      "text-[11px]": 9,
+      "text-[var(--accent-primary)]": 42,
+      "text-[10px]": 14,
+      "text-xl": 4,
+      "text-2xl": 2,
+      "text-4xl": 2,
+      "text-[var(--text-primary)]": 59,
+      "text-base": 13,
+      "text-sm": 13,
+      "text-xs": 11,
+      "text-5xl": 1,
+      "text-6xl": 1,
+      "text-[4.5rem]": 1,
+      "text-lg": 9,
+      "text-[15px]": 2,
+      "text-[13px]": 2,
+      "text-[var(--accent-subtle)]": 1,
+      "text-[var(--text-faint)]": 5,
+      "text-[var(--text-inverse)]": 5,
+      "text-[1.375rem]": 1,
+      "text-[0.6875rem]": 1,
+      "text-[rgba(250,248,245,0.75)]": 1,
+      "text-[rgba(200,107,82,1)]": 1,
+      "text-[2rem]": 1,
+      "text-[rgba(250,248,245,1)]": 1,
+      "text-[2.25rem]": 1,
+      "text-[clamp(2rem,4vw,3.05rem)]": 1,
+      "text-[0.95rem]": 1
+    },
+    "fontSizes": {
+      "fontSize: `${line.fontSize}px`": 1,
+      "fontSize: \"15px\"": 1,
+      "fontSize: \"14px\"": 1
+    },
+    "clampUsages": [
+      {
+        "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+        "usage": "text-[clamp(2rem,4vw,3.05rem)]"
+      }
+    ],
+    "roles": {
+      "h1": [
+        {
+          "file": "src/marketing/components/demo/DemoHeroSection.tsx",
+          "className": "mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[var(--text-primary)] sm:text-6xl lg:text-[4.5rem] text-start whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/components/shared/MarketingEditorialShell.tsx",
+          "className": "font-serif text-display leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)] whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CounterpartiesPage.tsx",
+          "className": "mt-6 text-display text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "mt-20 lg:mt-32 text-display max-w-6xl whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/RealEstatePage.tsx",
+          "className": "mt-6 text-display text-start"
+        }
+      ],
+      "h2": [
+        {
+          "file": "src/marketing/components/about/AboutCTASection.tsx",
+          "className": "mt-10 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/components/about/AboutPrinciplesSection.tsx",
+          "className": "section-title text-3xl mb-16 italic"
+        },
+        {
+          "file": "src/marketing/components/about/AboutTeamSection.tsx",
+          "className": "font-serif text-4xl leading-tight tracking-tight text-[var(--text-primary)] text-start"
+        },
+        {
+          "file": "src/marketing/components/demo/DemoAudienceSection.tsx",
+          "className": "font-serif text-3xl tracking-[-0.03em] text-[var(--text-primary)] lg:text-4xl text-start"
+        },
+        {
+          "file": "src/marketing/components/demo/DemoFaqSection.tsx",
+          "className": "section-title !mt-4 text-start"
+        },
+        {
+          "file": "src/marketing/components/demo/DemoFormSection.tsx",
+          "className": "font-serif text-2xl tracking-[-0.03em] text-[var(--text-primary)] text-start"
+        },
+        {
+          "file": "src/marketing/components/demo/DemoWhatYouSeeSection.tsx",
+          "className": "section-title !mt-4 text-start"
+        },
+        {
+          "file": "src/marketing/components/home/ApplicationSection/ApplicationSection.tsx",
+          "className": "section-title text-white"
+        },
+        {
+          "file": "src/marketing/components/home/ConceptTagsSection.tsx",
+          "className": "section-title !mt-2 max-w-3xl whitespace-pre-line text-balance text-[var(--text-primary)]"
+        },
+        {
+          "file": "src/marketing/components/home/FaqSection.tsx",
+          "className": "section-title text-[var(--text-primary)] whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/components/home/KnowledgeGrowthSection/index.tsx",
+          "className": "section-title !mt-2 text-[var(--text-primary)] whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/components/home/PremiumFinalCtaSection.tsx",
+          "className": "mt-6 text-h1"
+        },
+        {
+          "file": "src/marketing/components/home/SecurityFoundationSection/index.tsx",
+          "className": "section-title !mt-2 text-[var(--text-primary)] whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformCTASection.tsx",
+          "className": "mt-10 text-h1"
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformDocumentStructureSection.tsx",
+          "className": "mt-4 text-h1 text-start"
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformFindingsSection.tsx",
+          "className": "mt-4 text-h1 text-start"
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformMethodologySection.tsx",
+          "className": "mt-4 text-h1 text-start"
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformStandardsSection.tsx",
+          "className": "mt-4 font-serif text-h1 leading-[1.05] tracking-[-0.03em] text-[var(--text-inverse)] text-start"
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformTechnicalSection.tsx",
+          "className": "mt-4 text-h1 text-start"
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformWorkflowSection.tsx",
+          "className": "mt-4 text-h1 text-start"
+        },
+        {
+          "file": "src/marketing/components/security/SecurityCTASection.tsx",
+          "className": "mt-10 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/components/security/SecurityCapabilitiesSection.tsx",
+          "className": "section-title"
+        },
+        {
+          "file": "src/marketing/components/security/SecurityDeploymentSection.tsx",
+          "className": "section-title"
+        },
+        {
+          "file": "src/marketing/components/security/SecurityFAQSection.tsx",
+          "className": "mt-4 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "text-h2 whitespace-pre-line text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "text-h2 whitespace-pre-line text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "text-h2 text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "mt-10 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CompliancePage.tsx",
+          "className": "text-h2 whitespace-pre-line text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CompliancePage.tsx",
+          "className": "mt-10 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/ContractReviewPage.tsx",
+          "className": "mt-10 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "font-serif text-h2 tracking-[-0.02em] text-white mb-16 text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "font-serif text-h2 tracking-[-0.02em] text-[var(--text-primary)] mb-16 max-w-none text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "mt-10 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CounterpartiesPage.tsx",
+          "className": "text-h2 text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CounterpartiesPage.tsx",
+          "className": "text-h2 text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CounterpartiesPage.tsx",
+          "className": "text-h2"
+        },
+        {
+          "file": "src/marketing/pages/solutions/InternalAuditPage.tsx",
+          "className": "text-h2 whitespace-pre-line text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/InternalAuditPage.tsx",
+          "className": "mt-10 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "font-serif text-h2 tracking-[-0.02em] text-white mb-16 text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "font-serif text-h2 tracking-[-0.02em] text-primary mb-16 max-w-none text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "mt-10 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/MaDueDiligencePage.tsx",
+          "className": "mt-10 text-h1 whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/pages/solutions/RealEstatePage.tsx",
+          "className": "text-h2 text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/RealEstatePage.tsx",
+          "className": "text-h2 text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/RealEstatePage.tsx",
+          "className": "text-h2"
+        }
+      ],
+      "h3": [
+        {
+          "file": "src/marketing/components/about/AboutPhilosophySection.tsx",
+          "className": "section-title text-3xl mt-4"
+        },
+        {
+          "file": "src/marketing/components/about/AboutPhilosophySection.tsx",
+          "className": "section-title text-3xl mt-4"
+        },
+        {
+          "file": "src/marketing/components/about/AboutProcessSection.tsx",
+          "className": "font-serif text-2xl italic mb-4 tracking-tight text-white/90"
+        },
+        {
+          "file": "src/marketing/components/about/AboutTeamSection.tsx",
+          "className": "mt-8 font-serif text-3xl leading-none tracking-tight text-[var(--text-primary)]"
+        },
+        {
+          "file": "src/marketing/components/demo/DemoAudienceSection.tsx",
+          "className": "mt-5 text-base font-semibold text-[var(--text-primary)]"
+        },
+        {
+          "file": "src/marketing/components/demo/DemoFormSection.tsx",
+          "className": "font-serif text-xl tracking-[-0.02em] text-[var(--text-primary)] text-start"
+        },
+        {
+          "file": "src/marketing/components/demo/DemoWhatYouSeeSection.tsx",
+          "className": "mt-6 text-xl font-semibold tracking-tight text-[var(--text-primary)]"
+        },
+        {
+          "file": "src/marketing/components/home/ApplicationSection/ApplicationSection.tsx",
+          "className": "text-xl font-serif text-white lg:text-3xl transition-all duration-300 tracking-tight leading-tight"
+        },
+        {
+          "file": "src/marketing/components/home/ApplicationSection/ApplicationSection.tsx",
+          "className": "mb-6 text-[11px] font-bold uppercase tracking-widest text-gray-400"
+        },
+        {
+          "file": "src/marketing/components/home/ContactModal.tsx",
+          "className": "mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-[var(--text-primary)] whitespace-pre-line"
+        },
+        {
+          "file": "src/marketing/components/home/SecurityFoundationSection/index.tsx",
+          "className": "text-lg font-medium text-[var(--text-primary)] tracking-tight mb-2"
+        },
+        {
+          "file": "src/marketing/components/security/SecurityCapabilitiesSection.tsx",
+          "className": "mt-4 font-serif text-h2 leading-[1.15] tracking-[-0.02em] text-[var(--text-primary)]"
+        },
+        {
+          "file": "src/marketing/components/security/SecurityDeploymentSection.tsx",
+          "className": "mt-5 font-serif text-[1.375rem] leading-[1.2] tracking-[-0.02em] text-[var(--text-primary)]"
+        },
+        {
+          "file": "src/marketing/components/shared/SiteHeader.tsx",
+          "className": "mb-6 text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400"
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "text-h3 italic"
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "text-h3 italic text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CompliancePage.tsx",
+          "className": "text-h3 italic text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "text-h3 italic"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "text-h3 italic"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "text-h3 italic"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "font-serif text-h3 tracking-tight text-white italic text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "text-h3 italic text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/CounterpartiesPage.tsx",
+          "className": "text-base font-medium text-primary"
+        },
+        {
+          "file": "src/marketing/pages/solutions/InternalAuditPage.tsx",
+          "className": "text-h3 text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "text-h3 italic"
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "text-h3 italic"
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "font-serif text-h3 tracking-tight text-white italic text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "text-h3 italic text-start"
+        },
+        {
+          "file": "src/marketing/pages/solutions/RealEstatePage.tsx",
+          "className": "text-base font-medium text-primary"
+        }
+      ],
+      "eyebrow": [
+        {
+          "file": "src/marketing/components/about/AboutCTASection.tsx",
+          "className": "className=\"mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]\""
+        },
+        {
+          "file": "src/marketing/components/about/AboutPhilosophySection.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/components/about/AboutPhilosophySection.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/components/about/AboutProcessSection.tsx",
+          "className": "className=\"eyebrow !mb-0 block uppercase text-white/40 tracking-[0.2em] text-[10px]\""
+        },
+        {
+          "file": "src/marketing/components/demo/DemoFaqSection.tsx",
+          "className": "className=\"eyebrow text-start\""
+        },
+        {
+          "file": "src/marketing/components/demo/DemoWhatYouSeeSection.tsx",
+          "className": "className=\"eyebrow text-start\""
+        },
+        {
+          "file": "src/marketing/components/home/ApplicationSection/ApplicationSection.tsx",
+          "className": "className=\"eyebrow !text-[var(--accent-primary)]\""
+        },
+        {
+          "file": "src/marketing/components/home/ConceptTagsSection.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/components/home/FaqSection.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/components/home/FounderSection.tsx",
+          "className": "className=\"mt-1 text-eyebrow uppercase tracking-widest text-[var(--accent-primary)] font-bold\""
+        },
+        {
+          "file": "src/marketing/components/home/FounderSection.tsx",
+          "className": "className=\"eyebrow mb-8\""
+        },
+        {
+          "file": "src/marketing/components/home/KnowledgeGrowthSection/index.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/components/home/SecurityFoundationSection/index.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformCTASection.tsx",
+          "className": "className=\"mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]\""
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformDocumentStructureSection.tsx",
+          "className": "className=\"eyebrow text-start\""
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformFindingsSection.tsx",
+          "className": "className=\"eyebrow text-start\""
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformMethodologySection.tsx",
+          "className": "className=\"eyebrow text-start\""
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformStandardsSection.tsx",
+          "className": "className=\"eyebrow !text-[var(--accent-primary)] brightness-110 text-start\""
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformTechnicalSection.tsx",
+          "className": "className=\"eyebrow text-start\""
+        },
+        {
+          "file": "src/marketing/components/platform/PlatformWorkflowSection.tsx",
+          "className": "className=\"eyebrow text-start\""
+        },
+        {
+          "file": "src/marketing/components/platform/diagrams/FlowSchema.tsx",
+          "className": "className=\"text-eyebrow font-medium leading-tight\""
+        },
+        {
+          "file": "src/marketing/components/platform/diagrams/HeroFlowVisual.tsx",
+          "className": "className=\"mt-0.5 text-eyebrow font-medium leading-tight\""
+        },
+        {
+          "file": "src/marketing/components/platform/diagrams/HeroFlowVisual.tsx",
+          "className": "className=\"mt-0.5 text-eyebrow font-medium leading-tight\""
+        },
+        {
+          "file": "src/marketing/components/platform/diagrams/StandardsDiagram.tsx",
+          "className": "className=\"mt-0.5 text-eyebrow font-medium leading-tight\""
+        },
+        {
+          "file": "src/marketing/components/platform/diagrams/StandardsDiagram.tsx",
+          "className": "className=\"mt-0.5 text-eyebrow font-medium leading-tight\""
+        },
+        {
+          "file": "src/marketing/components/platform/diagrams/VerticalNodeChain.tsx",
+          "className": "className=\"mt-1 text-eyebrow leading-[1.5] text-[var(--text-secondary)] text-start\""
+        },
+        {
+          "file": "src/marketing/components/security/SecurityCTASection.tsx",
+          "className": "className=\"mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]\""
+        },
+        {
+          "file": "src/marketing/components/security/SecurityCapabilitiesSection.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/components/security/SecurityCapabilitiesSection.tsx",
+          "className": "className=\"eyebrow !mb-0\""
+        },
+        {
+          "file": "src/marketing/components/security/SecurityDeploymentSection.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/components/security/SecurityFAQSection.tsx",
+          "className": "className=\"text-eyebrow font-medium text-[var(--text-secondary)]\""
+        },
+        {
+          "file": "src/marketing/components/security/SecurityFAQSection.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/components/security/SecurityFAQSection.tsx",
+          "className": "className=\"text-eyebrow leading-[1.7] text-[var(--text-muted)]\""
+        },
+        {
+          "file": "src/marketing/components/security/SecurityHeroSection.tsx",
+          "className": "className=\"mb-8 ps-7 text-eyebrow uppercase tracking-[0.24em] text-[rgba(250,248,245,0.75)]\""
+        },
+        {
+          "file": "src/marketing/components/shared/MarketingEditorialShell.tsx",
+          "className": "className=\"eyebrow\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/AuditCompliancePage.tsx",
+          "className": "className=\"mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/CompliancePage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/CompliancePage.tsx",
+          "className": "className=\"mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/ContractReviewPage.tsx",
+          "className": "className=\"mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "className=\"text-eyebrow uppercase tracking-[0.12em] text-white/55 font-medium mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/CorporateLegalPage.tsx",
+          "className": "className=\"mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/CounterpartiesPage.tsx",
+          "className": "className=\"eyebrow text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/InternalAuditPage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/InternalAuditPage.tsx",
+          "className": "className=\"mt-8 text-eyebrow leading-[1.6] text-[var(--text-muted)]\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "className=\"text-eyebrow uppercase tracking-[0.12em] text-white/55 font-medium mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "className=\"text-eyebrow mb-4 text-start\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/LawFirmsPage.tsx",
+          "className": "className=\"mt-8 text-eyebrow text-muted\""
+        },
+        {
+          "file": "src/marketing/pages/solutions/RealEstatePage.tsx",
+          "className": "className=\"eyebrow text-start\""
+        }
+      ]
+    }
+  },
+  "links": {
+    "internal": [
+      {
+        "file": "src/marketing/components/home/FounderSection.tsx",
+        "to": "/about"
+      },
+      {
+        "file": "src/marketing/components/home/KnowledgeGrowthSection/index.tsx",
+        "to": "/capabilities"
+      },
+      {
+        "file": "src/marketing/components/home/SecurityFoundationSection/index.tsx",
+        "to": "/security"
+      },
+      {
+        "file": "src/marketing/components/shared/MarketingPageFooter.tsx",
+        "to": "/"
+      },
+      {
+        "file": "src/marketing/components/shared/MarketingPageHeader.tsx",
+        "to": "/"
+      },
+      {
+        "file": "src/marketing/components/shared/SiteFooter.tsx",
+        "to": "/"
+      },
+      {
+        "file": "src/marketing/components/shared/SiteHeader.tsx",
+        "to": "/"
+      }
+    ],
+    "anchors": [],
+    "mailto": [
+      {
+        "file": "src/marketing/components/shared/MarketingPageFooter.tsx",
+        "href": "mailto:info@steloom.com"
+      },
+      {
+        "file": "src/marketing/components/shared/SiteFooter.tsx",
+        "href": "mailto:info@steloom.com"
+      }
+    ],
+    "external": [
+      {
+        "file": "src/marketing/components/shared/MobileMenu.tsx",
+        "href": "https://app.steloom.com/login"
+      }
+    ],
+    "windowNav": [],
+    "broken": [
+      {
+        "file": "src/marketing/components/shared/MarketingPageFooter.tsx",
+        "to": "/",
+        "type": "Link"
+      },
+      {
+        "file": "src/marketing/components/shared/MarketingPageHeader.tsx",
+        "to": "/",
+        "type": "Link"
+      },
+      {
+        "file": "src/marketing/components/shared/SiteFooter.tsx",
+        "to": "/",
+        "type": "Link"
+      },
+      {
+        "file": "src/marketing/components/shared/SiteHeader.tsx",
+        "to": "/",
+        "type": "Link"
+      }
+    ]
+  }
+}

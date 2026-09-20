@@ -1,0 +1,86 @@
+{
+  "refresh": "Refresh",
+  "severities": {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "pass": "Pass",
+    "unclear": "Unclear"
+  },
+  "qcStatus": {
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "needs_review": "Needs review",
+    "pending": "Pending",
+    "ariaTitle": "QC: {{status}}"
+  },
+  "loadingBlock": {
+    "text": "Loading data…"
+  },
+  "button": {
+    "loading": "Loading…",
+    "loadingSrOnly": "Button busy, action in progress"
+  },
+  "accessDenied": {
+    "title": "Access Denied",
+    "message": "You do not have permission to view this page. Contact the project administrator if you believe this is an error."
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "edit": "Edit",
+    "create": "Create",
+    "back": "Back"
+  },
+  "dialogs": {
+    "confirmation": "Confirmation"
+  },
+  "search": {
+    "placeholder": "Search...",
+    "clear": "Clear search"
+  },
+  "projectLoadError": "Failed to load project",
+  "loading": "Loading...",
+  "priorities": {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "auditActions": {
+    "IMPORT": "Import",
+    "EXPORT": "Export",
+    "SANITIZE": "Sanitization",
+    "QC_CONFIRM": "QC confirm",
+    "QC_REJECT": "QC reject",
+    "QC_OVERRIDE": "QC override",
+    "DOCUMENT_REPLACE": "Document replace",
+    "RUN_START": "Run analysis",
+    "PLAYBOOK_PROMOTE": "Playbook promote",
+    "SET_DEAL_PLAYBOOK": "Set deal playbook",
+    "RECLASSIFY": "Reclassification",
+    "YAML_INSTRUCTION_APPLY": "Apply YAML instruction"
+  },
+  "languages": {
+    "RU": "Russian (RU)",
+    "EN": "English (EN)"
+  },
+  "errors": {
+    "apiFallback": "An error occurred."
+  },
+  "timeAgo": {
+    "minutes_one": "{{count}}m ago",
+    "minutes_other": "{{count}}m ago",
+    "hours_one": "{{count}}h ago",
+    "hours_other": "{{count}}h ago",
+    "days_one": "{{count}}d ago",
+    "days_other": "{{count}}d ago"
+  }
+}
+

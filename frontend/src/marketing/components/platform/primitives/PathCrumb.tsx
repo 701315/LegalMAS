@@ -34,7 +34,7 @@ const PathCrumb: React.FC<PathCrumbProps> = ({ root, leaf, variant = "light" }) 
 
   return (
     <div
-      className="inline-flex items-baseline gap-2 text-[11px] font-medium uppercase tracking-[0.22em]"
+      className="inline-flex items-baseline gap-2 text-meta font-medium uppercase"
       aria-label={`${root} / ${leaf}`}
     >
       <span style={{ color: rootColor }}>{root}</span>

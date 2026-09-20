@@ -125,6 +125,7 @@ class DocumentTypeGroupConfig:
 
     group_id: str
     label: str
+    label_en: str | None = None
     display_order: int = _GROUP_LABEL_FALLBACK_ORDER
 
 
@@ -173,6 +174,12 @@ class DocumentTypeConfig:
         # ── Identity ──────────────────────────────────────────────────
         self.type_code = str(self.raw.get("type", ""))
         self.name = str(self.raw.get("name", ""))
+        raw_name_en = self.raw.get("name_en")
+        self.name_en: str | None = (
+            str(raw_name_en).strip()
+            if isinstance(raw_name_en, str) and raw_name_en.strip()
+            else None
+        )
 
         # Registry-level grouping (из registry.yaml, поле group)
         self.group: str = str(self.raw.get("group", "") or "").strip()
@@ -829,6 +836,13 @@ class YAMLRegistry:
                 )
                 label = group_id_norm
 
+            label_en_raw = entry.get("label_en")
+            label_en = (
+                str(label_en_raw).strip()
+                if isinstance(label_en_raw, str) and label_en_raw.strip()
+                else None
+            )
+
             display_order_raw = entry.get("display_order", _GROUP_LABEL_FALLBACK_ORDER)
             if isinstance(display_order_raw, int) and not isinstance(display_order_raw, bool):
                 display_order = display_order_raw
@@ -844,6 +858,7 @@ class YAMLRegistry:
             self._groups[group_id_norm] = DocumentTypeGroupConfig(
                 group_id=group_id_norm,
                 label=label,
+                label_en=label_en,
                 display_order=display_order,
             )
 
