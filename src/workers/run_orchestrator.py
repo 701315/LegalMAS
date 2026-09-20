@@ -47,7 +47,6 @@ from db.uow import db_uow
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.task_dispatcher import send_task_with_context
-from services.run_checks_auto_starter import maybe_start_run_checks
 
 logger = get_logger(__name__)
 
@@ -579,33 +578,118 @@ async def _start_run_pipeline_async(
         res_repo=res_repo,
         v2_enabled=v2_enabled,
     )
-    # Инкрементальный запуск проверок для каждого готового документа
-    # Fault isolation: один проблемный документ не блокирует остальные
+
+    # ── Инкрементальный запуск проверок ───────────────────────────────────
+    # Fault isolation: один проблемный документ не блокирует остальные.
     from services.run_checks_auto_starter import start_checks_for_document
-    
-    documents_triggered = 0
-    for doc_snap in doc_snaps:
-        if doc_snap.status in {DocumentStatus.ENRICHED.value, DocumentStatus.COMPLETED.value}:
-            if getattr(doc_snap, "doc_type", None):
-                triggered = await start_checks_for_document(
-                    db=db,
-                    run_id=run_snap.run_id,
-                    document_id=doc_snap.document_id,  # Уже UUID, не конвертируем
-                )
-                if triggered:
-                    documents_triggered += 1
-    
-    if documents_triggered > 0:
+
+    if not can_start_checks:
         logger.info(
-            "Run checks: incremental dispatch completed",
+            "Run checks: no documents passed readiness gating, "
+            "skipping checks dispatch",
             run_id=run_id,
-            documents_triggered=documents_triggered,
         )
     else:
-        logger.debug(
-            "Run checks: no documents ready for incremental dispatch",
-            run_id=run_id,
+        # ── Eager freeze instruction snapshot ─────────────────────────
+        # Фиксируем snapshot ОДИМ вызовом ДО dispatch'а воркеров.
+        #
+        # Архитектурное обоснование:
+        # 1. Оркестратор = один поток на Run → нет race condition.
+        # 2. freeze_instruction_snapshot использует read-modify-write
+        #    без SELECT FOR UPDATE — параллельные вызовы из воркеров
+        #    run_document_checks приведут к lost update (потеря
+        #    doc_type в snapshot).
+        # 3. Все downstream воркеры (run_document_checks,
+        #    run_single_check) читают уже зафиксированный snapshot
+        #    через build_doc_type_loader(run_snap).
+        # 4. extend_existing=True делает вызов идемпотентным:
+        #    при повторном запуске оркестратора существующие
+        #    doc_types не перезаписываются.
+        # ──────────────────────────────────────────────────────────────
+        from engine.checks.instruction_snapshot import (
+            freeze_instruction_snapshot,
         )
+
+        ready_doc_types: set[str] = set()
+        for _ds in doc_snaps:
+            if _ds.status in {
+                DocumentStatus.ENRICHED.value,
+                DocumentStatus.COMPLETED.value,
+            }:
+                _dt = getattr(_ds, "doc_type", None)
+                if _dt:
+                    ready_doc_types.add(_dt)
+
+        if ready_doc_types:
+            try:
+                frozen = await freeze_instruction_snapshot(
+                    run_uuid=run_uuid,
+                    doc_types=ready_doc_types,
+                    run_repo=run_repo,
+                    session=db,
+                    tenant_id=run_snap.tenant_id,
+                    deal_id=run_snap.deal_id or deal_uuid,
+                    extend_existing=True,
+                )
+                # Коммитим freeze ДО dispatch'а Celery-задач.
+                # start_checks_for_document использует
+                # send_task_with_context (не Outbox), поэтому
+                # воркер может стартовать до выхода из db_uow().
+                # Явный commit гарантирует, что run_document_checks
+                # увидит frozen snapshot в БД.
+                await db.commit()
+                logger.info(
+                    "Run checks: instruction snapshot frozen",
+                    run_id=run_id,
+                    frozen_doc_types=sorted(frozen.keys()),
+                )
+            except Exception as freeze_exc:
+                logger.exception(
+                    "Run checks: freeze instruction snapshot failed, "
+                    "aborting checks dispatch",
+                    run_id=run_id,
+                    error=str(freeze_exc),
+                    error_type=type(freeze_exc).__name__,
+                )
+                raise RuntimeError(
+                    "Strict instruction snapshot freeze failed; "
+                    "checks dispatch aborted"
+                ) from freeze_exc
+        else:
+            logger.debug(
+                "Run checks: no typed documents to freeze "
+                "(global-only checks expected)",
+                run_id=run_id,
+            )
+        # ── КОНЕЦ freeze ──────────────────────────────────────────────
+
+        documents_triggered = 0
+        for doc_snap in doc_snaps:
+            if doc_snap.status in {
+                DocumentStatus.ENRICHED.value,
+                DocumentStatus.COMPLETED.value,
+            }:
+                if getattr(doc_snap, "doc_type", None):
+                    triggered = await start_checks_for_document(
+                        db=db,
+                        run_id=run_snap.run_id,
+                        document_id=doc_snap.document_id,
+                    )
+                    if triggered:
+                        documents_triggered += 1
+
+        if documents_triggered > 0:
+            logger.info(
+                "Run checks: incremental dispatch completed",
+                run_id=run_id,
+                documents_triggered=documents_triggered,
+            )
+        else:
+            logger.debug(
+                "Run checks: no documents triggered "
+                "(plans may already exist)",
+                run_id=run_id,
+            )
 
     return {
         "run_id": run_id,
