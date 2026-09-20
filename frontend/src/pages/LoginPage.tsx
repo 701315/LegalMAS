@@ -164,13 +164,12 @@ const LoginPage: React.FC = () => {
         </form>
       </div>
 
-      <button
-        type="button"
-        onClick={() => navigate("/")}
+      <a
+        href="https://steloom.com"
         className="mt-6 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
       >
         {t("login.backToHome")}
-      </button>
+      </a>
     </div>
   );
 };

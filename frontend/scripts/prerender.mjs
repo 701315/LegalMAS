@@ -14,10 +14,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_DIR  = join(__dirname, "..", "dist");
 const PORT      = 3033;
 
-// Только публичные маркетинговые маршруты из App.tsx.
-// Не включаем /login, /dashboard, /admin/* — они за RequireAuth.
+// Публичные маршруты, для которых prerender отдаёт готовый HTML.
+// ВАЖНО: / не входит в этот список.
+// Причина: dist/index.html используется Caddy как SPA fallback для
+// приложения (app.steloom.com). Если положить туда prerendered HTML
+// лендинга, браузер на мгновение показывает его перед тем, как React
+// отрендерит нужный маршрут (например, /dashboard).
+// Маркетинговая главная на steloom.com рендерится SPA-роутингом в браузере.
+// /login нужен как отдельный файл, чтобы Caddy отдавал форму логина
+// без fallback на index.html.
 const ROUTES = [
-  "/",
+  "/login",
   "/capabilities",
   "/security",
   "/about",
@@ -77,7 +84,12 @@ async function prerender() {
 
   const browser = await puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--lang=en-US",
+    ],
   });
 
   const failed = [];
@@ -88,6 +100,28 @@ async function prerender() {
 
     try {
       const page = await browser.newPage();
+
+      // Форсируем EN для prerender, чтобы HTML маркетинговых страниц
+      // всегда сохранялся на английском, независимо от локали окружения
+      // сборки. Без этого headless Chromium может подхватить ru и
+      // сохранить HTML с русским текстом (наблюдалось 19.09.2026 на demo).
+      await page.setExtraHTTPHeaders({
+        "Accept-Language": "en-US,en;q=0.9",
+      });
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, "language", {
+          get: () => "en-US",
+        });
+        Object.defineProperty(navigator, "languages", {
+          get: () => ["en-US", "en"],
+        });
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+        } catch {
+          /* private mode или отключено — игнорируем */
+        }
+      });
 
       // Блокируем fetch/xhr — API-запросы к бэкенду не нужны при prerender
       await page.setRequestInterception(true);

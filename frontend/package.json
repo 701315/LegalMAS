@@ -52,7 +52,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "postcss": "^8.5.8",
-    "puppeteer": "^25.3.0",
+    "puppeteer": "25.3.0",
     "serve-handler": "^6.1.7",
     "tailwindcss": "^4.2.1",
     "typescript": "~5.9.3",
