@@ -435,7 +435,7 @@ async def freeze_instruction_snapshot(
     existing_payload: dict[str, dict[str, Any]] = {}
     
     if extend_existing:
-        existing_run = await run_repo.get(run_uuid)
+        existing_run = await run_repo.get_for_update(run_uuid)
         if existing_run:
             from core.pipeline_snapshots import snapshot_run
             existing_snap = snapshot_run(existing_run)

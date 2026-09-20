@@ -113,6 +113,19 @@ class RunRepository:
         """
         return await self.get_by_id(run_id)
 
+    async def get_for_update(self, run_id: uuid.UUID) -> Run | None:
+        """
+        Загрузить Run с пессимистичной блокировкой строки (SELECT ... FOR UPDATE).
+        Предотвращает Race Condition при параллельном обновлении снимков.
+        """
+        from sqlalchemy import select
+        from db.models.run import Run
+
+        result = await self.session.execute(
+            select(Run).where(Run.id == run_id).with_for_update()
+        )
+        return result.scalar_one_or_none()
+
 
     async def update_status(self, run_id: uuid.UUID, status: str, **kwargs) -> Run | None:
         """
