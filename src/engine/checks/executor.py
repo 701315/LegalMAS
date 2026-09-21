@@ -43,7 +43,11 @@ from ops.metrics import METRICS
 from ..detectors.hybrid_detector import HybridDetector
 from engine.checks.semantic_context import SemanticEnrichmentContext
 from ..detectors.models import RetrievedChunk
-from ..playbook.models import CheckDefinition, DetectorType
+from ..playbook.models import (
+    CheckDefinition,
+    DetectorType,
+    PresenceSignalConfig,
+)
 from ..retrieval.engine import RetrievalEngine
 from .extraction import ExtractionExecutor
 from .extraction_semantics import (
@@ -599,6 +603,28 @@ class CheckExecutor:
                 ),
             )
         )
+
+    @staticmethod
+    def _classify_presence_signal(
+        structured_data: dict | None,
+        signal: PresenceSignalConfig,
+    ) -> str:
+        """Return presence-gate verdict.
+
+        Returns one of:
+            "present" | "missing" | "unclear" | "undeclared" | "not_extracted"
+        """
+        if not isinstance(structured_data, dict):
+            return "not_extracted"
+
+        payload = structured_data.get(signal.field)
+        if not isinstance(payload, dict):
+            return "not_extracted"
+
+        if not payload.get("found"):
+            return "not_extracted"
+
+        return signal.classify(payload.get("value"))
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -1249,25 +1275,66 @@ class CheckExecutor:
         )
 
         if is_field_extraction:
-            has_meaningful_extraction = self._has_meaningful_extraction(
-                structured_data,
-                check,
+            presence_signal = (
+                getattr(check.extraction, "presence_signal", None)
+                if check.extraction is not None
+                else None
             )
 
-            if has_meaningful_extraction:
-                result = "pass"
-                severity = check.severity_if_pass or "pass"
+            if presence_signal is not None:
+                gate_verdict = self._classify_presence_signal(
+                    structured_data, presence_signal
+                )
+                raw_details["presence_signal"] = gate_verdict
+
+                if gate_verdict == "present":
+                    result = "pass"
+                    severity = check.severity_if_pass or "pass"
+                elif gate_verdict == "missing":
+                    result = "missing_required_clause"
+                    severity = check.severity_if_fail or check.severity
+                elif gate_verdict == "unclear":
+                    result = "unclear"
+                    severity = check.severity_if_unclear or check.severity
+                else:
+                    # "undeclared" or "not_extracted" — fail-safe.
+                    result = "unclear"
+                    severity = check.severity_if_unclear or check.severity
+                    logger.warning(
+                        "CheckExecutor: presence_signal gate returned %s; "
+                        "falling back to unclear (fail-safe)",
+                        gate_verdict,
+                        extra={
+                            "doc_id": str(getattr(doc, "id", None)),
+                            "check_id": getattr(check, "id", None),
+                            "gate_field": presence_signal.field,
+                        },
+                    )
             else:
-                result = "unclear"
-                severity = check.severity_if_unclear or check.severity
-                raw_details["extraction_empty"] = True
+                has_meaningful_extraction = self._has_meaningful_extraction(
+                    structured_data,
+                    check,
+                )
+
+                if has_meaningful_extraction:
+                    result = "pass"
+                    severity = check.severity_if_pass or "pass"
+                else:
+                    result = "unclear"
+                    severity = check.severity_if_unclear or check.severity
+                    raw_details["extraction_empty"] = True
 
             logger.debug(
-                "CheckExecutor: field_extraction business result mapped from structured_data",
+                "CheckExecutor: field_extraction business result mapped",
                 extra={
                     "doc_id": str(getattr(doc, "id", None)),
                     "check_id": getattr(check, "id", None),
-                    "has_meaningful_extraction": has_meaningful_extraction,
+                    "presence_signal_declared": presence_signal is not None,
+                    "presence_signal_verdict": (
+                        raw_details.get("presence_signal")
+                        if presence_signal is not None
+                        else None
+                    ),
                     "result": result,
                     "severity": severity,
                 },

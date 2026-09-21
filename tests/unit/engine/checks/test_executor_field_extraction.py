@@ -12,6 +12,7 @@ from engine.playbook.models import (
     ExtractionConfig,
     ExtractionFieldConfig,
     ExtractionFieldType,
+    PresenceSignalConfig,
 )
 
 
@@ -32,6 +33,7 @@ def _make_check(
     extraction_enabled: bool = False,
     extraction_fields: list[dict] | None = None,
     auto_label_facts: bool = True,
+    presence_signal: PresenceSignalConfig | None = None,
 ) -> CheckDefinition:
     """
     Build a minimal CheckDefinition for testing.
@@ -49,7 +51,11 @@ def _make_check(
     """
     extraction = None
 
-    if extraction_enabled or extraction_fields is not None:
+    if (
+        extraction_enabled
+        or extraction_fields is not None
+        or presence_signal is not None
+    ):
         raw_fields = extraction_fields or [{"name": "sample_field"}]
         fields: list[ExtractionFieldConfig] = []
 
@@ -76,7 +82,11 @@ def _make_check(
                 )
             )
 
-        extraction = ExtractionConfig(enabled=True, fields=fields)
+        extraction = ExtractionConfig(
+            enabled=True,
+            fields=fields,
+            presence_signal=presence_signal,
+        )
 
     return CheckDefinition(
         id=check_id,
@@ -517,4 +527,181 @@ class TestExecuteRegressionNonFieldExtraction:
         assert result["llm_error_type"] == "timeout"
 
 
-        
+class TestPresenceSignalGate:
+    """Coverage for the presence_signal reconciliation branch in CheckExecutor.execute.
+
+    Contract:
+      present       -> result="pass",                    severity=severity_if_pass
+      missing       -> result="missing_required_clause", severity=severity_if_fail
+      unclear       -> result="unclear",                 severity=severity_if_unclear
+      undeclared    -> result="unclear" (fail-safe)
+      not_extracted -> result="unclear" (fail-safe)
+      absent gate   -> legacy has_meaningful_extraction path (regression)
+    """
+
+    @staticmethod
+    def _signal() -> PresenceSignalConfig:
+        return PresenceSignalConfig(
+            field="coc_status",
+            present_values=["present"],
+            missing_values=["missing"],
+            unclear_values=["unclear"],
+        )
+
+    @staticmethod
+    def _fields() -> list[dict]:
+        return [
+            {"name": "coc_display", "presentation": "fact",
+             "description": "Display"},
+            {"name": "coc_status", "presentation": "signal",
+             "allowed_values": ["present", "missing", "unclear"]},
+        ]
+
+    @staticmethod
+    def _make_check_with_gate(**kwargs) -> CheckDefinition:
+        return _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=TestPresenceSignalGate._fields(),
+            presence_signal=TestPresenceSignalGate._signal(),
+            **kwargs,
+        )
+
+    def test_present_verdict_yields_pass(self, monkeypatch):
+        _patch_common(monkeypatch)
+        detector = _FakeDetector(error=AssertionError("detector must not be called"))
+        extractor = _FakeExtractor(result={
+            "coc_display": {"value": "Смена контроля запрещена", "found": True},
+            "coc_status": {"value": "present", "found": True},
+        })
+        executor = _make_executor(detector, extractor)
+
+        result = executor.execute(
+            _make_doc(), self._make_check_with_gate(), _make_chunks()
+        )
+
+        assert result["result"] == "pass"
+        assert result["severity"] == "pass"
+        assert result["raw"]["presence_signal"] == "present"
+
+    def test_missing_verdict_yields_missing_required_clause(self, monkeypatch):
+        _patch_common(monkeypatch)
+        detector = _FakeDetector(error=AssertionError("detector must not be called"))
+        extractor = _FakeExtractor(result={
+            "coc_display": {
+                "value": "Положения о смене контроля не установлены",
+                "found": True,
+            },
+            "coc_status": {"value": "missing", "found": True},
+        })
+        executor = _make_executor(detector, extractor)
+
+        result = executor.execute(
+            _make_doc(), self._make_check_with_gate(), _make_chunks()
+        )
+
+        assert result["result"] == "missing_required_clause"
+        assert result["severity"] == "critical"
+        assert result["raw"]["presence_signal"] == "missing"
+
+    def test_unclear_verdict_yields_unclear(self, monkeypatch):
+        _patch_common(monkeypatch)
+        detector = _FakeDetector(error=AssertionError("detector must not be called"))
+        extractor = _FakeExtractor(result={
+            "coc_display": {"value": "Не удалось определить режим", "found": True},
+            "coc_status": {"value": "unclear", "found": True},
+        })
+        executor = _make_executor(detector, extractor)
+
+        result = executor.execute(
+            _make_doc(), self._make_check_with_gate(), _make_chunks()
+        )
+
+        assert result["result"] == "unclear"
+        assert result["severity"] == "medium"
+        assert result["raw"]["presence_signal"] == "unclear"
+
+    def test_undeclared_value_fails_safe_to_unclear(self, monkeypatch):
+        _patch_common(monkeypatch)
+        detector = _FakeDetector(error=AssertionError("detector must not be called"))
+        extractor = _FakeExtractor(result={
+            "coc_display": {"value": "Что-то", "found": True},
+            "coc_status": {"value": "totally_unknown", "found": True},
+        })
+        executor = _make_executor(detector, extractor)
+
+        result = executor.execute(
+            _make_doc(), self._make_check_with_gate(), _make_chunks()
+        )
+
+        assert result["result"] == "unclear"
+        assert result["severity"] == "medium"
+        assert result["raw"]["presence_signal"] == "undeclared"
+
+    def test_gate_field_found_false_fails_safe_to_unclear(self, monkeypatch):
+        _patch_common(monkeypatch)
+        detector = _FakeDetector(error=AssertionError("detector must not be called"))
+        extractor = _FakeExtractor(result={
+            "coc_display": {"value": "Что-то", "found": True},
+            "coc_status": {"value": None, "found": False},
+        })
+        executor = _make_executor(detector, extractor)
+
+        result = executor.execute(
+            _make_doc(), self._make_check_with_gate(), _make_chunks()
+        )
+
+        assert result["result"] == "unclear"
+        assert result["raw"]["presence_signal"] == "not_extracted"
+
+    def test_gate_field_absent_fails_safe_to_unclear(self, monkeypatch):
+        _patch_common(monkeypatch)
+        detector = _FakeDetector(error=AssertionError("detector must not be called"))
+        extractor = _FakeExtractor(result={
+            "coc_display": {"value": "Что-то", "found": True},
+        })
+        executor = _make_executor(detector, extractor)
+
+        result = executor.execute(
+            _make_doc(), self._make_check_with_gate(), _make_chunks()
+        )
+
+        assert result["result"] == "unclear"
+        assert result["raw"]["presence_signal"] == "not_extracted"
+
+    def test_absent_presence_signal_keeps_legacy_path(self, monkeypatch):
+        _patch_common(monkeypatch)
+        detector = _FakeDetector(error=AssertionError("detector must not be called"))
+        extractor = _FakeExtractor(result={
+            "governing_law": {"value": "РФ"},
+        })
+        executor = _make_executor(detector, extractor)
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {"name": "governing_law", "description": "Применимое право"},
+            ],
+        )
+
+        result = executor.execute(_make_doc(), check, _make_chunks())
+
+        assert result["result"] == "pass"
+        assert result["severity"] == "pass"
+        assert "presence_signal" not in result["raw"]
+
+    def test_absent_presence_signal_empty_extraction_still_unclear(self, monkeypatch):
+        _patch_common(monkeypatch)
+        detector = _FakeDetector(error=AssertionError("detector must not be called"))
+        extractor = _FakeExtractor(result=None)
+        executor = _make_executor(detector, extractor)
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {"name": "governing_law", "description": "Применимое право"},
+            ],
+        )
+
+        result = executor.execute(_make_doc(), check, _make_chunks())
+
+        assert result["result"] == "unclear"
+        assert result["raw"]["extraction_empty"] is True
+        assert "presence_signal" not in result["raw"]
