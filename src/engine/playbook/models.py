@@ -731,6 +731,45 @@ class ExtractionMode(str, Enum):
     HYBRID = "hybrid"
 
 
+class PresenceSignalConfig(BaseModel):
+    """Declarative presence-gate for field_extraction checks.
+
+    When declared on ExtractionConfig, CheckExecutor determines `result`
+    from the semantic state of a single declared extraction field, instead
+    of the generic has_meaningful_extraction rule.
+
+    Contract:
+    - `field` must be declared in extraction.fields.
+    - present_values, missing_values, unclear_values are pairwise disjoint.
+    - Their union equals the declared allowed_values of `field`.
+    - Unclassified gate value -> executor returns "unclear" (fail-safe).
+
+    Semantics:
+        present_values  -> result="pass"
+        missing_values  -> result="missing_required_clause"
+        unclear_values  -> result="unclear"
+        undeclared / not-extracted -> result="unclear" (fail-safe)
+    """
+    field: str
+    present_values: list[str] = Field(min_length=1)
+    missing_values: list[str] = Field(min_length=1)
+    unclear_values: list[str] = Field(default_factory=list)
+
+    def classify(
+        self, value: Any,
+    ) -> Literal["present", "missing", "unclear", "undeclared"]:
+        if value is None:
+            return "unclear"
+        token = str(value).strip().lower()
+        if token in {v.strip().lower() for v in self.present_values}:
+            return "present"
+        if token in {v.strip().lower() for v in self.missing_values}:
+            return "missing"
+        if token in {v.strip().lower() for v in self.unclear_values}:
+            return "unclear"
+        return "undeclared"
+
+
 class ExtractionConfig(BaseModel):
     """
     Конфигурация structured extraction для проверки.
@@ -796,6 +835,14 @@ class ExtractionConfig(BaseModel):
     #         value_field: governing_law_value
     #         display_order: 10
     dd_grid_columns: list[DDGridColumnSpec] | None = None
+
+    # Declarative presence-gate for field_extraction checks.
+    #
+    # When set, CheckExecutor maps `result` from a single declared
+    # extraction field instead of the generic has_meaningful_extraction.
+    # Opt-in: absent by default; existing field_extraction checks are
+    # unaffected until their YAML declares presence_signal explicitly.
+    presence_signal: PresenceSignalConfig | None = None
 
     @field_validator("fields")
     @classmethod
@@ -927,6 +974,70 @@ class ExtractionConfig(BaseModel):
 
 
 # ────────────────────────── CHECK & PLAYBOOK ─────────────────────────
+
+
+    @model_validator(mode="after")
+    def _validate_presence_signal_contract(self) -> "ExtractionConfig":
+        """Fail-fast contract for presence_signal.
+
+        Enforced at playbook load time (never at runtime):
+        1. presence_signal requires extraction.enabled=true.
+        2. presence_signal.field must be declared in extraction.fields.
+        3. present/missing/unclear groups must be pairwise disjoint.
+        4. Their union must equal the declared allowed_values of the field.
+        """
+        ps = self.presence_signal
+        if ps is None:
+            return self
+
+        if not self.enabled:
+            raise ValueError(
+                "extraction.presence_signal declared but extraction.enabled=false"
+            )
+
+        fields_by_name = {f.name: f for f in (self.fields or [])}
+        field_cfg = fields_by_name.get(ps.field)
+        if field_cfg is None:
+            raise ValueError(
+                f"extraction.presence_signal.field='{ps.field}' "
+                f"not declared in extraction.fields"
+            )
+
+        groups = [
+            ("present_values", {v.strip().lower() for v in ps.present_values}),
+            ("missing_values", {v.strip().lower() for v in ps.missing_values}),
+            ("unclear_values", {v.strip().lower() for v in ps.unclear_values}),
+        ]
+        for i in range(len(groups)):
+            for j in range(i + 1, len(groups)):
+                overlap = groups[i][1] & groups[j][1]
+                if overlap:
+                    raise ValueError(
+                        f"extraction.presence_signal groups overlap: "
+                        f"{groups[i][0]} intersect {groups[j][0]} = {sorted(overlap)}"
+                    )
+
+        allowed = field_cfg.allowed_values or []
+        if not allowed:
+            raise ValueError(
+                f"extraction.presence_signal.field='{ps.field}' must declare "
+                f"allowed_values to bind gate values to a closed contract"
+            )
+
+        allowed_set = {
+            str(getattr(v, "value", v)).strip().lower() for v in allowed
+        }
+        declared_set = set().union(*(g[1] for g in groups))
+        if declared_set != allowed_set:
+            missing = allowed_set - declared_set
+            extra = declared_set - allowed_set
+            raise ValueError(
+                f"extraction.presence_signal on field '{ps.field}' must "
+                f"cover allowed_values exactly. "
+                f"missing={sorted(missing)} extra={sorted(extra)}"
+            )
+
+        return self
 
 
 class EnrichmentHints(BaseModel):
@@ -1087,6 +1198,25 @@ class CheckDefinition(BaseModel):
         This prevents prompt/instruction text leakage into DD Grid cells.
         """
         extraction = self.extraction
+
+        # presence_signal is only meaningful for field_extraction semantics.
+        raw_ui_mode_check = self.ui_mode
+        ui_mode_check = (
+            str(raw_ui_mode_check).strip().lower()
+            if raw_ui_mode_check is not None
+            else ""
+        )
+        if (
+            extraction is not None
+            and extraction.presence_signal is not None
+            and ui_mode_check
+            and ui_mode_check != "field_extraction"
+        ):
+            raise ValueError(
+                f"check '{self.id}': extraction.presence_signal requires "
+                f"ui_mode='field_extraction' (got ui_mode='{self.ui_mode}')"
+            )
+
         if extraction is None or not extraction.enabled:
             return self
 
