@@ -260,6 +260,21 @@ def _humanize_identifier(value: str) -> str:
     return cleaned.title()
 
 
+# Structural markers (e.g. __preamble__, __metadata__, __header__) are
+# internal segment identifiers, not user-facing clause references.
+# Universal pattern: lowercase snake_case wrapped in double underscores.
+# These must never leak into location_clause_ref: the viewer would show
+# "п. __preamble__" as a broken reference.
+_STRUCTURAL_MARKER_RE = re.compile(r"^__[a-z][a-z0-9_]*__$")
+
+
+def _is_structural_marker(value: str | None) -> bool:
+    """True if the value is a structural marker like __preamble__."""
+    if not isinstance(value, str):
+        return False
+    return bool(_STRUCTURAL_MARKER_RE.match(value.strip()))
+
+
 def _safe_str_or_none(value: Any) -> str | None:
     """Нормализовать значение к непустой строке или None."""
     if value is None:
@@ -342,7 +357,7 @@ def _derive_clause_ref_from_uid(
     raw_uid = raw.split(":", 1)[-1] if ":" in raw else raw
     raw_uid = raw_uid.strip()
 
-    if not raw_uid or raw_uid == "__preamble__":
+    if not raw_uid or _is_structural_marker(raw_uid):
         return None
 
     prefix = "cl." if is_en else "п."
@@ -367,6 +382,10 @@ def _normalize_location_bundle(
     - если has_location_fallback=False, fallback reason всегда None.
     """
     normalized_clause_ref = _safe_str_or_none(location_clause_ref)
+    if _is_structural_marker(normalized_clause_ref):
+        # Contract: structural markers are not clause references.
+        # Drop the ref; page/source/fallback remain valid downstream.
+        normalized_clause_ref = None
     is_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
     if is_en and normalized_clause_ref and normalized_clause_ref.lower().startswith(("п.", "п ")):
         normalized_clause_ref = re.sub(r"^[Пп]\.\s*", "cl. ", normalized_clause_ref)
