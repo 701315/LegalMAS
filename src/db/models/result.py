@@ -348,6 +348,31 @@ class CheckResult(Base):
         ),
     )
 
+    # ── B1a: primary anchor denormalization (populated by B4) ─────────────
+    primary_anchor_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("check_result_anchors.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Denormalized pointer to the primary CheckResultAnchor.",
+    )
+    primary_anchor_method: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Denormalized CheckAnchorMethod of the primary anchor.",
+    )
+    primary_anchor_confidence: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Denormalized confidence of the primary anchor.",
+    )
+    anchor_stale: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="True if anchors became stale (source_content_hash mismatch).",
+    )
+
     canonical_content_hash: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
