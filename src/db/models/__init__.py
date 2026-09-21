@@ -29,6 +29,7 @@ from .global_instruction import GlobalInstructionVersion
 from .tenant_result_locale_policy import TenantResultLocalePolicy
 from .legal_glossary import LegalGlossary  # S3.1
 from .instruction_presentation_localization import InstructionPresentationLocalization  # S4.1
+from .check_result_anchor import CheckResultAnchor
 
 
 __all__ = [
@@ -69,6 +70,7 @@ __all__ = [
     "GlobalInstructionVersion",
     "TenantResultLocalePolicy",
     "LegalGlossary",
+    "CheckResultAnchor",
     "InstructionPresentationLocalization",
 ]
 
