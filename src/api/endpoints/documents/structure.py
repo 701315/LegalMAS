@@ -41,6 +41,7 @@ class ViewerSizedChunkMeta(BaseModel):
     id: str
     element_ids: list[str]
     clause_uids: list[str] = Field(default_factory=list)
+    raw_uids: list[str] = Field(default_factory=list)
 
 
 class ViewerSizedChunksResponse(BaseModel):
@@ -254,8 +255,16 @@ async def get_document_sized_chunks_for_viewer(
         ch_id = ch.get("id")
         meta = ch.get("metadata") or {}
         element_ids = meta.get("element_ids") or []
-        clause_uid = meta.get("clause_uid")
-        clause_uids = [str(clause_uid)] if clause_uid else []
+
+        # canonical identity после Sprint 3 — effective_uid,
+        # raw_uid — human-readable "7.3.2" для отображения в UI.
+        # Поле clause_uid в canonical metadata не заполняется,
+        # оставлено как fallback для legacy-чанков.
+        effective_uid = meta.get("effective_uid") or meta.get("clause_uid")
+        raw_uid = meta.get("raw_uid")
+
+        clause_uids = [str(effective_uid)] if effective_uid else []
+        raw_uids = [str(raw_uid)] if raw_uid else []
 
         if not ch_id:
             continue
@@ -265,6 +274,7 @@ async def get_document_sized_chunks_for_viewer(
                 id=str(ch_id),
                 element_ids=[str(eid) for eid in element_ids],
                 clause_uids=clause_uids,
+                raw_uids=raw_uids,
             )
         )
 
