@@ -76,6 +76,78 @@ from services.structure.legal_unit_retrieval import (
 logger = get_logger(__name__)
 
 
+def _build_element_bbox_map(
+    layout: dict[str, Any],
+) -> dict[str, tuple[int, list[float]]]:
+    """Build element_id -> (page, bbox) map from layout JSON.
+
+    Universal: works for any document, any layout, any element type.
+    Skips malformed elements (non-dict, missing element_id/page/bbox).
+    Returns empty dict if layout has no valid 'elements'.
+    """
+    result: dict[str, tuple[int, list[float]]] = {}
+    elements = layout.get("elements") or []
+    for el in elements:
+        if not isinstance(el, dict):
+            continue
+        eid = el.get("element_id")
+        if not isinstance(eid, str) or not eid:
+            continue
+        page = el.get("page")
+        if not isinstance(page, int) or isinstance(page, bool):
+            continue
+        bbox = el.get("bbox")
+        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+            continue
+        try:
+            bbox_f = [float(x) for x in bbox]
+        except (TypeError, ValueError):
+            continue
+        result[eid] = (page, bbox_f)
+    return result
+
+
+def _compute_bbox_union(
+    element_ids: list[str],
+    target_page: int | None,
+    bbox_map: dict[str, tuple[int, list[float]]],
+) -> list[float] | None:
+    """Compute union bbox for a chunk.
+
+    Strategy (universal, order-independent):
+    - Prefer elements whose page matches target_page (chunk's start_page).
+    - Fallback: all elements of the chunk (multi-page chunks, or target_page
+      not resolvable to any element page).
+    - Return None if no valid element found in bbox_map.
+
+    Returns [x0, top, x1, bottom] in PDF coordinates.
+    """
+    if not element_ids or not bbox_map:
+        return None
+
+    page_matched: list[list[float]] = []
+    all_matched: list[list[float]] = []
+    for eid in element_ids:
+        entry = bbox_map.get(eid)
+        if entry is None:
+            continue
+        page, bbox = entry
+        all_matched.append(bbox)
+        if target_page is not None and page == target_page:
+            page_matched.append(bbox)
+
+    pool = page_matched or all_matched
+    if not pool:
+        return None
+
+    return [
+        min(b[0] for b in pool),
+        min(b[1] for b in pool),
+        max(b[2] for b in pool),
+        max(b[3] for b in pool),
+    ]
+
+
 def _normalize_text(value: Any) -> str:
     return str(value or "").strip()
 
@@ -828,6 +900,10 @@ class SegmentChunkBuilderV2:
         layout_meta = layout.get("metadata") or {}
         total_pages = extract_total_pages(layout_meta)
 
+        # bbox_union support (B0.4): element_id -> (page, bbox) once per document.
+        # Computed once here so all segment snapshots reuse the same map.
+        bbox_map = _build_element_bbox_map(layout)
+
         logger.debug(
             "SegmentChunkBuilderV2: layout loaded",
             extra={
@@ -860,6 +936,7 @@ class SegmentChunkBuilderV2:
                 segment=segment,
                 layout=layout,
                 layout_meta=layout_meta if isinstance(layout_meta, dict) else {},
+                bbox_map=bbox_map,
                 layout_ref=layout_ref,
                 file_graph_ref=file_graph_ref,
                 file_graph_segment=graph_segment,
@@ -1011,6 +1088,7 @@ class SegmentChunkBuilderV2:
         segment: DocumentSegment,
         layout: dict[str, Any],
         layout_meta: dict[str, Any],
+        bbox_map: dict[str, tuple[int, list[float]]],
         layout_ref: str,
         file_graph_ref: str,
         file_graph_segment: dict[str, Any],
@@ -1245,6 +1323,7 @@ class SegmentChunkBuilderV2:
             segment=segment,
             file_graph_ref=file_graph_ref,
             layout_ref=layout_ref,
+            bbox_map=bbox_map,
             segment_clause_tree_ref=segment_clause_tree_ref,
             total_pages=total_pages,
         )
@@ -1328,6 +1407,7 @@ class SegmentChunkBuilderV2:
             segment=segment,
             file_graph_ref=file_graph_ref,
             layout_ref=layout_ref,
+            bbox_map=bbox_map,
             segment_clause_tree_ref=segment_clause_tree_ref,
             total_pages=total_pages,
         )
@@ -1494,6 +1574,7 @@ class SegmentChunkBuilderV2:
                 segment=segment,
                 file_graph_ref=file_graph_ref,
                 layout_ref=layout_ref,
+                bbox_map=bbox_map,
                 segment_clause_tree_ref=segment_clause_tree_ref,
                 total_pages=total_pages,
             )
@@ -1622,6 +1703,7 @@ class SegmentChunkBuilderV2:
             segment=segment,
             file_graph_ref=file_graph_ref,
             layout_ref=layout_ref,
+            bbox_map=bbox_map,
             segment_clause_tree_ref=segment_clause_tree_ref,
             total_pages=total_pages,
         )
@@ -1743,6 +1825,7 @@ class SegmentChunkBuilderV2:
                 segment=segment,
                 file_graph_ref=file_graph_ref,
                 layout_ref=layout_ref,
+                bbox_map=bbox_map,
                 segment_clause_tree_ref=segment_clause_tree_ref,
                 total_pages=total_pages,
             )
@@ -1767,6 +1850,7 @@ class SegmentChunkBuilderV2:
         segment: DocumentSegment,
         file_graph_ref: str,
         layout_ref: str,
+        bbox_map: dict[str, tuple[int, list[float]]],
         segment_clause_tree_ref: str,
         total_pages: int | None,
     ) -> list[dict[str, Any]]:
@@ -1812,6 +1896,15 @@ class SegmentChunkBuilderV2:
             meta["layout_ref"] = layout_ref
             meta["file_graph_ref"] = file_graph_ref
             meta["segment_clause_tree_ref"] = segment_clause_tree_ref
+
+            # bbox_union (B0.4): union bbox of chunk's elements on its start_page.
+            # Universal computation from pre-built element->bbox map.
+            # None when no valid element found (honest fallback, viewer skips highlight).
+            meta["bbox_union"] = _compute_bbox_union(
+                element_ids=list(meta.get("element_ids") or []),
+                target_page=start_page if isinstance(start_page, int) else None,
+                bbox_map=bbox_map,
+            )
 
             meta["position_ratio_within_file"] = position_ratio_within_file
             meta["position_ratio_within_segment"] = position_ratio_within_segment
