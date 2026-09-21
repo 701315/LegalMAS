@@ -16,6 +16,7 @@ from .audit_repo import AuditRepository
 from .bundle_repo import BundleRepository
 from .calibration_repo import CalibrationRepository
 from .check_result_persist_error_repo import CheckResultPersistErrorRepository
+from .check_result_anchor_repo import CheckResultAnchorRepository
 from .check_result_presentation_repo import CheckResultPresentationRepository
 from .check_result_repo import CheckResultRepository
 from .dd_request_repo import DDRequestRepository
@@ -42,6 +43,7 @@ __all__ = [
     "AuditRepository",
     "BundleRepository",
     "CalibrationRepository",
+    "CheckResultAnchorRepository",
     "DDRequestRepository",
     "DealRepository",
     "DocumentRepository",
