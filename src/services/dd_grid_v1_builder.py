@@ -965,6 +965,47 @@ def _normalize_string_comparable(value: Any) -> str | None:
     return str(value).strip().lower()
 
 
+# Semantic combos where a finding is "positive" for location purposes.
+#
+# Contract:
+# - Location is shown only for findings that positively reference a place
+#   in the document: a value successfully extracted, a clause found,
+#   a risk identified.
+# - "unclear" is preserved for all modes: it is a manual-review state, not a
+#   negative finding. Location acts as a review aid for the lawyer.
+# - Any (ui_mode, review_status) not listed here is fail-safe: location is
+#   suppressed. Unknown ui_mode or review_status -> suppressed.
+#
+# Universal: based on semantic (ui_mode, review_status) pair only.
+# No check_id, no field_name, no document-language, no example-specific logic.
+_POSITIVE_LOCATION_COMBOS: frozenset[tuple[str, str]] = frozenset({
+    ("field_extraction", "no_issue_detected"),
+    ("field_extraction", "unclear"),
+    ("clause_presence",  "no_issue_detected"),
+    ("clause_presence",  "unclear"),
+    ("risk_detection",   "issue_detected"),
+    ("risk_detection",   "unclear"),
+})
+
+
+def _is_positive_location_finding(
+    ui_mode: str | None,
+    review_status: str | None,
+) -> bool | None:
+    """Return True/False for known review_status; None for legacy records.
+
+    None means: caller must fall back to legacy cell_state-only semantics
+    (records produced before B0.2b where review_status was not persisted).
+    """
+    if review_status is None:
+        return None
+
+    mode = (ui_mode or "").strip().lower()
+    status = review_status.strip().lower()
+
+    return (mode, status) in _POSITIVE_LOCATION_COMBOS
+
+
 def _resolve_cell_state(
     *,
     check_result: dict[str, Any] | None,
@@ -1147,6 +1188,31 @@ def _build_cell_value(
     # Rule 1: negative cells никогда не имеют location.
     # ("not_defined", "not_executed", "error")
     if cell_state != "defined":
+        return CellValueDTO(
+            cell_state=cell_state,
+            display_value=display_value,
+            raw_value=raw_value,
+            location_source="none",
+            location_clause_ref=None,
+            location_clause_uid=None,
+            location_page=None,
+            location_confidence=None,
+            has_location_fallback=False,
+            location_fallback_reason=None,
+        )
+
+    # Rule 1b (B0.3): semantic location filter.
+    # cell_state == "defined" only means "a value exists for this cell".
+    # It does NOT mean the finding is positive. For negative findings
+    # (e.g. clause_missing, risk_detection + no_issue_detected) location
+    # must be suppressed even though display_text is present.
+    #
+    # Legacy fallback: review_status is None for records produced before
+    # B0.2b -> skip this filter, rely on cell_state only (unchanged behavior).
+    review_status = _safe_str_or_none(check_result.get("review_status"))
+    ui_mode = _safe_str_or_none(getattr(check, "ui_mode", None))
+    positive = _is_positive_location_finding(ui_mode, review_status)
+    if positive is False:
         return CellValueDTO(
             cell_state=cell_state,
             display_value=display_value,
