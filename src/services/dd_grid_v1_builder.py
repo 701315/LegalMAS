@@ -99,6 +99,7 @@ class CellValueDTO:
     display_value: str
     raw_value: Any = None
     location_clause_ref: str | None = None
+    location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
     has_location_fallback: bool = False
@@ -116,6 +117,7 @@ class DrawerFieldDTO:
     display_value: str
     raw_value: Any = None
     location_clause_ref: str | None = None
+    location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
     has_location_fallback: bool = False
@@ -1063,6 +1065,7 @@ def _build_cell_value(
             display_value=column.fallback_display,
             raw_value=None,
             location_clause_ref=None,
+            location_clause_uid=None,
             location_page=None,
             location_confidence=None,
             has_location_fallback=False,
@@ -1152,6 +1155,7 @@ def _build_cell_value(
         display_value=display_value,
         raw_value=raw_value,
         location_clause_ref=location_clause_ref,
+        location_clause_uid=_safe_str_or_none(check_result.get("clause_uid")),
         location_page=location_page,
         location_confidence=location_confidence,
         has_location_fallback=has_location_fallback,
@@ -1337,6 +1341,7 @@ def _build_drawer_content(
             display_value=cell.display_value,
             raw_value=cell.raw_value,
             location_clause_ref=cell.location_clause_ref,
+            location_clause_uid=cell.location_clause_uid,
             location_page=cell.location_page,
             location_confidence=cell.location_confidence,
             has_location_fallback=cell.has_location_fallback,

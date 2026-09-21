@@ -525,6 +525,7 @@ export interface DDGridV1CellValueDTO {
   display_value: string;
   raw_value: string | null;
   location_clause_ref: string | null;
+  location_clause_uid: string | null;
   location_page: number | null;
   location_confidence: DDGridV1LocationConfidence;
   has_location_fallback: boolean;
@@ -545,6 +546,7 @@ export interface DDGridV1DrawerFieldDTO {
   display_value: string;
   raw_value: string | null;
   location_clause_ref: string | null;
+  location_clause_uid: string | null;
   location_page: number | null;
   location_confidence: DDGridV1LocationConfidence;
   has_location_fallback: boolean;

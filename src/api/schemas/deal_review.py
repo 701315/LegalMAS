@@ -508,6 +508,10 @@ class DDGridCellValueDTO(BaseModel):
     location_clause_ref: str | None = None
     """Clause reference (e.g., 'cl. 22'). None when fallback without pinpoint."""
 
+    location_clause_uid: str | None = None
+    """Effective clause UID (e.g., 'main_contract:7.2'). Used by viewer
+    to match activeChunk in sizedChunks[].clauseUids. None when unavailable."""
+
     location_page: int | None = None
     """Page number in the document. None when fallback without pinpoint."""
 
@@ -531,6 +535,7 @@ class DDGridDrawerFieldDTO(BaseModel):
     display_value: str
     raw_value: Any = None
     location_clause_ref: str | None = None
+    location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
     has_location_fallback: bool = False
