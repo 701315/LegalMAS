@@ -17,8 +17,11 @@
 | B0.5 — context_trace.score_breakdown | ✅ DONE | `73ce101` / merge `2632e21` | `pre-B0.5-20260921-160717` / `post-B0.5-20260921-160921` | Проброс top-level `score_breakdown` из retrieval chunk в `extraction_contexts` (executor L1185). `context_trace[i].score_breakdown` = `{bm25_raw, bm25_norm, dense_raw, dense_norm, metadata_raw, metadata_norm, weighted_sparse, weighted_dense, weighted_metadata, combined_score}`. Unit-тесты 4 PASSED. Live-verified run `ef76f962`: все 10 полей; `combined_score` == `score` (0.711 для CoC, 0.877 для control) |
 | B0.6 — DD Grid LOCATION → viewer page mismatch (frontend) | ✅ DONE | `16c793f` / merge `a9093fa` | `pre-B0.6-20260921-170650` / `post-B0.6-20260921-170828` | `DocumentViewerModal::handleDocumentLoad` больше не сбрасывает на page 1 при `location.page > numPages` (race с `useEffect [location]` при первой загрузке PDF, когда `numPages=0`). Теперь: clamp к `numPages` только если `numPages > 0`; при валидном `targetPage ≤ numPages` не трогает `pageNumber`. Универсально для любого PDF и page. Verified в браузере: клик на p. 4 → modal на p. 4 |
 | B0.6b — DDGridV1List: clauseUid должен быть canonical | ✅ DONE | `6465024` / merge `7c01e38` | `pre-B0.6b-20260921-171825` / `post-B0.6b-20260921-171912` | `DDGridV1List.tsx:796` — `clauseUid` теперь из `firstField.location_clause_uid` (canonical `"main_contract:7.2"`), а не из `location_clause_ref` (`"п. 7.2"`). Viewer находит chunk для overlay. Правка одной строки, tsc clean |
-| B1 — Canonical Anchor Contract | ⏳ TODO | — | — | Pydantic `CheckAnchor` + ORM + миграция + `citation_resolver` + рефакторинг 3 детекторов + persistence. Sanitize structural markers — уже в B1.1 (DONE). Fix legal_unit chunk_id, удаление legacy DTO (`has_location_fallback`, `location_fallback_reason`) |
-| B1.1 — Sanitize structural markers in location_clause_ref | ✅ DONE | `3f5d972` / merge `ec7db44` | `pre-B1.1-20260921-164938` / `post-B1.1-20260921-165202` | `_is_structural_marker` (regex `^__[a-z][a-z0-9_]*__$`) + sanitize в `_normalize_location_bundle` — единая точка всех источников (per_field / display_text / canonical_check). `_derive_clause_ref_from_uid` расширен с узкой проверки `__preamble__` на общий предикат. Универсально: `__preamble__`, `__metadata__`, `__header__`, `__intro__` и любые будущие `__[a-z]+__`. Unit-тесты 20 PASSED, regression diff пустой. Runtime-verified: `__preamble__` → `None`, control `"п. 7.2"` → `"п. 7.2"` |
+| B1.1 — Sanitize structural markers in location_clause_ref | ✅ DONE | `3f5d972` / merge `ec7db44` | `pre-B1.1-20260921-164938` / `post-B1.1-20260921-165202` | `_is_structural_marker` (regex `^__[a-z][a-z0-9_]*__$`) + sanitize в `_normalize_location_bundle`. `_derive_clause_ref_from_uid` расширен с узкой проверки `__preamble__` на общий предикат. Unit-тесты 20 PASSED |
+| B1a — CheckAnchor contract | ✅ DONE | `bbc6c2f` / merge `003c9c9` | `pre-B1a-20260921-180232` / `post-B1a-20260921-181125` | Pydantic `CheckAnchor` + `CheckAnchorMethod` (StrEnum) + ORM `CheckResultAnchor` + Alembic миграция `b63a43153958`. Partial unique index `uq_cra_one_primary`. 4 nullable колонки на `check_results`: `primary_anchor_id/method/confidence` + `anchor_stale`. Тесты: 24 Pydantic + 6 ORM |
+| B1b — Repository skeleton | ✅ DONE | `e0e4845` / merge `5fa00d1` | `pre-B1b-20260921-182220` / `post-B1b-20260921-182554` | `CheckResultAnchorRepository`: create_many / list_for_check_result / get_primary / set_primary / clear_primary / delete_for_check_result / replace_for_check_result. 11 unit-тестов (`pytestmark = pytest.mark.asyncio`). Не вызывается пока — persistence wiring в B4 |
+| B1cd — Drop legacy location fields | ✅ DONE | `6a30459` + `d24e876` / merge `40f44e1` | `pre-B1cd-20260921-185215` / `post-B1cd-20260921-191411` | Backend B1c: удалены `has_location_fallback` + `location_fallback_reason` из `DDGridCellValueDTO` / `DDGridDrawerFieldDTO` + pipeline (`_normalize_location_bundle` 5→3-tuple, `_extract_location_bundle` → 4-tuple с source_hint). Frontend B1d: `classifyDDGridV1LocationAvailability({location_source})`, удалены `LOCATION_FALLBACK_I18N` + `localizeLocationFallbackReason` + `locationFallbackReasons` из 4 JSON. Fixed pre-existing bug: `drawer.ts::classify` вызывался без `location_source` |
+| B1e — legal_unit chunk_id canonical | ⏳ TODO | — | — | Fix compound chunk_id для legal_unit chunks. Аудит `segment_chunk_builder_v2.py` / `chunk_canonicalization.py` — где строится canonical `chunk_id` для `legal_unit` |
 | B2 — Citation Resolver | ⏳ TODO | — | — | `resolve_quote_in_source`: exact_span → fuzzy_span → clause_only → page_only → none |
 | B3 — Citation Extraction | ⏳ TODO | — | — | Обогатить `field_extraction` / `risk_detection` / `rules_only` + executor |
 | B4 — Persistence Layer | ⏳ TODO | — | — | `check_result_anchor_repo` + денормализация primary anchor |
@@ -117,6 +120,32 @@ a285b84 Merge branch 'feat/B0.3-location-positive-only'
 
 **Не входит в B0.3 (отдельные задачи):** `unclear` сохранён как manual-review aid; unknown `ui_mode`/`review_status` — fail-safe. Sanitize structural markers — отдельно в B1.1.
 
+## Инциденты и уроки
+
+### B1a-migration-import
+
+Миграция `b63a43153958` падала с `NameError: name 'postgresql' is not defined`. Скелет от `alembic revision -m` содержит только `import sqlalchemy as sa`, а тело миграции использует `postgresql.UUID(...)`. Урок: при подаче тела Alembic-миграции всегда приводить **полный** блок импортов, включая `from sqlalchemy.dialects import postgresql`.
+
+### B1a-downgrade-minus-one
+
+`alembic downgrade -1` в верификационном скрипте откатил **чужую** миграцию `7ea844f630e0` (VARCHAR(20→50)), не нашу `b63a43153958`. Урок: использовать только явный target `alembic downgrade <explicit_rev>`. Правило 5.7.
+
+### B1a-EOL
+
+`src/db/models/result.py` на master хранился с CRLF-переносами (единственный файл в проекте). Первая же правка (добавление 4 колонок) дала whole-file diff (1200 строк). Урок: перед первой правкой существующего файла — `git ls-files --eol <path>`. При `i/crlf` — отдельным chore-коммитом нормализовать до LF **до** семантических правок. Правило 5.8.
+
+### B1b-asyncio-marker
+
+Тесты `test_check_result_anchor_repo.py` падали с `async def functions are not natively supported`. `pytest-asyncio` в STRICT-режиме требует явный маркер. Урок: перед первым тестом в новом модуле — проверить `asyncio_mode` в `pyproject.toml` и найти канонический пример теста в том же слое. Правило 5.2a.
+
+### B1b-pre-tag-dirty
+
+Дважды подряд pre-tag ставился, когда рабочее дерево содержало правки (B1a, B1b). Pre-tag корректен (указывает на `origin/master`), но правило git-workflow требует clean tree. Урок: правило 5.1a — pre-tag hygiene.
+
+### B1cd-pre-existing-failures
+
+После B1c/B1d `pytest tests/unit/services/ tests/unit/scripts/` показал 18 failures в `test_result_presentation_*`, `test_instruction_editor_service`, `test_enricher_per_unit_timeout`. Baseline через `git stash` → тот же набор падений на чистом master → `git stash pop` подтвердил: не наша регрессия. Урок: перед merge с failures — baseline-проверка обязательна.
+
 ## Process Rules
 
 Каждый фикс:
@@ -134,6 +163,20 @@ a285b84 Merge branch 'feat/B0.3-location-positive-only'
 При падении тестов: `git reset --hard <pre-tag>`, `git push --force-with-lease`.
 
 **Regression-verify:** если прогон тестов даёт failures — сравнить список падений с патчем и без патча (`git stash` → pytest → `git stash pop`). Diff должен быть пустым. Если в diff появились новые строки — это регресс, откат.
+
+### Дополнительные правила (выведены из B1a/B1b/B1cd)
+
+- **5.1a (pre-tag hygiene):** перед `git tag` рабочее дерево должно быть clean (`git status` пусто, включая untracked). Если untracked-файлы не должны попасть в коммит — `git stash -u` перед тегом. Pre-tag всегда ставится на `origin/master`, а не на локальный HEAD с правками.
+
+- **5.2a (test-scaffolding):** перед первым тестом в новом модуле — проверить `asyncio_mode` в `pyproject.toml` и найти канонический пример теста в том же слое. При `asyncio_mode=STRICT` + `async def test_*` — обязательно `pytestmark = pytest.mark.asyncio` на уровне модуля (или `@pytest.mark.asyncio` на каждой функции).
+
+- **5.7 (downgrade-тест):** при проверке миграций использовать только явный target `alembic downgrade <explicit_rev>`. `alembic downgrade -1` запрещён в верификационных скриптах — он непредсказуем при разветвлённом графе ревизий.
+
+- **5.8 (EOL-проверка):** перед первой правкой существующего файла — `git ls-files --eol <path>`. Если `i/crlf` — сначала отдельным chore-коммитом нормализовать до LF, до семантических правок. Проверка: `grep -c $'\r' <path>` → 0.
+
+### Техдолг (не в текущем треке)
+
+- Введение `.gitattributes` с `* text=auto eol=lf` — отдельный PR после полного `git ls-files --eol` аудита репо.
 
 ## Process Rules — Worker Restart
 
