@@ -16,6 +16,7 @@ import type {
   DDGridV1CellValueDTO,
   DDGridV1ColumnDTO,
   DDGridV1LocationConfidence,
+  DDGridV1LocationSource,
 } from "../../../types/dealReview";
 
 import type { DDGridV1LocationAvailability } from "./ddGridV1.types";
@@ -169,11 +170,27 @@ export function formatDDGridV1CellText(
  * Classifies location availability strictly by contract.
  */
 export function classifyDDGridV1LocationAvailability(input: {
+  location_source?: DDGridV1LocationSource | null;
   has_location_fallback: boolean;
   location_clause_ref: string | null;
   location_page: number | null;
   location_confidence?: DDGridV1LocationConfidence;
 }): DDGridV1LocationAvailability {
+  // Preferred path: explicit source enum from backend.
+  if (input.location_source) {
+    switch (input.location_source) {
+      case "per_field":
+        return "exact";
+      case "canonical_check":
+      case "display_text":
+        return "approximate";
+      case "none":
+        return "unavailable";
+    }
+  }
+
+  // Legacy fallback (Phase 1: kept for backward compat with older cached
+  // responses that predate location_source). Removed in Phase 2 (B1).
   const hasPointer =
     isNonEmptyString(input.location_clause_ref) ||
     typeof input.location_page === "number";

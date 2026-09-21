@@ -98,6 +98,7 @@ class CellValueDTO:
     cell_state: str
     display_value: str
     raw_value: Any = None
+    location_source: str = "none"
     location_clause_ref: str | None = None
     location_clause_uid: str | None = None
     location_page: int | None = None
@@ -116,6 +117,7 @@ class DrawerFieldDTO:
     cell_state: str
     display_value: str
     raw_value: Any = None
+    location_source: str = "none"
     location_clause_ref: str | None = None
     location_clause_uid: str | None = None
     location_page: int | None = None
@@ -312,6 +314,39 @@ def _extract_page_from_clause_ref(clause_ref: str | None) -> int | None:
             return page
 
     return None
+
+
+def _derive_clause_ref_from_uid(
+    clause_uid: str | None,
+    *,
+    is_en: bool = False,
+) -> str | None:
+    """
+    Derive human-readable clause reference from canonical effective_uid.
+
+    This is part of the canonical_check source contract: whenever a
+    CheckResult carries clause_uid, the corresponding clause_ref is
+    a deterministic function of its raw_uid segment.
+
+    Contract:
+    - "main_contract:7.2"         → "п. 7.2"  / "cl. 7.2"
+    - "main_contract:1"           → "п. 1"
+    - "main_contract:S"           → "п. S"
+    - "main_contract:__preamble__" → None  (structural marker, no clause number)
+    - "" / None                   → None
+    """
+    raw = _safe_str_or_none(clause_uid)
+    if not raw:
+        return None
+
+    raw_uid = raw.split(":", 1)[-1] if ":" in raw else raw
+    raw_uid = raw_uid.strip()
+
+    if not raw_uid or raw_uid == "__preamble__":
+        return None
+
+    prefix = "cl." if is_en else "п."
+    return f"{prefix} {raw_uid}"
 
 
 def _normalize_location_bundle(
@@ -1064,6 +1099,7 @@ def _build_cell_value(
             cell_state=cell_state,
             display_value=column.fallback_display,
             raw_value=None,
+            location_source="none",
             location_clause_ref=None,
             location_clause_uid=None,
             location_page=None,
@@ -1104,7 +1140,28 @@ def _build_cell_value(
         localization_map=localization_map,
     )
 
+    # Canonical clause_uid из CheckResult (post-B0.2). Один extractor,
+    # доступен всем fallback'ам и финальному return.
+    location_clause_uid = _safe_str_or_none(check_result.get("clause_uid"))
 
+    # Rule 1: negative cells никогда не имеют location.
+    # ("not_defined", "not_executed", "error")
+    if cell_state != "defined":
+        return CellValueDTO(
+            cell_state=cell_state,
+            display_value=display_value,
+            raw_value=raw_value,
+            location_source="none",
+            location_clause_ref=None,
+            location_clause_uid=None,
+            location_page=None,
+            location_confidence=None,
+            has_location_fallback=False,
+            location_fallback_reason=None,
+        )
+
+    # Rule 2: location resolution, strict priority order.
+    # Priority: per_field → display_text → canonical_check → none.
     location_payload = value_payload if value_payload is not None else status_payload
     (
         location_clause_ref,
@@ -1114,8 +1171,20 @@ def _build_cell_value(
         location_fallback_reason,
     ) = _extract_location_bundle(location_payload)
 
-    # Fallback: ищем location в display_text если structured_data ничего не дал
-    if not location_clause_ref and location_page is None:
+    location_source: str = "none"
+
+    # Priority 1: per_field — explicit structured location from LLM.
+    if (location_clause_ref or location_page) and not has_location_fallback:
+        location_source = "per_field"
+
+    # Priority 2: display_text — heuristic extraction from text.
+    # Covers both _extract_location_bundle's text-based results
+    # and a separate display_text heuristic below.
+    elif (location_clause_ref or location_page) and has_location_fallback:
+        location_source = "display_text"
+
+    # Priority 3: display_text heuristic — if per_field returned nothing.
+    if location_source == "none":
         display_text = _safe_str_or_none(check_result.get("display_text"))
         if display_text:
             for pattern in _PAGE_PATTERNS:
@@ -1134,6 +1203,41 @@ def _build_cell_value(
                 has_location_fallback = True
                 location_confidence = "low"
                 location_fallback_reason = "Extracted from display text (heuristic)"
+                location_source = "display_text"
+
+    # Priority 4: canonical_check — top-level anchor from CheckResult (post-B0.2).
+    # Full-fledged second source (not a fallback of per_field): the anchor
+    # that the check executor recorded in CheckResult.page + CheckResult.clause_uid.
+    #
+    # Contract:
+    # - location_page       := CheckResult.page when available
+    # - location_clause_uid := CheckResult.clause_uid
+    # - location_clause_ref := derived from location_clause_uid (raw_uid part)
+    # - location_confidence := "medium" (less granular than per_field)
+    if location_source == "none":
+        check_result_page = _safe_int_or_none(check_result.get("page"))
+        has_canonical_anchor = (
+            check_result_page is not None or location_clause_uid is not None
+        )
+        if has_canonical_anchor:
+            if check_result_page is not None:
+                location_page = check_result_page
+            if not location_clause_ref:
+                is_en = bool(
+                    localization_map
+                    and localization_map.get("dd_grid.system.lang") == "en"
+                )
+                location_clause_ref = _derive_clause_ref_from_uid(
+                    location_clause_uid,
+                    is_en=is_en,
+                )
+            has_location_fallback = True
+            location_confidence = location_confidence or "medium"
+            location_fallback_reason = (
+                location_fallback_reason
+                or "Canonical anchor from CheckResult"
+            )
+            location_source = "canonical_check"
 
     (
         location_clause_ref,
@@ -1154,8 +1258,9 @@ def _build_cell_value(
         cell_state=cell_state,
         display_value=display_value,
         raw_value=raw_value,
+        location_source=location_source,
         location_clause_ref=location_clause_ref,
-        location_clause_uid=_safe_str_or_none(check_result.get("clause_uid")),
+        location_clause_uid=location_clause_uid,
         location_page=location_page,
         location_confidence=location_confidence,
         has_location_fallback=has_location_fallback,
@@ -1340,6 +1445,7 @@ def _build_drawer_content(
             cell_state=cell.cell_state,
             display_value=cell.display_value,
             raw_value=cell.raw_value,
+            location_source=cell.location_source,
             location_clause_ref=cell.location_clause_ref,
             location_clause_uid=cell.location_clause_uid,
             location_page=cell.location_page,

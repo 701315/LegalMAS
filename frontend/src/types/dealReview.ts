@@ -520,10 +520,17 @@ export interface DDGridV1DocTypeClassDTO {
  * - has_location_fallback = true  + clause_ref/page set → approximate
  * - has_location_fallback = true  + clause_ref/page null → navigation unavailable
  */
+export type DDGridV1LocationSource =
+  | "per_field"
+  | "canonical_check"
+  | "display_text"
+  | "none";
+
 export interface DDGridV1CellValueDTO {
   cell_state: DDGridV1CellState;
   display_value: string;
   raw_value: string | null;
+  location_source: DDGridV1LocationSource;
   location_clause_ref: string | null;
   location_clause_uid: string | null;
   location_page: number | null;
@@ -545,6 +552,7 @@ export interface DDGridV1DrawerFieldDTO {
   cell_state: DDGridV1CellState;
   display_value: string;
   raw_value: string | null;
+  location_source: DDGridV1LocationSource;
   location_clause_ref: string | null;
   location_clause_uid: string | null;
   location_page: number | null;
