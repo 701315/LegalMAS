@@ -418,10 +418,6 @@ export function resolveDDGridV1CellView(
   const locationAvailability = effectiveRawCell
     ? classifyDDGridV1LocationAvailability({
         location_source: effectiveRawCell.location_source,
-        has_location_fallback: effectiveRawCell.has_location_fallback,
-        location_clause_ref: effectiveRawCell.location_clause_ref,
-        location_page: effectiveRawCell.location_page,
-        location_confidence: effectiveRawCell.location_confidence,
       })
     : "unavailable";
 

@@ -516,9 +516,10 @@ export interface DDGridV1DocTypeClassDTO {
  * Single cell value for a specific (document_id, column_id) pair.
  *
  * Location rules:
- * - has_location_fallback = false + clause_ref/page set → exact
- * - has_location_fallback = true  + clause_ref/page set → approximate
- * - has_location_fallback = true  + clause_ref/page null → navigation unavailable
+ * - location_source = "per_field"                    → exact
+ * - location_source = "canonical_check" | "display_text" → approximate
+ * - location_source = "none"                         → navigation unavailable
+ * - clause_ref/page may be null even when location_source is not "none"
  */
 export type DDGridV1LocationSource =
   | "per_field"
@@ -535,8 +536,6 @@ export interface DDGridV1CellValueDTO {
   location_clause_uid: string | null;
   location_page: number | null;
   location_confidence: DDGridV1LocationConfidence;
-  has_location_fallback: boolean;
-  location_fallback_reason: string | null;
 }
 
 /**
@@ -557,8 +556,6 @@ export interface DDGridV1DrawerFieldDTO {
   location_clause_uid: string | null;
   location_page: number | null;
   location_confidence: DDGridV1LocationConfidence;
-  has_location_fallback: boolean;
-  location_fallback_reason: string | null;
 }
 
 /**
