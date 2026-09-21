@@ -793,7 +793,7 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
                 onOpenAtLocation?.({
                   documentId: row.v1Row.documentId,
                   page: firstField.location_page ?? undefined,
-                  clauseUid: firstField.location_clause_ref ?? undefined,
+                  clauseUid: firstField.location_clause_uid ?? undefined,
                   elementId: undefined,
                   segmentId: undefined,
                   chunkId: undefined,
