@@ -1214,6 +1214,7 @@ class CheckExecutor:
                             ),
                             "path_titles": ctx_meta.get("path_titles") or rc.path_titles,
                             "element_ids": ctx_meta.get("element_ids") or rc.element_ids,
+                            "bbox_union": ctx_meta.get("bbox_union"),
 
                             # canonical retrieval provenance
                             "chunk_id": (
