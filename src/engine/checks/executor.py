@@ -292,6 +292,17 @@ class CheckExecutor:
             chunk_index = getattr(rc, "chunk_index", None)
         prov["chunk_index"] = chunk_index
 
+        # bbox_union (B0.4): union bbox of chunk's elements on its page.
+        # Packed as dict so B5 (viewer) can use union + page + element_ids
+        # for highlight. Legacy records (pre-B0.4) keep bbox=None.
+        bbox_union = meta.get("bbox_union")
+        if isinstance(bbox_union, list) and len(bbox_union) == 4:
+            prov["bbox"] = {
+                "union": list(bbox_union),
+                "page": prov.get("page"),
+                "element_ids": list(layout_element_ids or []),
+            }
+
         return prov
 
     @classmethod
@@ -750,7 +761,7 @@ class CheckExecutor:
                     # effective_uid появился в Sprint 3 как canonical identity.
                     # clause_uid оставлен как fallback для старых чанков.
                     clause_uid=meta.get("effective_uid") or meta.get("clause_uid") or "",
-                    bbox=[],
+                    bbox=list(meta.get("bbox_union") or []),
                     dense_score=0.0,
                     sparse_score=0.0,
                     metadata_score=0.0,
