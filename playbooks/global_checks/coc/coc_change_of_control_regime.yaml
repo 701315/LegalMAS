@@ -150,6 +150,15 @@ extraction:
   mode: "hybrid"
   llm_max_tokens: 600
 
+  # Declarative presence-gate: maps coc_status value to CheckResult.result.
+  # present -> pass, missing -> missing_required_clause, unclear -> unclear.
+  # Contract: present + missing + unclear must equal coc_status.allowed_values.
+  presence_signal:
+    field: "coc_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и коммерческим договорам.
