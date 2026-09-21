@@ -505,8 +505,25 @@ class DDGridCellValueDTO(BaseModel):
     raw_value: Any = None
     """Raw value from structured_data (for tooltip / drill-down)."""
 
+    location_source: Literal[
+        "per_field",
+        "canonical_check",
+        "display_text",
+        "none",
+    ] = "none"
+    """Which pipeline stage produced the anchor:
+    - per_field       — LLM returned explicit structured_data[field].location
+    - canonical_check — top-level CheckResult.page + clause_uid (post-B0.2)
+    - display_text    — heuristic extracted from display_text
+    - none            — no location available (incl. all non-defined cells)
+    """
+
     location_clause_ref: str | None = None
     """Clause reference (e.g., 'cl. 22'). None when fallback without pinpoint."""
+
+    location_clause_uid: str | None = None
+    """Effective clause UID (e.g., 'main_contract:7.2'). Used by viewer
+    to match activeChunk in sizedChunks[].clauseUids. None when unavailable."""
 
     location_page: int | None = None
     """Page number in the document. None when fallback without pinpoint."""
@@ -530,7 +547,14 @@ class DDGridDrawerFieldDTO(BaseModel):
     cell_state: str
     display_value: str
     raw_value: Any = None
+    location_source: Literal[
+        "per_field",
+        "canonical_check",
+        "display_text",
+        "none",
+    ] = "none"
     location_clause_ref: str | None = None
+    location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
     has_location_fallback: bool = False

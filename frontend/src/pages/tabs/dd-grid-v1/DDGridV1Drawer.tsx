@@ -151,29 +151,6 @@ function getLocationText(
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function extractPageFromClauseRef(clauseRef: string | null): number | null {
-  if (!clauseRef || typeof clauseRef !== "string") return null;
-
-  const patterns = [
-    /стр\.?\s*(\d+)/i,
-    /страниц[аеы]?\s*(\d+)/i,
-    /page\s*(\d+)/i,
-    /p\.?\s*(\d+)/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = clauseRef.match(pattern);
-    if (match && match[1]) {
-      const page = parseInt(match[1], 10);
-      if (Number.isFinite(page) && page > 0) {
-        return page;
-      }
-    }
-  }
-
-  return null;
-}
-
 function buildViewerPayload(
   documentId: string,
   field: DDGridV1DrawerFieldView,
@@ -183,19 +160,18 @@ function buildViewerPayload(
   const explicitPage =
     typeof raw.location_page === "number" ? raw.location_page : undefined;
 
-  const extractedPage = extractPageFromClauseRef(raw.location_clause_ref);
-
-  const page = explicitPage ?? extractedPage ?? undefined;
-
+  // location_clause_uid — effective_uid из CheckResult.clause_uid
+  // (e.g., "main_contract:7.2"), совпадает с sizedChunks[].clauseUids.
+  // location_clause_ref — human-readable "п. 7.2", только для отображения.
   const clauseUid =
-    typeof raw.location_clause_ref === "string" &&
-    raw.location_clause_ref.trim().length > 0
-      ? raw.location_clause_ref.trim()
+    typeof raw.location_clause_uid === "string" &&
+    raw.location_clause_uid.trim().length > 0
+      ? raw.location_clause_uid.trim()
       : undefined;
 
   return {
     documentId,
-    page,
+    page: explicitPage,
     clauseUid,
     elementId: undefined,
     segmentId: undefined,
