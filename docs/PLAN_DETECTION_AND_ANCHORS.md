@@ -10,6 +10,9 @@
 | B0.1 — sized-chunks clause_uids/raw_uids | ✅ DONE | a1a3f0d | pre-B0.1-20260921-042922 / post-B0.1-20260921-043501 | Merge: e05acb7..64e1b57 |
 | B0.2 — element_id (layout UUID) + chunk_id (canonical) | ⏳ TODO | — | — | Merged from old B0.2+B0.3 |
 | B0.2b — DD Grid LOCATION → viewer page mismatch | ⏳ TODO | — | — | Клик на p. 4 · cl. 7.2 открыл page 1 с подсветкой cl. 1.1. Frontend-баг в передаче payload или useEffect modal. Требует аудита frontend DD Grid + DocumentViewerModal |
+| B0.2b-followup — sanitize structural markers in location_clause_ref | ⏳ TODO | — | — | Лечится в B1 (Anchor Contract) через `CheckAnchor` sanitizer. Пока per_field может отдать `__preamble__` как clause_ref |
+| B0.2b — location_source enum + clause_ref derive | ✅ DONE | <commit_hash> | pre-B0.2b-... / post-B0.2b-... | location_source: per_field / canonical_check / display_text / none. Верифицировано на run b2a5a24e: 136 / 12 / 1 |
+| B0.3 — location only for positive findings | ⏳ TODO | — | — | Переписать Rule 1: `is_positive_location_finding(ui_mode, review_status)` вместо `cell_state == "defined"`. Показывать location только для positive-finding ячеек |
 | B0.3 — CheckResult.bbox from layout | ⏳ TODO | — | — | Renumbered from old B0.4 |
 | B0.4 — context_trace.score_breakdown | ⏳ TODO | — | — | Renumbered from old B0.5 |
 | B2 — Citation Resolver | ⏳ TODO | — | — | — |
@@ -21,6 +24,7 @@
 
 | Этап | Статус | Notes |
 |---|---|---|
+| A0 — маппинг result → review_status для clause_presence | ⏳ TODO | — | — | Найдено в B0.2b: clause_presence check без clause возвращает `review_status=no_issue_detected` вместо `clause_missing`. Проверить `result_semantics.py::_derive_review_status` и `ui_explanation.py::build_user_explanation` для всех ui_mode |
 | A1 — Программный аудит (SQL) | ⏳ TODO | — |
 | A2 — Ручной аудит (юрист) | ⏳ TODO | требует юриста |
 | A3 — Аудит YAML | ⏳ TODO | требует юриста |
