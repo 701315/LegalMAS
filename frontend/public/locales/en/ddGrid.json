@@ -440,10 +440,6 @@
     "yes": "Yes",
     "no": "No"
   },
-  "locationFallbackReasons": {
-    "default": "Exact location in the document is not defined",
-    "heuristic": "Extracted from display text (heuristic)"
-  },
   "planStatusReasons": {
     "planned": "Check is planned and awaiting execution.",
     "dispatched": "Check is planned and awaiting execution.",

@@ -43,15 +43,6 @@ const PLAN_REASON_I18N: Record<string, string> = {
 };
 
 /**
- * Maps EN canonical location fallback reasons to i18n keys.
- */
-const LOCATION_FALLBACK_I18N: Record<string, string> = {
-  "Exact location in the document is not defined": "locationFallbackReasons.default",
-  "Extracted from display text (heuristic)": "locationFallbackReasons.heuristic",
-  "Extracted from result text (heuristic)": "locationFallbackReasons.heuristic",
-};
-
-/**
  * Localizes a drawer reason string if it matches a known EN canonical token.
  * Real document data (Russian text from metadata) passes through unchanged.
  */
@@ -61,18 +52,6 @@ export function localizeDrawerReason(
 ): string | null {
   if (!reason || !tFn) return reason;
   const key = PLAN_REASON_I18N[reason];
-  return key ? tFn(key) : reason;
-}
-
-/**
- * Localizes a location_fallback_reason string.
- */
-export function localizeLocationFallbackReason(
-  reason: string | null,
-  tFn?: TFunction,
-): string | null {
-  if (!reason || !tFn) return reason;
-  const key = LOCATION_FALLBACK_I18N[reason];
   return key ? tFn(key) : reason;
 }
 
@@ -208,10 +187,7 @@ export function buildDDGridV1DrawerFieldViews(
 
   return (drawer.fields ?? []).map((field, index) => {
     const availability = classifyDDGridV1LocationAvailability({
-      has_location_fallback: field.has_location_fallback,
-      location_clause_ref: field.location_clause_ref,
-      location_page: field.location_page,
-      location_confidence: field.location_confidence,
+      location_source: field.location_source,
     });
 
     const syntheticColumn = {
@@ -235,8 +211,6 @@ export function buildDDGridV1DrawerFieldViews(
             location_clause_ref: field.location_clause_ref,
             location_page: field.location_page,
             location_confidence: field.location_confidence,
-            has_location_fallback: field.has_location_fallback,
-            location_fallback_reason: field.location_fallback_reason,
           }
         : null,
       syntheticColumn,
@@ -252,13 +226,7 @@ export function buildDDGridV1DrawerFieldViews(
       tone: getDDGridV1CellTone(field.cell_state),
       displayText,
       locationAvailability: availability,
-      raw: {
-        ...field,
-        location_fallback_reason: localizeLocationFallbackReason(
-          field.location_fallback_reason,
-          tFn,
-        ),
-      },
+      raw: field,
     };
   });
 }

@@ -489,11 +489,14 @@ class DDGridCellValueDTO(BaseModel):
     a cell is created only if the check was scheduled (plan_item exists).
     not_applicable is not used as a state.
 
-    Location:
-      has_location_fallback=false + clause_ref/page → exact pinpoint.
-      has_location_fallback=true → approximate / check-level fallback.
-      clause_ref and page may be null during fallback.
-      location_confidence: 'high' (exact) or 'low' (fallback).
+    Location contract:
+      location_source: 'per_field' | 'canonical_check' | 'display_text' | 'none'.
+      - per_field       — LLM returned explicit structured_data[field].location → exact.
+      - canonical_check — top-level CheckResult.page + clause_uid → approximate.
+      - display_text    — heuristic extracted from display_text → approximate.
+      - none            — no location (or suppressed for negative findings).
+      location_confidence: 'high' (exact) or 'low'/'medium' (approximate).
+      clause_ref and page may be null when no pinpoint is available.
     """
 
     cell_state: str
@@ -529,13 +532,7 @@ class DDGridCellValueDTO(BaseModel):
     """Page number in the document. None when fallback without pinpoint."""
 
     location_confidence: str | None = None
-    """'high' — exact; 'low' — fallback. None if location is absent."""
-
-    has_location_fallback: bool = False
-    """True if location comes from check-level fallback, not LLM per-field extraction."""
-
-    location_fallback_reason: str | None = None
-    """Fallback reason (e.g., 'LLM did not provide exact field reference')."""
+    """'high' — exact; 'low'/'medium' — approximate. None if location is absent."""
 
 
 class DDGridDrawerFieldDTO(BaseModel):
@@ -557,8 +554,6 @@ class DDGridDrawerFieldDTO(BaseModel):
     location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
-    has_location_fallback: bool = False
-    location_fallback_reason: str | None = None
 
 
 class DDGridDrawerDTO(BaseModel):
@@ -902,9 +897,10 @@ class DDGridV1ResponseDTO(BaseModel):
     not_applicable is not used as a state.
 
     Location contract:
-      has_location_fallback=false + clause_ref/page → exact pinpoint.
-      has_location_fallback=true → approximate / unavailable (conf='low').
-      clause_ref/page may be null during fallback.
+      location_source: 'per_field' → exact pinpoint.
+      location_source: 'canonical_check' | 'display_text' → approximate.
+      location_source: 'none' → no location available.
+      clause_ref/page may be null when no pinpoint is available.
 
     See docs/dd_grid_v1_contract.md for the full API contract.
     """

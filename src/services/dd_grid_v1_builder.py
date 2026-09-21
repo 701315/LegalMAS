@@ -53,7 +53,6 @@ _DISPLAY_PRESENT = "Present"
 _DEFAULT_SEGMENT_ID = "_default"
 _DEFAULT_UNGROUPED_LABEL = "Other Checks"
 _DEFAULT_UNGROUPED_GROUP_ID = "_ungrouped"
-_DEFAULT_LOCATION_FALLBACK_REASON = "Exact location in the document is not defined"
 
 _PAGE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"стр\.?\s*(\d+)", re.IGNORECASE),
@@ -103,8 +102,6 @@ class CellValueDTO:
     location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
-    has_location_fallback: bool = False
-    location_fallback_reason: str | None = None
 
 
 @dataclass
@@ -122,8 +119,6 @@ class DrawerFieldDTO:
     location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
-    has_location_fallback: bool = False
-    location_fallback_reason: str | None = None
 
 
 @dataclass
@@ -369,22 +364,19 @@ def _normalize_location_bundle(
     location_clause_ref: str | None,
     location_page: int | None,
     location_confidence: str | None,
-    has_location_fallback: bool,
-    location_fallback_reason: str | None,
     localization_map: dict[str, str] | None = None,
-) -> tuple[str | None, int | None, str | None, bool, str | None]:
+) -> tuple[str | None, int | None, str | None]:
     """
-    Нормализовать location-данные до стабильного API контракта.
+    Нормализовать location-данные: sanitize structural markers + page heuristic.
 
     Правила:
+    - structural markers (__preamble__ etc.) не являются clause references;
     - если page отсутствует, пытаемся извлечь её из clause_ref;
-    - если has_location_fallback=True, reason обязан быть заполнен;
-    - если has_location_fallback=False, fallback reason всегда None.
+    - confidence передаётся как есть (нормализованный к str | None).
     """
     normalized_clause_ref = _safe_str_or_none(location_clause_ref)
     if _is_structural_marker(normalized_clause_ref):
         # Contract: structural markers are not clause references.
-        # Drop the ref; page/source/fallback remain valid downstream.
         normalized_clause_ref = None
     is_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
     if is_en and normalized_clause_ref and normalized_clause_ref.lower().startswith(("п.", "п ")):
@@ -397,28 +389,8 @@ def _normalize_location_bundle(
         else _extract_page_from_clause_ref(normalized_clause_ref)
     )
     normalized_confidence = _safe_str_or_none(location_confidence)
-    normalized_reason = _safe_str_or_none(location_fallback_reason)
 
-    if has_location_fallback:
-        if not normalized_confidence:
-            normalized_confidence = "low"
-        if not normalized_reason:
-            fallback_reason = (
-                localization_map.get("dd_grid.system.location_fallback")
-                if localization_map
-                else None
-            )
-            normalized_reason = fallback_reason or _DEFAULT_LOCATION_FALLBACK_REASON
-    else:
-        normalized_reason = None
-
-    return (
-        normalized_clause_ref,
-        normalized_page,
-        normalized_confidence,
-        has_location_fallback,
-        normalized_reason,
-    )
+    return (normalized_clause_ref, normalized_page, normalized_confidence)
 
 _DETECTOR_TO_LEVEL: dict[str, str] = {
     # Rule-based detection: pattern matching, structural rules.
@@ -702,10 +674,17 @@ _CLAUSE_PATTERNS: tuple[re.Pattern[str], ...] = (
 
 def _extract_location_bundle(
     field_payload: Any,
-) -> tuple[str | None, int | None, str | None, bool, str | None]:
+) -> tuple[str | None, int | None, str | None, str | None]:
     """
     Извлечь location / location_fallback из field payload.
-    Поддерживает как строгие структуры (dict), так и простые строки (str).
+
+    Возвращает (clause_ref, page, confidence, location_source_or_none),
+    где location_source ∈ {"per_field", "display_text", None}.
+
+    - "per_field"    — LLM вернул явный structured_data[field].location;
+    - "display_text" — эвристика извлекла ref/page из текста значения или
+                       из fallback-объекта;
+    - None           — ничего не найдено.
     """
 
     # --- Сценарий 1: Payload — это сразу строка (частый случай для LLM) ---
@@ -732,14 +711,13 @@ def _extract_location_bundle(
                     extracted_clause,
                     extracted_page,
                     "low",
-                    True,
-                    "Extracted from result text (heuristic)",
+                    "display_text",
                 )
-        return None, None, None, False, None
+        return None, None, None, None
 
     # --- Сценарий 2: Payload — это словарь ---
     if not isinstance(field_payload, dict):
-        return None, None, None, False, None
+        return None, None, None, None
 
     # 2.1. Строгий парсинг: ищем явный объект "location"
     location = field_payload.get("location")
@@ -748,8 +726,7 @@ def _extract_location_bundle(
             _safe_str_or_none(location.get("clause_ref")),
             _safe_int_or_none(location.get("page")),
             _safe_str_or_none(location.get("location_confidence")),
-            False,
-            None,
+            "per_field",
         )
 
     # 2.2. Строгий парсинг: ищем явный объект "location_fallback"
@@ -759,8 +736,7 @@ def _extract_location_bundle(
             _safe_str_or_none(fallback.get("check_clause_uid")),
             _safe_int_or_none(fallback.get("check_page")),
             "low",
-            True,
-            _safe_str_or_none(fallback.get("reason")),
+            "display_text",
         )
 
     # 2.3. СПАСАТЕЛЬНЫЙ FALLBACK: ищем текст внутри ключа "value"
@@ -787,12 +763,11 @@ def _extract_location_bundle(
                 extracted_clause,
                 extracted_page,
                 "low",
-                True,
-                "Extracted from result text (heuristic)",
+                "display_text",
             )
 
     # 4. Ничего не найдено
-    return None, None, None, False, None
+    return None, None, None, None
 
 
 _DETECTOR_TO_AGENT_NAME: dict[str, str] = {
@@ -1164,8 +1139,6 @@ def _build_cell_value(
             location_clause_uid=None,
             location_page=None,
             location_confidence=None,
-            has_location_fallback=False,
-            location_fallback_reason=None,
         )
 
     # Есть результат — единый путь через resolve + format.
@@ -1216,8 +1189,6 @@ def _build_cell_value(
             location_clause_uid=None,
             location_page=None,
             location_confidence=None,
-            has_location_fallback=False,
-            location_fallback_reason=None,
         )
 
     # Rule 1b (B0.3): semantic location filter.
@@ -1241,8 +1212,6 @@ def _build_cell_value(
             location_clause_uid=None,
             location_page=None,
             location_confidence=None,
-            has_location_fallback=False,
-            location_fallback_reason=None,
         )
 
     # Rule 2: location resolution, strict priority order.
@@ -1252,23 +1221,23 @@ def _build_cell_value(
         location_clause_ref,
         location_page,
         location_confidence,
-        has_location_fallback,
-        location_fallback_reason,
+        source_hint,
     ) = _extract_location_bundle(location_payload)
 
     location_source: str = "none"
 
     # Priority 1: per_field — explicit structured location from LLM.
-    if (location_clause_ref or location_page) and not has_location_fallback:
+    if source_hint == "per_field" and (location_clause_ref or location_page):
         location_source = "per_field"
 
-    # Priority 2: display_text — heuristic extraction from text.
-    # Covers both _extract_location_bundle's text-based results
-    # and a separate display_text heuristic below.
-    elif (location_clause_ref or location_page) and has_location_fallback:
+    # Priority 2: display_text — heuristic extraction from field payload text
+    # or location_fallback object. Already extracted by _extract_location_bundle.
+    elif source_hint == "display_text" and (location_clause_ref or location_page):
         location_source = "display_text"
+        location_confidence = location_confidence or "low"
 
-    # Priority 3: display_text heuristic — if per_field returned nothing.
+    # Priority 3: display_text heuristic — if per_field / field-payload path
+    # returned nothing, scan CheckResult.display_text for page/clause patterns.
     if location_source == "none":
         display_text = _safe_str_or_none(check_result.get("display_text"))
         if display_text:
@@ -1285,9 +1254,7 @@ def _build_cell_value(
                     location_clause_ref = f"{clause_prefix} {match.group(1)}"
                     break
             if location_page is not None or location_clause_ref:
-                has_location_fallback = True
                 location_confidence = "low"
-                location_fallback_reason = "Extracted from display text (heuristic)"
                 location_source = "display_text"
 
     # Priority 4: canonical_check — top-level anchor from CheckResult (post-B0.2).
@@ -1316,26 +1283,17 @@ def _build_cell_value(
                     location_clause_uid,
                     is_en=is_en,
                 )
-            has_location_fallback = True
             location_confidence = location_confidence or "medium"
-            location_fallback_reason = (
-                location_fallback_reason
-                or "Canonical anchor from CheckResult"
-            )
             location_source = "canonical_check"
 
     (
         location_clause_ref,
         location_page,
         location_confidence,
-        has_location_fallback,
-        location_fallback_reason,
     ) = _normalize_location_bundle(
         location_clause_ref=location_clause_ref,
         location_page=location_page,
         location_confidence=location_confidence,
-        has_location_fallback=has_location_fallback,
-        location_fallback_reason=location_fallback_reason,
         localization_map=localization_map,
     )
 
@@ -1348,8 +1306,6 @@ def _build_cell_value(
         location_clause_uid=location_clause_uid,
         location_page=location_page,
         location_confidence=location_confidence,
-        has_location_fallback=has_location_fallback,
-        location_fallback_reason=location_fallback_reason,
     )
 
 
@@ -1535,8 +1491,6 @@ def _build_drawer_content(
             location_clause_uid=cell.location_clause_uid,
             location_page=cell.location_page,
             location_confidence=cell.location_confidence,
-            has_location_fallback=cell.has_location_fallback,
-            location_fallback_reason=cell.location_fallback_reason,
         )
         for col, cell in column_cells
     ]

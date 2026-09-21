@@ -153,7 +153,7 @@ def collect_sample_cells(
 
     Returns:
         Список dict с полями doc_id, column_id, cell_state, display_value, raw_value,
-        location_clause_ref, location_page, has_location_fallback.
+        location_clause_ref, location_page, location_source.
     """
     priority = {"error": 0, "defined": 1, "not_defined": 2, "not_applicable": 3, "not_executed": 4}
     candidates: list[tuple[int, dict[str, Any]]] = []
@@ -173,8 +173,7 @@ def collect_sample_cells(
                     "location_clause_ref": _get_attr(cell, "location_clause_ref"),
                     "location_page": _get_attr(cell, "location_page"),
                     "location_confidence": _get_attr(cell, "location_confidence"),
-                    "has_location_fallback": _get_attr(cell, "has_location_fallback", False),
-                    "location_fallback_reason": _get_attr(cell, "location_fallback_reason"),
+                    "location_source": _get_attr(cell, "location_source", "none"),
                 },
             ))
 
@@ -254,14 +253,14 @@ def collect_sample_drawers(
                         1 for f in fields
                         if _get_attr(f, "location_clause_ref") or _get_attr(f, "location_page")
                     ),
-                    "fields_with_fallback": sum(
+                    "fields_with_non_per_field_location": sum(
                         1 for f in fields
-                        if _get_attr(f, "has_location_fallback", False)
+                        if _get_attr(f, "location_source", "none") in ("display_text", "canonical_check")
                     ),
                     "fields_with_extracted_page": sum(
                         1 for f in fields
                         if _get_attr(f, "location_page") is not None
-                        and not _get_attr(f, "has_location_fallback", False)
+                        and _get_attr(f, "location_source", "none") == "per_field"
                     ),
                 },
             ))
@@ -355,23 +354,23 @@ def build_summary(response: Any, *, sample_limit: int = 5) -> dict[str, Any]:
     sample_cells = collect_sample_cells(cell_values, limit=sample_limit)
     sample_drawers = collect_sample_drawers(drawer_contents, limit=sample_limit)
 
-    # Location stats
+    # Location stats (B1cd: switched from legacy has_location_fallback
+    # to canonical location_source enum).
     cells_with_exact_location = 0
-    cells_with_fallback_location = 0
+    cells_with_approximate_location = 0
     cells_with_extracted_page = 0
 
     for doc_cells in cell_values.values():
         for cell in doc_cells.values():
-            has_fallback = _get_attr(cell, "has_location_fallback", False)
-            has_clause_ref = bool(_get_attr(cell, "location_clause_ref"))
+            location_source = _get_attr(cell, "location_source", "none")
             has_page = _get_attr(cell, "location_page") is not None
 
-            if has_fallback:
-                cells_with_fallback_location += 1
-            elif has_clause_ref or has_page:
+            if location_source == "per_field":
                 cells_with_exact_location += 1
+            elif location_source in ("display_text", "canonical_check"):
+                cells_with_approximate_location += 1
 
-            if has_page and not has_fallback:
+            if has_page and location_source == "per_field":
                 cells_with_extracted_page += 1
 
     drawers_with_reason = sum(
@@ -440,7 +439,7 @@ def build_summary(response: Any, *, sample_limit: int = 5) -> dict[str, Any]:
         "cell_states": cell_states,
         "location": {
             "cells_with_exact_location": cells_with_exact_location,
-            "cells_with_fallback_location": cells_with_fallback_location,
+            "cells_with_approximate_location": cells_with_approximate_location,
             "cells_with_extracted_page": cells_with_extracted_page,
         },
         "drawers": {
@@ -564,8 +563,8 @@ def print_console_summary(summary: dict[str, Any], *, verbose: bool = False) -> 
 
     loc = summary["location"]
     print("\n📍 Location:")
-    print(f"  Exact location     : {loc['cells_with_exact_location']}")
-    print(f"  Fallback location  : {loc['cells_with_fallback_location']}")
+    print(f"  Exact location      : {loc['cells_with_exact_location']}")
+    print(f"  Approximate location: {loc['cells_with_approximate_location']}")
     print(f"  Page extracted     : {loc.get('cells_with_extracted_page', 0)}")
 
     samples = summary["samples"]
@@ -602,14 +601,15 @@ def print_console_summary(summary: dict[str, Any], *, verbose: bool = False) -> 
             print(f"    display_value = {repr(cell['display_value'])}")
             print(f"    raw_value     = {repr(cell['raw_value'])}")
             has_pinpoint = cell["location_clause_ref"] or cell["location_page"]
-            has_fallback = cell.get("has_location_fallback", False)
-            if has_pinpoint and not has_fallback:
+            location_source = cell.get("location_source", "none")
+            if has_pinpoint and location_source == "per_field":
                 print(
                     f"    location      = {cell['location_clause_ref']} "
                     f"p.{cell['location_page']} "
-                    f"conf={cell['location_confidence']}"
+                    f"conf={cell['location_confidence']} "
+                    f"[{location_source}]"
                 )
-            elif has_fallback:
+            elif location_source in ("display_text", "canonical_check"):
                 ref_part = (
                     f"{cell['location_clause_ref']} p.{cell['location_page']}"
                     if has_pinpoint
@@ -617,10 +617,8 @@ def print_console_summary(summary: dict[str, Any], *, verbose: bool = False) -> 
                 )
                 print(
                     f"    location      = {ref_part} "
-                    f"conf={cell['location_confidence']} [FALLBACK]"
+                    f"conf={cell['location_confidence']} [{location_source}]"
                 )
-                if cell.get("location_fallback_reason"):
-                    print(f"    fallback_rsn  = {repr(cell['location_fallback_reason'])}")
             print()
 
     if verbose and samples["drawers"]:
@@ -672,7 +670,10 @@ def print_console_summary(summary: dict[str, Any], *, verbose: bool = False) -> 
 
             print(f"    fields_count     = {drw['fields_count']}")
             print(f"    with_location    = {drw['fields_with_location']}")
-            print(f"    with_fallback    = {drw['fields_with_fallback']}")
+            print(
+                f"    with_non_per_field = "
+                f"{drw.get('fields_with_non_per_field_location', 0)}"
+            )
             print(f"    extracted_page   = {drw.get('fields_with_extracted_page', 0)}")
             if drw["evidence_items"]:
                 for ev in drw["evidence_items"][:3]:

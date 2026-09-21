@@ -363,11 +363,6 @@ const FieldRow: React.FC<{
         </div>
       ) : null}
 
-      {field.raw.location_fallback_reason ? (
-        <p className="mt-1.5 text-[11px] italic text-[var(--text-muted)]">
-          {field.raw.location_fallback_reason}
-        </p>
-      ) : null}
     </div>
   );
 };

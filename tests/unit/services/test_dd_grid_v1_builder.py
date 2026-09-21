@@ -539,7 +539,7 @@ def test_propagates_exact_location_to_cell_and_drawer() -> None:
     assert cell.location_clause_ref == "п. 1.2"
     assert cell.location_page == 7
     assert cell.location_confidence == "high"
-    assert cell.has_location_fallback is False
+    assert cell.location_source == "per_field"
 
     assert drawer.fields[0].location_clause_ref == "п. 1.2"
     assert drawer.fields[0].location_page == 7
@@ -578,12 +578,10 @@ def test_propagates_location_fallback_to_cell_and_drawer() -> None:
 
     cell, drawer = _get_cell(data, "doc-1", "consent_check", "consent")
 
-    assert cell.has_location_fallback is True
-    assert cell.location_fallback_reason == "LLM не указал точную ссылку"
+    assert cell.location_source == "display_text"
     assert cell.location_confidence == "low"
 
-    assert drawer.fields[0].has_location_fallback is True
-    assert drawer.fields[0].location_fallback_reason == "LLM не указал точную ссылку"
+    assert drawer.fields[0].location_source == "display_text"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
