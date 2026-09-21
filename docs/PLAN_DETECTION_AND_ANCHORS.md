@@ -3,7 +3,7 @@
 **Source:** полный план согласован в диалоге, v2.0 (consolidated)
 **Started:** 2026-09-21
 **Last updated:** 2026-09-21 (после B0.6 + verified browser)
-**Master HEAD:** `a9093fa`
+**Master HEAD:** `7c01e38`
 
 ## Track B: Anchor & Location
 
