@@ -18,7 +18,10 @@ from engine.content.chunk_canonicalization import (
     calc_position_ratio,
     ensure_clause_metadata,
 )
-from engine.content.chunk_ids import build_subclause_chunk_id
+from engine.content.chunk_ids import (
+    build_legal_unit_chunk_id,
+    build_subclause_chunk_id,
+)
 from services.structure.models import (
     DEFAULT_SCOPE,
     NODE_KIND_LEAF,
@@ -442,6 +445,37 @@ class TestCanonicalChunkIdGeneration:
 
 
 # ── TestBuildSizedChunksFromLeaf ─────────────────────────────────────────────
+
+
+    def test_build_legal_unit_chunk_id_canonical_shape(self) -> None:
+        """B1e: legal_unit chunk_id must carry the legal_unit kind marker."""
+        chunk_id = build_legal_unit_chunk_id(
+            TEST_DOC_ID,
+            "main_contract:6.3.1",
+        )
+        assert chunk_id == f"{TEST_DOC_ID}:legal_unit:main_contract:6.3.1"
+
+    def test_build_legal_unit_chunk_id_is_deterministic(self) -> None:
+        a = build_legal_unit_chunk_id(TEST_DOC_ID, "main_contract:6.3.1")
+        b = build_legal_unit_chunk_id(TEST_DOC_ID, "main_contract:6.3.1")
+        assert a == b
+
+    def test_build_legal_unit_chunk_id_rejects_empty_effective_uid(self) -> None:
+        with pytest.raises(ValueError):
+            build_legal_unit_chunk_id(TEST_DOC_ID, "")
+
+    def test_build_legal_unit_chunk_id_rejects_invalid_scope(self) -> None:
+        with pytest.raises(ValueError):
+            build_legal_unit_chunk_id(TEST_DOC_ID, "BadScope:6.3.1")
+
+    def test_build_legal_unit_chunk_id_rejects_invalid_doc_id(self) -> None:
+        with pytest.raises(ValueError):
+            build_legal_unit_chunk_id("not-a-uuid", "main_contract:6.3.1")
+
+    def test_build_legal_unit_chunk_id_accepts_str_doc_id(self) -> None:
+        sid = str(TEST_DOC_ID)
+        chunk_id = build_legal_unit_chunk_id(sid, "main_contract:6.3.1")
+        assert chunk_id == f"{TEST_DOC_ID}:legal_unit:main_contract:6.3.1"
 
 class TestBuildSizedChunksFromLeaf:
     """КОНТРАКТ: build_sized_chunks_from_leaf."""

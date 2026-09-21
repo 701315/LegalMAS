@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from engine.content.chunk_ids import build_legal_unit_chunk_id
 from engine.retrieval.tokenization import count_tokens
 from services.structure.legal_unit_models import LegalUnit, LegalUnitsSnapshot
 
@@ -367,9 +368,20 @@ def build_retrieval_units_from_legal_units(
             if v not in (None, [], {}, "")
         }
 
+        canonical_chunk_id = build_legal_unit_chunk_id(
+            doc_id=str_doc_id,
+            effective_uid=unit_id,
+        )
+
+        # fragment_id mirrors chunk_canonicalization.build_sized_chunks_from_leaf:
+        # executor._extract_primary_context_provenance reads meta["fragment_id"]
+        # before falling back to chunk["id"] — emitting it here makes the
+        # canonical id discoverable even if some consumer still reads c["id"].
+        metadata["fragment_id"] = canonical_chunk_id
+
         out.append(
             {
-                "id": f"{str_doc_id}:{unit_id}",
+                "id": canonical_chunk_id,
                 "text": text,
                 "metadata": metadata,
             }

@@ -287,3 +287,30 @@ def build_subclause_chunk_id(
         kind="subclause",
         suffix=str(subchunk_index),
     )
+
+
+def build_legal_unit_chunk_id(
+    doc_id: uuid.UUID | str,
+    effective_uid: str,
+) -> str:
+    """
+    Построить canonical chunk ID для legal_unit chunk.
+
+    Args:
+        doc_id: Document UUID
+        effective_uid: Canonical node identity ("scope:raw_uid")
+
+    Returns:
+        Deterministic chunk ID: "<doc_id>:legal_unit:<scope>:<raw_uid>"
+
+    Почему kind="legal_unit":
+    - leaf/section/subclause уже заняты;
+    - legal_unit — отдельный semantic layer (см. legal_unit_models.unit_id
+      и metadata["chunk_kind"]="legal_unit");
+    - kind совпадает с chunk_kind, namespace консистентен.
+    """
+    return _build_chunk_id(
+        doc_id=doc_id,
+        effective_uid=effective_uid,
+        kind="legal_unit",
+    )
