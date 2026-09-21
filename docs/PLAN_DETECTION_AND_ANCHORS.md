@@ -2,8 +2,8 @@
 
 **Source:** полный план согласован в диалоге, v2.0 (consolidated)
 **Started:** 2026-09-21
-**Last updated:** 2026-09-21 (после B0.4 + verified live)
-**Master HEAD:** `49fa9e9`
+**Last updated:** 2026-09-21 (после B0.5 + verified live)
+**Master HEAD:** `2632e21`
 
 ## Track B: Anchor & Location
 
@@ -14,7 +14,7 @@
 | B0.2b Phase 1 — location_source enum + clause_ref derive | ✅ DONE | `407684f` / merge `4e4bf45` | `pre-B0.2b-20260921-075754` / `post-B0.2b-20260921-111115` | Verified run `b2a5a24e`: 136 canonical_check + 12 per_field + 1 none |
 | B0.3 — location only for positive findings | ✅ DONE | merge `a285b84` | `pre-B0.3-20260921-135411` / `post-B0.3-20260921-135450` | `_is_positive_location_finding` + Rule 1b в `_build_cell_value`. Универсальный whitelist `(ui_mode, review_status)`. Legacy `review_status=None` сохраняет cell_state-семантику. `unclear` сохранён как manual-review aid. Live-verified: CoC → `location_source="none"`, positive ячейки → `canonical_check`/`per_field`. Regression diff пустой (29 предсуществующих failures не связаны) |
 | B0.4 — bbox_union в snapshot chunks + проброс в CheckResult | ✅ DONE | `85301d6` + `57bdce6` / merge `d7a3851` + `49fa9e9` | `pre-B0.4-20260921-144231` / `post-B0.4-20260921-145648`, `pre-B0.4b-20260921-153256` / `post-B0.4b-20260921-153523` | `_build_element_bbox_map` + `_compute_bbox_union` в `segment_chunk_builder_v2.py` → `meta["bbox_union"]` per chunk (page-matched union, multi-page fallback). B0.4b: проброс через `extraction_contexts` whitelist в executor. `CheckResult.bbox = {"union": [x0,top,x1,bottom], "page": N, "element_ids": [...]}`. Universal: any doc / check / ui_mode. Live-verified run `ec692954`: **34/34 filled** (0 null). CoC → `[85.15, 304.95, 572.45, 380.38]` (page 4), control → `[85.15, 278.5, 572.4, 315.98]` (page 1) |
-| **B0.5 — context_trace.score_breakdown** | ⏳ TODO | — | — | Правка в `executor.py::_build_context_provenance_trace`. **Worker restart обязателен** |
+| B0.5 — context_trace.score_breakdown | ✅ DONE | `73ce101` / merge `2632e21` | `pre-B0.5-20260921-160717` / `post-B0.5-20260921-160921` | Проброс top-level `score_breakdown` из retrieval chunk в `extraction_contexts` (executor L1185). `context_trace[i].score_breakdown` = `{bm25_raw, bm25_norm, dense_raw, dense_norm, metadata_raw, metadata_norm, weighted_sparse, weighted_dense, weighted_metadata, combined_score}`. Unit-тесты 4 PASSED. Live-verified run `ef76f962`: все 10 полей; `combined_score` == `score` (0.711 для CoC, 0.877 для control) |
 | **B0.6 — DD Grid LOCATION → viewer page mismatch (frontend)** | ⏳ TODO | — | — | Клик на «p. 4 · cl. 7.2» открывает page 1 с подсветкой cl. 1.1. Backend отдаёт корректные `location_page`/`location_clause_uid` (verified live). Баг во frontend: payload от DD Grid → modal или `useEffect` в `DocumentViewerModal.tsx`. Backend не трогаем, worker restart не нужен |
 | B1 — Canonical Anchor Contract | ⏳ TODO | — | — | Pydantic `CheckAnchor` + ORM + миграция. Включает **B1.1** (sanitize structural markers) и fix legal_unit chunk_id, удаление legacy DTO (`has_location_fallback`, `location_fallback_reason`) |
 | B1.1 — Sanitize structural markers in location_clause_ref | ⏳ TODO | — | — | `__preamble__`, `__metadata__` и другие structural markers не должны попадать в `location_clause_ref`. Verified live: `parties_identification__shipper_details` → `__preamble__`. Часть B1 (Anchor Contract sanitizer) |
