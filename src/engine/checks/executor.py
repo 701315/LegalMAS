@@ -1186,6 +1186,7 @@ class CheckExecutor:
                     {
                         "id": c.get("id") or rc.element_id,
                         "text": c.get("text") or rc.text or "",
+                        "score_breakdown": c.get("score_breakdown"),
                         "metadata": {
                             "clause_uid": (
                                 ctx_meta.get("clause_uid")
