@@ -9,6 +9,7 @@
 |---|---|---|---|---|
 | B0.1 — sized-chunks clause_uids/raw_uids | ✅ DONE | a1a3f0d | pre-B0.1-20260921-042922 / post-B0.1-20260921-043501 | Merge: e05acb7..64e1b57 |
 | B0.2 — element_id (layout UUID) + chunk_id (canonical) | ⏳ TODO | — | — | Merged from old B0.2+B0.3 |
+| B0.2b — DD Grid LOCATION → viewer page mismatch | ⏳ TODO | — | — | Клик на p. 4 · cl. 7.2 открыл page 1 с подсветкой cl. 1.1. Frontend-баг в передаче payload или useEffect modal. Требует аудита frontend DD Grid + DocumentViewerModal |
 | B0.3 — CheckResult.bbox from layout | ⏳ TODO | — | — | Renumbered from old B0.4 |
 | B0.4 — context_trace.score_breakdown | ⏳ TODO | — | — | Renumbered from old B0.5 |
 | B2 — Citation Resolver | ⏳ TODO | — | — | — |
@@ -48,3 +49,26 @@
 - `docs/adr/` — ADR по проектным решениям.
 - `docs/dd_grid_v1_contract.md` — контракт DD Grid.
 
+## Process Rules — Worker Restart
+
+**Критично:** при изменении кода, который выполняется внутри Celery workers,
+необходим **перезапуск соответствующего worker'а** перед тестами.
+Backend `uvicorn --reload` покрывает только `src/api/**`, не worker'ы.
+
+### Маппинг: код → worker
+
+| Изменённый код | Worker для перезапуска |
+|---|---|
+| `src/api/**` | backend (uvicorn --reload, авто) |
+| `src/engine/checks/**` | **worker-heavy-checks** |
+| `src/engine/detectors/**` | **worker-heavy-checks** |
+| `src/engine/retrieval/**` | **worker-heavy-checks** |
+| `src/engine/content/**` | worker-heavy-enrichment + worker-heavy-checks |
+| `src/workers/**`, `src/services/**` | worker-default |
+| `src/classifiers/**` | worker-heavy-segment-classification |
+
+### Обязательная проверка перед новым run'ом
+
+```bash
+git log --oneline -1
+ps -o pid,lstart,cmd -p $(pgrep -f 'worker-heavy-checks' | head -1)
