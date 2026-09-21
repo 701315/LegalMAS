@@ -304,8 +304,6 @@ def _map_dd_grid_v1_to_response(
                     location_clause_uid=cell.location_clause_uid,
                     location_page=cell.location_page,
                     location_confidence=cell.location_confidence,
-                    has_location_fallback=cell.has_location_fallback,
-                    location_fallback_reason=cell.location_fallback_reason,
                 )
                 for col_id, cell in seg_cells.items()
             }
@@ -362,8 +360,6 @@ def _map_dd_grid_v1_to_response(
                     location_clause_uid=f.location_clause_uid,
                     location_page=f.location_page,
                     location_confidence=f.location_confidence,
-                    has_location_fallback=f.has_location_fallback,
-                    location_fallback_reason=f.location_fallback_reason,
                 )
                 for f in drawer.fields
             ],

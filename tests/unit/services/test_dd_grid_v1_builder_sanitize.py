@@ -45,27 +45,21 @@ def test_derive_clause_ref_normal_number():
 
 
 def test_normalize_bundle_sanitizes_marker():
-    ref, page, conf, fallback, reason = _normalize_location_bundle(
+    ref, page, conf = _normalize_location_bundle(
         location_clause_ref="__preamble__",
         location_page=1,
         location_confidence="low",
-        has_location_fallback=True,
-        location_fallback_reason="some reason",
     )
     assert ref is None
     assert page == 1
     assert conf == "low"
-    assert fallback is True
-    assert reason == "some reason"
 
 
 def test_normalize_bundle_keeps_valid_ref():
-    ref, page, conf, fallback, reason = _normalize_location_bundle(
+    ref, page, conf = _normalize_location_bundle(
         location_clause_ref="п. 7.2",
         location_page=4,
         location_confidence="medium",
-        has_location_fallback=False,
-        location_fallback_reason=None,
     )
     assert ref == "п. 7.2"
     assert page == 4
@@ -73,11 +67,9 @@ def test_normalize_bundle_keeps_valid_ref():
 
 def test_normalize_bundle_sanitizes_other_markers():
     for marker in ("__metadata__", "__header__", "__intro__"):
-        ref, _, _, _, _ = _normalize_location_bundle(
+        ref, _, _ = _normalize_location_bundle(
             location_clause_ref=marker,
             location_page=1,
             location_confidence=None,
-            has_location_fallback=False,
-            location_fallback_reason=None,
         )
         assert ref is None, f"{marker} not sanitized"

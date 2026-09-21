@@ -42,11 +42,10 @@ def _make_dummy_grid_data() -> DDGridV1Data:
         cell_state="defined",
         display_value="1000 USD",
         raw_value="1000",
+        location_source="per_field",
         location_clause_ref="cl. 4.1",
         location_page=2,
         location_confidence="high",
-        has_location_fallback=False,
-        location_fallback_reason=None,
     )
     drawer = DrawerContentDTO(
         check_id="chk_1",

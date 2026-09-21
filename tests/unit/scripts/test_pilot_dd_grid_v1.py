@@ -40,8 +40,7 @@ class StubCell:
     location_clause_ref: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
-    has_location_fallback: bool = False
-    location_fallback_reason: str | None = None
+    location_source: str = "none"
 
 
 @dataclass
@@ -55,8 +54,7 @@ class StubDrawerField:
     location_clause_ref: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
-    has_location_fallback: bool = False
-    location_fallback_reason: str | None = None
+    location_source: str = "none"
 
 
 @dataclass
@@ -266,6 +264,7 @@ def test_collect_sample_cells_includes_location_info() -> None:
                 location_clause_ref="п. 3.1",
                 location_page=5,
                 location_confidence="high",
+                location_source="per_field",
             ),
         }
     }
@@ -275,10 +274,10 @@ def test_collect_sample_cells_includes_location_info() -> None:
     assert samples[0]["location_clause_ref"] == "п. 3.1"
     assert samples[0]["location_page"] == 5
     assert samples[0]["location_confidence"] == "high"
-    assert samples[0]["has_location_fallback"] is False
+    assert samples[0]["location_source"] == "per_field"
 
 
-def test_collect_sample_cells_includes_fallback_flag() -> None:
+def test_collect_sample_cells_includes_location_source() -> None:
     cell_values = {
         "doc-1": {
             "col-a": StubCell(
@@ -287,16 +286,17 @@ def test_collect_sample_cells_includes_fallback_flag() -> None:
                 "raw",
                 location_clause_ref="main:12.1",
                 location_page=9,
-                has_location_fallback=True,
-                location_fallback_reason="LLM не указал ссылку",
+                location_confidence="low",
+                location_source="display_text",
             ),
         }
     }
 
     samples = collect_sample_cells(cell_values, limit=1)
 
-    assert samples[0]["has_location_fallback"] is True
-    assert samples[0]["location_fallback_reason"] == "LLM не указал ссылку"
+    assert samples[0]["location_source"] == "display_text"
+    assert samples[0]["location_clause_ref"] == "main:12.1"
+    assert samples[0]["location_page"] == 9
 
 
 def test_collect_sample_cells_returns_empty_for_empty_input() -> None:
@@ -331,24 +331,25 @@ def test_collect_sample_drawers_prefers_drawers_with_reason_and_evidence() -> No
 
 
 def test_collect_sample_drawers_includes_location_stats() -> None:
-    field_with_loc = StubDrawerField(
+    field_exact = StubDrawerField(
         location_clause_ref="п. 3.1",
         location_page=5,
+        location_source="per_field",
     )
-    field_with_fallback = StubDrawerField(
+    field_non_per_field = StubDrawerField(
         location_clause_ref="main:12.1",
-        has_location_fallback=True,
+        location_source="canonical_check",
     )
 
     drawer = StubDrawer(
         "chk", "Check", "doc-1",
-        fields=[field_with_loc, field_with_fallback],
+        fields=[field_exact, field_non_per_field],
     )
 
     samples = collect_sample_drawers({"doc-1": {"chk": drawer}}, limit=1)
 
     assert samples[0]["fields_with_location"] == 2
-    assert samples[0]["fields_with_fallback"] == 1
+    assert samples[0]["fields_with_non_per_field_location"] == 1
 
 
 def test_collect_sample_drawers_returns_empty_for_empty_input() -> None:
@@ -411,19 +412,19 @@ def test_build_summary_includes_location_flags() -> None:
     cell_exact = StubCell(
         "defined", "Да", "yes",
         location_clause_ref="п. 1.1", location_page=3,
-        has_location_fallback=False,
+        location_source="per_field",
     )
-    cell_fallback = StubCell(
+    cell_approx = StubCell(
         "defined", "Нет", "no",
         location_clause_ref="main:12.1", location_page=9,
-        has_location_fallback=True,
+        location_source="canonical_check",
     )
 
     response = StubResponse(
         column_registry={"chk__val": col},
         cell_values={
             "doc-1": {"chk__val": cell_exact},
-            "doc-2": {"chk__val": cell_fallback},
+            "doc-2": {"chk__val": cell_approx},
         },
         documents_meta=[
             StubDocumentMeta("doc-1", "a.pdf"),
@@ -434,7 +435,7 @@ def test_build_summary_includes_location_flags() -> None:
     summary = build_summary(response, sample_limit=5)
 
     assert summary["location"]["cells_with_exact_location"] == 1
-    assert summary["location"]["cells_with_fallback_location"] == 1
+    assert summary["location"]["cells_with_approximate_location"] == 1
 
 
 def test_build_summary_includes_drawer_stats() -> None:
@@ -529,59 +530,57 @@ def test_check_health_warns_when_majority_error_cells() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_build_summary_counts_fallback_even_without_clause_ref_or_page() -> None:
+def test_build_summary_counts_approximate_location_without_ref_page() -> None:
     """
-    Реальный кейс: has_location_fallback=True, но clause_ref=None, page=None.
-    Summary должен считать такие ячейки как fallback, а не игнорировать.
+    Реальный кейс: location_source='canonical_check', но clause_ref=None, page=None.
+    Summary должен считать такие ячейки как approximate, а не игнорировать.
     """
     col = StubColumn("chk__val")
-    cell_fallback_no_ref = StubCell(
+    cell_approx_no_ref = StubCell(
         "defined", "Присутствует", "present",
         location_clause_ref=None,
         location_page=None,
         location_confidence="low",
-        has_location_fallback=True,
-        location_fallback_reason="LLM не указал точную ссылку для поля",
+        location_source="canonical_check",
     )
 
     response = StubResponse(
         column_registry={"chk__val": col},
-        cell_values={"doc-1": {"chk__val": cell_fallback_no_ref}},
+        cell_values={"doc-1": {"chk__val": cell_approx_no_ref}},
         documents_meta=[StubDocumentMeta("doc-1", "a.pdf")],
     )
 
     summary = build_summary(response, sample_limit=5)
 
-    assert summary["location"]["cells_with_fallback_location"] == 1
+    assert summary["location"]["cells_with_approximate_location"] == 1
     assert summary["location"]["cells_with_exact_location"] == 0
 
 
-def test_build_summary_does_not_count_fallback_as_exact_location() -> None:
+def test_build_summary_does_not_count_approximate_as_exact_location() -> None:
     """
-    Ячейка с has_location_fallback=True и clause_ref/page заполненными
-    (fallback предоставил check-level ref) НЕ должна попадать в exact.
+    Ячейка с location_source='canonical_check' и clause_ref/page заполненными
+    (canonical ref) НЕ должна попадать в exact.
     """
     col = StubColumn("chk__val")
-    cell_fallback_with_ref = StubCell(
+    cell_approx_with_ref = StubCell(
         "defined", "РФ", "РФ",
         location_clause_ref="main:12.1",
         location_page=9,
         location_confidence="low",
-        has_location_fallback=True,
-        location_fallback_reason="LLM не указал ссылку",
+        location_source="canonical_check",
     )
     cell_exact = StubCell(
         "defined", "Да", "yes",
         location_clause_ref="п. 1.2",
         location_page=3,
         location_confidence="high",
-        has_location_fallback=False,
+        location_source="per_field",
     )
 
     response = StubResponse(
         column_registry={"chk__val": col},
         cell_values={
-            "doc-1": {"chk__val": cell_fallback_with_ref},
+            "doc-1": {"chk__val": cell_approx_with_ref},
             "doc-2": {"chk__val": cell_exact},
         },
         documents_meta=[
@@ -593,12 +592,12 @@ def test_build_summary_does_not_count_fallback_as_exact_location() -> None:
     summary = build_summary(response, sample_limit=5)
 
     assert summary["location"]["cells_with_exact_location"] == 1
-    assert summary["location"]["cells_with_fallback_location"] == 1
+    assert summary["location"]["cells_with_approximate_location"] == 1
 
 
-def test_collect_sample_cells_preserves_fallback_without_ref_page() -> None:
+def test_collect_sample_cells_preserves_location_source_without_ref_page() -> None:
     """
-    Sample cells должны содержать fallback reason, даже если ref/page = None.
+    Sample cells должны содержать location_source, даже если ref/page = None.
     """
     cell_values = {
         "doc-1": {
@@ -607,8 +606,7 @@ def test_collect_sample_cells_preserves_fallback_without_ref_page() -> None:
                 location_clause_ref=None,
                 location_page=None,
                 location_confidence="low",
-                has_location_fallback=True,
-                location_fallback_reason="LLM не указал точную ссылку для поля",
+                location_source="canonical_check",
             ),
         }
     }
@@ -616,8 +614,7 @@ def test_collect_sample_cells_preserves_fallback_without_ref_page() -> None:
     samples = collect_sample_cells(cell_values, limit=1)
 
     assert len(samples) == 1
-    assert samples[0]["has_location_fallback"] is True
-    assert samples[0]["location_fallback_reason"] == "LLM не указал точную ссылку для поля"
+    assert samples[0]["location_source"] == "canonical_check"
     assert samples[0]["location_clause_ref"] is None
     assert samples[0]["location_page"] is None
 

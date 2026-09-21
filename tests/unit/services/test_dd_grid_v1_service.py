@@ -87,18 +87,16 @@ def _make_cell(
     location_clause_ref: str | None = None,
     location_page: int | None = None,
     location_confidence: str | None = None,
-    has_location_fallback: bool = False,
-    location_fallback_reason: str | None = None,
+    location_source: str = "none",
 ) -> CellValueDTO:
     return CellValueDTO(
         cell_state=cell_state,
         display_value=display_value,
         raw_value=raw_value,
+        location_source=location_source,
         location_clause_ref=location_clause_ref,
         location_page=location_page,
         location_confidence=location_confidence,
-        has_location_fallback=has_location_fallback,
-        location_fallback_reason=location_fallback_reason,
     )
 
 
@@ -270,6 +268,7 @@ def test_response_cell_values_location_propagated() -> None:
         location_clause_ref="п. 1.2",
         location_page=5,
         location_confidence="high",
+        location_source="per_field",
     )
     drawer = _make_drawer("chk", doc_id)
 
@@ -288,7 +287,7 @@ def test_response_cell_values_location_propagated() -> None:
     assert cell_dto.location_clause_ref == "п. 1.2"
     assert cell_dto.location_page == 5
     assert cell_dto.location_confidence == "high"
-    assert cell_dto.has_location_fallback is False
+    assert cell_dto.location_source == "per_field"
 
 
 def test_response_cell_values_location_fallback_propagated() -> None:
@@ -302,8 +301,7 @@ def test_response_cell_values_location_fallback_propagated() -> None:
         location_clause_ref="main:12.1",
         location_page=9,
         location_confidence="low",
-        has_location_fallback=True,
-        location_fallback_reason="LLM не указал точную ссылку",
+        location_source="display_text",
     )
     drawer = _make_drawer("chk", doc_id)
 
@@ -319,8 +317,7 @@ def test_response_cell_values_location_fallback_propagated() -> None:
     response = _map_dd_grid_v1_to_response(data, "d", "r")
 
     cell_dto = response.cell_values[doc_id]["_default"]["chk__val"]
-    assert cell_dto.has_location_fallback is True
-    assert cell_dto.location_fallback_reason == "LLM не указал точную ссылку"
+    assert cell_dto.location_source == "display_text"
     assert cell_dto.location_page == 9
 
 
@@ -351,11 +348,10 @@ def test_response_drawer_fields_propagated() -> None:
         cell_state="defined",
         display_value="Текст",
         raw_value="Текст",
+        location_source="per_field",
         location_clause_ref="п. 3.1",
         location_page=3,
         location_confidence="high",
-        has_location_fallback=False,
-        location_fallback_reason=None,
     )
     drawer = _make_drawer("chk", doc_id, fields=[drawer_field])
 
