@@ -235,10 +235,16 @@ class CheckExecutor:
             or meta.get("clause_uid")
             or getattr(rc, "clause_uid", None)
         )
+        # element_id — это layout UUID формата "ru:node:3:0004",
+        # НЕ retrieval chunk id. Список layout UUID лежит в
+        # canonical metadata["element_ids"] (заполняется в
+        # normalize_snapshot_chunk_metadata). c.get("id") возвращает
+        # compound "{doc_id}:{effective_uid}", что ломает viewer overlay.
+        layout_element_ids = meta.get("element_ids") or []
         prov["element_id"] = (
-            c.get("id")
+            (layout_element_ids[0] if layout_element_ids else None)
             or meta.get("element_id")
-            or getattr(rc, "element_id", None)
+            or None
         )
         prov["segment_id"] = (
             meta.get("segment_id")
@@ -263,10 +269,18 @@ class CheckExecutor:
             is_primary = getattr(rc, "is_primary_segment", None)
         prov["is_primary_segment"] = is_primary
 
+        # chunk_id — canonical "{doc_id}:{kind}:{effective_uid}:{idx}".
+        # В canonical metadata это поле называется "fragment_id"
+        # (см. chunk_canonicalization.build_sized_chunks_from_leaf).
+        # meta["chunk_id"] и rc.chunk_id не заполняются в новом pipeline,
+        # оставлены как legacy fallback. c.get("id") — compound
+        # "{doc_id}:{effective_uid}", используется только если ничего
+        # другого нет.
         prov["chunk_id"] = (
-            meta.get("chunk_id")
+            meta.get("fragment_id")
+            or meta.get("chunk_id")
             or getattr(rc, "chunk_id", None)
-            or prov["element_id"]
+            or c.get("id")
         )
 
         chunk_index = meta.get("chunk_index")
