@@ -120,8 +120,15 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
   const handleDocumentLoad = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
-    if (!location?.page || location.page < 1 || location.page > numPages) {
+    const targetPage = location?.page;
+    if (!targetPage || targetPage < 1) {
       setPageNumber(1);
+      return;
+    }
+    // Clamp to last page only when numPages is reliably known.
+    // Never reset to 1: the location effect already set the intended page.
+    if (numPages > 0 && targetPage > numPages) {
+      setPageNumber(numPages);
     }
   };
 
