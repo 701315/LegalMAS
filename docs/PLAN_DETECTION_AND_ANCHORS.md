@@ -8,11 +8,9 @@
 | Этап | Статус | Commit | Tag | Notes |
 |---|---|---|---|---|
 | B0.1 — sized-chunks clause_uids/raw_uids | ✅ DONE | a1a3f0d | pre-B0.1-20260921-042922 / post-B0.1-20260921-043501 | Merge: e05acb7..64e1b57 |
-| B0.2 — CheckResult.element_id canonical | ⏳ TODO | — | — | — |
-| B0.3 — CheckResult.chunk_id canonical | ⏳ TODO | — | — | — |
-| B0.4 — CheckResult.bbox from layout | ⏳ TODO | — | — | — |
-| B0.5 — context_trace.score_breakdown | ⏳ TODO | — | — | — |
-| B1 — CheckAnchor Contract + migration | ⏳ TODO | — | — | — |
+| B0.2 — element_id (layout UUID) + chunk_id (canonical) | ⏳ TODO | — | — | Merged from old B0.2+B0.3 |
+| B0.3 — CheckResult.bbox from layout | ⏳ TODO | — | — | Renumbered from old B0.4 |
+| B0.4 — context_trace.score_breakdown | ⏳ TODO | — | — | Renumbered from old B0.5 |
 | B2 — Citation Resolver | ⏳ TODO | — | — | — |
 | B3 — Citation Extraction | ⏳ TODO | — | — | — |
 | B4 — Persistence Layer | ⏳ TODO | — | — | — |
