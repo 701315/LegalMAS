@@ -237,9 +237,17 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     return map;
   })();
 
+  // B5: anchor-target set из payload. Непусто → подсветка элементов
+  // напрямую, даже без chunkIndex. Пусто → fallback на chunk-bbox.
+  const anchorTargetElementIds = React.useMemo(
+    () => new Set(location?.layoutElementIds ?? []),
+    [location?.layoutElementIds],
+  );
+
   const pageOverlays: {
     bbox: [number, number, number, number];
     chunkIndex: number | null;
+    isAnchorTarget: boolean;
   }[] =
     layoutElements && layoutElements.length
       ? layoutElements
@@ -247,6 +255,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
           .map((el) => ({
             bbox: el.bbox,
             chunkIndex: elementToChunkIndex.get(el.elementId) ?? null,
+            isAnchorTarget: anchorTargetElementIds.has(el.elementId),
           }))
       : [];
 
@@ -359,7 +368,8 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                   {pageOverlays.length > 0 && (
                     <div className="pointer-events-none absolute inset-0">
                       {pageOverlays.map((ov, i) => {
-                        if (ov.chunkIndex == null) return null;
+                        // B5: anchor target рендерится даже без chunkIndex.
+                        if (ov.chunkIndex == null && !ov.isAnchorTarget) return null;
                         if (!pageSize) return null;
 
                         const [x0, top, x1, bottom] = ov.bbox;
@@ -372,16 +382,19 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                         const y = top * scaleY;
                         const height = (bottom - top) * scaleY;
 
-                        const isEven = ov.chunkIndex % 2 === 0;
+                        const isEven = (ov.chunkIndex ?? 0) % 2 === 0;
                         const isActive =
                           activeChunkIndex >= 0 &&
                           ov.chunkIndex === activeChunkIndex;
 
-                        const bgClass = isActive
-                          ? "bg-[var(--accent-primary)]/18 ring-2 ring-[var(--accent-primary)]/80"
-                          : isEven
-                            ? "bg-white/55"
-                            : "bg-black/8";
+                        // B5: anchor target — максимальный визуальный приоритет.
+                        const bgClass = ov.isAnchorTarget
+                          ? "bg-[var(--accent-primary)]/28 ring-2 ring-[var(--accent-primary)]"
+                          : isActive
+                            ? "bg-[var(--accent-primary)]/18 ring-2 ring-[var(--accent-primary)]/80"
+                            : isEven
+                              ? "bg-white/55"
+                              : "bg-black/8";
 
                         return (
                           <div

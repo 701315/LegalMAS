@@ -117,6 +117,7 @@
       "exactTooltip": "Exact location",
       "approximateTooltip": "Approximate location",
       "unavailableTooltip": "Location unavailable",
+      "staleTooltip": "تغيّر المصدر بعد الاستخراج — قد تكون الإشارة غير دقيقة",
       "lowConfidenceTooltip": "Low location confidence",
       "highConfidenceTooltip": "High location confidence",
       "openInDocumentTooltip": "Open fragment in the document",

@@ -536,6 +536,11 @@ export interface DDGridV1CellValueDTO {
   location_clause_uid: string | null;
   location_page: number | null;
   location_confidence: DDGridV1LocationConfidence;
+  // ── B5: anchor metadata ────────────────────────────────────────────────
+  anchor_method: string | null;
+  anchor_confidence: number | null;
+  anchor_stale: boolean;
+  layout_element_ids: string[];
 }
 
 /**
@@ -556,6 +561,11 @@ export interface DDGridV1DrawerFieldDTO {
   location_clause_uid: string | null;
   location_page: number | null;
   location_confidence: DDGridV1LocationConfidence;
+  // ── B5: anchor metadata ────────────────────────────────────────────────
+  anchor_method: string | null;
+  anchor_confidence: number | null;
+  anchor_stale: boolean;
+  layout_element_ids: string[];
 }
 
 /**

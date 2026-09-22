@@ -153,6 +153,8 @@ def _provenance_dict(cr: CheckResult) -> dict[str, Any]:
     - segment-aware provenance (segment_*)
     - retrieval chunk provenance (chunk_id, chunk_index)
     - retrieval context trace (context_trace)
+    - B5: anchor denormalization (primary_anchor_*, anchor_stale)
+
     """
     return {
         "page": cr.page,
@@ -167,6 +169,14 @@ def _provenance_dict(cr: CheckResult) -> dict[str, Any]:
         "chunk_id": cr.chunk_id,
         "chunk_index": cr.chunk_index,
         "context_trace": cr.context_trace,
+        # ── B5: anchor denormalization (populated by B4) ────────────────────
+        # None для legacy records (до B4) — frontend обрабатывает как "no anchor".
+        "primary_anchor_id": (
+            str(cr.primary_anchor_id) if cr.primary_anchor_id is not None else None
+        ),
+        "primary_anchor_method": cr.primary_anchor_method,
+        "primary_anchor_confidence": cr.primary_anchor_confidence,
+        "anchor_stale": cr.anchor_stale,
     }
 
 

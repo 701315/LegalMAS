@@ -169,6 +169,22 @@ function buildViewerPayload(
       ? raw.location_clause_uid.trim()
       : undefined;
 
+  // B5: anchor-метаданные. Всё опционально — legacy records (до B4)
+  // передают undefined, viewer работает как раньше.
+  const layoutElementIds =
+    Array.isArray(raw.layout_element_ids) && raw.layout_element_ids.length > 0
+      ? raw.layout_element_ids
+      : undefined;
+  const anchorMethod =
+    typeof raw.anchor_method === "string" && raw.anchor_method.length > 0
+      ? raw.anchor_method
+      : undefined;
+  const anchorConfidence =
+    typeof raw.anchor_confidence === "number"
+      ? raw.anchor_confidence
+      : undefined;
+  const anchorStale = raw.anchor_stale || undefined;
+
   return {
     documentId,
     page: explicitPage,
@@ -177,6 +193,10 @@ function buildViewerPayload(
     segmentId: undefined,
     chunkId: undefined,
     chunkIndex: undefined,
+    layoutElementIds,
+    anchorMethod,
+    anchorConfidence,
+    anchorStale,
   };
 }
 
@@ -277,6 +297,8 @@ const FieldRow: React.FC<{
   const locationText = getLocationText(field, t);
   const availability = field.locationAvailability;
   const confidence = field.raw.location_confidence;
+  // B5: anchor-level точность и stale-состояние
+  const isStale = field.raw.anchor_stale;
 
   const canOpen =
     !!onOpenInViewer &&
@@ -318,18 +340,22 @@ const FieldRow: React.FC<{
           {locationText ? (
             <Pill
               tone={
-                availability === "exact"
-                  ? "success"
-                  : availability === "approximate"
-                    ? "warning"
-                    : "muted"
+                isStale
+                  ? "warning"
+                  : availability === "exact"
+                    ? "success"
+                    : availability === "approximate"
+                      ? "warning"
+                      : "muted"
               }
               title={
-                availability === "exact"
-                  ? t("drawer.fieldRow.exactTooltip")
-                  : availability === "approximate"
-                    ? t("drawer.fieldRow.approximateTooltip")
-                    : t("drawer.fieldRow.unavailableTooltip")
+                isStale
+                  ? t("drawer.fieldRow.staleTooltip")
+                  : availability === "exact"
+                    ? t("drawer.fieldRow.exactTooltip")
+                    : availability === "approximate"
+                      ? t("drawer.fieldRow.approximateTooltip")
+                      : t("drawer.fieldRow.unavailableTooltip")
               }
             >
               <MapPin className="h-3 w-3" aria-hidden />

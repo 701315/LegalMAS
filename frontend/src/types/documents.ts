@@ -278,6 +278,15 @@ export type OpenViewerAtPayload = {
   segmentId?: string;
   chunkId?: string;
   chunkIndex?: number;
+
+  // ── B5: anchor-level highlight (populated as B3.6 lands) ───────────────
+  // Когда непустой — viewer подсвечивает эти элементы напрямую.
+  // Пока пусто — fallback на chunk-bbox (текущее поведение).
+  layoutElementIds?: string[];
+  bboxUnion?: [number, number, number, number];
+  anchorMethod?: string;
+  anchorConfidence?: number;
+  anchorStale?: boolean;
 };
 
 export type OpenViewerAtFn = (payload: OpenViewerAtPayload) => void;

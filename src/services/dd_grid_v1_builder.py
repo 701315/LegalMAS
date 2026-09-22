@@ -102,6 +102,11 @@ class CellValueDTO:
     location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
+    # ── B5: anchor metadata (populated from CheckResult.primary_anchor_*) ──
+    anchor_method: str | None = None
+    anchor_confidence: float | None = None
+    anchor_stale: bool = False
+    layout_element_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -119,7 +124,11 @@ class DrawerFieldDTO:
     location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
-
+    # ── B5: anchor metadata (populated from CheckResult.primary_anchor_*) ──
+    anchor_method: str | None = None
+    anchor_confidence: float | None = None
+    anchor_stale: bool = False
+    layout_element_ids: list[str] = field(default_factory=list)
 
 @dataclass
 class DrawerContentDTO:
@@ -1297,6 +1306,22 @@ def _build_cell_value(
         localization_map=localization_map,
     )
 
+    # ── B5: anchor metadata ────────────────────────────────────────────────
+    # Populate только для positive findings (location_source != "none").
+    # Legacy records без B4 → anchor_method=None → frontend fallback на location_source.
+    anchor_method: str | None = None
+    anchor_confidence: float | None = None
+    anchor_stale: bool = False
+    layout_element_ids: list[str] = []
+    if location_source != "none":
+        anchor_method = _safe_str_or_none(check_result.get("primary_anchor_method"))
+        raw_anchor_conf = check_result.get("primary_anchor_confidence")
+        if isinstance(raw_anchor_conf, (int, float)) and not isinstance(raw_anchor_conf, bool):
+            anchor_confidence = float(raw_anchor_conf)
+        anchor_stale = bool(check_result.get("anchor_stale") or False)
+        # layout_element_ids anchor'а заполнит B3.6; контракт уже принимает поле.
+        layout_element_ids = []
+
     return CellValueDTO(
         cell_state=cell_state,
         display_value=display_value,
@@ -1306,6 +1331,10 @@ def _build_cell_value(
         location_clause_uid=location_clause_uid,
         location_page=location_page,
         location_confidence=location_confidence,
+        anchor_method=anchor_method,
+        anchor_confidence=anchor_confidence,
+        anchor_stale=anchor_stale,
+        layout_element_ids=layout_element_ids,
     )
 
 
@@ -1491,6 +1520,11 @@ def _build_drawer_content(
             location_clause_uid=cell.location_clause_uid,
             location_page=cell.location_page,
             location_confidence=cell.location_confidence,
+            # ── B5: anchor metadata passthrough ────────────────────────────
+            anchor_method=cell.anchor_method,
+            anchor_confidence=cell.anchor_confidence,
+            anchor_stale=cell.anchor_stale,
+            layout_element_ids=cell.layout_element_ids,
         )
         for col, cell in column_cells
     ]
