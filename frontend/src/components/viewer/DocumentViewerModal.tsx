@@ -239,10 +239,12 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
   // B5: anchor-target set из payload. Непусто → подсветка элементов
   // напрямую, даже без chunkIndex. Пусто → fallback на chunk-bbox.
-  const anchorTargetElementIds = React.useMemo(
-    () => new Set(location?.layoutElementIds ?? []),
-    [location?.layoutElementIds],
-  );
+  //
+  // NOTE: не используем useMemo — компонент имеет early-return выше
+  // (if (!open) return null), и вызов useMemo после него нарушает
+  // Rules of Hooks (см. React error "Rendered more hooks than during
+  // the previous render"). Set из ~10-20 element_ids дешев.
+  const anchorTargetElementIds = new Set(location?.layoutElementIds ?? []);
 
   const pageOverlays: {
     bbox: [number, number, number, number];

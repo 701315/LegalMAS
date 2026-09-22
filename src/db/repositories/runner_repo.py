@@ -293,6 +293,13 @@ class RunnerRepository:
                     "clause_uid": r.clause_uid or "",
                     "element_id": r.element_id,
                     "bbox": r.bbox,
+                    # ── B5: anchor denormalization (populated by B4) ──────
+                    "primary_anchor_id": (
+                        str(r.primary_anchor_id) if r.primary_anchor_id is not None else None
+                    ),
+                    "primary_anchor_method": r.primary_anchor_method,
+                    "primary_anchor_confidence": r.primary_anchor_confidence,
+                    "anchor_stale": bool(r.anchor_stale or False),
                     "segment_id": r.segment_id,
                     "segment_type": r.segment_type,
                     "segment_title": r.segment_title,
