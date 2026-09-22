@@ -246,17 +246,23 @@ extraction:
 
     <location_instructions>
     Для каждого поля по возможности укажи location в формате:
-    {"clause_ref": "п. 12.1", "page": 7}
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
 
     Правила:
     - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
       как она написана в договоре;
     - page — целое число страницы;
-    - не выдумывай location;
-    - если точную ссылку определить нельзя, верни location = null;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Если значение поля выведено из конкретной фразы договора — quote ДОЛЖЕН
+      содержать эту фразу без изменений. Пример хорошего quote для governing_law_value: "Настоящий Договор регулируется законодательством Российской Федерации"; для dispute_forum_value: "Все споры подлежат рассмотрению в Арбитражном суде города Москвы".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
     - для governing_law_and_forum_display, reason и evidence location можно вернуть null;
-    - для governing_law_value и dispute_forum_value location особенно важна;
-    - для status-полей тоже можно вернуть location, если она очевидна из того же пункта.
+    - для governing_law_value и dispute_forum_value location с quote особенно важна;
+    - для status-полей location всегда null (они не findings).
     </location_instructions>
 
     <instructions>
@@ -417,11 +423,11 @@ extraction:
     Пример структуры ответа:
     {
       "governing_law_and_forum_display": {"value": "Применимое право: РФ; Форум: Арбитражный суд г. Москвы", "confidence": 0.95, "location": null},
-      "governing_law_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 12.1", "page": 7}},
-      "governing_law_value": {"value": "РФ", "confidence": 0.95, "location": {"clause_ref": "п. 12.1", "page": 7}},
-      "dispute_forum_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 12.2", "page": 7}},
-      "dispute_forum_value": {"value": "Арбитражный суд г. Москвы", "confidence": 0.95, "location": {"clause_ref": "п. 12.2", "page": 7}},
-      "pre_claim_procedure_present": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 12.3", "page": 8}},
+      "governing_law_status": {"value": "present", "confidence": 0.95, "location": null},
+      "governing_law_value": {"value": "РФ", "confidence": 0.95, "location": {"clause_ref": "п. 12.1", "page": 7, "quote": "Настоящий Договор регулируется законодательством Российской Федерации"}},
+      "dispute_forum_status": {"value": "present", "confidence": 0.95, "location": null},
+      "dispute_forum_value": {"value": "Арбитражный суд г. Москвы", "confidence": 0.95, "location": {"clause_ref": "п. 12.2", "page": 7, "quote": "Все споры подлежат рассмотрению в Арбитражном суде города Москвы"}},
+      "pre_claim_procedure_present": {"value": "yes", "confidence": 0.85, "location": null},
       "reason": {"value": "...", "confidence": 0.90, "location": null},
       "evidence": {"value": [...], "confidence": 1.0, "location": null}
     }
