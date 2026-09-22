@@ -622,12 +622,22 @@ class LocationInfo(BaseModel):
         "high" — clause_ref найден substring-match в context_text
                  И page в диапазоне context_pages.
         "low"  — частичное совпадение или только одно из двух.
+    quote:
+        Дословный фрагмент текста из договора, где находится значение поля.
+        Используется B3 (Citation Extraction) для построения CheckAnchor.
+        Опционально — отсутствие quote не отменяет валидность location.
+
     """
 
     clause_ref: str | None = None
     page: int | None = None
     clause_uid: str | None = None
     location_confidence: Literal["high", "low"] = "low"
+
+    # Дословная цитата из текста договора — используется для anchor resolution (B3).
+    # Пробел-нормализована, максимум _MAX_LOCATION_QUOTE_CHARS символов.
+    # Опциональна: если LLM не вернула цитату, поле = None (не блокирует валидацию).
+    quote: str | None = None
 
 
 class LocationFallback(BaseModel):

@@ -184,6 +184,11 @@ EXTRACTION_FALLBACK_META_PATH = os.path.join(
     "extraction_fallback_meta_ru.txt",
 )
 
+# Максимальная длина quote, сохраняемой в per-field location (B3).
+# Держим в паритете с location_validator._MAX_LOCATION_QUOTE_CHARS.
+_MAX_LOCATION_QUOTE_CHARS: int = 500
+
+
 @dataclass(slots=True)
 class ExtractionLLMExtractionResult:
     """
@@ -869,13 +874,16 @@ class ExtractionLLMDetector:
         """
         Построить canonical example JSON.
 
-        V1.3 contract:
+        V1.4 contract:
         every field returns:
         {
           "value": ...,
           "confidence": 0.9,
-          "location": {"clause_ref": "...", "page": 1} | null
+          "location": {"clause_ref": "...", "page": 1, "quote": "..."} | null
         }
+
+        `quote` — дословный фрагмент текста из договора, где находится
+        значение поля. Используется для anchor resolution (B3).
         """
         example_fields: dict[str, dict[str, Any]] = {}
 
@@ -909,6 +917,7 @@ class ExtractionLLMDetector:
                 example_location = {
                     "clause_ref": "п. 1.1",
                     "page": 1,
+                    "quote": "Точная дословная цитата из договора, где находится значение поля",
                 }
 
             example_fields[field.name] = {
@@ -1082,6 +1091,7 @@ class ExtractionLLMDetector:
             * page как строка / не-int -> весь location = None
             * clause_ref как непустая строка -> сохраняется
             * page как int > 0 -> сохраняется
+            * quote как непустая строка -> нормализуется (whitespace + cap), сохраняется
         - поддерживает EVIDENCE_LIST и role=subgroup_metadata;
         - если заданы allowed_values — маппит к canonical raw values.
         """
@@ -1109,6 +1119,7 @@ class ExtractionLLMDetector:
                 page_present = "page" in raw_location
                 page_raw = raw_location.get("page")
                 clause_ref_raw = raw_location.get("clause_ref")
+                quote_raw = raw_location.get("quote")
 
                 page_valid = (
                     isinstance(page_raw, int)
@@ -1120,12 +1131,30 @@ class ExtractionLLMDetector:
                 if isinstance(clause_ref_raw, str):
                     clause_ref_norm = " ".join(clause_ref_raw.strip().split()) or None
 
+                # Quote — независимое основание для B3 anchor resolution.
+                # Whitespace-нормализация (NBSP -> пробел) + cap по длине.
+                quote_norm: str | None = None
+                if isinstance(quote_raw, str):
+                    cleaned_quote = " ".join(
+                        quote_raw.replace("\u00a0", " ").split()
+                    )
+                    if cleaned_quote:
+                        if len(cleaned_quote) > _MAX_LOCATION_QUOTE_CHARS:
+                            cleaned_quote = (
+                                cleaned_quote[:_MAX_LOCATION_QUOTE_CHARS].rstrip()
+                            )
+                        quote_norm = cleaned_quote or None
+
                 # If page key exists but page is malformed (e.g. "7" as string),
                 # we reject the whole location to avoid half-trusting malformed payloads.
                 if page_present and not page_valid:
                     raw_location = None
-                # If neither clause_ref nor valid page exists, location is empty.
-                elif clause_ref_norm is None and not page_valid:
+                # If none of clause_ref / valid page / quote exists, location is empty.
+                elif (
+                    clause_ref_norm is None
+                    and not page_valid
+                    and quote_norm is None
+                ):
                     raw_location = None
                 else:
                     normalized_location: dict[str, Any] = {}
@@ -1133,6 +1162,8 @@ class ExtractionLLMDetector:
                         normalized_location["clause_ref"] = clause_ref_norm
                     if page_valid:
                         normalized_location["page"] = page_raw
+                    if quote_norm is not None:
+                        normalized_location["quote"] = quote_norm
                     raw_location = normalized_location
             elif raw_location is not None:
                 # Any non-dict/non-null location payload is invalid.

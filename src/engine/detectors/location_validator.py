@@ -19,13 +19,22 @@ LLM возвращает clause_ref в человеческой форме ("п.
 - защищаем от word-boundary false positives ("п. 7" не должно матчиться в "п. 7.1");
 - сохраняем исходную строку clause_ref для UI.
 
+V1.4 — Quote passthrough (B3):
+LLM может вернуть дословную цитату ("quote") — независимое основание
+для anchor resolution (B3 Citation Extraction). Quote:
+- проходит whitespace-нормализацию и кап по длине (_MAX_LOCATION_QUOTE_CHARS);
+- сохраняется в LocationInfo.quote;
+- при отсутствии подтверждённого clause_ref/page работает как
+  самостоятельный low-confidence сигнал (quote-only case).
+
 Universal rules:
 - clause_ref валиден, если хотя бы один его numeric-core находится в
   context_text как самостоятельный numeric token (word-boundary safe);
 - page валиден, если это int и он присутствует в context_pages;
 - оба валидны   -> high confidence
 - один валиден  -> low confidence
-- ни один       -> no location, fallback returned
+- ни один, но есть quote -> low confidence (quote-only)
+- совсем ничего -> no location, fallback returned
 """
 
 from __future__ import annotations
@@ -35,6 +44,10 @@ from typing import Any
 
 from core.logging import get_logger
 from engine.playbook.models import LocationFallback, LocationInfo
+
+# Максимальная длина сохраняемой цитаты (для B3 anchor resolution).
+# Покрывает одно-два предложения или абзац — достаточно для fuzzy-матчинга.
+_MAX_LOCATION_QUOTE_CHARS: int = 500
 
 logger = get_logger(__name__)
 
@@ -219,6 +232,26 @@ def _find_numeric_core_in_text(core: str, context_text: str) -> bool:
     return bool(pattern.search(context_text))
 
 
+def _normalize_quote(value: Any) -> str | None:
+    """
+    Нормализовать LLM quote для сохранения в LocationInfo.quote.
+
+    Правила:
+    - не строка -> None
+    - схлопнуть whitespace (NBSP + множественные пробелы)
+    - пустая -> None
+    - слишком длинная -> обрезать до _MAX_LOCATION_QUOTE_CHARS
+    """
+    if not isinstance(value, str):
+        return None
+    cleaned = _normalize_whitespace(value)
+    if not cleaned:
+        return None
+    if len(cleaned) > _MAX_LOCATION_QUOTE_CHARS:
+        cleaned = cleaned[:_MAX_LOCATION_QUOTE_CHARS].rstrip()
+    return cleaned or None
+
+
 def _normalize_clause_ref_display(value: Any) -> str | None:
     """
     Нормализовать LLM clause_ref для сохранения в LocationInfo.clause_ref.
@@ -258,7 +291,7 @@ def validate_location(
     Args:
         location:
             Raw LLM location, expected as:
-            {"clause_ref": "...", "page": 7}
+            {"clause_ref": "...", "page": 7, "quote": "..."}
             or None.
         context_text:
             Text passed to extraction LLM.
@@ -271,7 +304,8 @@ def validate_location(
     Rules:
     - clause_ref numeric-core match in context_text + page in context_pages -> high
     - only one of them validated -> low
-    - neither validated -> no exact location, fallback
+    - neither validated, but quote present -> low (quote-only)
+    - nothing at all -> no exact location, fallback
     """
     normalized_pages = sorted(
         {
@@ -294,10 +328,11 @@ def validate_location(
 
     clause_ref_display = _normalize_clause_ref_display(location.get("clause_ref"))
     page = _normalize_page(location.get("page"))
+    quote_display = _normalize_quote(location.get("quote"))
 
-    if clause_ref_display is None and page is None:
+    if clause_ref_display is None and page is None and quote_display is None:
         logger.debug(
-            "validate_location: both clause_ref and page are absent after normalization"
+            "validate_location: clause_ref, page and quote are all absent after normalization"
         )
         return (
             None,
@@ -338,6 +373,7 @@ def validate_location(
                 page=page,
                 clause_uid=None,
                 location_confidence="high",
+                quote=quote_display,
             ),
             None,
         )
@@ -357,6 +393,28 @@ def validate_location(
                 page=page,
                 clause_uid=None,
                 location_confidence="low",
+                quote=quote_display,
+            ),
+            None,
+        )
+
+    # Quote-only: clause_ref/page не подтверждены против контекста,
+    # но quote есть — независимое основание для B3 anchor resolution.
+    # Сохраняем как low-confidence, резолвер сам решит, найдётся ли span.
+    if quote_display is not None:
+        logger.debug(
+            "validate_location: quote-only location accepted with low confidence",
+            clause_ref=clause_ref_display,
+            page=page,
+            quote_preview=quote_display[:80],
+        )
+        return (
+            LocationInfo(
+                clause_ref=clause_ref_display,
+                page=page,
+                clause_uid=None,
+                location_confidence="low",
+                quote=quote_display,
             ),
             None,
         )
@@ -372,4 +430,4 @@ def validate_location(
         LocationFallback(reason="Exact location in the document is not defined"),
     )
 
-
+    
