@@ -534,6 +534,20 @@ class DDGridCellValueDTO(BaseModel):
     location_confidence: str | None = None
     """'high' — exact; 'low'/'medium' — approximate. None if location is absent."""
 
+    # ── B5: anchor metadata (populated from CheckResult.primary_anchor_*) ──
+    # None для legacy records (до B5) — frontend fallback на location_source.
+    anchor_method: str | None = None
+    """CheckAnchorMethod value: 'exact_span' | 'fuzzy_span' | 'clause_only' | 'page_only' | 'none' | ..."""
+
+    anchor_confidence: float | None = None
+    """Anchor confidence in [0.0, 1.0]. None when no anchor."""
+
+    anchor_stale: bool = False
+    """True if source_content_hash changed after extraction (B4b, currently always False)."""
+
+    layout_element_ids: list[str] = Field(default_factory=list)
+    """Layout element IDs covered by the primary anchor. Empty for B3 MVP; populated by B3.6."""
+
 
 class DDGridDrawerFieldDTO(BaseModel):
     """Detail of a single column in the drawer."""
@@ -554,6 +568,12 @@ class DDGridDrawerFieldDTO(BaseModel):
     location_clause_uid: str | None = None
     location_page: int | None = None
     location_confidence: str | None = None
+
+    # ── B5: anchor metadata (mirrors DDGridCellValueDTO) ──────────────────
+    anchor_method: str | None = None
+    anchor_confidence: float | None = None
+    anchor_stale: bool = False
+    layout_element_ids: list[str] = Field(default_factory=list)
 
 
 class DDGridDrawerDTO(BaseModel):
