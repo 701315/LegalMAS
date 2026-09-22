@@ -12,7 +12,7 @@ ExtractionExecutor: structured data extraction for a check.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from core.config import settings
@@ -30,6 +30,9 @@ from ..playbook.models import (
     ExtractionFieldConfig,
     ExtractionFieldType,
 )
+
+from core.anchors.models import CheckAnchor, CheckAnchorMethod
+from .citation_resolver import resolve_quote_in_source
 
 logger = get_logger(__name__)
 
@@ -49,11 +52,19 @@ _EXTRACTION_MIN_GROUNDING_SCORE: float = 0.1
 @dataclass(slots=True)
 class ExtractionExecutionResult:
     """
-    Structured extraction result with optional observability telemetry.
+    Structured extraction result with optional observability telemetry
+    and per-field citation anchors (B3).
+
+    anchors:
+        Список CheckAnchor, построенных из per-field location.quote
+        финального structured_data. Один anchor на поле.
+        Пустой список, если ни одно поле не принесло quote
+        или резолвер не смог заземлить цитату (anchor_method=NONE).
     """
 
     structured_data: dict[str, Any] | None
     telemetry: dict[str, Any] | None = None
+    anchors: list[CheckAnchor] = field(default_factory=list)
 
 def _is_null_value(raw: Any) -> bool:
     """
@@ -157,6 +168,51 @@ class ExtractionExecutor:
 
         return None, cls._build_location_fallback(base_location, fallback_reason)
 
+
+    @staticmethod
+    def _resolve_field_anchor(
+        *,
+        quote: str,
+        source_text: str,
+        fallback_clause_uid: str | None,
+        fallback_page: int | None,
+    ) -> CheckAnchor | None:
+        """
+        Построить CheckAnchor из per-field цитаты (B3).
+
+        Вход:
+            quote              — дословная цитата поля (уже нормализованная).
+            source_text        — base_text, по которому делался extraction.
+            fallback_clause_uid — check-level clause_uid (для clause_only ступени).
+            fallback_page      — check-level page (для page_only ступени).
+
+        Возврат:
+            CheckAnchor | None. None, если:
+            - quote пустая;
+            - source_text пустой;
+            - резолвер вернул anchor_method=NONE (нет даже page/clause fallback).
+
+        Никогда не бросает: resolve_quote_in_source — pure function,
+        возвращает CheckAnchor(method=NONE) в худшем случае.
+        """
+        if not quote or not quote.strip():
+            return None
+        if not source_text:
+            return None
+
+        anchor = resolve_quote_in_source(
+            quote=quote,
+            source_text=source_text,
+            layout_elements=[],
+            fallback_clause_uid=fallback_clause_uid,
+            fallback_page=fallback_page,
+        )
+
+        if anchor.anchor_method == CheckAnchorMethod.NONE:
+            return None
+        return anchor
+
+
     def run(
         self,
         doc: Any,
@@ -215,6 +271,7 @@ class ExtractionExecutor:
             }
 
         structured: dict[str, dict[str, Any]] = {}
+        anchors: list[CheckAnchor] = []
         context_pages = self._extract_context_pages(contexts)
 
         # 1. RULES часть (работает для mode == rules и для hybrid/llm как baseline)
@@ -397,6 +454,39 @@ class ExtractionExecutor:
                 },
             }
 
+
+        # 3b. Build per-field anchors from final structured_data (B3.1c).
+        # Anchors collected AFTER rules/LLM merge settled — one anchor per field,
+        # no duplicates, no ordering dependency between branches.
+        for field_cfg in extraction_cfg.fields or []:
+            payload = structured.get(field_cfg.name)
+            if not payload:
+                continue
+            location = payload.get("location")
+            if not isinstance(location, dict):
+                continue
+            quote = location.get("quote")
+            if not isinstance(quote, str) or not quote.strip():
+                continue
+
+            field_anchor = self._resolve_field_anchor(
+                quote=quote,
+                source_text=base_text,
+                fallback_clause_uid=(
+                    base_location.get("clause_uid")
+                    if isinstance(base_location, dict)
+                    else None
+                ),
+                fallback_page=(
+                    base_location.get("page")
+                    if isinstance(base_location, dict)
+                    else None
+                ),
+            )
+            if field_anchor is not None:
+                anchors.append(field_anchor)
+
+
         # 4. Дополнительная валидация required-полей после merge rules + LLM.
         for field_cfg in extraction_cfg.fields or []:
             if not getattr(field_cfg, "required", False):
@@ -432,7 +522,11 @@ class ExtractionExecutor:
                 "extraction_llm_invoked": llm_invoked,
                 **(llm_telemetry or {}),
             }
-            return ExtractionExecutionResult(structured_data=None, telemetry=telemetry)
+            return ExtractionExecutionResult(
+                structured_data=None,
+                telemetry=telemetry,
+                anchors=anchors,
+            )
 
         extraction_mode = str(mode) if mode is not None else None
         telemetry: dict[str, Any] | None = None
@@ -457,6 +551,7 @@ class ExtractionExecutor:
         return ExtractionExecutionResult(
             structured_data=structured or None,
             telemetry=telemetry,
+            anchors=anchors,
         )
 
     def _build_extraction_text(

@@ -23,6 +23,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import ValidationError
+
+from core.anchors.models import CheckAnchor
 from core.constants import CheckExecutionStatus
 from core.logging import get_logger
 
@@ -38,6 +41,44 @@ _LEGACY_UI_KEYS = frozenset({
     "user_message",
     "needs_manual_review",
 })
+
+
+def _normalize_anchors(raw_anchors: Any) -> list[CheckAnchor]:
+    """
+    Восстановить CheckAnchor из JSON-dump, пришедшего в exec_result.
+
+    Контракт:
+    - не-list -> []
+    - не-dict элементы пропускаются
+    - ValidationError (невалидный CheckAnchor) -> skip + warning
+    - сохраняет порядок (важно для tie-break select_primary_anchor)
+
+    Никогда не бросает.
+    """
+    if not isinstance(raw_anchors, list):
+        return []
+
+    result: list[CheckAnchor] = []
+    for idx, raw in enumerate(raw_anchors):
+        if not isinstance(raw, dict):
+            logger.debug(
+                "normalize_check_result: anchor entry is not a dict; skipped",
+                extra={"index": idx, "type": type(raw).__name__},
+            )
+            continue
+        try:
+            result.append(CheckAnchor.model_validate(raw))
+        except ValidationError as exc:
+            logger.warning(
+                "normalize_check_result: invalid CheckAnchor in exec_result; skipped",
+                extra={
+                    "index": idx,
+                    "method": raw.get("anchor_method"),
+                    "errors": exc.errors(),
+                },
+            )
+            continue
+    return result
 
 
 def normalize_check_result(
@@ -199,6 +240,8 @@ def normalize_check_result(
         "quote_start_char": quote_start_char,
         "quote_end_char": quote_end_char,
         "source_unit_id": source_unit_id,
+        # ── B4: anchors from exec_result (idempotent replace on persistence) ─
+        "anchors": _normalize_anchors(exec_result.get("anchors")),
         **provenance_info,
     }
 

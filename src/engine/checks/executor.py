@@ -34,6 +34,7 @@ CheckExecutor: запуск одной проверки (check) для одно�
 import time
 from typing import Any
 
+from core.anchors.models import CheckAnchor, CheckAnchorMethod
 from core.config import settings
 from core.logging import get_logger
 from engine.content.chunking import build_chunk_summary
@@ -49,6 +50,7 @@ from ..playbook.models import (
     PresenceSignalConfig,
 )
 from ..retrieval.engine import RetrievalEngine
+from .citation_resolver import resolve_quote_in_source
 from .extraction import ExtractionExecutor
 from .extraction_semantics import (
     RESERVED_METADATA_FIELDS as _RESERVED_METADATA_FIELDS,
@@ -641,6 +643,85 @@ class CheckExecutor:
     # Main entry point
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _collect_risk_anchors(
+        detection: dict[str, Any],
+        contexts: list[dict[str, Any]],
+    ) -> list[CheckAnchor]:
+        """
+        Собрать CheckAnchor для риск-детекции / rules_only (B3.3).
+
+        Логика:
+        - только для positive finding (detection["found"] is True);
+        - quote = detection["evidence"] (строка);
+        - пытаемся найти точное место цитаты в каждом context.text;
+        - первый EXACT_SPAN / FUZZY_SPAN — победа;
+        - иначе — первый clause_only / page_only (из detection.location);
+        - иначе — пусто (никогда не возвращаем anchor_method=NONE).
+
+        layout_elements=[] для MVP: span есть, element_ids пустые.
+        Реальные layout_elements будут подключены в B3.5.
+
+        Никогда не бросает.
+        """
+        if not isinstance(detection, dict):
+            return []
+        if not detection.get("found"):
+            return []
+
+        evidence = detection.get("evidence")
+        if not isinstance(evidence, str) or not evidence.strip():
+            return []
+        quote = evidence.strip()
+
+        # Fallback clause_uid / page из check-level location.
+        fallback_clause_uid: str | None = None
+        fallback_page: int | None = None
+        location = detection.get("location")
+        if isinstance(location, dict):
+            raw_uid = location.get("clause_uid")
+            if isinstance(raw_uid, str) and raw_uid.strip():
+                fallback_clause_uid = raw_uid.strip()
+
+            raw_page = location.get("page")
+            if isinstance(raw_page, int) and not isinstance(raw_page, bool) and raw_page > 0:
+                fallback_page = raw_page
+
+        fallback_anchor: CheckAnchor | None = None
+
+        for ctx in contexts or []:
+            if not isinstance(ctx, dict):
+                continue
+            ctx_text = ctx.get("text")
+            if not isinstance(ctx_text, str) or not ctx_text:
+                continue
+
+            anchor = resolve_quote_in_source(
+                quote=quote,
+                source_text=ctx_text,
+                layout_elements=[],
+                fallback_clause_uid=fallback_clause_uid,
+                fallback_page=fallback_page,
+            )
+
+            # Exact/fuzzy — strongest, возвращаем сразу.
+            if anchor.anchor_method in (
+                CheckAnchorMethod.EXACT_SPAN,
+                CheckAnchorMethod.FUZZY_SPAN,
+            ):
+                return [anchor]
+
+            # Сохраняем слабый fallback (clause_only / page_only) как запас.
+            if (
+                anchor.anchor_method != CheckAnchorMethod.NONE
+                and fallback_anchor is None
+            ):
+                fallback_anchor = anchor
+
+        return [fallback_anchor] if fallback_anchor is not None else []
+
+
+
     def execute(
         self,
         doc,
@@ -1176,6 +1257,8 @@ class CheckExecutor:
         raw_details.setdefault("llm_degraded", llm_flags["llm_degraded"])
 
         structured_data = None
+        extraction_telemetry: dict[str, Any] | None = None
+        extraction_anchors: list[CheckAnchor] = []
         try:
             extraction_contexts: list[dict[str, Any]] = []
 
@@ -1257,6 +1340,7 @@ class CheckExecutor:
             )
             structured_data = extraction_result.structured_data
             extraction_telemetry = extraction_result.telemetry
+            extraction_anchors = list(extraction_result.anchors)
         except Exception as e:
             logger.exception(
                 "CheckExecutor: ExtractionExecutor failed",
@@ -1495,6 +1579,15 @@ class CheckExecutor:
                 },
             )
 
+        # ── B3.4: assemble anchors (extraction + risk) ────────────────────────
+        # Приоритет: extraction anchors (per-field quotes). Если пусто —
+        # падаем на риск-путь (evidence-based). Дубли исключены.
+        check_anchors: list[CheckAnchor] = list(extraction_anchors)
+        if not check_anchors and found:
+            check_anchors.extend(
+                self._collect_risk_anchors(detection, contexts)
+            )
+
         return {
             "doc_id": str(doc.id),
             "check_id": check.id,
@@ -1510,6 +1603,7 @@ class CheckExecutor:
             "location": location,
             "raw": raw_details,
             "structured_data": structured_data,
+            "anchors": [a.model_dump(mode="json") for a in check_anchors],
             "page": page,
             "clause_uid": clause_uid,
             "element_id": element_id,

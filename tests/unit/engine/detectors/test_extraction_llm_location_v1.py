@@ -1,5 +1,5 @@
 """
-Tests for ExtractionLLMDetector per-field location support (V1.3).
+Tests for ExtractionLLMDetector per-field location support (V1.4).
 
 Covers:
 - _parse_response reads location payloads
@@ -112,7 +112,14 @@ class TestExampleJsonLocationContract:
         payload = parsed["fields"]["governing_law_value"]
 
         assert "location" in payload
-        assert payload["location"] == {"clause_ref": "п. 1.1", "page": 1}
+        location = payload["location"]
+        assert location is not None
+        # V1.4 example contract: clause_ref + page + quote (exactly these keys).
+        assert set(location.keys()) == {"clause_ref", "page", "quote"}
+        assert location["clause_ref"] == "п. 1.1"
+        assert location["page"] == 1
+        assert isinstance(location["quote"], str)
+        assert location["quote"]
 
 
 class TestAllowedValueSpecNormalization:
