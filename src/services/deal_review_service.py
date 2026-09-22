@@ -304,6 +304,11 @@ def _map_dd_grid_v1_to_response(
                     location_clause_uid=cell.location_clause_uid,
                     location_page=cell.location_page,
                     location_confidence=cell.location_confidence,
+                    # ── B5: anchor metadata passthrough ────────────────────
+                    anchor_method=getattr(cell, "anchor_method", None),
+                    anchor_confidence=getattr(cell, "anchor_confidence", None),
+                    anchor_stale=getattr(cell, "anchor_stale", False),
+                    layout_element_ids=getattr(cell, "layout_element_ids", []),
                 )
                 for col_id, cell in seg_cells.items()
             }
@@ -360,6 +365,11 @@ def _map_dd_grid_v1_to_response(
                     location_clause_uid=f.location_clause_uid,
                     location_page=f.location_page,
                     location_confidence=f.location_confidence,
+                    # ── B5: anchor metadata passthrough ────────────────────
+                    anchor_method=getattr(f, "anchor_method", None),
+                    anchor_confidence=getattr(f, "anchor_confidence", None),
+                    anchor_stale=getattr(f, "anchor_stale", False),
+                    layout_element_ids=getattr(f, "layout_element_ids", []),
                 )
                 for f in drawer.fields
             ],
