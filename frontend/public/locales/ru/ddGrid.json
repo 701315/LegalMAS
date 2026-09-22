@@ -117,6 +117,7 @@
       "exactTooltip": "Точное расположение",
       "approximateTooltip": "Приблизительное расположение",
       "unavailableTooltip": "Расположение недоступно",
+      "staleTooltip": "Источник изменился после извлечения — ссылка может быть неточной",
       "lowConfidenceTooltip": "Низкая уверенность в расположении",
       "highConfidenceTooltip": "Высокая уверенность в расположении",
       "openInDocumentTooltip": "Открыть фрагмент в документе",

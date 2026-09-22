@@ -418,6 +418,7 @@ export function resolveDDGridV1CellView(
   const locationAvailability = effectiveRawCell
     ? classifyDDGridV1LocationAvailability({
         location_source: effectiveRawCell.location_source,
+        anchor_method: effectiveRawCell.anchor_method ?? null,
       })
     : "unavailable";
 

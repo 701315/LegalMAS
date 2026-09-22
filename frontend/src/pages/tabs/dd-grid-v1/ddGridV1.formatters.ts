@@ -15,7 +15,6 @@ import type {
   DDGridV1CellState,
   DDGridV1CellValueDTO,
   DDGridV1ColumnDTO,
-  DDGridV1LocationConfidence,
   DDGridV1LocationSource,
 } from "../../../types/dealReview";
 
@@ -169,9 +168,36 @@ export function formatDDGridV1CellText(
 /**
  * Classifies location availability strictly by contract.
  */
+/**
+ * Classifies location availability strictly by contract.
+ *
+ * B5: если задан anchor_method — он имеет приоритет над location_source
+ * (exact_span/fuzzy_span → exact; clause_only/page_only → approximate;
+ * none/retrieval_legacy → unavailable). Если anchor_method=null (legacy
+ * до B4) — работаем по location_source, как раньше.
+ */
 export function classifyDDGridV1LocationAvailability(input: {
   location_source: DDGridV1LocationSource;
+  anchor_method?: string | null;
 }): DDGridV1LocationAvailability {
+  if (input.anchor_method) {
+    switch (input.anchor_method) {
+      case "exact_span":
+      case "fuzzy_span":
+        return "exact";
+      case "clause_and_layout":
+      case "clause_only":
+      case "layout_only":
+      case "page_only":
+        return "approximate";
+      case "none":
+      case "retrieval_legacy":
+        return "unavailable";
+      default:
+        break;
+    }
+  }
+
   switch (input.location_source) {
     case "per_field":
       return "exact";

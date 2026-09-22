@@ -787,17 +787,32 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
             e.stopPropagation();
 
             if (row.drawerContent) {
-              const firstField = row.drawerContent.fields?.[0];
+              // B5 fix: не первый field, а field с самым точным location.
+              // Приоритет: per_field → clause_uid/page → [0].
+              const fields = row.drawerContent.fields ?? [];
+              const bestField =
+                fields.find((f) => f.location_source === "per_field") ??
+                fields.find((f) => f.location_clause_uid || f.location_page) ??
+                fields[0];
 
-              if (firstField) {
+              if (bestField) {
                 onOpenAtLocation?.({
                   documentId: row.v1Row.documentId,
-                  page: firstField.location_page ?? undefined,
-                  clauseUid: firstField.location_clause_uid ?? undefined,
+                  page: bestField.location_page ?? undefined,
+                  clauseUid: bestField.location_clause_uid ?? undefined,
                   elementId: undefined,
                   segmentId: undefined,
                   chunkId: undefined,
                   chunkIndex: undefined,
+                  // ── B5: anchor passthrough ─────────────────────────────
+                  layoutElementIds:
+                    bestField.layout_element_ids &&
+                    bestField.layout_element_ids.length
+                      ? bestField.layout_element_ids
+                      : undefined,
+                  anchorMethod: bestField.anchor_method ?? undefined,
+                  anchorConfidence: bestField.anchor_confidence ?? undefined,
+                  anchorStale: bestField.anchor_stale ?? undefined,
                 });
               }
             }

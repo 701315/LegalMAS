@@ -188,6 +188,7 @@ export function buildDDGridV1DrawerFieldViews(
   return (drawer.fields ?? []).map((field, index) => {
     const availability = classifyDDGridV1LocationAvailability({
       location_source: field.location_source,
+      anchor_method: field.anchor_method ?? null,
     });
 
     const syntheticColumn = {
@@ -208,9 +209,16 @@ export function buildDDGridV1DrawerFieldViews(
             cell_state: field.cell_state,
             display_value: field.display_value,
             raw_value: field.raw_value,
+            location_source: field.location_source,
             location_clause_ref: field.location_clause_ref,
+            location_clause_uid: field.location_clause_uid,
             location_page: field.location_page,
             location_confidence: field.location_confidence,
+            // ── B5: anchor metadata ──────────────────────────────────────
+            anchor_method: field.anchor_method,
+            anchor_confidence: field.anchor_confidence,
+            anchor_stale: field.anchor_stale,
+            layout_element_ids: field.layout_element_ids,
           }
         : null,
       syntheticColumn,
