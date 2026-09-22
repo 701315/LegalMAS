@@ -22,7 +22,8 @@
 | B1b — Repository skeleton | ✅ DONE | `e0e4845` / merge `5fa00d1` | `pre-B1b-20260921-182220` / `post-B1b-20260921-182554` | `CheckResultAnchorRepository`: create_many / list_for_check_result / get_primary / set_primary / clear_primary / delete_for_check_result / replace_for_check_result. 11 unit-тестов (`pytestmark = pytest.mark.asyncio`). Не вызывается пока — persistence wiring в B4 |
 | B1cd — Drop legacy location fields | ✅ DONE | `6a30459` + `d24e876` / merge `40f44e1` | `pre-B1cd-20260921-185215` / `post-B1cd-20260921-191411` | Backend B1c: удалены `has_location_fallback` + `location_fallback_reason` из `DDGridCellValueDTO` / `DDGridDrawerFieldDTO` + pipeline (`_normalize_location_bundle` 5→3-tuple, `_extract_location_bundle` → 4-tuple с source_hint). Frontend B1d: `classifyDDGridV1LocationAvailability({location_source})`, удалены `LOCATION_FALLBACK_I18N` + `localizeLocationFallbackReason` + `locationFallbackReasons` из 4 JSON. Fixed pre-existing bug: `drawer.ts::classify` вызывался без `location_source` |
 | B1e — legal_unit chunk_id canonical | ✅ DONE | `7cfe5c1` / merge `a0c320f` | `pre-B1e-20260921-193140` / `post-B1e-20260921-193447` | Root cause: `legal_unit_retrieval.py:372` строил compound `f"{doc_id}:{unit_id}"` без kind-маркера. В живых данных за 60 дней: 4355/6622 (72%) `chunk_id` без kind. Fix: `build_legal_unit_chunk_id(doc_id, effective_uid)` → `<doc_id>:legal_unit:<scope>:<raw_uid>` в `chunk_ids.py`; замена в `legal_unit_retrieval.py` + `metadata["fragment_id"]` для executor fallback. 6 новых тестов в `TestCanonicalChunkIdGeneration`. Baseline подтверждён через `git stash`: 15 failed / 222 passed → 15 failed / 228 passed (+6 наших). No backfill |
-| B2 — Citation Resolver | ⏳ TODO | — | — | `resolve_quote_in_source`: exact_span → fuzzy_span → clause_only → page_only → none |
+| B2a — Citation normalization | ✅ DONE | `20decde` / merge `5a45a97` | `pre-B2a-20260922-034425` / `post-B2a-20260922-035102` | `src/engine/checks/citation_normalization.py`: `normalize_text`, `normalize_with_index_map`. Правила: все whitespace (space/tab/newline/NBSP/narrow NBSP/thin/hair) → один ASCII space; ё→е; кавычки `« » „ “ ”` → ASCII; тире `— – − ‐ ‑ ‒` → `-`. Index map инварианты: `len(norm) == len(idx_map)`, `norm[i] == _normalize_char(text[idx_map[i]])`. 39 unit-тестов |
+| B2b — Citation resolver | ✅ DONE | `7fb0b9f` / merge `1b6d4bb` | `pre-B2b-20260922-035159` / `post-B2b-20260922-035803` | `src/engine/checks/citation_resolver.py`: `resolve_quote_in_source(quote, source_text, layout_elements, ...)` → `CheckAnchor`. Ступени: exact_span (1.0) → fuzzy_span (ratio ≥ 0.75) → clause_only (0.5) → page_only (0.3) → none (0.0). Span в координатах оригинала через B2a index map. Span → element_ids через накопленные offsets (воспроизводит `materialize_text_from_element_ids`, включая разделитель при page break; при mismatch — element_ids пусты, diagnostics флаг). Round-trip validation. `source_content_hash` — SHA-256 source_text. Не вызывается пока — wiring в B3. 21 unit-тест |
 | B3 — Citation Extraction | ⏳ TODO | — | — | Обогатить `field_extraction` / `risk_detection` / `rules_only` + executor |
 | B4 — Persistence Layer | ⏳ TODO | — | — | `check_result_anchor_repo` + денормализация primary anchor |
 | B5 — API + Frontend | ⏳ TODO | — | — | `primary_anchor` в `_provenance_dict`, layoutElementIds в viewer payload |
@@ -150,6 +151,18 @@ a285b84 Merge branch 'feat/B0.3-location-positive-only'
 
 При патче `legal_unit_retrieval.py` я предположил наличие `from engine.content.chunk_ids import ...` в блоке импортов без проверки. Скрипт упал с `AssertionError: no engine.content import found`. Урок: перед подачей патча для вставки/замены — **прочитать фактические строки-маркеры** (`head -50`, `grep -n "^from \|^import "`) и указать точное место вставки. Правило 5.2b.
 
+### B2a-merge-F-stdin
+
+`git merge --no-ff <branch> -F- <<'EOF'` упал с `error: could not read file '-'`. `git merge` не читает сообщение из stdin — только `git commit` умеет `-F-`. Урок: для `git merge` всегда `-F <path>`, никогда `-F-`.
+
+### B2a-post-tag-on-wrong-commit
+
+При падении `git merge` post-tag был создан на предшествующем коммите (`da16183`), а не на merge-коммите. Ветка уже удалена — восстановление через `git reflog` + `git branch <name> <lost-hash>`. Урок: **post-tag создаётся только после `git log --oneline -1` показывает merge-коммит в HEAD**.
+
+### B2a-manual-paste-multiline-commit
+
+Многострочный `git commit -m "..."` через paste в интерактивном терминале склеивается и уходит в continuation prompt. Урок: всегда через `-F /tmp/msg.txt` (для commit), для merge — тоже `-F /tmp/msg.txt`. Правило 5.3a.
+
 ## Process Rules
 
 Каждый фикс:
@@ -175,6 +188,8 @@ a285b84 Merge branch 'feat/B0.3-location-positive-only'
 - **5.2a (test-scaffolding):** перед первым тестом в новом модуле — проверить `asyncio_mode` в `pyproject.toml` и найти канонический пример теста в том же слое. При `asyncio_mode=STRICT` + `async def test_*` — обязательно `pytestmark = pytest.mark.asyncio` на уровне модуля (или `@pytest.mark.asyncio` на каждой функции).
 
 - **5.2b (audit-before-patch):** перед подачей патча на вставку / замену в существующем файле — прочитать фактические строки-маркеры (`head -50`, `grep -n "^from \|^import "`, `sed -n 'X,Yp'`) и указать точное место вставки. Не полагаться на «вероятно есть импорт X» / «вероятно это в конце файла». Запрещено подавать патч, не видев фактических строк, к которым он применяется.
+
+- **5.3a (git message hygiene):** любые многострочные сообщения — через `-F <path>` (для `commit` допустим `-F-`). Для **`git merge`** `-F-` не работает — только `-F <path>`. Post-tag создаётся **только после** `git log --oneline -1` подтверждает merge-коммит в HEAD. Если merge упал — стоп, восстановление (при удалённой ветке: `git reflog` → `git branch <name> <hash>` → повтор), и только потом tag.
 
 - **5.7 (downgrade-тест):** при проверке миграций использовать только явный target `alembic downgrade <explicit_rev>`. `alembic downgrade -1` запрещён в верификационных скриптах — он непредсказуем при разветвлённом графе ревизий.
 
