@@ -160,6 +160,10 @@ async def save_check_result(
             review_status=semantics.review_status,
             review_message=semantics.review_message,
             needs_manual_review=semantics.needs_manual_review,
+            # ── B4: anchors ───────────────────────────────────────────────────
+            # Всегда передаём list (возможно пустой). Пустой list = очистить
+            # anchors для этого CheckResult (idempotent rerun).
+            anchors=normalized["anchors"],
         )
     except Exception as e:
         logger.exception(
@@ -291,6 +295,10 @@ async def save_not_applicable_result(
             review_status=semantics.review_status,
             review_message=semantics.review_message,
             needs_manual_review=semantics.needs_manual_review,
+            # ── B4: not-applicable не может иметь anchors ────────────────────
+            # Пустой list = очистить любые anchors от предыдущего прогона
+            # (check мог стать not_applicable после force reclassify).
+            anchors=[],
         )
     except Exception as e:
         logger.exception(

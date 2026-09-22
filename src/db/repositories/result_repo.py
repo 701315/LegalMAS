@@ -21,12 +21,15 @@ from sqlalchemy import case, distinct, func, select, update, tuple_
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.anchors.models import CheckAnchor
+from core.anchors.selection import method_strength, select_primary_anchor
 from core.check_result_persist_errors import (
     CheckResultPersistPermanentError,
     CheckResultPersistTransientError,
 )
 from core.constants import CheckExecutionStatus
 from core.logging import get_logger
+from db.repositories.check_result_anchor_repo import CheckResultAnchorRepository
 from db.repositories.check_result_persist_error_repo import CheckResultPersistErrorRepository
 from core.result_presentation_content import build_presentation_source_hash
 from ..models.run import Run
@@ -35,6 +38,13 @@ from ..models.document import Document
 from ..models.result import CheckResult
 
 logger = get_logger(__name__)
+
+# B4: hard cap on anchors persisted per CheckResult.
+# Защита от per-finding anchor explosion; при превышении оставляем
+# топ-N по силе метода (tie-break по anchor_confidence).
+_MAX_ANCHORS_PER_CHECK_RESULT: int = 5
+
+
 
 def normalize_origin_type(origin: str | None) -> str | None:
     """
@@ -642,6 +652,97 @@ class ResultRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+
+    @staticmethod
+    def _apply_anchor_limit(
+        anchors: list[CheckAnchor],
+    ) -> list[CheckAnchor]:
+        """
+        Ограничить число anchors до _MAX_ANCHORS_PER_CHECK_RESULT.
+
+        Приоритет — сильнейшие по методу (method_strength), tie-break
+        по anchor_confidence. Порядок входного списка не гарантируется
+        после обрезки — но select_primary_anchor всё равно выберет сильнейший.
+
+        Пустой вход -> пустой выход. Список <= 5 -> как есть (без сортировки).
+        """
+        if len(anchors) <= _MAX_ANCHORS_PER_CHECK_RESULT:
+            return anchors
+
+        ranked = sorted(
+            anchors,
+            key=lambda a: (method_strength(a.anchor_method), a.anchor_confidence),
+            reverse=True,
+        )
+        return ranked[:_MAX_ANCHORS_PER_CHECK_RESULT]
+
+    async def _replace_anchors_for_check_result(
+        self,
+        *,
+        cr: CheckResult,
+        anchors: list[CheckAnchor],
+    ) -> None:
+        """
+        Заменить полный набор anchors для CheckResult и денормализовать
+        primary на сам CheckResult.
+
+        Idempotency: delete + create_many. Rerun того же CheckResult
+        полностью перезаписывает anchors.
+
+        Семантика primary:
+        - anchors пустой -> delete all, обнулить 4 денорм-колонки;
+        - anchors непустой -> apply limit (топ-5), replace, select_primary_anchor,
+          set_primary, денормализация 4 колонок.
+
+        anchor_stale=False — stale-detection отложена в B4b (не реализована).
+        """
+        anchor_repo = CheckResultAnchorRepository(self.session)
+
+        # Пустой набор -> полная очистка (idempotent rerun без anchors).
+        if not anchors:
+            await anchor_repo.delete_for_check_result(check_result_id=cr.id)
+            cr.primary_anchor_id = None
+            cr.primary_anchor_method = None
+            cr.primary_anchor_confidence = None
+            cr.anchor_stale = False
+            return
+
+        limited = self._apply_anchor_limit(anchors)
+
+        created = await anchor_repo.replace_for_check_result(
+            check_result_id=cr.id,
+            anchors=limited,
+        )
+
+        primary = select_primary_anchor(limited)
+        if primary is None:
+            # Недостижимо на непустом входе, но fail-safe.
+            cr.primary_anchor_id = None
+            cr.primary_anchor_method = None
+            cr.primary_anchor_confidence = None
+            cr.anchor_stale = False
+            return
+
+        # Identity-lookup: select_primary_anchor возвращает ту же ссылку,
+        # что лежит в limited. Equality-based index() хрупок из-за float
+        # в anchor_diagnostics/anchor_confidence.
+        primary_idx = next(
+            i for i, a in enumerate(limited) if a is primary
+        )
+        primary_row = created[primary_idx]
+
+        await anchor_repo.set_primary(
+            check_result_id=cr.id,
+            anchor_id=primary_row.id,
+        )
+
+        cr.primary_anchor_id = primary_row.id
+        cr.primary_anchor_method = primary.anchor_method.value
+        cr.primary_anchor_confidence = primary.anchor_confidence
+        cr.anchor_stale = False
+
+
+
     async def upsert_single_check_result(
         self,
         *,
@@ -682,6 +783,7 @@ class ResultRepository:
         review_status: str | None = None,
         review_message: str | None = None,
         needs_manual_review: bool = False,
+        anchors: list[CheckAnchor] | None = None,
     ) -> CheckResult:
         """
         Создать или обновить результат одной проверки.
@@ -812,6 +914,14 @@ class ResultRepository:
                     )
                     self.session.add(cr)
                     await self.session.flush()
+
+                    if anchors is not None:
+                        await self._replace_anchors_for_check_result(
+                            cr=cr,
+                            anchors=anchors,
+                        )
+                        await self.session.flush()
+
                     return cr
 
                 # ── UPDATE path ───────────────────────────────────────────────
@@ -882,6 +992,14 @@ class ResultRepository:
                     existing.finished_at = now
 
                 await self.session.flush()
+
+                if anchors is not None:
+                    await self._replace_anchors_for_check_result(
+                        cr=existing,
+                        anchors=anchors,
+                    )
+                    await self.session.flush()
+
                 return existing
 
         except DBAPIError as err:
@@ -935,6 +1053,8 @@ class ResultRepository:
                 "review_status": review_status,
                 "review_message": review_message,
                 "needs_manual_review": needs_manual_review,
+                # ── B4: anchors entry count (не сами anchors —太重)
+                "anchors_count": (len(anchors) if anchors is not None else None),
             }
 
             persist_error_repo = CheckResultPersistErrorRepository(self.session)
