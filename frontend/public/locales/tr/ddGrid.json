@@ -1,4 +1,11 @@
 {
+  "riskWeight": {
+    "high": "Yüksek risk",
+    "medium": "Orta risk",
+    "low": "Düşük risk",
+    "info": "Bilgi",
+    "tooltip": "{{level}}: {{field}} — {{value}}"
+  },
   "qualityFlagsLegend": {
     "title": "Quality flags:",
     "structureDegraded": "Document structure degraded",

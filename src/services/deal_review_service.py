@@ -309,6 +309,11 @@ def _map_dd_grid_v1_to_response(
                     anchor_confidence=getattr(cell, "anchor_confidence", None),
                     anchor_stale=getattr(cell, "anchor_stale", False),
                     layout_element_ids=getattr(cell, "layout_element_ids", []),
+                    # ── Risk-aware DD Grid (COC pilot) ────────────────────
+                    cell_risk_level=getattr(cell, "cell_risk_level", None),
+                    top_risk_field=getattr(cell, "top_risk_field", None),
+                    top_risk_value=getattr(cell, "top_risk_value", None),
+                    top_risk_display=getattr(cell, "top_risk_display", None),
                 )
                 for col_id, cell in seg_cells.items()
             }
@@ -370,6 +375,11 @@ def _map_dd_grid_v1_to_response(
                     anchor_confidence=getattr(f, "anchor_confidence", None),
                     anchor_stale=getattr(f, "anchor_stale", False),
                     layout_element_ids=getattr(f, "layout_element_ids", []),
+                    # ── Risk-aware DD Grid (COC pilot) ────────────────────
+                    cell_risk_level=getattr(f, "cell_risk_level", None),
+                    top_risk_field=getattr(f, "top_risk_field", None),
+                    top_risk_value=getattr(f, "top_risk_value", None),
+                    top_risk_display=getattr(f, "top_risk_display", None),
                 )
                 for f in drawer.fields
             ],

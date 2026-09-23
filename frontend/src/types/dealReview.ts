@@ -541,6 +541,11 @@ export interface DDGridV1CellValueDTO {
   anchor_confidence: number | null;
   anchor_stale: boolean;
   layout_element_ids: string[];
+  // ── Risk-aware DD Grid (COC pilot) ─────────────────────────────────────
+  cell_risk_level: "high" | "medium" | "low" | "info" | null;
+  top_risk_field: string | null;
+  top_risk_value: string | null;
+  top_risk_display: string | null;
 }
 
 /**
@@ -566,6 +571,11 @@ export interface DDGridV1DrawerFieldDTO {
   anchor_confidence: number | null;
   anchor_stale: boolean;
   layout_element_ids: string[];
+  // ── Risk-aware DD Grid (COC pilot) ─────────────────────────────────────
+  cell_risk_level: "high" | "medium" | "low" | "info" | null;
+  top_risk_field: string | null;
+  top_risk_value: string | null;
+  top_risk_display: string | null;
 }
 
 /**

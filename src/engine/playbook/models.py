@@ -531,6 +531,24 @@ class ExtractionFieldType(str, Enum):
     EVIDENCE_LIST = "evidence_list"  # список evidence-записей (DD Grid V1 metadata)
 
 
+class RiskWeight(str, Enum):
+    """
+    Семантический вес риска для extraction-поля.
+
+    Используется в DD Grid V1 для вычисления cell_risk_level.
+
+    - HIGH   — существенное условие / критично для сделки
+    - MEDIUM — значимое, но не блокирующее
+    - LOW    — информационно
+    - INFO   — routing / маркер, не risk
+    """
+
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
+
 class AllowedValueSpec(BaseModel):
     """
     Локализованное описание допустимого enum-значения.
@@ -690,6 +708,17 @@ class ExtractionFieldConfig(BaseModel):
     display_in_grid: bool = False
     display_priority: int | None = None
 
+    # Семантический вес риска для DD Grid V1.
+    #
+    # Устанавливается только для presentation=signal полей.
+    # Отсутствие risk_weight = поле не участвует в cell_risk_level.
+    #
+    # Семантика: риск = наличие темы в документе
+    # (не важность конкретного значения).
+    # При отсутствии значения (no/missing/not_specified/unclear) —
+    # поле не учитывается при вычислении cell_risk_level.
+    risk_weight: RiskWeight | None = None
+
     description: str = ""
 
     # Подсказки для rules‑based извлечения.
@@ -731,6 +760,26 @@ class ExtractionFieldConfig(BaseModel):
     # This is a playbook-driven contract: output size expectations belong
     # to the field definition, not to hardcoded check-specific logic in code.
     max_value_chars: int | None = None
+
+    @model_validator(mode="after")
+    def _validate_risk_weight_contract(self) -> "ExtractionFieldConfig":
+        """
+        Fail-fast contract для risk_weight.
+
+        1. risk_weight допустим только для presentation=signal.
+        2. risk_weight требует непустой allowed_values.
+        """
+        if self.risk_weight is not None:
+            if self.presentation != "signal":
+                raise ValueError(
+                    f"field '{self.name}': risk_weight can only be set on "
+                    f"presentation=signal fields (got '{self.presentation}')"
+                )
+            if not self.allowed_values:
+                raise ValueError(
+                    f"field '{self.name}': risk_weight requires allowed_values"
+                )
+        return self
 
 
 class ExtractionMode(str, Enum):

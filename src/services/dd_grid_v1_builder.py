@@ -26,7 +26,7 @@ from typing import Any
 from classifiers.yaml_registry import DocumentTypeGroupConfig, YAMLRegistry
 from core.logging import get_logger
 from engine.checks.dd_grid_column_builder import DDGridColumnBuilder, DDGridColumnRuntime
-from engine.playbook.models import CheckDefinition
+from engine.playbook.models import AllowedValueSpec, CheckDefinition
 
 logger = get_logger(__name__)
 
@@ -107,6 +107,11 @@ class CellValueDTO:
     anchor_confidence: float | None = None
     anchor_stale: bool = False
     layout_element_ids: list[str] = field(default_factory=list)
+    # ── Risk-aware DD Grid (COC pilot) ─────────────────────────────────
+    cell_risk_level: str | None = None      # "high"|"medium"|"low"|"info"|None
+    top_risk_field: str | None = None
+    top_risk_value: str | None = None
+    top_risk_display: str | None = None
 
 
 @dataclass
@@ -129,6 +134,11 @@ class DrawerFieldDTO:
     anchor_confidence: float | None = None
     anchor_stale: bool = False
     layout_element_ids: list[str] = field(default_factory=list)
+    # ── Risk-aware DD Grid (COC pilot) ─────────────────────────────────
+    cell_risk_level: str | None = None
+    top_risk_field: str | None = None
+    top_risk_value: str | None = None
+    top_risk_display: str | None = None
 
 @dataclass
 class DrawerContentDTO:
@@ -1121,6 +1131,87 @@ def _plan_status_to_cell_state(plan_status: str) -> str:
     return "not_executed"
 
 
+_VALUES_INDICATING_ABSENCE: frozenset[str] = frozenset({
+    "", "null", "none", "no", "not_found", "notfound",
+    "not_defined", "not_specified", "missing", "absent",
+    "not present", "n/a", "—", "not_addressed", "not_applicable",
+    "не найдено", "не определено", "отсутствует", "данные не определены",
+    "unclear",
+})
+
+_RISK_LEVEL_ORDER: dict[str, int] = {
+    "high": 4, "medium": 3, "low": 2, "info": 1,
+}
+
+
+def _compute_cell_risk(
+    check: CheckDefinition,
+    structured_data: dict[str, Any] | None,
+) -> tuple[str | None, str | None, str | None, str | None]:
+    """
+    Вычислить cell_risk_level и top_risk_field из structured_data.
+
+    Contract:
+    - Учитываются только поля с field.risk_weight != None
+      и presentation == "signal".
+    - Поле пропускается, если payload.value входит в
+      _VALUES_INDICATING_ABSENCE.
+    - cell_risk_level = max(risk_weight) по оставшимся полям.
+    - Tie-break: по алфавиту field_name.
+    - Если candidates пусто -> (None, None, None, None).
+
+    Returns:
+        (cell_risk_level, top_risk_field, top_risk_value, top_risk_display)
+    """
+    extraction = getattr(check, "extraction", None)
+    if extraction is None or not extraction.fields:
+        return (None, None, None, None)
+    if not isinstance(structured_data, dict):
+        return (None, None, None, None)
+
+    candidates: list[tuple[str, str, str, str]] = []
+
+    for field_cfg in extraction.fields:
+        risk_weight = getattr(field_cfg, "risk_weight", None)
+        if risk_weight is None:
+            continue
+        if getattr(field_cfg, "presentation", None) != "signal":
+            continue
+
+        payload = structured_data.get(field_cfg.name)
+        if not isinstance(payload, dict):
+            continue
+        if not payload.get("found"):
+            continue
+
+        value = payload.get("value")
+        if value is None:
+            continue
+        value_str = str(value).strip()
+        if not value_str or value_str.lower() in _VALUES_INDICATING_ABSENCE:
+            continue
+
+        display = value_str
+        allowed = getattr(field_cfg, "allowed_values", None) or []
+        for item in allowed:
+            if isinstance(item, AllowedValueSpec) and item.value == value_str:
+                display = item.label or value_str
+                break
+
+        weight_str = (
+            risk_weight.value if hasattr(risk_weight, "value")
+            else str(risk_weight)
+        )
+        candidates.append((field_cfg.name, weight_str, value_str, display))
+
+    if not candidates:
+        return (None, None, None, None)
+
+    candidates.sort(key=lambda c: (-_RISK_LEVEL_ORDER.get(c[1], 0), c[0]))
+    top = candidates[0]
+    return (top[1], top[0], top[2], top[3])
+
+
 def _build_cell_value(
     *,
     check: CheckDefinition,
@@ -1322,6 +1413,16 @@ def _build_cell_value(
         # layout_element_ids anchor'а заполнит B3.6; контракт уже принимает поле.
         layout_element_ids = []
 
+    # ── Risk-aware DD Grid (COC pilot) ─────────────────────────────────────
+    # Вычисляется только для positive findings (после фильтров
+    # cell_state == "defined" и positive is False).
+    (
+        cell_risk_level,
+        top_risk_field,
+        top_risk_value,
+        top_risk_display,
+    ) = _compute_cell_risk(check, structured_data)
+
     return CellValueDTO(
         cell_state=cell_state,
         display_value=display_value,
@@ -1335,6 +1436,10 @@ def _build_cell_value(
         anchor_confidence=anchor_confidence,
         anchor_stale=anchor_stale,
         layout_element_ids=layout_element_ids,
+        cell_risk_level=cell_risk_level,
+        top_risk_field=top_risk_field,
+        top_risk_value=top_risk_value,
+        top_risk_display=top_risk_display,
     )
 
 
@@ -1525,6 +1630,11 @@ def _build_drawer_content(
             anchor_confidence=cell.anchor_confidence,
             anchor_stale=cell.anchor_stale,
             layout_element_ids=cell.layout_element_ids,
+            # ── Risk-aware DD Grid passthrough ─────────────────────────────
+            cell_risk_level=cell.cell_risk_level,
+            top_risk_field=cell.top_risk_field,
+            top_risk_value=cell.top_risk_value,
+            top_risk_display=cell.top_risk_display,
         )
         for col, cell in column_cells
     ]

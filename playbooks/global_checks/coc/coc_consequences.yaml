@@ -212,6 +212,37 @@ extraction:
     - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.2", "page": 8, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Если значение поля выведено из конкретной фразы договора — quote ДОЛЖЕН
+      содержать эту фразу без изменений.
+      Примеры хорошего quote:
+      * для coc_termination_right (broad): "В случае смены контроля Покупатель вправе расторгнуть настоящий Договор в одностороннем порядке";
+      * для coc_termination_mechanism (automatic): "При наступлении смены контроля настоящий Договор автоматически прекращает своё действие";
+      * для coc_acceleration (yes): "При смене контроля вся сумма задолженности подлежит досрочному погашению";
+      * для coc_price_terms_change (yes): "При смене контроля процентная ставка увеличивается на 2 процентных пункта";
+      * для coc_cure_or_waiver (yes): "Сторона вправе расторгнуть Договор только по истечении 30 дней с момента получения уведомления".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для coc_consequences_display и reason location всегда null;
+    - для signal-полей возвращай location с quote только когда
+      значение поля указывает на наличие соответствующего последствия
+      (coc_termination_right ∈ {limited, broad}; coc_acceleration = yes;
+       coc_price_terms_change = yes; coc_cure_or_waiver = yes;
+       coc_termination_mechanism ∈ {automatic, with_cure, optional}).
+      Для значений "none", "no", "not_applicable", "unclear" — location = null.
+    </location_instructions>
+
     <instructions>
     Шаг 1 — ПРАВО НА РАСТОРЖЕНИЕ
 
@@ -366,16 +397,18 @@ extraction:
     - Свободные текстовые поля (coc_consequences_display,
       reason) — на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "coc_consequences_display": "Для CoC — право расторгнуть; cure period предусмотрен",
-      "coc_termination_right": "limited",
-      "coc_termination_mechanism": "with_cure",
-      "coc_acceleration": "no",
-      "coc_price_terms_change": "no",
-      "coc_cure_or_waiver": "yes",
-      "reason": "При CoC предусмотрено право расторгнуть с cure period. «The party may terminate upon CoC...»."
+      "coc_consequences_display": {"value": "Для CoC — автоматическое прекращение договора; акселерация", "confidence": 0.95, "location": null},
+      "coc_termination_right": {"value": "broad", "confidence": 0.95, "location": {"clause_ref": "п. 12.2", "page": 8, "quote": "В случае смены контроля Покупатель вправе расторгнуть настоящий Договор в одностороннем порядке"}},
+      "coc_termination_mechanism": {"value": "automatic", "confidence": 0.9, "location": {"clause_ref": "п. 12.2", "page": 8, "quote": "При наступлении смены контроля настоящий Договор автоматически прекращает своё действие"}},
+      "coc_acceleration": {"value": "yes", "confidence": 0.9, "location": {"clause_ref": "п. 12.3", "page": 8, "quote": "При смене контроля вся сумма задолженности подлежит досрочному погашению"}},
+      "coc_price_terms_change": {"value": "no", "confidence": 0.9, "location": null},
+      "coc_cure_or_waiver": {"value": "no", "confidence": 0.9, "location": null},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -391,6 +424,7 @@ extraction:
     - name: "coc_termination_right"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Право на расторжение при CoC"
       display_in_grid: false
       allowed_values:
@@ -402,6 +436,7 @@ extraction:
     - name: "coc_termination_mechanism"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Механизм расторжения при CoC"
       display_in_grid: false
       allowed_values:
@@ -414,6 +449,7 @@ extraction:
     - name: "coc_acceleration"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Акселерация при CoC"
       display_in_grid: false
       allowed_values:
@@ -424,6 +460,7 @@ extraction:
     - name: "coc_price_terms_change"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Изменение цены / условий при CoC"
       display_in_grid: false
       allowed_values:
@@ -434,6 +471,7 @@ extraction:
     - name: "coc_cure_or_waiver"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Cure period / waiver при CoC"
       display_in_grid: false
       allowed_values:

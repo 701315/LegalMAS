@@ -1,4 +1,11 @@
 {
+  "riskWeight": {
+    "high": "مخاطر عالية",
+    "medium": "مخاطر متوسطة",
+    "low": "مخاطر منخفضة",
+    "info": "معلومات",
+    "tooltip": "{{level}}: {{field}} — {{value}}"
+  },
   "qualityFlagsLegend": {
     "title": "Quality flags:",
     "structureDegraded": "Document structure degraded",

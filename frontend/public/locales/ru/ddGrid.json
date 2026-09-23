@@ -1,4 +1,11 @@
 {
+  "riskWeight": {
+    "high": "Высокий риск",
+    "medium": "Средний риск",
+    "low": "Низкий риск",
+    "info": "Инфо",
+    "tooltip": "{{level}}: {{field}} — {{value}}"
+  },
   "qualityFlagsLegend": {
     "title": "Флаги качества:",
     "structureDegraded": "Структура документа нарушена",
