@@ -388,7 +388,7 @@ class CheckExecutor:
         list[dict],
         int,
         bool,
-        list[tuple[int, int, dict]] | None,
+        list[tuple[int, int, dict, RetrievedChunk]] | None,
     ]:
         """
         Построить текстовый контекст для LLM с учётом лимита по токенам.
@@ -399,11 +399,11 @@ class CheckExecutor:
             kept_context_dicts — исходные dict'ы для этих чанков,
             total_tokens       — сколько токенов занял контекст,
             truncated          — пришлось ли что-то обрезать,
-            chunk_map          — B6.2/R10: [(start, end, context_dict), ...],
-                                 offsets piece'ов в joined_text. None, если
-                                 часть чанков заменена на summary-компрессию
-                                 (summary — производный текст, offsets
-                                 не соответствуют оригиналу).
+            chunk_map          — B6.2/R10: [(start, end, context_dict, rc), ...],
+                                 offsets piece'ов в joined_text. rc — соответствующий
+                                 RetrievedChunk (fallback при пустой metadata).
+                                 None, если часть чанков заменена на summary-компрессию
+                                 (summary — производный текст, offsets невалидны).
         """
         # Ветка без лимита: склеиваем всё как есть
         if not isinstance(max_tokens, int) or max_tokens <= 0:
@@ -411,14 +411,16 @@ class CheckExecutor:
                 self._build_chunk_piece(c, rc) for c, rc in zip(contexts, retrieved_chunks)
             ]
             _sep = "\n\n---\n\n"
-            _cmap: list[tuple[int, int, dict]] = []
+            _cmap: list[tuple[int, int, dict, RetrievedChunk]] = []
             _cur = 0
-            for _i, (_c, _piece) in enumerate(zip(contexts, context_parts)):
+            for _i, (_c, _rc, _piece) in enumerate(
+                zip(contexts, retrieved_chunks, context_parts)
+            ):
                 if _i > 0:
                     _cur += len(_sep)
                 _start = _cur
                 _cur += len(_piece)
-                _cmap.append((_start, _cur, _c))
+                _cmap.append((_start, _cur, _c, _rc))
             joined_text = _sep.join(context_parts)
             total_tokens = count_tokens(joined_text)
             return joined_text, retrieved_chunks, contexts, total_tokens, False, _cmap
@@ -462,14 +464,14 @@ class CheckExecutor:
 
         if not truncated:
             _sep = "\n\n---\n\n"
-            _cmap = []
+            _cmap: list[tuple[int, int, dict, RetrievedChunk]] = []
             _cur = 0
             for _i, (_s, _t, _c, _rc, _piece) in enumerate(kept_items):
                 if _i > 0:
                     _cur += len(_sep)
                 _start = _cur
                 _cur += len(_piece)
-                _cmap.append((_start, _cur, _c))
+                _cmap.append((_start, _cur, _c, _rc))
             joined_text = _sep.join(piece for _, _, _, _, piece in kept_items)
             return (
                 joined_text,

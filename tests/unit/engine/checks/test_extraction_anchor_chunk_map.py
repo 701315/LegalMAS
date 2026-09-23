@@ -261,3 +261,89 @@ class TestResolveFieldAnchorChunkMap:
         )
         assert anchor.clause_uid == "main_contract:8.1.5"
         assert anchor.page == 7
+
+# ────────────────────────────────────────────────────────────────────────────
+# Интеграционный тест: chunk_map от executor ↔ _resolve_field_anchor
+# Закрывает дыру: unit-тесты extraction использовали фейковые 4-tuple,
+# реальный executor отдавал 3-tuple → ValueError в проде.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+class TestExecutorIntegration:
+    def test_build_limited_context_returns_4tuple_chunk_map_no_limit(self):
+        """Безлимитная ветвь _build_limited_context отдаёт 4-tuple chunk_map."""
+        from engine.checks.executor import CheckExecutor
+
+        class _RC:
+            element_id = "x:1"
+            text = "test"
+            page = 1
+            clause_uid = "main_contract:8"
+            combined_score = 1.0
+            path_titles = []
+            start_page = None
+            end_page = None
+            bbox = []
+            segment_id = None
+            segment_type = None
+            segment_title = None
+            segment_order = None
+            is_primary_segment = None
+
+        ex = CheckExecutor.__new__(CheckExecutor)
+        ctx1 = {"text": "AAA BBB", "metadata": {"effective_uid": "main_contract:8", "page": 6}}
+        ctx2 = {"text": "CCC DDD", "metadata": {"effective_uid": "main_contract:9", "page": 7}}
+        rc1, rc2 = _RC(), _RC()
+
+        joined, chunks, ctxs, tokens, trunc, cmap = ex._build_limited_context(
+            contexts=[ctx1, ctx2],
+            retrieved_chunks=[rc1, rc2],
+            important_terms=[],
+            max_tokens=0,  # безлимитная ветвь
+        )
+        assert cmap is not None
+        assert len(cmap) == 2
+        for entry in cmap:
+            assert len(entry) == 4, f"expected 4-tuple, got {len(entry)}"
+            s, e, c, rc = entry  # распаковка как в _resolve_field_anchor
+            assert isinstance(s, int)
+            assert isinstance(e, int)
+            assert isinstance(c, dict)
+        assert cmap[0][3] is rc1
+        assert cmap[1][3] is rc2
+
+    def test_build_limited_context_returns_4tuple_chunk_map_with_limit(self):
+        """Ветвь без truncation отдаёт 4-tuple chunk_map."""
+        from engine.checks.executor import CheckExecutor
+
+        class _RC:
+            element_id = "x:1"
+            text = "test"
+            page = 1
+            clause_uid = "main_contract:8"
+            combined_score = 1.0
+            path_titles = []
+            start_page = None
+            end_page = None
+            bbox = []
+            segment_id = None
+            segment_type = None
+            segment_title = None
+            segment_order = None
+            is_primary_segment = None
+
+        ex = CheckExecutor.__new__(CheckExecutor)
+        ctx = {"text": "AAA BBB", "metadata": {"effective_uid": "main_contract:8", "page": 6}}
+        rc = _RC()
+
+        joined, chunks, ctxs, tokens, trunc, cmap = ex._build_limited_context(
+            contexts=[ctx],
+            retrieved_chunks=[rc],
+            important_terms=[],
+            max_tokens=10000,  # достаточно для одного чанка → без truncation
+        )
+        assert cmap is not None
+        assert len(cmap) == 1
+        assert len(cmap[0]) == 4, f"expected 4-tuple, got {len(cmap[0])}"
+        s, e, c, r = cmap[0]
+        assert r is rc
