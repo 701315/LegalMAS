@@ -1025,6 +1025,23 @@ def _compute_citability(node: dict[str, Any]) -> CitabilityMetrics:
         or bool(node.get("diagnostics", {}).get("degraded_chunk", False))
     )
 
+    # B7.2: skeleton / toc_rebuild — это structural anchors, не retrieval-targets.
+    # Возвращаем low citability, чтобы unit не попадал в top-N contexts
+    # retrieval'а. Дочерние узлы (7.3.1..7.3.5 и т.п.) сохраняют свою
+    # citability и остаются retrievable независимо.
+    is_toc_skeleton = content_mode == "skeleton" or node_origin == "toc_rebuild"
+    if is_toc_skeleton:
+        return CitabilityMetrics(
+            citability_score=0.1,
+            citability_band="low",
+            has_own_text=has_own_text,
+            has_subtree_text=has_subtree_text,
+            is_heading_only=False,
+            recovered_via_best_effort=False,
+            parse_confidence=parse_confidence,
+            is_technical_fallback=False,
+        )
+
     if is_technical_fallback:
         return CitabilityMetrics(
             citability_score=0.0,
