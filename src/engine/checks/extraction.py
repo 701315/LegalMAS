@@ -176,6 +176,7 @@ class ExtractionExecutor:
         source_text: str,
         fallback_clause_uid: str | None,
         fallback_page: int | None,
+        chunk_map: list[tuple[int, int, dict[str, Any]]] | None = None,
     ) -> CheckAnchor | None:
         """
         Построить CheckAnchor из per-field цитаты (B3).
@@ -210,7 +211,42 @@ class ExtractionExecutor:
 
         if anchor.anchor_method == CheckAnchorMethod.NONE:
             return None
-        return anchor
+
+        # B6.2/R10: если есть chunk_map и span известен — определяем owner-chunk
+        # и подменяем clause_uid/page на значения из его metadata.
+        if chunk_map is None:
+            return anchor
+        if anchor.span_start is None or anchor.span_end is None:
+            return anchor
+
+        mid = (anchor.span_start + anchor.span_end) // 2
+        owner_ctx: dict[str, Any] | None = None
+        for (s, e, ctx) in chunk_map:
+            if s <= mid < e:
+                owner_ctx = ctx
+                break
+        if owner_ctx is None:
+            for (s, e, ctx) in chunk_map:
+                if s <= anchor.span_start < e:
+                    owner_ctx = ctx
+                    break
+        if owner_ctx is None:
+            return anchor
+
+        meta = owner_ctx.get("metadata") or {}
+        new_clause_uid = meta.get("effective_uid") or meta.get("clause_uid")
+        new_page = meta.get("page") or meta.get("start_page")
+
+        updates: dict[str, Any] = {}
+        if new_clause_uid and str(new_clause_uid).strip():
+            updates["clause_uid"] = str(new_clause_uid).strip()
+        if isinstance(new_page, int) and not isinstance(new_page, bool) and new_page >= 1:
+            updates["page"] = new_page
+
+        if not updates:
+            return anchor
+
+        return anchor.model_copy(update=updates)
 
 
     def run(
@@ -250,7 +286,7 @@ class ExtractionExecutor:
         )
 
         # Базовый текст для извлечения: evidence из detection, а при необходимости — весь контекст.
-        base_text = self._build_extraction_text(detection, contexts)
+        base_text, chunk_map = self._build_extraction_text(detection, contexts)
         if not base_text:
             return ExtractionExecutionResult(structured_data=None, telemetry=None)
 
@@ -489,6 +525,7 @@ class ExtractionExecutor:
                     if isinstance(base_location, dict)
                     else None
                 ),
+                chunk_map=chunk_map,
             )
             if field_anchor is not None:
                 anchors.append(field_anchor)
@@ -565,7 +602,7 @@ class ExtractionExecutor:
         self,
         detection: dict[str, Any],
         contexts: list[dict[str, Any]],
-    ) -> str:
+    ) -> tuple[str, list[tuple[int, int, dict[str, Any]]] | None]:
         """
         Сформировать текст, по которому будем делать extraction.
 
@@ -603,7 +640,7 @@ class ExtractionExecutor:
             # - grounding_score < порога → evidence слабо заземлён → игнорируем,
             #   идём к context-based fallback ниже
             if grounding_score is None or grounding_score >= _EXTRACTION_MIN_GROUNDING_SCORE:
-                return evidence
+                return evidence, None
             else:
                 logger.debug(
                     "ExtractionExecutor._build_extraction_text: "
@@ -615,7 +652,7 @@ class ExtractionExecutor:
                 # Не возвращаем — падаем ниже на context-based логику
 
         if not contexts:
-            return ""
+            return "", None
 
         # 2. Пытаемся сузить контекст по location
         raw_location = detection.get("location") or {}
@@ -723,14 +760,43 @@ class ExtractionExecutor:
             # Fallback: если сузить не удалось, используем весь контекст, как раньше.
             relevant_contexts = contexts
 
-        # 3. Склеиваем текст только из релевантных чанков
+        # 3. Склеиваем текст только из релевантных чанков.
+        # B6.2/R10: одновременно строим chunk_map — [(start, end, context_dict), ...]
+        # для per-field provenance (анкор поля ссылается на chunk, где
+        # цитата реально найдена).
         parts: list[str] = []
+        chunk_map: list[tuple[int, int, dict[str, Any]]] = []
+        cursor = 0
+        separator = "\n\n"
         for c in relevant_contexts:
             text = c.get("text") or ""
-            if text:
-                parts.append(text)
+            if not text:
+                continue
+            if parts:
+                cursor += len(separator)
+            start = cursor
+            parts.append(text)
+            cursor += len(text)
+            chunk_map.append((start, cursor, c))
 
-        return "\n\n".join(parts).strip()
+        joined = separator.join(parts)
+        stripped = joined.strip()
+        if not stripped:
+            return "", chunk_map
+
+        # strip() сдвигает offsets — корректируем chunk_map.
+        lead = len(joined) - len(joined.lstrip())
+        if lead:
+            new_len = len(stripped)
+            shifted: list[tuple[int, int, dict[str, Any]]] = []
+            for (s, e, c) in chunk_map:
+                s2, e2 = s - lead, e - lead
+                if e2 <= 0 or s2 >= new_len:
+                    continue
+                shifted.append((max(0, s2), min(new_len, e2), c))
+            chunk_map = shifted
+
+        return stripped, chunk_map
 
     def _extract_field(
         self,
