@@ -1164,6 +1164,24 @@ class CheckExecutor:
             # so evidence would otherwise be "" and _build_extraction_text()
             # would fall back to re-concatenating all raw context chunks —
             # bypassing the token budget computed above.
+            # R15: field_extraction не вызывает детектор, но downstream
+            # (extraction.py) ожидает detection["location"] для anchor'ов
+            # field_extraction. Заполняем из top-1 retrieved chunk (после
+            # rerank) — наиболее релевантный чанк для extraction в этом чеке.
+            # Ключи должны совпадать с теми, что читает
+            # extraction.py::run_with_telemetry (raw_location.get(...)).
+            location: dict | None = None
+            if retrieved_chunks:
+                _rc = retrieved_chunks[0]
+                location = {
+                    "page": _rc.page,
+                    "clause_uid": _rc.clause_uid or None,
+                    "element_id": _rc.element_id,
+                    "start_page": _rc.start_page,
+                    "end_page": _rc.end_page,
+                    "path_titles": list(_rc.path_titles or []),
+                }
+
             detection = {
                 "found": True,
                 "evidence": joined_text,
@@ -1171,7 +1189,7 @@ class CheckExecutor:
                 "method": "extraction_only",
                 "reason": "field_extraction_skip_presence",
                 "sources": [],
-                "location": None,
+                "location": location,
                 "raw": {
                     "source": "field_extraction_mode",
                     "llm_invoked": False,
