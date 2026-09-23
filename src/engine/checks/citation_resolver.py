@@ -60,6 +60,13 @@ _FUZZY_MAX_WINDOW_MULTIPLIER = 2.5
 # То же отношение для validation_passed (строже, чем accept).
 _FUZZY_VALIDATED_WINDOW_MULTIPLIER = 2.0
 
+# Пунктуация, срезаемая с краёв токена при fuzzy-сравнении. После
+# normalize_text юникод-кавычки → " или ', тире → '-'; поэтому здесь
+# достаточно ASCII-набора + многоточие + backtick.
+# Симметрично с location_validator._TOKEN_EDGE_PUNCT (R21): единая
+# нормализационная граница для quote ↔ source во всём pipeline.
+_TOKEN_EDGE_PUNCT: str = ".,;:!?()[]{}\"'-…`"
+
 # Разделитель между элементами при materialize_text_from_element_ids
 # (см. clause_tree_builder.ClauseTreeBuilder.materialize_text_from_element_ids).
 _ELEMENT_SEPARATOR = "\n\n"
@@ -119,6 +126,35 @@ def _exact_span(
     return _normalized_span_to_original(
         pos, pos + len(norm_quote), idx_map
     )
+
+
+# Sentinel для токенов, у которых после среза краевой пунктуации
+# не осталось значащих символов (например, одиночные "-", "...", "!!").
+# Такой объект уникален и не совпадёт ни с одним настоящим токеном.
+_EDGE_STRIPPED_SENTINEL = object()
+
+
+def _normalize_tokens_for_match(tokens: list[str]) -> list:
+    """
+    Нормализовать токены для fuzzy-сравнения.
+
+    Срезаем краевую пунктуацию с каждого токена (симметрично R21).
+    Токены, состоящие только из пунктуации, заменяются на уникальный
+    sentinel — они не участвуют в матчинге, но сохраняют позицию в
+    массиве, что позволяет брать offsets из параллельного массива
+    source_offsets без переиндексации.
+
+    Возвращает list, элементы которого — str (значимые токены) или
+    _EDGE_STRIPPED_SENTINEL (не значимые).
+    """
+    out: list = []
+    for t in tokens:
+        s = t.strip(_TOKEN_EDGE_PUNCT)
+        if s:
+            out.append(s)
+        else:
+            out.append(_EDGE_STRIPPED_SENTINEL)
+    return out
 
 
 def _find_min_subsequence_window(
@@ -211,9 +247,13 @@ def _fuzzy_span(
     - orig_start/orig_end — span в ОРИГИНАЛЕ source_text;
     - compactness = len(quote_tokens) / span_len_tokens in (0, 1].
 
+    Устойчив также к краевой пунктуации (запятые/точки/кавычки на границе
+    слова): сравнение токенов идёт после среза краевой пунктуации
+    (_normalize_tokens_for_match, симметрично R21).
+
     None — если:
     - токенов в quote меньше _MIN_FUZZY_QUOTE_TOKENS,
-    - хотя бы один токен quote отсутствует в source (галлюцинация),
+    - хотя бы один значимый токен quote отсутствует в source (галлюцинация),
     - минимальное окно превышает _FUZZY_MAX_WINDOW_MULTIPLIER * len(quote).
     """
     norm_quote = normalize_text(quote)
@@ -226,7 +266,10 @@ def _fuzzy_span(
         return None
 
     source_offsets = _tokenize_with_offsets(norm_source)
-    source_tokens = [t[0] for t in source_offsets]
+    source_tokens = _normalize_tokens_for_match(
+        [t[0] for t in source_offsets]
+    )
+    quote_tokens = _normalize_tokens_for_match(quote_tokens)
     m = len(quote_tokens)
     n = len(source_tokens)
     if n < m:

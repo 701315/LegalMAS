@@ -170,6 +170,41 @@ def test_fuzzy_span_below_threshold_falls_back() -> None:
     assert anchor.anchor_confidence == 0.5
 
 
+def test_fuzzy_span_handles_edge_punctuation() -> None:
+    # B6.1/R13 edge-punct: в source у слова есть запятая на краю
+    # ("Стороны,"), в quote — нет ("Стороны"). Fuzzy должен найти окно.
+    source = (
+        "При наступлении смены контроля вся сумма задолженности Стороны, "
+        "в отношении которой произошла смена контроля, подлежит досрочному "
+        "погашению на условиях, указанных в настоящем пункте."
+    )
+    quote = (
+        "При наступлении смены контроля вся сумма задолженности Стороны "
+        "подлежит досрочному погашению"
+    )
+    anchor = resolve_quote_in_source(
+        quote=quote,
+        source_text=source,
+        layout_elements=[],
+    )
+    assert anchor.anchor_method == CheckAnchorMethod.FUZZY_SPAN
+    assert anchor.anchor_diagnostics["compactness"] < 1.0
+    assert 1.0 <= anchor.anchor_diagnostics["window_multiplier"] <= 2.5
+
+
+def test_fuzzy_span_rejects_hallucination_after_normalization() -> None:
+    # Токенов достаточно (>= 3), но ни один значимый токен не найден в source.
+    source = "Совершенно другой текст о поставке товаров и услуг."
+    quote = "обязуются соблюдать конфиденциальность"
+    anchor = resolve_quote_in_source(
+        quote=quote,
+        source_text=source,
+        layout_elements=[],
+        fallback_clause_uid="main_contract:5.1",
+    )
+    assert anchor.anchor_method == CheckAnchorMethod.CLAUSE_ONLY
+
+
 def test_clause_only_when_quote_empty_and_clause_provided() -> None:
     anchor = resolve_quote_in_source(
         quote=None,
