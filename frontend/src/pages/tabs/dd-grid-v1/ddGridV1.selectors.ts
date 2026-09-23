@@ -430,6 +430,11 @@ export function resolveDDGridV1CellView(
     locationAvailability,
     rawCell: effectiveRawCell,
     locationConfidence: effectiveRawCell?.location_confidence ?? null,
+    // ── Risk-aware DD Grid (COC pilot) ─────────────────────────────────
+    cellRiskLevel: effectiveRawCell?.cell_risk_level ?? null,
+    topRiskField: effectiveRawCell?.top_risk_field ?? null,
+    topRiskValue: effectiveRawCell?.top_risk_value ?? null,
+    topRiskDisplay: effectiveRawCell?.top_risk_display ?? null,
   };
 }
 
