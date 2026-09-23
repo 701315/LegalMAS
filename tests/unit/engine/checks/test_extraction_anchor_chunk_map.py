@@ -269,6 +269,77 @@ class TestResolveFieldAnchorChunkMap:
 # ────────────────────────────────────────────────────────────────────────────
 
 
+    # ── B6.2.1: синтез scope из родительского chunk ────────────────────────
+    def test_synthesizes_scope_from_parent_chunk(self):
+        # field_clause_ref="п. 8.1.2", точного sub-chunk main_contract:8.1.2
+        # в chunk_map нет. Есть родитель main_contract:8 (raw_uid="8").
+        # Ожидаем синтез: {scope родителя}:{core} = "main_contract:8.1.2".
+        base = "AAA " * 200 + "BBB Стороны применяют право РФ. " * 10 + "CCC " * 200
+        cmap = [
+            (0, len(base),
+             {"metadata": {"effective_uid": "main_contract:8", "page": 6, "raw_uid": "8"}},
+             _FakeRC("main_contract:8", 6)),
+        ]
+        anchor = ExtractionExecutor._resolve_field_anchor(
+            quote="Стороны применяют право РФ.",
+            source_text=base,
+            fallback_clause_uid="main_contract:8",
+            fallback_page=6,
+            chunk_map=cmap,
+            field_page=6,
+            field_clause_ref="п. 8.1.2",
+        )
+        assert anchor.clause_uid == "main_contract:8.1.2"
+        assert anchor.page == 6
+
+    def test_no_synthesis_without_parent_prefix(self):
+        # core="8.1.2", в chunk_map только main_contract:9 (не префикс).
+        # Синтез не срабатывает → fallback на owner-chunk (main_contract:9).
+        base = "AAA " * 200 + "BBB Стороны применяют право РФ. " * 10 + "CCC " * 200
+        cmap = [
+            (0, len(base),
+             {"metadata": {"effective_uid": "main_contract:9", "page": 9, "raw_uid": "9"}},
+             _FakeRC("main_contract:9", 9)),
+        ]
+        anchor = ExtractionExecutor._resolve_field_anchor(
+            quote="Стороны применяют право РФ.",
+            source_text=base,
+            fallback_clause_uid="main_contract:8",
+            fallback_page=6,
+            chunk_map=cmap,
+            field_page=None,
+            field_clause_ref="п. 8.1.2",
+        )
+        assert anchor.clause_uid == "main_contract:9"
+
+    def test_prefers_exact_match_over_synthesis(self):
+        # Есть точный sub-chunk main_contract:8.1.2 — синтез не срабатывает,
+        # используется точный матч по raw_uid из приоритета 1.
+        base = "AAA " * 200 + "BBB Стороны применяют право РФ. " * 10 + "CCC " * 200
+        cmap = [
+            (0, 800,
+             {"metadata": {"effective_uid": "main_contract:8", "page": 6, "raw_uid": "8"}},
+             _FakeRC("main_contract:8", 6)),
+            (800, 1800,
+             {"metadata": {"effective_uid": "main_contract:8.1.2", "page": 7, "raw_uid": "8.1.2"}},
+             _FakeRC("main_contract:8.1.2", 7)),
+            (1800, len(base),
+             {"metadata": {"effective_uid": "main_contract:9", "page": 9, "raw_uid": "9"}},
+             _FakeRC("main_contract:9", 9)),
+        ]
+        anchor = ExtractionExecutor._resolve_field_anchor(
+            quote="Стороны применяют право РФ.",
+            source_text=base,
+            fallback_clause_uid="main_contract:8",
+            fallback_page=6,
+            chunk_map=cmap,
+            field_page=7,
+            field_clause_ref="п. 8.1.2",
+        )
+        assert anchor.clause_uid == "main_contract:8.1.2"
+        assert anchor.page == 7
+
+
 class TestExecutorIntegration:
     def test_build_limited_context_returns_4tuple_chunk_map_no_limit(self):
         """Безлимитная ветвь _build_limited_context отдаёт 4-tuple chunk_map."""

@@ -271,6 +271,48 @@ class ExtractionExecutor:
                 if found:
                     break
 
+        # ── Приоритет 1b: синтез scope из родительского chunk (B6.2.1) ────
+        # Случай: LLM дала clause_ref="п. 8.1.2", но точного sub-chunk'а
+        # main_contract:8.1.2 в chunk_map нет. Есть родитель main_contract:8
+        # (raw_uid="8"). Синтезируем: {scope родителя}:{numeric core}.
+        # Универсально: работает для любого scope (main_contract, appendix_1)
+        # и любого уровня вложенности (8 → 8.1.2, 8.1 → 8.1.2.3).
+        # Срабатывает только если core является расширением raw_uid ("8.1.2"
+        # начинается с "8.") — защита от ложных совпадений ("8" vs "9.1.2").
+        if "clause_uid" not in updates and field_clause_ref and chunk_map:
+            cores_1b = ExtractionExecutor._extract_numeric_core(field_clause_ref)
+            for core_1b in cores_1b:
+                for entry in chunk_map:
+                    _s, _e, _ctx, _rc = entry
+                    meta = _ctx.get("metadata") or {}
+                    raw_uid = meta.get("raw_uid")
+                    eff_uid = (
+                        meta.get("effective_uid")
+                        or getattr(_rc, "clause_uid", None)
+                    )
+                    if not raw_uid or not eff_uid:
+                        continue
+                    if not str(core_1b).startswith(str(raw_uid) + "."):
+                        continue
+                    eff_uid_str = str(eff_uid)
+                    if ":" not in eff_uid_str:
+                        continue
+                    scope = eff_uid_str.rsplit(":", 1)[0]
+                    if not scope:
+                        continue
+                    updates["clause_uid"] = f"{scope}:{core_1b}"
+                    if "page" not in updates:
+                        fp = (
+                            meta.get("page")
+                            or meta.get("start_page")
+                            or getattr(_rc, "page", None)
+                        )
+                        if isinstance(fp, int) and not isinstance(fp, bool) and fp >= 1:
+                            updates["page"] = fp
+                    break
+                if "clause_uid" in updates:
+                    break
+
         # ── Приоритет 2: chunk_map (owner-chunk по span) ─────────────────
         if not updates and chunk_map is not None and anchor.span_start is not None and anchor.span_end is not None:
             mid = (anchor.span_start + anchor.span_end) // 2

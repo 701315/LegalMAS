@@ -166,7 +166,8 @@ class TestValidateLocationBasics:
         )
         assert location is None
         assert fallback is not None
-        assert "не указал" in fallback.reason
+        # B6.1.1: контракт reason — английская строка (см. LocationFallback docstring)
+        assert fallback.reason == "Exact location in the document is not defined"
 
     def test_page_as_string_is_rejected(self) -> None:
         location, fallback = validate_location(
@@ -188,7 +189,8 @@ class TestValidateLocationBasics:
         )
         assert location is None
         assert fallback is not None
-        assert "не подтверждена" in fallback.reason
+        # B6.1.1: контракт reason — английская строка
+        assert fallback.reason == "Exact location in the document is not defined"
 
 
 class TestValidateLocationPrefixAgnostic:
