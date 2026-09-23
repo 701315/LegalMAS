@@ -548,6 +548,19 @@ class DDGridCellValueDTO(BaseModel):
     layout_element_ids: list[str] = Field(default_factory=list)
     """Layout element IDs covered by the primary anchor. Empty for B3 MVP; populated by B3.6."""
 
+    # ── Risk-aware DD Grid (COC pilot) ─────────────────────────────────────
+    cell_risk_level: Literal["high", "medium", "low", "info"] | None = None
+    """Semantic risk level computed from extraction signal fields' risk_weight."""
+
+    top_risk_field: str | None = None
+    """Extraction field name that produced max risk_weight."""
+
+    top_risk_value: str | None = None
+    """Raw value of top_risk_field for tooltip."""
+
+    top_risk_display: str | None = None
+    """Human-readable label of top_risk_value (from allowed_values)."""
+
 
 class DDGridDrawerFieldDTO(BaseModel):
     """Detail of a single column in the drawer."""
@@ -574,6 +587,12 @@ class DDGridDrawerFieldDTO(BaseModel):
     anchor_confidence: float | None = None
     anchor_stale: bool = False
     layout_element_ids: list[str] = Field(default_factory=list)
+
+    # ── Risk-aware DD Grid (COC pilot) ─────────────────────────────────────
+    cell_risk_level: Literal["high", "medium", "low", "info"] | None = None
+    top_risk_field: str | None = None
+    top_risk_value: str | None = None
+    top_risk_display: str | None = None
 
 
 class DDGridDrawerDTO(BaseModel):

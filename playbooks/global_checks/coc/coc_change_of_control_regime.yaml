@@ -211,6 +211,33 @@ extraction:
     - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Если значение поля выведено из конкретной фразы договора — quote ДОЛЖЕН
+      содержать эту фразу без изменений.
+      Примеры хорошего quote:
+      * для coc_regime_type (consent_required): "Смена контроля допускается только с предварительного письменного согласия другой Стороны";
+      * для coc_regime_type (termination_right): "В случае изменения контроля над Стороной другая Сторона вправе расторгнуть настоящий Договор в одностороннем порядке";
+      * для coc_regime_type (notice_required): "Сторона обязуется уведомить другую Сторону об изменении контроля в течение 5 рабочих дней".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для coc_display и reason location всегда null
+      (они синтезированы и не имеют прямого источника в тексте);
+    - для coc_regime_type location с quote особенно важна.
+    - Если coc_status = "missing" (тема не раскрыта в договоре) —
+      для всех полей location = null.
+    </location_instructions>
+
     <instructions>
     Шаг 1 — НАЛИЧИЕ ПОЛОЖЕНИЙ
 
@@ -333,13 +360,15 @@ extraction:
     - Свободные текстовые поля (coc_display, reason) —
       на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "coc_display": "Смена контроля — только с предварительного согласия",
-      "coc_status": "present",
-      "coc_regime_type": "consent_required",
-      "reason": "Договор требует согласия при смене контроля. «A change of control requires...»."
+      "coc_display": {"value": "Смена контроля — только с предварительного согласия", "confidence": 0.95, "location": null},
+      "coc_status": {"value": "present", "confidence": 0.95, "location": null},
+      "coc_regime_type": {"value": "consent_required", "confidence": 0.95, "location": {"clause_ref": "п. 12.1", "page": 7, "quote": "Смена контроля допускается только с предварительного письменного согласия другой Стороны"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -355,6 +384,7 @@ extraction:
     - name: "coc_status"
       type: "string"
       presentation: "signal"
+      risk_weight: "info"
       description: "Наличие положений о смене контроля"
       display_in_grid: false
       allowed_values:
@@ -365,6 +395,7 @@ extraction:
     - name: "coc_regime_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Тип режима смены контроля"
       display_in_grid: false
       allowed_values:

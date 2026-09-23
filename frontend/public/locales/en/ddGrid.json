@@ -1,4 +1,11 @@
 {
+  "riskWeight": {
+    "high": "High risk",
+    "medium": "Medium risk",
+    "low": "Low risk",
+    "info": "Info",
+    "tooltip": "{{level}}: {{field}} — {{value}}"
+  },
   "qualityFlagsLegend": {
     "title": "Quality flags:",
     "structureDegraded": "Document structure degraded",
