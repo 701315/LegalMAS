@@ -316,8 +316,10 @@ def _salvage_partial_json(text: str) -> dict | None:
         }
 
     # ── Pass 2: partial long string values ───────────────────────────────────
+    # B6.2/R23: не пишем marker прямо в value (value — данные, marker — метаданные).
+    # confidence понижен до 0.30 — явный сигнал "частичные данные"; _truncated=True
+    # пробрасывается отдельным ключом, чтобы downstream мог показать badge.
     _PARTIAL_MIN_CHARS = 30
-    _TRUNCATION_MARKER = "… [СПИСОК ОБРЕЗАН: вывод превысил лимит токенов]"
 
     _partial_string_pattern = re.compile(
         r'"(?P<name>[a-z_][a-z0-9_]*)"\s*:\s*\{\s*"value"\s*:\s*"(?P<partial>[^"]{30,})',
@@ -337,9 +339,10 @@ def _salvage_partial_json(text: str) -> dict | None:
             continue
 
         recovered[name] = {
-            "value": partial_text + _TRUNCATION_MARKER,
-            "confidence": 0.5,
+            "value": partial_text,
+            "confidence": 0.30,
             "location": None,
+            "_truncated": True,
         }
 
     # ── Pass 3: short signal values without confidence ───────────────────────
@@ -489,6 +492,93 @@ class ExtractionLLMDetector:
             _min_context_words = 50  # меньше этого — извлечение бессмысленно
             _min_context_tokens = int(_min_context_words * token_factor)
 
+            # ------------------------------------------------------------------
+            # B6.2/R24: auto-clamp + fail-fast для extraction output budget.
+            #
+            # Эвристика: каждое поле V1.3 contract требует ~90 токенов
+            # (value + confidence + location + JSON-обвязка). Если output
+            # budget меньше, JSON почти гарантированно обрежется — Pass 2
+            # salvage даст truncated values с conf=0.30.
+            #
+            # Действия:
+            #   1) если рекомендуемый минимум не влезает в модель вместе с
+            #      skeleton и минимально необходимым контекстом — fail-fast
+            #      (unclear) без вызова LLM;
+            #   2) иначе, если configured budget меньше рекомендуемого —
+            #      автоматически поднять его до min(recommended, max_possible).
+            # ------------------------------------------------------------------
+            _fields_count = len(getattr(extraction_cfg, "fields", None) or [])
+            _tokens_per_field_heuristic = 90
+            _recommended_min = _fields_count * _tokens_per_field_heuristic
+            _max_possible_out_raw = _limit - _safety - skeleton_tokens - _min_context_tokens
+            # Для telemetry/error_message clamp отрицательных значений до 0:
+            # отрицательное число означает "skeleton+safety уже превышают limit",
+            # а не "schema требует X токенов вывода".
+            _max_possible_out = max(0, _max_possible_out_raw)
+
+            if _fields_count > 0 and _recommended_min > _max_possible_out:
+                logger.error(
+                    "ExtractionLLMDetector: extraction budget insufficient — "
+                    "schema requires more output tokens than model can fit. "
+                    "Action required: increase LLM_LOCAL_N_CTX / LLM_CONTEXT_LIMIT "
+                    "or reduce schema for this check.",
+                    check_id=getattr(check, "id", None),
+                    fields_count=_fields_count,
+                    recommended_min_tokens=_recommended_min,
+                    max_possible_out_tokens=_max_possible_out,
+                    max_possible_out_tokens_raw=_max_possible_out_raw,
+                    configured_max_tokens=_extraction_max_tokens_for_budget,
+                    skeleton_tokens=skeleton_tokens,
+                    context_limit=_limit,
+                    safety_margin=_safety,
+                )
+                return ExtractionLLMExtractionResult(
+                    fields={},
+                    telemetry={
+                        "llm_invoked": False,
+                        "provider": None,
+                        "model": None,
+                        "tokens_used": None,
+                        "prompt_tokens": None,
+                        "completion_tokens": None,
+                        "duration_ms": None,
+                        "llm_attempts": 0,
+                        "parse_success": None,
+                        "error_type": "budget_exhausted",
+                        "error_message": (
+                            "Extraction LLM not called: prompt skeleton + "
+                            f"safety margin exceed model context (raw available="
+                            f"{_max_possible_out_raw}, limit={_limit}, "
+                            f"skeleton={skeleton_tokens}, safety={_safety})."
+                            if _max_possible_out_raw <= 0
+                            else
+                            "Extraction LLM not called: schema requires "
+                            f"{_recommended_min} output tokens, but model "
+                            f"context allows at most {_max_possible_out}."
+                        ),
+                        "budget_configured": _extraction_max_tokens_for_budget,
+                        "budget_recommended": _recommended_min,
+                        "budget_max_possible": _max_possible_out,
+                        "fields_count": _fields_count,
+                        "skeleton_tokens": skeleton_tokens,
+                    },
+                )
+
+            if _fields_count > 0 and _max_out < _recommended_min:
+                _raised = min(_recommended_min, _max_possible_out)
+                logger.warning(
+                    "ExtractionLLMDetector: extraction output budget auto-raised "
+                    "to fit schema. Consider setting llm_max_tokens in YAML "
+                    "explicitly for determinism.",
+                    check_id=getattr(check, "id", None),
+                    fields_count=_fields_count,
+                    configured_before=_extraction_max_tokens_for_budget,
+                    raised_to=_raised,
+                    recommended_min_tokens=_recommended_min,
+                )
+                _extraction_max_tokens_for_budget = _raised
+                _max_out = _raised
+
             available_for_context = _limit - _max_out - _safety - skeleton_tokens
 
             if available_for_context < _min_context_tokens:
@@ -543,32 +633,6 @@ class ExtractionLLMDetector:
         # и уже использован при расчёте доступного места под контекст.
         # Повторное вычисление не нужно: берём ту же переменную.
         extraction_max_tokens = _extraction_max_tokens_for_budget
-
-        # ------------------------------------------------------------------
-        # PREFLIGHT: проверяем достаточность extraction budget.
-        #
-        # Эвристика: каждое поле V1.3 contract требует ~90 токенов
-        # (value + confidence + location + JSON-обвязка).
-        # Если budget меньше — JSON почти гарантированно обрежется.
-        # Это не блокирует выполнение — только предупреждение.
-        # Исправление: поднять llm_max_tokens в YAML чека или
-        # LLM_EXTRACTION_MAX_TOKENS в .env.
-        # ------------------------------------------------------------------
-        _fields_count = len(getattr(extraction_cfg, "fields", None) or [])
-        _tokens_per_field_heuristic = 90
-        _recommended_min = _fields_count * _tokens_per_field_heuristic
-        if _fields_count > 0 and extraction_max_tokens < _recommended_min:
-            logger.warning(
-                "ExtractionLLMDetector: extraction budget вероятно занижен — "
-                "возможно обрезание JSON-ответа. "
-                "Исправление: поднять llm_max_tokens в YAML чека "
-                "или LLM_EXTRACTION_MAX_TOKENS в .env.",
-                check_id=getattr(check, "id", None),
-                fields_count=_fields_count,
-                extraction_max_tokens=extraction_max_tokens,
-                recommended_min_tokens=_recommended_min,
-                deficit=_recommended_min - extraction_max_tokens,
-            )
 
         llm_started_at = time.time()
         response, error_details = self.client.call_with_retries(
@@ -1109,6 +1173,10 @@ class ExtractionLLMDetector:
             value = payload.get("value")
             raw_location = payload.get("location")
             conf_raw = payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
+            # B6.2/R23: флаг обрезанного JSON-ответа (salvage Pass 2).
+            # Пробрасываем в итоговый payload — данные (value) от метаданных
+            # (truncation) отделены.
+            raw_truncated = bool(payload.get("_truncated", False))
 
             # ── Strict location normalization (V1.3 contract) ─────────────────
             # Product rule:
@@ -1237,11 +1305,14 @@ class ExtractionLLMDetector:
                         "raw_value": str(payload.get("value", "")),
                     },
                 )
-                normalized[name] = {
+                _entry = {
                     "value": None,
                     "confidence": confidence_f,
                     "location": raw_location,
                 }
+                if raw_truncated:
+                    _entry["_truncated"] = True
+                normalized[name] = _entry
                 continue
 
             _DEFAULT_MAX_EXTRACTION_FIELD_CHARS = 500
@@ -1256,11 +1327,14 @@ class ExtractionLLMDetector:
             ):
                 value_cast = value_cast[:max_chars].rstrip() + "…"
 
-            normalized[name] = {
+            _entry = {
                 "value": value_cast,
                 "confidence": confidence_f,
                 "location": raw_location,
             }
+            if raw_truncated:
+                _entry["_truncated"] = True
+            normalized[name] = _entry
 
         return normalized
 

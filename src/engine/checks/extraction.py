@@ -170,12 +170,32 @@ class ExtractionExecutor:
 
 
     @staticmethod
+    def _extract_numeric_core(clause_ref: str) -> list[str]:
+        """
+        Извлечь numeric-ядра из человекочитаемого clause_ref.
+
+        "п. 8.1.5"          -> ["8.1.5"]
+        "Section 12.1"      -> ["12.1"]
+        "п. 7.1.1, 7.1.2"   -> ["7.1.1", "7.1.2"]
+        "Статья 5"          -> ["5"]
+
+        Используется для матчинга field_location.clause_ref с raw_uid
+        chunks. Регекс универсален для RU/EN; не зависит от prefix-словаря.
+        """
+        import re as _re
+        return _re.findall(r"\d+(?:\.\d+)*", clause_ref or "")
+
+
+    @staticmethod
     def _resolve_field_anchor(
         *,
         quote: str,
         source_text: str,
         fallback_clause_uid: str | None,
         fallback_page: int | None,
+        chunk_map: list[tuple[int, int, dict[str, Any], Any]] | None = None,
+        field_page: int | None = None,
+        field_clause_ref: str | None = None,
     ) -> CheckAnchor | None:
         """
         Построить CheckAnchor из per-field цитаты (B3).
@@ -210,7 +230,84 @@ class ExtractionExecutor:
 
         if anchor.anchor_method == CheckAnchorMethod.NONE:
             return None
-        return anchor
+
+        # B6.2/R10 v4 — приоритет источников provenance:
+        #   1) field_location (LLM + R21) — самый точный, содержит page
+        #      и clause_ref конкретного поля;
+        #   2) chunk_map (owner-chunk по span) — точный на уровне чанка;
+        #   3) fallback (top-1 base_location) — уже применён внутри
+        #      resolve_quote_in_source, дополнительных действий не требует.
+        updates: dict[str, Any] = {}
+
+        # ── Приоритет 1: field_location ──────────────────────────────────
+        if isinstance(field_page, int) and not isinstance(field_page, bool) and field_page >= 1:
+            updates["page"] = field_page
+
+        if field_clause_ref and chunk_map:
+            cores = ExtractionExecutor._extract_numeric_core(field_clause_ref)
+            for core in cores:
+                found = False
+                for entry in chunk_map:
+                    _s, _e, _ctx, _rc = entry
+                    meta = _ctx.get("metadata") or {}
+                    raw_uid = meta.get("raw_uid")
+                    if raw_uid is None:
+                        eff = meta.get("effective_uid") or getattr(_rc, "clause_uid", None)
+                        raw_uid = eff.split(":")[-1] if isinstance(eff, str) and ":" in eff else eff
+                    if raw_uid is not None and str(raw_uid) == core:
+                        eff_uid = meta.get("effective_uid") or getattr(_rc, "clause_uid", None)
+                        if eff_uid:
+                            updates["clause_uid"] = str(eff_uid).strip()
+                        if "page" not in updates:
+                            fp = (
+                                meta.get("page")
+                                or meta.get("start_page")
+                                or getattr(_rc, "page", None)
+                            )
+                            if isinstance(fp, int) and not isinstance(fp, bool) and fp >= 1:
+                                updates["page"] = fp
+                        found = True
+                        break
+                if found:
+                    break
+
+        # ── Приоритет 2: chunk_map (owner-chunk по span) ─────────────────
+        if not updates and chunk_map is not None and anchor.span_start is not None and anchor.span_end is not None:
+            mid = (anchor.span_start + anchor.span_end) // 2
+            owner_entry = None
+            for entry in chunk_map:
+                _s, _e, _ctx, _rc = entry
+                if _s <= mid < _e:
+                    owner_entry = entry
+                    break
+            if owner_entry is None:
+                for entry in chunk_map:
+                    _s, _e, _ctx, _rc = entry
+                    if _s <= anchor.span_start < _e:
+                        owner_entry = entry
+                        break
+            if owner_entry is not None:
+                _s, _e, owner_ctx, owner_rc = owner_entry
+                meta = owner_ctx.get("metadata") or {}
+                new_clause_uid = (
+                    meta.get("effective_uid")
+                    or meta.get("clause_uid")
+                    or getattr(owner_rc, "clause_uid", None)
+                )
+                new_page = (
+                    meta.get("page")
+                    or meta.get("start_page")
+                    or getattr(owner_rc, "page", None)
+                )
+                if new_clause_uid and str(new_clause_uid).strip():
+                    updates["clause_uid"] = str(new_clause_uid).strip()
+                if isinstance(new_page, int) and not isinstance(new_page, bool) and new_page >= 1:
+                    updates["page"] = new_page
+
+        if not updates:
+            return anchor
+
+        return anchor.model_copy(update=updates)
 
 
     def run(
@@ -250,7 +347,7 @@ class ExtractionExecutor:
         )
 
         # Базовый текст для извлечения: evidence из detection, а при необходимости — весь контекст.
-        base_text = self._build_extraction_text(detection, contexts)
+        base_text, chunk_map = self._build_extraction_text(detection, contexts)
         if not base_text:
             return ExtractionExecutionResult(structured_data=None, telemetry=None)
 
@@ -358,6 +455,11 @@ class ExtractionExecutor:
                     except (TypeError, ValueError):
                         confidence_llm = LLM_DEFAULT_CONFIDENCE
 
+                    # B6.2/R23: флаг truncated JSON (salvage Pass 2).
+                    # Пробрасывается из _normalize_fields в structured_data.<field>._truncated,
+                    # чтобы downstream (DD Grid / UI) мог показать badge "частичные данные".
+                    raw_truncated = bool(llm_payload.get("_truncated", False))
+
                     raw_field_location = llm_payload.get("location")
                     raw_field_location_fallback = llm_payload.get("location_fallback")
 
@@ -389,6 +491,8 @@ class ExtractionExecutor:
                     }
                     if location_fallback is not None:
                         replacement_payload["location_fallback"] = location_fallback
+                    if raw_truncated:
+                        replacement_payload["_truncated"] = True
 
                     if name not in structured:
                         structured[name] = replacement_payload
@@ -469,6 +573,19 @@ class ExtractionExecutor:
             if not isinstance(quote, str) or not quote.strip():
                 continue
 
+            # B6.2/R10 v4: per-field location от LLM (валидирован R21) —
+            # приоритетный источник page/clause_ref для anchor.
+            field_page = location.get("page")
+            if not (
+                isinstance(field_page, int)
+                and not isinstance(field_page, bool)
+                and field_page >= 1
+            ):
+                field_page = None
+            field_clause_ref = location.get("clause_ref")
+            if not (isinstance(field_clause_ref, str) and field_clause_ref.strip()):
+                field_clause_ref = None
+
             field_anchor = self._resolve_field_anchor(
                 quote=quote,
                 source_text=base_text,
@@ -482,6 +599,9 @@ class ExtractionExecutor:
                     if isinstance(base_location, dict)
                     else None
                 ),
+                chunk_map=chunk_map,
+                field_page=field_page,
+                field_clause_ref=field_clause_ref,
             )
             if field_anchor is not None:
                 anchors.append(field_anchor)
@@ -558,7 +678,7 @@ class ExtractionExecutor:
         self,
         detection: dict[str, Any],
         contexts: list[dict[str, Any]],
-    ) -> str:
+    ) -> tuple[str, list[tuple[int, int, dict[str, Any]]] | None]:
         """
         Сформировать текст, по которому будем делать extraction.
 
@@ -596,7 +716,13 @@ class ExtractionExecutor:
             # - grounding_score < порога → evidence слабо заземлён → игнорируем,
             #   идём к context-based fallback ниже
             if grounding_score is None or grounding_score >= _EXTRACTION_MIN_GROUNDING_SCORE:
-                return evidence
+                # B6.2/R10: chunk_map от executor.py (_build_limited_context).
+                # Передаётся в detection["_evidence_chunk_map"] для field_extraction.
+                # None для risk-detection (нет ключа) или summary-компрессии.
+                _ev_cmap = detection.get("_evidence_chunk_map")
+                if not isinstance(_ev_cmap, list):
+                    _ev_cmap = None
+                return evidence, _ev_cmap
             else:
                 logger.debug(
                     "ExtractionExecutor._build_extraction_text: "
@@ -608,7 +734,7 @@ class ExtractionExecutor:
                 # Не возвращаем — падаем ниже на context-based логику
 
         if not contexts:
-            return ""
+            return "", None
 
         # 2. Пытаемся сузить контекст по location
         raw_location = detection.get("location") or {}
@@ -716,14 +842,45 @@ class ExtractionExecutor:
             # Fallback: если сузить не удалось, используем весь контекст, как раньше.
             relevant_contexts = contexts
 
-        # 3. Склеиваем текст только из релевантных чанков
+        # 3. Склеиваем текст только из релевантных чанков.
+        # B6.2/R10: одновременно строим chunk_map — [(start, end, context_dict), ...]
+        # для per-field provenance (анкор поля ссылается на chunk, где
+        # цитата реально найдена).
         parts: list[str] = []
+        chunk_map: list[tuple[int, int, dict[str, Any], Any]] = []
+        cursor = 0
+        separator = "\n\n"
         for c in relevant_contexts:
             text = c.get("text") or ""
-            if text:
-                parts.append(text)
+            if not text:
+                continue
+            if parts:
+                cursor += len(separator)
+            start = cursor
+            parts.append(text)
+            cursor += len(text)
+            # rc=None: contexts-ветвь не имеет доступа к retrieved_chunks;
+            # metadata context содержит effective_uid/page/raw_uid — их достаточно.
+            chunk_map.append((start, cursor, c, None))
 
-        return "\n\n".join(parts).strip()
+        joined = separator.join(parts)
+        stripped = joined.strip()
+        if not stripped:
+            return "", chunk_map
+
+        # strip() сдвигает offsets — корректируем chunk_map.
+        lead = len(joined) - len(joined.lstrip())
+        if lead:
+            new_len = len(stripped)
+            shifted: list[tuple[int, int, dict[str, Any]]] = []
+            for (s, e, c, _rc) in chunk_map:
+                s2, e2 = s - lead, e - lead
+                if e2 <= 0 or s2 >= new_len:
+                    continue
+                shifted.append((max(0, s2), min(new_len, e2), c))
+            chunk_map = shifted
+
+        return stripped, chunk_map
 
     def _extract_field(
         self,

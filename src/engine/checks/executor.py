@@ -382,7 +382,14 @@ class CheckExecutor:
         retrieved_chunks: list[RetrievedChunk],
         important_terms: list[str],
         max_tokens: int | None,
-    ) -> tuple[str, list[RetrievedChunk], list[dict], int, bool]:
+    ) -> tuple[
+        str,
+        list[RetrievedChunk],
+        list[dict],
+        int,
+        bool,
+        list[tuple[int, int, dict, RetrievedChunk]] | None,
+    ]:
         """
         Построить текстовый контекст для LLM с учётом лимита по токенам.
 
@@ -391,16 +398,32 @@ class CheckExecutor:
             kept_chunks        — RetrievedChunk, которые попали в запрос,
             kept_context_dicts — исходные dict'ы для этих чанков,
             total_tokens       — сколько токенов занял контекст,
-            truncated          — пришлось ли что-то обрезать.
+            truncated          — пришлось ли что-то обрезать,
+            chunk_map          — B6.2/R10: [(start, end, context_dict, rc), ...],
+                                 offsets piece'ов в joined_text. rc — соответствующий
+                                 RetrievedChunk (fallback при пустой metadata).
+                                 None, если часть чанков заменена на summary-компрессию
+                                 (summary — производный текст, offsets невалидны).
         """
         # Ветка без лимита: склеиваем всё как есть
         if not isinstance(max_tokens, int) or max_tokens <= 0:
             context_parts = [
                 self._build_chunk_piece(c, rc) for c, rc in zip(contexts, retrieved_chunks)
             ]
-            joined_text = "\n\n---\n\n".join(context_parts)
+            _sep = "\n\n---\n\n"
+            _cmap: list[tuple[int, int, dict, RetrievedChunk]] = []
+            _cur = 0
+            for _i, (_c, _rc, _piece) in enumerate(
+                zip(contexts, retrieved_chunks, context_parts)
+            ):
+                if _i > 0:
+                    _cur += len(_sep)
+                _start = _cur
+                _cur += len(_piece)
+                _cmap.append((_start, _cur, _c, _rc))
+            joined_text = _sep.join(context_parts)
             total_tokens = count_tokens(joined_text)
-            return joined_text, retrieved_chunks, contexts, total_tokens, False
+            return joined_text, retrieved_chunks, contexts, total_tokens, False, _cmap
 
         # Строим items: (score, token_count, context_dict, retrieved_chunk, piece_text)
         # score берём из combined_score чанка — он уже отражает rerank-приоритет.
@@ -440,13 +463,23 @@ class CheckExecutor:
                 continue
 
         if not truncated:
-            joined_text = "\n\n---\n\n".join(piece for _, _, _, _, piece in kept_items)
+            _sep = "\n\n---\n\n"
+            _cmap: list[tuple[int, int, dict, RetrievedChunk]] = []
+            _cur = 0
+            for _i, (_s, _t, _c, _rc, _piece) in enumerate(kept_items):
+                if _i > 0:
+                    _cur += len(_sep)
+                _start = _cur
+                _cur += len(_piece)
+                _cmap.append((_start, _cur, _c, _rc))
+            joined_text = _sep.join(piece for _, _, _, _, piece in kept_items)
             return (
                 joined_text,
                 [rc for _, _, _, rc, _ in kept_items],
                 [c for _, _, c, _, _ in kept_items],
                 total_tokens,
                 False,
+                _cmap,
             )
 
         # Компрессия: заменяем чанки, не влезшие целиком, на summary
@@ -509,7 +542,10 @@ class CheckExecutor:
         kept_chunks = [rc for _, _, _, rc, _ in compressed_items]
         kept_contexts = [c for _, _, c, _, _ in compressed_items]
 
-        return joined_text, kept_chunks, kept_contexts, total_tokens, truncated
+        # B6.2/R10: в этой ветви часть pieces — summary-компрессия (производный
+        # текст от build_chunk_summary). Offsets не соответствуют оригинальным
+        # chunk'ам, chunk_map строить нельзя — возвращаем None.
+        return joined_text, kept_chunks, kept_contexts, total_tokens, truncated, None
 
     def _extract_llm_runtime_flags(
         self,
@@ -1111,13 +1147,18 @@ class CheckExecutor:
                 },
             )
 
-        joined_text, retrieved_chunks, contexts, context_tokens, context_truncated = (
-            self._build_limited_context(
-                contexts=contexts,
-                retrieved_chunks=retrieved_chunks,
-                important_terms=important_terms,
-                max_tokens=llm_context_limit,
-            )
+        (
+            joined_text,
+            retrieved_chunks,
+            contexts,
+            context_tokens,
+            context_truncated,
+            evidence_chunk_map,
+        ) = self._build_limited_context(
+            contexts=contexts,
+            retrieved_chunks=retrieved_chunks,
+            important_terms=important_terms,
+            max_tokens=llm_context_limit,
         )
 
         doc_type = getattr(doc, "doc_type", "") or ""
@@ -1196,6 +1237,11 @@ class CheckExecutor:
                     "rules_llm_decision": "skip_presence_for_extraction",
                 },
             }
+            # B6.2/R10: chunk_map от _build_limited_context — для per-field
+            # provenance анкоров field_extraction. None, если была summary-
+            # компрессия (offsets невалидны).
+            if evidence_chunk_map is not None:
+                detection["_evidence_chunk_map"] = evidence_chunk_map
         else:
             try:
                 detection = self.detector.run(
@@ -1483,9 +1529,16 @@ class CheckExecutor:
             # Это мягче чем CONFIDENCE_MANUAL_REVIEW_THRESHOLD (0.55) —
             # сначала даём шанс остаться fail, если confidence чуть выше нуля,
             # и только при совсем слабом сигнале переводим в unclear.
-            _fail_unclear_thr = float(
-                getattr(settings, "FAIL_CONFIDENCE_UNCLEAR_THRESHOLD", 0.50)
-            )
+            # B6.2/R04: per-check override приоритетнее глобального.
+            # check.fail_unclear_threshold — параметр бизнес-правила конкретного
+            # чека; None = использовать global default.
+            _check_thr = getattr(check, "fail_unclear_threshold", None)
+            if _check_thr is not None:
+                _fail_unclear_thr = float(_check_thr)
+            else:
+                _fail_unclear_thr = float(
+                    getattr(settings, "FAIL_CONFIDENCE_UNCLEAR_THRESHOLD", 0.50)
+                )
             if confidence < _fail_unclear_thr:
                 result = "unclear"
                 severity = check.severity_if_unclear or check.severity
