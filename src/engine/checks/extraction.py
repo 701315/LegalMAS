@@ -358,6 +358,11 @@ class ExtractionExecutor:
                     except (TypeError, ValueError):
                         confidence_llm = LLM_DEFAULT_CONFIDENCE
 
+                    # B6.2/R23: флаг truncated JSON (salvage Pass 2).
+                    # Пробрасывается из _normalize_fields в structured_data.<field>._truncated,
+                    # чтобы downstream (DD Grid / UI) мог показать badge "частичные данные".
+                    raw_truncated = bool(llm_payload.get("_truncated", False))
+
                     raw_field_location = llm_payload.get("location")
                     raw_field_location_fallback = llm_payload.get("location_fallback")
 
@@ -389,6 +394,8 @@ class ExtractionExecutor:
                     }
                     if location_fallback is not None:
                         replacement_payload["location_fallback"] = location_fallback
+                    if raw_truncated:
+                        replacement_payload["_truncated"] = True
 
                     if name not in structured:
                         structured[name] = replacement_payload

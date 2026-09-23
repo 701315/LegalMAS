@@ -316,8 +316,10 @@ def _salvage_partial_json(text: str) -> dict | None:
         }
 
     # ── Pass 2: partial long string values ───────────────────────────────────
+    # B6.2/R23: не пишем marker прямо в value (value — данные, marker — метаданные).
+    # confidence понижен до 0.30 — явный сигнал "частичные данные"; _truncated=True
+    # пробрасывается отдельным ключом, чтобы downstream мог показать badge.
     _PARTIAL_MIN_CHARS = 30
-    _TRUNCATION_MARKER = "… [СПИСОК ОБРЕЗАН: вывод превысил лимит токенов]"
 
     _partial_string_pattern = re.compile(
         r'"(?P<name>[a-z_][a-z0-9_]*)"\s*:\s*\{\s*"value"\s*:\s*"(?P<partial>[^"]{30,})',
@@ -337,9 +339,10 @@ def _salvage_partial_json(text: str) -> dict | None:
             continue
 
         recovered[name] = {
-            "value": partial_text + _TRUNCATION_MARKER,
-            "confidence": 0.5,
+            "value": partial_text,
+            "confidence": 0.30,
             "location": None,
+            "_truncated": True,
         }
 
     # ── Pass 3: short signal values without confidence ───────────────────────
@@ -1109,6 +1112,10 @@ class ExtractionLLMDetector:
             value = payload.get("value")
             raw_location = payload.get("location")
             conf_raw = payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
+            # B6.2/R23: флаг обрезанного JSON-ответа (salvage Pass 2).
+            # Пробрасываем в итоговый payload — данные (value) от метаданных
+            # (truncation) отделены.
+            raw_truncated = bool(payload.get("_truncated", False))
 
             # ── Strict location normalization (V1.3 contract) ─────────────────
             # Product rule:
@@ -1237,11 +1244,14 @@ class ExtractionLLMDetector:
                         "raw_value": str(payload.get("value", "")),
                     },
                 )
-                normalized[name] = {
+                _entry = {
                     "value": None,
                     "confidence": confidence_f,
                     "location": raw_location,
                 }
+                if raw_truncated:
+                    _entry["_truncated"] = True
+                normalized[name] = _entry
                 continue
 
             _DEFAULT_MAX_EXTRACTION_FIELD_CHARS = 500
@@ -1256,11 +1266,14 @@ class ExtractionLLMDetector:
             ):
                 value_cast = value_cast[:max_chars].rstrip() + "…"
 
-            normalized[name] = {
+            _entry = {
                 "value": value_cast,
                 "confidence": confidence_f,
                 "location": raw_location,
             }
+            if raw_truncated:
+                _entry["_truncated"] = True
+            normalized[name] = _entry
 
         return normalized
 

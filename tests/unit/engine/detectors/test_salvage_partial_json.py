@@ -80,8 +80,12 @@ class TestPass2PartialLongStringValues:
         assert result is not None
         field = result["fields"]["asset_schedule_details"]
         assert partial_value[:30] in field["value"]
-        assert "ОБРЕЗАН" in field["value"] or "СПИСОК" in field["value"]
-        assert field["confidence"] == 0.5
+        # R23: marker больше не пишется в value — данные отделены от метаданных.
+        assert "ОБРЕЗАН" not in field["value"]
+        assert "СПИСОК" not in field["value"]
+        # R23: confidence понижен до 0.30, флаг _truncated=True.
+        assert field["confidence"] == 0.30
+        assert field.get("_truncated") is True
 
     def test_pass2_not_applied_when_pass1_succeeded(self):
         # If Pass 1 already recovered the field, Pass 2 must not override it.
@@ -108,8 +112,11 @@ class TestPass2PartialLongStringValues:
         result = _salvage_partial_json(text)
         assert result is not None
         field = result["fields"]["details"]
-        assert not field["value"].startswith("… [")  # Has actual content
-        assert "ОБРЕЗАН" in field["value"]
+        # R23: в value — только реальные данные, без маркера.
+        assert field["value"].startswith("А")  # actual content, not marker
+        assert "ОБРЕЗАН" not in field["value"]
+        assert field["confidence"] == 0.30
+        assert field.get("_truncated") is True
 
     def test_full_truncated_inventory_json(self):
         # Realistic simulation: two-field inventory check, second field truncated
@@ -134,8 +141,10 @@ class TestPass2PartialLongStringValues:
         assert "asset_schedule_details" in fields
         details_value = fields["asset_schedule_details"]["value"]
         assert "77:01:0001001:123" in details_value
-        assert "ОБРЕЗАН" in details_value
-        assert fields["asset_schedule_details"]["confidence"] == 0.5
+        # R23: маркер убран из value, добавлен _truncated, confidence 0.30.
+        assert "ОБРЕЗАН" not in details_value
+        assert fields["asset_schedule_details"]["confidence"] == 0.30
+        assert fields["asset_schedule_details"].get("_truncated") is True
 
 
 class TestPass3ShortSignalWithoutConfidence:
@@ -167,6 +176,42 @@ class TestPass3ShortSignalWithoutConfidence:
         assert result is not None
         # Pass 2 wins for long partial
         assert len(result["fields"]["details"]["value"]) > 35
+
+
+class TestTruncatedFlagSemantics:
+    """R23: _truncated появляется только для Pass 2, не для Pass 1/3."""
+
+    def test_no_truncated_flag_for_complete_json(self):
+        # Полный валидный JSON — Pass 1, флага быть не должно.
+        text = (
+            '"status": {"value": "defined", "confidence": 0.9},'
+            '"details": {"value": "short", "confidence": 0.8}'
+        )
+        result = _salvage_partial_json(text)
+        assert result is not None
+        for name, field in result["fields"].items():
+            assert "_truncated" not in field, f"_truncated leaked into {name}"
+
+    def test_no_truncated_flag_for_pass3(self):
+        # Pass 3 (short value без confidence) — не усечение, флага быть не должно.
+        text = '"status_field": {"value": "defined"'
+        result = _salvage_partial_json(text)
+        assert result is not None
+        assert "_truncated" not in result["fields"]["status_field"]
+
+    def test_truncated_flag_only_on_pass2_field(self):
+        # Комбинированный кейс: Pass 1 + Pass 2 в одном payload.
+        long_partial = "Объект 1 | 77:01:00100:1 | 100 кв.м. | Москва\nОбъект 2 | 77:01"
+        text = (
+            '"status": {"value": "defined", "confidence": 0.9},'
+            f'"details": {{"value": "{long_partial}'
+        )
+        result = _salvage_partial_json(text)
+        assert result is not None
+        # Pass 1 — без флага
+        assert "_truncated" not in result["fields"]["status"]
+        # Pass 2 — с флагом
+        assert result["fields"]["details"].get("_truncated") is True
 
 
 class TestSalvageEdgeCases:
@@ -208,7 +253,9 @@ class TestSalvageEdgeCases:
         # Pass 2 recovered partial details
         assert "details" in fields
         assert "77:01" in fields["details"]["value"]
-        assert fields["details"]["confidence"] == 0.5
+        # R23: confidence 0.30 + _truncated=True.
+        assert fields["details"]["confidence"] == 0.30
+        assert fields["details"].get("_truncated") is True
 
 
 
