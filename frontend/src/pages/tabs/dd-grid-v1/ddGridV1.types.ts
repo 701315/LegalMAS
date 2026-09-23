@@ -217,6 +217,22 @@ export interface DDGridV1CellView {
    * Дублируется здесь для удобства UI, чтобы не разворачивать rawCell.
    */
   locationConfidence: DDGridV1LocationConfidence;
+
+  /**
+   * Risk-aware DD Grid (COC pilot): семантический уровень риска,
+   * вычисленный бэкендом из signal-полей с risk_weight.
+   * null = тема не отражена в документе (ячейка без бейджа).
+   */
+  cellRiskLevel: "high" | "medium" | "low" | "info" | null;
+
+  /** Имя signal-поля с максимальным risk_weight. */
+  topRiskField: string | null;
+
+  /** Raw value top_risk_field для tooltip. */
+  topRiskValue: string | null;
+
+  /** Human-readable label top_risk_value. */
+  topRiskDisplay: string | null;
 }
 
 // -------------------------------------------------------------

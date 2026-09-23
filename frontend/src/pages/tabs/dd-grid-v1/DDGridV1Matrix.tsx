@@ -38,6 +38,7 @@ import type {
 
 import DDGridV1Drawer from "./DDGridV1Drawer";
 import DDGridV1InstructionDrawer from "./DDGridV1InstructionDrawer";
+import { CellRiskBadge } from "../../../components/ui/CellRiskBadge";
 
 import type {
   DDGridV1MatrixRow,
@@ -984,13 +985,20 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
           const wrapperTone = "";
 
           const content = (
-            <div className="py-0" style={{ lineHeight: 1.2 }}>
+            <div className="flex items-start gap-1 py-0" style={{ lineHeight: 1.2 }}>
               <span
-                className={`whitespace-normal break-words text-[11px] ${cellStateToneClass(cellView.cellState)}`}
-                style={{ lineHeight: 1.2, display: "block" }}
+                className={`flex-1 whitespace-normal break-words text-[11px] ${cellStateToneClass(cellView.cellState)}`}
+                style={{ lineHeight: 1.2 }}
               >
                 {cellView.displayText}
               </span>
+              <CellRiskBadge
+                level={cellView.cellRiskLevel}
+                topField={cellView.topRiskField}
+                topValue={cellView.topRiskValue}
+                topDisplay={cellView.topRiskDisplay}
+                className="shrink-0"
+              />
             </div>
           );
 

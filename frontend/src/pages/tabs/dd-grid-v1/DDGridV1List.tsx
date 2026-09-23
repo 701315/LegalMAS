@@ -64,6 +64,7 @@ import DDGridV1Drawer from "./DDGridV1Drawer";
 import "ag-grid-community/styles/ag-grid.css";
 import "../../../styles/ag-theme-legalmas.css";
 import { useIsMobile } from "../../../hooks/useIsMobile";
+import { CellRiskBadge } from "../../../components/ui/CellRiskBadge";
 
 // -------------------------------------------------------------
 // Constants
@@ -116,6 +117,12 @@ interface V1ListRow {
   qcStatusLabel: string | null;
   qcStatusTone: "success" | "error" | "warning" | "neutral" | null;
   observability: DDGridV1ObservabilityInfo;
+
+  // ── Risk-aware DD Grid (COC pilot) ─────────────────────
+  cellRiskLevel: "high" | "medium" | "low" | "info" | null;
+  topRiskField: string | null;
+  topRiskValue: string | null;
+  topRiskDisplay: string | null;
 }
 
 type ReviewStatusTone =
@@ -253,6 +260,51 @@ function getQcStatusMeta(
 // Row builder
 // -------------------------------------------------------------
 
+// ── Risk-aware DD Grid helpers ────────────────────────────────
+
+const RISK_LEVEL_ORDER: Record<string, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+  info: 3,
+};
+const RISK_ABSENT_RANK = 4;
+
+function computeRowRisk(
+  fields: readonly {
+    cell_risk_level?: "high" | "medium" | "low" | "info" | null;
+    top_risk_field?: string | null;
+    top_risk_value?: string | null;
+    top_risk_display?: string | null;
+  }[],
+): {
+  level: "high" | "medium" | "low" | "info" | null;
+  field: string | null;
+  value: string | null;
+  display: string | null;
+} {
+  let bestLevel: "high" | "medium" | "low" | "info" | null = null;
+  let bestField: string | null = null;
+  let bestValue: string | null = null;
+  let bestDisplay: string | null = null;
+  let bestRank = RISK_ABSENT_RANK;
+
+  for (const f of fields) {
+    const level = f.cell_risk_level;
+    if (!level) continue;
+    const rank = RISK_LEVEL_ORDER[level] ?? RISK_ABSENT_RANK;
+    if (rank < bestRank) {
+      bestRank = rank;
+      bestLevel = level;
+      bestField = f.top_risk_field ?? null;
+      bestValue = f.top_risk_value ?? null;
+      bestDisplay = f.top_risk_display ?? null;
+    }
+  }
+
+  return { level: bestLevel, field: bestField, value: bestValue, display: bestDisplay };
+}
+
 /**
  * Строит плоский список V1 list rows из V1 модели.
  * Для каждой пары (документ × check) создаёт одну строку.
@@ -321,6 +373,8 @@ function buildV1ListRows(
       const qcStatusMeta = getQcStatusMeta(qcAuditInfo.status, tFn);
       const observability = resolveDDGridV1Observability(drawer);
 
+      const rowRisk = computeRowRisk(drawer.fields ?? []);
+
       const listRow: V1ListRow = {
         rowId: `${v1Row.documentId}::${check.checkId}`,
         v1Row,
@@ -344,6 +398,11 @@ function buildV1ListRows(
         qcStatusLabel: qcStatusMeta.label,
         qcStatusTone: qcStatusMeta.tone,
         observability,
+        // ── Risk-aware DD Grid ───────────────────────────────
+        cellRiskLevel: rowRisk.level,
+        topRiskField: rowRisk.field,
+        topRiskValue: rowRisk.value,
+        topRiskDisplay: rowRisk.display,
       };
 
       result.push(listRow);
@@ -696,6 +755,43 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
             <span className="text-xs font-medium text-[var(--text-primary)]">
               {row.checkName}
             </span>
+          );
+        },
+      },
+      {
+        headerName: t("columns.risk"),
+        colId: "cellRiskLevel",
+        minWidth: 110,
+        maxWidth: 140,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.cellRiskLevel ?? "",
+        comparator: (a, b) => {
+          const rankA = a ? (RISK_LEVEL_ORDER[a as string] ?? RISK_ABSENT_RANK) : RISK_ABSENT_RANK;
+          const rankB = b ? (RISK_LEVEL_ORDER[b as string] ?? RISK_ABSENT_RANK) : RISK_ABSENT_RANK;
+          return rankA - rankB;
+        },
+        tooltipValueGetter: (params) => {
+          const row = params.data;
+          if (!row?.topRiskField) return "";
+          const label = row.cellRiskLevel
+            ? t(`riskWeight.${row.cellRiskLevel}`)
+            : "";
+          return t("riskWeight.tooltip", {
+            level: label,
+            field: row.topRiskField,
+            value: row.topRiskDisplay || row.topRiskValue || "",
+          });
+        },
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          if (!row) return null;
+          return (
+            <CellRiskBadge
+              level={row.cellRiskLevel}
+              topField={row.topRiskField}
+              topValue={row.topRiskValue}
+              topDisplay={row.topRiskDisplay}
+            />
           );
         },
       },
