@@ -7,11 +7,44 @@ from engine.checks.extraction import ExtractionExecutor
 
 
 class TestBuildExtractionTextChunkMap:
-    def test_evidence_branch_returns_none_chunk_map(self):
+    def test_evidence_branch_without_chunk_map_returns_none(self):
+        # Legacy: detection без ключа _evidence_chunk_map → None.
         ex = ExtractionExecutor.__new__(ExtractionExecutor)
         text, cmap = ex._build_extraction_text(
             detection={"evidence": "short evidence", "raw": {}},
             contexts=[{"text": "some context"}],
+        )
+        assert text == "short evidence"
+        assert cmap is None
+
+    def test_evidence_branch_with_chunk_map_passes_it_through(self):
+        # B6.2/R10 вар. B: executor кладёт chunk_map в _evidence_chunk_map —
+        # extraction прокидывает его для per-field provenance.
+        ex = ExtractionExecutor.__new__(ExtractionExecutor)
+        cmap = [
+            (0, 10, {"metadata": {"effective_uid": "x:1", "page": 1}}),
+            (15, 25, {"metadata": {"effective_uid": "x:2", "page": 5}}),
+        ]
+        text, cm = ex._build_extraction_text(
+            detection={
+                "evidence": "short evidence",
+                "raw": {},
+                "_evidence_chunk_map": cmap,
+            },
+            contexts=[{"text": "irrelevant"}],
+        )
+        assert text == "short evidence"
+        assert cm == cmap
+
+    def test_evidence_branch_with_malformed_chunk_map_returns_none(self):
+        ex = ExtractionExecutor.__new__(ExtractionExecutor)
+        text, cmap = ex._build_extraction_text(
+            detection={
+                "evidence": "short evidence",
+                "raw": {},
+                "_evidence_chunk_map": "not-a-list",
+            },
+            contexts=[{"text": "irrelevant"}],
         )
         assert text == "short evidence"
         assert cmap is None

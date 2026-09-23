@@ -640,7 +640,13 @@ class ExtractionExecutor:
             # - grounding_score < порога → evidence слабо заземлён → игнорируем,
             #   идём к context-based fallback ниже
             if grounding_score is None or grounding_score >= _EXTRACTION_MIN_GROUNDING_SCORE:
-                return evidence, None
+                # B6.2/R10: chunk_map от executor.py (_build_limited_context).
+                # Передаётся в detection["_evidence_chunk_map"] для field_extraction.
+                # None для risk-detection (нет ключа) или summary-компрессии.
+                _ev_cmap = detection.get("_evidence_chunk_map")
+                if not isinstance(_ev_cmap, list):
+                    _ev_cmap = None
+                return evidence, _ev_cmap
             else:
                 logger.debug(
                     "ExtractionExecutor._build_extraction_text: "
