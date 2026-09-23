@@ -170,13 +170,32 @@ class ExtractionExecutor:
 
 
     @staticmethod
+    def _extract_numeric_core(clause_ref: str) -> list[str]:
+        """
+        Извлечь numeric-ядра из человекочитаемого clause_ref.
+
+        "п. 8.1.5"          -> ["8.1.5"]
+        "Section 12.1"      -> ["12.1"]
+        "п. 7.1.1, 7.1.2"   -> ["7.1.1", "7.1.2"]
+        "Статья 5"          -> ["5"]
+
+        Используется для матчинга field_location.clause_ref с raw_uid
+        chunks. Регекс универсален для RU/EN; не зависит от prefix-словаря.
+        """
+        import re as _re
+        return _re.findall(r"\d+(?:\.\d+)*", clause_ref or "")
+
+
+    @staticmethod
     def _resolve_field_anchor(
         *,
         quote: str,
         source_text: str,
         fallback_clause_uid: str | None,
         fallback_page: int | None,
-        chunk_map: list[tuple[int, int, dict[str, Any]]] | None = None,
+        chunk_map: list[tuple[int, int, dict[str, Any], Any]] | None = None,
+        field_page: int | None = None,
+        field_clause_ref: str | None = None,
     ) -> CheckAnchor | None:
         """
         Построить CheckAnchor из per-field цитаты (B3).
@@ -212,36 +231,78 @@ class ExtractionExecutor:
         if anchor.anchor_method == CheckAnchorMethod.NONE:
             return None
 
-        # B6.2/R10: если есть chunk_map и span известен — определяем owner-chunk
-        # и подменяем clause_uid/page на значения из его metadata.
-        if chunk_map is None:
-            return anchor
-        if anchor.span_start is None or anchor.span_end is None:
-            return anchor
-
-        mid = (anchor.span_start + anchor.span_end) // 2
-        owner_ctx: dict[str, Any] | None = None
-        for (s, e, ctx) in chunk_map:
-            if s <= mid < e:
-                owner_ctx = ctx
-                break
-        if owner_ctx is None:
-            for (s, e, ctx) in chunk_map:
-                if s <= anchor.span_start < e:
-                    owner_ctx = ctx
-                    break
-        if owner_ctx is None:
-            return anchor
-
-        meta = owner_ctx.get("metadata") or {}
-        new_clause_uid = meta.get("effective_uid") or meta.get("clause_uid")
-        new_page = meta.get("page") or meta.get("start_page")
-
+        # B6.2/R10 v4 — приоритет источников provenance:
+        #   1) field_location (LLM + R21) — самый точный, содержит page
+        #      и clause_ref конкретного поля;
+        #   2) chunk_map (owner-chunk по span) — точный на уровне чанка;
+        #   3) fallback (top-1 base_location) — уже применён внутри
+        #      resolve_quote_in_source, дополнительных действий не требует.
         updates: dict[str, Any] = {}
-        if new_clause_uid and str(new_clause_uid).strip():
-            updates["clause_uid"] = str(new_clause_uid).strip()
-        if isinstance(new_page, int) and not isinstance(new_page, bool) and new_page >= 1:
-            updates["page"] = new_page
+
+        # ── Приоритет 1: field_location ──────────────────────────────────
+        if isinstance(field_page, int) and not isinstance(field_page, bool) and field_page >= 1:
+            updates["page"] = field_page
+
+        if field_clause_ref and chunk_map:
+            cores = ExtractionExecutor._extract_numeric_core(field_clause_ref)
+            for core in cores:
+                found = False
+                for entry in chunk_map:
+                    _s, _e, _ctx, _rc = entry
+                    meta = _ctx.get("metadata") or {}
+                    raw_uid = meta.get("raw_uid")
+                    if raw_uid is None:
+                        eff = meta.get("effective_uid") or getattr(_rc, "clause_uid", None)
+                        raw_uid = eff.split(":")[-1] if isinstance(eff, str) and ":" in eff else eff
+                    if raw_uid is not None and str(raw_uid) == core:
+                        eff_uid = meta.get("effective_uid") or getattr(_rc, "clause_uid", None)
+                        if eff_uid:
+                            updates["clause_uid"] = str(eff_uid).strip()
+                        if "page" not in updates:
+                            fp = (
+                                meta.get("page")
+                                or meta.get("start_page")
+                                or getattr(_rc, "page", None)
+                            )
+                            if isinstance(fp, int) and not isinstance(fp, bool) and fp >= 1:
+                                updates["page"] = fp
+                        found = True
+                        break
+                if found:
+                    break
+
+        # ── Приоритет 2: chunk_map (owner-chunk по span) ─────────────────
+        if not updates and chunk_map is not None and anchor.span_start is not None and anchor.span_end is not None:
+            mid = (anchor.span_start + anchor.span_end) // 2
+            owner_entry = None
+            for entry in chunk_map:
+                _s, _e, _ctx, _rc = entry
+                if _s <= mid < _e:
+                    owner_entry = entry
+                    break
+            if owner_entry is None:
+                for entry in chunk_map:
+                    _s, _e, _ctx, _rc = entry
+                    if _s <= anchor.span_start < _e:
+                        owner_entry = entry
+                        break
+            if owner_entry is not None:
+                _s, _e, owner_ctx, owner_rc = owner_entry
+                meta = owner_ctx.get("metadata") or {}
+                new_clause_uid = (
+                    meta.get("effective_uid")
+                    or meta.get("clause_uid")
+                    or getattr(owner_rc, "clause_uid", None)
+                )
+                new_page = (
+                    meta.get("page")
+                    or meta.get("start_page")
+                    or getattr(owner_rc, "page", None)
+                )
+                if new_clause_uid and str(new_clause_uid).strip():
+                    updates["clause_uid"] = str(new_clause_uid).strip()
+                if isinstance(new_page, int) and not isinstance(new_page, bool) and new_page >= 1:
+                    updates["page"] = new_page
 
         if not updates:
             return anchor
@@ -512,6 +573,19 @@ class ExtractionExecutor:
             if not isinstance(quote, str) or not quote.strip():
                 continue
 
+            # B6.2/R10 v4: per-field location от LLM (валидирован R21) —
+            # приоритетный источник page/clause_ref для anchor.
+            field_page = location.get("page")
+            if not (
+                isinstance(field_page, int)
+                and not isinstance(field_page, bool)
+                and field_page >= 1
+            ):
+                field_page = None
+            field_clause_ref = location.get("clause_ref")
+            if not (isinstance(field_clause_ref, str) and field_clause_ref.strip()):
+                field_clause_ref = None
+
             field_anchor = self._resolve_field_anchor(
                 quote=quote,
                 source_text=base_text,
@@ -526,6 +600,8 @@ class ExtractionExecutor:
                     else None
                 ),
                 chunk_map=chunk_map,
+                field_page=field_page,
+                field_clause_ref=field_clause_ref,
             )
             if field_anchor is not None:
                 anchors.append(field_anchor)
@@ -771,7 +847,7 @@ class ExtractionExecutor:
         # для per-field provenance (анкор поля ссылается на chunk, где
         # цитата реально найдена).
         parts: list[str] = []
-        chunk_map: list[tuple[int, int, dict[str, Any]]] = []
+        chunk_map: list[tuple[int, int, dict[str, Any], Any]] = []
         cursor = 0
         separator = "\n\n"
         for c in relevant_contexts:
@@ -783,7 +859,9 @@ class ExtractionExecutor:
             start = cursor
             parts.append(text)
             cursor += len(text)
-            chunk_map.append((start, cursor, c))
+            # rc=None: contexts-ветвь не имеет доступа к retrieved_chunks;
+            # metadata context содержит effective_uid/page/raw_uid — их достаточно.
+            chunk_map.append((start, cursor, c, None))
 
         joined = separator.join(parts)
         stripped = joined.strip()
@@ -795,7 +873,7 @@ class ExtractionExecutor:
         if lead:
             new_len = len(stripped)
             shifted: list[tuple[int, int, dict[str, Any]]] = []
-            for (s, e, c) in chunk_map:
+            for (s, e, c, _rc) in chunk_map:
                 s2, e2 = s - lead, e - lead
                 if e2 <= 0 or s2 >= new_len:
                     continue
