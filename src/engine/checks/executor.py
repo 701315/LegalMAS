@@ -1483,9 +1483,16 @@ class CheckExecutor:
             # Это мягче чем CONFIDENCE_MANUAL_REVIEW_THRESHOLD (0.55) —
             # сначала даём шанс остаться fail, если confidence чуть выше нуля,
             # и только при совсем слабом сигнале переводим в unclear.
-            _fail_unclear_thr = float(
-                getattr(settings, "FAIL_CONFIDENCE_UNCLEAR_THRESHOLD", 0.50)
-            )
+            # B6.2/R04: per-check override приоритетнее глобального.
+            # check.fail_unclear_threshold — параметр бизнес-правила конкретного
+            # чека; None = использовать global default.
+            _check_thr = getattr(check, "fail_unclear_threshold", None)
+            if _check_thr is not None:
+                _fail_unclear_thr = float(_check_thr)
+            else:
+                _fail_unclear_thr = float(
+                    getattr(settings, "FAIL_CONFIDENCE_UNCLEAR_THRESHOLD", 0.50)
+                )
             if confidence < _fail_unclear_thr:
                 result = "unclear"
                 severity = check.severity_if_unclear or check.severity

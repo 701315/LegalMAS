@@ -1231,6 +1231,21 @@ class CheckDefinition(BaseModel):
     severity_if_pass: str | None = None
     severity_if_unclear: str | None = None
 
+    # B6.2/R04 — Per-check порог downgrade fail→unclear.
+    # Если detector нашёл риск (found=True), но confidence ниже порога —
+    # бизнес-результат переводится в unclear вместо fail.
+    # None = использовать глобальный settings.FAIL_CONFIDENCE_UNCLEAR_THRESHOLD.
+    # Применяется к risk-detection чекам (ui_mode='risk_detection').
+    fail_unclear_threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Per-check threshold for fail->unclear downgrade on low-confidence "
+            "positive detection. None = use global default."
+        ),
+    )
+
     detector_type: DetectorType = DetectorType.RULES
     rules: RulesConfig = Field(default_factory=RulesConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
