@@ -106,12 +106,15 @@ def test_validate_location_preserves_quote_when_clause_matches():
 
 
 def test_validate_location_keeps_quote_even_if_no_clause_ref_match():
+    # R21: quote должен реально присутствовать в context_text. clause_ref
+    # намеренно не совпадает ("99" отсутствует в тексте), page тоже.
+    # Ожидание: quote-only ветвь с low confidence и сохранённой цитатой.
     raw = {
         "clause_ref": "п. 99",
         "page": 42,
         "quote": "какой-то текст",
     }
-    context_text = "нет такого пункта"
+    context_text = "Тут есть какой-то текст, но нет такого пункта."
     context_pages = [1]
 
     info, fallback = validate_location(raw, context_text, context_pages)
@@ -123,8 +126,11 @@ def test_validate_location_keeps_quote_even_if_no_clause_ref_match():
 
 
 def test_validate_location_accepts_quote_only():
+    # R21: quote-only location. Цитата должна быть в context_text,
+    # иначе R21 её отбросит. Здесь подаём контекст, содержащий цитату.
     raw = {"quote": "Стороны применяют право РФ."}
-    info, fallback = validate_location(raw, "...", [1])
+    context_text = "Стороны применяют право РФ. Настоящий договор..."
+    info, fallback = validate_location(raw, context_text, [1])
 
     assert info is not None
     assert info.quote == "Стороны применяют право РФ."
@@ -133,9 +139,12 @@ def test_validate_location_accepts_quote_only():
 
 
 def test_validate_location_truncates_long_quote():
+    # R21: подаём context_text, содержащий тот же текст, чтобы _quote_exists_in_context
+    # не отбросил цитату. Проверяем, что после _normalize_quote длина <= 500.
     long_quote = "слово " * 500
     raw = {"quote": long_quote}
-    info, _ = validate_location(raw, "...", [1])
+    context_text = long_quote
+    info, _ = validate_location(raw, context_text, [1])
 
     assert info is not None
     assert info.quote is not None
@@ -149,6 +158,38 @@ def test_validate_location_all_empty_returns_fallback():
 
 
 # ── 4. _normalize_fields preserves quote ─────────────────────────────────────
+
+
+def test_validate_location_drops_hallucinated_quote():
+    # R21: если цитаты нет в context_text — она не попадает в LocationInfo.
+    # В этом кейсе clause_ref/page тоже не подтверждены, поэтому info = None.
+    raw = {"quote": "Такого текста в документе нет"}
+    context_text = "Совершенно другой текст документа."
+    info, fallback = validate_location(raw, context_text, [1])
+
+    assert info is None
+    assert fallback is not None
+
+
+def test_validate_location_drops_hallucinated_quote_keeps_location():
+    # R21: даже когда clause_ref подтверждён, но quote не найден в context_text,
+    # location сохраняется, а цитата — нет.
+    raw = {
+        "clause_ref": "п. 7.1",
+        "page": 3,
+        "quote": "Такого текста в документе нет",
+    }
+    context_text = "7.1 Раздел о применимом праве."
+    context_pages = [3]
+
+    info, fallback = validate_location(raw, context_text, context_pages)
+
+    assert info is not None
+    assert info.clause_ref == "п. 7.1"
+    assert info.page == 3
+    assert info.location_confidence == "high"
+    assert info.quote is None
+    assert fallback is None
 
 
 def test_normalize_fields_preserves_quote():

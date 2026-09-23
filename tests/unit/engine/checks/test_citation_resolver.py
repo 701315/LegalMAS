@@ -147,10 +147,14 @@ def test_fuzzy_span_high_ratio() -> None:
         CheckAnchorMethod.EXACT_SPAN,
         CheckAnchorMethod.FUZZY_SPAN,
     )
-    # если fuzzy — должен быть помечен ratio
+    # если fuzzy — должен быть помечен compactness + window_multiplier
+    # (B6.1/R13: вместо LCS-ratio используем минимальное окно с полным
+    # покрытием токенов цитаты; compactness = quote_len / span_len).
     if anchor.anchor_method == CheckAnchorMethod.FUZZY_SPAN:
-        assert "ratio" in anchor.anchor_diagnostics
-        assert anchor.anchor_diagnostics["ratio"] >= 0.75
+        assert "compactness" in anchor.anchor_diagnostics
+        assert "window_multiplier" in anchor.anchor_diagnostics
+        assert 0.0 < anchor.anchor_diagnostics["compactness"] <= 1.0
+        assert 1.0 <= anchor.anchor_diagnostics["window_multiplier"] <= 2.5
 
 
 def test_fuzzy_span_below_threshold_falls_back() -> None:

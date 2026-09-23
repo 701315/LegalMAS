@@ -43,11 +43,22 @@ import re
 from typing import Any
 
 from core.logging import get_logger
+from engine.checks.citation_normalization import normalize_text
 from engine.playbook.models import LocationFallback, LocationInfo
 
 # Максимальная длина сохраняемой цитаты (для B3 anchor resolution).
 # Покрывает одно-два предложения или абзац — достаточно для fuzzy-матчинга.
 _MAX_LOCATION_QUOTE_CHARS: int = 500
+
+# R21: минимальная доля токенов цитаты, которые должны присутствовать
+# в context_text. Отсекает галлюцинированные LLM цитаты, пропускает
+# цитаты с мелкими расхождениями (края, пунктуация).
+_MIN_QUOTE_TOKEN_COVERAGE: float = 0.6
+
+# Пунктуация, срезаемая с краёв токена при R21-сравнении. После
+# normalize_text юникод-кавычки → " или ', тире → '-'; поэтому
+# здесь достаточно ASCII-набора + многоточие + backtick + dash.
+_TOKEN_EDGE_PUNCT: str = ".,;:!?()[]{}\"'-…`"
 
 logger = get_logger(__name__)
 
@@ -252,6 +263,51 @@ def _normalize_quote(value: Any) -> str | None:
     return cleaned or None
 
 
+def _strip_token_edges(token: str) -> str:
+    """
+    Удалить ведущую и замыкающую пунктуацию с токена.
+
+    Нужно, чтобы "текст" и "текст," сравнивались как один токен:
+    LLM и документ часто расходятся запятыми/точками/кавычками на
+    границах слов, и это не является расхождением цитаты.
+    """
+    return token.strip(_TOKEN_EDGE_PUNCT)
+
+
+def _quote_exists_in_context(quote: str, context_text: str) -> bool:
+    """
+    R21: проверяет, что хотя бы _MIN_QUOTE_TOKEN_COVERAGE токенов цитаты
+    присутствуют в context_text.
+
+    Контракт нормализации:
+    - normalize_text (тот же, что в citation_resolver B2) — единая
+      нормализация кавычек/тире/ё/NBSP/whitespace; гарантирует, что
+      R21 и B2 работают на одной "границе" текста;
+    - срез краевой пунктуации с токенов — компенсация расхождений
+      LLM↔источник по запятым/точкам/кавычкам на границах слов.
+
+    Coarse-проверка на галлюцинации LLM; точный span делает B2.
+    Язык-агностично для whitespace-разделённых языков (RU/EN и др.).
+    Сложность O(n + m).
+    """
+    if not quote or not context_text:
+        return False
+    q_tokens = [
+        _strip_token_edges(t) for t in normalize_text(quote).split()
+    ]
+    q_tokens = [t for t in q_tokens if t]
+    if not q_tokens:
+        return False
+    c_tokens = {
+        _strip_token_edges(t) for t in normalize_text(context_text).split()
+    }
+    c_tokens.discard("")
+    if not c_tokens:
+        return False
+    present = sum(1 for t in q_tokens if t in c_tokens)
+    return (present / len(q_tokens)) >= _MIN_QUOTE_TOKEN_COVERAGE
+
+
 def _normalize_clause_ref_display(value: Any) -> str | None:
     """
     Нормализовать LLM clause_ref для сохранения в LocationInfo.clause_ref.
@@ -329,6 +385,18 @@ def validate_location(
     clause_ref_display = _normalize_clause_ref_display(location.get("clause_ref"))
     page = _normalize_page(location.get("page"))
     quote_display = _normalize_quote(location.get("quote"))
+
+    # R21: если quote есть, но не найден в context_text — считаем его
+    # недостоверным. Заменяем на None до всех ветвлений, чтобы hallucinated
+    # цитата не попала ни в один LocationInfo.quote.
+    if quote_display is not None and not _quote_exists_in_context(
+        quote_display, context_text or ""
+    ):
+        logger.debug(
+            "validate_location: quote not found in context_text; dropping quote",
+            quote_preview=quote_display[:80],
+        )
+        quote_display = None
 
     if clause_ref_display is None and page is None and quote_display is None:
         logger.debug(

@@ -14,7 +14,9 @@ B2 Citation Resolver — deterministic quote-to-span resolution.
 
 Ступени (по плану):
 1. exact_span  — цитата найдена дословно после нормализации   (confidence=1.0)
-2. fuzzy_span  — token-level LCS ratio >= 0.75                (confidence = ratio)
+2. fuzzy_span  — минимальное окно, содержащее quote как
+                 подпоследовательность токенов; compactness
+                 = len(quote_tokens)/span_len_tokens       (confidence = compactness)
 3. clause_only — цитата не найдена, но есть fallback_clause_uid (confidence=0.5)
 4. page_only   — только fallback_page                         (confidence=0.3)
 5. none        — нет ни цитаты, ни fallback                   (confidence=0.0)
@@ -46,12 +48,17 @@ logger = get_logger(__name__)
 # на коротких клаузах, при этом отсекает однословные выбросы.
 _MIN_QUOTE_LEN = 8
 
-# Порог fuzzy token-level LCS ratio (см. план B2).
-_FUZZY_MIN_RATIO = 0.75
+# Минимальное число токенов в цитате для fuzzy-поиска.
+# Ниже — риск ложных срабатываний на служебных словах.
+_MIN_FUZZY_QUOTE_TOKENS = 3
 
-# При каком ratio fuzzy-совпадение считается "валидированным" (round-trip).
-# Exact всегда проходит; fuzzy с 0.85+ тоже считаем достаточно близким.
-_FUZZY_VALIDATED_RATIO = 0.85
+# Максимальное отношение span_len_tokens / quote_len_tokens для accept.
+# LLM может выбросить токены из середины цитаты — тогда span source
+# длиннее quote; ограничение отсекает "разбросанные" совпадения.
+_FUZZY_MAX_WINDOW_MULTIPLIER = 2.5
+
+# То же отношение для validation_passed (строже, чем accept).
+_FUZZY_VALIDATED_WINDOW_MULTIPLIER = 2.0
 
 # Разделитель между элементами при materialize_text_from_element_ids
 # (см. clause_tree_builder.ClauseTreeBuilder.materialize_text_from_element_ids).
@@ -114,30 +121,55 @@ def _exact_span(
     )
 
 
-def _token_lcs_ratio(a: list[str], b: list[str]) -> float:
+def _find_min_subsequence_window(
+    source_tokens: list[str],
+    quote_tokens: list[str],
+) -> tuple[int, int, int] | None:
     """
-    Доля LCS между двумя токен-списками: len(LCS) / max(len(a), len(b)).
+    Минимальное окно в source_tokens, содержащее quote_tokens как
+    подпоследовательность (порядок сохранён, пропуски допустимы).
 
-    Классический DP LCS. O(len(a) * len(b)).
+    Возвращает (span_len_tokens, start_idx, end_idx) или None, если
+    хотя бы один токен quote не найден в source.
+
+    Алгоритм: forward-greedy + backward-shrink со скользящим s.
+    Сложность O(n*m) worst-case, O(n) типично.
     """
-    if not a or not b:
-        return 0.0
+    m = len(quote_tokens)
+    n = len(source_tokens)
+    if m == 0 or n < m:
+        return None
 
-    n, m = len(a), len(b)
-    # Плоский DP: dp[i][j] = LCS(a[:i], b[:j])
-    prev = [0] * (m + 1)
-    curr = [0] * (m + 1)
+    best: tuple[int, int, int] | None = None
+    s = 0
+    while s <= n - m:
+        k = 0
+        e = -1
+        for i in range(s, n):
+            if source_tokens[i] == quote_tokens[k]:
+                k += 1
+                if k == m:
+                    e = i
+                    break
+        if e < 0:
+            break
 
-    for i in range(1, n + 1):
-        for j in range(1, m + 1):
-            if a[i - 1] == b[j - 1]:
-                curr[j] = prev[j - 1] + 1
-            else:
-                curr[j] = prev[j] if prev[j] >= curr[j - 1] else curr[j - 1]
-        prev, curr = curr, [0] * (m + 1)
+        k = m - 1
+        st = e
+        for j in range(e, s - 1, -1):
+            if source_tokens[j] == quote_tokens[k]:
+                k -= 1
+                if k < 0:
+                    st = j
+                    break
 
-    lcs_len = prev[m]
-    return lcs_len / max(n, m)
+        span_len = e - st + 1
+        if best is None or span_len < best[0]:
+            best = (span_len, st, e)
+
+        s = st + 1
+
+    return best
 
 
 def _tokenize_with_offsets(
@@ -169,50 +201,53 @@ def _fuzzy_span(
     source_text: str,
 ) -> tuple[int, int, float] | None:
     """
-    Fuzzy поиск через token-level LCS.
+    Fuzzy-поиск цитаты в source_text через минимальное окно,
+    содержащее quote как подпоследовательность токенов.
 
-    Ищем окно в source-токенах ровно длины len(quote_tokens),
-    максимизируя LCS ratio. Возвращаем (orig_start, orig_end, ratio).
+    Устойчив к типичному поведению LLM: выбрасыванию токенов из
+    середины цитаты (порядок сохраняется, добавлять токены LLM не может).
 
-    Возвращает None, если лучший ratio < _FUZZY_MIN_RATIO.
+    Возвращает (orig_start, orig_end, compactness):
+    - orig_start/orig_end — span в ОРИГИНАЛЕ source_text;
+    - compactness = len(quote_tokens) / span_len_tokens in (0, 1].
+
+    None — если:
+    - токенов в quote меньше _MIN_FUZZY_QUOTE_TOKENS,
+    - хотя бы один токен quote отсутствует в source (галлюцинация),
+    - минимальное окно превышает _FUZZY_MAX_WINDOW_MULTIPLIER * len(quote).
     """
     norm_quote = normalize_text(quote)
     quote_tokens = norm_quote.split()
-    if len(quote_tokens) < 3:
+    if len(quote_tokens) < _MIN_FUZZY_QUOTE_TOKENS:
         return None
 
     norm_source, idx_map = normalize_with_index_map(source_text)
     if not norm_source:
         return None
 
-    source_tokens = _tokenize_with_offsets(norm_source)
+    source_offsets = _tokenize_with_offsets(norm_source)
+    source_tokens = [t[0] for t in source_offsets]
     m = len(quote_tokens)
     n = len(source_tokens)
     if n < m:
         return None
 
-    best_ratio = 0.0
-    best_window: int | None = None
-
-    for i in range(n - m + 1):
-        window = [t[0] for t in source_tokens[i : i + m]]
-        ratio = _token_lcs_ratio(quote_tokens, window)
-        if ratio > best_ratio:
-            best_ratio = ratio
-            best_window = i
-
-    if best_ratio < _FUZZY_MIN_RATIO or best_window is None:
+    best = _find_min_subsequence_window(source_tokens, quote_tokens)
+    if best is None:
         return None
 
-    first = source_tokens[best_window]
-    last = source_tokens[best_window + m - 1]
+    span_len, start_idx, end_idx = best
+    if span_len > _FUZZY_MAX_WINDOW_MULTIPLIER * m:
+        return None
 
+    first = source_offsets[start_idx]
+    last = source_offsets[end_idx]
     span = _normalized_span_to_original(first[1], last[2], idx_map)
     if span is None:
         return None
 
-    orig_start, orig_end = span
-    return orig_start, orig_end, best_ratio
+    compactness = m / span_len
+    return span[0], span[1], compactness
 
 
 def _compute_element_offsets(
@@ -328,7 +363,8 @@ def resolve_quote_in_source(
 
     Ступени (в порядке приоритета):
     - exact_span  → confidence=1.0, anchor_validation_passed=True
-    - fuzzy_span  → confidence=ratio, anchor_validation_passed=ratio>=0.85
+    - fuzzy_span  → confidence=compactness,
+                    anchor_validation_passed=window_multiplier<=2.0
     - clause_only → confidence=0.5 (если fallback_clause_uid задан)
     - page_only   → confidence=0.3 (если fallback_page задан)
     - none        → confidence=0.0
@@ -350,6 +386,13 @@ def resolve_quote_in_source(
     source_text = source_text or ""
     quote_clean = (quote or "").strip()
     fallback_clause_uid_clean = (fallback_clause_uid or "").strip() or None
+    fallback_page_clean = (
+        fallback_page
+        if isinstance(fallback_page, int)
+        and not isinstance(fallback_page, bool)
+        and fallback_page >= 1
+        else None
+    )
 
     # Если caller не передал хеш и есть source_text — считаем сами.
     # Если source_text пуст — хеш не нужен, оставляем None.
@@ -373,13 +416,17 @@ def resolve_quote_in_source(
         else:
             fuzzy = _fuzzy_span(quote_clean, source_text)
             if fuzzy is not None:
-                f_start, f_end, ratio = fuzzy
+                f_start, f_end, compactness = fuzzy
                 span = (f_start, f_end)
                 method = CheckAnchorMethod.FUZZY_SPAN
-                confidence = round(ratio, 4)
+                confidence = round(compactness, 4)
+                window_multiplier = (
+                    (1.0 / compactness) if compactness > 0 else float("inf")
+                )
                 diagnostics["match"] = "fuzzy"
-                diagnostics["ratio"] = round(ratio, 4)
-                diagnostics["min_ratio"] = _FUZZY_MIN_RATIO
+                diagnostics["compactness"] = round(compactness, 4)
+                diagnostics["window_multiplier"] = round(window_multiplier, 4)
+                diagnostics["max_window_multiplier"] = _FUZZY_MAX_WINDOW_MULTIPLIER
 
     # ── Fallback chain: span найден? ─────────────────────────────────────
     if span is not None:
@@ -414,10 +461,11 @@ def resolve_quote_in_source(
         if method == CheckAnchorMethod.EXACT_SPAN:
             validation_passed = rt_exact
         else:
-            # fuzzy: считаем валидным, если ratio >= _FUZZY_VALIDATED_RATIO
-            # (exact-совпадение уже отфильтровано выше — здесь только fuzzy)
-            ratio = float(diagnostics.get("ratio", 0.0))
-            validation_passed = ratio >= _FUZZY_VALIDATED_RATIO or rt_exact
+            # fuzzy: считаем валидным, если окно достаточно плотное
+            wm = float(diagnostics.get("window_multiplier", float("inf")))
+            validation_passed = (
+                wm <= _FUZZY_VALIDATED_WINDOW_MULTIPLIER or rt_exact
+            )
 
         # quoted_text — берём реальный фрагмент source (не нормализованный)
         quoted_fragment = source_text[span_start:span_end]
@@ -428,6 +476,7 @@ def resolve_quote_in_source(
             span_start=span_start,
             span_end=span_end,
             source_content_hash=content_hash,
+            page=fallback_page_clean,
             layout_element_ids=element_ids,
             anchor_method=method,
             anchor_confidence=confidence,
