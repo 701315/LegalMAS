@@ -360,3 +360,43 @@ def test_detect_toc_block_coverage(name, elements, expected_detected, expected_e
             f"[{name}] end_index: expected {expected_end}, got {tb.end_index} "
             f"(reason={tb.reason}, start={tb.start_index})"
         )
+
+
+
+
+def test_page_artifacts_are_transparent_in_state_machine() -> None:
+    """
+    Page artifacts (одиночные цифры, "2 (16)", строки только из цифр
+    и пунктуации) между маркером ToC и первыми entries не должны:
+      - накручивать consecutive_noise,
+      - закрывать ToC преждевременно,
+      - попадать в end_index.
+
+    Регрессия B7.4: baseline случайно защищал от этого через score >= 2
+    ветку cluster-цикла; новый state machine потерял защиту, и ToC
+    закрывался на артефактах до первой реальной entry. Наблюдалось на
+    ~15 документах из 335 layouts.
+
+    Fix: _looks_like_page_artifact действует как transparent в ветке
+    TOC_CORE / TOC_SUSPENDED — состояние и счётчики не меняются.
+    """
+    from services.structure.toc_parser import detect_toc_block
+
+    elements = [
+        {"text": "1 СОДЕРЖАНИЕ", "page": 1},
+        {"text": "ПРИЛОЖЕНИЯ", "page": 1},
+        {"text": "ПРИЛОЖЕНИЕ № 9 ДОКУМЕНТЫ", "page": 1},
+        {"text": "8", "page": 1},          # page artifact
+        {"text": "2", "page": 1},          # page artifact
+        {"text": "1 ОПРЕДЕЛЕНИЯ............", "page": 1},
+        {"text": "2 ПРЕДМЕТ ДОГОВОРА............", "page": 1},
+        {"text": "3 ПОКУПНАЯ ЦЕНА............", "page": 1},
+        {"text": "4 ПОРЯДОК ПЕРЕДАЧИ............", "page": 1},
+    ]
+    block = detect_toc_block(elements)
+    assert block.detected is True, f"expected detected=True, got {block}"
+    assert block.end_index == 9, (
+        f"expected end_index=9 (все 4 entries захвачены, "
+        f"артефакты прозрачны), got end_index={block.end_index}"
+    )
+
