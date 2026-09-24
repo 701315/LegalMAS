@@ -305,7 +305,7 @@ def test_builder_demoted_rejected_score_gets_cap_049(monkeypatch: pytest.MonkeyP
     scored = _run_collect_single_candidate(
         monkeypatch,
         element_type="list_item",
-        parsed_uid="A",
+        parsed_uid="INVALID?",
         parsed_title="Not a numeric heading",
         score_result=score_result,
     )
@@ -548,4 +548,40 @@ def test_heading_quality_score_falls_back_to_structural_when_no_real_scores():
     assert result.low_confidence_ratio == pytest.approx(0.0, abs=0.0001)
 
 
-    
+@pytest.mark.parametrize("uid", ["A", "IV"])
+@pytest.mark.parametrize(
+    "status, score, expected",
+    [
+        (CandidateStatus.ACCEPTED, 0.90, "accepted"),
+        (CandidateStatus.AMBIGUOUS, 0.40, "ambiguous"),
+        (CandidateStatus.REJECTED, 0.20, "rejected"),
+    ],
+)
+def test_non_numeric_structural_uid_respects_scorer_decision(
+    monkeypatch: pytest.MonkeyPatch,
+    uid: str,
+    status: CandidateStatus,
+    score: float,
+    expected: str,
+):
+    result = HeadingScoreResult(
+        status=status,
+        score=score,
+        primary_reason="calibrated_scorer",
+    )
+    scored = _run_collect_single_candidate(
+        monkeypatch,
+        element_type="list_item",
+        parsed_uid=uid,
+        parsed_title="Synthetic heading",
+        score_result=result,
+    )
+
+    assert len(scored) == 1
+    candidate = scored[0]
+    assert candidate.decision == expected
+    if expected == "accepted":
+        assert candidate.reason == "list_item_structural_heading"
+    else:
+        assert candidate.score < 0.65
+

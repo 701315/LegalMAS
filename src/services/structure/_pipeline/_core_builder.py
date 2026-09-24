@@ -1196,14 +1196,14 @@ def _filter_toc_zone_headings_when_body_headings_exist(
 ) -> tuple[list[Any], dict[str, Any]]:
     """
     Убрать accepted headings, источник которых лежит в in_toc зоне,
-    если в сегменте есть хотя бы один heading вне TOC.
+    если в сегменте есть подтверждённый heading в post_toc зоне.
 
     Это предотвращает materialization TOC-derived semantic headings
     вроде main_contract:7.1, которые загрязняют final semantic tree
     и retrieval corpus.
 
     Fallback policy:
-    - если все headings находятся только в TOC зоне, не фильтруем их,
+    - если после TOC нет подтверждённого heading, не фильтруем TOC,
       чтобы не терять полностью структуру при тяжёлом OCR / сложных документах.
     """
     if not headings:
@@ -1223,7 +1223,7 @@ def _filter_toc_zone_headings_when_body_headings_exist(
         return str(body_elements[elem_i].get("_preamble_zone") or "").strip().lower()
 
     non_toc_present = any(
-        _heading_source_zone(h) != "in_toc"
+        _heading_source_zone(h) == "post_toc"
         for h in headings
     )
 
