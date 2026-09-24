@@ -274,7 +274,9 @@ CASES = [
             body("(1) Настоящий Договор заключен...", 3),
         ],
         True,
-        18,  # ToC заканчивается перед body heading на стр. 3 (idx 18)
+        16,  # ToC = marker(idx 3) + entries(idx 4-15). end = last_entry + 1 = 16.
+             # idx 16 (artifact) и idx 17 (body heading) — не ToC entries,
+             # правильно классифицируются как post_toc через _preamble_zone.
     ),
 
     # 15. ToC с пустыми строками внутри
@@ -339,39 +341,8 @@ CASES = [
 ]
 
 
-# Целевое поведение detect_toc_block, которое baseline v6.1 НЕ даёт.
-# Требует B7.3 (граница ToC = last_entry_i + 1) + B7.4 (State Machine +
-# расширенный entry-критерий для ToC без page_hint).
-#
-# Baseline v6.1 показывает:
-#   - ToC без page_hint не распознаётся вообще (21% документов в dev —
-#     72 из 335 layout-файлов);
-#   - граница ToC-body обрезается позже body-heading (посторонние
-#     элементы поглощаются как continuation);
-#   - маркер "1 СОДЕРЖАНИЕ" не распознаётся.
-#
-# После B7.3+B7.4 эти xfail снимаются. Файл — регрессионный щит для
-# детектора, фиксирующий целевое поведение.
-KNOWN_LIMITATIONS_B73_B74 = {
-    # B7.3: граница ToC = last_entry_i + 1
-    "simple_toc_page_1",
-    "toc_after_title_page",
-    "toc_across_two_pages",
-    "toc_with_md_table_gap",
-    "toc_without_dot_leader",
-    "toc_multiline_entries",
-    "short_toc_3_entries",
-    "long_toc_20_entries",
-    "toc_english",
-    "toc_with_large_gap",
-    "toc_with_empty_strings",
-    "toc_uid_duplicated_in_body",
-    "toc_english_no_dots",
-    # B7.4: State Machine + entry без page_hint
-    "toc_without_page_hint",
-    "title_toc_body_realistic",
-}
-
+# Все 18 кейсов проходят после B7.4 (State Machine + extended entry/marker).
+# Файл — регрессионный щит для детектора.
 
 @pytest.mark.parametrize(
     "name,elements,expected_detected,expected_end",
@@ -379,12 +350,6 @@ KNOWN_LIMITATIONS_B73_B74 = {
     ids=[c[0] for c in CASES],
 )
 def test_detect_toc_block_coverage(name, elements, expected_detected, expected_end):
-    if name in KNOWN_LIMITATIONS_B73_B74:
-        pytest.xfail(
-            "B7.3/B7.4: detect_toc_block не даёт целевое поведение "
-            "(граница ToC-body + entry без page_hint). См. handover v7.2."
-        )
-
     tb = detect_toc_block(elements)
     assert tb.detected == expected_detected, (
         f"[{name}] detected: expected {expected_detected}, got {tb.detected} "

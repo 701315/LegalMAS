@@ -42,12 +42,32 @@ _TOC_MAX_CONSECUTIVE_NOISE = 2
 
 _TOC_MARKERS = frozenset(
     {
+        # EN
         "table of contents",
         "contents",
+        "index",
+        # RU
         "содержание",
         "оглавление",
+        # DE
+        "inhaltsverzeichnis",
+        # FR
+        "sommaire",
+        "table des matières",
+        # ES
+        "índice",
+        "contenido",
+        "tabla de contenido",
+        # PT
+        "sumário",
+        "índice geral",
     }
 )
+
+_TOC_MARKER_STRIP_RE = re.compile(
+    r"^(?:[\d]+(?:\.[\d]+)*|[IVXLCDMivxlcdm]+|[Гг]лава\s*\d+|[Ss]ection\s*\d+|[Aa]rticle\s*\d+)[\s.)\]\-]*"
+)
+_TOC_MARKER_TRAIL_RE = re.compile(r"[.:;\s]+$")
 
 _DOT_LEADER_RE = re.compile(r"(?:\.{3,}|·{3,}|•{3,}|…{2,})")
 _PAGE_HINT_RE = re.compile(
@@ -278,8 +298,14 @@ def _normalize_toc_title(title: str) -> str:
 def _is_likely_toc_marker(text: str) -> bool:
     """
     Проверяет, выглядит ли строка как явный TOC marker.
+    Поддерживает мультиязычные маркеры и префиксы: "1. Содержание", "Глава 1. Contents".
     """
-    return _normalize_toc_text(text).lower() in _TOC_MARKERS
+    t = _normalize_toc_text(text).lower().strip()
+    if t in _TOC_MARKERS:
+        return True
+    stripped = _TOC_MARKER_STRIP_RE.sub("", t)
+    stripped = _TOC_MARKER_TRAIL_RE.sub("", stripped).strip()
+    return stripped in _TOC_MARKERS
 
 
 def _looks_like_appendix_uid(uid: str | None) -> bool:
@@ -340,7 +366,12 @@ def _looks_substantive_toc_false_positive_text(text: str) -> bool:
         return True
 
     if ":" in t and not has_dot_leader:
-        return True
+        parsed = parse_raw_heading(t)
+        if parsed is None:
+            return True
+        _, title = parsed
+        if len(title.split()) > 12 or len(title) > 90:
+            return True
 
     if t.endswith((".", ";")) and word_count >= 8 and not has_dot_leader:
         return True
@@ -496,7 +527,7 @@ def _score_toc_like_line(text: str) -> int:
         score += 4
     elif _is_toc_tail_line(t):
         score += 3
-    elif _is_toc_continuation_line(t):
+    elif _is_toc_weak_start_line(t):
         score += 2
 
     text_wo_page, page_hint = _extract_page_hint(t)
@@ -514,19 +545,67 @@ def _score_toc_like_line(text: str) -> int:
     return score
 
 
+def _looks_like_page_artifact(text: str) -> bool:
+    """
+    Проверяет, похож ли текст на page artifact типа '2 (16)', '(15)', '3 12'.
+    Универсально: любые комбинации цифр, скобок, пробелов, точек — без букв.
+    """
+    t = _normalize_toc_text(text).strip()
+    if len(t) > 20:
+        return False
+    if re.match(r'^[\d\s().,\-]+$', t):
+        return True
+    return False
+
+
+def _is_toc_entry_v2(
+    text: str,
+    *,
+    has_page_hint_entries: bool,
+    has_marker: bool,
+    is_same_page: bool,
+) -> bool:
+    """
+    Универсальный критерий ToC-entry.
+
+    is_same_page: находится ли элемент на той же странице, где началось оглавление.
+    Если мы перешли на следующую страницу (is_same_page=False), мы запрещаем
+    слабым строкам без номеров страниц продолжать ToC, защищая тело документа.
+    """
+    # Строгие ToC-строки (с номерами страниц справа) принимаются всегда
+    if _is_likely_toc_entry_line(text):
+        return True
+    if _is_toc_tail_line(text):
+        return True
+
+    # Расширенные критерии (активны только если у ToC есть явный маркер)
+    if has_marker:
+        if _looks_like_page_artifact(text):
+            return False
+
+        # Если мы ушли на другую страницу — запрещаем слабые ToC-линии
+        if not is_same_page:
+            return False
+
+        # На той же странице ToC-маркера разрешаем мягкие ToC-линии (например, приложения)
+        if not has_page_hint_entries:
+            if _is_toc_weak_start_line(text):
+                return True
+            # Строка с dot-leader: "1 ОПРЕДЕЛЕНИЯ.........."
+            if _DOT_LEADER_RE.search(text):
+                t = _normalize_toc_text(text)
+                if not _looks_substantive_toc_false_positive_text(t):
+                    parsed = parse_raw_heading(t)
+                    if parsed is not None:
+                        uid, title = parsed
+                        if uid and len(title) <= 150:
+                            return True
+    return False
+
+
 def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
     """
-    Выделяет границы TOC блока на ранних страницах документа.
-
-    Стратегия:
-    1. Пытается найти явный TOC marker.
-    2. Если marker не найден — использует fallback по cluster-у TOC-like entries.
-    3. Возвращает TOCBlock с start/end индексами и исходным element slice.
-
-    Важно:
-    - функция не парсит отдельные entries;
-    - функция не решает вопрос reliability;
-    - функция не выполняет fuzzy matching.
+    Выделяет границы TOC блока на ранних страницах документа через State Machine.
     """
     if not elements:
         return TOCBlock(
@@ -555,61 +634,123 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
             elements=[],
         )
 
-    start_index: int | None = None
+    # Ищем явный маркер ToC
+    marker_index: int | None = None
     for i in early_indexes:
         text = _normalize_toc_text(str(elements[i].get("text") or ""))
         if _is_likely_toc_marker(text):
-            start_index = i
+            marker_index = i
             break
 
-    if start_index is not None:
-        end_index = start_index + 1
-        seen_toc_entry = False
-        consecutive_noise = 0
-        entry_like_count = 0
+    # ── State Machine ──────────────────────────────────────────────
+    state = "NOT_IN_TOC"
+    start_idx: int | None = marker_index
+    last_entry_idx: int | None = None
+    consecutive_noise = 0
+    has_page_hint_entries = False
+    entry_count = 0
+    cluster_score = 0
+    max_noise = _TOC_MAX_CONSECUTIVE_NOISE
 
-        for i in range(start_index + 1, len(elements)):
-            el = elements[i]
-            if _safe_page(el.get("page", 1), default=1) > page_threshold:
-                break
+    # Определяем страницу, на которой начался ToC (для правила страниц)
+    start_page = first_page
+    if marker_index is not None:
+        start_page = _safe_page(elements[marker_index].get("page", 1), default=1)
+        state = "TOC_CORE"
+        last_entry_idx = marker_index
+        scan_range = range(marker_index + 1, len(elements))
+    else:
+        scan_range = range(0, len(elements))
 
-            text = _normalize_toc_text(str(el.get("text") or ""))
-            if not text:
-                end_index = i + 1
-                continue
+    for i in scan_range:
+        el = elements[i]
+        el_page = _safe_page(el.get("page", 1), default=1)
+        if el_page > page_threshold:
+            break
 
-            score = _score_toc_like_line(text)
-            if score >= 2:
-                seen_toc_entry = True
-                if _is_likely_toc_entry_line(text) or _is_toc_tail_line(text):
-                    entry_like_count += 1
-                consecutive_noise = 0
-                end_index = i + 1
-                continue
+        text = _normalize_toc_text(str(el.get("text") or ""))
+        score = _score_toc_like_line(text)
+        
+        # Проверяем, находимся ли мы на той же странице, где начался ToC
+        is_same_page = (el_page == start_page)
 
-            if seen_toc_entry:
-                consecutive_noise += 1
-                if consecutive_noise <= _TOC_MAX_CONSECUTIVE_NOISE:
-                    end_index = i + 1
-                    continue
-                break
-
-        if not entry_like_count:
-            return TOCBlock(
-                detected=False,
-                start_index=None,
-                end_index=0,
-                reason="marker_without_entries",
-                elements=[],
-            )
-
-        return TOCBlock(
-            detected=True,
-            start_index=start_index,
-            end_index=end_index,
-            reason="marker_detected",
-            elements=elements[start_index:end_index],
+        is_entry = _is_toc_entry_v2(
+            text,
+            has_page_hint_entries=has_page_hint_entries,
+            has_marker=marker_index is not None,
+            is_same_page=is_same_page,
         )
+
+        if is_entry and _extract_page_hint(text)[1] is not None:
+            has_page_hint_entries = True
+
+        if state == "NOT_IN_TOC":
+            if score >= 3 or is_entry:
+                state = "TOC_CORE"
+                start_idx = i
+                start_page = el_page  # Фиксируем страницу старта кластера ToC
+                last_entry_idx = i
+                entry_count = 1 if is_entry else 0
+                cluster_score = score
+                consecutive_noise = 0
+
+        elif state in {"TOC_CORE", "TOC_SUSPENDED"}:
+            if is_entry:
+                state = "TOC_CORE"
+                last_entry_idx = i
+                entry_count += 1
+                cluster_score += score
+                consecutive_noise = 0
+            else:
+                consecutive_noise += 1
+                cluster_score += score
+                if consecutive_noise > max_noise:
+                    state = "CLOSED"
+                    break
+                state = "TOC_SUSPENDED"
+
+    # ── Финализация ────────────────────────────────────────────────
+    if start_idx is not None and last_entry_idx is not None:
+        is_valid = False
+        reason = ""
+
+        if marker_index is not None:
+            if entry_count > 0 or last_entry_idx > start_idx:
+                is_valid = True
+                reason = "marker_detected"
+            else:
+                reason = "marker_without_entries"
+        else:
+            if entry_count >= _TOC_MIN_CLUSTER_ENTRIES and cluster_score >= 10:
+                is_valid = True
+                reason = "toc_entry_cluster"
+            else:
+                reason = "not_detected"
+
+        if is_valid:
+            end_idx = last_entry_idx + 1
+            return TOCBlock(
+                detected=True,
+                start_index=start_idx,
+                end_index=end_idx,
+                reason=reason,
+                elements=elements[start_idx:end_idx],
+            )
+        return TOCBlock(
+            detected=False,
+            start_index=None,
+            end_index=0,
+            reason=reason if reason else "not_detected",
+            elements=[],
+        )
+
+    return TOCBlock(
+        detected=False,
+        start_index=None,
+        end_index=0,
+        reason="not_detected",
+        elements=[],
+    )
 
     cluster_start: int | None = None
     cluster_last: int | None = None
