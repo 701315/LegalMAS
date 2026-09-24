@@ -57,7 +57,6 @@ from ._utils import (
     _uid_depth,
 )
 import numpy as np
-import numpy as np
 
 logger = get_logger(__name__)
 
@@ -1061,8 +1060,6 @@ def collect_scored_heading_candidates(
         recovery_confidence = float(el_meta.get("recovery_confidence") or 0.0)
         marker_source = el_meta.get("marker_source") or ""
         
-        recovery_confidence = float(el_meta.get("recovery_confidence") or 0.0)
-        marker_source = el_meta.get("marker_source") or ""
         
         res = score_heading_candidate(
             uid=p_uid,
@@ -1080,9 +1077,6 @@ def collect_scored_heading_candidates(
             res.score = max(res.score, recovery_confidence)
             res.accept_reasons.append("spatial_recovery_high_confidence")
         
-        if marker_source == "spatial_recovery" and recovery_confidence >= 0.7:
-            res.score = max(res.score, recovery_confidence)
-            res.accept_reasons.append("spatial_recovery_high_confidence")
 
         decision = _status_to_decision(res.status)
         reason = _normalize_reject_reason(res.primary_reason)

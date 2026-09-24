@@ -37,8 +37,12 @@ from typing import Any
 from services.structure.heading_patterns import normalize_spaces, parse_raw_heading
 
 _TOC_MAX_PAGES = 5
-_TOC_MIN_CLUSTER_ENTRIES = 3
-_TOC_MAX_CONSECUTIVE_NOISE = 2
+# Согласовано с handover 5.6.8: MIN_ENTRIES = 2.
+# Более высокое значение (3) отклоняло короткие ToC без маркера.
+_TOC_MIN_CLUSTER_ENTRIES = 2
+# Согласовано с handover 5.6.8: K = 3 (gap tolerance).
+# Реальные документы содержат page artifacts / OCR-shift между ToC-строками.
+_TOC_MAX_CONSECUTIVE_NOISE = 3
 
 _TOC_MARKERS = frozenset(
     {
@@ -479,6 +483,16 @@ def _is_toc_weak_start_line(text: str) -> bool:
     """
     Строка может быть началом multiline TOC entry даже без page_hint,
     но только если она достаточно похожа на TOC-строку и не похожа на body.
+
+    Два структурных признака, отличающих ToC от body:
+
+    1. UID должен быть структурным (числовым или римским), а не синтетическим.
+       parse_raw_heading присваивает uid='S' любому ALL-CAPS заголовку без
+       числового маркера. Такой 'S' — признак body-heading, а не ToC-строки.
+
+    2. Dot-leader без uid и без page_hint — это OCR-обрыв body-параграфа
+       ("Настоящий Договор заключен между..."), а не ToC-строка. Настоящий
+       ToC-dot-leader всегда соседствует с uid или page_hint.
     """
     t = _normalize_toc_text(text)
     if not t:
@@ -487,16 +501,32 @@ def _is_toc_weak_start_line(text: str) -> bool:
     if _looks_substantive_toc_false_positive_text(t):
         return False
 
+    # Проверяем dot-leader через parse_raw_heading, чтобы отличить настоящий
+    # ToC-dot-leader от OCR-обрыва.
     if _DOT_LEADER_RE.search(t):
-        return True
+        parsed_for_leader = parse_raw_heading(t)
+        has_structural_uid = (
+            parsed_for_leader is not None
+            and parsed_for_leader[0]
+            and parsed_for_leader[0] != "S"
+            and not parsed_for_leader[0].startswith("S-")
+        )
+        has_page_hint = _extract_page_hint(t)[1] is not None
+        if has_structural_uid or has_page_hint:
+            return True
+        # Иначе — это OCR-обрыв, не weak_start.
 
     parsed = parse_raw_heading(t)
     if parsed is None:
         return False
 
     uid, title = parsed
+    # Синтетический uid от parse_raw_heading ('S', 'S-*') — не признак ToC.
+    if not uid or uid == "S" or uid.startswith("S-"):
+        return False
+
     title = normalize_spaces(title or "")
-    if not uid or not title:
+    if not title:
         return False
 
     if len(title.split()) > 14:
@@ -562,44 +592,48 @@ def _is_toc_entry_v2(
     text: str,
     *,
     has_page_hint_entries: bool,
-    has_marker: bool,
-    is_same_page: bool,
+    weak_chain_len: int,
+    chain_threshold: int = 2,
 ) -> bool:
     """
     Универсальный критерий ToC-entry.
 
-    is_same_page: находится ли элемент на той же странице, где началось оглавление.
-    Если мы перешли на следующую страницу (is_same_page=False), мы запрещаем
-    слабым строкам без номеров страниц продолжать ToC, защищая тело документа.
+    Контракты:
+    - artifact-строки ("2 (16)", "1.2.3.") отсекаются сразу, до strong criteria;
+    - strong criteria (dot-leader + page_hint, page_hint + uid) принимаются всегда;
+    - weak criteria (uid + короткий title без page_hint) активны только если
+      в ToC ещё нет строк с page_hint — иначе strong-сигнал считается достаточным;
+    - chain_threshold задаёт минимальную длину цепочки weak-строк:
+      1 — для marker-режима (маркер даёт контекст, одиночная weak-строка ок);
+      2 — для cluster-режима (защита от одиночных body headings).
+
+    has_page_hint_entries: True если в ToC уже найдена хотя бы одна строка
+    с page_hint. Заменяет старый параметр has_marker — это структурный сигнал,
+    а не лексический, и работает одинаково для marker- и cluster-режимов.
     """
-    # Строгие ToC-строки (с номерами страниц справа) принимаются всегда
+    if _looks_like_page_artifact(text):
+        return False
+
     if _is_likely_toc_entry_line(text):
         return True
     if _is_toc_tail_line(text):
         return True
 
-    # Расширенные критерии (активны только если у ToC есть явный маркер)
-    if has_marker:
-        if _looks_like_page_artifact(text):
-            return False
+    if has_page_hint_entries:
+        return False
 
-        # Если мы ушли на другую страницу — запрещаем слабые ToC-линии
-        if not is_same_page:
-            return False
+    if weak_chain_len >= chain_threshold and _is_toc_weak_start_line(text):
+        return True
 
-        # На той же странице ToC-маркера разрешаем мягкие ToC-линии (например, приложения)
-        if not has_page_hint_entries:
-            if _is_toc_weak_start_line(text):
-                return True
-            # Строка с dot-leader: "1 ОПРЕДЕЛЕНИЯ.........."
-            if _DOT_LEADER_RE.search(text):
-                t = _normalize_toc_text(text)
-                if not _looks_substantive_toc_false_positive_text(t):
-                    parsed = parse_raw_heading(t)
-                    if parsed is not None:
-                        uid, title = parsed
-                        if uid and len(title) <= 150:
-                            return True
+    if _DOT_LEADER_RE.search(text):
+        t = _normalize_toc_text(text)
+        if not _looks_substantive_toc_false_positive_text(t):
+            parsed = parse_raw_heading(t)
+            if parsed is not None:
+                uid, title = parsed
+                if uid and len(title) <= 150:
+                    return True
+
     return False
 
 
@@ -642,6 +676,45 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
             marker_index = i
             break
 
+
+    # ── Precompute weak chain lengths ──────────────────────────────
+    # Для каждой позиции считаем длину цепочки подряд идущих weak-строк
+    # (включая текущую). Reset на:
+    #   - маркере,
+    #   - substantive false positive (защита от body heading с uid,
+    #     например "8.1.5 ОТВЕТСТВЕННОСТЬ" — пока не закрыто полностью,
+    #     см. docs/PLAN_DETECTION_AND_ANCHORS.md B7.4.4),
+    #   - любой не-weak строке.
+    # Без precompute inline-подсчёт давал бы reset-баг «каждая вторая weak-строка».
+    weak_chain_len_arr: list[int] = [0] * len(elements)
+    _run = 0
+    for i in range(len(elements)):
+        el = elements[i]
+        el_page = _safe_page(el.get("page", 1), default=1)
+        if el_page > page_threshold:
+            # continue, а не break: не полагаемся на то, что elements
+            # отсортированы по page. Ограничение — только по page_threshold.
+            continue
+
+        text = _normalize_toc_text(str(el.get("text") or ""))
+
+        if _is_likely_toc_marker(text):
+            _run = 0
+            weak_chain_len_arr[i] = 0
+            continue
+
+        if _looks_substantive_toc_false_positive_text(text):
+            _run = 0
+            weak_chain_len_arr[i] = 0
+            continue
+
+        if _is_toc_weak_start_line(text):
+            _run += 1
+        else:
+            _run = 0
+        weak_chain_len_arr[i] = _run
+
+
     # ── State Machine ──────────────────────────────────────────────
     state = "NOT_IN_TOC"
     start_idx: int | None = marker_index
@@ -652,16 +725,18 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
     cluster_score = 0
     max_noise = _TOC_MAX_CONSECUTIVE_NOISE
 
-    # Определяем страницу, на которой начался ToC (для правила страниц)
-    start_page = first_page
+    # chain_threshold вычисляется один раз: маркер даёт контекст, поэтому
+    # одиночная weak-строка достаточна (1). В cluster-режиме без маркера
+    # требуем цепочку 2+ — иначе одиночный body heading с uid и коротким
+    # title может быть ошибочно принят за ToC-строку.
+    chain_threshold = 2
+
     if marker_index is not None:
-        start_page = _safe_page(elements[marker_index].get("page", 1), default=1)
         state = "TOC_CORE"
         last_entry_idx = marker_index
         scan_range = range(marker_index + 1, len(elements))
     else:
         scan_range = range(0, len(elements))
-
     for i in scan_range:
         el = elements[i]
         el_page = _safe_page(el.get("page", 1), default=1)
@@ -670,15 +745,12 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
 
         text = _normalize_toc_text(str(el.get("text") or ""))
         score = _score_toc_like_line(text)
-        
-        # Проверяем, находимся ли мы на той же странице, где начался ToC
-        is_same_page = (el_page == start_page)
 
         is_entry = _is_toc_entry_v2(
             text,
             has_page_hint_entries=has_page_hint_entries,
-            has_marker=marker_index is not None,
-            is_same_page=is_same_page,
+            weak_chain_len=weak_chain_len_arr[i],
+            chain_threshold=chain_threshold,
         )
 
         if is_entry and _extract_page_hint(text)[1] is not None:
@@ -688,7 +760,6 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
             if score >= 3 or is_entry:
                 state = "TOC_CORE"
                 start_idx = i
-                start_page = el_page  # Фиксируем страницу старта кластера ToC
                 last_entry_idx = i
                 entry_count = 1 if is_entry else 0
                 cluster_score = score
@@ -701,9 +772,24 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
                 entry_count += 1
                 cluster_score += score
                 consecutive_noise = 0
+            elif _looks_like_page_artifact(text):
+                # Page artifacts (одиночные цифры, "2 (16)", строки только
+                # из цифр и пунктуации) внутри ToC — это визуальные маркеры
+                # (номера страниц, колонтитулы), а не body-content и не
+                # настоящий шум. Они должны быть прозрачны для state machine:
+                #   - не накручивать consecutive_noise (иначе ToC закрывается
+                #     на "8" / "2" между маркером и первой entry),
+                #   - не двигать last_entry_idx (иначе end_index уезжает
+                #     на artifact),
+                #   - не менять state.
+                # Паттерн "transparent elements" — стандартный приём для
+                # state machine на зашумлённом входе.
+                pass
             else:
                 consecutive_noise += 1
-                cluster_score += score
+                # cluster_score += score  убрано намеренно:
+                # шум не должен раздувать cluster_score и позволять
+                # кластеру достичь порога за счёт не-entry строк.
                 if consecutive_noise > max_noise:
                     state = "CLOSED"
                     break
@@ -715,7 +801,11 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
         reason = ""
 
         if marker_index is not None:
-            if entry_count > 0 or last_entry_idx > start_idx:
+            # marker_index не сканируется (scan_range начинается с +1),
+            # поэтому last_entry_idx > start_idx возможен только если
+            # в цикле был хотя бы один is_entry=True, что уже увеличивает
+            # entry_count. Условие last_entry_idx > start_idx избыточно.
+            if entry_count > 0:
                 is_valid = True
                 reason = "marker_detected"
             else:
@@ -742,74 +832,6 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
             end_index=0,
             reason=reason if reason else "not_detected",
             elements=[],
-        )
-
-    return TOCBlock(
-        detected=False,
-        start_index=None,
-        end_index=0,
-        reason="not_detected",
-        elements=[],
-    )
-
-    cluster_start: int | None = None
-    cluster_last: int | None = None
-    cluster_score = 0
-    cluster_entry_like_count = 0
-    noise_run = 0
-
-    for i in early_indexes:
-        text = _normalize_toc_text(str(elements[i].get("text") or ""))
-        score = _score_toc_like_line(text)
-
-        if score >= 3:
-            if cluster_start is None:
-                cluster_start = i
-            cluster_last = i
-            cluster_score += score
-            if _is_likely_toc_entry_line(text) or _is_toc_tail_line(text):
-                cluster_entry_like_count += 1
-            noise_run = 0
-            continue
-
-        if cluster_start is not None and score >= 2 and noise_run < _TOC_MAX_CONSECUTIVE_NOISE:
-            cluster_last = i
-            cluster_score += score
-            noise_run += 1
-            continue
-
-        if (
-            cluster_start is not None
-            and cluster_last is not None
-            and cluster_entry_like_count >= _TOC_MIN_CLUSTER_ENTRIES
-            and cluster_score >= 10
-        ):
-            return TOCBlock(
-                detected=True,
-                start_index=cluster_start,
-                end_index=cluster_last + 1,
-                reason="toc_entry_cluster",
-                elements=elements[cluster_start : cluster_last + 1],
-            )
-
-        cluster_start = None
-        cluster_last = None
-        cluster_score = 0
-        cluster_entry_like_count = 0
-        noise_run = 0
-
-    if (
-        cluster_start is not None
-        and cluster_last is not None
-        and cluster_entry_like_count >= _TOC_MIN_CLUSTER_ENTRIES
-        and cluster_score >= 10
-    ):
-        return TOCBlock(
-            detected=True,
-            start_index=cluster_start,
-            end_index=cluster_last + 1,
-            reason="toc_entry_cluster_end",
-            elements=elements[cluster_start : cluster_last + 1],
         )
 
     return TOCBlock(
