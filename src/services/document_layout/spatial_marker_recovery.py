@@ -614,9 +614,66 @@ class SpatialMatcher:
     - Адаптивные пороги из DocumentFingerprint
     """
     
+    _MIN_ACCEPT_CONFIDENCE = 0.5
+
     def __init__(self, fingerprint: DocumentFingerprint):
         self.fingerprint = fingerprint
-    
+
+    def _is_spatially_compatible(
+        self,
+        atom: CanonicalAtom,
+        marker: OrphanMarker,
+        y_delta: float,
+    ) -> bool:
+        """Проверить геометрическую допустимость до расчёта качества пары."""
+        if atom.page != marker.page:
+            return False
+
+        atom_bbox = atom.bbox
+        marker_bbox = marker.bbox
+        if not atom_bbox or not marker_bbox:
+            return False
+        if len(atom_bbox) < 4 or len(marker_bbox) < 4:
+            return False
+
+        coords = (*atom_bbox[:4], *marker_bbox[:4], y_delta)
+        if not all(np.isfinite(value) for value in coords):
+            return False
+        if atom_bbox[2] < atom_bbox[0] or atom_bbox[3] < atom_bbox[1]:
+            return False
+        if marker_bbox[2] < marker_bbox[0] or marker_bbox[3] < marker_bbox[1]:
+            return False
+
+        # Для многострочного атома ориентируемся на начало блока,
+        # где должна находиться его первая строка.
+        max_y_delta = max(
+            2.0 * self.fingerprint.y_tolerance,
+            self.fingerprint.median_line_height,
+            marker.font_size,
+        )
+        if y_delta > max_y_delta:
+            return False
+
+        # Маркер должен быть слева от текста. Небольшое перекрытие
+        # допускает различия bbox между двумя экстракторами.
+        overlap_tolerance = max(
+            1.0,
+            0.25 * max(self.fingerprint.median_font_size, marker.font_size),
+        )
+        x_gap = atom_bbox[0] - marker_bbox[2]
+
+        if x_gap < -overlap_tolerance:
+            return False
+
+        # Ограничение выражено в размерах шрифта и строки документа,
+        # а не в абсолютных координатах или особенностях одного PDF.
+        max_x_gap = max(
+            6.0 * self.fingerprint.median_font_size,
+            6.0 * marker.font_size,
+            4.0 * self.fingerprint.median_line_height,
+        )
+        return x_gap <= max_x_gap
+
     def match(
         self,
         atoms: list[CanonicalAtom],
@@ -694,15 +751,25 @@ class SpatialMatcher:
             for local_atom_idx, (global_atom_idx, atom) in enumerate(page_atoms):
                 row: list[tuple[float, float, float, bool]] = []
                 for local_marker_idx, (global_marker_idx, marker) in enumerate(page_markers):
-                    y_delta = abs(atom.bbox[1] - marker.y_center) if atom.bbox else float('inf')
-                    x_gap = marker.x_center - (atom.bbox[0] if atom.bbox else 0)
-                    
-                    column_match = self._check_column_match(atom, marker)
-                    
-                    confidence = self._compute_match_confidence(
-                        atom, marker, y_delta, x_gap, column_match
+                    y_delta = (
+                        abs(atom.bbox[1] - marker.y_center)
+                        if atom.bbox else float("inf")
                     )
-                    
+                    # Положительный gap: правый край маркера левее начала текста.
+                    x_gap = (
+                        atom.bbox[0] - marker.bbox[2]
+                        if atom.bbox and marker.bbox else float("inf")
+                    )
+
+                    column_match = self._check_column_match(atom, marker)
+                    confidence = (
+                        self._compute_match_confidence(
+                            atom, marker, y_delta, x_gap, column_match
+                        )
+                        if self._is_spatially_compatible(atom, marker, y_delta)
+                        else 0.0
+                    )
+
                     row.append((confidence, y_delta, x_gap, column_match))
                 compatibility_matrix.append(row)
         
@@ -710,20 +777,24 @@ class SpatialMatcher:
             if n_page_atoms == 0 or n_page_markers == 0:
                 continue
             
-            cost_matrix = np.array([
-                [1.0 - cell[0] for cell in row]
-                for row in compatibility_matrix
-            ])
-            
             from scipy.optimize import linear_sum_assignment
-            
-            if n_page_atoms != n_page_markers:
-                max_dim = max(n_page_atoms, n_page_markers)
-                padded_cost = np.full((max_dim, max_dim), 1.0)
-                padded_cost[:n_page_atoms, :n_page_markers] = cost_matrix
-                row_ind, col_ind = linear_sum_assignment(padded_cost)
-            else:
-                row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+            # По одному dummy-столбцу на атом: любой атом может
+            # остаться без маркера даже при равном числе атомов и маркеров.
+            cost_matrix = np.full(
+                (n_page_atoms, n_page_markers + n_page_atoms),
+                1.0,
+                dtype=float,
+            )
+            for atom_idx, row in enumerate(compatibility_matrix):
+                for marker_idx, (confidence, _, _, _) in enumerate(row):
+                    cost_matrix[atom_idx, marker_idx] = (
+                        1.0 - confidence
+                        if confidence >= self._MIN_ACCEPT_CONFIDENCE
+                        else 2.0
+                    )
+
+            row_ind, col_ind = linear_sum_assignment(cost_matrix)
             
             # Собираем page-local matches
             for local_atom_idx, local_marker_idx in zip(row_ind, col_ind):
@@ -732,7 +803,7 @@ class SpatialMatcher:
                 
                 confidence, y_delta, x_gap, column_match = compatibility_matrix[local_atom_idx][local_marker_idx]
                 
-                if confidence < 0.5:
+                if confidence < self._MIN_ACCEPT_CONFIDENCE:
                     continue
                 
                 global_atom_idx, atom = page_atoms[local_atom_idx]
@@ -814,15 +885,11 @@ class SpatialMatcher:
         # Y-совпадение: экспоненциальное затухание от y_delta
         y_score = np.exp(-y_delta / (self.fingerprint.y_tolerance + 1e-6))
         
-        # X-совпадение: маркер должен быть слева, но не слишком далеко
-        if x_gap < 0:
-            x_score = 0.0  # Маркер справа от текста — неверно
-        elif x_gap < 50:
-            x_score = 1.0  # Оптимальный отступ
-        elif x_gap < 150:
-            x_score = 0.7  # Приемлемый отступ
-        else:
-            x_score = 0.3  # Слишком далеко
+        # Отрицательный gap в пределах допуска означает небольшое
+        # перекрытие bbox; больший конфликт уже отсечён hard-gate.
+        # У допустимой пары качество убывает с расстоянием до текста.
+        gap_scale = max(1.0, 3.0 * self.fingerprint.median_font_size)
+        x_score = float(np.exp(-max(0.0, x_gap) / gap_scale))
         
         # Column match бонус
         column_score = 1.0 if column_match else 0.5
@@ -835,7 +902,7 @@ class SpatialMatcher:
             0.1 * marker.confidence
         )
         
-        return round(min(1.0, max(0.0, confidence)), 3)
+        return round(float(min(1.0, max(0.0, confidence))), 3)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
