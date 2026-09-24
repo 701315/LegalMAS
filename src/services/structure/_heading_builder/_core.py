@@ -1128,7 +1128,8 @@ def collect_scored_heading_candidates(
             # Universal rule 1.5: Non-numeric structural headings (roman, alpha, caps)
             # Не влияет на числовые подпункты — они обрабатываются Правилом 2.
             elif (
-                _is_valid_non_numeric_heading_uid
+                decision == "accepted"
+                and _is_valid_non_numeric_heading_uid
                 and not _is_single_lowercase
                 and not _is_roman_lowercase
                 and len(raw_text) <= 160
