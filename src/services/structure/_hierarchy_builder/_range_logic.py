@@ -284,6 +284,21 @@ def _compute_own_range(
     if 0 <= heading_elem_i < len(elements):
         heading_zone = str(elements[heading_elem_i].get("_preamble_zone") or "").strip().lower()
 
+        # B7.2: heading в ToC-зоне с детьми — это маркер оглавления,
+        # а не начало клаузы. Его own_range = только сам элемент.
+        # Иначе ToC-строки попадают в own_element_ids/own_text, и legal_unit
+        # становится retrieval-target с неверной start_page (см. кейс
+        # quality_completeness_warranty: page=2 вместо page=6).
+        # Дочерние узлы (7.3.1..7.3.5) привязываются через subtree_element_ids
+        # и остаются retrievable независимо.
+        # Универсально: опирается на структурный _preamble_zone, не на язык.
+        if heading_zone in {"pre_toc", "in_toc"} and node.children:
+            return OwnRangeComputation(
+                start_elem_i=heading_elem_i,
+                end_elem_i=heading_elem_i + 1,
+                range_end_reason="toc_zone_heading_isolated",
+            )
+
         if heading_zone in {"pre_toc", "in_toc"}:
             for barrier_i in range(heading_elem_i + 1, len(elements)):
                 barrier_zone = str(elements[barrier_i].get("_preamble_zone") or "").strip().lower()

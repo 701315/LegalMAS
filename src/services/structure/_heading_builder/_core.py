@@ -678,6 +678,19 @@ def _global_signals_from_bundle(
     )
 
 
+def _is_toc_zone(meta: dict[str, Any] | None) -> bool:
+    """
+    B7.2: структурный сигнал, что элемент физически находится в ToC-зоне.
+
+    Опирается на _preamble_zone — вычисляется preamble classifier'ом
+    парсера (pre_toc / in_toc / post_toc). Не зависит от языка, типа
+    документа, формата. Используется, чтобы ToC-строка из оглавления
+    не трактовалась как тело клаузы.
+    """
+    zone = str((meta or {}).get("_preamble_zone") or "").strip().lower()
+    return zone in {"pre_toc", "in_toc"}
+
+
 def _scored_to_evidence_candidate(
     scored: ScoredHeadingCandidate,
 ) -> EvidenceHeadingCandidate | None:
@@ -716,7 +729,10 @@ def _scored_to_evidence_candidate(
         features=features,
         numbering=numbering,
         scope_type=scope_type,
-        is_toc_entry=bool(meta.get("possible_toc")) and bool(meta.get("strong_toc_confirmation")),
+        is_toc_entry=(
+            (bool(meta.get("possible_toc")) and bool(meta.get("strong_toc_confirmation")))
+            or _is_toc_zone(meta)
+        ),
         page_number=_safe_int(scored.page),
         evidence_refs=[],
     )
@@ -744,6 +760,8 @@ def _scored_to_heading_candidate(scored: ScoredHeadingCandidate) -> HeadingCandi
     toc_match_score = float(meta.get("toc_match_score") or 0.0)
     strong_toc = bool(meta.get("strong_toc_confirmation"))
     is_appendix_uid = bool(meta.get("is_appendix_uid"))
+    # B7.2: структурный сигнал — кандидат в ToC-зоне трактуется как ToC-entry
+    in_toc_zone = _is_toc_zone(meta)
 
     return HeadingCandidate(
         elem_i=_safe_int(scored.elem_i),
@@ -755,11 +773,11 @@ def _scored_to_heading_candidate(scored: ScoredHeadingCandidate) -> HeadingCandi
         effective_uid=str(meta.get("effective_uid") or ""),
         metadata=dict(meta),
         normalized_title=normalized_title,
-        toc_entry=strong_toc,
+        toc_entry=strong_toc or in_toc_zone,
         toc_match_type=toc_match_type or None,
         toc_match_score=toc_match_score if toc_match_score > 0 else None,
         is_appendix=is_appendix_uid,
-        is_toc_like=bool(meta.get("possible_toc")),
+        is_toc_like=bool(meta.get("possible_toc")) or in_toc_zone,
     )
 
 

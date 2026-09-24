@@ -25,6 +25,14 @@ def _candidate_priority_tuple(candidate: ScoredHeadingCandidate) -> tuple:
     status_weight = {"accepted": 2, "ambiguous": 1, "rejected": 0}.get(decision, 0)
 
     meta = candidate.metadata or {}
+
+    # B7.1: при коллизии uid (ToC-запись + реальный заголовок) Body-кандидат
+    # должен побеждать ToC. Опираемся на _preamble_zone — структурный сигнал,
+    # уже вычисляется парсером (pre_toc / in_toc / post_toc). Не зависит от
+    # языка, типа документа, уровня вложенности uid.
+    zone = str(meta.get("_preamble_zone") or "").strip().lower()
+    in_body_priority = 0 if zone in {"in_toc", "pre_toc"} else 1
+
     t_type = normalize_spaces(str(meta.get("toc_match_type") or "")).lower()
     t_score = _safe_float(meta.get("toc_match_score"))
 
@@ -44,6 +52,7 @@ def _candidate_priority_tuple(candidate: ScoredHeadingCandidate) -> tuple:
     letters = sum(ch.isalpha() for ch in title)
 
     return (
+        in_body_priority,
         status_weight,
         toc_priority,
         bilingual_priority,
