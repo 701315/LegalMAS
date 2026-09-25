@@ -1392,6 +1392,13 @@ def _build_cell_value(
     # - location_confidence := "medium" (less granular than per_field)
     if location_source == "none":
         check_result_page = _safe_int_or_none(check_result.get("page"))
+        # Structural markers (__preamble__, scope:__metadata__) are internal
+        # segment identifiers, not user-facing clause references. A page alone,
+        # without a real clause anchor, is misleading: viewer would show
+        # "p. 2" pointing at nothing specific. Drop both.
+        if _is_structural_marker(location_clause_uid):
+            check_result_page = None
+            location_clause_uid = None
         has_canonical_anchor = (
             check_result_page is not None or location_clause_uid is not None
         )

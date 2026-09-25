@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import pytest
 
+from engine.checks.dd_grid_column_builder import DDGridColumnRuntime
+from engine.playbook.models import CheckDefinition
 from services.dd_grid_v1_builder import (
+    _build_cell_value,
     _is_structural_marker,
     _normalize_location_bundle,
 )
@@ -113,4 +116,100 @@ def test_normalize_english_prefix_localization():
     assert confidence == "high"
 
 
-    
+# ── B7.9.3: canonical_check должен игнорировать structural markers ──────────
+
+
+def _make_cell_check() -> CheckDefinition:
+    """Минимальный check для тестов _build_cell_value."""
+    return CheckDefinition(
+        id="test_check",
+        name="Test Check",
+        ui_mode="field_extraction",
+    )
+
+
+def _make_cell_column() -> DDGridColumnRuntime:
+    """Минимальная runtime-колонка для тестов _build_cell_value."""
+    return DDGridColumnRuntime(
+        column_id="test_check__value",
+        label="Value",
+        value_field="test_value",
+        status_field=None,
+        status_present_value=None,
+        format="text",
+        fallback_display="\u2014",
+        display_order=0,
+    )
+
+
+def _make_check_result(*, clause_uid: str | None, page: int | None) -> dict:
+    return {
+        "clause_uid": clause_uid,
+        "page": page,
+        "review_status": "no_issue_detected",
+        "execution_status": "SUCCESS",
+        "structured_data": {
+            "test_value": {"value": "some_value", "found": True},
+        },
+    }
+
+
+def test_canonical_check_skipped_for_scoped_preamble():
+    """B7.9.3: canonical_check не активируется для scope:__preamble__.
+
+    Regression: UI показывал "p. 2" без clause_ref (misleading reference).
+    """
+    cell = _build_cell_value(
+        check=_make_cell_check(),
+        check_result=_make_check_result(
+            clause_uid="main_contract:__preamble__",
+            page=2,
+        ),
+        column=_make_cell_column(),
+        plan_status="succeeded",
+    )
+
+    assert cell.location_source == "none"
+    assert cell.location_page is None
+    assert cell.location_clause_ref is None
+    assert cell.location_clause_uid is None
+
+
+def test_canonical_check_skipped_for_bare_preamble():
+    """B7.9.3: bare __preamble__ тоже не активирует canonical_check."""
+    cell = _build_cell_value(
+        check=_make_cell_check(),
+        check_result=_make_check_result(
+            clause_uid="__preamble__",
+            page=2,
+        ),
+        column=_make_cell_column(),
+        plan_status="succeeded",
+    )
+
+    assert cell.location_source == "none"
+    assert cell.location_page is None
+    assert cell.location_clause_ref is None
+    assert cell.location_clause_uid is None
+
+
+def test_canonical_check_active_for_valid_uid():
+    """B7.9.3 regression: валидный uid работает как раньше.
+
+    Valid uid (main_contract:8) — не structural marker — canonical_check
+    активируется как до правки.
+    """
+    cell = _build_cell_value(
+        check=_make_cell_check(),
+        check_result=_make_check_result(
+            clause_uid="main_contract:8",
+            page=6,
+        ),
+        column=_make_cell_column(),
+        plan_status="succeeded",
+    )
+
+    assert cell.location_source == "canonical_check"
+    assert cell.location_page == 6
+    assert cell.location_clause_ref == "\u043f. 8"
+    assert cell.location_clause_uid == "main_contract:8"
