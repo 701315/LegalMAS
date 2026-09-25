@@ -1,7 +1,7 @@
 # PLAN: Detection Audit + Anchor Refactoring
 
 > ⚠️ **Исторический план до 2026-09-21.**
-> Актуальное состояние на 2026-09-25 → см. `docs/HANDOVER_v7.3.md`.
+> Актуальное состояние на 2026-09-25 → см. `docs/HANDOVER_v7.3.md` (v7.3.2).
 > Ниже — как было на master HEAD `7c01e38`. Не для старта новых работ.
 
 **Source:** полный план согласован в диалоге, v2.0 (consolidated)
@@ -265,6 +265,8 @@ tail -30 /home/steloom/dev-logs/worker-checks.log
 - B7.5 — Spatial matcher geometric hard-gate.
 - B7.6 — ToC-zone heading filter (== "post_toc").
 - B7.9 — structural markers drop page (continuation of B1.1: scope-prefixed main_contract:__preamble__).
+- B7.9.1 — drop structural-marker base_location из location_fallback (`_resolve_field_location_bundle`).
+- B7.9.3 — canonical_check skips structural-marker anchors (`_build_cell_value`, блок Priority 4).
 
 ### Track B, пункты B3/B4/B5 из этого документа
 
