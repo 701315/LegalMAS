@@ -28,51 +28,39 @@ rules:
 
   keywords:
     high:
-      # Прямые R&W формулировки
       - "(?i)represents?\\s+and\\s+warrants?"
       - "(?i)заверя[ею]т\\s+и\\s+гарантиру[ею]т"
       - "(?i)representations?\\s+and\\s+warranties"
       - "(?i)заверени[яи]\\s+и\\s+гарантии"
       - "(?i)\\bR&W\\b"
-
-      # Статус и существование
       - "(?i)duly\\s+(organized|incorporated|formed)"
       - "(?i)validly\\s+existing"
       - "(?i)good\\s+standing"
       - "(?i)надлежащим\\s+образом\\s+(учрежден|создан|зарегистрирован)"
-
-      # Полномочия
       - "(?i)duly\\s+authorized"
       - "(?i)full\\s+(corporate\\s+)?(power|authority)"
       - "(?i)valid\\s+and\\s+binding\\s+obligation"
       - "(?i)enforceable\\s+against"
       - "(?i)надлежащ[а-я]+\\s+уполномочен"
       - "(?i)полномочи[яи]\\s+на\\s+заключени[ея]"
-
-      # Title / право собственности
       - "(?i)good\\s+and\\s+marketable\\s+title"
       - "(?i)clear\\s+title"
       - "(?i)free\\s+and\\s+clear"
       - "(?i)право\\s+собственности[\\s\\S]{0,30}свободн"
       - "(?i)свободн[оа]\\s+от\\s+обременени[йя]"
       - "(?i)без\\s+залогов\\s+и\\s+обременени[йя]"
-
-      # No conflict
       - "(?i)no\\s+conflict"
       - "(?i)will\\s+not\\s+conflict"
       - "(?i)does\\s+not\\s+violate"
       - "(?i)отсутстви[ея]\\s+конфликт[ао]"
       - "(?i)не\\s+противоречит"
       - "(?i)не\\s+нарушает\\s+(устав|договор|законодательств)"
-
-      # Compliance with laws (general)
       - "(?i)compliance\\s+with\\s+(all\\s+)?applicable\\s+(laws?|legislation)"
       - "(?i)no\\s+material\\s+violation"
       - "(?i)соответств[а-я]+\\s+применим[а-я]+\\s+(прав|законодательств)"
       - "(?i)отсутстви[ея]\\s+существенн[а-я]+\\s+нарушени[йя]"
 
     medium:
-      # Общие R&W термины
       - "(?i)represents?"
       - "(?i)warrants?"
       - "(?i)заверя[ею]т"
@@ -81,24 +69,16 @@ rules:
       - "(?i)warranty"
       - "(?i)заверени[ея]"
       - "(?i)гаранти[яию]"
-
-      # Knowledge qualifiers
       - "(?i)to\\s+the\\s+(best\\s+of\\s+)?(its?|seller'?s?)\\s+knowledge"
       - "(?i)по\\s+(наилучшему\\s+)?сведени[яиям]"
       - "(?i)насколько\\s+известно"
       - "(?i)so\\s+far\\s+as\\s+[\\s\\S]{0,20}(aware|known)"
-
-      # Materiality qualifiers
       - "(?i)in\\s+all\\s+material\\s+respects"
       - "(?i)во\\s+всех\\s+существенных\\s+отношениях"
       - "(?i)material(ly)?"
-
-      # Disclosed exceptions
       - "(?i)except\\s+as\\s+disclosed"
       - "(?i)за\\s+исключением\\s+раскрыт"
       - "(?i)other\\s+than\\s+as\\s+set\\s+forth"
-
-      # Обременения
       - "(?i)encumbrance"
       - "(?i)lien"
       - "(?i)security\\s+interest"
@@ -208,33 +188,38 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1150
+  llm_max_tokens: 1350
+
+  presence_signal:
+    field: "rw_fundamental_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и договорным заверениям.
     Твоя задача — точно извлечь наличие и качество
     фундаментальных R&W:
-    1) статус и существование компании;
-    2) полномочия на заключение договора;
-    3) право собственности (title);
-    4) отсутствие конфликтов;
-    5) соответствие применимым законам (general).
+    1) есть ли в договоре регулирование по теме фундаментальных R&W;
+    2) если есть — какие заверения установлены:
+       - статус и существование компании;
+       - полномочия на заключение договора;
+       - право собственности (title);
+       - отсутствие конфликтов;
+       - соответствие применимым законам (general);
+       - qualifiers (knowledge, materiality, disclosed exceptions).
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ додумывай заверения, если их нет явно.
     - НЕ смешивай фундаментальные R&W со специальными
       (налоги, санкции, споры, IP).
-    - Если поле нельзя надёжно заполнить — используй
-      "missing" или "unclear" согласно allowed_values.
+    - Если раздел о фундаментальных R&W в договоре отсутствует —
+      rw_fundamental_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      rw_fundamental_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -246,11 +231,24 @@ extraction:
       и authority) — нестандартно, фиксируй как "yes".
     - Materiality qualifier "excessive" — если он размывает ключевые
       R&W (title, authority, status) без стандартных оговорок.
+    - Если ни один фрагмент не содержит информации о фундаментальных
+      R&W (нет упоминаний represents and warrants / duly organized /
+      authority / title / no conflict / compliance) —
+      rw_fundamental_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - rw_fundamental_display
+    - rw_fundamental_status
     - rw_status_existence
     - rw_authority
     - rw_title
@@ -262,7 +260,61 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля rw_fundamental_display и reason
+      location ВСЕГДА null.
+    - Для rw_fundamental_status = "missing" — location = null.
+    - Для rw_fundamental_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для rw_status_existence, rw_authority, rw_title, rw_no_conflicts,
+      rw_compliance:
+      * если "present" — quote с фразой-заверением;
+      * если "missing" — различай: прямое исключение (quote
+        обязательна) vs отсутствие упоминания (location = null);
+      * если "unclear" — location = null.
+    - Для has_knowledge_qualifiers, has_materiality_qualifiers,
+      has_disclosed_exceptions:
+      * если значение определённое — quote с фразой-основанием;
+      * если "no" / "none" — различай: прямое исключение vs
+        отсутствие упоминания;
+      * если "unclear" — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ФУНДАМЕНТАЛЬНЫХ R&W
+
+    Заполни "rw_fundamental_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное signal-поле
+      указывает на наличие информации по теме:
+      * rw_status_existence = "present";
+      * rw_authority = "present";
+      * rw_title = "present";
+      * rw_no_conflicts = "present";
+      * rw_compliance = "present";
+      * has_knowledge_qualifiers = "yes";
+      * has_materiality_qualifiers ∈ {"excessive", "standard"};
+      * has_disclosed_exceptions = "yes";
+      * ЛИБО любое поле = "missing" / "no" / "none", но с заполненным
+        location с прямой цитатой (см. RF3).
+    - "missing" — если все содержательные поля = "missing" / "no" /
+      "none" БЕЗ цитат, ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — СТАТУС И СУЩЕСТВОВАНИЕ
 
     Заполни "rw_status_existence".
@@ -355,23 +407,17 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Всё присутствует:
-       "Фундаментальные R&W полные: статус, полномочия, title, no conflict, compliance"
-    2. Часть отсутствует:
-       "Отсутствуют: title; no conflict; остальные есть"
-    3. Есть нестандартные qualifiers:
-       "Фундаментальные R&W полные; knowledge qualifiers на title"
-    4. Не удалось определить:
-       "Не удалось определить фундаментальные R&W"
-
     Правила:
+    - Если rw_fundamental_status = "missing":
+      "Отсутствуют: статус, полномочия, title, no conflict, compliance"
     - Если все поля unclear:
       "Не удалось определить фундаментальные R&W"
     - Если все 5 = "present":
       "Фундаментальные R&W полные: статус, полномочия, title, no conflict, compliance"
       * если has_knowledge_qualifiers = "yes":
         добавь "; knowledge qualifiers на фундаментальных R&W"
+      * если has_materiality_qualifiers = "excessive":
+        добавь "; excessive materiality qualifiers"
     - Если есть отсутствующие:
       * перечисли missing через "; ":
         "Отсутствуют: {список missing}"
@@ -390,48 +436,68 @@ extraction:
 
     <edge_cases>
     - Только status и authority, нет title и no conflict:
+      * rw_fundamental_status = "present"
       * rw_title = "missing"
       * rw_no_conflicts = "missing"
 
     - Knowledge qualifier на title:
+      * rw_fundamental_status = "present"
       * rw_title = "present"
       * has_knowledge_qualifiers = "yes"
 
     - "Except as disclosed in the Disclosure Schedule":
+      * rw_fundamental_status = "present"
       * has_disclosed_exceptions = "yes"
 
-    - Нет ни одного R&W:
-      * все = "missing"
+    - Договор прямо фиксирует отсутствие фундаментальных R&W:
+      * rw_fundamental_status = "present"
+      * rw_status_existence = "missing"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел о фундаментальных R&W
+      в договоре отсутствует:
+      * rw_fundamental_status = "missing"
+      * rw_status_existence = "missing"
+      * rw_authority = "missing"
+      * rw_title = "missing"
+      * rw_no_conflicts = "missing"
+      * rw_compliance = "missing"
+      * has_knowledge_qualifiers = "no"
+      * has_materiality_qualifiers = "none"
+      * has_disclosed_exceptions = "no"
       * rw_fundamental_display =
         "Отсутствуют: статус, полномочия, title, no conflict, compliance"
+      * location у всех полей = null.
 
-    - Нет релевантных фрагментов:
-      * все = "unclear"
-      * rw_fundamental_display =
-        "Не удалось определить фундаментальные R&W"
+    - Формулировки есть, но вывод невозможен:
+      * rw_fundamental_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля (rw_fundamental_display, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (rw_fundamental_display, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "rw_fundamental_display": "Фундаментальные R&W полные: статус, полномочия, title, no conflict, compliance",
-      "rw_status_existence": "present",
-      "rw_authority": "present",
-      "rw_title": "present",
-      "rw_no_conflicts": "present",
-      "rw_compliance": "present",
-      "has_knowledge_qualifiers": "no",
-      "has_materiality_qualifiers": "standard",
-      "has_disclosed_exceptions": "yes",
-      "reason": "..."
+      "rw_fundamental_display": {"value": "Фундаментальные R&W полные: статус, полномочия, title, no conflict, compliance", "confidence": 0.92, "location": null},
+      "rw_fundamental_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 3.1", "page": 2, "quote": "The Seller represents and warrants that the Company is duly organized and validly existing"}},
+      "rw_status_existence": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 3.1", "page": 2, "quote": "the Company is duly organized and validly existing"}},
+      "rw_authority": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 3.2", "page": 2, "quote": "The Seller has full power and authority to enter into this Agreement"}},
+      "rw_title": {"value": "present", "confidence": 0.90, "location": {"clause_ref": "п. 3.5", "page": 3, "quote": "good and marketable title, free and clear of all encumbrances"}},
+      "rw_no_conflicts": {"value": "present", "confidence": 0.90, "location": {"clause_ref": "п. 3.4", "page": 3, "quote": "does not violate the charter documents or any material contract"}},
+      "rw_compliance": {"value": "present", "confidence": 0.85, "location": {"clause_ref": "п. 3.7", "page": 3, "quote": "no material violation of applicable laws"}},
+      "has_knowledge_qualifiers": {"value": "no", "confidence": 0.85, "location": null},
+      "has_materiality_qualifiers": {"value": "standard", "confidence": 0.80, "location": null},
+      "has_disclosed_exceptions": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 3.1", "page": 2, "quote": "except as disclosed in the Disclosure Schedule"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -444,9 +510,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "rw_fundamental_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования фундаментальных R&W в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "rw_status_existence"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Статус и существование компании"
       allowed_values:
         - "present"
@@ -457,6 +535,7 @@ extraction:
     - name: "rw_authority"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Полномочия"
       allowed_values:
         - "present"
@@ -467,6 +546,7 @@ extraction:
     - name: "rw_title"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Право собственности (title)"
       allowed_values:
         - "present"
@@ -477,6 +557,7 @@ extraction:
     - name: "rw_no_conflicts"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Отсутствие конфликтов"
       allowed_values:
         - "present"
@@ -487,6 +568,7 @@ extraction:
     - name: "rw_compliance"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Соответствие применимым законам (general)"
       allowed_values:
         - "present"
@@ -497,6 +579,7 @@ extraction:
     - name: "has_knowledge_qualifiers"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Knowledge qualifiers на фундаментальных R&W"
       allowed_values:
         - "yes"
@@ -507,6 +590,7 @@ extraction:
     - name: "has_materiality_qualifiers"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Materiality qualifiers"
       allowed_values:
         - "excessive"
@@ -518,6 +602,7 @@ extraction:
     - name: "has_disclosed_exceptions"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Disclosed exceptions (Disclosure Schedule)"
       allowed_values:
         - "yes"

@@ -189,8 +189,18 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1100
-  
+  llm_max_tokens: 1300
+
+  # Presence gate: governing_law_and_forum_status агрегирует наличие
+  # хотя бы одного из двух положений (применимое право / форум).
+  # present -> pass, missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = allowed_values.
+  presence_signal:
+    field: "governing_law_and_forum_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по международным контрактам и разрешению споров.
@@ -205,10 +215,11 @@ extraction:
       языку договора, валюте, месту подписания, адресам сторон,
       месту исполнения.
     - НЕ смешивай применимое право и форум разрешения споров.
-    - Если информация отсутствует — используй "missing" или "unclear"
-      согласно allowed_values, а для *_value возвращай пустую строку.
-    - Если текст неоднозначен или содержит противоречия —
-      используй "unclear".
+    - Если тема применимого права и форума в договоре вообще
+      не раскрыта — для governing_law_status и dispute_forum_status
+      ставь "missing", для *_value возвращай пустую строку,
+      для governing_law_and_forum_status — "missing".
+    - Если информация неоднозначна — используй "unclear".
 
     Детальный анализ сроков и механики досудебного порядка
     выполняется отдельным чеком limitation_periods_and_pre_claim_procedures.
@@ -216,25 +227,32 @@ extraction:
     выполняются отдельным чеком dispute_resolution_procedure_details.
     </role>
 
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если фрагменты противоречат друг другу — используй "unclear"
+      и объясни это в reason.
+    - Если оговорка о праве / форуме ссылается на приложение,
+      которого нет в контексте — используй "unclear".
+    - Не используй информацию из definitions, преамбулы или приложений,
+      если они не содержат substantive условий по теме check.
+    - Если ни один фрагмент не содержит информации по теме —
+      governing_law_and_forum_status = "missing",
+      governing_law_status = "missing", dispute_forum_status = "missing",
+      остальные поля — согласно Шагу 0, location = null у всех полей.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
+    </context_rules>
+
     <context>
     Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
-    <context_rules>
-    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
-    - Если фрагменты противоречат друг другу — используй "unclear"
-      и объясни это в reason.
-    - Не используй информацию из definitions/преамбулы,
-      если они не содержат substantive условий о праве или форуме.
-    - Если оговорка о праве / форуме ссылается на приложение,
-      которого нет в контексте — используй "unclear".
-    </context_rules>
-
     <task>
     Заполни только следующие поля:
     - governing_law_and_forum_display
+    - governing_law_and_forum_status
     - governing_law_status
     - governing_law_value
     - dispute_forum_status
@@ -242,6 +260,10 @@ extraction:
     - pre_claim_procedure_present
     - reason
     - evidence
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
 
     <location_instructions>
@@ -256,16 +278,68 @@ extraction:
       которая является источником значения поля. Копируй её посимвольно,
       сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
       Если значение поля выведено из конкретной фразы договора — quote ДОЛЖЕН
-      содержать эту фразу без изменений. Пример хорошего quote для governing_law_value: "Настоящий Договор регулируется законодательством Российской Федерации"; для dispute_forum_value: "Все споры подлежат рассмотрению в Арбитражном суде города Москвы".
+      содержать эту фразу без изменений. Пример хорошего quote для
+      governing_law_value: "Настоящий Договор регулируется законодательством
+      Российской Федерации"; для dispute_forum_value: "Все споры подлежат
+      рассмотрению в Арбитражном суде города Москвы".
     - не выдумывай location или quote;
     - если точную ссылку или дословную фразу определить нельзя,
       верни location = null;
-    - для governing_law_and_forum_display, reason и evidence location можно вернуть null;
-    - для governing_law_value и dispute_forum_value location с quote особенно важна;
-    - для status-полей location всегда null (они не findings).
+    - для governing_law_and_forum_status, governing_law_status,
+      dispute_forum_status, governing_law_and_forum_display, reason,
+      evidence location всегда null (синтезированы или метаданные);
+    - для governing_law_value и dispute_forum_value location с quote
+      особенно важна;
+    - для pre_claim_procedure_present при значении "no":
+      * quote, если договор прямо говорит об отсутствии обязательной
+        досудебной процедуры (например, "без претензионного порядка");
+      * location = null, если тема досудебной процедуры не раскрыта;
+    - для pre_claim_procedure_present при значении "unclear" —
+      location = null;
+    - если governing_law_and_forum_status = "missing" — для всех полей
+      location = null.
     </location_instructions>
 
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ПОЛОЖЕНИЙ О ПРАВЕ И ФОРУМЕ
+
+    Заполни "governing_law_and_forum_status".
+
+    Значения:
+    - "present" — договор содержит оговорку о применимом праве
+      или о форуме разрешения споров (или обе).
+    - "missing" — ни применимое право, ни форум не указаны.
+    - "unclear" — формулировки присутствуют, но надёжно
+      определить нельзя.
+
+    Правило агрегации:
+    - Если governing_law_status = "present" или
+      dispute_forum_status = "present" →
+      governing_law_and_forum_status = "present".
+    - Если оба = "missing" → "missing".
+    - Если оба = "unclear" → "unclear".
+
+    Если governing_law_and_forum_status = "missing":
+    - governing_law_status = "missing", governing_law_value = ""
+    - dispute_forum_status = "missing", dispute_forum_value = ""
+    - pre_claim_procedure_present = "no"
+    - governing_law_and_forum_display = "Применимое право: не указано; Форум: не указан"
+    - reason = "Положения о применимом праве и форуме не обнаружены в представленных фрагментах."
+    - evidence = []
+    - для всех полей location = null
+    - не выполняй Шаги 1–3; переходи к Шагу 4.
+
+    Если governing_law_and_forum_status = "unclear":
+    - governing_law_status = "unclear", governing_law_value = ""
+    - dispute_forum_status = "unclear", dispute_forum_value = ""
+    - pre_claim_procedure_present = "unclear"
+    - governing_law_and_forum_display = "Не удалось определить применимое право и форум"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - evidence = []
+    - для всех полей location = null
+
+    Если governing_law_and_forum_status = "present" — переходи к Шагам 1–3.
+
     Шаг 1 — ПРИМЕНИМОЕ ПРАВО
 
     Заполни "governing_law_status" и "governing_law_value".
@@ -380,36 +454,54 @@ extraction:
 
     <edge_cases>
     - Применимое право указано, форум не указан:
+      * governing_law_and_forum_status = "present"
       * governing_law_status = "present"
       * dispute_forum_status = "missing"
 
     - Форум указан, право не указано:
+      * governing_law_and_forum_status = "present"
       * dispute_forum_status = "present"
       * governing_law_status = "missing"
 
     - Только "applicable law" без юрисдикции:
+      * governing_law_and_forum_status = "present"
       * governing_law_status = "unclear"
       * governing_law_value = ""
 
     - Несовместимые положения:
       * соответствующий status = "unclear"
       * соответствующий value = ""
+      * governing_law_and_forum_status = "present"
 
     - "Courts of England and Wales":
       * dispute_forum_value = "Суды Англии и Уэльса"
 
+    - Оба присутствуют + досудебный порядок:
+      * governing_law_and_forum_status = "present"
+      * governing_law_status = "present"
+      * dispute_forum_status = "present"
+      * pre_claim_procedure_present = "yes"
+
     - Нет релевантных фрагментов:
+      * governing_law_and_forum_status = "missing"
       * governing_law_status = "missing", governing_law_value = ""
       * dispute_forum_status = "missing", dispute_forum_value = ""
-      * pre_claim_procedure_present = "unclear"
+      * pre_claim_procedure_present = "no"
       * evidence = []
       * governing_law_and_forum_display =
         "Применимое право: не указано; Форум: не указан"
+
+    - Все формулировки unclear:
+      * governing_law_and_forum_status = "unclear"
+      * governing_law_status = "unclear", governing_law_value = ""
+      * dispute_forum_status = "unclear", dispute_forum_value = ""
+      * pre_claim_procedure_present = "unclear"
+      * evidence = []
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай ответ в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
     - Для полей с allowed_values используй строго значения из списка.
     - Свободные текстовые поля
@@ -423,13 +515,14 @@ extraction:
     Пример структуры ответа:
     {
       "governing_law_and_forum_display": {"value": "Применимое право: РФ; Форум: Арбитражный суд г. Москвы", "confidence": 0.95, "location": null},
+      "governing_law_and_forum_status": {"value": "present", "confidence": 0.95, "location": null},
       "governing_law_status": {"value": "present", "confidence": 0.95, "location": null},
       "governing_law_value": {"value": "РФ", "confidence": 0.95, "location": {"clause_ref": "п. 12.1", "page": 7, "quote": "Настоящий Договор регулируется законодательством Российской Федерации"}},
       "dispute_forum_status": {"value": "present", "confidence": 0.95, "location": null},
       "dispute_forum_value": {"value": "Арбитражный суд г. Москвы", "confidence": 0.95, "location": {"clause_ref": "п. 12.2", "page": 7, "quote": "Все споры подлежат рассмотрению в Арбитражном суде города Москвы"}},
       "pre_claim_procedure_present": {"value": "yes", "confidence": 0.85, "location": null},
-      "reason": {"value": "...", "confidence": 0.90, "location": null},
-      "evidence": {"value": [...], "confidence": 1.0, "location": null}
+      "reason": {"value": "Договор регулируется правом РФ, спор подсуден Арбитражному суду г. Москвы; предусмотрен обязательный претензионный порядок. «...регулируется законодательством Российской Федерации».", "confidence": 0.90, "location": null},
+      "evidence": {"value": [{"field_name": "governing_law_value", "clause_ref": "п. 12.1", "page": 7}, {"field_name": "dispute_forum_value", "clause_ref": "п. 12.2", "page": 7}], "confidence": 1.0, "location": null}
     }
     </output_expectations>
 
@@ -442,9 +535,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "governing_law_and_forum_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие положений о применимом праве и форуме"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+      display_in_grid: false
+
     - name: "governing_law_status"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие применимого права"
       allowed_values:
         - "present"
@@ -463,6 +568,7 @@ extraction:
     - name: "dispute_forum_status"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие форума разрешения споров"
       allowed_values:
         - "present"
@@ -481,6 +587,7 @@ extraction:
     - name: "pre_claim_procedure_present"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Обязательная досудебная процедура (routing-сигнал)"
       allowed_values:
         - "yes"
@@ -502,5 +609,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
 
   

@@ -27,13 +27,10 @@ rules:
 
   keywords:
     high:
-      # R&W формулировки
       - "(?i)represents?\\s+and\\s+warrants?"
       - "(?i)заверя[ею]т\\s+и\\s+гарантиру[ею]т"
       - "(?i)representations?\\s+and\\s+warranties"
       - "(?i)заверени[яи]\\s+и\\s+гарантии"
-
-      # Survival
       - "(?i)survival\\s+(period|of)"
       - "(?i)shall\\s+survive\\s+(for|until|the\\s+closing)"
       - "(?i)срок\\s+действи[яи]\\s+(заверени|гарантий)"
@@ -43,46 +40,33 @@ rules:
       - "(?i)indefinite\\s+survival"
       - "(?i)survive\\s+indefinitely"
       - "(?i)бессрочн[а-я]+\\s+действи[ея]\\s+заверени"
-
-      # Налоговые R&W
       - "(?i)tax(es)?[\\s\\S]{0,40}(represent|warrant|заверя|гарантир)"
       - "(?i)no\\s+(material\\s+)?tax\\s+(liability|deficiency|claim)"
       - "(?i)отсутстви[ея]\\s+налогов[а-я]*\\s+(задолженност|претензи|спор)"
       - "(?i)all\\s+taxes\\s+(have\\s+been\\s+)?paid"
       - "(?i)все\\s+налог[а-яи]\\s+(уплачен|перечислен)"
-
-      # Санкционные R&W
       - "(?i)sanctions?[\\s\\S]{0,40}(represent|warrant|compliance)"
       - "(?i)not\\s+(a\\s+)?sanctioned\\s+(person|party|entity)"
       - "(?i)\\bOFAC\\b"
       - "(?i)\\bSDN\\b"
       - "(?i)санкци[а-яё]*[\\s\\S]{0,40}(заверени|соответстви)"
-
-      # Litigation R&W
       - "(?i)no\\s+(material\\s+)?(pending|threatened)\\s+(litigation|lawsuit|claim|proceeding)"
       - "(?i)отсутстви[ея][\\s\\S]{0,40}(судебн|спор|иск|разбирательств)"
 
     medium:
-      # Knowledge qualifiers
       - "(?i)to\\s+the\\s+(best\\s+of\\s+)?(its?|seller'?s?)\\s+knowledge"
       - "(?i)по\\s+(наилучшему\\s+)?сведени[яиям]"
       - "(?i)насколько\\s+известно"
       - "(?i)so\\s+far\\s+as\\s+[\\s\\S]{0,20}(aware|known)"
-
-      # Комплаенс / AML / антикоррупция R&W
       - "(?i)anti[-\\s]?corruption[\\s\\S]{0,40}(represent|warrant|compliance)"
       - "(?i)\\bAML\\b[\\s\\S]{0,40}(represent|warrant)"
       - "(?i)антикорруп[а-яё]*[\\s\\S]{0,40}(заверени|соответстви)"
       - "(?i)FCPA[\\s\\S]{0,20}(comply|represent|warrant)"
       - "(?i)UK\\s+Bribery\\s+Act[\\s\\S]{0,20}(comply|represent)"
-
-      # IP R&W
       - "(?i)intellectual\\s+property[\\s\\S]{0,40}(represent|warrant|own)"
       - "(?i)patent[\\s\\S]{0,20}(represent|warrant)"
       - "(?i)trademark[\\s\\S]{0,20}(represent|warrant)"
       - "(?i)интеллектуальн[а-я]+\\s+собственност[ьи][\\s\\S]{0,40}(заверени|принадлеж)"
-
-      # Обременения R&W
       - "(?i)encumbrance[s]?[\\s\\S]{0,40}(represent|warrant|free)"
       - "(?i)lien[s]?[\\s\\S]{0,40}(represent|warrant|free)"
       - "(?i)обременени[яие][\\s\\S]{0,40}(заверени|отсутстви|свободн)"
@@ -204,29 +188,39 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1250
+  llm_max_tokens: 1450
+
+  presence_signal:
+    field: "rw_specific_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и специальным заверениям.
     Твоя задача — точно извлечь из текста:
-    1) наличие специальных R&W по критичным зонам риска;
-    2) масштаб knowledge qualifiers;
-    3) структуру и сроки действия (survival) R&W.
+    1) есть ли в договоре регулирование по теме специальных R&W
+       и survival;
+    2) если есть — какие специальные R&W установлены:
+       - налоговые R&W;
+       - санкционные R&W;
+       - R&W по судебным спорам;
+       - комплаенс / AML / антикоррупция R&W;
+       - IP и обременения R&W;
+       - knowledge qualifiers;
+       - survival period.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ додумывай сроки survival, если они не указаны явно.
     - НЕ смешивай специальные R&W с фундаментальными
       (статус, полномочия, title, no conflict, general compliance).
-    - Если информация отсутствует — используй "missing" или "unclear".
+    - Если раздел о специальных R&W в договоре отсутствует —
+      rw_specific_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      rw_specific_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -240,11 +234,24 @@ extraction:
     - Survival период: если указан конкретный срок — используй его.
       Если только "shall survive" без срока — has_survival_period = "yes",
       survival_general_value = "Не установлен".
+    - Если ни один фрагмент не содержит информации о специальных R&W /
+      survival (нет упоминаний tax / sanctions / litigation /
+      compliance / IP R&W / survival period) —
+      rw_specific_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - rw_specific_display
+    - rw_specific_status
     - rw_tax
     - rw_sanctions
     - rw_litigation
@@ -257,7 +264,60 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля rw_specific_display, survival_general_value,
+      survival_structure_summary, reason — location ВСЕГДА null.
+    - Для rw_specific_status = "missing" — location = null.
+    - Для rw_specific_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для rw_tax, rw_sanctions, rw_litigation, rw_compliance_specific,
+      rw_ip_encumbrances:
+      * если "present" — quote с фразой-заверением;
+      * если "missing" — различай: прямое исключение (quote
+        обязательна) vs отсутствие упоминания (location = null);
+      * если "unclear" — location = null.
+    - Для knowledge_qualifiers_scope — quote с фразой-квалификатором,
+      если он определён.
+    - Для has_survival_period:
+      * "yes" — quote с формулировкой survival;
+      * "no" — различай: прямое исключение vs отсутствие упоминания;
+      * "unclear" — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ СПЕЦИАЛЬНЫХ R&W И SURVIVAL
+
+    Заполни "rw_specific_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное signal-поле
+      указывает на наличие информации по теме:
+      * rw_tax = "present";
+      * rw_sanctions = "present";
+      * rw_litigation = "present";
+      * rw_compliance_specific = "present";
+      * rw_ip_encumbrances = "present";
+      * has_survival_period = "yes";
+      * knowledge_qualifiers_scope ∈ {"limited", "extensive"};
+      * ЛИБО любое поле = "missing" / "no" / "none", но с заполненным
+        location с прямой цитатой (см. RF3).
+    - "missing" — если все содержательные поля = "missing" / "no" /
+      "none" БЕЗ цитат, ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — НАЛОГОВЫЕ R&W
 
     Заполни "rw_tax".
@@ -363,17 +423,9 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Полное покрытие:
-       "Налоги: да; Санкции: да; Споры: да; Survival: 18 мес."
-    2. Частичное покрытие:
-       "Налоги: нет; Санкции: нет; Остальные: да; Survival: 12 мес."
-    3. Проблемные qualifiers:
-       "Extensive knowledge qualifiers на санкции; Survival: 18 мес."
-    4. Не удалось определить:
-       "Не удалось определить специальные R&W"
-
     Правила:
+    - Если rw_specific_status = "missing":
+      "Специальные R&W и survival не выявлены"
     - Если все поля unclear:
       "Не удалось определить специальные R&W"
     - Иначе:
@@ -399,55 +451,82 @@ extraction:
 
     <edge_cases>
     - Налоговые и санкционные R&W с knowledge qualifiers:
+      * rw_specific_status = "present"
       * knowledge_qualifiers_scope = "extensive"
 
     - Нет налоговых и санкционных R&W:
+      * rw_specific_status = "present"
       * rw_tax = "missing"
       * rw_sanctions = "missing"
 
     - Survival 12 мес. для всех без дифференциации:
+      * rw_specific_status = "present"
+      * has_survival_period = "yes"
       * survival_general_value = "12 месяцев"
       * survival_structure_summary = "12 мес. для всех R&W"
 
     - Дифференцированные: 18 мес. / 4 года налоги / бессрочно санкции:
+      * rw_specific_status = "present"
       * survival_general_value = "18 месяцев"
       * survival_structure_summary =
         "18 мес. — общий; 4 года — налоги; бессрочно — санкции"
 
     - Knowledge qualifier только на IP infringement by 3rd parties:
+      * rw_specific_status = "present"
       * knowledge_qualifiers_scope = "limited"
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
-      * survival_general_value = "Не удалось определить"
+    - Договор прямо фиксирует отсутствие налоговых R&W:
+      * rw_specific_status = "present"
+      * rw_tax = "missing"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел о специальных R&W /
+      survival в договоре отсутствует:
+      * rw_specific_status = "missing"
+      * rw_tax = "missing"
+      * rw_sanctions = "missing"
+      * rw_litigation = "missing"
+      * rw_compliance_specific = "missing"
+      * rw_ip_encumbrances = "missing"
+      * knowledge_qualifiers_scope = "none"
+      * has_survival_period = "no"
+      * survival_general_value = "Не применимо"
+      * survival_structure_summary = "Не установлен"
       * rw_specific_display =
-        "Не удалось определить специальные R&W"
+        "Специальные R&W и survival не выявлены"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * rw_specific_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (rw_specific_display, survival_general_value,
-       survival_structure_summary, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (rw_specific_display,
+      survival_general_value, survival_structure_summary, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "rw_specific_display": "Налоги: да; Санкции: да; Споры: да; Survival: 18 мес.",
-      "rw_tax": "present",
-      "rw_sanctions": "present",
-      "rw_litigation": "present",
-      "rw_compliance_specific": "present",
-      "rw_ip_encumbrances": "missing",
-      "knowledge_qualifiers_scope": "limited",
-      "has_survival_period": "yes",
-      "survival_general_value": "18 месяцев",
-      "survival_structure_summary": "18 мес. — общий; 4 года — налоги",
-      "reason": "..."
+      "rw_specific_display": {"value": "Налоги: да; Санкции: да; Споры: да; Survival: 18 мес.", "confidence": 0.92, "location": null},
+      "rw_specific_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 5.1", "page": 4, "quote": "The Seller represents and warrants that all taxes have been paid"}},
+      "rw_tax": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 5.1", "page": 4, "quote": "all taxes have been paid"}},
+      "rw_sanctions": {"value": "present", "confidence": 0.90, "location": {"clause_ref": "п. 5.3", "page": 4, "quote": "Neither the Company nor any of its affiliates is a sanctioned person under OFAC"}},
+      "rw_litigation": {"value": "present", "confidence": 0.90, "location": {"clause_ref": "п. 5.5", "page": 5, "quote": "no pending or threatened litigation"}},
+      "rw_compliance_specific": {"value": "present", "confidence": 0.85, "location": {"clause_ref": "п. 5.7", "page": 5, "quote": "compliance with FCPA and UK Bribery Act"}},
+      "rw_ip_encumbrances": {"value": "missing", "confidence": 0.75, "location": null},
+      "knowledge_qualifiers_scope": {"value": "limited", "confidence": 0.80, "location": null},
+      "has_survival_period": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 8.1", "page": 6, "quote": "The representations shall survive for 18 months following the Closing"}},
+      "survival_general_value": {"value": "18 месяцев", "confidence": 0.95, "location": null},
+      "survival_structure_summary": {"value": "18 мес. — общий; 4 года — налоги", "confidence": 0.85, "location": null},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -460,9 +539,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "rw_specific_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования специальных R&W и survival в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "rw_tax"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Налоговые R&W"
       allowed_values:
         - "present"
@@ -473,6 +564,7 @@ extraction:
     - name: "rw_sanctions"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Санкционные R&W"
       allowed_values:
         - "present"
@@ -483,6 +575,7 @@ extraction:
     - name: "rw_litigation"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "R&W по судебным спорам"
       allowed_values:
         - "present"
@@ -493,6 +586,7 @@ extraction:
     - name: "rw_compliance_specific"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "R&W по комплаенсу / AML / антикоррупции"
       allowed_values:
         - "present"
@@ -503,6 +597,7 @@ extraction:
     - name: "rw_ip_encumbrances"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "R&W по IP и обременениям"
       allowed_values:
         - "present"
@@ -513,6 +608,7 @@ extraction:
     - name: "knowledge_qualifiers_scope"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Масштаб knowledge qualifiers"
       allowed_values:
         - "none"
@@ -524,6 +620,7 @@ extraction:
     - name: "has_survival_period"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие survival period"
       allowed_values:
         - "yes"

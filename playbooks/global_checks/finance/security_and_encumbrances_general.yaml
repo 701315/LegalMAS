@@ -135,8 +135,8 @@ retrieval:
   max_chunks: 12
 
   retrieval_query: >
-    залог pledge mortgage ипотека security interest поручительство 
-    corporate guarantee negative pledge запрет обременения 
+    залог pledge mortgage ипотека security interest поручительство
+    corporate guarantee negative pledge запрет обременения
     restriction on asset disposal permitted liens release of pledge
 
   boost_keywords:
@@ -222,7 +222,17 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1250
+  llm_max_tokens: 1600
+
+  # Presence gate: security_status агрегирует наличие любого
+  # обеспечения / обременения / ограничения. present -> pass,
+  # missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = allowed_values.
+  presence_signal:
+    field: "security_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -236,14 +246,29 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай виды обеспечения, которых нет в тексте.
-    - Если информация отсутствует — используй "no", "not_applicable"
-      или "unclear" согласно allowed_values.
-    - Если текст неоднозначен — ставь "unclear".
+    - Если тема обеспечения / обременений в договоре вообще не
+      раскрыта — для security_status ставь "missing",
+      для has_* — "no", для security_priority / has_permitted_liens /
+      has_release_conditions — "not_applicable".
+    - Если информация неоднозначна — используй "unclear".
 
     Не анализируй финансовые ковенанты (leverage ratio, DSCR,
     ограничения на дивиденды / новый долг) —
     это задача чека financial_covenants.
     </role>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Не используй информацию из definitions, преамбулы или приложений,
+      если они не содержат substantive условий по теме check.
+    - Если ни один фрагмент не содержит информации по теме —
+      security_status = "missing",
+      остальные поля — согласно Шагу 0, location = null у всех полей.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
+    </context_rules>
 
     <context>
     Ниже приведены релевантные фрагменты договора:
@@ -251,19 +276,10 @@ extraction:
     {context}
     </context>
 
-    <context_rules>
-    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
-    - Если среди фрагментов есть противоречия — укажи "unclear"
-      и объясни в reason.
-    - Если ни один фрагмент не содержит информации об обеспечении —
-      используй "no" или "unclear" согласно логике каждого поля.
-    - Не используй информацию из definitions/преамбулы,
-      если они не содержат substantive условий по теме check.
-    </context_rules>
-
     <task>
     Заполни только следующие поля:
     - security_display
+    - security_status
     - has_security_interests
     - security_types_summary
     - security_priority
@@ -274,9 +290,103 @@ extraction:
     - has_release_conditions
     - appears_overencumbered
     - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 6.1", "page": 9, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для has_security_interests (yes): "В обеспечение исполнения обязательств Заёмщика Залогодатель предоставляет в залог Кредитору акции ООО «...»";
+      * для security_priority (first_lien): "Залог по настоящему Договору является залогом первой очереди";
+      * для has_third_party_security (yes): "Материнская компания Заёмщика предоставляет безотзывную корпоративную гарантию в отношении обязательств Заёмщика";
+      * для has_negative_pledge (yes): "Заёмщик обязуется не создавать и не допускать создания каких-либо обременений на своё имущество без предварительного письменного согласия Кредитора";
+      * для has_asset_disposal_restrictions (yes): "Заёмщик не вправе отчуждать существенные активы без предварительного письменного согласия Кредитора";
+      * для has_permitted_liens (yes): "Запрет не применяется к залогам, возникающим в силу закона, и к залогам в пользу банков-кредиторов в рамках разрешённой задолженности";
+      * для has_release_conditions (yes): "Обеспечение прекращается в течение 5 рабочих дней с даты полного погашения обязательств Заёмщика".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для security_display, security_status, appears_overencumbered и reason
+      location всегда null (appears_overencumbered — синтезированное
+      суждение, не имеет прямого источника в тексте);
+    - для security_types_summary и 6 signal-полей (has_*, security_priority)
+      возвращай location с quote только когда значение подтверждается
+      конкретным условием договора:
+      * для "yes" — quote с описанием условия;
+      * для "no" — quote только если договор прямо исключает или
+        не предусматривает соответствующее условие;
+        location = null, если условие просто не раскрыто;
+      * для "not_applicable" / "unclear" — location = null;
+    - если security_status = "missing" — для всех полей location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ОБЕСПЕЧЕНИЯ / ОБРЕМЕНЕНИЙ
+
+    Заполни "security_status".
+
+    Значения:
+    - "present" — договор содержит любое: обеспечение (залоги,
+      гарантии, поручительства), negative pledge, ограничения
+      на отчуждение активов, permitted liens.
+    - "missing" — ничего из перечисленного.
+    - "unclear" — нельзя определить.
+
+    Правило агрегации:
+    - Если любое из полей has_security_interests, has_negative_pledge,
+      has_asset_disposal_restrictions = "yes" → security_status = "present".
+    - Если security_priority ∈ {first_lien, second_lien, pari_passu, mixed} →
+      security_status = "present".
+    - Если все содержательные поля = "no" / "not_applicable" → "missing".
+    - Если все = "unclear" → "unclear".
+    - Дополнительно: если has_security_interests, has_negative_pledge,
+      has_asset_disposal_restrictions = "no", но для этого поля
+      заполнен location с прямой цитатой об отсутствии / неприменении
+      условия, то security_status = "present".
+
+    Если security_status = "missing":
+    - has_security_interests = "no"
+    - security_types_summary = "Не применимо"
+    - security_priority = "not_applicable"
+    - has_third_party_security = "no"
+    - has_negative_pledge = "no"
+    - has_asset_disposal_restrictions = "no"
+    - has_permitted_liens = "not_applicable"
+    - has_release_conditions = "not_applicable"
+    - appears_overencumbered = "no"
+    - security_display = "Обеспечения не обнаружено"
+    - reason = "Обеспечительные конструкции и обременения не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 1–9; переходи к Шагу 10.
+
+    Если security_status = "unclear":
+    - has_security_interests = "unclear"
+    - security_types_summary = "Не удалось определить"
+    - security_priority = "unclear"
+    - has_third_party_security = "unclear"
+    - has_negative_pledge = "unclear"
+    - has_asset_disposal_restrictions = "unclear"
+    - has_permitted_liens = "unclear"
+    - has_release_conditions = "unclear"
+    - appears_overencumbered = "unclear"
+    - security_display = "Не удалось определить обеспечительные конструкции"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если security_status = "present" — переходи к Шагам 1–9.
+
     Шаг 1 — НАЛИЧИЕ ОБЕСПЕЧЕНИЯ
 
     Заполни "has_security_interests".
@@ -389,18 +499,18 @@ extraction:
        "Negative pledge без исключений; ограничения на активы"
     3. Обеспечения нет:
        "Обеспечения не обнаружено"
-    4. Тема не урегулирована:
-       "Обеспечения не обнаружено"
-    5. Не удалось определить:
+    4. Не удалось определить:
        "Не удалось определить обеспечительные конструкции"
 
-    Правила построения (если обеспечение есть):
+    Правила построения (если security_status = "present"):
     - начни с security_types_summary (кратко)
     - добавь security_priority (если не "not_specified")
     - добавь has_negative_pledge (если есть)
     - добавь has_third_party_security (если есть)
     - добавь has_release_conditions (если "no")
     Не более 4 фактов через ";".
+    Не добавляй никаких данных, которых нет в полях выше
+    (например, конкретные суммы залога, если они не отражены в полях).
 
     Шаг 11 — КРАТКОЕ ОБОСНОВАНИЕ
 
@@ -409,21 +519,27 @@ extraction:
     Правила:
     - Первое предложение — краткий вывод по обеспечению.
     - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    - Не оценивай риск.
     </instructions>
 
     <edge_cases>
     - Negative pledge без permitted liens:
+      * security_status = "present"
       * has_negative_pledge = "yes"
       * has_permitted_liens = "no"
       * appears_overencumbered = "yes"
 
     - Upstream guarantee:
+      * security_status = "present"
       * has_third_party_security = "yes"
 
     - Release conditions не прописаны:
+      * security_status = "present"
       * has_release_conditions = "no"
 
     - Нет обеспечения:
+      * security_status = "missing"
       * has_security_interests = "no"
       * security_types_summary = "Не применимо"
       * security_priority = "not_applicable"
@@ -432,10 +548,17 @@ extraction:
       * security_display = "Обеспечения не обнаружено"
 
     - Нет релевантных фрагментов:
-      * все поля = "unclear"
-      * security_types_summary = "Не удалось определить"
-      * security_display =
-        "Не удалось определить обеспечительные конструкции"
+      * security_status = "missing"
+      * has_security_interests = "no"
+      * security_types_summary = "Не применимо"
+      * security_priority = "not_applicable"
+      * has_third_party_security = "no"
+      * has_negative_pledge = "no"
+      * has_asset_disposal_restrictions = "no"
+      * has_permitted_liens = "not_applicable"
+      * has_release_conditions = "not_applicable"
+      * appears_overencumbered = "no"
+      * security_display = "Обеспечения не обнаружено"
     </edge_cases>
 
     <output_expectations>
@@ -446,20 +569,23 @@ extraction:
     - Свободные текстовые поля (security_display,
       security_types_summary, reason) — на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "security_display": "...",
-      "has_security_interests": "yes",
-      "security_types_summary": "залог акций; корпоративная гарантия",
-      "security_priority": "first_lien",
-      "has_third_party_security": "no",
-      "has_negative_pledge": "yes",
-      "has_asset_disposal_restrictions": "yes",
-      "has_permitted_liens": "yes",
-      "has_release_conditions": "yes",
-      "appears_overencumbered": "no",
-      "reason": "..."
+      "security_display": {"value": "залог акций; корпоративная гарантия; first lien", "confidence": 0.95, "location": null},
+      "security_status": {"value": "present", "confidence": 0.95, "location": null},
+      "has_security_interests": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 6.1", "page": 9, "quote": "В обеспечение исполнения обязательств Заёмщика Залогодатель предоставляет в залог Кредитору акции ООО «...»"}},
+      "security_types_summary": {"value": "залог акций; корпоративная гарантия", "confidence": 0.92, "location": {"clause_ref": "п. 6.1", "page": 9, "quote": "В обеспечение исполнения обязательств Заёмщика Залогодатель предоставляет в залог Кредитору акции ООО «...»; Материнская компания предоставляет корпоративную гарантию"}},
+      "security_priority": {"value": "first_lien", "confidence": 0.90, "location": {"clause_ref": "п. 6.3", "page": 9, "quote": "Залог по настоящему Договору является залогом первой очереди"}},
+      "has_third_party_security": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 6.2", "page": 9, "quote": "Материнская компания Заёмщика предоставляет безотзывную корпоративную гарантию в отношении обязательств Заёмщика"}},
+      "has_negative_pledge": {"value": "yes", "confidence": 0.92, "location": {"clause_ref": "п. 6.4", "page": 10, "quote": "Заёмщик обязуется не создавать и не допускать создания каких-либо обременений на своё имущество без предварительного письменного согласия Кредитора"}},
+      "has_asset_disposal_restrictions": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 6.5", "page": 10, "quote": "Заёмщик не вправе отчуждать существенные активы без предварительного письменного согласия Кредитора"}},
+      "has_permitted_liens": {"value": "yes", "confidence": 0.88, "location": {"clause_ref": "п. 6.6", "page": 10, "quote": "Запрет не применяется к залогам, возникающим в силу закона, и к залогам в пользу банков-кредиторов в рамках разрешённой задолженности"}},
+      "has_release_conditions": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 6.7", "page": 10, "quote": "Обеспечение прекращается в течение 5 рабочих дней с даты полного погашения обязательств Заёмщика"}},
+      "appears_overencumbered": {"value": "no", "confidence": 0.85, "location": null},
+      "reason": {"value": "Договор предусматривает залог акций и корпоративную гарантию, first lien, negative pledge с permitted liens, а также условия снятия. «...Залогодатель предоставляет в залог Кредитору акции...».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -472,9 +598,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "security_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие положений об обеспечении / обременениях"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+      display_in_grid: false
+
     - name: "has_security_interests"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие обеспечения"
       allowed_values:
         - "yes"
@@ -493,6 +631,7 @@ extraction:
     - name: "security_priority"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Приоритет залогов"
       allowed_values:
         - "first_lien"
@@ -507,6 +646,7 @@ extraction:
     - name: "has_third_party_security"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Обеспечение за третьих лиц"
       allowed_values:
         - "yes"
@@ -517,6 +657,7 @@ extraction:
     - name: "has_negative_pledge"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Negative pledge"
       allowed_values:
         - "yes"
@@ -527,6 +668,7 @@ extraction:
     - name: "has_asset_disposal_restrictions"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Ограничения на отчуждение активов"
       allowed_values:
         - "yes"
@@ -537,6 +679,7 @@ extraction:
     - name: "has_permitted_liens"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Permitted liens / carve-out"
       allowed_values:
         - "yes"
@@ -548,6 +691,7 @@ extraction:
     - name: "has_release_conditions"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Условия снятия обременения"
       allowed_values:
         - "yes"
@@ -559,6 +703,7 @@ extraction:
     - name: "appears_overencumbered"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Структурные признаки переобременённости"
       allowed_values:
         - "yes"

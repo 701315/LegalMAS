@@ -191,33 +191,36 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 900
+  llm_max_tokens: 1100
+
+  presence_signal:
+    field: "regulatory_compliance_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по регуляторному и отраслевому комплаенсу.
     Твоя задача — точно извлечь из текста:
-    1) наличие и характер compliance-обязательств;
-    2) упоминания регуляторных событий (расследования, штрафы, проверки);
-    3) заверения об отсутствии нарушений;
-    4) наличие remedial-мер;
-    5) отраслевую принадлежность.
+    1) есть ли в договоре регулирование отраслевого комплаенса;
+    2) если есть — какие условия установлены:
+       - характер compliance-обязательств;
+       - идентифицированные отрасли;
+       - упоминания регуляторных событий;
+       - заверения об отсутствии нарушений;
+       - статус remedial-мер.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ придумывай отрасли без явных данных.
     - НЕ считай общую фразу "compliance with applicable laws"
       отраслевым регулированием без специальной конкретики.
-    - Если информация отсутствует — используй "none", "no",
-      "none_mentioned" или "unclear" согласно allowed_values.
-    - Если текст неоднозначен — используй "unclear".
+    - Если раздел об отраслевом комплаенсе в договоре отсутствует
+      полностью — regulatory_compliance_status = "missing".
+    - Если тексты по теме есть, но надёжный вывод сделать нельзя —
+      regulatory_compliance_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -229,11 +232,24 @@ extraction:
     - Если есть только общие compliance-обязательства без отрасли,
       это "general_only", а identified_industries = "Не применимо".
     - Не подменяй regulatory events обычными коммерческими спорами.
+    - Если ни один фрагмент не содержит информации об отраслевом
+      комплаенсе (нет упоминаний compliance / regulator / industry /
+      enforcement / investigation / remedial) —
+      regulatory_compliance_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - regulatory_compliance_display
+    - regulatory_compliance_status
     - has_compliance_obligations
     - identified_industries
     - mentions_regulatory_events
@@ -242,7 +258,65 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (regulatory_compliance_display,
+      identified_industries, reason) location ВСЕГДА null.
+    - Для regulatory_compliance_status = "missing" — location = null.
+    - Для regulatory_compliance_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для has_compliance_obligations:
+      * если "industry_specific" — quote с отраслевой формулировкой;
+      * если "general_only" — quote с общей compliance-формулировкой;
+      * если "none" — различай:
+        - договор ПРЯМО исключает compliance-обязательства — quote
+          ОБЯЗАТЕЛЬНА;
+        - просто отсутствует упоминание — location = null.
+    - Для mentions_regulatory_events:
+      * если "yes" — quote с упоминанием регуляторного события;
+      * если "none_mentioned" — quote с формулой отсутствия
+        («no pending investigations»);
+      * если "no" — различай, есть ли прямая фиксация молчания или нет;
+        в большинстве случаев location = null.
+    - Для has_no_violations_representations, has_remedial_measures:
+      * если "yes" — quote с фразой-основанием;
+      * если "no" — различай:
+        - договор ПРЯМО фиксирует отсутствие («Заверения
+          не предоставляются», «Remedial-меры не предусмотрены») —
+          quote ОБЯЗАТЕЛЬНА;
+        - просто отсутствует упоминание — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ОТРАСЛЕВОГО КОМПЛАЕНСА
+
+    Заполни "regulatory_compliance_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное поле указывает
+      на наличие информации по теме:
+      * has_compliance_obligations ∈ {"industry_specific", "general_only"};
+      * mentions_regulatory_events ∈ {"yes", "none_mentioned"};
+      * has_no_violations_representations = "yes";
+      * has_remedial_measures = "yes";
+      * ЛИБО любое поле принимает отрицательное значение, но с
+        заполненным location с прямой цитатой (см. RF3).
+    - "missing" — если все содержательные поля = "none" / "no" /
+      "Не применимо" БЕЗ цитат, ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — ХАРАКТЕР COMPLIANCE-ОБЯЗАТЕЛЬСТВ
 
     Заполни "has_compliance_obligations".
@@ -308,17 +382,9 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Есть отраслевой контур:
-       "Финансы; отраслевые требования; заверения об отсутствии нарушений"
-    2. Только общий комплаенс:
-       "Только общие compliance-обязательства"
-    3. Есть регуляторные события:
-       "Медицина; отраслевые требования; регуляторные события упомянуты"
-    4. Нет данных:
-       "Не удалось определить отраслевой комплаенс"
-
     Правила:
+    - Если regulatory_compliance_status = "missing":
+      "Отраслевой регуляторный контур не выявлен"
     - Если все поля unclear:
       "Не удалось определить отраслевой комплаенс"
     - Если has_compliance_obligations = "none"
@@ -350,43 +416,63 @@ extraction:
 
     <edge_cases>
     - "Соблюдает применимое законодательство" без конкретики:
+      * regulatory_compliance_status = "present"
       * has_compliance_obligations = "general_only"
       * identified_industries = "Не применимо"
 
     - Расследования упомянуты, статус неясен, remedial нет:
+      * regulatory_compliance_status = "present"
       * mentions_regulatory_events = "yes"
       * has_remedial_measures = "no"
 
     - "No material violations" + "no ongoing investigations":
+      * regulatory_compliance_status = "present"
       * has_no_violations_representations = "yes"
       * mentions_regulatory_events = "none_mentioned"
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
-      * identified_industries = "Не определено"
+    - Договор прямо фиксирует отсутствие отраслевых требований:
+      * regulatory_compliance_status = "present"
+      * has_compliance_obligations = "none"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел об отраслевом комплаенсе
+      в договоре отсутствует:
+      * regulatory_compliance_status = "missing"
+      * has_compliance_obligations = "none"
+      * identified_industries = "Не применимо"
+      * mentions_regulatory_events = "no"
+      * has_no_violations_representations = "no"
+      * has_remedial_measures = "no"
       * regulatory_compliance_display =
-        "Не удалось определить отраслевой комплаенс"
+        "Отраслевой регуляторный контур не выявлен"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * regulatory_compliance_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (regulatory_compliance_display, identified_industries, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (regulatory_compliance_display,
+      identified_industries, reason) — на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "regulatory_compliance_display": "Финансы; отраслевые требования; заверения об отсутствии нарушений",
-      "has_compliance_obligations": "industry_specific",
-      "identified_industries": "финансы",
-      "mentions_regulatory_events": "none_mentioned",
-      "has_no_violations_representations": "yes",
-      "has_remedial_measures": "no",
-      "reason": "..."
+      "regulatory_compliance_display": {"value": "Финансы; отраслевые требования; заверения об отсутствии нарушений", "confidence": 0.92, "location": null},
+      "regulatory_compliance_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 8.1", "page": 5, "quote": "Стороны обязуются соблюдать требования Банка России и иные применимые отраслевые требования"}},
+      "has_compliance_obligations": {"value": "industry_specific", "confidence": 0.90, "location": {"clause_ref": "п. 8.1", "page": 5, "quote": "требования Банка России и иные применимые отраслевые требования"}},
+      "identified_industries": {"value": "финансы", "confidence": 0.90, "location": null},
+      "mentions_regulatory_events": {"value": "none_mentioned", "confidence": 0.85, "location": {"clause_ref": "п. 8.3", "page": 5, "quote": "Отсутствуют текущие расследования и предписания со стороны Банка России"}},
+      "has_no_violations_representations": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 8.3", "page": 5, "quote": "Отсутствуют текущие расследования и предписания"}},
+      "has_remedial_measures": {"value": "no", "confidence": 0.75, "location": null},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -399,9 +485,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "regulatory_compliance_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования отраслевого комплаенса в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "has_compliance_obligations"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Характер compliance-обязательств"
       allowed_values:
         - "industry_specific"
@@ -421,6 +519,7 @@ extraction:
     - name: "mentions_regulatory_events"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Упоминания регуляторных событий"
       allowed_values:
         - "yes"
@@ -432,6 +531,7 @@ extraction:
     - name: "has_no_violations_representations"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Заверения об отсутствии нарушений"
       allowed_values:
         - "yes"
@@ -442,6 +542,7 @@ extraction:
     - name: "has_remedial_measures"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Наличие remedial-мер"
       allowed_values:
         - "yes"

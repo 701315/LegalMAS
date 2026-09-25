@@ -221,17 +221,27 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1050
+  llm_max_tokens: 1250
+
+  presence_signal:
+    field: "anti_corruption_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по комплаенсу и корпоративному праву.
     Твоя задача — точно извлечь из текста:
-    1) наличие антикоррупционных положений;
-    2) ссылки на кодексы этики и политики;
-    3) права аудита комплаенса;
-    4) механизмы whistleblowing;
-    5) регулирование сделок с аффилированными лицами.
+    1) есть ли в договоре регулирование антикоррупции и RPT;
+    2) если есть — какие условия установлены:
+       - наличие антикоррупционных положений;
+       - ссылки на кодексы этики и политики;
+       - права аудита комплаенса;
+       - механизмы whistleblowing;
+       - регулирование сделок с аффилированными лицами;
+       - требование arm's length;
+       - корпоративные одобрения для RPT.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
@@ -240,16 +250,11 @@ extraction:
       по антикоррупции.
     - НЕ додумывай ссылки на FCPA, UK Bribery Act, ФЗ-273,
       если они прямо не упомянуты.
-    - Если информация отсутствует — используй "no" или "unclear"
-      согласно allowed_values.
-    - Если текст неоднозначен — используй "unclear".
+    - Если раздел об антикоррупции / RPT в договоре отсутствует
+      полностью — anti_corruption_status = "missing".
+    - Если тексты по теме есть, но надёжный вывод сделать нельзя —
+      anti_corruption_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -262,11 +267,23 @@ extraction:
       или типовых корпоративных approval-практиках.
     - Если related party transaction упоминается, но режим его
       регулирования неясен, используй "unclear", а не "yes".
+    - Если ни один фрагмент не содержит информации об антикоррупции
+      и RPT (нет упоминаний bribe / FCPA / code of conduct / audit /
+      whistleblowing / related party) — anti_corruption_status = "missing",
+      location = null. Не использовать "unclear" при полном отсутствии
+      релевантных фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - anti_corruption_display
+    - anti_corruption_status
     - has_anti_corruption_clauses
     - has_code_of_conduct_reference
     - has_audit_rights
@@ -277,7 +294,62 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля anti_corruption_display и reason
+      location ВСЕГДА null.
+    - Для anti_corruption_status = "missing" — location = null.
+    - Для anti_corruption_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для has_anti_corruption_clauses, has_code_of_conduct_reference,
+      has_audit_rights, has_whistleblowing_mechanism,
+      has_related_party_regulation, requires_arms_length,
+      requires_corporate_approvals:
+      * если значение = "yes" — quote с фразой-основанием;
+      * если значение = "no" — различай два случая:
+        - договор ПРЯМО фиксирует отсутствие / неприменимость
+          («Настоящий договор не содержит антикоррупционных
+          положений», «Право на аудит не предоставляется») —
+          quote ОБЯЗАТЕЛЬНА;
+        - просто отсутствует упоминание (договор молчит) —
+          location = null;
+      * если значение = "unclear" — location = null или quote
+        с противоречивой фразой.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ АНТИКОРРУПЦИИ И RPT
+
+    Заполни "anti_corruption_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное поле указывает
+      на наличие информации по теме:
+      * has_anti_corruption_clauses = "yes";
+      * has_code_of_conduct_reference = "yes";
+      * has_audit_rights = "yes";
+      * has_whistleblowing_mechanism = "yes";
+      * has_related_party_regulation = "yes";
+      * requires_arms_length = "yes";
+      * requires_corporate_approvals = "yes";
+      * ЛИБО любое поле = "no", но с заполненным location
+        с прямой цитатой об исключении (см. RF3).
+    - "missing" — если все содержательные поля = "no" БЕЗ цитат,
+      ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — АНТИКОРРУПЦИОННЫЕ ПОЛОЖЕНИЯ
 
     Заполни "has_anti_corruption_clauses".
@@ -358,17 +430,9 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Есть зрелый контур:
-       "Антикоррупционные положения; код этики; аудит; RPT на рыночных условиях"
-    2. Частичный контур:
-       "Антикоррупционные положения; нет аудита; RPT-контроль не предусмотрен"
-    3. Положений нет:
-       "Антикоррупционные положения не обнаружены; RPT-контроль не предусмотрен"
-    4. Не удалось определить:
-       "Не удалось определить антикоррупционный комплаенс"
-
     Правила:
+    - Если anti_corruption_status = "missing":
+      "Антикоррупционные положения не обнаружены; RPT-контроль не предусмотрен"
     - Если все поля unclear:
       "Не удалось определить антикоррупционный комплаенс"
     - Если has_anti_corruption_clauses = "no"
@@ -378,7 +442,7 @@ extraction:
       * если has_anti_corruption_clauses = "yes":
         "Антикоррупционные положения"
       * если has_anti_corruption_clauses = "unclear":
-        "Антикоррупические положения не удалось определить"
+        "Антикоррупционные положения не удалось определить"
       * если has_code_of_conduct_reference = "yes":
         "код этики"
       * если has_audit_rights = "yes":
@@ -407,46 +471,70 @@ extraction:
 
     <edge_cases>
     - "Компания соблюдает законодательство" без конкретики:
+      * anti_corruption_status = "present"
       * has_anti_corruption_clauses = "unclear"
 
     - Anti-bribery + code of conduct + audit + whistleblowing:
+      * anti_corruption_status = "present"
       * has_anti_corruption_clauses = "yes"
 
-    - Нет RPT-регулирования:
+    - Нет RPT-регулирования (но другие сигналы есть):
+      * anti_corruption_status = "present"
       * has_related_party_regulation = "no"
 
     - Related party rules есть, но arm's length не указан:
+      * anti_corruption_status = "present"
       * has_related_party_regulation = "yes"
       * requires_arms_length = "no" или "unclear"
       * requires_corporate_approvals = "yes" или "no" по тексту
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
+    - Договор прямо фиксирует отсутствие антикоррупционных положений:
+      * anti_corruption_status = "present"
+      * has_anti_corruption_clauses = "no"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел об антикоррупции
+      и RPT в договоре отсутствует:
+      * anti_corruption_status = "missing"
+      * has_anti_corruption_clauses = "no"
+      * has_code_of_conduct_reference = "no"
+      * has_audit_rights = "no"
+      * has_whistleblowing_mechanism = "no"
+      * has_related_party_regulation = "no"
+      * requires_arms_length = "no"
+      * requires_corporate_approvals = "no"
       * anti_corruption_display =
-        "Не удалось определить антикоррупционный комплаенс"
+        "Антикоррупционные положения не обнаружены; RPT-контроль не предусмотрен"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * anti_corruption_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (anti_corruption_display, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (anti_corruption_display, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "anti_corruption_display": "Антикоррупционные положения; код этики; аудит; RPT на рыночных условиях",
-      "has_anti_corruption_clauses": "yes",
-      "has_code_of_conduct_reference": "yes",
-      "has_audit_rights": "yes",
-      "has_whistleblowing_mechanism": "no",
-      "has_related_party_regulation": "yes",
-      "requires_arms_length": "yes",
-      "requires_corporate_approvals": "yes",
-      "reason": "..."
+      "anti_corruption_display": {"value": "Антикоррупционные положения; код этики; аудит; RPT на рыночных условиях", "confidence": 0.92, "location": null},
+      "anti_corruption_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 13.1", "page": 8, "quote": "Стороны обязуются соблюдать применимое антикоррупционное законодательство, включая FCPA и UK Bribery Act"}},
+      "has_anti_corruption_clauses": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 13.1", "page": 8, "quote": "Стороны обязуются соблюдать применимое антикоррупционное законодательство"}},
+      "has_code_of_conduct_reference": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 13.2", "page": 8, "quote": "Исполнитель обязуется соблюдать Кодекс этики Заказчика"}},
+      "has_audit_rights": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 13.4", "page": 8, "quote": "Заказчик вправе проводить аудит соблюдения антикоррупционных требований"}},
+      "has_whistleblowing_mechanism": {"value": "no", "confidence": 0.70, "location": null},
+      "has_related_party_regulation": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 13.5", "page": 8, "quote": "Сделки с аффилированными лицами заключаются на рыночных условиях"}},
+      "requires_arms_length": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 13.5", "page": 8, "quote": "на рыночных условиях"}},
+      "requires_corporate_approvals": {"value": "yes", "confidence": 0.80, "location": {"clause_ref": "п. 13.6", "page": 8, "quote": "Требуется одобрение Совета директоров"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -459,9 +547,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "anti_corruption_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования антикоррупции и RPT в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "has_anti_corruption_clauses"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Антикоррупционные положения"
       allowed_values:
         - "yes"
@@ -472,6 +572,7 @@ extraction:
     - name: "has_code_of_conduct_reference"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Код этики / антикоррупционная политика"
       allowed_values:
         - "yes"
@@ -482,6 +583,7 @@ extraction:
     - name: "has_audit_rights"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Права аудита комплаенса"
       allowed_values:
         - "yes"
@@ -492,6 +594,7 @@ extraction:
     - name: "has_whistleblowing_mechanism"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Механизм whistleblowing"
       allowed_values:
         - "yes"
@@ -502,6 +605,7 @@ extraction:
     - name: "has_related_party_regulation"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Регулирование related party transactions"
       allowed_values:
         - "yes"
@@ -512,6 +616,7 @@ extraction:
     - name: "requires_arms_length"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Требование arm's length для RPT"
       allowed_values:
         - "yes"
@@ -522,6 +627,7 @@ extraction:
     - name: "requires_corporate_approvals"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Корпоративные одобрения для RPT"
       allowed_values:
         - "yes"

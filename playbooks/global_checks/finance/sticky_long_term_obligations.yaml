@@ -129,9 +129,9 @@ retrieval:
   max_chunks: 12
 
   retrieval_query: >
-    take-or-pay минимальные объемы закупки поставки 
-    гарантированный минимум долгосрочные обязательства 
-    штраф за недобор exit fee автоматическая пролонгация 
+    take-or-pay минимальные объемы закупки поставки
+    гарантированный минимум долгосрочные обязательства
+    штраф за недобор exit fee автоматическая пролонгация
     индексация цен survive change of control
 
   boost_keywords:
@@ -209,7 +209,18 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1250
+  llm_max_tokens: 1600
+
+  # Presence gate: has_long_term_minimum_commitments уже выполняет роль
+  # presence-сигнала (yes/no/unclear). Отдельное поле не вводится.
+  # yes -> present (pass), no -> missing (missing_required_clause),
+  # unclear -> unclear.
+  # Контракт: present + missing + unclear = allowed_values.
+  presence_signal:
+    field: "has_long_term_minimum_commitments"
+    present_values: ["yes"]
+    missing_values: ["no"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -224,9 +235,12 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай сроки, объёмы или штрафы, которых нет в тексте.
-    - Если информация отсутствует — используй "no", "unclear"
-      или соответствующее состояние согласно allowed_values.
-    - Если текст неоднозначен — ставь "unclear".
+    - Если тема долгосрочных минимальных обязательств в договоре
+      вообще не раскрыта — для has_long_term_minimum_commitments
+      ставь "no", для остальных has_* — "no",
+      для term_duration — "Не применимо",
+      для commitments_description — "Не применимо".
+    - Если информация неоднозначна — используй "unclear".
 
     Не анализируй базовые платёжные условия (валюту, штрафы
     за просрочку, escrow) — это задача чека
@@ -234,23 +248,24 @@ extraction:
     Не анализируй финансовые ковенанты.
     </role>
 
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
-
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
     - Если среди фрагментов есть противоречия — укажи "unclear"
       и объясни в reason.
     - Если ни один фрагмент не содержит информации о минимальных
-      обязательствах — используй "no".
-    - Не используй информацию из definitions/преамбулы,
+      обязательствах — has_long_term_minimum_commitments = "no";
+      остальные поля — согласно Шагу 1.
+    - Не используй информацию из definitions, преамбулы или приложений,
       если они не содержат substantive условий по теме check.
     - Общие обязательства без конкретных минимумов или объёмов
       НЕ считаются долгосрочными минимальными обязательствами.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
@@ -265,7 +280,49 @@ extraction:
     - has_exit_or_termination_fee
     - has_renegotiation_mechanism
     - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
+
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 7.2", "page": 10, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для has_long_term_minimum_commitments (yes): "Покупатель обязуется ежегодно приобретать не менее 1000 тонн продукции";
+      * для has_auto_renewal (yes_with_notice): "Договор автоматически продлевается на следующий год, если ни одна из Сторон не направит уведомление об отказе не позднее чем за 180 дней";
+      * для survives_change_of_control (yes): "Обязательства по настоящему Договору сохраняют силу независимо от смены контроля над любой из Сторон";
+      * для has_indexation (yes_uncapped): "Стоимость продукции подлежит ежегодной индексации на уровень инфляции без ограничения";
+      * для has_shortfall_penalties (yes): "Покупатель обязуется оплатить недостающий объём продукции по цене, установленной Договором";
+      * для has_exit_or_termination_fee (yes_significant): "При досрочном расторжении Покупатель уплачивает штраф в размере 20% годового объёма закупки";
+      * для has_renegotiation_mechanism (yes): "Стороны обязуются пересматривать условия настоящего Договора каждые 3 года".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для sticky_obligations_display, commitments_description,
+      term_duration и reason location всегда null (синтезированы);
+    - для signal-полей (has_*, survives_change_of_control) возвращай
+      location с quote только когда значение подтверждается
+      конкретным условием договора:
+      * для "yes" / "yes_auto" / "yes_with_notice" /
+        "yes_uncapped" / "yes_capped" / "yes_significant" /
+        "yes_reasonable" — quote с описанием условия;
+      * для "no" — quote только если договор прямо исключает или
+        не предусматривает соответствующее условие;
+        location = null, если условие просто не раскрыто;
+      * для "unclear" — location = null;
+    - если has_long_term_minimum_commitments = "no" — для всех полей
+      location = null.
+    </location_instructions>
 
     <instructions>
     Шаг 1 — НАЛИЧИЕ ДОЛГОСРОЧНЫХ МИНИМАЛЬНЫХ ОБЯЗАТЕЛЬСТВ
@@ -277,6 +334,35 @@ extraction:
       закупки/поставки, фиксированные минимальные платежи.
     - "no" — нет. Общие обязательства без минимумов = "no".
     - "unclear" — неясно.
+
+    Если has_long_term_minimum_commitments = "no":
+    - commitments_description = "Не применимо"
+    - term_duration = "Не применимо"
+    - has_auto_renewal = "no"
+    - survives_change_of_control = "no"
+    - has_indexation = "no"
+    - has_shortfall_penalties = "no"
+    - has_exit_or_termination_fee = "no"
+    - has_renegotiation_mechanism = "no"
+    - sticky_obligations_display = "Долгосрочных минимальных обязательств не обнаружено"
+    - reason = "Долгосрочные минимальные обязательства не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 2–9; переходи к Шагу 10.
+
+    Если has_long_term_minimum_commitments = "unclear":
+    - commitments_description = "Не удалось определить"
+    - term_duration = "Не удалось определить"
+    - has_auto_renewal = "unclear"
+    - survives_change_of_control = "unclear"
+    - has_indexation = "unclear"
+    - has_shortfall_penalties = "unclear"
+    - has_exit_or_termination_fee = "unclear"
+    - has_renegotiation_mechanism = "unclear"
+    - sticky_obligations_display = "Не удалось определить"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если has_long_term_minimum_commitments = "yes" — переходи к Шагам 2–9.
 
     Шаг 2 — ОПИСАНИЕ ОБЯЗАТЕЛЬСТВ
 
@@ -385,18 +471,19 @@ extraction:
        "Мин. закупка 60%; срок не указан; auto-renewal"
     3. Обязательств нет:
        "Долгосрочных минимальных обязательств не обнаружено"
-    4. Тема не урегулирована:
-       "Долгосрочных минимальных обязательств не обнаружено"
-    5. Не удалось определить:
+    4. Не удалось определить:
        "Не удалось определить"
 
-    Правила построения (если обязательства есть):
+    Правила построения (если has_long_term_minimum_commitments = "yes"):
     - начни с commitments_description (кратко)
     - добавь term_duration
     - добавь survives_change_of_control (если "yes")
     - добавь has_auto_renewal (если значимо)
     - добавь has_exit_or_termination_fee (если есть)
     Не более 4 фактов через ";".
+    Не добавляй никаких данных, которых нет в полях выше
+    (например, конкретные суммы платежей, если они не отражены
+    в commitments_description).
 
     Шаг 11 — КРАТКОЕ ОБОСНОВАНИЕ
 
@@ -405,6 +492,8 @@ extraction:
     Правила:
     - Первое предложение — краткий вывод по обязательствам.
     - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    - Не оценивай риск.
     </instructions>
 
     <edge_cases>
@@ -412,26 +501,43 @@ extraction:
       * has_long_term_minimum_commitments = "no"
       * commitments_description = "Не применимо"
       * term_duration = "Не применимо"
+      * has_auto_renewal = "no"
+      * survives_change_of_control = "no"
+      * has_indexation = "no"
+      * has_shortfall_penalties = "no"
+      * has_exit_or_termination_fee = "no"
+      * has_renegotiation_mechanism = "no"
       * sticky_obligations_display =
         "Долгосрочных минимальных обязательств не обнаружено"
 
     - "Shall remain in full force regardless of CoC":
+      * has_long_term_minimum_commitments = "yes"
       * survives_change_of_control = "yes"
 
     - Auto-renewal с 180-дневным notice:
+      * has_long_term_minimum_commitments = "yes"
       * has_auto_renewal = "yes_with_notice"
 
     - Indexation CPI + 3% без cap:
+      * has_long_term_minimum_commitments = "yes"
       * has_indexation = "yes_uncapped"
 
     - Meet-or-release clause:
+      * has_long_term_minimum_commitments = "yes"
       * has_renegotiation_mechanism = "yes"
 
     - Нет релевантных фрагментов:
-      * has_long_term_minimum_commitments = "unclear"
-      * commitments_description = "Не удалось определить"
-      * term_duration = "Не удалось определить"
-      * sticky_obligations_display = "Не удалось определить"
+      * has_long_term_minimum_commitments = "no"
+      * commitments_description = "Не применимо"
+      * term_duration = "Не применимо"
+      * has_auto_renewal = "no"
+      * survives_change_of_control = "no"
+      * has_indexation = "no"
+      * has_shortfall_penalties = "no"
+      * has_exit_or_termination_fee = "no"
+      * has_renegotiation_mechanism = "no"
+      * sticky_obligations_display =
+        "Долгосрочных минимальных обязательств не обнаружено"
     </edge_cases>
 
     <output_expectations>
@@ -443,20 +549,22 @@ extraction:
       commitments_description, term_duration, reason) —
       на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "sticky_obligations_display": "...",
-      "has_long_term_minimum_commitments": "yes",
-      "commitments_description": "Take-or-pay: 1000 т/год",
-      "term_duration": "7 лет",
-      "has_auto_renewal": "yes_with_notice",
-      "survives_change_of_control": "yes",
-      "has_indexation": "yes_uncapped",
-      "has_shortfall_penalties": "yes",
-      "has_exit_or_termination_fee": "yes_significant",
-      "has_renegotiation_mechanism": "no",
-      "reason": "..."
+      "sticky_obligations_display": {"value": "Take-or-pay: 1000 т/год; срок 7 лет; переживает CoC; exit fee", "confidence": 0.95, "location": null},
+      "has_long_term_minimum_commitments": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 7.2", "page": 10, "quote": "Покупатель обязуется ежегодно приобретать не менее 1000 тонн продукции"}},
+      "commitments_description": {"value": "Take-or-pay: 1000 т/год", "confidence": 0.92, "location": null},
+      "term_duration": {"value": "7 лет", "confidence": 0.90, "location": null},
+      "has_auto_renewal": {"value": "yes_with_notice", "confidence": 0.90, "location": {"clause_ref": "п. 7.5", "page": 10, "quote": "Договор автоматически продлевается на следующий год, если ни одна из Сторон не направит уведомление об отказе не позднее чем за 180 дней"}},
+      "survives_change_of_control": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 7.8", "page": 11, "quote": "Обязательства по настоящему Договору сохраняют силу независимо от смены контроля над любой из Сторон"}},
+      "has_indexation": {"value": "yes_uncapped", "confidence": 0.88, "location": {"clause_ref": "п. 7.6", "page": 11, "quote": "Стоимость продукции подлежит ежегодной индексации на уровень инфляции без ограничения"}},
+      "has_shortfall_penalties": {"value": "yes", "confidence": 0.88, "location": {"clause_ref": "п. 7.3", "page": 10, "quote": "Покупатель обязуется оплатить недостающий объём продукции по цене, установленной Договором"}},
+      "has_exit_or_termination_fee": {"value": "yes_significant", "confidence": 0.88, "location": {"clause_ref": "п. 7.9", "page": 11, "quote": "При досрочном расторжении Покупатель уплачивает штраф в размере 20% годового объёма закупки"}},
+      "has_renegotiation_mechanism": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 7.7", "page": 11, "quote": "Стороны обязуются пересматривать условия настоящего Договора каждые 3 года"}},
+      "reason": {"value": "Договор устанавливает take-or-pay 1000 т/год сроком на 7 лет, сохраняющийся при смене контроля; предусмотрены auto-renewal, индексация без cap, shortfall penalties и exit fee. «Покупатель обязуется ежегодно приобретать не менее 1000 тонн продукции».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -472,6 +580,7 @@ extraction:
     - name: "has_long_term_minimum_commitments"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие долгосрочных минимальных обязательств"
       allowed_values:
         - "yes"
@@ -498,6 +607,7 @@ extraction:
     - name: "has_auto_renewal"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Автоматическая пролонгация"
       allowed_values:
         - "yes_auto"
@@ -509,6 +619,7 @@ extraction:
     - name: "survives_change_of_control"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Выживаемость при CoC"
       allowed_values:
         - "yes"
@@ -519,6 +630,7 @@ extraction:
     - name: "has_indexation"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Индексация / escalation"
       allowed_values:
         - "yes_uncapped"
@@ -530,6 +642,7 @@ extraction:
     - name: "has_shortfall_penalties"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Shortfall penalties за невыполнение"
       allowed_values:
         - "yes"
@@ -540,6 +653,7 @@ extraction:
     - name: "has_exit_or_termination_fee"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Стоимость досрочного выхода"
       allowed_values:
         - "yes_significant"
@@ -551,6 +665,7 @@ extraction:
     - name: "has_renegotiation_mechanism"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Механизм пересмотра условий"
       allowed_values:
         - "yes"
@@ -565,5 +680,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
 
   

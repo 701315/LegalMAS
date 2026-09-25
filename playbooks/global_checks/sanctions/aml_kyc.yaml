@@ -25,7 +25,6 @@ rules:
 
   keywords:
     high:
-      # Прямые AML/KYC термины
       - "(?i)\\bAML\\b"
       - "(?i)anti[-\\s]?money\\s+laundering"
       - "(?i)противодействи[ея]\\s+(легализаци[ия]|отмывани[юя])"
@@ -36,22 +35,16 @@ rules:
       - "(?i)\\bCDD\\b"
       - "(?i)\\bEDD\\b"
       - "(?i)enhanced\\s+due\\s+diligence"
-
-      # Бенефициары
       - "(?i)beneficial\\s+owner[\\s\\S]{0,20}(AML|KYC|identify|disclose)"
       - "(?i)ultimate\\s+beneficial\\s+owner"
       - "(?i)\\bUBO\\b"
       - "(?i)бенефициарн[а-яый]+\\s+(владелец|собственник)[\\s\\S]{0,20}(KYC|идентификац)"
       - "(?i)конечн[а-яый]+\\s+бенефициар[\\s\\S]{0,20}(идентификац|раскры)"
-
-      # Подозрительные транзакции
       - "(?i)suspicious\\s+(transaction|activity|operation)"
       - "(?i)\\bSAR\\b"
       - "(?i)\\bSTR\\b"
       - "(?i)подозрительн[а-яые]+\\s+(транзакц|операц|сделк)"
       - "(?i)необычн[а-яые]+\\s+(операц|сделк)"
-
-      # Законодательство
       - "(?i)ФЗ[-\\s]?115"
       - "(?i)115[-\\s]?ФЗ"
       - "(?i)FATF"
@@ -63,27 +56,20 @@ rules:
       - "(?i)Росфинмониторинг"
 
     medium:
-      # Мониторинг и reporting
       - "(?i)transaction\\s+monitoring"
       - "(?i)мониторинг\\s+(операц|транзакц)"
       - "(?i)reporting\\s+obligations?[\\s\\S]{0,20}(AML|KYC|suspicious)"
       - "(?i)report\\s+to\\s+[\\s\\S]{0,30}(Росфинмониторинг|FIU|FinCEN)"
       - "(?i)сообщ[а-я]+\\s+в\\s+Росфинмониторинг"
-
-      # KYC процедуры
       - "(?i)KYC\\s+(documents?|procedures?|information)"
       - "(?i)identity\\s+verification"
       - "(?i)верификаци[яию]\\s+личност"
       - "(?i)customer\\s+onboarding"
       - "(?i)sanctions?\\s+screening"
       - "(?i)проверк[аи]\\s+(по\\s+)?санкционн[а-яый]+\\s+списк"
-
-      # Обновление KYC
       - "(?i)periodic\\s+(review|update)[\\s\\S]{0,20}(KYC|customer|beneficial)"
       - "(?i)обновлени[ея]\\s+[\\s\\S]{0,20}KYC"
       - "(?i)update[d]?\\s+[\\s\\S]{0,20}(KYC|beneficial|UBO)"
-
-      # Последствия нарушений
       - "(?i)(suspend|block|terminat)[\\s\\S]{0,30}(AML|KYC|compliance)"
       - "(?i)(приостанов|заблокир|расторг)[\\s\\S]{0,30}(AML|KYC|комплаенс)"
       - "(?i)refus[a-z]+\\s+to\\s+(process|execute)[\\s\\S]{0,20}(AML|KYC)"
@@ -166,7 +152,6 @@ retrieval:
 
   preferred_clause_functions:
     - "obligations"
-    - "obligations"
     - "procedures"
 
   position_bias:
@@ -201,17 +186,25 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1050
+  llm_max_tokens: 1250
+
+  presence_signal:
+    field: "aml_kyc_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по AML/KYC и финансовому комплаенсу.
     Твоя задача — точно извлечь из текста:
-    1) характер AML/KYC-обязательств и их детализацию;
-    2) требования по раскрытию бенефициаров (UBO);
-    3) AML-мониторинг и reporting;
-    4) ссылки на законодательство;
-    5) право контрагента заблокировать / приостановить сервис.
+    1) есть ли в договоре регулирование AML/KYC;
+    2) если есть — какие обязательства установлены:
+       - характер AML/KYC-обязательств и их детализация;
+       - требования по раскрытию бенефициаров (UBO);
+       - AML-мониторинг и reporting;
+       - ссылки на законодательство;
+       - право контрагента заблокировать / приостановить сервис.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
@@ -219,17 +212,14 @@ extraction:
       общие compliance-фразы без конкретики.
     - НЕ считай санкционный скрининг автоматически AML-мониторингом —
       это разные вещи.
-    - Если информация отсутствует — используй "no" или "unclear"
-      согласно allowed_values.
     - Если в договоре нет финансовых операций —
       AML/KYC, как правило, не применимы, используй "no".
+    - Если ни один фрагмент не содержит информации об AML/KYC
+      (нет упоминаний AML / KYC / противодействия легализации /
+      идентификации клиентов / UBO) — aml_kyc_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      aml_kyc_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -244,11 +234,23 @@ extraction:
       ("reasonable suspicion", по усмотрению контрагента).
     - Право приостановки "proportionate" — только при реальном
       нарушении или фактическом попадании в список.
+    - Если ни один фрагмент не содержит информации об AML/KYC
+      (нет упоминаний AML / KYC / anti-money laundering /
+      идентификации клиентов / UBO), aml_kyc_status = "missing",
+      location = null. Не использовать "unclear" при полном отсутствии
+      релевантных фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - aml_kyc_display
+    - aml_kyc_status
     - has_kyc_obligations
     - kyc_detail_level
     - requires_kyc_update
@@ -259,7 +261,58 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля aml_kyc_display и reason
+      location ВСЕГДА null.
+    - Для aml_kyc_status = "missing" — location = null.
+    - Для aml_kyc_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для has_kyc_obligations, requires_kyc_update,
+      requires_ubo_disclosure, has_aml_monitoring,
+      references_legislation:
+      * если "yes" — quote с фразой-основанием;
+      * если "no" — различай: прямое исключение (quote обязательна)
+        vs отсутствие упоминания (location = null);
+      * если "unclear" — location = null.
+    - Для kyc_detail_level — quote с фрагментом процедур KYC,
+      если уровень определён.
+    - Для counterparty_suspension_rights — quote с фразой-основанием
+      права приостановки.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ AML/KYC
+
+    Заполни "aml_kyc_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное signal-поле
+      указывает на наличие информации по теме:
+      * has_kyc_obligations = "yes";
+      * requires_kyc_update = "yes";
+      * requires_ubo_disclosure = "yes";
+      * has_aml_monitoring = "yes";
+      * references_legislation = "yes";
+      * counterparty_suspension_rights ∈ {"broad", "proportionate"};
+      * ЛИБО любое поле = "no", но с заполненным location
+        с прямой цитатой об исключении (см. RF3).
+    - "missing" — если все содержательные поля = "no" БЕЗ цитат,
+      ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — KYC-ОБЯЗАТЕЛЬСТВА
 
     Заполни "has_kyc_obligations".
@@ -341,20 +394,8 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Детализированные AML/KYC:
-       "AML/KYC детализированы (ФЗ-115 / FATF); UBO раскрытие;
-        мониторинг; право приостановки пропорциональное"
-    2. Только общие:
-       "AML/KYC только декларативно; нет UBO; право
-        приостановки широкое"
-    3. Нет AML/KYC:
-       "AML/KYC не обнаружены"
-    4. Не удалось определить:
-       "Не удалось определить AML/KYC"
-
     Правила:
-    - Если has_kyc_obligations = "no":
+    - Если aml_kyc_status = "missing":
       "AML/KYC не обнаружены"
     - Если все поля unclear:
       "Не удалось определить AML/KYC"
@@ -378,49 +419,67 @@ extraction:
 
     <edge_cases>
     - "Соблюдать AML/KYC законодательство" без конкретики:
+      * aml_kyc_status = "present"
       * has_kyc_obligations = "yes"
       * kyc_detail_level = "general"
 
     - Детализированные KYC + UBO + ФЗ-115 + пропорциональная
       приостановка:
+      * aml_kyc_status = "present"
       * kyc_detail_level = "detailed"
       * references_legislation = "yes"
       * requires_ubo_disclosure = "yes"
       * counterparty_suspension_rights = "proportionate"
 
     - "Reasonable suspicion" как основание приостановки:
+      * aml_kyc_status = "present"
       * counterparty_suspension_rights = "broad"
 
     - Договор без финансовых операций (консалтинг, аренда):
+      * aml_kyc_status = "missing"
       * has_kyc_obligations = "no"
+      * kyc_detail_level = "not_applicable"
+      * requires_kyc_update = "no"
+      * requires_ubo_disclosure = "no"
+      * has_aml_monitoring = "no"
+      * references_legislation = "no"
+      * counterparty_suspension_rights = "none"
       * aml_kyc_display = "AML/KYC не обнаружены"
+      * location у всех полей = null.
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
+    - Договор прямо фиксирует отсутствие AML/KYC:
+      * aml_kyc_status = "present"
+      * has_kyc_obligations = "no"
+      * location с прямой цитатой об отсутствии.
+
+    - Формулировки есть, но вывод невозможен:
+      * aml_kyc_status = "unclear"
       * aml_kyc_display = "Не удалось определить AML/KYC"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (aml_kyc_display, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (aml_kyc_display, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "aml_kyc_display": "AML/KYC детализированы (ФЗ-115); UBO раскрытие; мониторинг",
-      "has_kyc_obligations": "yes",
-      "kyc_detail_level": "detailed",
-      "requires_kyc_update": "yes",
-      "requires_ubo_disclosure": "yes",
-      "has_aml_monitoring": "yes",
-      "references_legislation": "yes",
-      "counterparty_suspension_rights": "proportionate",
-      "reason": "..."
+      "aml_kyc_display": {"value": "AML/KYC детализированы (ФЗ-115); UBO раскрытие; мониторинг", "confidence": 0.92, "location": null},
+      "aml_kyc_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 8.1", "page": 5, "quote": "Стороны обязуются соблюдать требования ФЗ-115 о противодействии легализации"}},
+      "has_kyc_obligations": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 8.1", "page": 5, "quote": "Стороны обязуются соблюдать требования ФЗ-115"}},
+      "kyc_detail_level": {"value": "detailed", "confidence": 0.85, "location": {"clause_ref": "п. 8.2", "page": 5, "quote": "Идентификация клиентов производится в порядке, установленном ФЗ-115"}},
+      "requires_kyc_update": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 8.3", "page": 5, "quote": "KYC обновляется не реже одного раза в год"}},
+      "requires_ubo_disclosure": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 8.4", "page": 5, "quote": "Стороны раскрывают сведения о бенефициарных владельцах"}},
+      "has_aml_monitoring": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 8.5", "page": 5, "quote": "мониторинг подозрительных операций с сообщением в Росфинмониторинг"}},
+      "references_legislation": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 8.1", "page": 5, "quote": "требования ФЗ-115"}},
+      "counterparty_suspension_rights": {"value": "proportionate", "confidence": 0.80, "location": {"clause_ref": "п. 8.7", "page": 5, "quote": "при фактическом включении в перечень"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -433,9 +492,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "aml_kyc_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования AML/KYC в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "has_kyc_obligations"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие KYC-обязательств"
       allowed_values:
         - "yes"
@@ -446,6 +517,7 @@ extraction:
     - name: "kyc_detail_level"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Уровень детализации KYC"
       allowed_values:
         - "detailed"
@@ -457,6 +529,7 @@ extraction:
     - name: "requires_kyc_update"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Периодическое обновление KYC"
       allowed_values:
         - "yes"
@@ -467,6 +540,7 @@ extraction:
     - name: "requires_ubo_disclosure"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Раскрытие бенефициаров (UBO)"
       allowed_values:
         - "yes"
@@ -477,6 +551,7 @@ extraction:
     - name: "has_aml_monitoring"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "AML-мониторинг и reporting"
       allowed_values:
         - "yes"
@@ -487,6 +562,7 @@ extraction:
     - name: "references_legislation"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Ссылки на AML-законодательство"
       allowed_values:
         - "yes"
@@ -497,6 +573,7 @@ extraction:
     - name: "counterparty_suspension_rights"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Право контрагента на приостановку"
       allowed_values:
         - "broad"
@@ -512,5 +589,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
 
   

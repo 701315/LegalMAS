@@ -196,7 +196,16 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1050
+  llm_max_tokens: 1350
+
+  # Presence gate: it_outsourcing_status фиксирует факт наличия
+  # ИТ-аутсорсинга в договоре. missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = it_outsourcing_status.allowed_values.
+  presence_signal:
+    field: "it_outsourcing_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -214,14 +223,11 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ придумывай функции на аутсорсинге, если они не указаны.
     - НЕ предполагай наличие SLA или exit-механизмов без явного упоминания.
-    - Если информация отсутствует — используй "no", "absent" или "unclear".
+    - Если тема ИТ-аутсорсинга в договоре вообще не раскрыта — для
+      it_outsourcing_status ставь "missing", для содержательных
+      полей — "no" / "absent".
+    - Если информация неоднозначна — используй "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -235,11 +241,26 @@ extraction:
       SLA "weak" = есть SLA, но без метрик или кредитов.
     - "outsourced_it_functions_summary" — только функции, явно
       переданные внешнему ИТ-провайдеру. Не угадывай по отрасли.
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
+    - Если ни один фрагмент не содержит информации по теме —
+      it_outsourcing_status = "missing", остальные поля — согласно Шагу 0,
+      location = null у всех полей.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - it_outsourcing_display
+    - it_outsourcing_status
     - outsourced_it_functions_summary
     - provider_security_obligations_present
     - subprocessor_controls
@@ -248,9 +269,87 @@ extraction:
     - sla_quality
     - provider_can_change_terms_unilaterally
     - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 5.1", "page": 8, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно.
+      Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для outsourced_it_functions_summary: "Поставщик предоставляет Заказчику доступ к CRM-системе на условиях SaaS";
+      * для provider_security_obligations_present (yes): "Поставщик обязуется обеспечивать защиту данных в соответствии с ISO/IEC 27001";
+      * для subprocessor_controls (yes): "Поставщик вправе привлекать субобработчиков только с предварительного письменного согласия Заказчика";
+      * для provider_can_suspend_easily (yes): "Поставщик вправе приостановить оказание услуг при просрочке оплаты свыше 5 дней без предоставления срока на устранение";
+      * для has_data_export_and_transition_mechanisms (yes): "Поставщик обязуется обеспечить экспорт данных Заказчика в машиночитаемом формате в течение 30 дней после прекращения договора";
+      * для sla_quality (strong): "Доступность Сервиса составляет не менее 99,9% в месяц; за каждый час простоя свыше допустимого Поставщик предоставляет сервисные кредиты";
+      * для provider_can_change_terms_unilaterally (yes): "Поставщик вправе в одностороннем порядке изменять условия настоящего Договора, уведомив Заказчика за 30 дней".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для it_outsourcing_display, it_outsourcing_status и reason
+      location всегда null (синтезированы);
+    - для содержательных signal-полей возвращай location с quote
+      только когда значение подтверждается конкретным условием:
+      * для "yes" / "strong" — quote с описанием условия;
+      * для "no" / "absent" — quote только если договор прямо
+        исключает или не предусматривает условие;
+        location = null, если условие просто не раскрыто;
+      * для "weak" — quote с описанием упоминания без метрик;
+      * для "unclear" — location = null;
+    - если it_outsourcing_status = "missing" — для всех полей
+      location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ИТ-АУТСОРСИНГА
+
+    Заполни "it_outsourcing_status".
+
+    Значения:
+    - "present" — договор предполагает привлечение внешнего
+      ИТ-провайдера / аутсорсинг ИТ-функций.
+    - "missing" — договор не предполагает ИТ-аутсорсинга
+      (обычная поставка товара, неквалифицированный сервис).
+    - "unclear" — нельзя определить.
+
+    Если it_outsourcing_status = "missing":
+    - outsourced_it_functions_summary = "Не выявлено"
+    - provider_security_obligations_present = "no"
+    - subprocessor_controls = "no"
+    - provider_can_suspend_easily = "no"
+    - has_data_export_and_transition_mechanisms = "no"
+    - sla_quality = "absent"
+    - provider_can_change_terms_unilaterally = "no"
+    - it_outsourcing_display = "ИТ-аутсорсинг не выявлен"
+    - reason = "ИТ-аутсорсинг не обнаружен в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 1–7; переходи к Шагу 8.
+
+    Если it_outsourcing_status = "unclear":
+    - outsourced_it_functions_summary = "Не удалось определить"
+    - provider_security_obligations_present = "unclear"
+    - subprocessor_controls = "unclear"
+    - provider_can_suspend_easily = "unclear"
+    - has_data_export_and_transition_mechanisms = "unclear"
+    - sla_quality = "unclear"
+    - provider_can_change_terms_unilaterally = "unclear"
+    - it_outsourcing_display = "Не удалось определить условия ИТ-аутсорсинга"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если it_outsourcing_status = "present" — переходи к Шагам 1–7.
+
     Шаг 1 — ФУНКЦИИ НА АУТСОРСИНГЕ
 
     Заполни "outsourced_it_functions_summary".
@@ -354,27 +453,25 @@ extraction:
        "Не удалось определить условия ИТ-аутсорсинга"
 
     Правила:
-    - Если все поля unclear:
-      "Не удалось определить условия ИТ-аутсорсинга"
-    - Если outsourced_it_functions_summary = "Не выявлено":
+    - Если it_outsourcing_status = "missing":
       "ИТ-аутсорсинг не выявлен"
-    - Иначе комбинируй через ";":
+    - Если it_outsourcing_status = "unclear":
+      "Не удалось определить условия ИТ-аутсорсинга"
+    - Если it_outsourcing_status = "present":
+      Комбинируй через ";" не более 4 коротких фактов:
       * начни с outsourced_it_functions_summary (кратко)
-      * если provider_security_obligations_present = "yes":
+      * provider_security_obligations_present = "yes" →
         "ИБ-обязательства есть"
-      * если provider_security_obligations_present = "no":
+      * provider_security_obligations_present = "no" →
         "ИБ не описана"
-      * если sla_quality = "strong":
-        "SLA strong"
-      * если sla_quality = "absent":
-        "SLA отсутствует"
-      * если provider_can_suspend_easily = "yes":
+      * sla_quality = "strong" → "SLA strong"
+      * sla_quality = "absent" → "SLA отсутствует"
+      * provider_can_suspend_easily = "yes" →
         "риск лёгкой приостановки"
-      * если has_data_export_and_transition_mechanisms = "no":
+      * has_data_export_and_transition_mechanisms = "no" →
         "нет exit-механизма"
-      * если provider_can_change_terms_unilaterally = "yes":
+      * provider_can_change_terms_unilaterally = "yes" →
         "одностороннее изменение условий"
-    - Не более 4 коротких фактов через ";".
 
     Шаг 9 — КРАТКОЕ ОБОСНОВАНИЕ
 
@@ -388,53 +485,72 @@ extraction:
 
     <edge_cases>
     - ИТ-аутсорсинга нет в договоре:
+      * it_outsourcing_status = "missing"
       * outsourced_it_functions_summary = "Не выявлено"
-      * все сигналы = "unclear" или "no"
+      * provider_security_obligations_present = "no"
+      * subprocessor_controls = "no"
+      * provider_can_suspend_easily = "no"
+      * has_data_export_and_transition_mechanisms = "no"
+      * sla_quality = "absent"
+      * provider_can_change_terms_unilaterally = "no"
       * it_outsourcing_display = "ИТ-аутсорсинг не выявлен"
 
     - Декларативные ИБ без конкретики:
+      * it_outsourcing_status = "present"
       * provider_security_obligations_present = "unclear"
 
     - Провайдер может менять условия с 30-дневным notice:
+      * it_outsourcing_status = "present"
       * provider_can_change_terms_unilaterally = "yes"
 
     - Есть uptime 99.9% + service credits:
+      * it_outsourcing_status = "present"
       * sla_quality = "strong"
 
     - SLA упомянут без метрик:
+      * it_outsourcing_status = "present"
       * sla_quality = "weak"
 
     - Нет transition assistance и data export:
+      * it_outsourcing_status = "present"
       * has_data_export_and_transition_mechanisms = "no"
 
     - Нет релевантных фрагментов:
-      * все поля = "unclear"
-      * outsourced_it_functions_summary = "Не удалось определить"
-      * it_outsourcing_display =
-        "Не удалось определить условия ИТ-аутсорсинга"
+      * it_outsourcing_status = "missing"
+      * outsourced_it_functions_summary = "Не выявлено"
+      * provider_security_obligations_present = "no"
+      * subprocessor_controls = "no"
+      * provider_can_suspend_easily = "no"
+      * has_data_export_and_transition_mechanisms = "no"
+      * sla_quality = "absent"
+      * provider_can_change_terms_unilaterally = "no"
+      * it_outsourcing_display = "ИТ-аутсорсинг не выявлен"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай ответ в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
     - Для полей с allowed_values используй строго значения из списка.
     - Свободные текстовые поля
       (it_outsourcing_display, outsourced_it_functions_summary, reason)
       заполняй на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "it_outsourcing_display": "CRM; ИБ-обязательства есть; SLA strong; нет exit-механизма",
-      "outsourced_it_functions_summary": "CRM",
-      "provider_security_obligations_present": "yes",
-      "subprocessor_controls": "yes",
-      "provider_can_suspend_easily": "no",
-      "has_data_export_and_transition_mechanisms": "no",
-      "sla_quality": "strong",
-      "provider_can_change_terms_unilaterally": "no",
-      "reason": "..."
+      "it_outsourcing_display": {"value": "CRM; ИБ-обязательства есть; SLA strong; нет exit-механизма", "confidence": 0.95, "location": null},
+      "it_outsourcing_status": {"value": "present", "confidence": 0.95, "location": null},
+      "outsourced_it_functions_summary": {"value": "CRM", "confidence": 0.92, "location": {"clause_ref": "п. 1.3", "page": 2, "quote": "Поставщик предоставляет Заказчику доступ к CRM-системе на условиях SaaS"}},
+      "provider_security_obligations_present": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 5.2", "page": 8, "quote": "Поставщик обязуется обеспечивать защиту данных в соответствии с ISO/IEC 27001"}},
+      "subprocessor_controls": {"value": "yes", "confidence": 0.88, "location": {"clause_ref": "п. 5.5", "page": 9, "quote": "Поставщик вправе привлекать субобработчиков только с предварительного письменного согласия Заказчика"}},
+      "provider_can_suspend_easily": {"value": "no", "confidence": 0.85, "location": null},
+      "has_data_export_and_transition_mechanisms": {"value": "no", "confidence": 0.88, "location": null},
+      "sla_quality": {"value": "strong", "confidence": 0.90, "location": {"clause_ref": "п. 4.1", "page": 7, "quote": "Доступность Сервиса составляет не менее 99,9% в месяц; за каждый час простоя свыше допустимого Поставщик предоставляет сервисные кредиты"}},
+      "provider_can_change_terms_unilaterally": {"value": "no", "confidence": 0.85, "location": null},
+      "reason": {"value": "Договор предполагает SaaS-аутсорсинг CRM; ИБ-обязательства закреплены (ISO 27001); SLA strong. Однако механизмы экспорта данных и переход не предусмотрены. «...ISO/IEC 27001...».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -447,6 +563,17 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "it_outsourcing_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие ИТ-аутсорсинга в договоре"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+      display_in_grid: false
+
     - name: "outsourced_it_functions_summary"
       type: "string"
       presentation: "fact"
@@ -458,6 +585,7 @@ extraction:
     - name: "provider_security_obligations_present"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "ИБ-обязательства провайдера"
       allowed_values:
         - "yes"
@@ -468,6 +596,7 @@ extraction:
     - name: "subprocessor_controls"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Контроль субподрядчиков провайдера"
       allowed_values:
         - "yes"
@@ -478,6 +607,7 @@ extraction:
     - name: "provider_can_suspend_easily"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Риск лёгкой приостановки сервиса"
       allowed_values:
         - "yes"
@@ -488,6 +618,7 @@ extraction:
     - name: "has_data_export_and_transition_mechanisms"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Механизмы экспорта данных и перехода"
       allowed_values:
         - "yes"
@@ -498,6 +629,7 @@ extraction:
     - name: "sla_quality"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Качество SLA"
       allowed_values:
         - "strong"
@@ -509,6 +641,7 @@ extraction:
     - name: "provider_can_change_terms_unilaterally"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Одностороннее изменение условий провайдером"
       allowed_values:
         - "yes"

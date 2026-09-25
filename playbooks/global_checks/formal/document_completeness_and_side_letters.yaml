@@ -183,34 +183,39 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1150
+  llm_max_tokens: 1350
+
+  presence_signal:
+    field: "document_completeness_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по договорной документации и проверке полноты пакета.
     Твоя задача — точно извлечь из текста:
-    1) признаки отсутствующих документов;
-    2) риск side letters и скрытых договорённостей;
-    3) наличие entire agreement clause;
-    4) качество disclosure schedules;
-    5) наличие amendments и их консолидацию;
-    6) риск расхождений с реестрами / перечнями.
+    1) есть ли в договоре раздел / положения о полноте пакета
+       (приложения, side letters, disclosure schedules, amendments,
+       entire agreement, реестры);
+    2) если есть — какие условия / сигналы установлены:
+       - признаки отсутствующих документов;
+       - риск side letters и скрытых договорённостей;
+       - наличие entire agreement clause;
+       - качество disclosure schedules;
+       - наличие amendments и их консолидацию;
+       - риск расхождений с реестрами.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ придумывай отсутствующие документы, если в тексте нет
       явной или разумно обоснованной ссылки на них.
-    - НЕ делай вывод о полноте всего data room только по одному
-      фрагменту договора.
-    - Если данных недостаточно — используй "unclear" или
-      соответствующее состояние поля.
+    - НЕ делай вывод о полноте всего data room по одному фрагменту.
+    - Если раздел / положения по теме в договоре отсутствуют —
+      document_completeness_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      document_completeness_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -223,11 +228,24 @@ extraction:
       реестры или консолидацию — используй "unclear".
     - Не используй внешние предположения о том, какие документы
       "должны были бы" существовать.
+    - Если ни один фрагмент не содержит информации по теме полноты
+      пакета (нет ссылок на приложения / side letters / disclosure
+      schedules / amendments / entire agreement / реестры) —
+      document_completeness_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - document_completeness_display
+    - document_completeness_status
     - has_suspected_missing_documents
     - missing_documents_list
     - side_letters_risk
@@ -239,117 +257,115 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (document_completeness_display,
+      missing_documents_list, reason) location ВСЕГДА null.
+    - Для document_completeness_status = "missing" — location = null.
+    - Для document_completeness_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для has_* = "no" — различай два случая:
+      * если договор ПРЯМО исключает наличие («Иных приложений к настоящему
+        Договору не имеется», «Стороны не заключали side letter») — quote
+        ОБЯЗАТЕЛЬНА и должна содержать эту фразу;
+      * если просто отсутствует упоминание (договор молчит) —
+        location = null.
+    - Для side_letters_risk, disclosure_schedules_assessment,
+      consolidation_status, registers_gap_risk — quote с фразой,
+      на которой основана оценка.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РАЗДЕЛА / ПОЛОЖЕНИЙ О ПОЛНОТЕ ПАКЕТА
+
+    Заполни "document_completeness_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное поле сигнализирует
+      о наличии информации по теме:
+      * has_suspected_missing_documents = "yes";
+      * side_letters_risk ∈ {"high", "medium"};
+      * has_entire_agreement_clause = "yes";
+      * disclosure_schedules_assessment ∈ {"adequate", "weak", "empty"};
+      * has_amendments = "yes";
+      * consolidation_status ∈ {"consolidated", "not_consolidated"};
+      * registers_gap_risk ∈ {"high", "medium"};
+      * ЛИБО любое поле = "no" / "low" / "not_present" / "not_applicable",
+        но с заполненным location с прямой цитатой об исключении.
+    - "missing" — если все содержательные поля =
+      "no" / "low" / "not_present" / "not_applicable" БЕЗ цитаты,
+      либо фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear".
+
     Шаг 1 — ОТСУТСТВУЮЩИЕ ДОКУМЕНТЫ
 
     Заполни "has_suspected_missing_documents".
 
     Значения:
-    - "yes" — есть обоснованное подозрение:
-      ссылка на Schedule / Exhibit / Appendix без его текста;
-      разрыв в amendments;
-      упоминание side letter / отдельного соглашения без текста;
-      ссылка на disclosure schedule без самого schedule.
+    - "yes" — есть обоснованное подозрение: ссылка на Schedule / Exhibit /
+      Appendix без текста; разрыв в amendments; упоминание side letter /
+      отдельного соглашения без текста; ссылка на disclosure schedule
+      без самого schedule.
     - "no" — явных признаков отсутствующих документов не выявлено.
     - "unclear" — нельзя надёжно определить.
 
     Шаг 2 — СПИСОК ПРЕДПОЛОЖИТЕЛЬНО ОТСУТСТВУЮЩИХ ДОКУМЕНТОВ
 
     Заполни "missing_documents_list".
-
-    Правила:
-    - Если "yes" — перечисли кратко через ";", не более 3 позиций:
-      "Schedule A; Amendment #2; Disclosure Schedule"
-    - Если "no" — "Не выявлены"
-    - Если "unclear" — "Не удалось определить"
+    - Если "yes" — до 3 позиций через ";".
+    - Если "no" — "Не выявлены".
+    - Если "unclear" — "Не удалось определить".
 
     Шаг 3 — РИСК SIDE LETTERS
 
-    Заполни "side_letters_risk".
-
-    Значения:
-    - "high" — side letter / отдельное соглашение прямо упоминается,
-      но сам текст не представлен.
-    - "medium" — есть косвенные признаки скрытых договорённостей.
-    - "low" — признаков side letters не выявлено.
-    - "unclear" — нельзя определить.
+    Заполни "side_letters_risk": high / medium / low / unclear.
 
     Шаг 4 — ENTIRE AGREEMENT CLAUSE
 
-    Заполни "has_entire_agreement_clause".
-
-    Значения:
-    - "yes" — есть оговорка о полном соглашении / supersedes prior agreements.
-    - "no" — по тексту такой оговорки нет.
-    - "unclear" — нельзя определить.
+    Заполни "has_entire_agreement_clause": yes / no / unclear.
 
     Шаг 5 — DISCLOSURE SCHEDULES
 
-    Заполни "disclosure_schedules_assessment".
-
-    Значения:
-    - "adequate" — содержательные и конкретные.
-    - "weak" — формальные или blanket statements.
-    - "empty" — пустые / "Nothing to disclose".
-    - "not_present" — не упоминаются.
-    - "unclear" — нельзя оценить.
+    Заполни "disclosure_schedules_assessment":
+    adequate / weak / empty / not_present / unclear.
 
     Шаг 6 — AMENDMENTS И КОНСОЛИДАЦИЯ
 
-    Заполни "has_amendments" и "consolidation_status".
-
-    Значения для has_amendments:
-    - "yes" — amendments / допсоглашения / restated versions упоминаются.
-    - "no" — не упоминаются.
-    - "unclear" — нельзя определить.
-
-    Значения для consolidation_status:
-    - "consolidated" — есть consolidated / amended and restated version.
-    - "not_consolidated" — amendments есть, но консолидированной версии нет.
-    - "not_applicable" — amendments нет.
-    - "unclear" — нельзя определить.
+    Заполни "has_amendments": yes / no / unclear.
+    Заполни "consolidation_status":
+    consolidated / not_consolidated / not_applicable / unclear.
 
     Шаг 7 — РИСК РАСХОЖДЕНИЯ С РЕЕСТРАМИ
 
-    Заполни "registers_gap_risk".
-
-    Значения:
-    - "high" — явный разрыв между реестром / перечнем и текстом.
-    - "medium" — отдельные несоответствия или пробелы.
-    - "low" — явных расхождений не видно или реестры не проблематичны.
-    - "unclear" — нельзя определить.
+    Заполни "registers_gap_risk": high / medium / low / unclear.
 
     Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "document_completeness_display".
-
-    Это итоговое поле для таблицы.
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
-    Не добавляй информацию сверх них.
-
-    Возможные состояния:
-    1. Пакет выглядит полным:
-       "Пакет выглядит полным"
-    2. Есть конкретные проблемы:
-       "Отсутствует Schedule A; side letter не представлен; amendments без консолидации"
-    3. Частичные замечания:
-       "Пакет выглядит полным; entire agreement есть"
-    4. Не удалось определить:
-       "Не удалось оценить полноту документации"
 
     Правила:
-    - Если все поля unclear:
-      "Не удалось оценить полноту документации"
-    - Если нет признаков missing documents,
-      side_letters_risk = "low",
+    - Если document_completeness_status = "missing":
+      "Положения о полноте пакета в договоре отсутствуют"
+    - Если нет признаков missing documents, side_letters_risk = "low",
       disclosure_schedules_assessment в ["adequate", "not_present", "unclear"],
       consolidation_status в ["consolidated", "not_applicable", "unclear"],
       registers_gap_risk in ["low", "unclear"]:
-      базой может быть "Пакет выглядит полным"
+      "Пакет выглядит полным"
     - Если has_suspected_missing_documents = "yes":
       добавь "Отсутствует {missing_documents_list}"
-    - Если side_letters_risk = "high":
-      добавь "side letter не представлен"
+    - Если side_letters_risk = "high": добавь "side letter не представлен"
     - Если disclosure_schedules_assessment = "weak":
       добавь "disclosure schedules формальные"
     - Если disclosure_schedules_assessment = "empty":
@@ -360,62 +376,84 @@ extraction:
 
     Шаг 9 — ОБОСНОВАНИЕ
 
-    Заполни "reason".
-
-    Правила:
-    - Первое предложение — краткий вывод.
-    - Второе — короткая цитата из текста (до 100 символов).
-    - Пиши по-русски.
+    Заполни "reason": первое предложение — вывод, второе — цитата
+    (до 100 символов). Пиши по-русски.
     </instructions>
 
     <edge_cases>
-    - "As set out in Schedule X", но самого текста Schedule X нет:
+    - "As set out in Schedule X", но текста Schedule X нет:
+      * document_completeness_status = "present"
       * has_suspected_missing_documents = "yes"
       * missing_documents_list = "Schedule X"
 
     - "Сторонами также заключено отдельное соглашение":
+      * document_completeness_status = "present"
       * side_letters_risk = "high"
 
     - Нет ссылок на приложения / schedules / отдельные соглашения:
+      * document_completeness_status = "present"
       * has_suspected_missing_documents = "no"
       * side_letters_risk = "low"
 
     - "Nothing to disclose":
+      * document_completeness_status = "present"
       * disclosure_schedules_assessment = "empty"
 
     - Amendment #1, #2, #3 без consolidated version:
+      * document_completeness_status = "present"
       * has_amendments = "yes"
       * consolidation_status = "not_consolidated"
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
-      * missing_documents_list = "Не удалось определить"
+    - Договор прямо исключает наличие внешних документов
+      («Иных приложений к настоящему Договору не имеется»):
+      * document_completeness_status = "present"
+      * has_suspected_missing_documents = "no"
+      * side_letters_risk = "low"
+      * location у has_suspected_missing_documents с прямой цитатой.
+
+    - Нет релевантных фрагментов / раздел по теме отсутствует:
+      * document_completeness_status = "missing"
+      * has_suspected_missing_documents = "no"
+      * missing_documents_list = "Не выявлены"
+      * side_letters_risk = "low"
+      * has_entire_agreement_clause = "no"
+      * disclosure_schedules_assessment = "not_present"
+      * has_amendments = "no"
+      * consolidation_status = "not_applicable"
+      * registers_gap_risk = "low"
       * document_completeness_display =
-        "Не удалось оценить полноту документации"
+        "Положения о полноте пакета в договоре отсутствуют"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * document_completeness_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (document_completeness_display, missing_documents_list, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (document_completeness_display,
+      missing_documents_list, reason) — на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "document_completeness_display": "Отсутствует Schedule A; side letter не представлен",
-      "has_suspected_missing_documents": "yes",
-      "missing_documents_list": "Schedule A",
-      "side_letters_risk": "high",
-      "has_entire_agreement_clause": "yes",
-      "disclosure_schedules_assessment": "not_present",
-      "has_amendments": "no",
-      "consolidation_status": "not_applicable",
-      "registers_gap_risk": "low",
-      "reason": "..."
+      "document_completeness_display": {"value": "Отсутствует Schedule A; side letter не представлен", "confidence": 0.92, "location": null},
+      "document_completeness_status": {"value": "present", "confidence": 0.92, "location": {"clause_ref": "п. 5", "page": 3, "quote": "Сторонами также заключено отдельное соглашение"}},
+      "has_suspected_missing_documents": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 5", "page": 3, "quote": "As set out in Schedule X"}},
+      "missing_documents_list": {"value": "Schedule X", "confidence": 0.85, "location": null},
+      "side_letters_risk": {"value": "high", "confidence": 0.90, "location": {"clause_ref": "п. 5", "page": 3, "quote": "Сторонами также заключено отдельное соглашение"}},
+      "has_entire_agreement_clause": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 14.1", "page": 12, "quote": "Настоящий Договор представляет собой полное соглашение Сторон и заменяет все предшествующие договорённости"}},
+      "disclosure_schedules_assessment": {"value": "not_present", "confidence": 0.80, "location": null},
+      "has_amendments": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 1", "page": 1, "quote": "в редакции Дополнительного соглашения № 2 от 15.03.2024"}},
+      "consolidation_status": {"value": "not_consolidated", "confidence": 0.75, "location": null},
+      "registers_gap_risk": {"value": "low", "confidence": 0.70, "location": null},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -428,9 +466,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "document_completeness_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие информации о полноте пакета в тексте договора"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "has_suspected_missing_documents"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Подозрение на отсутствующие документы"
       allowed_values:
         - "yes"
@@ -449,6 +499,7 @@ extraction:
     - name: "side_letters_risk"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Риск side letters / скрытых договорённостей"
       allowed_values:
         - "high"
@@ -460,6 +511,7 @@ extraction:
     - name: "has_entire_agreement_clause"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Entire agreement clause"
       allowed_values:
         - "yes"
@@ -470,6 +522,7 @@ extraction:
     - name: "disclosure_schedules_assessment"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Качество disclosure schedules"
       allowed_values:
         - "adequate"
@@ -482,6 +535,7 @@ extraction:
     - name: "has_amendments"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Наличие amendments / допсоглашений"
       allowed_values:
         - "yes"
@@ -492,6 +546,7 @@ extraction:
     - name: "consolidation_status"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Статус консолидации amendments"
       allowed_values:
         - "consolidated"
@@ -503,6 +558,7 @@ extraction:
     - name: "registers_gap_risk"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Риск расхождения с реестрами"
       allowed_values:
         - "high"

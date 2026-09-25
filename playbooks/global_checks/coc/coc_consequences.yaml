@@ -155,7 +155,16 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 850
+  llm_max_tokens: 950
+
+  # Presence gate: coc_consequences_status отделяет факт наличия CoC-clause
+  # от содержания (последствий). missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = coc_consequences_status.allowed_values.
+  presence_signal:
+    field: "coc_consequences_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -167,7 +176,9 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай последствия, которых нет в тексте.
-    - Если информация отсутствует — ставь "no",
+    - Если информация отсутствует — для поля
+      coc_consequences_status ставь "missing", а для содержательных
+      полей — "no" / "none" / "not_applicable",
       а не предполагай наиболее вероятный вариант.
     - Если текст неоднозначен — ставь "unclear".
 
@@ -184,7 +195,8 @@ extraction:
     - Если среди фрагментов есть противоречия — укажи "unclear"
       и объясни в reason.
     - Если ни один фрагмент не содержит информации по теме —
-      используй значения для случая "последствия не установлены".
+      coc_consequences_status = "missing"; остальные поля — согласно Шагу 0.
+    - Не использовать "unclear" при полном отсутствии релевантных фрагментов.
     - Не используй информацию из определений (definitions),
       преамбулы или приложений, если они не содержат
       substantive условий по теме check.
@@ -198,6 +210,7 @@ extraction:
 
     <task>
     Заполни только следующие поля:
+    - coc_consequences_status
     - coc_consequences_display
     - coc_termination_right
     - coc_termination_mechanism
@@ -234,16 +247,61 @@ extraction:
     - не выдумывай location или quote;
     - если точную ссылку или дословную фразу определить нельзя,
       верни location = null;
-    - для coc_consequences_display и reason location всегда null;
+    - для coc_consequences_status, coc_consequences_display и reason
+      location всегда null (синтезированы, прямого источника в тексте нет);
     - для signal-полей возвращай location с quote только когда
       значение поля указывает на наличие соответствующего последствия
       (coc_termination_right ∈ {limited, broad}; coc_acceleration = yes;
        coc_price_terms_change = yes; coc_cure_or_waiver = yes;
        coc_termination_mechanism ∈ {automatic, with_cure, optional}).
-      Для значений "none", "no", "not_applicable", "unclear" — location = null.
+    - для coc_termination_right при значении "none":
+      * quote, если договор прямо говорит об отсутствии права расторжения;
+      * location = null, если право расторжения не раскрыто;
+    - для coc_acceleration, coc_price_terms_change, coc_cure_or_waiver
+      при значении "no" — то же правило: quote при прямом исключении,
+      null при отсутствии регулирования;
+    - для coc_termination_mechanism при значении "not_applicable" —
+      location = null;
+    - для значений "unclear" — location = null;
+    - если coc_consequences_status = "missing" — для всех полей
+      location = null.
     </location_instructions>
 
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ПОЛОЖЕНИЙ О СМЕНЕ КОНТРОЛЯ
+
+    Заполни "coc_consequences_status".
+
+    Значения:
+    - "present" — договор содержит положения о смене контроля (CoC),
+      даже если специальных последствий нет — например, только
+      требование согласия или уведомления.
+    - "missing" — договор не содержит ни CoC-clause, ни последствий CoC.
+    - "unclear" — формулировки есть, но надёжно определить нельзя.
+
+    Если coc_consequences_status = "missing":
+    - coc_termination_right = "none"
+    - coc_termination_mechanism = "not_applicable"
+    - coc_acceleration = "no"
+    - coc_price_terms_change = "no"
+    - coc_cure_or_waiver = "no"
+    - coc_consequences_display = "Положения о смене контроля отсутствуют"
+    - reason = "Положения о смене контроля не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 1–5.
+
+    Если coc_consequences_status = "unclear":
+    - coc_termination_right = "unclear"
+    - coc_termination_mechanism = "unclear"
+    - coc_acceleration = "unclear"
+    - coc_price_terms_change = "unclear"
+    - coc_cure_or_waiver = "unclear"
+    - coc_consequences_display = "Не удалось определить последствия CoC"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если coc_consequences_status = "present" — переходи к Шагам 1–5.
+
     Шаг 1 — ПРАВО НА РАСТОРЖЕНИЕ
 
     Заполни "coc_termination_right".
@@ -301,6 +359,7 @@ extraction:
 
     Это поле — краткий итог для таблицы.
     Сформируй его на основе уже заполненных полей:
+    - coc_consequences_status
     - coc_termination_right
     - coc_termination_mechanism
     - coc_acceleration
@@ -315,13 +374,18 @@ extraction:
     - Если cure/waiver есть — добавь в конец.
 
     Примеры:
-    - "Для CoC — автоматическое прекращение договора"
-    - "Для CoC — право расторгнуть; cure period предусмотрен"
-    - "Для CoC — право расторгнуть; акселерация; step-up ставки"
-    - "Для CoC — только согласие контрагента"
-    - "Для CoC — только уведомление контрагента"
-    - "Последствия CoC не установлены"
-    - "Не удалось определить последствия CoC"
+    - status = "missing":
+      "Положения о смене контроля отсутствуют"
+    - status = "unclear":
+      "Не удалось определить последствия CoC"
+    - status = "present" и coc_termination_mechanism = "automatic":
+      "Для CoC — автоматическое прекращение договора"
+    - status = "present" и coc_termination_mechanism = "with_cure":
+      "Для CoC — право расторгнуть; cure period предусмотрен"
+    - status = "present" и coc_termination_right = "broad":
+      "Для CoC — право расторгнуть; акселерация; step-up ставки"
+    - status = "present", но все последствия = no/none:
+      "Для CoC — только согласие контрагента" / "Для CoC — только уведомление контрагента"
 
     Шаг 7 — ОБОСНОВАНИЕ
 
@@ -342,6 +406,7 @@ extraction:
 
     <edge_cases>
     - Договор прекращается автоматически:
+      * coc_consequences_status = "present"
       * coc_termination_right = "broad"
       * coc_termination_mechanism = "automatic"
       * coc_cure_or_waiver = "no"
@@ -349,6 +414,7 @@ extraction:
         "Для CoC — автоматическое прекращение договора"
 
     - Право расторгнуть с cure period:
+      * coc_consequences_status = "present"
       * coc_termination_right = "limited"
       * coc_termination_mechanism = "with_cure"
       * coc_cure_or_waiver = "yes"
@@ -356,29 +422,42 @@ extraction:
         "Для CoC — право расторгнуть; cure period предусмотрен"
 
     - CoC clause есть, но только требование согласия:
-      * coc_termination_right = "none"
-      * coc_acceleration = "no"
-      * coc_price_terms_change = "no"
-      * coc_consequences_display =
-        "Для CoC — только согласие контрагента"
-
-    - Только уведомление, без расторжения / акселерации:
-      * coc_termination_right = "none"
-      * coc_acceleration = "no"
-      * coc_price_terms_change = "no"
-      * coc_consequences_display =
-        "Для CoC — только уведомление контрагента"
-
-    - Нет упоминаний последствий CoC:
+      * coc_consequences_status = "present"
       * coc_termination_right = "none"
       * coc_termination_mechanism = "not_applicable"
       * coc_acceleration = "no"
       * coc_price_terms_change = "no"
       * coc_cure_or_waiver = "no"
       * coc_consequences_display =
-        "Последствия CoC не установлены"
+        "Для CoC — только согласие контрагента"
+
+    - Только уведомление, без расторжения / акселерации:
+      * coc_consequences_status = "present"
+      * coc_termination_right = "none"
+      * coc_termination_mechanism = "not_applicable"
+      * coc_acceleration = "no"
+      * coc_price_terms_change = "no"
+      * coc_cure_or_waiver = "no"
+      * coc_consequences_display =
+        "Для CoC — только уведомление контрагента"
+
+    - Тема CoC вообще не урегулирована:
+      * coc_consequences_status = "missing"
+      * coc_termination_right = "none"
+      * coc_termination_mechanism = "not_applicable"
+      * coc_acceleration = "no"
+      * coc_price_terms_change = "no"
+      * coc_cure_or_waiver = "no"
+      * coc_consequences_display =
+        "Положения о смене контроля отсутствуют"
+
+    - Нет релевантных фрагментов:
+      * coc_consequences_status = "missing"
+      * coc_consequences_display =
+        "Положения о смене контроля отсутствуют"
 
     - Фрагменты нерелевантны:
+      * coc_consequences_status = "unclear"
       * coc_termination_right = "unclear"
       * coc_termination_mechanism = "unclear"
       * coc_acceleration = "unclear"
@@ -402,6 +481,7 @@ extraction:
 
     Пример структуры ответа:
     {
+      "coc_consequences_status": {"value": "present", "confidence": 0.95, "location": null},
       "coc_consequences_display": {"value": "Для CoC — автоматическое прекращение договора; акселерация", "confidence": 0.95, "location": null},
       "coc_termination_right": {"value": "broad", "confidence": 0.95, "location": {"clause_ref": "п. 12.2", "page": 8, "quote": "В случае смены контроля Покупатель вправе расторгнуть настоящий Договор в одностороннем порядке"}},
       "coc_termination_mechanism": {"value": "automatic", "confidence": 0.9, "location": {"clause_ref": "п. 12.2", "page": 8, "quote": "При наступлении смены контроля настоящий Договор автоматически прекращает своё действие"}},
@@ -413,6 +493,17 @@ extraction:
     </output_expectations>
 
   fields:
+    - name: "coc_consequences_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие положений о смене контроля (тема check)"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "coc_consequences_display"
       type: "string"
       presentation: "fact"
@@ -486,5 +577,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
-  
+
+
   

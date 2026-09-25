@@ -133,7 +133,7 @@ retrieval:
   preferred_unit_types:
     - "general_provision"
     - "obligation"
-    
+
   excluded_unit_types:
     - "technical_fragment"
     - "appendix_reference"
@@ -170,15 +170,23 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1050
+  llm_max_tokens: 1250
+
+  presence_signal:
+    field: "cross_default_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по финансированию и договорным дефолтным механизмам.
     Твоя задача — точно извлечь из текста:
-    1) есть ли cross-default;
-    2) есть ли cross-acceleration;
-    3) каков scope, threshold, grace period и механизм триггера.
+    1) есть ли в договоре раздел о событиях дефолта / cross-default;
+    2) если есть — каковы условия:
+       - наличие cross-default;
+       - наличие cross-acceleration;
+       - scope, threshold, grace period, механизм триггера.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
@@ -190,13 +198,11 @@ extraction:
     - Если формулировка неоднозначна — ставь "unclear".
     - Если фрагменты не позволяют надёжно установить отсутствие положения,
       не ставь "no" по умолчанию — ставь "unclear".
+    - Если раздел о событиях дефолта / cross-default в договоре
+      отсутствует полностью — cross_default_status = "missing".
+    - Если тексты по теме есть, но надёжный вывод сделать нельзя —
+      cross_default_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -208,11 +214,24 @@ extraction:
       там не предусмотрены.
     - Если нет релевантной информации по существу — используй "unclear".
     - Не опирайся на общие рыночные ожидания или типовые практики.
+    - Если ни один фрагмент не содержит информации о событиях дефолта /
+      cross-default / cross-acceleration (нет упоминаний EoD / default /
+      acceleration / threshold / grace period) —
+      cross_default_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - cross_default_display
+    - cross_default_status
     - has_cross_default
     - has_cross_acceleration
     - cross_default_scope
@@ -223,7 +242,61 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (cross_default_display, reason)
+      location ВСЕГДА null.
+    - Для threshold_value — quote обязательна, если порог прямо указан.
+    - Для cross_default_status = "missing" — location = null.
+    - Для cross_default_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора (EoD / cross-default).
+    - Для has_cross_default и has_cross_acceleration:
+      * если значение = "yes" — quote с формулировкой cross-default /
+        cross-acceleration;
+      * если значение = "no" — quote ОБЯЗАТЕЛЬНА, если из текста
+        прямо следует отсутствие (например, «Cross-default
+        не применяется»), иначе location = null;
+      * если значение = "unclear" — location = null или quote
+        с противоречивой фразой.
+    - Для cross_default_scope, has_threshold, has_grace_period,
+      trigger_mechanism — quote с фразой-основанием для определённого
+      значения; location = null при not_applicable / unclear.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РАЗДЕЛА О СОБЫТИЯХ ДЕФОЛТА
+
+    Заполни "cross_default_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное поле указывает
+      на наличие информации по теме:
+      * has_cross_default = "yes";
+      * has_cross_acceleration = "yes";
+      * cross_default_scope ∈ {"financial_only", "any_obligation",
+        "specified"};
+      * has_threshold = "yes";
+      * has_grace_period = "yes";
+      * trigger_mechanism ∈ {"automatic", "declaratory"};
+      * ЛИБО любое поле = "no" / "not_applicable", но с заполненным
+        location с прямой цитатой (см. RF3).
+    - "missing" — если все содержательные поля =
+      "no" / "not_applicable" БЕЗ цитат, ЛИБО фрагментов
+      по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — НАЛИЧИЕ CROSS-DEFAULT
 
     Заполни "has_cross_default".
@@ -299,16 +372,9 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Есть конкретный механизм:
-       "Cross-default: любые обязательства; threshold не установлен; нет grace period"
-       "Cross-acceleration: только финансовые; threshold USD 1M"
-    2. Механизмов нет:
-       "Cross-default и cross-acceleration не обнаружены"
-    3. Не удалось определить:
-       "Не удалось определить наличие cross-default"
-
     Правила:
+    - Если cross_default_status = "missing":
+      "Раздел о cross-default в договоре не обнаружен"
     - Если has_cross_default = "no" и has_cross_acceleration = "no":
       "Cross-default и cross-acceleration не обнаружены"
     - Если оба поля "unclear" и остальное не определено:
@@ -336,16 +402,19 @@ extraction:
 
     <edge_cases>
     - "Any default under any agreement" без threshold:
+      * cross_default_status = "present"
       * has_cross_default = "yes"
       * cross_default_scope = "any_obligation"
       * has_threshold = "no"
       * threshold_value = "Не установлен"
 
     - Только акселерация другого долга как триггер:
+      * cross_default_status = "present"
       * has_cross_default = "no"
       * has_cross_acceleration = "yes"
 
-    - Механизмов нет:
+    - Механизмов нет, но раздел EoD раскрыт:
+      * cross_default_status = "present"
       * has_cross_default = "no"
       * has_cross_acceleration = "no"
       * cross_default_scope = "not_applicable"
@@ -354,39 +423,53 @@ extraction:
       * cross_default_display =
         "Cross-default и cross-acceleration не обнаружены"
 
-    - Нет релевантных фрагментов:
-      * has_cross_default = "unclear"
-      * has_cross_acceleration = "unclear"
-      * cross_default_scope = "unclear"
-      * has_threshold = "unclear"
-      * threshold_value = "Не удалось определить"
-      * has_grace_period = "unclear"
-      * trigger_mechanism = "unclear"
+    - Договор прямо исключает cross-default:
+      * cross_default_status = "present"
+      * has_cross_default = "no"
+      * location с прямой цитатой об исключении.
+
+    - Нет релевантных фрагментов / раздел о событиях дефолта
+      в договоре отсутствует:
+      * cross_default_status = "missing"
+      * has_cross_default = "no"
+      * has_cross_acceleration = "no"
+      * cross_default_scope = "not_applicable"
+      * has_threshold = "no"
+      * threshold_value = "Не применимо"
+      * has_grace_period = "no"
+      * trigger_mechanism = "not_applicable"
       * cross_default_display =
-        "Не удалось определить наличие cross-default"
+        "Раздел о cross-default в договоре не обнаружен"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * cross_default_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (cross_default_display, threshold_value, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (cross_default_display,
+      threshold_value, reason) — на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "cross_default_display": "Cross-default: только финансовые; threshold USD 1M",
-      "has_cross_default": "yes",
-      "has_cross_acceleration": "no",
-      "cross_default_scope": "financial_only",
-      "has_threshold": "yes",
-      "threshold_value": "USD 1M",
-      "has_grace_period": "no",
-      "trigger_mechanism": "automatic",
-      "reason": "..."
+      "cross_default_display": {"value": "Cross-default: только финансовые; threshold USD 1M", "confidence": 0.92, "location": null},
+      "cross_default_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 14.1", "page": 8, "quote": "Любой дефолт по иным финансовым обязательствам Заёмщика на сумму свыше USD 1M является событием дефолта по настоящему Договору"}},
+      "has_cross_default": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 14.1", "page": 8, "quote": "Любой дефолт по иным финансовым обязательствам Заёмщика на сумму свыше USD 1M является событием дефолта"}},
+      "has_cross_acceleration": {"value": "no", "confidence": 0.80, "location": null},
+      "cross_default_scope": {"value": "financial_only", "confidence": 0.90, "location": {"clause_ref": "п. 14.1", "page": 8, "quote": "по иным финансовым обязательствам Заёмщика"}},
+      "has_threshold": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 14.1", "page": 8, "quote": "на сумму свыше USD 1M"}},
+      "threshold_value": {"value": "USD 1M", "confidence": 0.95, "location": {"clause_ref": "п. 14.1", "page": 8, "quote": "на сумму свыше USD 1M"}},
+      "has_grace_period": {"value": "no", "confidence": 0.75, "location": null},
+      "trigger_mechanism": {"value": "automatic", "confidence": 0.85, "location": {"clause_ref": "п. 14.1", "page": 8, "quote": "является событием дефолта по настоящему Договору"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -399,9 +482,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "cross_default_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования cross-default / cross-acceleration в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "has_cross_default"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие cross-default"
       allowed_values:
         - "yes"
@@ -412,6 +507,7 @@ extraction:
     - name: "has_cross_acceleration"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие cross-acceleration"
       allowed_values:
         - "yes"
@@ -422,6 +518,7 @@ extraction:
     - name: "cross_default_scope"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Охват cross-default"
       allowed_values:
         - "financial_only"
@@ -434,6 +531,7 @@ extraction:
     - name: "has_threshold"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Пороговое значение"
       allowed_values:
         - "yes"
@@ -452,6 +550,7 @@ extraction:
     - name: "has_grace_period"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Grace period / cure period"
       allowed_values:
         - "yes"
@@ -462,6 +561,7 @@ extraction:
     - name: "trigger_mechanism"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Механизм триггера"
       allowed_values:
         - "automatic"

@@ -194,7 +194,17 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 850
+  llm_max_tokens: 1100
+
+  # Presence gate: cybersecurity_status агрегирует наличие любого
+  # регулирования ИБ. present если хотя бы одно из 5 содержательных
+  # полей = yes; missing если все = no; unclear если все = unclear.
+  # Контракт: present + missing + unclear = cybersecurity_status.allowed_values.
+  presence_signal:
+    field: "cybersecurity_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -211,14 +221,11 @@ extraction:
     - НЕ считай декларативные фразы ("обеспечивает защиту",
       "принимает все необходимые меры") конкретными мерами.
     - НЕ додумывай сертификации, если они не упомянуты.
-    - Если информация отсутствует — используй "no" или "unclear".
+    - Если тема ИБ в договоре вообще не раскрыта — для
+      cybersecurity_status ставь "missing", для 5 содержательных
+      полей — "no".
+    - Если информация неоднозначна — используй "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -231,20 +238,112 @@ extraction:
       "принимает разумные меры" без конкретики = "no".
     - Incident response procedures = явное описание процессов:
       выявление, регистрация, сроки, журналирование инцидентов.
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
+    - Если ни один фрагмент не содержит информации по теме —
+      cybersecurity_status = "missing", остальные поля — согласно Шагу 0,
+      location = null у всех полей.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - cybersecurity_display
+    - cybersecurity_status
     - has_documented_security_policies
     - describes_security_measures
     - has_incident_response_procedures
     - has_breach_notification_obligations
     - mentions_past_incidents
     - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 10.2", "page": 14, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно.
+      Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для has_documented_security_policies (yes): "Поставщик поддерживает систему управления информационной безопасностью в соответствии с требованиями ISO/IEC 27001";
+      * для describes_security_measures (yes): "Поставщик применяет шифрование данных при передаче (TLS 1.2+) и при хранении (AES-256)";
+      * для has_incident_response_procedures (yes): "Поставщик обязуется регистрировать все инциденты информационной безопасности в журнале инцидентов в течение 24 часов с момента обнаружения";
+      * для has_breach_notification_obligations (yes): "Поставщик обязуется уведомить Заказчика об утечке данных в течение 72 часов с момента обнаружения инцидента";
+      * для mentions_past_incidents (yes): "Поставщик раскрыл информацию о произошедшем в 2024 году инциденте, затронувшем ...".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для cybersecurity_display, cybersecurity_status и reason
+      location всегда null (синтезированы);
+    - для 5 содержательных полей возвращай location с quote только
+      когда значение подтверждается конкретным условием договора:
+      * для "yes" — quote с описанием меры / политики;
+      * для "no" — quote только если договор прямо исключает или
+        не предусматривает соответствующую меру / политику;
+        location = null, если мера просто не раскрыта;
+      * для "unclear" — location = null;
+    - если cybersecurity_status = "missing" — для всех полей
+      location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ИБ
+
+    Заполни "cybersecurity_status".
+
+    Значения:
+    - "present" — договор содержит хотя бы одно требование ИБ:
+      политики, сертификации, конкретные меры, процедуры,
+      обязательства уведомления.
+    - "missing" — договор не содержит никаких требований ИБ.
+    - "unclear" — фрагменты не позволяют уверенно определить.
+
+    Правило агрегации:
+    - Если хотя бы одно из 5 содержательных полей = "yes" →
+      cybersecurity_status = "present".
+    - Если все 5 = "no" → cybersecurity_status = "missing".
+    - Если все 5 = "unclear" → cybersecurity_status = "unclear".
+
+    Если cybersecurity_status = "missing":
+    - has_documented_security_policies = "no"
+    - describes_security_measures = "no"
+    - has_incident_response_procedures = "no"
+    - has_breach_notification_obligations = "no"
+    - mentions_past_incidents = "no"
+    - cybersecurity_display = "Требования ИБ не установлены"
+    - reason = "Требования информационной безопасности не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 1–5; переходи к Шагу 6.
+
+    Если cybersecurity_status = "unclear":
+    - has_documented_security_policies = "unclear"
+    - describes_security_measures = "unclear"
+    - has_incident_response_procedures = "unclear"
+    - has_breach_notification_obligations = "unclear"
+    - mentions_past_incidents = "unclear"
+    - cybersecurity_display = "Не удалось определить уровень ИБ"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если cybersecurity_status = "present" — переходи к Шагам 1–5.
+
     Шаг 1 — ФОРМАЛИЗОВАННЫЕ ПОЛИТИКИ ИБ И СЕРТИФИКАЦИИ
 
     Заполни "has_documented_security_policies".
@@ -307,37 +406,34 @@ extraction:
 
     Возможные состояния:
     1. Полноценный ИБ-контур:
-       "Политики ИБ задокументированы (ISO 27001); меры описаны;
-        уведомление предусмотрено"
+       "Политики ИБ задокументированы; меры защиты описаны;
+        уведомление об инцидентах предусмотрено"
     2. Частичный контур:
-       "Меры ИБ только декларативные; нет incident response"
+       "Меры защиты не описаны; уведомление не предусмотрено"
     3. ИБ не урегулирована:
        "Требования ИБ не установлены"
     4. Не удалось определить:
        "Не удалось определить уровень ИБ"
 
     Правила:
-    - Если все поля "unclear":
-      "Не удалось определить уровень ИБ"
-    - Если has_documented_security_policies = "no"
-      и describes_security_measures = "no"
-      и has_breach_notification_obligations = "no":
+    - Если cybersecurity_status = "missing":
       "Требования ИБ не установлены"
-    - Иначе комбинируй через ";":
-      * если has_documented_security_policies = "yes":
+    - Если cybersecurity_status = "unclear":
+      "Не удалось определить уровень ИБ"
+    - Если cybersecurity_status = "present":
+      Комбинируй через ";" не более 3 коротких фактов:
+      * has_documented_security_policies = "yes" →
         "Политики ИБ задокументированы"
-      * если describes_security_measures = "yes":
+      * describes_security_measures = "yes" →
         "меры защиты описаны"
-      * если describes_security_measures = "no":
+      * describes_security_measures = "no" →
         "меры защиты не описаны"
-      * если has_breach_notification_obligations = "yes":
+      * has_breach_notification_obligations = "yes" →
         "уведомление об инцидентах предусмотрено"
-      * если has_breach_notification_obligations = "no"
-        и has_documented_security_policies = "yes":
+      * has_breach_notification_obligations = "no" →
         "уведомление не предусмотрено"
-      * если mentions_past_incidents = "yes":
-        добавь "упоминаются прошлые инциденты"
-    - Не более 3 коротких фактов через ";".
+      * mentions_past_incidents = "yes" →
+        "упоминаются прошлые инциденты"
 
     Шаг 7 — КРАТКОЕ ОБОСНОВАНИЕ
 
@@ -352,48 +448,63 @@ extraction:
 
     <edge_cases>
     - Только декларативные заявления:
+      * cybersecurity_status = "present"
       * describes_security_measures = "no"
       * has_incident_response_procedures = "no"
 
     - ISO 27001 упоминается, меры описаны:
+      * cybersecurity_status = "present"
       * has_documented_security_policies = "yes"
       * describes_security_measures = "yes"
 
     - Прошлые инциденты упомянуты без remediation:
+      * cybersecurity_status = "present"
       * mentions_past_incidents = "yes"
 
     - Нет обязательств по уведомлению:
+      * cybersecurity_status = "present"
       * has_breach_notification_obligations = "no"
 
     - Полное отсутствие ИБ-требований:
+      * cybersecurity_status = "missing"
       * has_documented_security_policies = "no"
       * describes_security_measures = "no"
+      * has_incident_response_procedures = "no"
       * has_breach_notification_obligations = "no"
+      * mentions_past_incidents = "no"
       * cybersecurity_display = "Требования ИБ не установлены"
 
     - Нет релевантных фрагментов:
-      * все поля = "unclear"
-      * cybersecurity_display = "Не удалось определить уровень ИБ"
+      * cybersecurity_status = "missing"
+      * has_documented_security_policies = "no"
+      * describes_security_measures = "no"
+      * has_incident_response_procedures = "no"
+      * has_breach_notification_obligations = "no"
+      * mentions_past_incidents = "no"
+      * cybersecurity_display = "Требования ИБ не установлены"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай ответ в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
     - Для полей с allowed_values используй строго значения из списка.
     - Свободные текстовые поля (cybersecurity_display, reason)
       заполняй на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "cybersecurity_display": "Политики ИБ задокументированы (ISO 27001); меры защиты описаны; уведомление об инцидентах предусмотрено",
-      "has_documented_security_policies": "yes",
-      "describes_security_measures": "yes",
-      "has_incident_response_procedures": "yes",
-      "has_breach_notification_obligations": "yes",
-      "mentions_past_incidents": "no",
-      "reason": "..."
+      "cybersecurity_display": {"value": "Политики ИБ задокументированы; меры защиты описаны; уведомление об инцидентах предусмотрено", "confidence": 0.95, "location": null},
+      "cybersecurity_status": {"value": "present", "confidence": 0.95, "location": null},
+      "has_documented_security_policies": {"value": "yes", "confidence": 0.92, "location": {"clause_ref": "п. 10.2", "page": 14, "quote": "Поставщик поддерживает систему управления информационной безопасностью в соответствии с требованиями ISO/IEC 27001"}},
+      "describes_security_measures": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 10.3", "page": 14, "quote": "Поставщик применяет шифрование данных при передаче (TLS 1.2+) и при хранении (AES-256)"}},
+      "has_incident_response_procedures": {"value": "yes", "confidence": 0.88, "location": {"clause_ref": "п. 10.5", "page": 15, "quote": "Поставщик обязуется регистрировать все инциденты информационной безопасности в журнале инцидентов в течение 24 часов с момента обнаружения"}},
+      "has_breach_notification_obligations": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 10.6", "page": 15, "quote": "Поставщик обязуется уведомить Заказчика об утечке данных в течение 72 часов с момента обнаружения инцидента"}},
+      "mentions_past_incidents": {"value": "no", "confidence": 0.85, "location": null},
+      "reason": {"value": "Договор содержит полноценный ИБ-контур: политики (ISO 27001), меры (шифрование TLS 1.2+/AES-256), процедуры реагирования, обязательства уведомления. «...ISO/IEC 27001...».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -406,9 +517,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "cybersecurity_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования информационной безопасности"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+      display_in_grid: false
+
     - name: "has_documented_security_policies"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Формализованные политики ИБ / сертификации"
       allowed_values:
         - "yes"
@@ -419,6 +542,7 @@ extraction:
     - name: "describes_security_measures"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Конкретные технические и организационные меры"
       allowed_values:
         - "yes"
@@ -429,6 +553,7 @@ extraction:
     - name: "has_incident_response_procedures"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Процедуры реагирования на инциденты"
       allowed_values:
         - "yes"
@@ -439,6 +564,7 @@ extraction:
     - name: "has_breach_notification_obligations"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Обязательства по уведомлению об инцидентах"
       allowed_values:
         - "yes"
@@ -449,6 +575,7 @@ extraction:
     - name: "mentions_past_incidents"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Упоминания прошлых инцидентов / утечек"
       allowed_values:
         - "yes"

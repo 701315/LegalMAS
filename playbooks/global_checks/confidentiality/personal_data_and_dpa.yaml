@@ -191,7 +191,17 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 600
+  llm_max_tokens: 800
+
+  # Presence gate: personal_data_status уже выполняет роль presence-сигнала
+  # (present/missing/unclear). Отдельное поле не вводится — это было бы
+  # дублирование. missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = personal_data_status.allowed_values.
+  presence_signal:
+    field: "personal_data_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -206,18 +216,15 @@ extraction:
     - НЕ считай общий раздел о конфиденциальности регулированием
       ПДн без прямого упоминания персональных данных или
       законов об их защите.
+    - Если тема ПДн в договоре вообще не раскрыта — для
+      personal_data_status ставь "missing"; для
+      personal_data_regulation_level — "not_specified".
     - Если информация неоднозначна — используй "unclear".
 
     Не анализируй детально роли сторон, цели обработки, категории
     данных, subprocessors, трансграничные передачи, breach
     notification или права субъектов — это задача других checks.
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -235,7 +242,18 @@ extraction:
     - Упоминание ПДн только в разделе конфиденциальности без
       ссылки на законы о персональных данных — это "law_reference_only"
       или "dedicated_section" по содержанию.
+    - Если ни один фрагмент не содержит информации по теме —
+      personal_data_status = "missing"; остальные поля — согласно Шагу 1.
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
@@ -243,7 +261,38 @@ extraction:
     - personal_data_status
     - personal_data_regulation_level
     - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
+
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 9.1", "page": 13, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для personal_data_status (present): "Стороны обязуются обрабатывать персональные данные в соответствии с требованиями Федерального закона № 152-ФЗ «О персональных данных»";
+      * для personal_data_regulation_level (dpa_attachment): "Условия обработки персональных данных определяются Приложением № 3 «Соглашение об обработке персональных данных» к настоящему Договору";
+      * для personal_data_regulation_level (dedicated_section): "Раздел 9 «Персональные данные» устанавливает порядок обработки персональных данных Сторонами";
+      * для personal_data_regulation_level (law_reference_only): "Стороны соблюдают применимое законодательство о персональных данных".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для personal_data_display, personal_data_status и reason
+      location всегда null (синтезированы);
+    - для personal_data_regulation_level location с quote особенно важна
+      (нужно подтвердить уровень закрепления);
+    - если personal_data_status = "missing" — для всех полей
+      location = null.
+    </location_instructions>
 
     <instructions>
     Шаг 1 — НАЛИЧИЕ ТРЕБОВАНИЙ ПО ПЕРСОНАЛЬНЫМ ДАННЫМ
@@ -260,6 +309,21 @@ extraction:
     - "missing" — договор явно не содержит никаких упоминаний
       персональных данных и законов об их защите.
     - "unclear" — фрагменты не позволяют уверенно определить.
+
+    Если personal_data_status = "missing":
+    - personal_data_regulation_level = "not_specified"
+    - personal_data_display = "Требования по ПДн не установлены"
+    - reason = "Требования по персональным данным не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаг 2; переходи сразу к Шагу 3 (display).
+
+    Если personal_data_status = "unclear":
+    - personal_data_regulation_level = "unclear"
+    - personal_data_display = "Не удалось определить"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если personal_data_status = "present" — переходи к Шагу 2.
 
     Шаг 2 — УРОВЕНЬ РЕГУЛИРОВАНИЯ
 
@@ -366,20 +430,22 @@ extraction:
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай ответ в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
     - Для полей с allowed_values используй строго значения из списка.
     - Свободные текстовые поля
       (personal_data_display, reason)
       заполняй на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "personal_data_display": "Отдельное соглашение об обработке ПДн (DPA)",
-      "personal_data_status": "present",
-      "personal_data_regulation_level": "dpa_attachment",
-      "reason": "..."
+      "personal_data_display": {"value": "Отдельное соглашение об обработке ПДн (DPA)", "confidence": 0.95, "location": null},
+      "personal_data_status": {"value": "present", "confidence": 0.95, "location": null},
+      "personal_data_regulation_level": {"value": "dpa_attachment", "confidence": 0.90, "location": {"clause_ref": "Приложение № 3", "page": 25, "quote": "Условия обработки персональных данных определяются Приложением № 3 «Соглашение об обработке персональных данных» к настоящему Договору"}},
+      "reason": {"value": "Договор содержит отдельное соглашение об обработке ПДн (Приложение № 3). «...Приложением № 3 «Соглашение об обработке персональных данных»...».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -395,6 +461,7 @@ extraction:
     - name: "personal_data_status"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие требований по ПДн"
       allowed_values:
         - "present"
@@ -405,6 +472,7 @@ extraction:
     - name: "personal_data_regulation_level"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Уровень регулирования ПДн"
       allowed_values:
         - "dpa_attachment"
@@ -421,5 +489,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
 
   

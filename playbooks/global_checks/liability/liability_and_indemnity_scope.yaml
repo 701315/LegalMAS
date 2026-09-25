@@ -157,8 +157,6 @@ retrieval:
   preferred_clause_functions:
     - "limitations"
     - "remedies"
-    - "limitations"
-    - "remedies"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -187,15 +185,24 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 800
+  llm_max_tokens: 1000
+
+  presence_signal:
+    field: "liability_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам и ответственности сторон.
     Твоя задача — точно извлечь из текста:
-    1) ограничена ли ответственность;
-    2) каков общий объём и характер indemnity;
-    3) есть ли значимые штрафы / liquidated damages.
+    1) есть ли в договоре регулирование ответственности и indemnity;
+    2) если есть — каков общий объём:
+       - характер ответственности (limited / unlimited);
+       - масштаб indemnity;
+       - в чью пользу работает indemnity;
+       - наличие значимых штрафов / liquidated damages.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
@@ -204,13 +211,11 @@ extraction:
     - НЕ подменяй этот check детальным анализом caps / basket / carve-out.
     - Если информация неоднозначна или фрагментов недостаточно —
       ставь "unclear".
+    - Если раздел об ответственности / indemnity в договоре
+      отсутствует полностью — liability_status = "missing".
+    - Если тексты по теме есть, но надёжный вывод сделать нельзя —
+      liability_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -223,11 +228,24 @@ extraction:
       используй "unclear".
     - Не используй информацию из definitions, если там нет
       substantive условий об ответственности.
+    - Если ни один фрагмент не содержит информации об ответственности /
+      indemnity / штрафах (нет упоминаний liability / indemnify /
+      hold harmless / cap / liquidated damages) —
+      liability_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - liability_display
+    - liability_status
     - liability_general
     - indemnity_scope
     - indemnity_beneficiary
@@ -235,7 +253,59 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля liability_display и reason
+      location ВСЕГДА null.
+    - Для liability_status = "missing" — location = null.
+    - Для liability_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для liability_general:
+      * если "limited" — quote с формулировкой cap / лимита;
+      * если "unlimited" — quote с формулировкой неограниченной
+        ответственности;
+      * если "unclear" — location = null.
+    - Для indemnity_scope и indemnity_beneficiary:
+      * если значение определённое ("narrow" / "broad" / "mutual" /
+        "counterparty" / "target") — quote с формулировкой indemnity;
+      * если значение = "none" / "not_applicable" — quote ОБЯЗАТЕЛЬНА,
+        только если из текста прямо следует отсутствие
+        («Indemnity не применяется»), иначе location = null;
+      * если "unclear" — location = null.
+    - Для has_significant_penalties:
+      * если "yes" — quote с формулировкой штрафа / liquidated damages;
+      * если "no" — различай два случая:
+        - договор прямо исключает существенные штрафы — quote
+          ОБЯЗАТЕЛЬНА;
+        - просто отсутствует упоминание — location = null;
+      * если "unclear" — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ОТВЕТСТВЕННОСТИ
+
+    Заполни "liability_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное поле указывает на наличие информации по теме:
+      * liability_general = "limited";
+      * indemnity_scope ∈ {"narrow", "broad"};
+      * has_significant_penalties = "yes";
+      * ЛИБО любое поле = "unlimited" / "none" / "not_applicable" / "no", но с заполненным location с прямой цитатой (см. RF3).
+    - "missing" — если все содержательные поля = "unlimited" / "none" / "not_applicable" / "no" БЕЗ цитат, ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии фрагментов, но невозможности вывода.
+
     Шаг 1 — ОБЩИЙ ХАРАКТЕР ОТВЕТСТВЕННОСТИ
 
     Заполни "liability_general".
@@ -290,16 +360,9 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Конкретная картина установлена:
-       "Ответственность ограничена; indemnity широкая в пользу контрагента; значимые штрафы"
-       "Ответственность неограниченная; indemnity отсутствует"
-    2. Частичная картина:
-       "Ответственность ограничена; indemnity не удалось определить"
-    3. Не удалось определить:
-       "Не удалось определить объём ответственности"
-
     Правила:
+    - Если liability_status = "missing":
+      "Раздел об ответственности и indemnity не обнаружен"
     - Если все поля unclear:
       "Не удалось определить объём ответственности"
     - Иначе:
@@ -313,7 +376,8 @@ extraction:
         - "indemnity широкая"
         - при необходимости добавь бенефициара:
           "в пользу контрагента", "в пользу Target", "взаимная"
-      * затем добавь "значимые штрафы", если has_significant_penalties = "yes"
+      * затем добавь "значимые штрафы", если
+        has_significant_penalties = "yes"
     - Не более 3 коротких фактов через ";".
 
     Шаг 6 — ОБОСНОВАНИЕ
@@ -328,45 +392,63 @@ extraction:
 
     <edge_cases>
     - "Unlimited liability" или аналогичная прямая формулировка:
+      * liability_status = "present"
       * liability_general = "unlimited"
 
     - "Any and all losses" в пользу контрагента
       без видимого внутреннего ограничителя:
+      * liability_status = "present"
       * indemnity_scope = "broad"
       * indemnity_beneficiary = "counterparty"
 
-    - Indemnity отсутствует:
+    - Indemnity отсутствует по существу:
+      * liability_status = "present"
       * indemnity_scope = "none"
       * indemnity_beneficiary = "not_applicable"
 
     - Значимые штрафы:
+      * liability_status = "present"
       * has_significant_penalties = "yes"
 
-    - Нет релевантных фрагментов:
-      * liability_general = "unclear"
-      * indemnity_scope = "unclear"
-      * indemnity_beneficiary = "unclear"
-      * has_significant_penalties = "unclear"
-      * liability_display = "Не удалось определить объём ответственности"
+    - Договор прямо фиксирует отсутствие indemnity:
+      * liability_status = "present"
+      * indemnity_scope = "none"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел об ответственности в договоре отсутствует:
+      * liability_status = "missing"
+      * liability_general = "unlimited"
+      * indemnity_scope = "none"
+      * indemnity_beneficiary = "not_applicable"
+      * has_significant_penalties = "no"
+      * liability_display = "Раздел об ответственности и indemnity не обнаружен"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * liability_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля (liability_display, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (liability_display, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "liability_display": "Ответственность ограничена; indemnity широкая в пользу контрагента",
-      "liability_general": "limited",
-      "indemnity_scope": "broad",
-      "indemnity_beneficiary": "counterparty",
-      "has_significant_penalties": "no",
-      "reason": "..."
+      "liability_display": {"value": "Ответственность ограничена; indemnity широкая в пользу контрагента", "confidence": 0.92, "location": null},
+      "liability_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 11.1", "page": 7, "quote": "Совокупная ответственность Исполнителя ограничена суммой фактически уплаченного вознаграждения"}},
+      "liability_general": {"value": "limited", "confidence": 0.90, "location": {"clause_ref": "п. 11.1", "page": 7, "quote": "Совокупная ответственность Исполнителя ограничена суммой фактически уплаченного вознаграждения"}},
+      "indemnity_scope": {"value": "broad", "confidence": 0.85, "location": {"clause_ref": "п. 11.3", "page": 7, "quote": "Заказчик возмещает Исполнителю любые и все убытки, расходы и требования"}},
+      "indemnity_beneficiary": {"value": "counterparty", "confidence": 0.85, "location": {"clause_ref": "п. 11.3", "page": 7, "quote": "Заказчик возмещает Исполнителю любые и все убытки"}},
+      "has_significant_penalties": {"value": "no", "confidence": 0.70, "location": null},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -379,9 +461,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "liability_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования ответственности и indemnity в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "liability_general"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Общий характер ответственности"
       allowed_values:
         - "limited"
@@ -392,6 +486,7 @@ extraction:
     - name: "indemnity_scope"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Масштаб indemnity"
       allowed_values:
         - "none"
@@ -403,6 +498,7 @@ extraction:
     - name: "indemnity_beneficiary"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "В чью пользу работает indemnity"
       allowed_values:
         - "mutual"
@@ -415,6 +511,7 @@ extraction:
     - name: "has_significant_penalties"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Значимые штрафы / liquidated damages"
       allowed_values:
         - "yes"
