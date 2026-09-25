@@ -7,7 +7,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from engine.checks.extraction import ExtractionExecutor
+from engine.detectors.extraction_llm_detector import ExtractionLLMExtractionResult
 from engine.playbook.models import (
     CheckDefinition,
     DetectorType,
@@ -76,8 +79,9 @@ class TestExtractionExecutorLocationFallback:
         llm_client.is_available.return_value = True
 
         executor = ExtractionExecutor(llm_client)
-        executor.llm_detector.extract = MagicMock(
-            return_value={
+        executor.llm_detector.extract_with_telemetry = MagicMock(
+            return_value=ExtractionLLMExtractionResult(
+                fields={
                 "governing_law_value": {
                     "value": "РФ",
                     "confidence": 0.9,
@@ -86,7 +90,9 @@ class TestExtractionExecutorLocationFallback:
                         "reason": "LLM не указал точную ссылку для поля",
                     },
                 }
-            }
+            },
+                telemetry={"llm_invoked": True},
+            )
         )
 
         with patch.object(executor, "_extract_field", return_value=None):
@@ -103,7 +109,7 @@ class TestExtractionExecutorLocationFallback:
         assert payload["location_fallback"]["check_page"] == 7
         assert payload["location_fallback"]["check_clause_uid"] == "main_contract:12.1"
 
-        call_kwargs = executor.llm_detector.extract.call_args.kwargs
+        call_kwargs = executor.llm_detector.extract_with_telemetry.call_args.kwargs
         assert call_kwargs["context_pages"] == [7]
 
     def test_run_preserves_exact_location_when_llm_provided_it(self) -> None:
@@ -111,8 +117,9 @@ class TestExtractionExecutorLocationFallback:
         llm_client.is_available.return_value = True
 
         executor = ExtractionExecutor(llm_client)
-        executor.llm_detector.extract = MagicMock(
-            return_value={
+        executor.llm_detector.extract_with_telemetry = MagicMock(
+            return_value=ExtractionLLMExtractionResult(
+                fields={
                 "governing_law_value": {
                     "value": "РФ",
                     "confidence": 0.9,
@@ -122,7 +129,9 @@ class TestExtractionExecutorLocationFallback:
                         "location_confidence": "high",
                     },
                 }
-            }
+            },
+                telemetry={"llm_invoked": True},
+            )
         )
 
         with patch.object(executor, "_extract_field", return_value=None):
@@ -140,4 +149,111 @@ class TestExtractionExecutorLocationFallback:
         assert "location_fallback" not in payload or payload["location_fallback"] is None
 
 
-        
+    def test_run_drops_page_when_base_location_is_scoped_preamble(self) -> None:
+        """B7.9.1: scoped structural-marker base_location must not leak into fallback."""
+        llm_client = MagicMock()
+        llm_client.is_available.return_value = True
+
+        executor = ExtractionExecutor(llm_client)
+        executor.llm_detector.extract_with_telemetry = MagicMock(
+            return_value=ExtractionLLMExtractionResult(
+                fields={
+                "governing_law_value": {
+                    "value": "РФ",
+                    "confidence": 0.9,
+                    "location": None,
+                    "location_fallback": {
+                        "reason": "Exact location in the document is not defined",
+                    },
+                }
+            },
+                telemetry={"llm_invoked": True},
+            )
+        )
+
+        detection = _make_detection()
+        detection["location"]["clause_uid"] = "main_contract:__preamble__"
+
+        with patch.object(executor, "_extract_field", return_value=None):
+            result = executor.run(
+                doc=_make_doc(),
+                check=_make_check(),
+                contexts=_make_contexts(),
+                detection=detection,
+            )
+
+        assert result is not None
+        payload = result["governing_law_value"]
+        assert payload["location"] is None
+        assert payload["location_fallback"] == {
+            "reason": "Exact location in the document is not defined"
+        }
+        assert "check_page" not in payload["location_fallback"]
+        assert "check_clause_uid" not in payload["location_fallback"]
+
+    def test_run_drops_page_when_base_location_is_bare_preamble(self) -> None:
+        """B7.9.1: bare __preamble__ base_location must also drop page/uid."""
+        llm_client = MagicMock()
+        llm_client.is_available.return_value = True
+
+        executor = ExtractionExecutor(llm_client)
+        executor.llm_detector.extract_with_telemetry = MagicMock(
+            return_value=ExtractionLLMExtractionResult(
+                fields={
+                "governing_law_value": {
+                    "value": "РФ",
+                    "confidence": 0.9,
+                    "location": None,
+                    "location_fallback": {
+                        "reason": "Exact location in the document is not defined",
+                    },
+                }
+            },
+                telemetry={"llm_invoked": True},
+            )
+        )
+
+        detection = _make_detection()
+        detection["location"]["clause_uid"] = "__preamble__"
+
+        with patch.object(executor, "_extract_field", return_value=None):
+            result = executor.run(
+                doc=_make_doc(),
+                check=_make_check(),
+                contexts=_make_contexts(),
+                detection=detection,
+            )
+
+        assert result is not None
+        payload = result["governing_law_value"]
+        assert payload["location"] is None
+        assert payload["location_fallback"] == {
+            "reason": "Exact location in the document is not defined"
+        }
+        assert "check_page" not in payload["location_fallback"]
+        assert "check_clause_uid" not in payload["location_fallback"]
+
+
+class TestStructuralMarkerUid:
+    """Unit tests for _is_structural_marker_uid helper (B7.9.1)."""
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            ("__preamble__", True),
+            ("main_contract:__preamble__", True),
+            ("appendix_1:__header__", True),
+            ("some_scope_2:__metadata__", True),
+            ("  __preamble__  ", True),
+            ("main_contract:12.1", False),
+            ("main_contract:S", False),
+            ("п. 5.1", False),
+            (None, False),
+            ("", False),
+            ("__PREAMBLE__", False),
+        ],
+    )
+    def test_is_structural_marker_uid(self, value, expected) -> None:
+        from engine.checks.extraction import _is_structural_marker_uid
+
+        assert _is_structural_marker_uid(value) is expected

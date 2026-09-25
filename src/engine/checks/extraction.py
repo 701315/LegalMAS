@@ -38,6 +38,22 @@ logger = get_logger(__name__)
 
 LLM_DEFAULT_CONFIDENCE: float = settings.LLM_DEFAULT_CONFIDENCE
 _EXTRACTION_RULES_REGEX_CONFIDENCE: float = 0.8
+
+# Structural marker contract — mirrors services/dd_grid_v1_builder.
+# Bare "__preamble__" or scope-prefixed "main_contract:__preamble__".
+# Internal segment identifiers, not user-facing clause references.
+_STRUCTURAL_MARKER_RE = re.compile(r"^__[a-z][a-z0-9_]*__$")
+_SCOPED_STRUCTURAL_MARKER_RE = re.compile(r"^[A-Za-z0-9_]+:__[a-z][a-z0-9_]*__$")
+
+
+def _is_structural_marker_uid(value: Any) -> bool:
+    """True if value is a structural marker (bare or scope-prefixed)."""
+    if not isinstance(value, str):
+        return False
+    text = value.strip()
+    if _STRUCTURAL_MARKER_RE.match(text):
+        return True
+    return bool(_SCOPED_STRUCTURAL_MARKER_RE.match(text))
 _EXTRACTION_RULES_KEYWORD_CONFIDENCE: float = 0.5
 
 # Минимальный grounding score для использования LLM evidence в extraction.
@@ -143,6 +159,28 @@ class ExtractionExecutor:
         }
 
     @classmethod
+    def _build_location_fallback_or_reason_only(
+        cls,
+        base_location: dict[str, Any] | None,
+        reason: str,
+    ) -> dict[str, Any]:
+        """
+        Build location fallback but drop structural-marker base_location.
+
+        If base_location.clause_uid is a structural marker
+        (__preamble__, scope:__header__), its page and clause_uid are not
+        user-facing anchors. Return reason-only fallback to avoid misleading
+        "п. __preamble__, стр. N" references in the UI.
+
+        Valid base_location (e.g. main_contract:12.1) is preserved.
+        """
+        if isinstance(base_location, dict) and _is_structural_marker_uid(
+            base_location.get("clause_uid")
+        ):
+            return {"reason": reason}
+        return cls._build_location_fallback(base_location, reason)
+
+    @classmethod
     def _resolve_field_location_bundle(
         cls,
         *,
@@ -166,7 +204,9 @@ class ExtractionExecutor:
             if raw_reason and str(raw_reason).strip():
                 fallback_reason = str(raw_reason).strip()
 
-        return None, cls._build_location_fallback(base_location, fallback_reason)
+        return None, cls._build_location_fallback_or_reason_only(
+            base_location, fallback_reason
+        )
 
 
     @staticmethod
@@ -564,7 +604,7 @@ class ExtractionExecutor:
                 if field.get("location") is None and field.get("found"):
                     field.setdefault(
                         "location_fallback",
-                        self._build_location_fallback(
+                        self._build_location_fallback_or_reason_only(
                             base_location,
                             "Точная ссылка не определена, см. общий evidence",
                         ),
