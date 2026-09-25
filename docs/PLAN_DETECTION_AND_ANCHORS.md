@@ -1,5 +1,9 @@
 # PLAN: Detection Audit + Anchor Refactoring
 
+> ⚠️ **Исторический план до 2026-09-21.**
+> Актуальное состояние на 2026-09-25 → см. `docs/HANDOVER_v7.3.md`.
+> Ниже — как было на master HEAD `7c01e38`. Не для старта новых работ.
+
 **Source:** полный план согласован в диалоге, v2.0 (consolidated)
 **Started:** 2026-09-21
 **Last updated:** 2026-09-21 (после B0.6 + verified browser)
@@ -241,3 +245,42 @@ sleep 20
 # Verify lstart > commit time
 ps -o pid,lstart,cmd -p $(pgrep -f 'worker-heavy-checks' | head -1)
 tail -30 /home/steloom/dev-logs/worker-checks.log
+
+---
+
+## Обновление 2026-09-25: что закрыто после 21.09
+
+Полный трек за 4 дня → см. `docs/HANDOVER_v7.3.md`. Кратко:
+
+### Track B, продолжение (B5.x → B6.x → B7.x)
+
+- B5.3 — risk-aware DD Grid (COC pilot). CellRiskBadge frontend.
+- B6.1 — anchors fix (R13 fuzzy-window, R14 page, R15 location, R21 quote-exists).
+- B6.2 — detection quality (R04, R10, R23, R24).
+- B6.3 — follow-ups.
+- B7.1 — body candidate wins over ToC при коллизии uid.
+- B7.2 — ToC-zone structural fix (3 слоя).
+- B7.3 — попытка фикса detect_toc_block (ROLLBACK, 72/335 docs lost).
+- B7.4 — TOC State Machine (закрывает сломанный detect_toc_block).
+- B7.5 — Spatial matcher geometric hard-gate.
+- B7.6 — ToC-zone heading filter (== "post_toc").
+- B7.9 — structural markers drop page (continuation of B1.1: scope-prefixed main_contract:__preamble__).
+
+### Track B, пункты B3/B4/B5 из этого документа
+
+Де-факто закрыты через B6.x + B0.x:
+- B3 — Citation Extraction интегрирована в B6.x (executor + extraction).
+- B4 — Persistence Layer: таблица check_result_anchors + ORM (B1a).
+- B5 — API + Frontend: anchor в DTO + viewer overlay (B0.6, B5.3).
+
+Строки с ⏳ TODO в таблицах выше — неактуальны.
+
+### Отменено
+
+- B7.7 — synthetic uid в appendix. Docling выдаёт чистые атомы.
+- B7.8 — Docling uid synthesis. Docling корректен.
+- DoD quality_completeness_warranty.page=6 — снят. Корректное поведение: LOCATION пустой в UI.
+
+### Актуальные приоритеты
+
+См. `docs/HANDOVER_v7.3.md` → Раздел 4 (backlog) и Раздел 5 (волны).
