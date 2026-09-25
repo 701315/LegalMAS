@@ -26,7 +26,6 @@ rules:
 
   keywords:
     high:
-      # Автоматическая пролонгация / evergreen
       - "(?i)автоматически\\s+продлева[ею]тся"
       - "(?i)автоматическ[а-яая]+\\s+пролонгаци"
       - "(?i)пролонгируется\\s+автоматически"
@@ -36,22 +35,17 @@ rules:
       - "(?i)shall\\s+(be\\s+)?renewed?\\s+(automatically|for\\s+(an\\s+)?additional)"
       - "(?i)продлева[ею]тся\\s+на\\s+(очередной|последующ|аналогичн|такой\\s+же)"
       - "(?i)считается\\s+продлённым"
-
-      # Условия отказа от пролонгации
       - "(?i)notice\\s+of\\s+non[-\\s]?renewal"
       - "(?i)уведомлени[ея]\\s+об\\s+отказе\\s+от\\s+(продлени|пролонгаци)"
       - "(?i)opt[-\\s]?out\\s+notice"
       - "(?i)не\\s+менее\\s+чем\\s+за\\s+\\d+\\s+(дн|календарн|рабоч)"
       - "(?i)at\\s+least\\s+\\d+\\s+(days?|months?)\\s+(prior|before|in\\s+advance)"
-
-      # Бессрочность
       - "(?i)until\\s+terminat(ed|ion)"
       - "(?i)до\\s+(момента\\s+)?расторжени[яи]"
       - "(?i)бессрочн[а-яый]"
       - "(?i)indefinite\\s+term"
 
     medium:
-      # Срок действия — общие формулировки
       - "(?i)срок\\s+действи[яи]\\s+(настоящего\\s+)?договор"
       - "(?i)term\\s+of\\s+this\\s+agreement"
       - "(?i)initial\\s+term"
@@ -60,19 +54,13 @@ rules:
       - "(?i)effective\\s+date"
       - "(?i)for\\s+a\\s+period\\s+of"
       - "(?i)на\\s+срок\\s+\\d+"
-
-      # Пролонгация — общие
       - "(?i)renewal\\s+term"
       - "(?i)successive\\s+term"
       - "(?i)последующ[а-яий]+\\s+(период|срок)"
       - "(?i)extension"
-
-      # Сроки уведомления
       - "(?i)\\d+\\s+(дн|календарн|рабоч)[а-я]*\\s+(до|перед)[\\s\\S]{0,20}(продлени|пролонгаци)"
       - "(?i)\\d+\\s+(days?|months?)[\\s\\S]{0,20}(prior|before)[\\s\\S]{0,20}(renewal|expir)"
       - "(?i)notice\\s+period[\\s\\S]{0,20}(renewal|non-renewal)"
-
-      # По событию
       - "(?i)до\\s+полного\\s+исполнени[яи]"
       - "(?i)until\\s+(full\\s+)?performance"
       - "(?i)до\\s+завершения\\s+проекта"
@@ -177,31 +165,40 @@ enrichment_hints:
   preferred_clause_functions:
     - "boilerplate"
     - "procedures"
-    - "boilerplate"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1250
+  llm_max_tokens: 1450
+
+  presence_signal:
+    field: "term_and_renewal_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам.
     Твоя задача — точно извлечь из текста:
-    1) тип и начальный срок договора;
-    2) есть ли автоматическая пролонгация;
-    3) период и количество пролонгаций;
-    4) срок и форму уведомления об отказе от продления.
+    1) есть ли в договоре регулирование срока действия;
+    2) если есть — какие условия установлены:
+       - тип и начальный срок договора;
+       - наличие автоматической пролонгации;
+       - период и количество пролонгаций;
+       - срок и форма уведомления об отказе от продления.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай сроки если они не указаны.
-    - Если информация отсутствует — ставь "unclear" или
-      "Не определён", а не предполагай вариант.
-    - Если текст неоднозначен — ставь "unclear".
+    - Если ни один фрагмент не содержит информации о сроке
+      действия договора (нет упоминаний срока / term / renewal /
+      пролонгации) — term_and_renewal_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      term_and_renewal_status = "unclear".
 
     Не анализируй take-or-pay и минимальные объёмы.
     </role>
@@ -212,11 +209,14 @@ extraction:
       игнорируй их.
     - Если среди фрагментов есть противоречия —
       укажи "unclear" и объясни в reason.
-    - Если ни один фрагмент не содержит информации —
-      используй значения для случая "срок не определён".
     - Не используй информацию из определений (definitions),
       преамбулы или приложений, если они не содержат
       substantive условий по теме check.
+    - Если ни один фрагмент не содержит информации о сроке
+      действия договора (нет упоминаний срока / term of agreement /
+      renewal / пролонгации) — term_and_renewal_status = "missing",
+      location = null. Не использовать "unclear" при полном отсутствии
+      релевантных фрагментов.
     </context_rules>
 
     <context>
@@ -228,6 +228,7 @@ extraction:
     <task>
     Заполни только следующие поля:
     - term_display
+    - term_and_renewal_status
     - term_type
     - initial_term
     - has_auto_renewal
@@ -237,13 +238,57 @@ extraction:
     - non_renewal_notice_form
     - opt_out_difficulty
     - reason
-
-    Общие правила:
-    - используй только то, что прямо следует из текста;
-    - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (term_display, initial_term, renewal_period,
+      renewal_limit, non_renewal_notice_period, reason)
+      location ВСЕГДА null.
+    - Для term_and_renewal_status = "missing" — location = null.
+    - Для term_and_renewal_status = "present" / "unclear" — quote
+      с фразой-основанием.
+    - Для term_type, has_auto_renewal, non_renewal_notice_form,
+      opt_out_difficulty:
+      * если значение определённое ("fixed" / "indefinite" /
+        "yes" / "written" / "easy" и т.п.) — quote с фразой-основанием;
+      * если "no" / "not_applicable" — различай: прямое исключение
+        (quote обязательна) vs отсутствие упоминания (location = null);
+      * если "unclear" — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ СРОКА ДОГОВОРА
+
+    Заполни "term_and_renewal_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное signal-поле
+      указывает на наличие информации по теме:
+      * term_type ∈ {"fixed", "indefinite", "by_event"};
+      * has_auto_renewal = "yes";
+      * non_renewal_notice_form ∈ {"written", "registered_mail",
+        "email", "any"};
+      * opt_out_difficulty ∈ {"easy", "moderate", "difficult"};
+      * ЛИБО любое поле = "no" / "not_applicable", но
+        с заполненным location с прямой цитатой (см. RF3).
+    - "missing" — если все содержательные поля = "no" /
+      "not_applicable" / "unclear" БЕЗ цитат, ЛИБО фрагментов
+      по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — ТИП СРОКА
 
     Заполни "term_type".
@@ -335,100 +380,103 @@ extraction:
 
     Заполни "term_display".
 
-    Это поле — краткий итог для таблицы.
-    Сформируй его на основе уже заполненных полей:
-    - term_type
-    - initial_term
-    - has_auto_renewal
-    - renewal_period
-    - non_renewal_notice_period
-    Не добавляй информацию, которой нет в этих полях.
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовый случай:
-    - нет данных о сроке:
+    Правила:
+    - Если term_and_renewal_status = "missing":
       "Срок не определён"
-
-    Если данные есть — комбинируй через ";":
-    - initial_term
-    - has_auto_renewal + renewal_period (если есть)
-    - non_renewal_notice_period (если значимо)
-
-    Примеры:
-    - "1 год; автопродление на 1 год; отказ за 30 дней"
-    - "Бессрочный; нет автопродления"
-    - "3 года; автопродление неограниченно; срок отказа не указан"
-    - "Срок не определён"
-    - "Не удалось определить срок договора"
-
-    Ограничение: не более 4 фактов через ";".
+    - Если все поля unclear:
+      "Не удалось определить срок договора"
+    - Если term_type = "indefinite":
+      "Бессрочный" + (если has_auto_renewal = "yes": "; автопродление")
+    - Иначе комбинируй через ";":
+      * initial_term
+      * has_auto_renewal + renewal_period (если есть)
+      * non_renewal_notice_period (если значимо)
+    - Не более 4 фактов через ";".
 
     Шаг 10 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
-    Формат:
-    - Первое предложение: краткий вывод
-      (срок, автопродление, условия отказа).
-    - Второе предложение: цитата из текста в кавычках
-      (самый релевантный фрагмент, до 100 символов).
-
-    Примеры:
-    - "Договор заключён на 1 год с автоматическим
-      продлением; отказ за 30 дней.
-      «Договор продлевается на каждый последующий год,
-      если ни одна из Сторон не уведомит...»."
-    - "Срок действия договора не обнаружен
-      в представленных фрагментах."
+    Правила:
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
     - Evergreen + нет notice или notice < 30 дней:
+      * term_and_renewal_status = "present"
       * opt_out_difficulty = "difficult"
 
     - Бессрочный без for convenience в тексте:
+      * term_and_renewal_status = "present"
       * term_type = "indefinite"
       * initial_term = "Бессрочный"
       * has_auto_renewal = "no"
 
     - Фиксированный 1 год, автопродление, отказ 30 дней:
+      * term_and_renewal_status = "present"
       * opt_out_difficulty = "easy"
-      * term_display = "1 год; автопродление на 1 год;
-        отказ за 30 дней"
+      * term_display = "1 год; автопродление на 1 год; отказ за 30 дней"
 
     - Автопродление без срока уведомления:
+      * term_and_renewal_status = "present"
       * non_renewal_notice_period = "Не указан"
       * opt_out_difficulty = "difficult"
 
-    - Нет релевантных фрагментов:
+    - Договор прямо фиксирует отсутствие срока:
+      * term_and_renewal_status = "present"
+      * term_type = "indefinite"
+      * location с прямой цитатой об отсутствии срока.
+
+    - Нет релевантных фрагментов / раздел о сроке
+      в договоре отсутствует:
+      * term_and_renewal_status = "missing"
       * term_type = "unclear"
       * initial_term = "Не определён"
-      * has_auto_renewal = "unclear"
+      * has_auto_renewal = "no"
+      * renewal_period = "Не применимо"
+      * renewal_limit = "Не применимо"
+      * non_renewal_notice_period = "Не установлено"
+      * non_renewal_notice_form = "not_specified"
+      * opt_out_difficulty = "not_applicable"
       * term_display = "Срок не определён"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * term_and_renewal_status = "unclear"
+      * term_display = "Не удалось определить срок договора"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
     - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Все значения полей с allowed_values — на английском
-      (как указано в списке).
+    - Все значения полей с allowed_values — на английском.
     - Свободные текстовые поля (term_display, initial_term,
       renewal_period, renewal_limit, non_renewal_notice_period,
       reason) — на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "term_display": "1 год; автопродление на 1 год; отказ за 30 дней",
-      "term_type": "fixed",
-      "initial_term": "1 год",
-      "has_auto_renewal": "yes",
-      "renewal_period": "на 1 год",
-      "renewal_limit": "Неограниченно",
-      "non_renewal_notice_period": "30 дней",
-      "non_renewal_notice_form": "written",
-      "opt_out_difficulty": "easy",
-      "reason": "Договор на 1 год с автопродлением. «Продлевается автоматически, если не уведомить за 30 дней»."
+      "term_display": {"value": "1 год; автопродление на 1 год; отказ за 30 дней", "confidence": 0.92, "location": null},
+      "term_and_renewal_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 11.1", "page": 6, "quote": "Договор вступает в силу с даты подписания и действует 1 год"}},
+      "term_type": {"value": "fixed", "confidence": 0.95, "location": {"clause_ref": "п. 11.1", "page": 6, "quote": "действует 1 год"}},
+      "initial_term": {"value": "1 год", "confidence": 0.95, "location": null},
+      "has_auto_renewal": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 11.2", "page": 6, "quote": "Договор автоматически продлевается на 1 год"}},
+      "renewal_period": {"value": "на 1 год", "confidence": 0.90, "location": null},
+      "renewal_limit": {"value": "Неограниченно", "confidence": 0.85, "location": null},
+      "non_renewal_notice_period": {"value": "30 дней", "confidence": 0.95, "location": null},
+      "non_renewal_notice_form": {"value": "written", "confidence": 0.90, "location": {"clause_ref": "п. 11.2", "page": 6, "quote": "если ни одна из Сторон не уведомит письменно за 30 дней до истечения"}},
+      "opt_out_difficulty": {"value": "easy", "confidence": 0.90, "location": null},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -441,9 +489,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "term_and_renewal_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования срока договора в тексте"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "term_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Тип срока действия"
       display_in_grid: false
       allowed_values:
@@ -463,6 +523,7 @@ extraction:
     - name: "has_auto_renewal"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Автоматическая пролонгация"
       display_in_grid: false
       allowed_values:
@@ -495,6 +556,7 @@ extraction:
     - name: "non_renewal_notice_form"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Форма уведомления об отказе"
       display_in_grid: false
       allowed_values:
@@ -508,6 +570,7 @@ extraction:
     - name: "opt_out_difficulty"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Сложность отказа от пролонгации"
       display_in_grid: false
       allowed_values:
@@ -524,5 +587,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
 
   

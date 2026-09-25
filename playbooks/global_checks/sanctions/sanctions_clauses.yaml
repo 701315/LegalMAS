@@ -7,7 +7,7 @@ description: >
   режимов (OFAC, ЕС, UK, ООН, локальные), обязанности уведомлять о
   санкционных событиях, последствия (приостановка, расторжение, отказ
   в платеже), триггер последствий (risk-based vs. actual designation),
-  налиличие механизмов смягчения.
+  наличие механизмов смягчения.
 
   Формирует краткий user-facing вывод и оценивает распределение
   санкционного риска между сторонами.
@@ -27,14 +27,11 @@ rules:
 
   keywords:
     high:
-      # Прямые санкционные термины
       - "(?i)\\bsanctions?\\b"
       - "(?i)\\bсанкци[яийю]\\b"
       - "(?i)санкционн[а-яые]+"
       - "(?i)restrictive\\s+measures?"
       - "(?i)ограничительн[а-яые]+\\s+мер[ыа]"
-
-      # Санкционные органы и списки
       - "(?i)\\bOFAC\\b"
       - "(?i)\\bSDN\\b"
       - "(?i)SDN\\s+list"
@@ -47,54 +44,37 @@ rules:
       - "(?i)Security\\s+Council\\s+sanctions?"
       - "(?i)санкционн[а-яый]+\\s+списо?к"
       - "(?i)перечень\\s+[\\s\\S]{0,20}санкци"
-
-      # Sanctioned person
       - "(?i)sanctioned\\s+(person|party|entity)"
       - "(?i)restricted\\s+part(y|ies)[\\s\\S]{0,20}sanction"
       - "(?i)designated\\s+(person|party|entity)"
       - "(?i)санкционн[а-яое]+\\s+(лиц[оа]|сторон|организаци)"
-
-      # Санкционные заверения
       - "(?i)(represent|warrant)[\\s\\S]{0,40}(sanction|sanctioned|restricted\\s+party)"
       - "(?i)(заверя|гарантир)[\\s\\S]{0,40}санкци"
       - "(?i)not\\s+(a\\s+)?sanctioned\\s+(person|party|entity)"
       - "(?i)не\\s+являе?тся\\s+[\\s\\S]{0,20}санкционн"
-
-      # Последствия санкционных событий
       - "(?i)(suspend|terminat|block)[\\s\\S]{0,40}sanction"
       - "(?i)sanction[\\s\\S]{0,40}(suspend|terminat|block)"
       - "(?i)(приостанов|расторг|заблокир)[\\s\\S]{0,40}санкци"
 
     medium:
-      # Embargo
       - "(?i)\\bembargo\\b"
       - "(?i)\\bэмбарго\\b"
       - "(?i)trade\\s+embargo"
-
-      # Уведомления о санкционных событиях
       - "(?i)notif(y|ication)\\s+[\\s\\S]{0,30}sanction"
       - "(?i)уведоми[тьла]?\\s+[\\s\\S]{0,30}санкци"
       - "(?i)sanction[s]?\\s+event"
-
-      # Compliance with sanctions
       - "(?i)sanctions?\\s+compliance"
       - "(?i)comply\\s+with\\s+[\\s\\S]{0,30}sanctions?"
       - "(?i)соблюд[а-я]+\\s+[\\s\\S]{0,30}санкци"
       - "(?i)sanctions?\\s+screening"
       - "(?i)проверк[аи]\\s+(по\\s+)?санкционн[а-яый]+\\s+списк"
-
-      # Risk-based trigger
       - "(?i)risk\\s+of\\s+(sanctions?|violat)"
       - "(?i)риск\\s+(санкции|нарушени[ея])"
       - "(?i)in\\s+its?\\s+reasonable\\s+(opinion|judgment)[\\s\\S]{0,30}sanction"
       - "(?i)по\\s+(разумному\\s+)?усмотрени[юя][\\s\\S]{0,30}санкци"
-
-      # Illegality / force majeure
       - "(?i)illegality[\\s\\S]{0,40}sanction"
       - "(?i)force\\s+majeure[\\s\\S]{0,40}sanction"
       - "(?i)невозможность\\s+исполнения[\\s\\S]{0,40}санкци"
-
-      # Payment refusal
       - "(?i)refus[a-z]+\\s+(payment|transfer)[\\s\\S]{0,30}sanction"
       - "(?i)block[ed]?\\s+(funds?|payment)[\\s\\S]{0,30}sanction"
       - "(?i)заблокир[а-я]+\\s+(средств|платеж)[\\s\\S]{0,30}санкци"
@@ -210,33 +190,37 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1150
+  llm_max_tokens: 1450
+
+  presence_signal:
+    field: "sanctions_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по международным санкциям и compliance.
     Твоя задача — точно извлечь из текста:
-    1) санкционные заверения и их охват;
-    2) покрываемые санкционные режимы;
-    3) обязательства по соблюдению и уведомлению;
-    4) последствия санкционного события и их триггер;
-    5) механизмы смягчения.
+    1) есть ли в договоре регулирование санкционных оговорок;
+    2) если есть — какие условия установлены:
+       - санкционные заверения и их охват;
+       - покрываемые санкционные режимы;
+       - обязательства по соблюдению и уведомлению;
+       - последствия санкционного события и их триггер;
+       - механизмы смягчения.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ додумывай санкционные режимы, если они не упоминаются.
     - НЕ считай общие compliance-фразы санкционными заверениями
       без явного упоминания санкций.
-    - Если информация отсутствует — используй "no" или "unclear"
-      согласно allowed_values.
-    - Если текст неоднозначен — используй "unclear".
+    - Если ни один фрагмент не содержит информации о санкциях
+      (нет упоминаний sanctions / OFAC / SDN / санкций) —
+      sanctions_status = "missing", location = null.
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      sanctions_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -249,11 +233,22 @@ extraction:
     - Внутрироссийские договоры без международного элемента
       обычно не имеют санкционных оговорок — это нормально,
       используй "no", а не "unclear".
+    - Если ни один фрагмент не содержит информации о санкциях —
+      sanctions_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - sanctions_display
+    - sanctions_status
     - has_sanctions_reps
     - sanctions_reps_coverage
     - covered_regimes
@@ -265,7 +260,60 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (sanctions_display, covered_regimes,
+      reason) location ВСЕГДА null.
+    - Для sanctions_status = "missing" — location = null.
+    - Для sanctions_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для has_sanctions_reps, has_compliance_obligations,
+      requires_notification, has_mitigation_mechanisms:
+      * если "yes" — quote с фразой-основанием;
+      * если "no" — различай: прямое исключение (quote обязательна)
+        vs отсутствие упоминания (location = null);
+      * если "unclear" — location = null.
+    - Для sanctions_reps_coverage — quote с фразой, показывающей
+      охват (UBO, аффилированные лица, списки).
+    - Для event_consequences — quote с фразой-последствием.
+    - Для consequences_trigger — quote с фразой-триггером
+      (actual designation vs risk-based).
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ САНКЦИОННЫХ ОГОВОРОК
+
+    Заполни "sanctions_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное signal-поле
+      указывает на наличие информации по теме:
+      * has_sanctions_reps = "yes";
+      * has_compliance_obligations = "yes";
+      * requires_notification = "yes";
+      * has_mitigation_mechanisms = "yes";
+      * event_consequences ∈ {"suspension", "termination",
+        "payment_refusal", "mixed"};
+      * sanctions_reps_coverage ∈ {"full", "partial"};
+      * ЛИБО любое поле = "no" / "not_applicable" / "none", но
+        с заполненным location с прямой цитатой (см. RF3).
+    - "missing" — если все содержательные поля = "no" /
+      "not_applicable" / "none" БЕЗ цитат, ЛИБО фрагментов по теме
+      нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — САНКЦИОННЫЕ ЗАВЕРЕНИЯ
 
     Заполни "has_sanctions_reps".
@@ -360,29 +408,20 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Санкционные оговорки есть:
-       "Заверения (full: UBO + аффилированные); OFAC + EU + UK;
-        actual designation; смягчение"
-    2. Частичные оговорки:
-       "Заверения (только сторона); OFAC; risk-based trigger"
-    3. Нет оговорок:
-       "Нет санкционных заверений; нет compliance обязательств"
-    4. Не удалось определить:
-       "Не удалось определить санкционные оговорки"
-
     Правила:
-    - Если has_sanctions_reps = "no"
-      и has_compliance_obligations = "no":
+    - Если sanctions_status = "missing":
       "Нет санкционных заверений; нет compliance обязательств"
     - Если все поля unclear:
       "Не удалось определить санкционные оговорки"
+    - Если has_sanctions_reps = "no"
+      и has_compliance_obligations = "no":
+      "Нет санкционных заверений; нет compliance обязательств"
     - Иначе комбинируй через ";":
       * sanctions_reps_coverage (full / partial)
       * covered_regimes (кратко)
       * consequences_trigger (если "risk_based": предупредить)
       * has_mitigation_mechanisms (если "yes": "смягчение")
-    - Не более 4–5 фактов через ";".
+    - Не более 5 фактов через ";".
 
     Шаг 10 — КРАТКОЕ ОБОСНОВАНИЕ
 
@@ -396,24 +435,39 @@ extraction:
 
     <edge_cases>
     - Risk-based trigger ("reasonable opinion"):
+      * sanctions_status = "present"
       * consequences_trigger = "risk_based"
 
     - Заверения только для стороны без UBO:
+      * sanctions_status = "present"
       * sanctions_reps_coverage = "partial"
 
     - Actual designation + уведомление + альтернативные банки:
+      * sanctions_status = "present"
       * consequences_trigger = "actual_designation"
       * has_mitigation_mechanisms = "yes"
 
     - Внутрироссийский договор без международного элемента:
+      * sanctions_status = "missing"
       * has_sanctions_reps = "no"
       * has_compliance_obligations = "no"
+      * sanctions_reps_coverage = "not_applicable"
       * covered_regimes = "Не применимо"
+      * requires_notification = "no"
+      * event_consequences = "none"
+      * consequences_trigger = "not_applicable"
+      * has_mitigation_mechanisms = "no"
       * sanctions_display =
         "Нет санкционных заверений; нет compliance обязательств"
+      * location у всех полей = null.
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
+    - Договор прямо фиксирует отсутствие санкционных оговорок:
+      * sanctions_status = "present"
+      * has_sanctions_reps = "no"
+      * location с прямой цитатой об отсутствии.
+
+    - Формулировки есть, но вывод невозможен:
+      * sanctions_status = "unclear"
       * covered_regimes = "Не удалось определить"
       * sanctions_display =
         "Не удалось определить санкционные оговорки"
@@ -421,26 +475,28 @@ extraction:
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (sanctions_display, covered_regimes, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (sanctions_display, covered_regimes,
+      reason) — на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "sanctions_display": "Заверения (full: UBO + аффилированные); OFAC + EU + UK; actual designation; смягчение",
-      "has_sanctions_reps": "yes",
-      "sanctions_reps_coverage": "full",
-      "covered_regimes": "OFAC; EU sanctions; UK sanctions",
-      "has_compliance_obligations": "yes",
-      "requires_notification": "yes",
-      "event_consequences": "mixed",
-      "consequences_trigger": "actual_designation",
-      "has_mitigation_mechanisms": "yes",
-      "reason": "..."
+      "sanctions_display": {"value": "Заверения (full: UBO + аффилированные); OFAC + EU + UK; actual designation; смягчение", "confidence": 0.92, "location": null},
+      "sanctions_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 14.1", "page": 8, "quote": "Neither party nor any of its affiliates or beneficial owners is a sanctioned person under OFAC, EU or UK sanctions"}},
+      "has_sanctions_reps": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 14.1", "page": 8, "quote": "Neither party nor any of its affiliates is a sanctioned person"}},
+      "sanctions_reps_coverage": {"value": "full", "confidence": 0.85, "location": {"clause_ref": "п. 14.1", "page": 8, "quote": "nor any of its affiliates or beneficial owners"}},
+      "covered_regimes": {"value": "OFAC; EU sanctions; UK sanctions", "confidence": 0.90, "location": null},
+      "has_compliance_obligations": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 14.2", "page": 8, "quote": "Each party shall comply with all applicable sanctions regimes"}},
+      "requires_notification": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 14.3", "page": 8, "quote": "a party shall notify the other of any sanctions event within 5 business days"}},
+      "event_consequences": {"value": "mixed", "confidence": 0.85, "location": null},
+      "consequences_trigger": {"value": "actual_designation", "confidence": 0.90, "location": {"clause_ref": "п. 14.4", "page": 8, "quote": "upon actual designation of a party on a sanctions list"}},
+      "has_mitigation_mechanisms": {"value": "yes", "confidence": 0.80, "location": {"clause_ref": "п. 14.5", "page": 8, "quote": "parties shall cooperate to find alternative payment channels"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -453,9 +509,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "sanctions_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования санкционных оговорок в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "has_sanctions_reps"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Санкционные заверения"
       allowed_values:
         - "yes"
@@ -466,6 +534,7 @@ extraction:
     - name: "sanctions_reps_coverage"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Охват санкционных заверений"
       allowed_values:
         - "full"
@@ -485,6 +554,7 @@ extraction:
     - name: "has_compliance_obligations"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Обязательства по соблюдению санкций"
       allowed_values:
         - "yes"
@@ -495,6 +565,7 @@ extraction:
     - name: "requires_notification"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Обязанность уведомлять о санкционных событиях"
       allowed_values:
         - "yes"
@@ -505,6 +576,7 @@ extraction:
     - name: "event_consequences"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Последствия санкционного события"
       allowed_values:
         - "none"
@@ -518,6 +590,7 @@ extraction:
     - name: "consequences_trigger"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Триггер последствий"
       allowed_values:
         - "actual_designation"
@@ -529,6 +602,7 @@ extraction:
     - name: "has_mitigation_mechanisms"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Механизмы смягчения"
       allowed_values:
         - "yes"

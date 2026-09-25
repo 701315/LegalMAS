@@ -25,7 +25,6 @@ rules:
 
   keywords:
     high:
-      # Последствия расторжения — прямые формулировки
       - "(?i)upon\\s+(termination|expir(y|ation))"
       - "(?i)при\\s+(прекращении|расторжении|истечении)\\s+(действия\\s+)?договора"
       - "(?i)consequences?\\s+of\\s+termination"
@@ -34,49 +33,36 @@ rules:
       - "(?i)after\\s+termination"
       - "(?i)после\\s+расторжени[яи]"
       - "(?i)post[-\\s]?termination"
-
-      # Non-refundable / невозвратимые
       - "(?i)non[-\\s]?refundable"
       - "(?i)невозвратим[а-яые]+"
       - "(?i)не\\s+подлежа[тщ]\\s+возврату"
       - "(?i)shall\\s+not\\s+be\\s+(refunded|returned)"
       - "(?i)retain(ed)?\\s+as\\s+(liquidated\\s+damages|penalty)"
       - "(?i)удержива[ею]тся\\s+в\\s+качестве\\s+(неустойк|штраф)"
-
-      # Early termination fee
       - "(?i)early\\s+termination\\s+fee"
       - "(?i)плат[аы]\\s+за\\s+досрочн[а-яое]+\\s+расторжени"
       - "(?i)termination\\s+(fee|charge|penalty)"
       - "(?i)breakage\\s+(fee|cost)"
-
-      # Survival
       - "(?i)\\bsurviv(e|al|es|ing)\\b"
       - "(?i)сохраня[ею]т\\s+силу"
       - "(?i)shall\\s+(continue\\s+to\\s+)?remain\\s+in\\s+(full\\s+)?force"
 
     medium:
-      # Авансы и минимальные платежи
       - "(?i)advance\\s+payment[\\s\\S]{0,30}(terminat|refund|return)"
       - "(?i)prepayment[\\s\\S]{0,30}(terminat|refund|return)"
       - "(?i)аванс[а-я]*[\\s\\S]{0,30}(расторж|возврат)"
       - "(?i)minimum\\s+(commitment|payment)[\\s\\S]{0,30}terminat"
       - "(?i)минимальн[а-яый]+\\s+(платёж|обязательств)[\\s\\S]{0,30}расторж"
-
-      # Переходный период
       - "(?i)transition\\s+(period|plan|service|assistance)"
       - "(?i)переходн[а-яый]+\\s+период"
       - "(?i)wind[-\\s]?down\\s+period"
       - "(?i)data\\s+(export|migration|portability|return)[\\s\\S]{0,20}terminat"
       - "(?i)экспорт\\s+данных[\\s\\S]{0,20}(расторж|прекращ)"
       - "(?i)возврат\\s+данных[\\s\\S]{0,20}(расторж|прекращ)"
-
-      # Конфиденциальность после расторжения
       - "(?i)confidential(ity)?[\\s\\S]{0,40}(surviv|terminat|continu)"
       - "(?i)конфиденциальност[ьи][\\s\\S]{0,40}(сохраня|продолжа|после\\s+расторж)"
       - "(?i)return\\s+[\\s\\S]{0,20}confidential"
       - "(?i)destroy\\s+[\\s\\S]{0,20}confidential"
-
-      # IP / лицензии после расторжения
       - "(?i)(licen[cs]e|IP)[\\s\\S]{0,40}(terminat|expir|ceas|revok)"
       - "(?i)лицензи[яи][\\s\\S]{0,40}(прекращ|истек|аннулир|отзыв)"
       - "(?i)perpetual\\s+licen[cs]e[\\s\\S]{0,20}(surviv|terminat)"
@@ -193,26 +179,37 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1050
+  llm_max_tokens: 1350
+
+  presence_signal:
+    field: "termination_consequences_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам.
     Твоя задача — точно извлечь из текста последствия
     расторжения:
-    1) судьба авансов и минимальных платежей;
-    2) early termination fee;
-    3) переходный период и возврат данных;
-    4) судьба IP / лицензий;
-    5) конфиденциальность после расторжения.
+    1) есть ли в договоре регулирование последствий расторжения;
+    2) если есть — какие условия установлены:
+       - судьба авансов и минимальных платежей;
+       - early termination fee;
+       - переходный период и возврат данных;
+       - судьба IP / лицензий;
+       - конфиденциальность после расторжения.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай данные если их нет в тексте.
-    - Если информация отсутствует — ставь "not_addressed"
-      или "unclear".
-    - Если текст неоднозначен — ставь "unclear".
+    - Если ни один фрагмент не содержит информации о последствиях
+      расторжения (нет упоминаний upon termination / post-termination /
+      consequences of termination / последствий расторжения) —
+      termination_consequences_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      termination_consequences_status = "unclear".
     </role>
 
     <context_rules>
@@ -221,11 +218,15 @@ extraction:
       игнорируй их.
     - Если среди фрагментов есть противоречия —
       укажи "unclear" и объясни в reason.
-    - Если ни один фрагмент не содержит информации —
-      используй значения для случая "не урегулировано".
     - Не используй информацию из определений (definitions),
       преамбулы или приложений, если они не содержат
       substantive условий по теме check.
+    - Если ни один фрагмент не содержит информации о последствиях
+      расторжения (нет упоминаний upon termination / post-termination /
+      consequences of termination / последствий расторжения) —
+      termination_consequences_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
 
     <context>
@@ -237,6 +238,7 @@ extraction:
     <task>
     Заполни только следующие поля:
     - termination_consequences_display
+    - termination_consequences_status
     - payments_treatment
     - has_early_termination_fee
     - has_transition_period
@@ -245,20 +247,71 @@ extraction:
     - ip_license_survival
     - confidentiality_survival
     - reason
-
-    Общие правила:
-    - используй только то, что прямо следует из текста;
-    - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (termination_consequences_display,
+      transition_period_value, reason) location ВСЕГДА null.
+    - Для termination_consequences_status = "missing" — location = null.
+    - Для termination_consequences_status = "present" / "unclear" —
+      quote с фразой-основанием.
+    - Для payments_treatment, has_early_termination_fee,
+      has_transition_period, data_handling_after_termination,
+      ip_license_survival, confidentiality_survival:
+      * если значение определённое ("favorable" / "yes" /
+        "export_provided" / "perpetual" / "standard" и т.п.) —
+        quote с фразой-основанием;
+      * если "no" / "not_addressed" / "none" — различай: прямое
+        исключение (quote обязательна) vs отсутствие упоминания
+        (location = null);
+      * если "unclear" — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ПОСЛЕДСТВИЙ РАСТОРЖЕНИЯ
+
+    Заполни "termination_consequences_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное signal-поле
+      указывает на наличие информации по теме:
+      * payments_treatment ∈ {"favorable", "unfavorable", "neutral"};
+      * has_early_termination_fee = "yes";
+      * has_transition_period = "yes";
+      * data_handling_after_termination ∈ {"export_provided",
+        "deletion_only", "both"};
+      * ip_license_survival ∈ {"terminated_immediately",
+        "terminated_with_transition", "perpetual"};
+      * confidentiality_survival ∈ {"none", "short", "standard", "long"};
+      * ЛИБО любое поле = "no" / "not_addressed" / "none", но
+        с заполненным location с прямой цитатой (см. RF3).
+        Учитывается как признак наличия ТОЛЬКО при наличии
+        прямой цитаты. Без цитаты "no" не считается сигналом
+        наличия.
+    - "missing" — если все содержательные поля = "no" /
+      "not_addressed" / "none" БЕЗ цитат, ЛИБО фрагментов по теме
+      нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — СУДЬБА АВАНСОВ И ПЛАТЕЖЕЙ
 
     Заполни "payments_treatment".
 
     Значения:
-    - "favorable" — возврат неиспользованной части или
-      pro-rata refund.
+    - "favorable" — возврат неиспользованной части или pro-rata refund.
     - "unfavorable" — non-refundable, удержание как penalty.
     - "neutral" — зависит от причины расторжения.
     - "not_addressed" — не урегулировано.
@@ -269,14 +322,18 @@ extraction:
     Заполни "has_early_termination_fee".
 
     Значения:
-    - "yes" / "no" / "unclear"
+    - "yes" — плата за досрочное расторжение предусмотрена.
+    - "no" — не предусмотрена.
+    - "unclear" — неясно.
 
     Шаг 3 — ПЕРЕХОДНЫЙ ПЕРИОД
 
     Заполни "has_transition_period" и "transition_period_value".
 
     Значения для has_transition_period:
-    - "yes" / "no" / "unclear"
+    - "yes" — переходный период предусмотрен.
+    - "no" — не предусмотрен.
+    - "unclear" — неясно.
 
     Для transition_period_value:
     - Если указан: "30 дней", "90 дней",
@@ -324,100 +381,99 @@ extraction:
 
     Заполни "termination_consequences_display".
 
-    Это поле — краткий итог для таблицы.
-    Сформируй его на основе уже заполненных полей:
-    - payments_treatment
-    - has_early_termination_fee
-    - has_transition_period + transition_period_value
-    - data_handling_after_termination
-    - ip_license_survival
-    Не добавляй информацию, которой нет в этих полях.
+    Это итоговое поле для таблицы.
+    Строй его ТОЛЬКО на основе уже заполненных полей выше.
+    Не добавляй информацию сверх них.
 
-    Базовый случай:
-    - все поля = "not_addressed":
+    Правила:
+    - Если termination_consequences_status = "missing":
       "Последствия расторжения не урегулированы"
-
-    Если данные есть — комбинируй через ";":
-    - payments_treatment (кратко)
-    - has_transition_period + transition_period_value
-    - data_handling (если значимо)
-    - ip_license_survival (если критично)
-
-    Примеры:
-    - "Авансы не возвращаются; нет transition;
-      лицензии прекращаются немедленно"
-    - "Авансы pro-rata; transition 30 дней;
-      данные экспортируются"
-    - "Early termination fee; нет transition;
-      лицензии бессрочные"
-    - "Последствия расторжения не урегулированы"
-    - "Не удалось определить последствия расторжения"
-
-    Ограничение: не более 4 фактов через ";".
+    - Если все поля unclear:
+      "Не удалось определить последствия расторжения"
+    - Иначе комбинируй через ";":
+      * payments_treatment (кратко)
+      * has_transition_period + transition_period_value
+      * data_handling (если значимо)
+      * ip_license_survival (если критично)
+    - Не более 4 фактов через ";".
 
     Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
-    Формат:
-    - Первое предложение: краткий вывод
-      (платежи, transition, IP, конфиденциальность).
-    - Второе предложение: цитата из текста в кавычках
-      (самый релевантный фрагмент, до 100 символов).
-
-    Примеры:
-    - "Авансы non-refundable, transition period не предусмотрен,
-      лицензии прекращаются немедленно.
-      «All prepayments are non-refundable upon termination»."
-    - "Последствия расторжения не обнаружены
-      в представленных фрагментах."
+    Правила:
+    - Первое предложение — краткий вывод.
+    - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
     </instructions>
 
     <edge_cases>
     - Non-refundable + нет transition:
+      * termination_consequences_status = "present"
       * payments_treatment = "unfavorable"
       * has_transition_period = "no"
       * transition_period_value = "Не применимо"
 
     - Лицензии прекращаются немедленно, нет transition:
+      * termination_consequences_status = "present"
       * ip_license_survival = "terminated_immediately"
       * has_transition_period = "no"
 
     - Transition 30 дней + export предусмотрен:
+      * termination_consequences_status = "present"
       * has_transition_period = "yes"
       * transition_period_value = "30 дней"
       * data_handling_after_termination = "export_provided"
 
-    - Не урегулировано:
+    - Договор прямо фиксирует отсутствие последствий:
+      * termination_consequences_status = "present"
       * payments_treatment = "not_addressed"
-      * has_transition_period = "unclear"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел о последствиях расторжения
+      в договоре отсутствует:
+      * termination_consequences_status = "missing"
+      * payments_treatment = "not_addressed"
+      * has_early_termination_fee = "no"
+      * has_transition_period = "no"
       * transition_period_value = "Не установлено"
+      * data_handling_after_termination = "not_addressed"
+      * ip_license_survival = "not_addressed"
+      * confidentiality_survival = "none"
       * termination_consequences_display =
         "Последствия расторжения не урегулированы"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * termination_consequences_status = "unclear"
+      * termination_consequences_display =
+        "Не удалось определить последствия расторжения"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
     - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Все значения полей с allowed_values — на английском
-      (как указано в списке).
+    - Все значения полей с allowed_values — на английском.
     - Свободные текстовые поля
       (termination_consequences_display,
       transition_period_value, reason) — на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "termination_consequences_display": "Авансы не возвращаются; нет transition; лицензии прекращаются немедленно",
-      "payments_treatment": "unfavorable",
-      "has_early_termination_fee": "no",
-      "has_transition_period": "no",
-      "transition_period_value": "Не применимо",
-      "data_handling_after_termination": "not_addressed",
-      "ip_license_survival": "terminated_immediately",
-      "confidentiality_survival": "standard",
-      "reason": "Авансы non-refundable, лицензии прекращаются немедленно. «All fees paid are non-refundable»."
+      "termination_consequences_display": {"value": "Авансы не возвращаются; нет transition; лицензии прекращаются немедленно", "confidence": 0.92, "location": null},
+      "termination_consequences_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 13.1", "page": 8, "quote": "Upon termination, all fees paid are non-refundable"}},
+      "payments_treatment": {"value": "unfavorable", "confidence": 0.90, "location": {"clause_ref": "п. 13.1", "page": 8, "quote": "all fees paid are non-refundable"}},
+      "has_early_termination_fee": {"value": "no", "confidence": 0.80, "location": null},
+      "has_transition_period": {"value": "no", "confidence": 0.85, "location": null},
+      "transition_period_value": {"value": "Не применимо", "confidence": 0.90, "location": null},
+      "data_handling_after_termination": {"value": "not_addressed", "confidence": 0.75, "location": null},
+      "ip_license_survival": {"value": "terminated_immediately", "confidence": 0.85, "location": {"clause_ref": "п. 13.2", "page": 8, "quote": "all licenses granted hereunder shall immediately terminate"}},
+      "confidentiality_survival": {"value": "standard", "confidence": 0.80, "location": null},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -430,9 +486,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "termination_consequences_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования последствий расторжения"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "payments_treatment"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Судьба авансов и платежей"
       display_in_grid: false
       allowed_values:
@@ -445,6 +513,7 @@ extraction:
     - name: "has_early_termination_fee"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Early termination fee"
       display_in_grid: false
       allowed_values:
@@ -455,6 +524,7 @@ extraction:
     - name: "has_transition_period"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Переходный период"
       display_in_grid: false
       allowed_values:
@@ -473,6 +543,7 @@ extraction:
     - name: "data_handling_after_termination"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Обращение с данными после расторжения"
       display_in_grid: false
       allowed_values:
@@ -485,6 +556,7 @@ extraction:
     - name: "ip_license_survival"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Судьба IP / лицензий"
       display_in_grid: false
       allowed_values:
@@ -497,6 +569,7 @@ extraction:
     - name: "confidentiality_survival"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Конфиденциальность после расторжения"
       display_in_grid: false
       allowed_values:

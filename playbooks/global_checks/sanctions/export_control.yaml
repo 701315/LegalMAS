@@ -25,15 +25,12 @@ rules:
 
   keywords:
     high:
-      # Прямые экспортно-контрольные термины
       - "(?i)export\\s+control"
       - "(?i)экспортн[а-яый]+\\s+контрол"
       - "(?i)dual[-\\s]?use"
       - "(?i)двойного\\s+назначения"
       - "(?i)controlled\\s+(items?|goods?|technology|software)"
       - "(?i)контролируем[а-яые]+\\s+(товар|технолог|продукц)"
-
-      # Конкретные режимы — США
       - "(?i)\\bITAR\\b"
       - "(?i)International\\s+Traffic\\s+in\\s+Arms\\s+Regulations?"
       - "(?i)\\bEAR\\b"
@@ -44,49 +41,34 @@ rules:
       - "(?i)\\bECCN\\b"
       - "(?i)Export\\s+Control\\s+Classification\\s+Number"
       - "(?i)\\bBIS\\b"
-
-      # Конкретные режимы — ЕС
       - "(?i)EU\\s+dual[-\\s]?use"
       - "(?i)Regulation\\s+\\(EU\\)\\s+2021/821"
       - "(?i)Council\\s+Regulation\\s+\\(EC\\)\\s+No\\s+428"
-
-      # Конкретные режимы — Россия
       - "(?i)ФЗ[-\\s]?183"
       - "(?i)183[-\\s]?ФЗ"
       - "(?i)\\bФСТЭК\\b"
       - "(?i)контрольн[а-яые]+\\s+списк[иа][\\s\\S]{0,20}(экспорт|двойн)"
-
-      # Экспортные лицензии
       - "(?i)export\\s+licen[cs]e"
       - "(?i)экспортн[а-яая]+\\s+лицензи[яию]"
       - "(?i)export\\s+permit"
       - "(?i)разрешени[ея]\\s+на\\s+экспорт"
-
-      # Re-export
       - "(?i)re[-\\s]?export"
       - "(?i)реэкспорт"
       - "(?i)deemed\\s+export"
 
     medium:
-      # Technology transfer
       - "(?i)technology\\s+transfer[\\s\\S]{0,20}(control|restrict|licen)"
       - "(?i)передач[аи]\\s+технолог[\\s\\S]{0,20}(контрол|ограничен|лицензи)"
       - "(?i)technical\\s+data[\\s\\S]{0,20}(export|control|restrict)"
-
-      # Контролируемые страны/получатели
       - "(?i)restricted\\s+(countr|destination|part)[\\s\\S]{0,20}(export|control)"
       - "(?i)denied\\s+part(y|ies)"
       - "(?i)entity\\s+list"
       - "(?i)embargoed\\s+(countr|destination)"
       - "(?i)запрещённ[а-яые]+\\s+(страны|получател)[\\s\\S]{0,20}(экспорт|контрол)"
-
-      # End-use / end-user
       - "(?i)end[-\\s]?use\\s+(certificate|restriction|verification)"
       - "(?i)end[-\\s]?user\\s+(certificate|verification|check)"
       - "(?i)конечн[а-яое]+\\s+использовани[ея][\\s\\S]{0,20}(сертификат|контрол)"
       - "(?i)сертификат\\s+конечного\\s+пользовател"
-
-      # Ограничения на передачу
       - "(?i)transfer\\s+restriction[\\s\\S]{0,20}(export|technology)"
       - "(?i)shall\\s+not\\s+(export|re[-\\s]?export)"
       - "(?i)prior\\s+(written\\s+)?consent[\\s\\S]{0,30}(export|re[-\\s]?export)"
@@ -171,7 +153,6 @@ retrieval:
 
   preferred_clause_functions:
     - "obligations"
-    - "obligations"
     - "representations"
 
   position_bias:
@@ -204,16 +185,23 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1050
+  llm_max_tokens: 1250
+
+  presence_signal:
+    field: "has_export_control_provisions"
+    present_values: ["yes"]
+    missing_values: ["no"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по экспортному контролю и dual-use регулированию.
     Твоя задача — точно извлечь из текста:
-    1) наличие положений об экспортном контроле;
-    2) применимые режимы (ITAR, EAR, EU dual-use, ФЗ-183 и др.);
-    3) обязательства по соблюдению и лицензированию;
-    4) ограничения на re-export.
+    1) есть ли в договоре положения об экспортном контроле;
+    2) если есть — какие условия установлены:
+       - применимые режимы (ITAR, EAR, EU dual-use, ФЗ-183 и др.);
+       - обязательства по соблюдению и лицензированию;
+       - ограничения на re-export.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
@@ -223,15 +211,13 @@ extraction:
       или конкретных режимов.
     - Если договор касается услуг без передачи технологий —
       экспортный контроль, как правило, не применим, используй "no".
-    - Если информация отсутствует или неоднозначна —
-      используй "unclear".
+    - Если ни один фрагмент не содержит информации об экспортном
+      контроле (нет упоминаний export control / dual-use / ITAR /
+      EAR / ФЗ-183 / экспортной лицензии) —
+      has_export_control_provisions = "no", location = null.
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      has_export_control_provisions = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -249,7 +235,17 @@ extraction:
       для любой передачи.
     - Re-export "moderate" — ограничения для определённых
       стран / получателей.
+    - Если ни один фрагмент не содержит информации об экспортном
+      контроле — has_export_control_provisions = "no", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
@@ -264,8 +260,39 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (export_control_display, applicable_regimes,
+      reason) location ВСЕГДА null.
+    - Для has_export_control_provisions = "no" — различай:
+      * договор ПРЯМО фиксирует отсутствие положений — quote
+        ОБЯЗАТЕЛЬНА;
+      * просто отсутствует упоминание — location = null.
+    - Для has_export_control_provisions = "yes" / "unclear" — quote
+      с фразой-основанием.
+    - Для export_control_detail_level, requires_export_compliance,
+      requires_export_licenses, reexport_restrictions:
+      * "yes" / "detailed" / "general" — quote с фразой-основанием;
+      * "no" / "not_applicable" — различай: прямое исключение
+        (quote обязательна) vs отсутствие упоминания (location = null);
+      * "unclear" — location = null.
+    - Для reexport_restriction_severity — quote с фразой-основанием
+      ограничения, если severity определена.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
-    Шаг 1 — НАЛИЧИЕ ПОЛОЖЕНИЙ ОБ ЭКСПОРТНОМ КОНТРОЛЕ
+    Шаг 0 — НАЛИЧИЕ ПОЛОЖЕНИЙ ОБ ЭКСПОРТНОМ КОНТРОЛЕ
 
     Заполни "has_export_control_provisions".
 
@@ -275,7 +302,7 @@ extraction:
     - "no" — нет.
     - "unclear" — нельзя надёжно определить.
 
-    Шаг 2 — УРОВЕНЬ ДЕТАЛИЗАЦИИ
+    Шаг 1 — УРОВЕНЬ ДЕТАЛИЗАЦИИ
 
     Заполни "export_control_detail_level".
 
@@ -286,7 +313,7 @@ extraction:
     - "not_applicable" — экспортного контроля нет.
     - "unclear" — нельзя определить.
 
-    Шаг 3 — ПРИМЕНИМЫЕ РЕЖИМЫ
+    Шаг 2 — ПРИМЕНИМЫЕ РЕЖИМЫ
 
     Заполни "applicable_regimes".
 
@@ -297,7 +324,7 @@ extraction:
     - Если экспортного контроля нет: "Не применимо"
     - Если нельзя определить: "Не удалось определить"
 
-    Шаг 4 — ОБЯЗАТЕЛЬСТВА ПО СОБЛЮДЕНИЮ
+    Шаг 3 — ОБЯЗАТЕЛЬСТВА ПО СОБЛЮДЕНИЮ
 
     Заполни "requires_export_compliance".
 
@@ -307,7 +334,7 @@ extraction:
     - "no" — нет.
     - "unclear" — нельзя определить.
 
-    Шаг 5 — НЕОБХОДИМОСТЬ ЭКСПОРТНЫХ ЛИЦЕНЗИЙ
+    Шаг 4 — НЕОБХОДИМОСТЬ ЭКСПОРТНЫХ ЛИЦЕНЗИЙ
 
     Заполни "requires_export_licenses".
 
@@ -317,7 +344,7 @@ extraction:
     - "no" — нет.
     - "unclear" — нельзя определить.
 
-    Шаг 6 — ОГРАНИЧЕНИЯ НА RE-EXPORT
+    Шаг 5 — ОГРАНИЧЕНИЯ НА RE-EXPORT
 
     Заполни "reexport_restrictions"
     и "reexport_restriction_severity".
@@ -336,23 +363,13 @@ extraction:
     - "not_applicable" — ограничений нет.
     - "unclear" — нельзя определить.
 
-    Шаг 7 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
+    Шаг 6 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "export_control_display".
 
     Это итоговое поле для таблицы.
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
-
-    Возможные состояния:
-    1. Детализированный экспортный контроль:
-       "ITAR + EAR; обязанность лицензировать; strict re-export"
-    2. Общие обязательства:
-       "EU dual-use; общие обязательства; умеренные re-export"
-    3. Нет экспортного контроля:
-       "Экспортный контроль не обнаружен"
-    4. Не удалось определить:
-       "Не удалось определить экспортный контроль"
 
     Правила:
     - Если has_export_control_provisions = "no":
@@ -366,7 +383,7 @@ extraction:
       * reexport_restriction_severity (если strict / moderate)
     - Не более 4 фактов через ";".
 
-    Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
+    Шаг 7 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
@@ -379,14 +396,22 @@ extraction:
     <edge_cases>
     - Договор на поставку ПО без экспортно-контрольных положений:
       * has_export_control_provisions = "no"
+      * export_control_detail_level = "not_applicable"
       * applicable_regimes = "Не применимо"
+      * requires_export_compliance = "no"
+      * requires_export_licenses = "no"
+      * reexport_restrictions = "no"
+      * reexport_restriction_severity = "not_applicable"
       * export_control_display = "Экспортный контроль не обнаружен"
+      * location у всех полей = null.
 
     - Только "соблюдать применимое экспортное законодательство":
+      * has_export_control_provisions = "yes"
       * export_control_detail_level = "general"
       * applicable_regimes = "Не указаны"
 
     - ITAR + EAR, strict re-export:
+      * has_export_control_provisions = "yes"
       * applicable_regimes = "ITAR; EAR"
       * reexport_restriction_severity = "strict"
 
@@ -394,8 +419,12 @@ extraction:
       * has_export_control_provisions = "no"
       * export_control_display = "Экспортный контроль не обнаружен"
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
+    - Договор прямо фиксирует отсутствие экспортного контроля:
+      * has_export_control_provisions = "no"
+      * location с прямой цитатой об отсутствии.
+
+    - Формулировки есть, но вывод невозможен:
+      * has_export_control_provisions = "unclear"
       * applicable_regimes = "Не удалось определить"
       * export_control_display =
         "Не удалось определить экспортный контроль"
@@ -403,25 +432,26 @@ extraction:
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (export_control_display, applicable_regimes, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (export_control_display,
+      applicable_regimes, reason) — на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "export_control_display": "ITAR + EAR; обязанность лицензировать; strict re-export",
-      "has_export_control_provisions": "yes",
-      "export_control_detail_level": "detailed",
-      "applicable_regimes": "ITAR; EAR",
-      "requires_export_compliance": "yes",
-      "requires_export_licenses": "yes",
-      "reexport_restrictions": "yes",
-      "reexport_restriction_severity": "strict",
-      "reason": "..."
+      "export_control_display": {"value": "ITAR + EAR; обязанность лицензировать; strict re-export", "confidence": 0.92, "location": null},
+      "has_export_control_provisions": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 10.1", "page": 6, "quote": "Поставка Товара осуществляется в соответствии с требованиями экспортного контроля"}},
+      "export_control_detail_level": {"value": "detailed", "confidence": 0.90, "location": {"clause_ref": "п. 10.2", "page": 6, "quote": "Товары классифицированы по ECCN в соответствии с EAR"}},
+      "applicable_regimes": {"value": "ITAR; EAR", "confidence": 0.85, "location": null},
+      "requires_export_compliance": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 10.1", "page": 6, "quote": "в соответствии с требованиями экспортного контроля"}},
+      "requires_export_licenses": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 10.3", "page": 6, "quote": "Экспорт возможен только при наличии экспортной лицензии"}},
+      "reexport_restrictions": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 10.4", "page": 6, "quote": "Реэкспорт допускается только с предварительного письменного согласия"}},
+      "reexport_restriction_severity": {"value": "strict", "confidence": 0.85, "location": {"clause_ref": "п. 10.4", "page": 6, "quote": "с предварительного письменного согласия"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -437,6 +467,7 @@ extraction:
     - name: "has_export_control_provisions"
       type: "string"
       presentation: "signal"
+      risk_weight: "info"
       description: "Наличие экспортно-контрольных положений"
       allowed_values:
         - "yes"
@@ -447,6 +478,7 @@ extraction:
     - name: "export_control_detail_level"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Уровень детализации"
       allowed_values:
         - "detailed"
@@ -466,6 +498,7 @@ extraction:
     - name: "requires_export_compliance"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Обязательства по соблюдению"
       allowed_values:
         - "yes"
@@ -476,6 +509,7 @@ extraction:
     - name: "requires_export_licenses"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Необходимость экспортных лицензий"
       allowed_values:
         - "yes"
@@ -486,6 +520,7 @@ extraction:
     - name: "reexport_restrictions"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Ограничения на re-export"
       allowed_values:
         - "yes"
@@ -496,6 +531,7 @@ extraction:
     - name: "reexport_restriction_severity"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Жёсткость ограничений на re-export"
       allowed_values:
         - "strict"

@@ -163,14 +163,21 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 950
+  llm_max_tokens: 1100
+
+  presence_signal:
+    field: "party_identification_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по договорной формалистике и идентификации сторон.
     Твоя задача — точно извлечь из текста:
-    1) идентифицированы ли стороны договора;
-    2) насколько полны их реквизиты;
+    1) есть ли в договоре раздел / положения об идентификации сторон
+       и их реквизитах;
+    2) если есть — насколько полны реквизиты;
     3) есть ли явные несоответствия между преамбулой,
        реквизитами и подписным блоком.
 
@@ -179,15 +186,12 @@ extraction:
     - НЕ восстанавливай реквизиты по догадке.
     - НЕ считай отсутствие банковских реквизитов автоматическим
       дефектом, если по тексту есть иная достаточная идентификация.
-    - Если данных недостаточно или есть противоречия —
-      используй "unclear".
+    - Если раздел / положения о сторонах в договоре отсутствуют
+      (ни преамбулы, ни реквизитов, ни подписного блока
+      с идентификацией) — party_identification_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      party_identification_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -200,26 +204,86 @@ extraction:
       стороны, это не несоответствие само по себе.
     - Не используй внешние источники и не дополняй реквизиты
       из общих знаний.
+    - Если ни один фрагмент не содержит данных о сторонах
+      (преамбула, раздел реквизитов, подписной блок недоступны) —
+      party_identification_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - parties_display
     - parties_summary
     - requisites_status
+    - party_identification_status
     - parties_identified
     - party_details_consistent
     - core_requisites_completeness
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (parties_display, parties_summary,
+      requisites_status, reason) location ВСЕГДА null.
+    - Для party_identification_status = "missing" — location = null.
+    - Для party_identification_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой (наименование стороны,
+      фрагмент раздела реквизитов, фрагмент подписного блока).
+    - Для parties_identified — quote с преамбулой или разделом реквизитов.
+    - Для party_details_consistent = "no" — quote с наиболее показательным
+      несоответствием (одно из conflicting написаний).
+    - Для core_requisites_completeness — quote с фрагментом раздела
+      реквизитов.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РАЗДЕЛА / ПОЛОЖЕНИЙ О СТОРОНАХ
+
+    Заполни "party_identification_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное signal-поле указывает
+      на наличие идентификации:
+      * parties_identified ∈ {"yes", "partial"};
+      * core_requisites_completeness ∈ {"complete", "incomplete", "minimal"};
+      * ЛИБО любое поле = "no", но с заполненным location с прямой
+        цитатой (см. RF3). Это касается, в частности,
+        party_details_consistent = "no" — учитывается как признак
+        наличия регулирования ТОЛЬКО при наличии прямой цитаты
+        о несоответствии (например, разные написания наименования).
+        Без цитаты "no" не считается сигналом наличия.
+    - "missing" — если parties_identified = "no" (без цитаты об исключении),
+      core_requisites_completeness = "unclear",
+      party_details_consistent = "unclear",
+      ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — ИДЕНТИФИКАЦИЯ СТОРОН
 
     Заполни "parties_identified".
 
     Значения:
-    - "yes" — все основные стороны договора идентифицируются по тексту.
+    - "yes" — все основные стороны идентифицируются по тексту.
     - "partial" — идентифицируется только часть сторон или
       идентификация одной из сторон заметно неполная.
     - "no" — стороны не удаётся идентифицировать по существу.
@@ -229,40 +293,23 @@ extraction:
     Шаг 2 — КРАТКОЕ ОПИСАНИЕ СТОРОН
 
     Заполни "parties_summary".
-
-    Правила:
-    - Кратко, не более 2 сторон в строке, через " / ".
-    - Используй наименование в коротком виде.
-    - Примеры:
-      "ООО «Альфа» / Beta Ltd."
-      "АО «Ромашка» / вторая сторона не идентифицирована"
-    - Если стороны не идентифицированы:
-      "Стороны не идентифицированы"
-    - Если нельзя определить:
-      "Не удалось определить стороны"
+    - Не более 2 сторон в строке, через " / ".
+    - Примеры: "ООО «Альфа» / Beta Ltd.",
+      "АО «Ромашка» / вторая сторона не идентифицирована".
+    - Если стороны не идентифицированы: "Стороны не идентифицированы".
+    - Если нельзя определить: "Не удалось определить стороны".
 
     Шаг 3 — СОГЛАСОВАННОСТЬ ДАННЫХ О СТОРОНАХ
 
-    Заполни "party_details_consistent".
-
-    Значения:
-    - "yes" — наименования и реквизитные данные не противоречат друг другу.
-    - "no" — есть явные несоответствия между преамбулой,
-      реквизитами или подписным блоком.
-    - "unclear" — нельзя надёжно определить.
+    Заполни "party_details_consistent":
+    yes / no / unclear.
 
     Шаг 4 — ПОЛНОТА КЛЮЧЕВЫХ РЕКВИЗИТОВ
 
-    Заполни "core_requisites_completeness".
-
-    Значения:
-    - "complete" — указаны ключевые реквизиты в достаточном объёме:
-      как минимум наименование стороны и заметный набор
-      идентифицирующих данных (например, адрес, регистрационный /
-      налоговый номер, реквизиты раздела сторон).
-    - "incomplete" — часть важных реквизитов отсутствует.
-    - "minimal" — по существу есть только базовое наименование
-      без нормального набора реквизитов.
+    Заполни "core_requisites_completeness":
+    - "complete" — ключевые реквизиты в достаточном объёме;
+    - "incomplete" — часть важных реквизитов отсутствует;
+    - "minimal" — только базовое наименование;
     - "unclear" — нельзя определить.
 
     Шаг 5 — USER-FACING СТАТУС РЕКВИЗИТОВ
@@ -270,105 +317,87 @@ extraction:
     Заполни "requisites_status".
 
     Правила:
-    - Если core_requisites_completeness = "complete":
-      "Реквизиты полные"
-    - Если = "incomplete":
-      "Реквизиты неполные"
-    - Если = "minimal":
-      "Только базовая идентификация"
-    - Если стороны не идентифицированы:
+    - complete → "Реквизиты полные"
+    - incomplete → "Реквизиты неполные"
+    - minimal → "Только базовая идентификация"
+    - Стороны не идентифицированы →
       "Реквизиты не позволяют идентифицировать стороны"
-    - Если нельзя определить:
-      "Не удалось определить"
+    - Нельзя определить → "Не удалось определить"
 
     Шаг 6 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "parties_display".
-
-    Это итоговое поле для таблицы.
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
-    Не добавляй информацию сверх них.
-
-    Возможные состояния:
-    1. Всё в порядке:
-       "Стороны идентифицированы; реквизиты полные"
-    2. Частичная проблема:
-       "Стороны идентифицированы частично; реквизиты неполные"
-    3. Несоответствие:
-       "Стороны идентифицированы; реквизиты неполные; есть несоответствия"
-    4. Стороны не определены:
-       "Стороны не идентифицированы"
-    5. Не удалось определить:
-       "Не удалось определить стороны и реквизиты"
 
     Правила:
-    - Если все поля unclear:
-      "Не удалось определить стороны и реквизиты"
+    - Если party_identification_status = "missing":
+      "Стороны не идентифицированы"
     - Если parties_identified = "no":
       "Стороны не идентифицированы"
     - Иначе:
-      * начни с:
-        - "Стороны идентифицированы"
-        - "Стороны идентифицированы частично"
-      * затем добавь requisites_status в кратком виде
-      * если party_details_consistent = "no", добавь
-        "есть несоответствия"
+      * начни с "Стороны идентифицированы" / "Стороны идентифицированы
+        частично";
+      * затем добавь requisites_status в кратком виде;
+      * если party_details_consistent = "no", добавь "есть несоответствия".
     - Не более 3 коротких фактов через ";".
 
     Шаг 7 — ОБОСНОВАНИЕ
 
-    Заполни "reason".
-
-    Правила:
-    - Первое предложение — краткий вывод.
-    - Второе — короткая цитата из текста (до 100 символов).
-    - Пиши по-русски.
+    Заполни "reason": первое предложение — вывод, второе — цитата
+    (до 100 символов). Пиши по-русски.
     </instructions>
 
     <edge_cases>
     - Есть только наименование сторон без реквизитов:
+      * party_identification_status = "present"
       * parties_identified = "yes"
       * core_requisites_completeness = "minimal"
       * requisites_status = "Только базовая идентификация"
 
     - Одна сторона названа полно, вторая — нет:
+      * party_identification_status = "present"
       * parties_identified = "partial"
 
     - В преамбуле и реквизитах разные наименования без ясного
       объяснения:
+      * party_identification_status = "present"
       * party_details_consistent = "no"
 
     - Есть полное и сокращённое наименование одной стороны:
       * party_details_consistent = "yes"
 
-    - Нет релевантных фрагментов:
-      * parties_identified = "unclear"
+    - Нет релевантных фрагментов / раздел о сторонах отсутствует:
+      * party_identification_status = "missing"
+      * parties_identified = "no"
       * party_details_consistent = "unclear"
       * core_requisites_completeness = "unclear"
-      * parties_summary = "Не удалось определить стороны"
-      * requisites_status = "Не удалось определить"
-      * parties_display = "Не удалось определить стороны и реквизиты"
+      * parties_summary = "Стороны не идентифицированы"
+      * requisites_status = "Реквизиты не позволяют идентифицировать стороны"
+      * parties_display = "Стороны не идентифицированы"
+      * location у всех полей = null.
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (parties_display, parties_summary, requisites_status, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (parties_display, parties_summary,
+      requisites_status, reason) — на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "parties_display": "Стороны идентифицированы; реквизиты полные",
-      "parties_summary": "ООО «Альфа» / Beta Ltd.",
-      "requisites_status": "Реквизиты полные",
-      "parties_identified": "yes",
-      "party_details_consistent": "yes",
-      "core_requisites_completeness": "complete",
-      "reason": "..."
+      "parties_display": {"value": "Стороны идентифицированы; реквизиты полные", "confidence": 0.95, "location": null},
+      "parties_summary": {"value": "ООО «Альфа» / Beta Ltd.", "confidence": 0.95, "location": null},
+      "requisites_status": {"value": "Реквизиты полные", "confidence": 0.95, "location": null},
+      "party_identification_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "Преамбула", "page": 1, "quote": "Общество с ограниченной ответственностью «Альфа», именуемое в дальнейшем «Поставщик»"}},
+      "parties_identified": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "Преамбула", "page": 1, "quote": "Общество с ограниченной ответственностью «Альфа», именуемое в дальнейшем «Поставщик»"}},
+      "party_details_consistent": {"value": "yes", "confidence": 0.90, "location": null},
+      "core_requisites_completeness": {"value": "complete", "confidence": 0.90, "location": {"clause_ref": "Раздел 12", "page": 8, "quote": "ООО «Альфа»; ОГРН 1234567890123; ИНН 7712345678; адрес: 123456, г. Москва, ул. Примерная, д. 1"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -397,9 +426,21 @@ extraction:
       display_in_grid: true
       display_priority: 3
 
+    - name: "party_identification_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие идентификации сторон в тексте договора"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "parties_identified"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Идентификация сторон"
       allowed_values:
         - "yes"
@@ -411,6 +452,7 @@ extraction:
     - name: "party_details_consistent"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Согласованность данных о сторонах"
       allowed_values:
         - "yes"
@@ -421,6 +463,7 @@ extraction:
     - name: "core_requisites_completeness"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Полнота ключевых реквизитов"
       allowed_values:
         - "complete"
@@ -438,4 +481,3 @@ extraction:
   store_payload: true
 
 
-  

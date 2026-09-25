@@ -216,29 +216,36 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 950
+  llm_max_tokens: 1150
+
+  presence_signal:
+    field: "ip_ownership_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по интеллектуальной собственности.
     Твоя задача — точно извлечь из текста:
-    1) кому принадлежат ключевые IP-активы;
-    2) есть ли assignment от основателей / сотрудников;
-    3) есть ли assignment от подрядчиков / разработчиков;
-    4) насколько полон scope передачи прав.
+    1) есть ли в договоре регулирование принадлежности IP;
+    2) если есть — какие условия установлены:
+       - кому принадлежат ключевые IP-активы;
+       - есть ли assignment от основателей / сотрудников;
+       - есть ли assignment от подрядчиков / разработчиков;
+       - насколько полон scope передачи прав;
+       - признаки third-party / pre-existing IP;
+       - чистота chain of title.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ предполагай chain of title без явных данных.
     - НЕ считай лицензию эквивалентом assignment.
-    - Если информация отсутствует — используй "unclear".
+    - Если раздел об IP ownership в договоре отсутствует —
+      ip_ownership_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      ip_ownership_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -251,11 +258,24 @@ extraction:
       документа — считается "yes" для employees.
     - Pre-existing IP / background IP = риск: лицензиар может
       только выдать лицензию, но не передать права.
+    - Если ни один фрагмент не содержит информации об IP ownership /
+      assignment (нет упоминаний IP / intellectual property / assignment /
+      отчуждение / founder / employee / contractor) —
+      ip_ownership_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - ip_ownership_display
+    - ip_ownership_status
     - ip_owner_status
     - has_assignments_from_founders_and_employees
     - has_assignments_from_contractors
@@ -265,7 +285,65 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля ip_ownership_display и reason
+      location ВСЕГДА null.
+    - Для ip_ownership_status = "missing" — location = null.
+    - Для ip_ownership_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора об IP / assignment.
+    - Для ip_owner_status — quote с фразой о принадлежности прав
+      (например, "все права принадлежат Заказчику").
+    - Для has_assignments_* и assignment_scope_appears_full:
+      * если значение = "yes" / "partial" — quote с формулой передачи
+        ("all right, title and interest hereby assigned");
+      * если значение = "no" — различай два случая:
+        - договор ПРЯМО фиксирует отсутствие / только лицензию
+          («Предоставляется только лицензия, права не передаются»,
+          «Разработчик сохраняет права») — quote ОБЯЗАТЕЛЬНА;
+        - просто отсутствует упоминание — location = null.
+    - Для has_third_party_or_preexisting_ip_risk — quote с фразой
+      про pre-existing IP / retained rights / open source.
+    - Для chain_of_title_clarity — quote с фразой, обосновывающей
+      статус (clear / partial / not_established).
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ПРИНАДЛЕЖНОСТИ IP
+
+    Заполни "ip_ownership_status".
+
+    Значения:
+    - "present" — если договор содержит substantive положения
+      о принадлежности IP / assignment:
+      * ip_owner_status ∈ {"target", "founders", "contractors",
+        "mixed", "third_party"};
+      * has_assignments_from_founders_and_employees ∈ {"yes", "partial"};
+      * has_assignments_from_contractors ∈ {"yes", "partial"};
+      * assignment_scope_appears_full ∈ {"yes", "partial"};
+      * has_third_party_or_preexisting_ip_risk = "yes";
+      * chain_of_title_clarity ∈ {"clear", "partial"};
+      * ЛИБО любое поле = "no" / "not_established", но с заполненным
+        location с прямой цитатой (см. RF3). Учитывается как признак
+        наличия ТОЛЬКО при наличии прямой цитаты («Разработчик
+        сохраняет права», «Chain of title не установлена»).
+        Без цитаты "no" не считается сигналом наличия.
+    - "missing" — если ни один фрагмент не содержит информации
+      об IP ownership / assignment.
+    - "unclear" — если упоминания есть, но невозможно определить
+      наличие регулирования.
+
     Шаг 1 — ФОРМАЛЬНЫЙ ВЛАДЕЛЕЦ IP
 
     Заполни "ip_owner_status".
@@ -340,17 +418,9 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Всё в порядке:
-       "IP принадлежит Target; assignment полный; chain of title чистая"
-    2. Есть проблемы:
-       "IP у основателей; assignment отсутствует; chain of title не установлена"
-    3. Смешанная ситуация:
-       "Смешанная принадлежность; assignment от подрядчиков отсутствует"
-    4. Не удалось определить:
-       "Не удалось определить принадлежность IP"
-
     Правила:
+    - Если ip_ownership_status = "missing":
+      "Принадлежность IP в договоре не урегулирована"
     - Если все поля unclear:
       "Не удалось определить принадлежность IP"
     - Иначе комбинируй через ";":
@@ -377,43 +447,67 @@ extraction:
 
     <edge_cases>
     - Служебные произведения без assignment от подрядчиков:
+      * ip_ownership_status = "present"
       * has_assignments_from_founders_and_employees = "yes"
       * has_assignments_from_contractors = "no"
 
     - Target только лицензиат ключевого IP:
+      * ip_ownership_status = "present"
       * has_third_party_or_preexisting_ip_risk = "yes"
 
     - "All right, title and interest worldwide, irrevocable":
+      * ip_ownership_status = "present"
       * assignment_scope_appears_full = "yes"
 
-    - Нет данных о chain of title:
+    - Нет данных о chain of title (фрагменты есть):
+      * ip_ownership_status = "present"
       * chain_of_title_clarity = "unclear"
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
+    - Договор прямо фиксирует сохранение прав за разработчиком:
+      * ip_ownership_status = "present"
+      * has_assignments_from_contractors = "no"
+      * location с прямой цитатой о retained rights.
+
+    - Нет релевантных фрагментов / раздел об IP ownership
+      в договоре отсутствует:
+      * ip_ownership_status = "missing"
+      * ip_owner_status = "unclear"
+      * has_assignments_from_founders_and_employees = "unclear"
+      * has_assignments_from_contractors = "unclear"
+      * assignment_scope_appears_full = "unclear"
+      * has_third_party_or_preexisting_ip_risk = "no"
+      * chain_of_title_clarity = "not_established"
       * ip_ownership_display =
-        "Не удалось определить принадлежность IP"
+        "Принадлежность IP в договоре не урегулирована"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * ip_ownership_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля (ip_ownership_display, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (ip_ownership_display, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "ip_ownership_display": "IP принадлежит Target; assignment полный; chain of title чистая",
-      "ip_owner_status": "target",
-      "has_assignments_from_founders_and_employees": "yes",
-      "has_assignments_from_contractors": "yes",
-      "assignment_scope_appears_full": "yes",
-      "has_third_party_or_preexisting_ip_risk": "no",
-      "chain_of_title_clarity": "clear",
-      "reason": "..."
+      "ip_ownership_display": {"value": "IP принадлежит Target; assignment полный; chain of title чистая", "confidence": 0.92, "location": null},
+      "ip_ownership_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 7.1", "page": 5, "quote": "Все исключительные права на результаты работ принадлежат Заказчику"}},
+      "ip_owner_status": {"value": "target", "confidence": 0.95, "location": {"clause_ref": "п. 7.1", "page": 5, "quote": "Все исключительные права на результаты работ принадлежат Заказчику"}},
+      "has_assignments_from_founders_and_employees": {"value": "yes", "confidence": 0.85, "location": null},
+      "has_assignments_from_contractors": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 7.3", "page": 5, "quote": "Исполнитель передает Заказчику все права, title и interest на результаты работ"}},
+      "assignment_scope_appears_full": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 7.4", "page": 5, "quote": "Передача прав осуществляется безотзывно, на весь срок охраны, на территории всех стран мира"}},
+      "has_third_party_or_preexisting_ip_risk": {"value": "no", "confidence": 0.70, "location": null},
+      "chain_of_title_clarity": {"value": "clear", "confidence": 0.85, "location": null},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -426,9 +520,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "ip_ownership_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования принадлежности IP в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "ip_owner_status"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Формальный владелец IP"
       allowed_values:
         - "target"
@@ -442,6 +548,7 @@ extraction:
     - name: "has_assignments_from_founders_and_employees"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Assignment от основателей и сотрудников"
       allowed_values:
         - "yes"
@@ -453,6 +560,7 @@ extraction:
     - name: "has_assignments_from_contractors"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Assignment от подрядчиков / разработчиков"
       allowed_values:
         - "yes"
@@ -464,6 +572,7 @@ extraction:
     - name: "assignment_scope_appears_full"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Полнота scope передачи прав"
       allowed_values:
         - "yes"
@@ -475,6 +584,7 @@ extraction:
     - name: "has_third_party_or_preexisting_ip_risk"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Риск third-party / pre-existing IP"
       allowed_values:
         - "yes"
@@ -485,6 +595,7 @@ extraction:
     - name: "chain_of_title_clarity"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Чистота цепочки прав"
       allowed_values:
         - "clear"
@@ -498,8 +609,6 @@ extraction:
       presentation: "diagnostic"
       description: "Обоснование"
       display_in_grid: false
-
-  store_payload: true
 
   store_payload: true
 

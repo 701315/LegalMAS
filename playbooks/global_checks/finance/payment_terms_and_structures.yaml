@@ -125,9 +125,9 @@ retrieval:
   retrieval_profile: "payment_terms_check"
   context_k: 6
   max_chunks: 12
-  
+
   retrieval_query: >
-    условия оплаты порядок расчетов валюта платежа аванс предоплата 
+    условия оплаты порядок расчетов валюта платежа аванс предоплата
     штрафы за просрочку неустойка аккредитив эскроу взаимозачет индексация цен
 
   boost_keywords:
@@ -153,7 +153,7 @@ retrieval:
     - "price escalation"
     - "индексация цен"
     - "milestone payment"
-    
+
   negative_keywords:
     - "financial covenant"
     - "финансовые ковенанты"
@@ -165,7 +165,7 @@ retrieval:
     - "споры"
     - "подсудность"
     - "применимое право"
-    
+
   preferred_unit_types:
     - "payment_term"
     - "obligation"
@@ -209,7 +209,16 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1000
+  llm_max_tokens: 1300
+
+  # Presence gate: payment_terms_status агрегирует наличие любого
+  # платёжного условия. present -> pass, missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = allowed_values.
+  presence_signal:
+    field: "payment_terms_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -222,13 +231,28 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай валюту, ставки или сроки, которых нет в тексте.
-    - Если информация отсутствует — используй "not_specified",
-      "not_addressed" или "unclear" согласно allowed_values.
-    - Если текст неоднозначен — ставь "unclear".
+    - Если тема платёжных условий в договоре вообще не раскрыта —
+      для payment_terms_status ставь "missing",
+      для payment_schedule_type — "not_specified",
+      для has_* — "no", для set_off_rights — "not_addressed".
+    - Если информация неоднозначна — используй "unclear".
 
     Не анализируй take-or-pay, минимальные объёмы и
     финансовые ковенанты.
     </role>
+
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Не используй информацию из definitions, преамбулы или приложений,
+      если они не содержат substantive условий по теме check.
+    - Если ни один фрагмент не содержит информации по теме —
+      payment_terms_status = "missing",
+      остальные поля — согласно Шагу 0, location = null у всех полей.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
+    </context_rules>
 
     <context>
     Ниже приведены релевантные фрагменты договора:
@@ -236,19 +260,10 @@ extraction:
     {context}
     </context>
 
-    <context_rules>
-    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
-    - Если среди фрагментов есть противоречия — укажи "unclear"
-      и объясни в reason.
-    - Если ни один фрагмент не содержит информации о платёжных
-      условиях — используй "not_specified" или "unclear".
-    - Не используй информацию из definitions/преамбулы,
-      если они не содержат substantive условий по теме check.
-    </context_rules>
-
     <task>
     Заполни только следующие поля:
     - payment_display
+    - payment_terms_status
     - payment_currency
     - payment_schedule_type
     - has_late_payment_penalties
@@ -256,9 +271,103 @@ extraction:
     - set_off_rights
     - has_price_indexation
     - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 3.2", "page": 5, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для payment_currency: "Все платежи по настоящему Договору осуществляются в российских рублях";
+      * для payment_schedule_type (postpayment): "Оплата производится в течение 30 (тридцати) календарных дней с даты получения счёта";
+      * для payment_schedule_type (advance_only): "Заказчик обязуется перечислить 100% стоимости до начала оказания услуг";
+      * для has_late_payment_penalties (yes_market_rate): "За просрочку оплаты начисляется неустойка в размере 0,05% от просроченной суммы за каждый день просрочки";
+      * для has_late_payment_penalties (yes_excessive): "За просрочку оплаты начисляется неустойка в размере 0,5% от просроченной суммы за каждый день просрочки";
+      * для has_advance_lc_escrow (yes): "Стороны открывают безотзывный документарный аккредитив в пользу Поставщика";
+      * для set_off_rights (counterparty_unilateral): "Заказчик вправе в одностороннем порядке зачесть суммы неустойки против подлежащей оплате стоимости услуг";
+      * для has_price_indexation (yes_uncapped): "Стоимость услуг подлежит ежегодной индексации на уровень инфляции без ограничения";
+      * для has_price_indexation (yes_capped): "Стоимость услуг подлежит ежегодной индексации на уровень инфляции, но не более 5% в год".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для payment_display, payment_terms_status и reason
+      location всегда null (синтезированы);
+    - для payment_currency и 5 signal-полей возвращай location с quote
+      только когда значение подтверждается конкретным условием договора,
+      включая прямое исключение / неприменение / запрет условия.
+      Для "not_specified", "not_addressed", "unclear" — null.
+      Для "no":
+      * location = null, если условие просто не раскрыто;
+      * location с дословной цитатой, если договор прямо устанавливает
+        отсутствие, неприменение или запрет соответствующего условия;
+    - если payment_terms_status = "missing" — для всех полей
+      location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ПЛАТЁЖНЫХ УСЛОВИЙ
+
+    Заполни "payment_terms_status".
+
+    Значения:
+    - "present" — договор содержит хотя бы одно платёжное условие:
+      валюту платежа, структуру платежей, штрафы за просрочку,
+      предоплату / L/C / escrow, set-off, индексацию цен.
+    - "missing" — ни одного платёжного условия не установлено.
+    - "unclear" — нельзя определить.
+
+    Правило агрегации:
+    - Если payment_currency ≠ "не указана" и ≠ "не удалось определить" →
+      payment_terms_status = "present".
+    - Если любое из полей payment_schedule_type, has_late_payment_penalties,
+      has_advance_lc_escrow, set_off_rights, has_price_indexation
+      имеет значение, отличное от "not_specified" / "not_addressed" /
+      "no" / "unclear" → payment_terms_status = "present".
+    - Если payment_currency = "не указана" и все 5 signal-полей =
+      "not_specified" / "not_addressed" / "no" → "missing".
+    - Если все = "unclear" → "unclear".
+    - Дополнительно: если has_late_payment_penalties, has_advance_lc_escrow
+      или has_price_indexation = "no", но для этого поля заполнен
+      location с прямой цитатой об отсутствии / неприменении / запрете
+      условия, то payment_terms_status = "present".
+      Если location = null, такое "no" не считается наличием регулирования.
+
+    Если payment_terms_status = "missing":
+    - payment_currency = "не указана"
+    - payment_schedule_type = "not_specified"
+    - has_late_payment_penalties = "no"
+    - has_advance_lc_escrow = "no"
+    - set_off_rights = "not_addressed"
+    - has_price_indexation = "no"
+    - payment_display = "Платёжные условия не установлены"
+    - reason = "Платёжные условия не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 1–6; переходи к Шагу 7.
+
+    Если payment_terms_status = "unclear":
+    - payment_currency = "не удалось определить"
+    - payment_schedule_type = "unclear"
+    - has_late_payment_penalties = "unclear"
+    - has_advance_lc_escrow = "unclear"
+    - set_off_rights = "unclear"
+    - has_price_indexation = "unclear"
+    - payment_display = "Не удалось определить платёжные условия"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если payment_terms_status = "present" — переходи к Шагам 1–6.
+
     Шаг 1 — ВАЛЮТА ПЛАТЕЖА
 
     Заполни "payment_currency".
@@ -338,7 +447,7 @@ extraction:
 
     Возможные состояния:
     1. Конкретные условия известны:
-       "RUB; постоплата Net 30; штрафные проценты рыночные"
+       "RUB; постоплата; штрафные проценты рыночные"
     2. Частичные данные:
        "USD; структура не определена; escrow"
     3. Условия не урегулированы:
@@ -346,13 +455,15 @@ extraction:
     4. Не удалось определить:
        "Не удалось определить платёжные условия"
 
-    Правила построения (если данные есть):
+    Правила построения (если payment_terms_status = "present"):
     - начни с payment_currency
     - добавь payment_schedule_type (кратко, на русском)
     - добавь has_late_payment_penalties (если значимо)
     - добавь has_advance_lc_escrow (если есть)
     - добавь set_off_rights (если counterparty_unilateral)
     Не более 4 фактов через ";".
+    Не добавляй никаких данных, которых нет в полях выше
+    (например, срок оплаты в днях, если он не отражён в полях).
 
     Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
 
@@ -361,32 +472,45 @@ extraction:
     Правила:
     - Первое предложение — краткий вывод по платёжным условиям.
     - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    - Не оценивай риск.
     </instructions>
 
     <edge_cases>
     - Стандартная постоплата Net 30, рыночные проценты:
+      * payment_terms_status = "present"
       * payment_schedule_type = "postpayment"
       * has_late_payment_penalties = "yes_market_rate"
 
-    - USD без хеджирования:
+    - USD, порядок пересчёта по курсу или хеджирования не указан:
+      * payment_terms_status = "present"
       * payment_currency = "USD"
-      * в reason: валютный риск не хеджирован
+      * reason: "Валюта платежа USD; условия фиксации курса
+        в предоставленных фрагментах не указаны."
 
     - 0.5% в день штрафные проценты:
+      * payment_terms_status = "present"
       * has_late_payment_penalties = "yes_excessive"
 
     - Контрагент зачитывает суммы без согласия:
+      * payment_terms_status = "present"
       * set_off_rights = "counterparty_unilateral"
 
     - Платёжные условия не установлены в договоре:
+      * payment_terms_status = "missing"
       * payment_currency = "не указана"
       * payment_schedule_type = "not_specified"
       * payment_display = "Платёжные условия не установлены"
 
     - Нет релевантных фрагментов:
-      * payment_currency = "не удалось определить"
-      * payment_schedule_type = "unclear"
-      * payment_display = "Не удалось определить платёжные условия"
+      * payment_terms_status = "missing"
+      * payment_currency = "не указана"
+      * payment_schedule_type = "not_specified"
+      * has_late_payment_penalties = "no"
+      * has_advance_lc_escrow = "no"
+      * set_off_rights = "not_addressed"
+      * has_price_indexation = "no"
+      * payment_display = "Платёжные условия не установлены"
     </edge_cases>
 
     <output_expectations>
@@ -397,17 +521,20 @@ extraction:
     - Свободные текстовые поля (payment_display, payment_currency,
       reason) — на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "payment_display": "...",
-      "payment_currency": "RUB",
-      "payment_schedule_type": "postpayment",
-      "has_late_payment_penalties": "yes_market_rate",
-      "has_advance_lc_escrow": "no",
-      "set_off_rights": "not_addressed",
-      "has_price_indexation": "no",
-      "reason": "..."
+      "payment_display": {"value": "RUB; постоплата; штрафные проценты рыночные", "confidence": 0.95, "location": null},
+      "payment_terms_status": {"value": "present", "confidence": 0.95, "location": null},
+      "payment_currency": {"value": "RUB", "confidence": 0.95, "location": {"clause_ref": "п. 3.2", "page": 5, "quote": "Все платежи по настоящему Договору осуществляются в российских рублях"}},
+      "payment_schedule_type": {"value": "postpayment", "confidence": 0.92, "location": {"clause_ref": "п. 3.3", "page": 5, "quote": "Оплата производится в течение 30 (тридцати) календарных дней с даты получения счёта"}},
+      "has_late_payment_penalties": {"value": "yes_market_rate", "confidence": 0.92, "location": {"clause_ref": "п. 3.5", "page": 5, "quote": "За просрочку оплаты начисляется неустойка в размере 0,05% от просроченной суммы за каждый день просрочки"}},
+      "has_advance_lc_escrow": {"value": "no", "confidence": 0.85, "location": null},
+      "set_off_rights": {"value": "not_addressed", "confidence": 0.85, "location": null},
+      "has_price_indexation": {"value": "no", "confidence": 0.85, "location": null},
+      "reason": {"value": "Договор устанавливает оплату в рублях с постоплатой, штрафные проценты — рыночные. «Оплата производится в течение 30 (тридцати) календарных дней с даты получения счёта».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -420,6 +547,17 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "payment_terms_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие платёжных условий в договоре"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+      display_in_grid: false
+
     - name: "payment_currency"
       type: "string"
       presentation: "fact"
@@ -431,6 +569,7 @@ extraction:
     - name: "payment_schedule_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Структура платежей"
       allowed_values:
         - "advance_only"
@@ -445,6 +584,7 @@ extraction:
     - name: "has_late_payment_penalties"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Штрафы за просрочку"
       allowed_values:
         - "yes_market_rate"
@@ -457,6 +597,7 @@ extraction:
     - name: "has_advance_lc_escrow"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Предоплата / аккредитив / escrow"
       allowed_values:
         - "yes"
@@ -467,6 +608,7 @@ extraction:
     - name: "set_off_rights"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Set-off / зачёт"
       allowed_values:
         - "counterparty_unilateral"
@@ -479,6 +621,7 @@ extraction:
     - name: "has_price_indexation"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Индексация цен"
       allowed_values:
         - "yes_uncapped"
@@ -494,4 +637,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
+
   

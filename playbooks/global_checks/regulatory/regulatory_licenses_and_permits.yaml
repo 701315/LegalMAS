@@ -208,32 +208,36 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 900
+  llm_max_tokens: 1100
+
+  presence_signal:
+    field: "regulatory_licenses_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по регуляторному комплаенсу, лицензированию и M&A.
     Твоя задача — точно извлечь из текста:
-    1) наличие ключевых лицензий / разрешений / аккредитаций;
-    2) на кого они оформлены;
-    3) зависят ли они от структуры владения / контроля;
-    4) есть ли механизм сохранения при изменении контроля
-       или ином корпоративном событии.
+    1) есть ли в договоре регулирование лицензий / разрешений;
+    2) если есть — какие условия установлены:
+       - наличие ключевых лицензий / разрешений / аккредитаций;
+       - на кого они оформлены;
+       - зависят ли они от структуры владения / контроля;
+       - есть ли механизм сохранения при изменении контроля
+         или ином корпоративном событии.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ придумывай лицензии, если их нет в тексте.
     - НЕ считай общую фразу "все необходимые лицензии имеются"
       достаточным подтверждением конкретных ключевых лицензий.
-    - Если информация отсутствует или противоречива —
-      используй "unclear".
+    - Если раздел о лицензиях / разрешениях в договоре отсутствует
+      полностью — regulatory_licenses_status = "missing".
+    - Если тексты по теме есть, но надёжный вывод сделать нельзя —
+      regulatory_licenses_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -246,11 +250,23 @@ extraction:
     - Зависимость от ownership / control считай только если
       это прямо указано: согласие регулятора, переоформление,
       re-licensing, change of control condition.
+    - Если ни один фрагмент не содержит информации о лицензиях /
+      разрешениях (нет упоминаний licen[cs]e / permit / accreditation /
+      regulatory consent) — regulatory_licenses_status = "missing",
+      location = null. Не использовать "unclear" при полном отсутствии
+      релевантных фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - licenses_display
+    - regulatory_licenses_status
     - has_key_licenses
     - licenses_summary
     - license_holder_type
@@ -259,7 +275,64 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (licenses_display, licenses_summary,
+      reason) location ВСЕГДА null.
+    - Для regulatory_licenses_status = "missing" — location = null.
+    - Для regulatory_licenses_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для has_key_licenses:
+      * если "yes" — quote с упоминанием конкретной лицензии;
+      * если "no" — различай два случая:
+        - договор ПРЯМО фиксирует отсутствие лицензий — quote
+          ОБЯЗАТЕЛЬНА;
+        - просто отсутствует упоминание — location = null;
+      * если "unclear" — location = null или quote с общей
+        фразой без конкретики.
+    - Для license_holder_type, depends_on_ownership,
+      preservation_mechanism:
+      * если значение определённое ("target" / "subsidiary" /
+        "parent" / "third_party" / "mixed" / "yes") — quote
+        с фразой-основанием;
+      * если значение = "no" / "not_applicable" — различай:
+        - договор ПРЯМО фиксирует отсутствие / неприменимость —
+          quote ОБЯЗАТЕЛЬНА;
+        - просто отсутствует упоминание — location = null;
+      * если значение = "unclear" — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ЛИЦЕНЗИЙ
+
+    Заполни "regulatory_licenses_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное поле указывает
+      на наличие информации по теме:
+      * has_key_licenses = "yes";
+      * license_holder_type ∈ {"target", "subsidiary", "parent",
+        "third_party", "mixed"};
+      * depends_on_ownership = "yes";
+      * preservation_mechanism = "yes";
+      * ЛИБО любое поле = "no" / "not_applicable", но с заполненным
+        location с прямой цитатой (см. RF3).
+    - "missing" — если все содержательные поля = "no" /
+      "not_applicable" БЕЗ цитат, ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — НАЛИЧИЕ КЛЮЧЕВЫХ ЛИЦЕНЗИЙ
 
     Заполни "has_key_licenses".
@@ -326,21 +399,13 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Есть конкретные лицензии:
-       "Банковская лицензия ЦБ; на Target; зависят от структуры владения; есть механизм сохранения"
-    2. Есть лицензии с риском:
-       "Медицинская лицензия; на дочерней компании; зависят от структуры владения; механизм сохранения не указан"
-    3. Лицензий нет:
-       "Лицензии не выявлены"
-    4. Не удалось определить:
-       "Не удалось определить наличие лицензий"
-
     Правила:
+    - Если regulatory_licenses_status = "missing":
+      "Лицензии не выявлены"
+    - Если all поля unclear:
+      "Не удалось определить наличие лицензий"
     - Если has_key_licenses = "no":
       "Лицензии не выявлены"
-    - Если все поля unclear:
-      "Не удалось определить наличие лицензий"
     - Иначе комбинируй через ";":
       * licenses_summary
       * если license_holder_type = "subsidiary":
@@ -373,44 +438,65 @@ extraction:
 
     <edge_cases>
     - Лицензия на третье лицо:
+      * regulatory_licenses_status = "present"
       * license_holder_type = "third_party"
 
     - Лицензия на Target, есть CoC-зависимость, механизма нет:
+      * regulatory_licenses_status = "present"
       * depends_on_ownership = "yes"
       * preservation_mechanism = "no"
 
     - "Все необходимые лицензии имеются" без конкретики:
+      * regulatory_licenses_status = "present"
       * has_key_licenses = "unclear"
       * licenses_summary = "Не удалось определить"
 
     - Waiver / transitional arrangement предусмотрены:
+      * regulatory_licenses_status = "present"
       * preservation_mechanism = "yes"
 
-    - Нет релевантных фрагментов:
-      * has_key_licenses = "unclear"
-      * licenses_summary = "Не удалось определить"
-      * licenses_display = "Не удалось определить наличие лицензий"
+    - Договор прямо фиксирует отсутствие лицензий:
+      * regulatory_licenses_status = "present"
+      * has_key_licenses = "no"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел о лицензиях
+      в договоре отсутствует:
+      * regulatory_licenses_status = "missing"
+      * has_key_licenses = "no"
+      * licenses_summary = "Не выявлено"
+      * license_holder_type = "not_applicable"
+      * depends_on_ownership = "no"
+      * preservation_mechanism = "not_applicable"
+      * licenses_display = "Лицензии не выявлены"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * regulatory_licenses_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (licenses_display, licenses_summary, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (licenses_display, licenses_summary,
+      reason) — на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "licenses_display": "Банковская лицензия ЦБ; на Target; зависят от структуры владения; есть механизм сохранения",
-      "has_key_licenses": "yes",
-      "licenses_summary": "Банковская лицензия ЦБ",
-      "license_holder_type": "target",
-      "depends_on_ownership": "yes",
-      "preservation_mechanism": "yes",
-      "reason": "..."
+      "licenses_display": {"value": "Банковская лицензия ЦБ; на Target; зависят от структуры владения; есть механизм сохранения", "confidence": 0.92, "location": null},
+      "regulatory_licenses_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 6.1", "page": 4, "quote": "Компания имеет банковскую лицензию ЦБ РФ № 1234"}},
+      "has_key_licenses": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 6.1", "page": 4, "quote": "банковскую лицензию ЦБ РФ № 1234"}},
+      "licenses_summary": {"value": "Банковская лицензия ЦБ", "confidence": 0.90, "location": null},
+      "license_holder_type": {"value": "target", "confidence": 0.90, "location": {"clause_ref": "п. 6.1", "page": 4, "quote": "Компания имеет банковскую лицензию"}},
+      "depends_on_ownership": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 6.3", "page": 4, "quote": "При смене контроля требуется согласие Банка России"}},
+      "preservation_mechanism": {"value": "yes", "confidence": 0.85, "location": {"clause_ref": "п. 6.3", "page": 4, "quote": "Стороны обязуются получить согласие Банка России до закрытия сделки"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -423,9 +509,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "regulatory_licenses_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования лицензий и разрешений в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "has_key_licenses"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие ключевых лицензий"
       allowed_values:
         - "yes"
@@ -444,6 +542,7 @@ extraction:
     - name: "license_holder_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Держатель лицензии"
       allowed_values:
         - "target"
@@ -458,6 +557,7 @@ extraction:
     - name: "depends_on_ownership"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Зависимость от структуры владения"
       allowed_values:
         - "yes"
@@ -468,6 +568,7 @@ extraction:
     - name: "preservation_mechanism"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Механизм сохранения лицензий"
       allowed_values:
         - "yes"
@@ -483,5 +584,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
 
   

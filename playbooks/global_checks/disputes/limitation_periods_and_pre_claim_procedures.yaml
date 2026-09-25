@@ -175,7 +175,17 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1050
+  llm_max_tokens: 1300
+
+  # Presence gate: limitation_and_procedure_status агрегирует наличие
+  # положений о досудебном порядке и/или сроке предъявления.
+  # present -> pass, missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = allowed_values.
+  presence_signal:
+    field: "limitation_and_procedure_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -191,16 +201,12 @@ extraction:
     - НЕ считай обычные операционные уведомления
       (о поставке, приёмке, оплате) досудебной процедурой —
       досудебная процедура относится к спорам и претензиям.
-    - Если информация отсутствует — используй "not_mandatory",
-      "not_specified" или "unclear" согласно allowed_values.
+    - Если тема досудебного порядка и срока предъявления в договоре
+      вообще не раскрыта — для limitation_and_procedure_status ставь
+      "missing", для pre_claim_procedure_status — "not_mandatory",
+      для claim_deadline_regime — "not_specified".
     - Если текст неоднозначен — используй "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -208,15 +214,34 @@ extraction:
       и объясни это в reason.
     - Факультативные формулировки ("стороны стремятся",
       "may attempt", "shall endeavour") — это НЕ обязательная
-      досудебная процедура.
+      досудебная процедура, но это ЕСТЬ упоминание → влияет на
+      limitation_and_procedure_status (present), не на
+      pre_claim_procedure_status (not_mandatory).
     - Если договор отсылает к праву по вопросу сроков —
       это "applicable_law_reference", а не "not_specified".
     - Не используй внешние знания о законных сроках давности.
+    - Не используй информацию из определений (definitions),
+      преамбулы или приложений, если они не содержат
+      substantive условий по теме check.
+    - Если ни один фрагмент не содержит информации по теме —
+      limitation_and_procedure_status = "missing",
+      pre_claim_procedure_status = "not_mandatory",
+      claim_deadline_regime = "not_specified",
+      остальные поля — согласно Шагу 0, location = null у всех полей.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - limitation_and_procedure_display
+    - limitation_and_procedure_status
     - pre_claim_procedure_status
     - pre_claim_procedure_value
     - claim_deadline_regime
@@ -224,9 +249,89 @@ extraction:
     - claim_deadline_trigger
     - claim_deadline_display
     - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 13.4", "page": 16, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для claim_deadline_regime (contract_specified): "Никакие претензии по качеству товара не могут быть предъявлены по истечении 30 (тридцати) календарных дней с даты поставки";
+      * для pre_claim_procedure_status (mandatory): "До обращения в суд Сторона обязана направить другой Стороне письменную претензию и выдержать 30-дневный срок для ответа".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для limitation_and_procedure_status, limitation_and_procedure_display,
+      pre_claim_procedure_value, claim_deadline_display, reason
+      location всегда null (синтезированы);
+    - для claim_deadline_regime location всегда null
+      (это режим, а не finding);
+    - для pre_claim_procedure_status при значении "not_mandatory":
+      * quote, если договор прямо говорит об отсутствии обязательной
+        досудебной процедуры или о рекомендательном характере
+        переговоров (например, "Стороны вправе обратиться в суд
+        без соблюдения претензионного порядка");
+      * location = null, если обязательная досудебная процедура
+        просто не раскрыта в договоре;
+    - для pre_claim_procedure_status при значении "unclear" —
+      location = null;
+    - для claim_deadline_value и claim_deadline_trigger location
+      с quote особенно важна при claim_deadline_regime = "contract_specified";
+    - если limitation_and_procedure_status = "missing" — для всех полей
+      location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ПОЛОЖЕНИЙ О ДОСУДЕБНОМ ПОРЯДКЕ И СРОКЕ
+
+    Заполни "limitation_and_procedure_status".
+
+    Значения:
+    - "present" — договор содержит любое упоминание досудебного
+      порядка (претензия, переговоры, медиация, cooling-off —
+      включая факультативные формулировки) ИЛИ срока предъявления
+      требования / иска (конкретного или через отсылку к закону).
+    - "missing" — ни досудебного порядка, ни срока предъявления,
+      ни отсылки к закону в договоре нет.
+    - "unclear" — нельзя определить.
+
+    Если limitation_and_procedure_status = "missing":
+    - pre_claim_procedure_status = "not_mandatory"
+    - pre_claim_procedure_value = "Не предусмотрена"
+    - claim_deadline_regime = "not_specified"
+    - claim_deadline_value = ""
+    - claim_deadline_trigger = ""
+    - claim_deadline_display = "Срок не установлен"
+    - limitation_and_procedure_display =
+      "Досудебный порядок не предусмотрен; срок не установлен"
+    - reason = "Положения о досудебном порядке и сроке предъявления не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 1–5; переходи к Шагу 6.
+
+    Если limitation_and_procedure_status = "unclear":
+    - pre_claim_procedure_status = "unclear"
+    - pre_claim_procedure_value = "Не удалось определить"
+    - claim_deadline_regime = "unclear"
+    - claim_deadline_value = ""
+    - claim_deadline_trigger = ""
+    - claim_deadline_display = "Не удалось определить"
+    - limitation_and_procedure_display = "Не удалось определить"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если limitation_and_procedure_status = "present" — переходи к Шагам 1–5.
+
     Шаг 1 — ОБЯЗАТЕЛЬНОСТЬ ДОСУДЕБНОЙ ПРОЦЕДУРЫ
 
     Заполни "pre_claim_procedure_status".
@@ -338,14 +443,13 @@ extraction:
        "Не удалось определить"
 
     Правила:
-    - Если все поля unclear:
-      "Не удалось определить"
-    - Если pre_claim_procedure_status = "not_mandatory"
-      и claim_deadline_regime = "not_specified":
+    - Если limitation_and_procedure_status = "missing":
       "Досудебный порядок не предусмотрен; срок не установлен"
-    - Иначе:
-      * начни с pre_claim_procedure_value (кратко)
-      * добавь claim_deadline_display (кратко)
+    - Если limitation_and_procedure_status = "unclear":
+      "Не удалось определить"
+    - Если limitation_and_procedure_status = "present":
+      начни с pre_claim_procedure_value (кратко)
+      и добавь claim_deadline_display (кратко).
     - Не более 2–3 коротких фактов через ";".
 
     Шаг 7 — КРАТКОЕ ОБОСНОВАНИЕ
@@ -361,31 +465,37 @@ extraction:
 
     <edge_cases>
     - Претензия обязательна, срок ожидания указан:
+      * limitation_and_procedure_status = "present"
       * pre_claim_procedure_status = "mandatory"
       * pre_claim_procedure_value =
         "Обязательная претензия и 30-дневный срок урегулирования"
 
     - Переговоры только рекомендательные:
+      * limitation_and_procedure_status = "present"
       * pre_claim_procedure_status = "not_mandatory"
       * pre_claim_procedure_value =
         "Рекомендательный переговорный порядок"
 
     - Обязательный досудебный порядок, срок претензии не установлен:
+      * limitation_and_procedure_status = "present"
       * pre_claim_procedure_status = "mandatory"
       * claim_deadline_regime = "not_specified"
       * claim_deadline_display = "Срок не установлен"
 
     - "Срок определяется законом":
+      * limitation_and_procedure_status = "present"
       * claim_deadline_regime = "applicable_law_reference"
       * claim_deadline_value = ""
       * claim_deadline_trigger = ""
       * claim_deadline_display = "Определяется применимым правом"
 
     - "No claim shall be brought after 6 months":
+      * limitation_and_procedure_status = "present"
       * claim_deadline_regime = "contract_specified"
       * claim_deadline_value = "6 месяцев"
 
     - Нет релевантных положений:
+      * limitation_and_procedure_status = "missing"
       * pre_claim_procedure_status = "not_mandatory"
       * pre_claim_procedure_value = "Не предусмотрена"
       * claim_deadline_regime = "not_specified"
@@ -396,6 +506,7 @@ extraction:
         "Досудебный порядок не предусмотрен; срок не установлен"
 
     - Фрагменты нерелевантны:
+      * limitation_and_procedure_status = "unclear"
       * pre_claim_procedure_status = "unclear"
       * pre_claim_procedure_value = "Не удалось определить"
       * claim_deadline_regime = "unclear"
@@ -407,7 +518,7 @@ extraction:
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай ответ в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
     - Для полей с allowed_values используй строго значения из списка.
     - Свободные текстовые поля
@@ -416,17 +527,20 @@ extraction:
        claim_deadline_display, reason)
       заполняй на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "limitation_and_procedure_display": "Обязательная претензия; срок — 30 дней с даты поставки",
-      "pre_claim_procedure_status": "mandatory",
-      "pre_claim_procedure_value": "Обязательная претензия и 30-дневный срок урегулирования",
-      "claim_deadline_regime": "contract_specified",
-      "claim_deadline_value": "30 дней",
-      "claim_deadline_trigger": "с даты поставки",
-      "claim_deadline_display": "Претензия: 30 дней с даты поставки",
-      "reason": "..."
+      "limitation_and_procedure_display": {"value": "Обязательная претензия; срок — 30 дней с даты поставки", "confidence": 0.95, "location": null},
+      "limitation_and_procedure_status": {"value": "present", "confidence": 0.95, "location": null},
+      "pre_claim_procedure_status": {"value": "mandatory", "confidence": 0.90, "location": null},
+      "pre_claim_procedure_value": {"value": "Обязательная претензия и 30-дневный срок урегулирования", "confidence": 0.90, "location": null},
+      "claim_deadline_regime": {"value": "contract_specified", "confidence": 0.92, "location": null},
+      "claim_deadline_value": {"value": "30 дней", "confidence": 0.92, "location": {"clause_ref": "п. 13.4", "page": 16, "quote": "Никакие претензии по качеству товара не могут быть предъявлены по истечении 30 (тридцати) календарных дней с даты поставки"}},
+      "claim_deadline_trigger": {"value": "с даты поставки", "confidence": 0.92, "location": {"clause_ref": "п. 13.4", "page": 16, "quote": "Никакие претензии по качеству товара не могут быть предъявлены по истечении 30 (тридцати) календарных дней с даты поставки"}},
+      "claim_deadline_display": {"value": "Претензия: 30 дней с даты поставки", "confidence": 0.95, "location": null},
+      "reason": {"value": "Договор устанавливает обязательный претензионный порядок и сокращённый 30-дневный срок предъявления претензий с даты поставки. «Никакие претензии ... не могут быть предъявлены по истечении 30 ... дней с даты поставки».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -439,9 +553,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "limitation_and_procedure_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие положений о досудебном порядке и сроке предъявления"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+      display_in_grid: false
+
     - name: "pre_claim_procedure_status"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Обязательность досудебной процедуры"
       allowed_values:
         - "mandatory"
@@ -460,6 +586,7 @@ extraction:
     - name: "claim_deadline_regime"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Режим срока предъявления требования"
       allowed_values:
         - "contract_specified"

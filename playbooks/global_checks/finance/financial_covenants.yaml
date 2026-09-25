@@ -199,7 +199,16 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1150
+  llm_max_tokens: 1500
+
+  # Presence gate: financial_covenants_status агрегирует наличие
+  # любого финансового ковенанта. present -> pass, missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = allowed_values.
+  presence_signal:
+    field: "financial_covenants_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -213,9 +222,10 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай пороговые значения, которых нет в тексте.
-    - Если информация отсутствует — используй "no", "unclear"
-      или соответствующее состояние согласно allowed_values.
-    - Если текст неоднозначен — ставь "unclear".
+    - Если тема финансовых ковенантов в договоре вообще не
+      раскрыта — для financial_covenants_status ставь "missing",
+      для has_* — "no", для covenant_type — "not_applicable".
+    - Если информация неоднозначна — используй "unclear".
 
     Не анализируй залоговые конструкции, negative pledge и
     ограничения на отчуждение активов — это задача чека
@@ -224,26 +234,31 @@ extraction:
     это задача чека sticky_long_term_obligations.
     </role>
 
+    <context_rules>
+    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
+    - Если среди фрагментов есть противоречия — укажи "unclear"
+      и объясни в reason.
+    - Не используй информацию из definitions, преамбулы или приложений,
+      если они не содержат substantive условий по теме check.
+    - Если ни один фрагмент не содержит информации по теме —
+      financial_covenants_status = "missing",
+      has_* = "no", covenant_type = "not_applicable",
+      covenant_thresholds_summary = "Не применимо",
+      остальные поля — согласно Шагу 0, location = null у всех полей.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
+    </context_rules>
+
     <context>
     Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
-    <context_rules>
-    - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
-    - Если среди фрагментов есть противоречия — укажи "unclear"
-      и объясни в reason.
-    - Если ни один фрагмент не содержит информации о финансовых
-      ковенантах — используй "no" или "unclear" согласно логике
-      каждого поля.
-    - Не используй информацию из definitions/преамбулы/приложений,
-      если они не содержат substantive условий по теме check.
-    </context_rules>
-
     <task>
     Заполни только следующие поля:
     - covenants_display
+    - financial_covenants_status
     - has_leverage_or_coverage_covenants
     - covenant_type
     - covenant_thresholds_summary
@@ -253,9 +268,99 @@ extraction:
     - has_cure_mechanism
     - has_cross_default
     - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 8.2", "page": 11, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для has_leverage_or_coverage_covenants (yes): "Заёмщик обязуется поддерживать отношение Чистый долг / EBITDA на уровне не выше 3,5x";
+      * для covenant_thresholds_summary: "Net Debt/EBITDA ≤ 3,5x; ICR ≥ 2,0x; DSCR ≥ 1,2x";
+      * для has_dividend_restrictions (yes): "Заёмщик не вправе выплачивать дивиденды при нарушении финансовых ковенантов";
+      * для has_new_debt_limitations (yes): "Заёмщик не вправе привлекать дополнительный долг без предварительного согласия Кредитора";
+      * для has_baskets_or_exceptions (yes): "Ограничение не применяется к разрешённой задолженности в размере до 100 000 000 рублей";
+      * для has_cure_mechanism (yes): "Нарушение финансовых ковенантов не является событием дефолта, если в течение 20 рабочих дней произведено пополнение капитала";
+      * для has_cross_default (yes): "Нарушение обязательств по любому другому кредитному договору Заёмщика является событием дефолта по настоящему Договору".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для covenants_display, financial_covenants_status и reason
+      location всегда null (синтезированы);
+    - для has_* и covenant_type возвращай location с quote только
+      когда значение подтверждается конкретным условием договора:
+      * для "yes" / "maintenance" / "incurrence" / "both" — quote
+        с описанием условия;
+      * для "no" — quote только если договор прямо исключает или
+        не предусматривает соответствующее условие;
+        location = null, если условие просто не раскрыто;
+      * для "not_applicable" / "unclear" — location = null;
+    - для covenant_thresholds_summary location с quote особенно важна;
+    - если financial_covenants_status = "missing" — для всех полей
+      location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ФИНАНСОВЫХ КОВЕНАНТОВ
+
+    Заполни "financial_covenants_status".
+
+    Значения:
+    - "present" — договор содержит любой финансовый ковенант:
+      leverage/coverage/ликвидность, ограничения на дивиденды,
+      ограничения на новый долг, cross-default.
+    - "missing" — финансовых ковенантов нет.
+    - "unclear" — нельзя определить.
+
+    Правило агрегации:
+    - Если хотя бы одно из полей has_leverage_or_coverage_covenants,
+      has_dividend_restrictions, has_new_debt_limitations,
+      has_cross_default = "yes" → financial_covenants_status = "present".
+    - Если covenant_type ∈ {maintenance, incurrence, both} →
+      financial_covenants_status = "present".
+    - Если все = "no" и covenant_type = "not_applicable" → "missing".
+    - Если все = "unclear" → "unclear".
+
+    Если financial_covenants_status = "missing":
+    - has_leverage_or_coverage_covenants = "no"
+    - covenant_type = "not_applicable"
+    - covenant_thresholds_summary = "Не применимо"
+    - has_dividend_restrictions = "no"
+    - has_new_debt_limitations = "no"
+    - has_baskets_or_exceptions = "no"
+    - has_cure_mechanism = "no"
+    - has_cross_default = "no"
+    - covenants_display = "Финансовых ковенантов не обнаружено"
+    - reason = "Финансовые ковенанты не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 1–8; переходи к Шагу 9.
+
+    Если financial_covenants_status = "unclear":
+    - has_leverage_or_coverage_covenants = "unclear"
+    - covenant_type = "unclear"
+    - covenant_thresholds_summary = "Не удалось определить"
+    - has_dividend_restrictions = "unclear"
+    - has_new_debt_limitations = "unclear"
+    - has_baskets_or_exceptions = "unclear"
+    - has_cure_mechanism = "unclear"
+    - has_cross_default = "unclear"
+    - covenants_display = "Не удалось определить финансовые ковенанты"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если financial_covenants_status = "present" — переходи к Шагам 1–8.
+
     Шаг 1 — КОВЕНАНТЫ ПО КОЭФФИЦИЕНТАМ
 
     Заполни "has_leverage_or_coverage_covenants".
@@ -355,9 +460,7 @@ extraction:
        "Incurrence ковенанты; пороги не указаны; permitted indebtedness"
     3. Ковенантов нет:
        "Финансовых ковенантов не обнаружено"
-    4. Тема не урегулирована:
-       "Финансовых ковенантов не обнаружено"
-    5. Не удалось определить:
+    4. Не удалось определить:
        "Не удалось определить финансовые ковенанты"
 
     Правила построения (если ковенанты есть):
@@ -374,28 +477,40 @@ extraction:
     Правила:
     - Первое предложение — краткий вывод по ковенантам.
     - Второе — короткая цитата из текста (до 100 символов).
+    - Пиши по-русски.
+    - Не оценивай риск.
     </instructions>
 
     <edge_cases>
     - Ковенанты есть, но пороги не указаны:
+      * financial_covenants_status = "present"
       * has_leverage_or_coverage_covenants = "yes"
       * covenant_thresholds_summary = "Пороговые значения не указаны"
 
     - "Поддерживать удовлетворительное финансовое состояние":
+      * financial_covenants_status = "present"
       * has_leverage_or_coverage_covenants = "unclear"
       * covenant_type = "unclear"
       * covenant_thresholds_summary = "Не удалось определить"
 
     - Нет ковенантов:
+      * financial_covenants_status = "missing"
       * has_leverage_or_coverage_covenants = "no"
       * covenant_type = "not_applicable"
       * covenant_thresholds_summary = "Не применимо"
       * covenants_display = "Финансовых ковенантов не обнаружено"
 
     - Нет релевантных фрагментов:
-      * все поля = "unclear"
-      * covenant_thresholds_summary = "Не удалось определить"
-      * covenants_display = "Не удалось определить финансовые ковенанты"
+      * financial_covenants_status = "missing"
+      * has_leverage_or_coverage_covenants = "no"
+      * covenant_type = "not_applicable"
+      * covenant_thresholds_summary = "Не применимо"
+      * has_dividend_restrictions = "no"
+      * has_new_debt_limitations = "no"
+      * has_baskets_or_exceptions = "no"
+      * has_cure_mechanism = "no"
+      * has_cross_default = "no"
+      * covenants_display = "Финансовых ковенантов не обнаружено"
     </edge_cases>
 
     <output_expectations>
@@ -406,19 +521,22 @@ extraction:
     - Свободные текстовые поля (covenants_display,
       covenant_thresholds_summary, reason) — на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "covenants_display": "...",
-      "has_leverage_or_coverage_covenants": "yes",
-      "covenant_type": "maintenance",
-      "covenant_thresholds_summary": "Net Debt/EBITDA ≤ 3.5x; ICR ≥ 2.0x",
-      "has_dividend_restrictions": "yes",
-      "has_new_debt_limitations": "no",
-      "has_baskets_or_exceptions": "yes",
-      "has_cure_mechanism": "yes",
-      "has_cross_default": "no",
-      "reason": "..."
+      "covenants_display": {"value": "Maintenance: Net Debt/EBITDA ≤ 3.5x; ICR ≥ 2.0x; запрет дивидендов; equity cure", "confidence": 0.95, "location": null},
+      "financial_covenants_status": {"value": "present", "confidence": 0.95, "location": null},
+      "has_leverage_or_coverage_covenants": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 8.2", "page": 11, "quote": "Заёмщик обязуется поддерживать отношение Чистый долг / EBITDA на уровне не выше 3,5x"}},
+      "covenant_type": {"value": "maintenance", "confidence": 0.90, "location": {"clause_ref": "п. 8.2", "page": 11, "quote": "Заёмщик обязуется поддерживать отношение Чистый долг / EBITDA на уровне не выше 3,5x"}},
+      "covenant_thresholds_summary": {"value": "Net Debt/EBITDA ≤ 3.5x; ICR ≥ 2.0x", "confidence": 0.90, "location": {"clause_ref": "п. 8.2", "page": 11, "quote": "Заёмщик обязуется поддерживать отношение Чистый долг / EBITDA на уровне не выше 3,5x; ICR не ниже 2,0x"}},
+      "has_dividend_restrictions": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 8.5", "page": 12, "quote": "Заёмщик не вправе выплачивать дивиденды при нарушении финансовых ковенантов"}},
+      "has_new_debt_limitations": {"value": "no", "confidence": 0.85, "location": null},
+      "has_baskets_or_exceptions": {"value": "yes", "confidence": 0.88, "location": {"clause_ref": "п. 8.6", "page": 12, "quote": "Ограничение не применяется к разрешённой задолженности в размере до 100 000 000 рублей"}},
+      "has_cure_mechanism": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 8.7", "page": 12, "quote": "Нарушение финансовых ковенантов не является событием дефолта, если в течение 20 рабочих дней произведено пополнение капитала"}},
+      "has_cross_default": {"value": "no", "confidence": 0.85, "location": null},
+      "reason": {"value": "Договор содержит maintenance-ковенанты (Net Debt/EBITDA ≤ 3.5x; ICR ≥ 2.0x), ограничения на дивиденды, baskets и equity cure. «...Чистый долг / EBITDA на уровне не выше 3,5x...».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -431,9 +549,18 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "financial_covenants_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие финансовых ковенантов в договоре"
+      allowed_values: ["present", "missing", "unclear"]
+      display_in_grid: false
+
     - name: "has_leverage_or_coverage_covenants"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Ковенанты по коэффициентам"
       allowed_values: ["yes", "no", "unclear"]
       display_in_grid: false
@@ -441,6 +568,7 @@ extraction:
     - name: "covenant_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Тип ковенантов"
       allowed_values: ["maintenance", "incurrence", "both", "not_applicable", "unclear"]
       display_in_grid: false
@@ -456,6 +584,7 @@ extraction:
     - name: "has_dividend_restrictions"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Ограничения на дивиденды"
       allowed_values: ["yes", "no", "unclear"]
       display_in_grid: false
@@ -463,6 +592,7 @@ extraction:
     - name: "has_new_debt_limitations"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Ограничения на новый долг (не залоги)"
       allowed_values: ["yes", "no", "unclear"]
       display_in_grid: false
@@ -470,6 +600,7 @@ extraction:
     - name: "has_baskets_or_exceptions"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Baskets / permitted exceptions"
       allowed_values: ["yes", "no", "unclear"]
       display_in_grid: false
@@ -477,6 +608,7 @@ extraction:
     - name: "has_cure_mechanism"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Cure period / equity cure"
       allowed_values: ["yes", "no", "unclear"]
       display_in_grid: false
@@ -484,6 +616,7 @@ extraction:
     - name: "has_cross_default"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Cross-default / cross-acceleration"
       allowed_values: ["yes", "no", "unclear"]
       display_in_grid: false
@@ -493,6 +626,8 @@ extraction:
       presentation: "diagnostic"
       description: "Обоснование"
       display_in_grid: false
-      
+
   store_payload: true
 
+
+  

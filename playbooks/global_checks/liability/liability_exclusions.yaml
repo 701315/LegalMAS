@@ -145,7 +145,6 @@ retrieval:
 
   preferred_clause_functions:
     - "limitations"
-    - "limitations"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -174,15 +173,23 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 700
+  llm_max_tokens: 950
+
+  presence_signal:
+    field: "liability_exclusions_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам и исключениям из ответственности.
     Твоя задача — точно извлечь:
-    1) исключена ли ответственность за indirect / consequential damages;
-    2) исключена ли ответственность за loss of profit / business / revenue;
-    3) в чью пользу работают исключения.
+    1) есть ли в договоре регулирование исключений из ответственности;
+    2) если есть — какие исключения установлены:
+       - исключена ли ответственность за indirect / consequential damages;
+       - исключена ли ответственность за loss of profit / business / revenue;
+       - в чью пользу работают исключения.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
@@ -191,13 +198,11 @@ extraction:
       и не подменяй его общим анализом indemnity.
     - Если из фрагментов нельзя уверенно сделать вывод —
       ставь "unclear".
+    - Если раздел об исключениях из ответственности в договоре
+      отсутствует полностью — liability_exclusions_status = "missing".
+    - Если тексты по теме есть, но надёжный вывод сделать нельзя —
+      liability_exclusions_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -207,18 +212,78 @@ extraction:
       видно, что соответствующее исключение не предусмотрено.
     - Если релевантной информации недостаточно — используй "unclear".
     - Не используй рыночные предположения о стандартности таких исключений.
+    - Если ни один фрагмент не содержит информации об исключениях из
+      ответственности (нет упоминаний indirect / consequential / loss
+      of profit / упущенная выгода / косвенные убытки) —
+      liability_exclusions_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - exclusions_display
+    - liability_exclusions_status
     - excludes_indirect_or_consequential
     - excludes_loss_of_profit
     - exclusions_beneficiary
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля exclusions_display и reason
+      location ВСЕГДА null.
+    - Для liability_exclusions_status = "missing" — location = null.
+    - Для liability_exclusions_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для excludes_indirect_or_consequential и excludes_loss_of_profit:
+      * если значение = "yes" — quote с формулировкой исключения
+        ("Neither party shall be liable for indirect...");
+      * если значение = "no" — различай два случая:
+        - договор ПРЯМО фиксирует отсутствие («Стороны несут
+          ответственность за любые убытки, включая косвенные») —
+          quote ОБЯЗАТЕЛЬНА;
+        - просто отсутствует упоминание — location = null;
+      * если значение = "unclear" — location = null или quote
+        с противоречивой фразой.
+    - Для exclusions_beneficiary:
+      * если значение определённое ("mutual" / "counterparty" / "target") —
+        quote с формулировкой, показывающей направленность;
+      * если "unclear" — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ИСКЛЮЧЕНИЙ
+
+    Заполни "liability_exclusions_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное поле указывает на наличие информации по теме:
+      * excludes_indirect_or_consequential = "yes";
+      * excludes_loss_of_profit = "yes";
+      * exclusions_beneficiary ∈ {"mutual", "counterparty", "target"};
+      * ЛИБО любое поле = "no", но с заполненным location с прямой цитатой (см. RF3).
+    - "missing" — если все содержательные поля = "no" / "unclear" БЕЗ цитат, ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии фрагментов, но невозможности вывода.
+
     Шаг 1 — ИСКЛЮЧЕНИЕ КОСВЕННЫХ УБЫТКОВ
 
     Заполни "excludes_indirect_or_consequential".
@@ -257,17 +322,9 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Исключения установлены:
-       "Симметричное исключение indirect и loss of profit"
-       "Исключение loss of profit в пользу контрагента"
-       "Исключение indirect damages в пользу Target"
-    2. Исключений нет:
-       "Исключений из ответственности не обнаружено"
-    3. Не удалось определить:
-       "Не удалось определить исключения из ответственности"
-
     Правила:
+    - Если liability_exclusions_status = "missing":
+      "Раздел об исключениях из ответственности не обнаружен"
     - Если excludes_indirect_or_consequential = "no"
       и excludes_loss_of_profit = "no":
       "Исключений из ответственности не обнаружено"
@@ -275,11 +332,11 @@ extraction:
       "Не удалось определить исключения из ответственности"
     - Если есть исключения:
       * если оба поля = "yes":
-        - "Исключение indirect и loss of profit"
+        "Исключение indirect и loss of profit"
       * если только excludes_indirect_or_consequential = "yes":
-        - "Исключение indirect damages"
+        "Исключение indirect damages"
       * если только excludes_loss_of_profit = "yes":
-        - "Исключение loss of profit"
+        "Исключение loss of profit"
       * если exclusions_beneficiary определён и не unclear —
         добавь:
         - "симметричное"
@@ -299,42 +356,61 @@ extraction:
 
     <edge_cases>
     - "Neither party shall be liable for indirect":
+      * liability_exclusions_status = "present"
       * excludes_indirect_or_consequential = "yes"
       * exclusions_beneficiary = "mutual"
 
     - Исключение только loss of profit в пользу контрагента:
+      * liability_exclusions_status = "present"
       * excludes_loss_of_profit = "yes"
       * exclusions_beneficiary = "counterparty"
 
-    - Исключения отсутствуют:
+    - Исключения отсутствуют (блок ответственности раскрыт):
+      * liability_exclusions_status = "present"
       * excludes_indirect_or_consequential = "no"
       * excludes_loss_of_profit = "no"
-      * exclusions_display = "Исключений из ответственности не обнаружено"
+      * exclusions_display =
+        "Исключений из ответственности не обнаружено"
 
-    - Нет релевантных фрагментов:
-      * excludes_indirect_or_consequential = "unclear"
-      * excludes_loss_of_profit = "unclear"
+    - Договор прямо фиксирует полную ответственность за косвенные убытки:
+      * liability_exclusions_status = "present"
+      * excludes_indirect_or_consequential = "no"
+      * location с прямой цитатой.
+
+    - Нет релевантных фрагментов / раздел об исключениях из
+      ответственности в договоре отсутствует:
+      * liability_exclusions_status = "missing"
+      * excludes_indirect_or_consequential = "no"
+      * excludes_loss_of_profit = "no"
       * exclusions_beneficiary = "unclear"
       * exclusions_display =
-        "Не удалось определить исключения из ответственности"
+        "Раздел об исключениях из ответственности не обнаружен"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * liability_exclusions_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля (exclusions_display, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (exclusions_display, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "exclusions_display": "Симметричное исключение indirect и loss of profit",
-      "excludes_indirect_or_consequential": "yes",
-      "excludes_loss_of_profit": "yes",
-      "exclusions_beneficiary": "mutual",
-      "reason": "..."
+      "exclusions_display": {"value": "Симметричное исключение indirect и loss of profit", "confidence": 0.92, "location": null},
+      "liability_exclusions_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 11.3", "page": 7, "quote": "Ни одна из Сторон не несёт ответственности за косвенные убытки или упущенную выгоду"}},
+      "excludes_indirect_or_consequential": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 11.3", "page": 7, "quote": "Ни одна из Сторон не несёт ответственности за косвенные убытки"}},
+      "excludes_loss_of_profit": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 11.3", "page": 7, "quote": "не несёт ответственности за косвенные убытки или упущенную выгоду"}},
+      "exclusions_beneficiary": {"value": "mutual", "confidence": 0.90, "location": {"clause_ref": "п. 11.3", "page": 7, "quote": "Ни одна из Сторон не несёт ответственности"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -347,9 +423,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "liability_exclusions_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования исключений из ответственности в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "excludes_indirect_or_consequential"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Исключение indirect / consequential damages"
       allowed_values:
         - "yes"
@@ -360,6 +448,7 @@ extraction:
     - name: "excludes_loss_of_profit"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Исключение loss of profit / business"
       allowed_values:
         - "yes"
@@ -370,6 +459,7 @@ extraction:
     - name: "exclusions_beneficiary"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "В чью пользу работают исключения"
       allowed_values:
         - "mutual"
@@ -387,3 +477,4 @@ extraction:
   store_payload: true
 
 
+  

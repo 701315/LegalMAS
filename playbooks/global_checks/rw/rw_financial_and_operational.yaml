@@ -28,45 +28,31 @@ rules:
 
   keywords:
     high:
-      # Финансовая отчетность
       - "(?i)financial\\s+statements\\s+[\\s\\S]{0,30}(fairly\\s+present|true\\s+and\\s+fair)"
       - "(?i)финансовая\\s+отчетность\\s+[\\s\\S]{0,40}(достоверно|соответствует)"
       - "(?i)prepared\\s+in\\s+accordance\\s+with\\s+(GAAP|IFRS|МСФО|РСБУ)"
-
-      # Скрытые обязательства
       - "(?i)no\\s+undisclosed\\s+liabilities"
       - "(?i)отсутстви[ея]\\s+неучтенн[а-я]+\\s+обязательств"
       - "(?i)отсутстви[ея]\\s+скрыт[а-я]+\\s+обязательств"
       - "(?i)liabilities\\s+not\\s+reflected\\s+on\\s+the\\s+balance\\s+sheet"
-
-      # Существенные договоры
       - "(?i)material\\s+contracts\\s+[\\s\\S]{0,30}(valid|binding|full\\s+force)"
       - "(?i)no\\s+default\\s+[\\s\\S]{0,30}material\\s+contracts"
       - "(?i)существенн[а-я]+\\s+договор[а-я]*\\s+[\\s\\S]{0,30}(действительн|отсутстви[ея]\\s+нарушен)"
-
-      # HR / Трудовые отношения
       - "(?i)employment\\s+[\\s\\S]{0,30}(represent|warrant|compliance)"
       - "(?i)labor\\s+relations\\s+[\\s\\S]{0,30}(represent|warrant)"
       - "(?i)трудовы[ех]\\s+отношени[яйх]\\s+[\\s\\S]{0,30}(заверени|отсутстви[ея]\\s+спор)"
       - "(?i)no\\s+(strike|labor\\s+dispute|work\\s+stoppage)"
 
     medium:
-      # Финансы — общие
       - "(?i)balance\\s+sheet"
       - "(?i)income\\s+statement"
       - "(?i)бухгалтерск[а-я]+\\s+отчетность"
       - "(?i)ordinary\\s+course\\s+of\\s+business"
-
-      # Обязательства
       - "(?i)contingent\\s+liabilities"
       - "(?i)условн[а-я]+\\s+обязательств[а-я]*"
-
-      # Договоры
       - "(?i)material\\s+agreements"
       - "(?i)major\\s+contracts"
       - "(?i)основн[а-я]+\\s+договор"
-
-      # Сотрудники / HR
       - "(?i)employee\\s+benefits"
       - "(?i)collective\\s+bargaining\\s+agreement"
       - "(?i)коллективн[а-я]+\\s+договор"
@@ -172,31 +158,37 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 800
+  llm_max_tokens: 1000
+
+  presence_signal:
+    field: "rw_fin_ops_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и операционным заверениям.
     Твоя задача — точно извлечь из текста наличие и характер
     финансовых и операционных R&W:
-    1) достоверность финансовой отчётности;
-    2) отсутствие скрытых / неучтённых обязательств;
-    3) действительность существенных договоров;
-    4) трудовые отношения / HR.
+    1) есть ли в договоре регулирование по теме финансовых /
+       операционных R&W;
+    2) если есть — какие заверения установлены:
+       - достоверность финансовой отчётности;
+       - отсутствие скрытых / неучтённых обязательств;
+       - действительность существенных договоров;
+       - трудовые отношения / HR.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ додумывай R&W, которых нет в тексте.
     - НЕ смешивай с фундаментальными R&W (статус, полномочия,
       title, no conflict) и специальными R&W (налоги, санкции, IP).
-    - Если информация отсутствует — используй "missing" или "unclear".
+    - Если раздел о финансовых / операционных R&W в договоре
+      отсутствует — rw_fin_ops_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      rw_fin_ops_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -210,11 +202,24 @@ extraction:
       о соблюдении трудового законодательства.
     - Не путай R&W о financial statements с обычным
       предоставлением отчётности без заверений.
+    - Если ни один фрагмент не содержит информации о финансовых /
+      операционных R&W (нет упоминаний financial statements /
+      undisclosed liabilities / material contracts / employment) —
+      rw_fin_ops_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - rw_fin_ops_display
+    - rw_fin_ops_status
     - rw_financial_statements
     - rw_undisclosed_liabilities
     - rw_material_contracts
@@ -222,7 +227,53 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля rw_fin_ops_display и reason
+      location ВСЕГДА null.
+    - Для rw_fin_ops_status = "missing" — location = null.
+    - Для rw_fin_ops_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для rw_financial_statements, rw_undisclosed_liabilities,
+      rw_material_contracts, rw_employment_hr:
+      * если "present" — quote с фразой-заверением;
+      * если "missing" — различай два случая:
+        - договор ПРЯМО фиксирует отсутствие заверения — quote
+          ОБЯЗАТЕЛЬНА;
+        - просто отсутствует упоминание — location = null;
+      * если "unclear" — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ФИНАНСОВЫХ И ОПЕРАЦИОННЫХ R&W
+
+    Заполни "rw_fin_ops_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное signal-поле
+      указывает на наличие информации по теме:
+      * rw_financial_statements = "present";
+      * rw_undisclosed_liabilities = "present";
+      * rw_material_contracts = "present";
+      * rw_employment_hr = "present";
+      * ЛИБО любое поле = "missing", но с заполненным location
+        с прямой цитатой об исключении (см. RF3).
+    - "missing" — если все содержательные поля = "missing" БЕЗ цитат,
+      ЛИБО фрагментов по теме нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — ФИНАНСОВАЯ ОТЧЁТНОСТЬ
 
     Заполни "rw_financial_statements".
@@ -274,28 +325,20 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Полное покрытие:
-       "Покрытие полное: отчётность, обязательства, контракты, HR"
-    2. Частичное покрытие:
-       "Присутствуют: Отчётность; Скрытые обязательства"
-    3. R&W не выявлены:
-       "Финансовые и операционные R&W не выявлены"
-    4. Не удалось определить:
-       "Не удалось определить финансовые и операционные R&W"
-
     Правила:
+    - Если rw_fin_ops_status = "missing":
+      "Финансовые и операционные R&W не выявлены"
     - Если все поля unclear:
       "Не удалось определить финансовые и операционные R&W"
     - Если все 4 = "present":
       "Покрытие полное: отчётность, обязательства, контракты, HR"
-    - Если все = "missing" или смесь missing/unclear без present:
-      "Финансовые и операционные R&W не выявлены"
     - Если есть хотя бы одно "present":
       * перечисли только "present" через "; ":
         "Присутствуют: {список present}"
       * список: "Отчётность", "Скрытые обязательства",
         "Существенные договоры", "Трудовые отношения"
+    - Если все = "missing" (без present) и без unclear:
+      "Финансовые и операционные R&W не выявлены"
 
     Шаг 6 — КРАТКОЕ ОБОСНОВАНИЕ
 
@@ -309,37 +352,65 @@ extraction:
 
     <edge_cases>
     - "Except for liabilities reflected on the balance sheet":
+      * rw_fin_ops_status = "present"
       * rw_undisclosed_liabilities = "present"
 
     - Упоминание CBA без заверений об отсутствии споров:
+      * rw_fin_ops_status = "present"
       * rw_employment_hr = "unclear"
 
     - Только GAAP/IFRS ссылка без R&W-формулы:
+      * rw_fin_ops_status = "present"
       * rw_financial_statements = "unclear"
 
-    - Нет релевантных фрагментов:
-      * все = "unclear"
+    - Полное покрытие:
+      * rw_fin_ops_status = "present"
+      * rw_financial_statements = "present"
+      * rw_undisclosed_liabilities = "present"
+      * rw_material_contracts = "present"
+      * rw_employment_hr = "present"
+
+    - Договор прямо фиксирует отсутствие финансовых R&W:
+      * rw_fin_ops_status = "present"
+      * rw_financial_statements = "missing"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел о финансовых
+      и операционных R&W в договоре отсутствует:
+      * rw_fin_ops_status = "missing"
+      * rw_financial_statements = "missing"
+      * rw_undisclosed_liabilities = "missing"
+      * rw_material_contracts = "missing"
+      * rw_employment_hr = "missing"
       * rw_fin_ops_display =
-        "Не удалось определить финансовые и операционные R&W"
+        "Финансовые и операционные R&W не выявлены"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * rw_fin_ops_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля (rw_fin_ops_display, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (rw_fin_ops_display, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "rw_fin_ops_display": "Покрытие полное: отчётность, обязательства, контракты, HR",
-      "rw_financial_statements": "present",
-      "rw_undisclosed_liabilities": "present",
-      "rw_material_contracts": "present",
-      "rw_employment_hr": "present",
-      "reason": "..."
+      "rw_fin_ops_display": {"value": "Покрытие полное: отчётность, обязательства, контракты, HR", "confidence": 0.92, "location": null},
+      "rw_fin_ops_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 4.1", "page": 3, "quote": "The Company represents and warrants that the Financial Statements fairly present the financial condition of the Company"}},
+      "rw_financial_statements": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 4.1", "page": 3, "quote": "the Financial Statements fairly present the financial condition of the Company"}},
+      "rw_undisclosed_liabilities": {"value": "present", "confidence": 0.90, "location": {"clause_ref": "п. 4.3", "page": 3, "quote": "no undisclosed liabilities except as reflected on the Balance Sheet"}},
+      "rw_material_contracts": {"value": "present", "confidence": 0.90, "location": {"clause_ref": "п. 4.5", "page": 4, "quote": "each Material Contract is valid and binding and in full force and effect"}},
+      "rw_employment_hr": {"value": "present", "confidence": 0.85, "location": {"clause_ref": "п. 4.7", "page": 4, "quote": "no labor disputes, strikes or work stoppages"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -352,9 +423,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "rw_fin_ops_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования финансовых и операционных R&W в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "rw_financial_statements"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "R&W о достоверности финансовой отчётности"
       allowed_values:
         - "present"
@@ -365,6 +448,7 @@ extraction:
     - name: "rw_undisclosed_liabilities"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "R&W об отсутствии скрытых обязательств"
       allowed_values:
         - "present"
@@ -375,6 +459,7 @@ extraction:
     - name: "rw_material_contracts"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "R&W по существенным договорам"
       allowed_values:
         - "present"
@@ -385,6 +470,7 @@ extraction:
     - name: "rw_employment_hr"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "R&W по трудовым отношениям"
       allowed_values:
         - "present"

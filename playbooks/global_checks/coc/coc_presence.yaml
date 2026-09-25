@@ -16,7 +16,6 @@ description: >
   Важно: общий запрет уступки прав (assignment / novation) без
   упоминания смены контроля / бенефициара не является CoC-клаузой.
 
-ui_mode: "field_extraction"
 doc_types: []
 
 severity: "high"
@@ -25,6 +24,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -171,7 +171,17 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 800
+  llm_max_tokens: 900
+
+  # Presence gate: has_coc_clause УЖЕ выполняет роль presence-сигнала
+  # (yes/no/unclear). Отдельное coc_presence_status не вводится —
+  # это было бы дублирование. Контракт: yes + no + unclear =
+  # has_coc_clause.allowed_values.
+  presence_signal:
+    field: "has_coc_clause"
+    present_values: ["yes"]
+    missing_values: ["no"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -184,7 +194,8 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай условия, которых нет в тексте.
-    - Если информация отсутствует — ставь "no" или "not_applicable",
+    - Если информация отсутствует — для has_coc_clause ставь "no",
+      а для остальных полей — "not_applicable",
       а не предполагай наиболее вероятный вариант.
     - Если текст неоднозначен — ставь "unclear",
       а не выбирай один из вариантов.
@@ -197,7 +208,7 @@ extraction:
     - Если среди фрагментов есть противоречия — укажи "unclear"
       и объясни в reason.
     - Если ни один фрагмент не содержит информации по теме —
-      используй значения для случая "CoC-клауза отсутствует".
+      has_coc_clause = "no"; остальные поля — согласно Шагу 1.
     - Не используй информацию из определений (definitions),
       преамбулы или приложений, если они не содержат
       substantive условий по теме check.
@@ -230,6 +241,33 @@ extraction:
     - пиши user-facing значения коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для has_coc_clause (yes): "При смене контроля над любой из Сторон другая Сторона вправе расторгнуть настоящий Договор";
+      * для coc_trigger_type (direct_and_indirect): "Смена контроля означает как прямое отчуждение акций целевой компании, так и косвенную смену через материнские структуры";
+      * для coc_trigger_type (includes_ubo): "Смена контроля включает смену конечного бенефициарного владельца (UBO) любой из Сторон";
+      * для coc_trigger_coverage_gaps (no_ubo): "Настоящий пункт применяется к прямой и косвенной смене контроля, но не к смене бенефициарного владельца";
+      * для coc_consequence_type (consent_required): "Смена контроля допускается только с предварительного письменного согласия другой Стороны".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для coc_display, has_coc_clause и reason location всегда null
+      (синтезированы или являются фактом наличия);
+    - для coc_trigger_type, coc_trigger_coverage_gaps и
+      coc_consequence_type location с quote особенно важна;
+    - если has_coc_clause = "no" — для всех полей location = null.
+    </location_instructions>
+
     <instructions>
     Шаг 1 — НАЛИЧИЕ CoC-КЛАУЗЫ
 
@@ -246,6 +284,25 @@ extraction:
       без упоминания смены контроля / бенефициара не является
       CoC-клаузой.
     - "unclear" — фрагменты не позволяют сделать надёжный вывод.
+
+    Если has_coc_clause = "no":
+    - coc_trigger_type = "not_applicable"
+    - coc_trigger_coverage_gaps = "not_applicable"
+    - coc_consequence_type = "not_applicable"
+    - coc_display = "CoC-клауза отсутствует"
+    - reason = "CoC-клауза не обнаружена в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 2–4; переходи сразу к Шагу 5 (display).
+
+    Если has_coc_clause = "unclear":
+    - coc_trigger_type = "unclear"
+    - coc_trigger_coverage_gaps = "unclear"
+    - coc_consequence_type = "unclear"
+    - coc_display = "Не удалось определить наличие CoC-клаузы"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если has_coc_clause = "yes" — переходи к Шагам 2–4.
 
     Шаг 2 — ТИП ТРИГГЕРА
 
@@ -310,19 +367,18 @@ extraction:
     Структура: {наличие}; {триггер}; {последствие / пробел}
 
     Примеры:
-    - "CoC-клауза есть; прямая и косвенная смена;
+    - has_coc_clause = "no":
+      "CoC-клауза отсутствует"
+    - has_coc_clause = "unclear":
+      "Не удалось определить наличие CoC-клаузы"
+    - has_coc_clause = "yes":
+      "CoC-клауза есть; прямая и косвенная смена;
       последствие — согласие"
-    - "CoC-клауза есть; только прямая смена; UBO не покрыт"
-    - "CoC-клауза есть; широкое покрытие;
+      "CoC-клауза есть; только прямая смена; UBO не покрыт"
+      "CoC-клауза есть; широкое покрытие;
       расторжение + согласие"
-    - "CoC-клауза есть; широкое покрытие;
+      "CoC-клауза есть; широкое покрытие;
       последствия не установлены"
-    - "CoC-клауза отсутствует"
-    - "Не удалось определить наличие CoC-клаузы"
-
-    Правила по has_coc_clause:
-    - "no" → "CoC-клауза отсутствует"
-    - "unclear" → "Не удалось определить наличие CoC-клаузы"
 
     Шаг 6 — ОБОСНОВАНИЕ
 
@@ -357,17 +413,20 @@ extraction:
         "CoC-клауза есть; последствия не установлены"
 
     - CoC только для прямой смены, косвенная не охвачена:
+      * has_coc_clause = "yes"
       * coc_trigger_type = "direct_only"
       * coc_trigger_coverage_gaps = "no_indirect"
       * coc_display =
         "CoC-клауза есть; только прямая смена; косвенная не покрыта"
 
     - CoC-клауза не упоминает UBO:
+      * has_coc_clause = "yes"
       * coc_trigger_coverage_gaps = "no_ubo"
       * coc_display =
         "CoC-клауза есть; [тип триггера]; UBO не покрыт"
 
     - Не охвачены ни косвенная смена, ни UBO:
+      * has_coc_clause = "yes"
       * coc_trigger_type = "direct_only"
       * coc_trigger_coverage_gaps = "no_indirect_and_no_ubo"
       * coc_display =
@@ -375,18 +434,20 @@ extraction:
         косвенная смена и UBO не покрыты"
 
     - Последствий несколько:
+      * has_coc_clause = "yes"
       * coc_consequence_type = "multiple"
 
     - Широкое покрытие, нет пробелов:
+      * has_coc_clause = "yes"
       * coc_trigger_type = "broad"
       * coc_trigger_coverage_gaps = "none"
 
     - Нет релевантных фрагментов:
-      * has_coc_clause = "unclear"
-      * coc_trigger_type = "unclear"
-      * coc_trigger_coverage_gaps = "unclear"
-      * coc_consequence_type = "unclear"
-      * coc_display = "Не удалось определить наличие CoC-клаузы"
+      * has_coc_clause = "no"
+      * coc_trigger_type = "not_applicable"
+      * coc_trigger_coverage_gaps = "not_applicable"
+      * coc_consequence_type = "not_applicable"
+      * coc_display = "CoC-клауза отсутствует"
     </edge_cases>
 
     <output_expectations>
@@ -398,15 +459,17 @@ extraction:
     - Свободные текстовые поля (coc_display, reason) —
       на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "coc_display": "CoC-клауза есть; прямая и косвенная смена; последствие — согласие",
-      "has_coc_clause": "yes",
-      "coc_trigger_type": "direct_and_indirect",
-      "coc_trigger_coverage_gaps": "no_ubo",
-      "coc_consequence_type": "consent_required",
-      "reason": "CoC-клауза есть, покрывает прямую и косвенную смену. «Upon a change of control...»."
+      "coc_display": {"value": "CoC-клауза есть; прямая и косвенная смена; последствие — согласие", "confidence": 0.95, "location": null},
+      "has_coc_clause": {"value": "yes", "confidence": 0.95, "location": null},
+      "coc_trigger_type": {"value": "direct_and_indirect", "confidence": 0.90, "location": {"clause_ref": "п. 12.1", "page": 7, "quote": "Смена контроля означает как прямое отчуждение акций целевой компании, так и косвенную смену через материнские структуры"}},
+      "coc_trigger_coverage_gaps": {"value": "no_ubo", "confidence": 0.85, "location": {"clause_ref": "п. 12.1", "page": 7, "quote": "Настоящий пункт применяется к прямой и косвенной смене контроля, но не к смене бенефициарного владельца"}},
+      "coc_consequence_type": {"value": "consent_required", "confidence": 0.90, "location": {"clause_ref": "п. 12.1", "page": 7, "quote": "Смена контроля допускается только с предварительного письменного согласия другой Стороны"}},
+      "reason": {"value": "CoC-клауза есть, покрывает прямую и косвенную смену, UBO не охвачен. «Upon a change of control, prior written consent is required».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -422,6 +485,7 @@ extraction:
     - name: "has_coc_clause"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Наличие CoC-клаузы"
       display_in_grid: false
       allowed_values:
@@ -432,6 +496,7 @@ extraction:
     - name: "coc_trigger_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Тип триггера смены контроля"
       display_in_grid: false
       allowed_values:
@@ -445,6 +510,7 @@ extraction:
     - name: "coc_trigger_coverage_gaps"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Пробелы в покрытии триггера CoC"
       display_in_grid: false
       allowed_values:
@@ -458,6 +524,7 @@ extraction:
     - name: "coc_consequence_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Верхнеуровневый характер последствий (routing)"
       display_in_grid: false
       allowed_values:
@@ -477,4 +544,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
+
   

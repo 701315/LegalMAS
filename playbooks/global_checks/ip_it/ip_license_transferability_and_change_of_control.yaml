@@ -151,16 +151,24 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 850
+  llm_max_tokens: 1050
+
+  presence_signal:
+    field: "license_transferability_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по IP, лицензированию и M&A.
     Твоя задача — точно извлечь из текста:
-    1) передаваемость лицензии аффилированным лицам;
-    2) передаваемость при M&A / реорганизации;
-    3) поведение лицензии при смене контроля (CoC);
-    4) необходимость согласия лицензиара.
+    1) есть ли в договоре регулирование передаваемости лицензии / CoC;
+    2) если есть — какие условия установлены:
+       - передаваемость лицензии аффилированным лицам;
+       - передаваемость при M&A / реорганизации;
+       - поведение лицензии при смене контроля (CoC);
+       - необходимость согласия лицензиара.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
@@ -168,15 +176,11 @@ extraction:
       если они не указаны явно.
     - НЕ анализируй тип, срок, территорию и field of use —
       это задача ip_license_scope_and_usage.
-    - Если информация отсутствует — используй "unclear"
-      или "not_addressed".
+    - Если передаваемость / CoC в договоре не урегулированы —
+      license_transferability_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      license_transferability_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -188,11 +192,24 @@ extraction:
       уступкой лицензии и требует согласия или прекращает её.
     - Affiliate carve-out = передача аффилированным лицам без
       согласия разрешена.
+    - Если ни один фрагмент не содержит информации о передаваемости
+      лицензии / CoC (нет упоминаний non-transferable / consent /
+      change of control / affiliate / successor / merger) —
+      license_transferability_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - license_transfer_display
+    - license_transferability_status
     - is_transferable_to_affiliates
     - is_transferable_on_mna
     - change_of_control_treatment
@@ -200,7 +217,68 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля license_transfer_display и reason
+      location ВСЕГДА null.
+    - Для license_transferability_status = "missing" — location = null.
+    - Для license_transferability_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора о передаче / CoC.
+    - Для is_transferable_to_affiliates, is_transferable_on_mna,
+      change_of_control_treatment, consent_requirement:
+      * если значение определённое ("yes" / "no" / "conditional" /
+        "survives" / "consent_required" / "terminable" /
+        "prohibited_assignment" / "always_required" /
+        "required_for_mna_only" / "not_required") — quote
+        с фразой-основанием;
+      * если значение = "not_addressed" (тема не упомянута) —
+        location = null;
+      * если значение = "unclear" — location = null или quote
+        с противоречивой фразой;
+      * для "no" / "not_required":
+        - если договор ПРЯМО запрещает / исключает
+          («Передача не допускается», «Согласие не требуется») —
+          quote ОБЯЗАТЕЛЬНА и должна содержать эту фразу;
+        - если просто отсутствует упоминание — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ПЕРЕДАВАЕМОСТИ ЛИЦЕНЗИИ
+
+    Заполни "license_transferability_status".
+
+    Значения:
+    - "present" — если договор содержит substantive положения
+      о передаваемости лицензии / CoC:
+      * is_transferable_to_affiliates = "yes";
+      * is_transferable_on_mna ∈ {"yes", "conditional"};
+      * change_of_control_treatment ∈ {"survives", "consent_required",
+        "terminable", "prohibited_assignment"};
+      * consent_requirement ∈ {"always_required",
+        "required_for_mna_only"};
+      * ЛИБО любое поле = "no" / "not_required" / "not_addressed",
+        но с заполненным location с прямой цитатой (см. RF3).
+        Учитывается как признак наличия ТОЛЬКО при наличии
+        прямой цитаты («Передача не допускается»,
+        «Согласие не требуется»). Без цитаты "no" не считается
+        сигналом наличия.
+    - "missing" — если ни один фрагмент не содержит информации
+      о передаваемости / CoC (все подчинённые поля = "not_addressed"
+      или фрагментов нет вообще).
+    - "unclear" — если упоминания есть, но невозможно определить
+      наличие регулирования.
+
     Шаг 1 — ПЕРЕДАЧА АФФИЛИРОВАННЫМ ЛИЦАМ
 
     Заполни "is_transferable_to_affiliates".
@@ -263,17 +341,9 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Конкретные данные:
-       "Non-transferable; CoC — прекращение; согласие лицензиара"
-    2. Разрешено с условиями:
-       "Аффилированные: да; M&A: с согласием; CoC не урегулирован"
-    3. Не урегулировано:
-       "Передаваемость не урегулирована; CoC не урегулирован"
-    4. Не удалось определить:
-       "Не удалось определить условия передачи лицензии"
-
     Правила:
+    - Если license_transferability_status = "missing":
+      "Передаваемость не урегулирована; CoC не урегулирован"
     - Если все поля unclear:
       "Не удалось определить условия передачи лицензии"
     - Если всё not_addressed:
@@ -297,49 +367,70 @@ extraction:
 
     <edge_cases>
     - Non-transferable + CoC = запрещённая передача:
+      * license_transferability_status = "present"
       * is_transferable_on_mna = "no"
       * change_of_control_treatment = "prohibited_assignment"
       * consent_requirement = "always_required"
 
     - Аффилированные разрешены, M&A — нет:
+      * license_transferability_status = "present"
       * is_transferable_to_affiliates = "yes"
       * is_transferable_on_mna = "no"
 
     - CoC требует только уведомления, не согласия:
+      * license_transferability_status = "present"
       * change_of_control_treatment = "survives"
       * consent_requirement = "not_required"
 
-    - Ничего не урегулировано:
+    - Ничего не урегулировано, но фрагменты по теме есть:
+      * license_transferability_status = "present"
       * is_transferable_to_affiliates = "not_addressed"
       * is_transferable_on_mna = "not_addressed"
       * change_of_control_treatment = "not_addressed"
       * license_transfer_display =
         "Передаваемость не урегулирована; CoC не урегулирован"
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
+    - Договор прямо запрещает передачу:
+      * license_transferability_status = "present"
+      * is_transferable_on_mna = "no"
+      * location с прямой цитатой запрета.
+
+    - Нет релевантных фрагментов / передаваемость лицензии
+      в договоре не урегулирована:
+      * license_transferability_status = "missing"
+      * is_transferable_to_affiliates = "not_addressed"
+      * is_transferable_on_mna = "not_addressed"
+      * change_of_control_treatment = "not_addressed"
+      * consent_requirement = "not_addressed"
       * license_transfer_display =
-        "Не удалось определить условия передачи лицензии"
+        "Передаваемость не урегулирована; CoC не урегулирован"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * license_transferability_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (license_transfer_display, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (license_transfer_display, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "license_transfer_display": "Non-transferable; CoC — прекращение; согласие лицензиара",
-      "is_transferable_to_affiliates": "no",
-      "is_transferable_on_mna": "no",
-      "change_of_control_treatment": "terminable",
-      "consent_requirement": "always_required",
-      "reason": "..."
+      "license_transfer_display": {"value": "Non-transferable; CoC — прекращение; согласие лицензиара", "confidence": 0.92, "location": null},
+      "license_transferability_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 3.2", "page": 3, "quote": "Лицензия не подлежит передаче без предварительного письменного согласия Лицензиара"}},
+      "is_transferable_to_affiliates": {"value": "no", "confidence": 0.90, "location": {"clause_ref": "п. 3.2", "page": 3, "quote": "Лицензия не подлежит передаче без предварительного письменного согласия Лицензиара"}},
+      "is_transferable_on_mna": {"value": "no", "confidence": 0.85, "location": {"clause_ref": "п. 3.3", "page": 3, "quote": "Смена контроля над Лицензиатом считается уступкой лицензии и требует согласия Лицензиара"}},
+      "change_of_control_treatment": {"value": "prohibited_assignment", "confidence": 0.90, "location": {"clause_ref": "п. 3.3", "page": 3, "quote": "Смена контроля над Лицензиатом считается уступкой лицензии"}},
+      "consent_requirement": {"value": "always_required", "confidence": 0.90, "location": {"clause_ref": "п. 3.2", "page": 3, "quote": "без предварительного письменного согласия Лицензиара"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -352,9 +443,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "license_transferability_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования передаваемости лицензии и CoC в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "is_transferable_to_affiliates"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Передача аффилированным лицам"
       allowed_values:
         - "yes"
@@ -366,6 +469,7 @@ extraction:
     - name: "is_transferable_on_mna"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Передача при M&A / реорганизации"
       allowed_values:
         - "yes"
@@ -378,6 +482,7 @@ extraction:
     - name: "change_of_control_treatment"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Поведение лицензии при CoC"
       allowed_values:
         - "survives"
@@ -391,6 +496,7 @@ extraction:
     - name: "consent_requirement"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Требование согласия лицензиара"
       allowed_values:
         - "always_required"

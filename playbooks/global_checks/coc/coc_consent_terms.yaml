@@ -153,7 +153,18 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 900
+  llm_max_tokens: 1100
+
+  # Presence gate: coc_consent_status отделяет факт наличия положений
+  # о согласии при CoC от их содержания (coc_consent_required,
+  # coc_consent_form, coc_response_period, coc_deemed_consent,
+  # coc_reasonableness_standard). missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = coc_consent_status.allowed_values.
+  presence_signal:
+    field: "coc_consent_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -165,8 +176,9 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай условия, которых нет в тексте.
-    - Если информация отсутствует — ставь "not_specified",
-      а не предполагай наиболее вероятный вариант.
+    - Если информация отсутствует — для поля
+      coc_consent_status ставь "missing", а для содержательных
+      полей — "not_specified".
     - Если текст неоднозначен — ставь "unclear".
 
     Не анализируй уступку прав и перевод долга.
@@ -185,7 +197,8 @@ extraction:
     - Если среди фрагментов есть противоречия — укажи "unclear"
       и объясни в reason.
     - Если ни один фрагмент не содержит информации по теме —
-      используй значения для случая "тема не урегулирована".
+      coc_consent_status = "missing"; остальные поля — согласно Шагу 0.
+    - Не использовать "unclear" при полном отсутствии релевантных фрагментов.
     - Не используй информацию из определений (definitions),
       преамбулы или приложений, если они не содержат
       substantive условий по теме check.
@@ -199,6 +212,7 @@ extraction:
 
     <task>
     Заполни только следующие поля:
+    - coc_consent_status
     - coc_consent_display
     - coc_consent_required
     - coc_consent_form
@@ -212,7 +226,75 @@ extraction:
     - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для coc_consent_required (yes): "Смена контроля допускается только с предварительного письменного согласия другой Стороны";
+      * для coc_consent_form (prior_written): "Согласие должно быть выражено в письменной форме и предоставлено до наступления смены контроля";
+      * для coc_response_period: "Сторона обязана ответить на запрос о согласии в течение 15 (пятнадцати) рабочих дней";
+      * для coc_deemed_consent (yes): "Если ответ не получен в указанный срок, согласие считается предоставленным";
+      * для coc_reasonableness_standard (sole_discretion): "Согласие может быть предоставлено или не предоставлено по усмотрению другой Стороны".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для coc_consent_status, coc_consent_display и reason location всегда null;
+    - для coc_consent_required, coc_consent_form, coc_response_period,
+      coc_deemed_consent, coc_reasonableness_standard location с quote особенно важна;
+    - для coc_consent_required при значении "no":
+      * quote, если договор прямо говорит "согласие не требуется" /
+        "смена контроля допускается без согласия" /
+        "без согласия контрагента";
+      * location = null, если тема не раскрыта (значение "not_specified");
+    - для coc_consent_form, coc_deemed_consent, coc_reasonableness_standard
+      при значении "not_applicable" / "not_specified" — location = null;
+    - если coc_consent_status = "missing" — для всех полей location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ПОЛОЖЕНИЙ О СОГЛАСИИ ПРИ COC
+
+    Заполни "coc_consent_status".
+
+    Значения:
+    - "present" — договор прямо говорит о согласии при смене контроля
+      (включая случаи "согласие не требуется" / "допускается свободно" /
+      "отказ по sole discretion").
+    - "missing" — договор не содержит ни CoC-clause, ни положений
+      о согласии при смене контроля.
+    - "unclear" — формулировки есть, но надёжно определить нельзя.
+
+    Если coc_consent_status = "missing":
+    - coc_consent_required = "not_specified"
+    - coc_consent_form = "not_specified"
+    - coc_response_period = "Не установлено"
+    - coc_deemed_consent = "not_specified"
+    - coc_reasonableness_standard = "not_specified"
+    - coc_consent_display = "Положения о согласии при смене контроля отсутствуют"
+    - reason = "Положения о согласии при CoC не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 1–5.
+
+    Если coc_consent_status = "unclear":
+    - coc_consent_display = "Не удалось определить наличие и условия согласия при CoC"
+    - reason = "Формулировки присутствуют, но вывод надёжно сделать нельзя."
+    - coc_consent_required = "unclear"
+    - coc_consent_form = "unclear"
+    - coc_response_period = "Не удалось определить"
+    - coc_deemed_consent = "unclear"
+    - coc_reasonableness_standard = "unclear"
+    - для всех полей location = null
+
+    Если coc_consent_status = "present" — переходи к Шагам 1–5.
+
     Шаг 1 — ТРЕБОВАНИЕ СОГЛАСИЯ
 
     Заполни "coc_consent_required".
@@ -279,6 +361,7 @@ extraction:
 
     Это поле — краткий итог для таблицы.
     Сформируй его на основе уже заполненных полей:
+    - coc_consent_status
     - coc_consent_required
     - coc_consent_form
     - coc_response_period
@@ -287,16 +370,20 @@ extraction:
     Не добавляй информацию, которой нет в этих полях.
 
     Примеры:
-    - "Для CoC требуется предварительное письменное согласие;
+    - status = "missing":
+      "Положения о согласии при смене контроля отсутствуют"
+    - status = "unclear":
+      "Не удалось определить наличие и условия согласия при CoC"
+    - status = "present" и coc_consent_required = "yes":
+      "Для CoC требуется предварительное письменное согласие;
       срок ответа не установлен"
-    - "Для CoC требуется согласие; 15 рабочих дней;
+      "Для CoC требуется согласие; 15 рабочих дней;
       молчание считается согласием"
-    - "Для CoC требуется согласие; отказ по sole discretion"
-    - "Для CoC требуется согласие;
+      "Для CoC требуется согласие; отказ по sole discretion"
+      "Для CoC требуется согласие;
       отказ не может быть необоснованным"
-    - "Для CoC согласие не требуется"
-    - "Условия согласия при CoC не установлены"
-    - "Не удалось определить условия согласия при CoC"
+    - status = "present" и coc_consent_required = "no":
+      "Для CoC согласие не требуется"
 
     Шаг 7 — ОБОСНОВАНИЕ
 
@@ -318,6 +405,7 @@ extraction:
 
     <edge_cases>
     - "A change of control requires prior written consent":
+      * coc_consent_status = "present"
       * coc_consent_required = "yes"
       * coc_consent_form = "prior_written"
       * coc_response_period = "Не установлен"
@@ -329,17 +417,21 @@ extraction:
 
     - "Consent shall not be unreasonably withheld, delayed
       or conditioned":
+      * coc_consent_status = "present"
       * coc_reasonableness_standard = "not_unreasonably_withheld"
 
     - "Failure to respond within 15 business days,
       consent shall be deemed given":
+      * coc_consent_status = "present"
       * coc_response_period = "15 рабочих дней"
       * coc_deemed_consent = "yes"
 
     - "In its sole and absolute discretion":
+      * coc_consent_status = "present"
       * coc_reasonableness_standard = "sole_discretion"
 
     - Согласие не требуется:
+      * coc_consent_status = "present"
       * coc_consent_required = "no"
       * coc_consent_form = "not_applicable"
       * coc_response_period = "Не применимо"
@@ -347,22 +439,26 @@ extraction:
       * coc_reasonableness_standard = "not_applicable"
       * coc_consent_display = "Для CoC согласие не требуется"
 
-    - Тема CoC вообще не урегулирована:
+    - Тема CoC / согласия вообще не урегулирована:
+      * coc_consent_status = "missing"
       * coc_consent_required = "not_specified"
+      * coc_consent_form = "not_specified"
       * coc_response_period = "Не установлено"
+      * coc_deemed_consent = "not_specified"
+      * coc_reasonableness_standard = "not_specified"
       * coc_consent_display =
-        "Условия согласия при CoC не установлены"
+        "Положения о согласии при смене контроля отсутствуют"
 
     - Нет релевантных фрагментов:
-      * coc_consent_required = "not_specified"
-      * coc_response_period = "Не установлено"
+      * coc_consent_status = "missing"
       * coc_consent_display =
-        "Условия согласия при CoC не установлены"
+        "Положения о согласии при смене контроля отсутствуют"
 
     - Фрагменты есть, но вывод сделать нельзя:
+      * coc_consent_status = "unclear"
       * coc_consent_required = "unclear"
       * coc_consent_display =
-        "Не удалось определить условия согласия при CoC"
+        "Не удалось определить наличие и условия согласия при CoC"
     </edge_cases>
 
     <output_expectations>
@@ -374,20 +470,34 @@ extraction:
     - Свободные текстовые поля (coc_consent_display,
       coc_response_period, reason) — на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "coc_consent_display": "Для CoC требуется предварительное письменное согласие; срок ответа не установлен",
-      "coc_consent_required": "yes",
-      "coc_consent_form": "prior_written",
-      "coc_response_period": "Не установлен",
-      "coc_deemed_consent": "not_specified",
-      "coc_reasonableness_standard": "not_specified",
-      "reason": "Договор требует письменного согласия при CoC. «Prior written consent is required»."
+      "coc_consent_status": {"value": "present", "confidence": 0.95, "location": null},
+      "coc_consent_display": {"value": "Для CoC требуется предварительное письменное согласие; срок ответа не установлен", "confidence": 0.95, "location": null},
+      "coc_consent_required": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 12.1", "page": 7, "quote": "Смена контроля допускается только с предварительного письменного согласия другой Стороны"}},
+      "coc_consent_form": {"value": "prior_written", "confidence": 0.92, "location": {"clause_ref": "п. 12.1", "page": 7, "quote": "Согласие должно быть выражено в письменной форме и предоставлено до наступления смены контроля"}},
+      "coc_response_period": {"value": "Не установлен", "confidence": 0.90, "location": null},
+      "coc_deemed_consent": {"value": "not_specified", "confidence": 0.90, "location": null},
+      "coc_reasonableness_standard": {"value": "not_specified", "confidence": 0.90, "location": null},
+      "reason": {"value": "Договор требует предварительного письменного согласия при CoC. «Смена контроля допускается только с предварительного письменного согласия другой Стороны».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
   fields:
+    - name: "coc_consent_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие положений о согласии при смене контроля"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "coc_consent_display"
       type: "string"
       presentation: "fact"
@@ -399,6 +509,7 @@ extraction:
     - name: "coc_consent_required"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Требуется ли согласие при CoC"
       display_in_grid: false
       allowed_values:
@@ -410,6 +521,7 @@ extraction:
     - name: "coc_consent_form"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Форма согласия"
       display_in_grid: false
       allowed_values:
@@ -431,6 +543,7 @@ extraction:
     - name: "coc_deemed_consent"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Deemed consent при CoC"
       display_in_grid: false
       allowed_values:
@@ -443,6 +556,7 @@ extraction:
     - name: "coc_reasonableness_standard"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Стандарт отказа при CoC"
       display_in_grid: false
       allowed_values:

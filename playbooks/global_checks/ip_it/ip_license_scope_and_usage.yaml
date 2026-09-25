@@ -155,14 +155,25 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 900
+  llm_max_tokens: 1100
+
+  presence_signal:
+    field: "license_scope_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по IP и лицензированию.
-    Твоя задача — точно извлечь из текста параметры лицензии:
-    тип, территорию, срок, ограничения field of use,
-    право на сублицензирование.
+    Твоя задача — точно извлечь из текста:
+    1) есть ли в договоре регулирование лицензии;
+    2) если есть — параметры лицензии:
+       - тип (exclusive / non-exclusive / sole);
+       - территорию;
+       - срок;
+       - ограничения field of use;
+       - право на сублицензирование.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
@@ -170,14 +181,11 @@ extraction:
     - НЕ анализируй передаваемость лицензии, M&A и CoC —
       это задача отдельного чека
       ip_license_transferability_and_change_of_control.
-    - Если информация отсутствует — используй "unclear".
+    - Если раздел о лицензии в договоре отсутствует —
+      license_scope_status = "missing".
+    - Если тексты о лицензии есть, но вывод сделать нельзя —
+      license_scope_status = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -189,11 +197,23 @@ extraction:
     - Field of use restrictions: "internal use only", запрет SaaS /
       resale / embedding / modification / reverse engineering.
     - Сублицензирование: только если есть явное право.
+    - Если ни один фрагмент не содержит информации о лицензии
+      (нет упоминаний grant of license / лицензии / лицензионного
+      договора) — license_scope_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - license_scope_display
+    - license_scope_status
     - license_type
     - territory_scope
     - term_type
@@ -203,7 +223,64 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-полей (license_scope_display, reason)
+      location ВСЕГДА null.
+    - Для term_value — quote обязательна при term_type = "fixed_term"
+      или "auto_renewable" (дата / срок прямо в тексте).
+    - Для license_scope_status = "missing" — location = null.
+    - Для license_scope_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора (grant of license).
+    - Для license_type, territory_scope, term_type,
+      field_of_use_restrictions, has_sublicense_rights:
+      * если значение определённое (exclusive / worldwide / perpetual /
+        yes и т.п.) — quote с фразой-основанием;
+      * если значение = "unclear" (не указано в тексте) — location = null;
+      * для has_sublicense_rights = "no":
+        - если договор ПРЯМО запрещает («Sublicensing is not permitted»,
+          «Сублицензирование не допускается») — quote ОБЯЗАТЕЛЬНА;
+        - если просто не упоминается — location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ЛИЦЕНЗИИ
+
+    Заполни "license_scope_status".
+
+    Значения:
+    - "present" — если договор содержит substantive положения
+      о лицензии:
+      * license_type ∈ {"exclusive", "non_exclusive", "sole"};
+      * territory_scope ∈ {"worldwide", "limited"};
+      * term_type ∈ {"fixed_term", "perpetual",
+        "tied_to_master_agreement", "auto_renewable"};
+      * field_of_use_restrictions = "yes";
+      * has_sublicense_rights = "yes";
+      * ЛИБО в тексте есть definitive license grant
+        ("grant a license" / "предоставляется право использования")
+        — даже если конкретные параметры не указаны;
+      * ЛИБО любое поле = "no", но с заполненным location
+        с прямой цитатой (см. RF3). Учитывается как признак наличия
+        ТОЛЬКО при наличии прямой цитаты («Сублицензирование
+        не допускается», «Запрещено reverse engineering»).
+        Без цитаты "no" не считается сигналом наличия.
+    - "missing" — если ни один фрагмент не содержит упоминания
+      о лицензии (договор не регулирует лицензионные отношения).
+    - "unclear" — если есть упоминания лицензии, но невозможно
+      сделать вывод о её наличии / отсутствии.
+
     Шаг 1 — ТИП ЛИЦЕНЗИИ
 
     Заполни "license_type".
@@ -270,19 +347,13 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Конкретные параметры:
-       "Non-exclusive; worldwide; бессрочная; internal use only"
-    2. Частичные данные:
-       "Exclusive; ограниченная территория; срок не удалось определить"
-    3. Не удалось определить:
-       "Не удалось определить условия лицензии"
-
     Правила:
+    - Если license_scope_status = "missing":
+      "В договоре отсутствует регулирование лицензии"
     - Если все поля unclear:
       "Не удалось определить условия лицензии"
     - Иначе комбинируй через ";":
-      * license_type (кратко)
+      * license_type (кратко: "Exclusive", "Non-exclusive", "Sole")
       * territory_scope (если "limited": "ограниченная территория")
       * term_value
       * если field_of_use_restrictions = "yes": "ограничения use"
@@ -301,42 +372,64 @@ extraction:
 
     <edge_cases>
     - Internal-use-only:
+      * license_scope_status = "present"
       * field_of_use_restrictions = "yes"
 
     - Срок = срок основного договора:
+      * license_scope_status = "present"
       * term_type = "tied_to_master_agreement"
       * term_value = "Срок основного договора"
 
-    - Тип не указан:
+    - Лицензия есть, тип не указан:
+      * license_scope_status = "present"
       * license_type = "unclear"
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
+    - Договор прямо исключает лицензию
+      ("Лицензия не предоставляется"):
+      * license_scope_status = "present"
+      * license_type = "unclear"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел о лицензии
+      в договоре отсутствует:
+      * license_scope_status = "missing"
+      * license_type = "unclear"
+      * territory_scope = "unclear"
+      * term_type = "unclear"
       * term_value = "Не удалось определить"
+      * field_of_use_restrictions = "no"
+      * has_sublicense_rights = "unclear"
       * license_scope_display =
-        "Не удалось определить условия лицензии"
+        "В договоре отсутствует регулирование лицензии"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * license_scope_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (license_scope_display, term_value, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (license_scope_display, term_value,
+      reason) — на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "license_scope_display": "Non-exclusive; worldwide; бессрочная; internal use only",
-      "license_type": "non_exclusive",
-      "territory_scope": "worldwide",
-      "term_type": "perpetual",
-      "term_value": "Бессрочная",
-      "field_of_use_restrictions": "yes",
-      "has_sublicense_rights": "no",
-      "reason": "..."
+      "license_scope_display": {"value": "Non-exclusive; worldwide; бессрочная; internal use only", "confidence": 0.92, "location": null},
+      "license_scope_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 2.1", "page": 2, "quote": "Лицензиар предоставляет Лицензиату неисключительную лицензию на использование Программного обеспечения"}},
+      "license_type": {"value": "non_exclusive", "confidence": 0.95, "location": {"clause_ref": "п. 2.1", "page": 2, "quote": "неисключительную лицензию на использование Программного обеспечения"}},
+      "territory_scope": {"value": "worldwide", "confidence": 0.85, "location": {"clause_ref": "п. 2.3", "page": 2, "quote": "Территория использования — все страны мира"}},
+      "term_type": {"value": "perpetual", "confidence": 0.90, "location": {"clause_ref": "п. 4.1", "page": 3, "quote": "Лицензия предоставляется бессрочно"}},
+      "term_value": {"value": "Бессрочная", "confidence": 0.90, "location": {"clause_ref": "п. 4.1", "page": 3, "quote": "Лицензия предоставляется бессрочно"}},
+      "field_of_use_restrictions": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 2.5", "page": 2, "quote": "Использование допускается исключительно для внутренних нужд Лицензиата"}},
+      "has_sublicense_rights": {"value": "no", "confidence": 0.85, "location": {"clause_ref": "п. 2.7", "page": 2, "quote": "Сублицензирование не допускается"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -349,9 +442,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "license_scope_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования лицензии в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "license_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Тип лицензии"
       allowed_values:
         - "exclusive"
@@ -363,6 +468,7 @@ extraction:
     - name: "territory_scope"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Территория действия лицензии"
       allowed_values:
         - "worldwide"
@@ -373,6 +479,7 @@ extraction:
     - name: "term_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Тип срока лицензии"
       allowed_values:
         - "fixed_term"
@@ -393,6 +500,7 @@ extraction:
     - name: "field_of_use_restrictions"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Ограничения field of use"
       allowed_values:
         - "yes"
@@ -403,6 +511,7 @@ extraction:
     - name: "has_sublicense_rights"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Право на сублицензирование"
       allowed_values:
         - "yes"

@@ -7,7 +7,7 @@ description: >
   удаления данных при приостановке и расторжении договора.
 
   Извлекает: условия и основания приостановки / отключения сервиса,
-  налиличие уведомления и grace period, право на экспорт данных и
+  наличие уведомления и grace period, право на экспорт данных и
   качество окна выгрузки, форматы экспорта, условия хранения и
   удаления данных после расторжения, прозрачность backup / restore.
 
@@ -177,7 +177,6 @@ retrieval:
   preferred_clause_functions:
     - "procedures"
     - "obligations"
-    - "obligations"
     - "limitations"
 
   position_bias:
@@ -206,33 +205,39 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1050
+  llm_max_tokens: 1250
+
+  presence_signal:
+    field: "it_access_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
     Ты — юрист по ИТ и SaaS-договорам.
     Твоя задача — точно извлечь из текста:
-    1) условия и основания приостановки / отключения сервиса;
-    2) право на экспорт данных и качество окна выгрузки;
-    3) условия хранения и удаления данных после расторжения;
-    4) прозрачность backup / restore.
+    1) есть ли в договоре регулирование доступа и экспорта данных;
+    2) если есть — какие условия установлены:
+       - условия и основания приостановки / отключения сервиса;
+       - срок уведомления;
+       - право на экспорт данных и качество окна выгрузки;
+       - форматы экспорта;
+       - условия хранения и удаления данных после расторжения;
+       - прозрачность backup / restore.
 
     КРИТИЧЕСКИ ВАЖНО:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ предполагай право на экспорт, если оно не указано явно.
     - НЕ считай упоминание backup достаточным без конкретных условий.
-    - Если информация отсутствует — используй "unclear",
-      "not_addressed" или "not_specified".
+    - Если раздел о доступе / экспорте в договоре отсутствует —
+      it_access_status = "missing".
+    - Если тексты по теме есть, но вывод сделать нельзя —
+      it_access_status = "unclear".
 
     Не анализируй ИБ-обязательства провайдера, SLA и общие
     условия аутсорсинга — это задача outsourced_it_and_security_risk.
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -246,11 +251,24 @@ extraction:
       а не "unclear".
     - Backup "clear" = частота + срок хранения + процедура restore.
       Только упоминание backup = "partial".
+    - Если ни один фрагмент не содержит информации о доступе /
+      экспорте / retention / backup (нет упоминаний suspension /
+      export / retention / backup / grace period) —
+      it_access_status = "missing", location = null.
+      Не использовать "unclear" при полном отсутствии релевантных
+      фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
     - it_access_display
+    - it_access_status
     - service_suspension_severity
     - suspension_notice_period
     - has_data_export_rights
@@ -261,7 +279,68 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля it_access_display и reason
+      location ВСЕГДА null.
+    - Для suspension_notice_period — quote с фразой о сроке уведомления.
+    - Для it_access_status = "missing" — location = null.
+    - Для it_access_status = "present" / "unclear" — quote
+      с наиболее релевантной фразой договора.
+    - Для service_suspension_severity, has_data_export_rights,
+      export_window_quality, export_format_quality,
+      data_retention_after_termination, backup_and_restore_transparency:
+      * если значение определённое ("strict" / "moderate" / "mild" /
+        "yes" / "good" / "limited" / "machine_readable" / "clear" и т.п.) —
+        quote с фразой-основанием;
+      * если значение = "no" / "absent" / "not_applicable" /
+        "not_specified" —
+        различай два случая:
+        - договор ПРЯМО исключает наличие («Право на экспорт
+          не предоставляется», «Данные удаляются немедленно») —
+          quote ОБЯЗАТЕЛЬНА и должна содержать эту фразу;
+        - просто отсутствует упоминание (договор молчит) —
+          location = null.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ РЕГУЛИРОВАНИЯ ДОСТУПА И ЭКСПОРТА
+
+    Заполни "it_access_status".
+
+    Значения:
+    - "present" — если хотя бы одно содержательное поле указывает
+      на наличие информации по теме:
+      * service_suspension_severity ∈ {"strict", "moderate", "mild"};
+      * has_data_export_rights = "yes";
+      * export_window_quality ∈ {"good", "limited"};
+      * export_format_quality ∈ {"machine_readable", "partial", "poor"};
+      * data_retention_after_termination ∈ {"defined_period",
+        "immediate_deletion", "on_request"};
+      * backup_and_restore_transparency ∈ {"clear", "partial"};
+      * ЛИБО любое поле = "no" / "absent" / "none" / "not_applicable" /
+        "not_specified" / "not_addressed", но с заполненным
+        location с прямой цитатой (см. RF3). Учитывается как признак
+        наличия ТОЛЬКО при наличии прямой цитаты. Без цитаты
+        "no" / "none" не считается сигналом наличия.
+    - "missing" — если все содержательные поля =
+      "no" / "absent" / "not_applicable" / "not_specified" /
+      "not_addressed" БЕЗ цитат, ЛИБО фрагментов по теме
+      нет вообще.
+    - "unclear" — если все содержательные = "unclear" при наличии
+      фрагментов, но невозможности вывода.
+
     Шаг 1 — ЖЁСТКОСТЬ УСЛОВИЙ ПРИОСТАНОВКИ
 
     Заполни "service_suspension_severity".
@@ -349,21 +428,14 @@ extraction:
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
 
-    Возможные состояния:
-    1. Конкретные данные:
-       "Приостановка без уведомления; экспорт есть; окно 30 дней"
-    2. Проблемные условия:
-       "Strict условия; нет права на экспорт; backup не описан"
-    3. Не удалось определить:
-       "Не удалось определить условия доступа и экспорта"
-
     Правила:
+    - Если it_access_status = "missing":
+      "Условия доступа и экспорта в договоре не урегулированы"
     - Если все поля unclear:
       "Не удалось определить условия доступа и экспорта"
     - Иначе комбинируй через ";":
       * service_suspension_severity (если strict: предупредить)
-      * suspension_notice_period (если "Без уведомления":
-        добавить)
+      * suspension_notice_period (если "Без уведомления": добавить)
       * has_data_export_rights (если "no": "нет права на экспорт")
       * export_window_quality (если limited/none)
       * data_retention_after_termination (если критично)
@@ -381,51 +453,76 @@ extraction:
 
     <edge_cases>
     - Немедленное отключение при просрочке < 30 дней:
+      * it_access_status = "present"
       * service_suspension_severity = "strict"
       * suspension_notice_period = "0 дней"
 
     - Договор молчит о праве на экспорт:
+      * it_access_status = "present"
       * has_data_export_rights = "no"
       * export_window_quality = "not_applicable"
       * export_format_quality = "not_applicable"
 
     - Окно 30 дней, CSV/JSON:
+      * it_access_status = "present"
       * export_window_quality = "good"
       * export_format_quality = "machine_readable"
 
     - Немедленное удаление после расторжения:
+      * it_access_status = "present"
       * data_retention_after_termination = "immediate_deletion"
 
     - Backup упомянут без деталей:
+      * it_access_status = "present"
       * backup_and_restore_transparency = "partial"
 
-    - Нет релевантных фрагментов:
-      * все поля = "unclear"
+    - Договор прямо исключает право на экспорт:
+      * it_access_status = "present"
+      * has_data_export_rights = "no"
+      * location с прямой цитатой об отсутствии.
+
+    - Нет релевантных фрагментов / раздел о доступе и экспорте
+      в договоре отсутствует:
+      * it_access_status = "missing"
+      * service_suspension_severity = "not_addressed"
+      * suspension_notice_period = "Не установлен"
+      * has_data_export_rights = "no"
+      * export_window_quality = "not_applicable"
+      * export_format_quality = "not_applicable"
+      * data_retention_after_termination = "not_specified"
+      * backup_and_restore_transparency = "absent"
       * it_access_display =
-        "Не удалось определить условия доступа и экспорта"
+        "Условия доступа и экспорта в договоре не урегулированы"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
+      * it_access_status = "unclear"
+      * соответствующие поля = "unclear"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля
-      (it_access_display, suspension_notice_period, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (it_access_display,
+      suspension_notice_period, reason) — на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "it_access_display": "Strict условия; без уведомления; нет права на экспорт",
-      "service_suspension_severity": "strict",
-      "suspension_notice_period": "Без уведомления",
-      "has_data_export_rights": "no",
-      "export_window_quality": "not_applicable",
-      "export_format_quality": "not_applicable",
-      "data_retention_after_termination": "not_specified",
-      "backup_and_restore_transparency": "absent",
-      "reason": "..."
+      "it_access_display": {"value": "Strict условия; без уведомления; нет права на экспорт", "confidence": 0.92, "location": null},
+      "it_access_status": {"value": "present", "confidence": 0.95, "location": {"clause_ref": "п. 9.1", "page": 6, "quote": "Провайдер вправе немедленно приостановить доступ к Сервису при просрочке оплаты"}},
+      "service_suspension_severity": {"value": "strict", "confidence": 0.90, "location": {"clause_ref": "п. 9.1", "page": 6, "quote": "Провайдер вправе немедленно приостановить доступ к Сервису"}},
+      "suspension_notice_period": {"value": "Без уведомления", "confidence": 0.90, "location": {"clause_ref": "п. 9.1", "page": 6, "quote": "немедленно приостановить"}},
+      "has_data_export_rights": {"value": "no", "confidence": 0.85, "location": {"clause_ref": "п. 9.5", "page": 7, "quote": "Право на выгрузку данных не предоставляется"}},
+      "export_window_quality": {"value": "not_applicable", "confidence": 0.90, "location": null},
+      "export_format_quality": {"value": "not_applicable", "confidence": 0.90, "location": null},
+      "data_retention_after_termination": {"value": "not_specified", "confidence": 0.70, "location": null},
+      "backup_and_restore_transparency": {"value": "absent", "confidence": 0.75, "location": null},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -438,9 +535,21 @@ extraction:
       display_in_grid: true
       display_priority: 1
 
+    - name: "it_access_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие регулирования доступа и экспорта данных в договоре"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "service_suspension_severity"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Жёсткость условий приостановки"
       allowed_values:
         - "strict"
@@ -461,6 +570,7 @@ extraction:
     - name: "has_data_export_rights"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Право на экспорт данных"
       allowed_values:
         - "yes"
@@ -471,6 +581,7 @@ extraction:
     - name: "export_window_quality"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Качество окна выгрузки"
       allowed_values:
         - "good"
@@ -483,6 +594,7 @@ extraction:
     - name: "export_format_quality"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Качество форматов экспорта"
       allowed_values:
         - "machine_readable"
@@ -496,6 +608,7 @@ extraction:
     - name: "data_retention_after_termination"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Хранение / удаление данных после расторжения"
       allowed_values:
         - "defined_period"
@@ -508,6 +621,7 @@ extraction:
     - name: "backup_and_restore_transparency"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Прозрачность backup / restore"
       allowed_values:
         - "clear"
@@ -524,6 +638,5 @@ extraction:
 
   store_payload: true
 
-  store_payload: true
 
-
+  

@@ -26,51 +26,37 @@ rules:
 
   keywords:
     high:
-      # Прямые MAC/MAE определения
       - "(?i)material\\s+adverse\\s+change"
       - "(?i)material\\s+adverse\\s+effect"
       - "(?i)\\bMAC\\b"
       - "(?i)\\bMAE\\b"
       - "(?i)существенн[а-я]+\\s+неблагоприятн[а-я]+\\s+(изменен|воздейств|событ)"
       - "(?i)материальн[а-я]+\\s+неблагоприятн[а-я]+\\s+(изменен|воздейств)"
-
-      # MAC/MAE как condition / trigger
       - "(?i)MAC\\s+(condition|event|trigger)"
       - "(?i)MAE\\s+(condition|event|trigger)"
       - "(?i)(condition\\s+precedent|closing\\s+condition)[\\s\\S]{0,40}(MAC|MAE|material\\s+adverse)"
       - "(?i)(termination|right\\s+to\\s+terminate)[\\s\\S]{0,40}(MAC|MAE|material\\s+adverse)"
       - "(?i)(расторж|прекращ|отказ)[\\s\\S]{0,40}существенн[а-я]+\\s+неблагоприятн"
-
-      # Пересмотр цены при MAC
       - "(?i)price\\s+(adjustment|reduction)[\\s\\S]{0,40}(MAC|MAE|material\\s+adverse)"
       - "(?i)(MAC|MAE)[\\s\\S]{0,40}price\\s+(adjustment|reduction)"
       - "(?i)пересмотр\\s+цен[ыи][\\s\\S]{0,40}существенн[а-я]+\\s+неблагоприятн"
 
     medium:
-      # Adverse change — общие
       - "(?i)adverse\\s+change"
       - "(?i)adverse\\s+effect"
       - "(?i)неблагоприятн[а-я]+\\s+(изменен|воздейств|событ)"
       - "(?i)негативн[а-я]+\\s+(изменен|воздейств|влиян)"
-
-      # Carve-outs
       - "(?i)carve[-\\s]?out[\\s\\S]{0,30}(MAC|MAE|material\\s+adverse)"
       - "(?i)exception[s]?\\s+(to|from)\\s+[\\s\\S]{0,30}(MAC|MAE|material\\s+adverse)"
       - "(?i)shall\\s+not\\s+constitute\\s+[\\s\\S]{0,20}(MAC|MAE)"
       - "(?i)не\\s+считается\\s+[\\s\\S]{0,20}существенн[а-я]+\\s+неблагоприятн"
-
-      # Отраслевые/макро carve-outs
       - "(?i)industry[-\\s]?wide\\s+(change|effect|condition)"
       - "(?i)general\\s+(economic|market)\\s+(condition|change)"
       - "(?i)макроэкономическ[а-я]+\\s+(изменен|условия|факторы)"
       - "(?i)pandemic"
       - "(?i)force\\s+majeure"
-
-      # Изменения законодательства carve-out
       - "(?i)change[s]?\\s+(in|of)\\s+(law|legislation|regulation)"
       - "(?i)изменени[ея]\\s+(законодательств|законов|регулировани)"
-
-      # Materiality threshold
       - "(?i)materiality\\s+(threshold|standard|test)"
       - "(?i)порог\\s+существенност[ьи]"
 
@@ -141,7 +127,6 @@ retrieval:
   preferred_unit_types:
     - "definition"
     - "general_provision"
-    - "general_provision"
 
   excluded_unit_types:
     - "technical_fragment"
@@ -178,14 +163,19 @@ enrichment_hints:
   preferred_clause_functions:
     - "procedures"
     - "representations"
-    - "procedures"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 1050
+  llm_max_tokens: 1250
+
+  presence_signal:
+    field: "has_mac_mae"
+    present_values: ["yes"]
+    missing_values: ["no"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -203,15 +193,12 @@ extraction:
     - НЕ додумывай carve-outs, если они не указаны явно.
     - НЕ считай общую ссылку на "adverse changes" автоматически
       MAC/MAE-клаузой — ищи явное определение или MAC/MAE-механизм.
-    - Если информация отсутствует или неоднозначна —
-      используй "unclear".
+    - Если нет ни MAC/MAE-определения, ни явного MAC-механизма —
+      has_mac_mae = "no".
+    - Если фрагментов по теме нет вообще — has_mac_mae = "no".
+    - Если тексты есть, но вывод сделать нельзя —
+      has_mac_mae = "unclear".
     </role>
-
-    <context>
-    Ниже приведены релевантные фрагменты договора:
-
-    {context}
-    </context>
 
     <context_rules>
     - Некоторые фрагменты могут быть нерелевантны — игнорируй их.
@@ -223,7 +210,18 @@ extraction:
       disproportionately affecting Target".
     - Если нет ни MAC/MAE-определения, ни явного MAC-механизма,
       ставь has_mac_mae = "no", а не "unclear".
+    - Если ни один фрагмент не содержит информации о MAC/MAE
+      (нет упоминаний material adverse change / MAC / MAE /
+      существенного неблагоприятного изменения) — has_mac_mae = "no",
+      location = null. Не использовать "unclear" при полном отсутствии
+      релевантных фрагментов.
     </context_rules>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
 
     <task>
     Заполни только следующие поля:
@@ -238,8 +236,41 @@ extraction:
     - reason
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том
+      виде, как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз).
+      Копируй её посимвольно, сохраняя формулировку и порядок слов.
+      Оптимальная длина: 30–300 символов.
+    - Для synthesized-поля mac_mae_display и reason
+      location ВСЕГДА null.
+    - Для has_mac_mae = "no" — различай два случая:
+      * договор ПРЯМО фиксирует отсутствие MAC/MAE-механизма —
+        quote ОБЯЗАТЕЛЬНА;
+      * просто отсутствует упоминание — location = null.
+    - Для has_mac_mae = "yes" / "unclear" — quote с фразой-основанием
+      (определение MAC/MAE или механизм).
+    - Для has_quantitative_thresholds, has_industry_macro_carveouts,
+      has_law_change_carveouts:
+      * "yes" — quote с фразой-основанием;
+      * "no" — различай: прямое исключение (quote обязательна) vs
+        отсутствие упоминания (location = null).
+    - Для industry_macro_carveout_type — quote с фразой carve-out,
+      если тип определён.
+    - Для effects_on_deal — quote с механизмом (расторжение /
+      пересмотр цены / приостановка / condition precedent).
+    - Для mac_beneficiary — quote с фразой, показывающей сторону.
+    - Не выдумывай location или quote. Если дословную фразу определить
+      нельзя — location = null.
+    </location_instructions>
+
     <instructions>
-    Шаг 1 — НАЛИЧИЕ MAC/MAE
+    Шаг 0 — НАЛИЧИЕ MAC/MAE
 
     Заполни "has_mac_mae".
 
@@ -248,7 +279,7 @@ extraction:
     - "no" — нет специальных MAC/MAE-условий.
     - "unclear" — нельзя надёжно определить по фрагментам.
 
-    Шаг 2 — КОЛИЧЕСТВЕННЫЕ ПОРОГИ
+    Шаг 1 — КОЛИЧЕСТВЕННЫЕ ПОРОГИ
 
     Заполни "has_quantitative_thresholds".
 
@@ -258,7 +289,7 @@ extraction:
     - "no" — MAC/MAE только качественный.
     - "unclear" — нельзя определить.
 
-    Шаг 3 — CARVE-OUT ДЛЯ ОТРАСЛЕВЫХ / МАКРОИЗМЕНЕНИЙ
+    Шаг 2 — CARVE-OUT ДЛЯ ОТРАСЛЕВЫХ / МАКРОИЗМЕНЕНИЙ
 
     Заполни "has_industry_macro_carveouts"
     и "industry_macro_carveout_type".
@@ -274,7 +305,7 @@ extraction:
     - "not_applicable" — carve-out нет.
     - "unclear" — тип нельзя определить.
 
-    Шаг 4 — CARVE-OUT ДЛЯ ИЗМЕНЕНИЙ ЗАКОНОДАТЕЛЬСТВА
+    Шаг 3 — CARVE-OUT ДЛЯ ИЗМЕНЕНИЙ ЗАКОНОДАТЕЛЬСТВА
 
     Заполни "has_law_change_carveouts".
 
@@ -284,7 +315,7 @@ extraction:
     - "no" — нет.
     - "unclear" — нельзя определить.
 
-    Шаг 5 — ПОСЛЕДСТВИЯ MAC/MAE
+    Шаг 4 — ПОСЛЕДСТВИЯ MAC/MAE
 
     Заполни "effects_on_deal".
 
@@ -298,7 +329,7 @@ extraction:
     - "mixed" — комбинация механизмов.
     - "unclear" — нельзя определить.
 
-    Шаг 6 — БЕНЕФИЦИАР MAC/MAE
+    Шаг 5 — БЕНЕФИЦИАР MAC/MAE
 
     Заполни "mac_beneficiary".
 
@@ -309,23 +340,13 @@ extraction:
     - "mutual" — обе стороны.
     - "unclear" — нельзя определить.
 
-    Шаг 7 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
+    Шаг 6 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни "mac_mae_display".
 
     Это итоговое поле для таблицы.
     Строй его ТОЛЬКО на основе уже заполненных полей выше.
     Не добавляй информацию сверх них.
-
-    Возможные состояния:
-    1. MAC/MAE есть с конкретными параметрами:
-       "MAC/MAE есть; нет carve-outs; право расторжения у покупателя"
-    2. MAC/MAE есть с carve-outs:
-       "MAC/MAE есть; carve-outs macro + закон; только condition"
-    3. MAC/MAE нет:
-       "MAC/MAE не обнаружен"
-    4. Не удалось определить:
-       "Не удалось определить наличие MAC/MAE"
 
     Правила:
     - Если has_mac_mae = "no":
@@ -345,7 +366,7 @@ extraction:
         добавь бенефициара
     - Не более 3 коротких фактов через ";".
 
-    Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
+    Шаг 7 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни "reason".
 
@@ -357,47 +378,61 @@ extraction:
 
     <edge_cases>
     - Carve-out: industry-wide + закон, condition only:
+      * has_mac_mae = "yes"
       * has_industry_macro_carveouts = "yes"
       * has_law_change_carveouts = "yes"
       * effects_on_deal = "condition_only"
 
     - "disproportionately affecting Target":
+      * has_mac_mae = "yes"
       * industry_macro_carveout_type = "partial"
 
     - Количественный порог (EBITDA > 20%):
+      * has_mac_mae = "yes"
       * has_quantitative_thresholds = "yes"
 
-    - Нет MAC/MAE по тексту:
+    - Договор прямо фиксирует отсутствие MAC/MAE:
       * has_mac_mae = "no"
-      * industry_macro_carveout_type = "not_applicable"
-      * effects_on_deal = "none"
-      * mac_mae_display = "MAC/MAE не обнаружен"
+      * location с прямой цитатой об отсутствии.
 
-    - Нет релевантных фрагментов:
+    - Нет релевантных фрагментов / раздел о MAC/MAE отсутствует:
+      * has_mac_mae = "no"
+      * has_quantitative_thresholds = "no"
+      * has_industry_macro_carveouts = "no"
+      * industry_macro_carveout_type = "not_applicable"
+      * has_law_change_carveouts = "no"
+      * effects_on_deal = "none"
+      * mac_beneficiary = "unclear"
+      * mac_mae_display = "MAC/MAE не обнаружен"
+      * location у всех полей = null.
+
+    - Формулировки есть, но вывод невозможен:
       * has_mac_mae = "unclear"
       * mac_mae_display = "Не удалось определить наличие MAC/MAE"
     </edge_cases>
 
     <output_expectations>
     - Верни результат строго в формате JSON.
-    - Не оборачивай ответ в markdown-блоки.
+    - Не оборачивай в markdown-блоки (без ```).
     - Не добавляй комментариев вне JSON.
-    - Для полей с allowed_values используй строго значения из списка.
-    - Свободные текстовые поля (mac_mae_display, reason)
-      заполняй на русском языке.
-    - Не добавляй никаких полей, кроме указанных.
+    - Все значения полей с allowed_values — на английском.
+    - Свободные текстовые поля (mac_mae_display, reason) —
+      на русском языке.
+    - Не добавляй полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "mac_mae_display": "MAC/MAE есть; carve-outs частичные; право расторжения у покупателя",
-      "has_mac_mae": "yes",
-      "has_quantitative_thresholds": "no",
-      "has_industry_macro_carveouts": "yes",
-      "industry_macro_carveout_type": "partial",
-      "has_law_change_carveouts": "yes",
-      "effects_on_deal": "termination",
-      "mac_beneficiary": "buyer",
-      "reason": "..."
+      "mac_mae_display": {"value": "MAC/MAE есть; carve-outs частичные; право расторжения у покупателя", "confidence": 0.92, "location": null},
+      "has_mac_mae": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 12.1", "page": 7, "quote": "Material Adverse Change means any event that has a material adverse effect on the business"}},
+      "has_quantitative_thresholds": {"value": "no", "confidence": 0.75, "location": null},
+      "has_industry_macro_carveouts": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 12.2", "page": 7, "quote": "changes in general economic or industry-wide conditions shall not constitute a Material Adverse Change"}},
+      "industry_macro_carveout_type": {"value": "partial", "confidence": 0.85, "location": {"clause_ref": "п. 12.2", "page": 7, "quote": "except to the extent disproportionately affecting the Company"}},
+      "has_law_change_carveouts": {"value": "yes", "confidence": 0.90, "location": {"clause_ref": "п. 12.2", "page": 7, "quote": "changes in law or accounting standards"}},
+      "effects_on_deal": {"value": "termination", "confidence": 0.90, "location": {"clause_ref": "п. 12.3", "page": 7, "quote": "Buyer may terminate this Agreement upon a Material Adverse Change"}},
+      "mac_beneficiary": {"value": "buyer", "confidence": 0.90, "location": {"clause_ref": "п. 12.3", "page": 7, "quote": "Buyer may terminate"}},
+      "reason": {"value": "...", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -413,6 +448,7 @@ extraction:
     - name: "has_mac_mae"
       type: "string"
       presentation: "signal"
+      risk_weight: "info"
       description: "Наличие MAC/MAE-клаузы"
       allowed_values:
         - "yes"
@@ -423,6 +459,7 @@ extraction:
     - name: "has_quantitative_thresholds"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Количественные пороги MAC/MAE"
       allowed_values:
         - "yes"
@@ -433,6 +470,7 @@ extraction:
     - name: "has_industry_macro_carveouts"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Carve-out для отраслевых / макроизменений"
       allowed_values:
         - "yes"
@@ -443,6 +481,7 @@ extraction:
     - name: "industry_macro_carveout_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Тип macro carve-out"
       allowed_values:
         - "full"
@@ -454,6 +493,7 @@ extraction:
     - name: "has_law_change_carveouts"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Carve-out для изменений законодательства"
       allowed_values:
         - "yes"
@@ -464,6 +504,7 @@ extraction:
     - name: "effects_on_deal"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Последствия наступления MAC/MAE"
       allowed_values:
         - "none"
@@ -479,6 +520,7 @@ extraction:
     - name: "mac_beneficiary"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Бенефициар MAC/MAE"
       allowed_values:
         - "buyer"
