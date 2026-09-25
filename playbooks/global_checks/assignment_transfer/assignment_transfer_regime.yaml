@@ -154,7 +154,16 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 700
+  llm_max_tokens: 850
+
+  # Presence gate: assignment_transfer_status уже был в fields как signal-поле.
+  # Подключаем его к presence_signal: present -> pass, missing -> missing_required_clause,
+  # unclear -> unclear. Контракт: present + missing + unclear = allowed_values.
+  presence_signal:
+    field: "assignment_transfer_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
 
   llm_prompt_extraction: |
     <role>
@@ -166,8 +175,10 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай условия, которых нет в тексте.
-    - Если информация отсутствует — ставь "not_specified"
-      или "missing", а не предполагай наиболее вероятный вариант.
+    - Если информация отсутствует — для поля
+      assignment_transfer_status ставь "missing", а для
+      содержательных полей (assignment_transfer_regime_type,
+      assignment_transfer_coverage) — "not_specified".
     - Если текст неоднозначен — ставь "unclear",
       а не выбирай один из вариантов.
 
@@ -186,7 +197,7 @@ extraction:
     - Если среди фрагментов есть противоречия — укажи "unclear"
       и объясни в reason.
     - Если ни один фрагмент не содержит информации по теме —
-      используй значения для случая "тема не урегулирована".
+      assignment_transfer_status = "missing"; остальные поля — согласно Шагу 1.
     - Не используй информацию из определений (definitions),
       преамбулы или приложений, если они не содержат
       substantive условий по теме check.
@@ -212,6 +223,34 @@ extraction:
     - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 11.1", "page": 10, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для assignment_transfer_regime_type (prohibited): "Ни одна из Сторон не вправе уступать свои права и обязанности по настоящему Договору";
+      * для assignment_transfer_regime_type (consent_required): "Уступка прав допускается только с предварительного письменного согласия другой Стороны";
+      * для assignment_transfer_regime_type (freely_permitted): "Каждая из Сторон вправе свободно уступать свои права по настоящему Договору без согласия другой Стороны";
+      * для assignment_transfer_coverage (both): "Настоящий пункт применяется как к уступке прав, так и к переводу долга".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для assignment_transfer_display и reason location всегда null
+      (они синтезированы и не имеют прямого источника в тексте);
+    - для assignment_transfer_status location всегда null
+      (это факт наличия, а не цитата);
+    - для assignment_transfer_regime_type и assignment_transfer_coverage
+      location с quote особенно важна;
+    - если assignment_transfer_status = "missing" — для всех полей location = null.
+    </location_instructions>
+
     <instructions>
     Шаг 1 — НАЛИЧИЕ ПОЛОЖЕНИЙ
 
@@ -224,6 +263,24 @@ extraction:
     - "missing" — если таких положений нет.
     - "unclear" — если формулировки есть, но режим надёжно
       определить нельзя.
+
+    Если assignment_transfer_status = "missing":
+    - assignment_transfer_regime_type = "not_specified"
+    - assignment_transfer_coverage = "not_specified"
+    - assignment_transfer_display = "Положения об уступке прав и переводе долга не установлены"
+    - reason = "Положения об уступке прав / переводе долга не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 2–3.
+
+    Если assignment_transfer_status = "unclear":
+    - assignment_transfer_regime_type = "unclear"
+    - assignment_transfer_coverage = "unclear"
+    - assignment_transfer_display = "Не удалось определить режим уступки прав / перевода долга"
+    - reason = "Формулировки по теме присутствуют, но режим надёжно определить нельзя."
+    - для всех полей location = null
+    - не выполняй Шаги 2–3.
+
+    Если assignment_transfer_status = "present" — переходи к Шагам 2–3.
 
     Шаг 2 — ТИП РЕЖИМА
 
@@ -321,6 +378,7 @@ extraction:
         "Уступка прав — только с письменного согласия"
 
     - Явный запрет и assignment, и transfer of obligations:
+      * assignment_transfer_status = "present"
       * assignment_transfer_regime_type = "prohibited"
       * assignment_transfer_coverage = "both"
       * assignment_transfer_display =
@@ -357,14 +415,16 @@ extraction:
     - Свободные текстовые поля (assignment_transfer_display,
       reason) — на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "assignment_transfer_display": "Уступка прав — только с письменного согласия",
-      "assignment_transfer_status": "present",
-      "assignment_transfer_regime_type": "consent_required",
-      "assignment_transfer_coverage": "assignment_only",
-      "reason": "Договор требует согласия на уступку. «Neither party may assign...»."
+      "assignment_transfer_status": {"value": "present", "confidence": 0.95, "location": null},
+      "assignment_transfer_display": {"value": "Уступка прав — только с письменного согласия", "confidence": 0.95, "location": null},
+      "assignment_transfer_regime_type": {"value": "consent_required", "confidence": 0.95, "location": {"clause_ref": "п. 11.1", "page": 10, "quote": "Ни одна из Сторон не вправе уступить свои права по настоящему Договору без предварительного письменного согласия другой Стороны"}},
+      "assignment_transfer_coverage": {"value": "assignment_only", "confidence": 0.92, "location": {"clause_ref": "п. 11.1", "page": 10, "quote": "Ни одна из Сторон не вправе уступить свои права по настоящему Договору"}},
+      "reason": {"value": "Договор требует предварительного письменного согласия на уступку прав. «Ни одна из Сторон не вправе уступить свои права ... без предварительного письменного согласия другой Стороны».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
@@ -380,6 +440,7 @@ extraction:
     - name: "assignment_transfer_status"
       type: "string"
       presentation: "signal"
+      risk_weight: "info"
       description: "Наличие положений"
       display_in_grid: false
       allowed_values:
@@ -390,6 +451,7 @@ extraction:
     - name: "assignment_transfer_regime_type"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Тип режима"
       display_in_grid: false
       allowed_values:
@@ -403,6 +465,7 @@ extraction:
     - name: "assignment_transfer_coverage"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Покрытие"
       display_in_grid: false
       allowed_values:
@@ -419,5 +482,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
 
   

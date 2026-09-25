@@ -150,6 +150,16 @@ extraction:
   mode: "hybrid"
   llm_max_tokens: 900
 
+  # Presence gate: отделяет факт наличия пункта (at_status) от его содержания
+  # (at_consent_required, at_consent_form, at_response_period, at_deemed_consent,
+  # at_reasonableness_standard). missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = at_status.allowed_values.
+  presence_signal:
+    field: "at_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам.
@@ -182,7 +192,7 @@ extraction:
     - Если среди фрагментов есть противоречия — укажи "unclear"
       и объясни в reason.
     - Если ни один фрагмент не содержит информации по теме —
-      используй значения для случая "тема не урегулирована".
+      at_status = "missing"; остальные поля — согласно Шагу 0.
     - Не используй информацию из определений (definitions),
       преамбулы или приложений, если они не содержат
       substantive условий по теме check.
@@ -194,6 +204,7 @@ extraction:
 
     <task>
     Заполни только следующие поля:
+    - at_status
     - at_consent_display
     - at_consent_required
     - at_consent_form
@@ -207,7 +218,74 @@ extraction:
     - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 9.2", "page": 12, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Если значение поля выведено из конкретной фразы договора — quote ДОЛЖЕН
+      содержать эту фразу без изменений.
+      Примеры хорошего quote:
+      * для at_consent_required (yes): "Ни одна из Сторон не вправе уступить свои права по настоящему Договору без предварительного письменного согласия другой Стороны";
+      * для at_consent_form (prior_written): "Согласие должно быть выражено в письменной форме и предоставлено до совершения уступки";
+      * для at_response_period: "Сторона, получившая запрос о согласии, обязана ответить в течение 10 (десяти) рабочих дней";
+      * для at_deemed_consent (yes): "Если ответ не получен в указанный срок, согласие считается предоставленным";
+      * для at_reasonableness_standard (sole_discretion): "Согласие может быть предоставлено или не предоставлено по усмотрению другой Стороны".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для at_status, at_consent_display и reason location всегда null
+      (они синтезированы и не имеют прямого источника в тексте);
+    - для at_consent_required, at_consent_form, at_response_period,
+      at_deemed_consent, at_reasonableness_standard location с quote особенно важна;
+    - для at_consent_required при значении "no":
+      * quote, если договор прямо говорит "согласие не требуется" /
+        "уступка допускается без согласия" / "без согласия контрагента";
+      * location = null, если тема не раскрыта (значение "not_specified");
+    - для at_consent_form, at_deemed_consent, at_reasonableness_standard
+      при значении "not_applicable" / "not_specified" — location = null;
+    - если at_status = "missing" (тема не раскрыта в договоре) —
+      для всех полей location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ПОЛОЖЕНИЙ
+
+    Заполни "at_status".
+
+    Значения:
+    - "present" — если договор прямо регулирует уступку / перевод долга
+      и условия получения согласия по этому вопросу.
+    - "missing" — если таких положений нет.
+    - "unclear" — если формулировки есть, но надёжно определить
+      режим согласия нельзя.
+
+    Если at_status = "missing":
+    - at_consent_required = "not_specified"
+    - at_consent_form = "not_specified"
+    - at_response_period = "Не установлено"
+    - at_deemed_consent = "not_specified"
+    - at_reasonableness_standard = "not_specified"
+    - at_consent_display = "Положения о согласии при уступке отсутствуют"
+    - reason = "Положения о согласии при уступке не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - переходи сразу к Шагу 6 (формирование display) и Шагу 7 (reason)
+      на основе этих значений.
+
+    Если at_status = "unclear":
+    - at_consent_display = "Не удалось определить наличие и условия согласия при уступке"
+    - reason = "Формулировки по уступке / согласию присутствуют, но режим надёжно определить нельзя."
+    - переходи к Шагам 1–5 и заполни их значением "unclear" там,
+      где применимо.
+
+    Если at_status = "present" — переходи к Шагам 1–5.
+
     Шаг 1 — ТРЕБОВАНИЕ СОГЛАСИЯ
 
     Заполни "at_consent_required".
@@ -215,7 +293,8 @@ extraction:
     Значения:
     - "yes" — согласие прямо требуется при уступке / переводе долга.
     - "no" — согласие прямо не требуется.
-    - "not_specified" — тема не урегулирована.
+    - "not_specified" — тема не урегулирована (но пункт по уступке в
+      договоре присутствует).
     - "unclear" — вывод сделать нельзя.
 
     Шаг 2 — ФОРМА СОГЛАСИЯ
@@ -239,8 +318,6 @@ extraction:
       ("10 рабочих дней", "30 календарных дней").
     - Если согласие требуется, но срок не установлен:
       "Не установлен".
-    - Если тема уступки / согласия вообще не урегулирована
-      в договоре: "Не установлено".
     - Если согласие не требуется: "Не применимо".
     - Если нельзя определить: "Не удалось определить".
 
@@ -272,6 +349,7 @@ extraction:
 
     Это поле — краткий итог для таблицы.
     Сформируй его на основе уже заполненных полей:
+    - at_status
     - at_consent_required
     - at_consent_form
     - at_response_period
@@ -280,14 +358,18 @@ extraction:
     Не добавляй информацию, которой нет в этих полях.
 
     Примеры:
-    - "Для уступки требуется предварительное письменное согласие;
+    - at_status = "missing":
+      "Положения о согласии при уступке отсутствуют"
+    - at_status = "unclear":
+      "Не удалось определить наличие и условия согласия при уступке"
+    - at_status = "present" и at_consent_required = "yes":
+      "Для уступки требуется предварительное письменное согласие;
       срок ответа не установлен"
-    - "Для уступки требуется согласие; 30 дней;
+      "Для уступки требуется согласие; 30 дней;
       молчание считается согласием"
-    - "Для уступки требуется согласие; отказ по sole discretion"
-    - "Для уступки согласие не требуется"
-    - "Условия согласия при уступке не установлены"
-    - "Не удалось определить условия согласия при уступке"
+      "Для уступки требуется согласие; отказ по sole discretion"
+    - at_status = "present" и at_consent_required = "no":
+      "Для уступки согласие не требуется"
 
     Шаг 7 — ОБОСНОВАНИЕ
 
@@ -309,6 +391,7 @@ extraction:
 
     <edge_cases>
     - "Assignment requires prior written consent":
+      * at_status = "present"
       * at_consent_required = "yes"
       * at_consent_form = "prior_written"
       * at_response_period = "Не установлен"
@@ -319,12 +402,15 @@ extraction:
         срок ответа не установлен"
 
     - "Consent shall not be unreasonably withheld":
+      * at_status = "present"
       * at_reasonableness_standard = "not_unreasonably_withheld"
 
     - "In its sole discretion":
+      * at_status = "present"
       * at_reasonableness_standard = "sole_discretion"
 
-    - Согласие не требуется:
+    - Согласие прямо не требуется:
+      * at_status = "present"
       * at_consent_required = "no"
       * at_consent_form = "not_applicable"
       * at_response_period = "Не применимо"
@@ -333,20 +419,24 @@ extraction:
       * at_consent_display = "Для уступки согласие не требуется"
 
     - Тема уступки вообще не урегулирована:
+      * at_status = "missing"
       * at_consent_required = "not_specified"
+      * at_consent_form = "not_specified"
       * at_response_period = "Не установлено"
+      * at_deemed_consent = "not_specified"
+      * at_reasonableness_standard = "not_specified"
       * at_consent_display =
-        "Условия согласия при уступке не установлены"
+        "Положения о согласии при уступке отсутствуют"
 
     - Нет релевантных фрагментов:
-      * at_consent_required = "not_specified"
+      * at_status = "missing"
       * at_consent_display =
-        "Условия согласия при уступке не установлены"
+        "Положения о согласии при уступке отсутствуют"
 
-    - Фрагменты есть, но вывод нельзя:
-      * at_consent_required = "unclear"
+    - Формулировки есть, но вывод нельзя:
+      * at_status = "unclear"
       * at_consent_display =
-        "Не удалось определить условия согласия при уступке"
+        "Не удалось определить наличие и условия согласия при уступке"
     </edge_cases>
 
     <output_expectations>
@@ -358,20 +448,34 @@ extraction:
     - Свободные текстовые поля (at_consent_display,
       at_response_period, reason) — на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "at_consent_display": "Для уступки требуется ...",
-      "at_consent_required": "yes",
-      "at_consent_form": "prior_written",
-      "at_response_period": "Не установлен",
-      "at_deemed_consent": "not_specified",
-      "at_reasonableness_standard": "not_specified",
-      "reason": "Договор требует ... «цитата»."
+      "at_status": {"value": "present", "confidence": 0.95, "location": null},
+      "at_consent_display": {"value": "Для уступки требуется предварительное письменное согласие; срок ответа не установлен", "confidence": 0.95, "location": null},
+      "at_consent_required": {"value": "yes", "confidence": 0.95, "location": {"clause_ref": "п. 9.2", "page": 12, "quote": "Ни одна из Сторон не вправе уступить свои права по настоящему Договору без предварительного письменного согласия другой Стороны"}},
+      "at_consent_form": {"value": "prior_written", "confidence": 0.92, "location": {"clause_ref": "п. 9.2", "page": 12, "quote": "Согласие должно быть выражено в письменной форме и предоставлено до совершения уступки"}},
+      "at_response_period": {"value": "Не установлен", "confidence": 0.90, "location": null},
+      "at_deemed_consent": {"value": "not_specified", "confidence": 0.90, "location": null},
+      "at_reasonableness_standard": {"value": "not_specified", "confidence": 0.90, "location": null},
+      "reason": {"value": "Договор требует предварительного письменного согласия на уступку. «Ни одна из Сторон не вправе уступить свои права ... без предварительного письменного согласия другой Стороны».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
   fields:
+    - name: "at_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие положений о согласии при уступке / переводе долга"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "at_consent_display"
       type: "string"
       presentation: "fact"
@@ -383,6 +487,7 @@ extraction:
     - name: "at_consent_required"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Требуется ли согласие при уступке"
       display_in_grid: false
       allowed_values:
@@ -394,6 +499,7 @@ extraction:
     - name: "at_consent_form"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Форма согласия"
       display_in_grid: false
       allowed_values:
@@ -415,6 +521,7 @@ extraction:
     - name: "at_deemed_consent"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Deemed consent при уступке"
       display_in_grid: false
       allowed_values:
@@ -427,6 +534,7 @@ extraction:
     - name: "at_reasonableness_standard"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Стандарт отказа при уступке"
       display_in_grid: false
       allowed_values:
