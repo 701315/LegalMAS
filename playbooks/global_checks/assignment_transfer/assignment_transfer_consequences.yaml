@@ -155,6 +155,16 @@ extraction:
   mode: "hybrid"
   llm_max_tokens: 850
 
+  # Presence gate: отделяет факт наличия положений об уступке (at_consequences_status)
+  # от их содержания (at_termination_right, at_termination_mechanism, at_acceleration,
+  # at_price_terms_change, at_cure_or_waiver). missing -> missing_required_clause.
+  # Контракт: present + missing + unclear = at_consequences_status.allowed_values.
+  presence_signal:
+    field: "at_consequences_status"
+    present_values: ["present"]
+    missing_values: ["missing"]
+    unclear_values: ["unclear"]
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам.
@@ -166,8 +176,9 @@ extraction:
     - Извлекай ТОЛЬКО то, что прямо написано в тексте.
     - НЕ делай выводов "по умолчанию" из общих норм права.
     - НЕ додумывай последствия, которых нет в тексте.
-    - Если информация отсутствует — ставь "no",
-      а не предполагай наиболее вероятный вариант.
+    - Если информация отсутствует — ставь "no" / "none" /
+      "not_applicable" для содержательных полей, а для поля
+      at_consequences_status используй "missing".
     - Если текст неоднозначен — ставь "unclear",
       а не выбирай один из вариантов.
 
@@ -184,7 +195,7 @@ extraction:
     - Если среди фрагментов есть противоречия — укажи "unclear"
       и объясни в reason.
     - Если ни один фрагмент не содержит информации по теме —
-      используй значения для случая "тема не урегулирована".
+      at_consequences_status = "missing"; остальные поля — согласно Шагу 0.
     - Не используй информацию из определений (definitions),
       преамбулы или приложений, если они не содержат
       substantive условий по теме check.
@@ -198,6 +209,7 @@ extraction:
 
     <task>
     Заполни только следующие поля:
+    - at_consequences_status
     - at_consequences_display
     - at_termination_right
     - at_termination_mechanism
@@ -212,7 +224,75 @@ extraction:
     - пиши коротко и по-русски.
     </task>
 
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.4", "page": 15, "quote": "дословная фраза из договора"}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - quote — дословная фраза из текста договора (НЕ пересказ, НЕ парафраз),
+      которая является источником значения поля. Копируй её посимвольно,
+      сохраняя формулировку и порядок слов. Оптимальная длина: 30–300 символов.
+      Примеры хорошего quote:
+      * для at_termination_right (broad): "В случае уступки прав без предварительного согласия Поставщик вправе расторгнуть настоящий Договор в одностороннем порядке";
+      * для at_termination_mechanism (automatic): "При уступке прав без согласия Поставщика настоящий Договор считается расторгнутым";
+      * для at_acceleration (yes): "В случае уступки прав все неоплаченные суммы становятся немедленно подлежащими уплате";
+      * для at_price_terms_change (yes): "При уступке прав базовая цена увеличивается на 15%";
+      * для at_cure_or_waiver (yes): "Уступка без согласия допускается при условии устранения нарушения в течение 10 рабочих дней с момента уведомления".
+    - не выдумывай location или quote;
+    - если точную ссылку или дословную фразу определить нельзя,
+      верни location = null;
+    - для at_consequences_status, at_consequences_display и reason location всегда null
+      (они синтезированы и не имеют прямого источника в тексте);
+    - для at_termination_right, at_termination_mechanism, at_acceleration,
+      at_price_terms_change, at_cure_or_waiver location с quote особенно важна;
+    - для at_termination_right при значении "none":
+      * quote, если договор прямо говорит об отсутствии права расторжения;
+      * location = null, если право расторжения не раскрыто;
+    - для at_acceleration, at_price_terms_change, at_cure_or_waiver
+      при значении "no" — то же правило: quote при прямом исключении,
+      null при отсутствии регулирования;
+    - для at_termination_mechanism при значении "not_applicable" — location = null;
+    - если at_consequences_status = "missing" — для всех полей location = null.
+    </location_instructions>
+
     <instructions>
+    Шаг 0 — НАЛИЧИЕ ПОЛОЖЕНИЙ ОБ УСТУПКЕ
+
+    Заполни "at_consequences_status".
+
+    Значения:
+    - "present" — договор содержит положения об уступке прав /
+      переводе долга (режим, согласие, запрет или последствия —
+      любое из этого). Даже если специальных последствий нет.
+    - "missing" — тема уступки в договоре вообще не упоминается.
+    - "unclear" — формулировки есть, но надёжно определить нельзя.
+
+    Если at_consequences_status = "missing":
+    - at_termination_right = "none"
+    - at_termination_mechanism = "not_applicable"
+    - at_acceleration = "no"
+    - at_price_terms_change = "no"
+    - at_cure_or_waiver = "no"
+    - at_consequences_display = "Положения об уступке / последствиях отсутствуют"
+    - reason = "Положения о последствиях уступки не обнаружены в представленных фрагментах."
+    - для всех полей location = null
+    - не выполняй Шаги 1–5.
+
+    Если at_consequences_status = "unclear":
+    - at_termination_right = "unclear"
+    - at_termination_mechanism = "unclear"
+    - at_acceleration = "unclear"
+    - at_price_terms_change = "unclear"
+    - at_cure_or_waiver = "unclear"
+    - at_consequences_display = "Не удалось определить последствия уступки"
+    - reason = "Формулировки по уступке присутствуют, но вывод надёжно сделать нельзя."
+    - для всех полей location = null
+
+    Если at_consequences_status = "present" — переходи к Шагам 1–5.
+
     Шаг 1 — ПРАВО НА РАСТОРЖЕНИЕ
 
     Заполни "at_termination_right".
@@ -269,6 +349,7 @@ extraction:
 
     Это поле — краткий итог для таблицы.
     Сформируй его на основе уже заполненных полей:
+    - at_consequences_status
     - at_termination_right
     - at_termination_mechanism
     - at_acceleration
@@ -276,19 +357,21 @@ extraction:
     - at_cure_or_waiver
     Не добавляй информацию, которой нет в этих полях.
 
-    Правила:
-    - Начинай с "Для уступки — ".
-    - Перечисляй последствия через точку с запятой.
-    - Если cure/waiver есть — добавь в конец.
-
     Примеры:
-    - "Для уступки — автоматическое прекращение договора"
-    - "Для уступки — право расторгнуть; cure period предусмотрен"
-    - "Для уступки — право расторгнуть; акселерация"
-    - "Для уступки — ухудшение условий / step-up"
-    - "Для уступки — только согласие контрагента"
-    - "Последствия уступки не установлены"
-    - "Не удалось определить последствия уступки"
+    - status = "missing":
+      "Положения об уступке / последствиях отсутствуют"
+    - status = "unclear":
+      "Не удалось определить последствия уступки"
+    - status = "present" и at_termination_mechanism = "automatic":
+      "Для уступки — автоматическое прекращение договора"
+    - status = "present" и at_termination_mechanism = "with_cure":
+      "Для уступки — право расторгнуть; cure period предусмотрен"
+    - status = "present" и at_termination_right = "broad":
+      "Для уступки — право расторгнуть; акселерация"
+    - status = "present" и at_price_terms_change = "yes":
+      "Для уступки — ухудшение условий / step-up"
+    - status = "present", но все последствия = no/none:
+      "Для уступки — только режим (согласие / запрет); специальных последствий нет"
 
     Шаг 7 — ОБОСНОВАНИЕ
 
@@ -310,6 +393,7 @@ extraction:
 
     <edge_cases>
     - Договор прекращается автоматически:
+      * at_consequences_status = "present"
       * at_termination_right = "broad"
       * at_termination_mechanism = "automatic"
       * at_cure_or_waiver = "no"
@@ -317,38 +401,40 @@ extraction:
         "Для уступки — автоматическое прекращение договора"
 
     - Право расторгнуть с cure period:
+      * at_consequences_status = "present"
       * at_termination_right = "limited"
       * at_termination_mechanism = "with_cure"
       * at_cure_or_waiver = "yes"
       * at_consequences_display =
         "Для уступки — право расторгнуть; cure period предусмотрен"
 
-    - Только согласие, без расторжения / акселерации:
-      * at_termination_right = "none"
-      * at_acceleration = "no"
-      * at_price_terms_change = "no"
-      * at_consequences_display =
-        "Для уступки — только согласие контрагента"
-
-    - Тема последствий уступки не урегулирована:
+    - Только режим, без расторжения / акселерации:
+      * at_consequences_status = "present"
       * at_termination_right = "none"
       * at_termination_mechanism = "not_applicable"
       * at_acceleration = "no"
       * at_price_terms_change = "no"
       * at_cure_or_waiver = "no"
       * at_consequences_display =
-        "Последствия уступки не установлены"
+        "Для уступки — только режим (согласие / запрет); специальных последствий нет"
+
+    - Тема уступки вообще не урегулирована:
+      * at_consequences_status = "missing"
+      * at_termination_right = "none"
+      * at_termination_mechanism = "not_applicable"
+      * at_acceleration = "no"
+      * at_price_terms_change = "no"
+      * at_cure_or_waiver = "no"
+      * at_consequences_display =
+        "Положения об уступке / последствиях отсутствуют"
 
     - Нет релевантных фрагментов:
-      * at_termination_right = "none"
-      * at_termination_mechanism = "not_applicable"
-      * at_acceleration = "no"
-      * at_price_terms_change = "no"
-      * at_cure_or_waiver = "no"
+      * at_consequences_status = "missing"
       * at_consequences_display =
-        "Последствия уступки не установлены"
+        "Положения об уступке / последствиях отсутствуют"
 
     - Фрагменты есть, но вывод нельзя:
+      * at_consequences_status = "unclear"
       * at_termination_right = "unclear"
       * at_termination_mechanism = "unclear"
       * at_acceleration = "unclear"
@@ -367,20 +453,34 @@ extraction:
     - Свободные текстовые поля (at_consequences_display,
       reason) — на русском языке.
     - Не добавляй никаких полей, кроме указанных.
+    - Для каждого поля возвращай объект с ключами
+      "value", "confidence", "location".
 
     Пример структуры ответа:
     {
-      "at_consequences_display": "Для уступки — право расторгнуть; cure period предусмотрен",
-      "at_termination_right": "limited",
-      "at_termination_mechanism": "with_cure",
-      "at_acceleration": "no",
-      "at_price_terms_change": "no",
-      "at_cure_or_waiver": "yes",
-      "reason": "При уступке без согласия предусмотрен cure period. «Поставщик вправе расторгнуть...»."
+      "at_consequences_status": {"value": "present", "confidence": 0.95, "location": null},
+      "at_consequences_display": {"value": "Для уступки — право расторгнуть; cure period предусмотрен", "confidence": 0.95, "location": null},
+      "at_termination_right": {"value": "limited", "confidence": 0.92, "location": {"clause_ref": "п. 12.4", "page": 15, "quote": "При уступке прав без согласия Поставщик вправе расторгнуть настоящий Договор, если нарушение не устранено в течение 10 рабочих дней"}},
+      "at_termination_mechanism": {"value": "with_cure", "confidence": 0.92, "location": {"clause_ref": "п. 12.4", "page": 15, "quote": "При уступке прав без согласия Поставщик вправе расторгнуть настоящий Договор, если нарушение не устранено в течение 10 рабочих дней"}},
+      "at_acceleration": {"value": "no", "confidence": 0.90, "location": null},
+      "at_price_terms_change": {"value": "no", "confidence": 0.90, "location": null},
+      "at_cure_or_waiver": {"value": "yes", "confidence": 0.92, "location": {"clause_ref": "п. 12.4", "page": 15, "quote": "если нарушение не устранено в течение 10 рабочих дней"}},
+      "reason": {"value": "При уступке без согласия предусмотрено право расторжения с cure period. «При уступке прав без согласия Поставщик вправе расторгнуть ... если нарушение не устранено в течение 10 рабочих дней».", "confidence": 0.90, "location": null}
     }
     </output_expectations>
 
   fields:
+    - name: "at_consequences_status"
+      type: "string"
+      presentation: "signal"
+      risk_weight: "info"
+      description: "Наличие положений об уступке / переводе долга (тема check)"
+      display_in_grid: false
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
     - name: "at_consequences_display"
       type: "string"
       presentation: "fact"
@@ -392,6 +492,7 @@ extraction:
     - name: "at_termination_right"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Право на расторжение при уступке"
       display_in_grid: false
       allowed_values:
@@ -403,6 +504,7 @@ extraction:
     - name: "at_termination_mechanism"
       type: "string"
       presentation: "signal"
+      risk_weight: "high"
       description: "Механизм расторжения при уступке"
       display_in_grid: false
       allowed_values:
@@ -415,6 +517,7 @@ extraction:
     - name: "at_acceleration"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Акселерация при уступке"
       display_in_grid: false
       allowed_values:
@@ -425,6 +528,7 @@ extraction:
     - name: "at_price_terms_change"
       type: "string"
       presentation: "signal"
+      risk_weight: "medium"
       description: "Изменение цены / условий при уступке"
       display_in_grid: false
       allowed_values:
@@ -435,6 +539,7 @@ extraction:
     - name: "at_cure_or_waiver"
       type: "string"
       presentation: "signal"
+      risk_weight: "low"
       description: "Cure period / waiver при уступке"
       display_in_grid: false
       allowed_values:
@@ -449,5 +554,6 @@ extraction:
       display_in_grid: false
 
   store_payload: true
+
 
   
